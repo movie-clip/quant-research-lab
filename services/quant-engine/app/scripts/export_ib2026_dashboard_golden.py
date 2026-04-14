@@ -10,6 +10,7 @@ from app.services.dashboard_history_engine import run_imported_dashboard_history
 
 
 RANGE_3M_LENGTH = 63
+FIXTURE_IMPORTED_AT = "2026-04-14T00:00:00Z"
 
 
 def _repo_root() -> Path:
@@ -132,6 +133,21 @@ def _build_expected_values(snapshot: dict[str, Any], overview: dict[str, Any], h
     }
 
 
+def _normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    normalized = json.loads(json.dumps(snapshot))
+    statement = normalized.get("statement")
+    if isinstance(statement, dict):
+        statement["imported_at"] = FIXTURE_IMPORTED_AT
+
+    statements = normalized.get("statements")
+    if isinstance(statements, list):
+        for item in statements:
+            if isinstance(item, dict):
+                item["imported_at"] = FIXTURE_IMPORTED_AT
+
+    return normalized
+
+
 def _render_typescript(expected: dict[str, Any], fixture: dict[str, Any]) -> str:
     expected_json = json.dumps(expected, indent=2)
     fixture_json = json.dumps(fixture, indent=2)
@@ -147,7 +163,7 @@ def main() -> None:
     overview_model = build_portfolio_overview(snapshot_model)
     history_model = run_imported_dashboard_history(snapshot_model, "SPY")
 
-    snapshot = _serialize(snapshot_model)
+    snapshot = _normalize_snapshot(_serialize(snapshot_model))
     overview = _serialize(overview_model)
     history = _serialize(history_model)
 

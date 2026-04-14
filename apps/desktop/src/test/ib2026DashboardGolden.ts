@@ -71,7 +71,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
   "snapshot": {
     "statement": {
       "importer": "interactive_brokers",
-      "imported_at": "2026-04-14T16:31:28.711098Z",
+      "imported_at": "2026-04-14T00:00:00Z",
       "source_path": "C:\\projects\\investments\\portfolio\\docs\\IB2026.pdf",
       "detected_format": "pdf",
       "account_id": "U8516450",
@@ -82,7 +82,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "statements": [
       {
         "importer": "interactive_brokers",
-        "imported_at": "2026-04-14T16:31:28.711098Z",
+        "imported_at": "2026-04-14T00:00:00Z",
         "source_path": "C:\\projects\\investments\\portfolio\\docs\\IB2026.pdf",
         "detected_format": "pdf",
         "account_id": "U8516450",
