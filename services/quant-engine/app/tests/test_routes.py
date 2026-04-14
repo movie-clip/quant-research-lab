@@ -120,7 +120,7 @@ def test_analyze_route_accepts_multiple_statement_paths() -> None:
 
 
 def test_analyze_route_accepts_mixed_broker_statement_paths() -> None:
-    mixed_ib_path = str(Path(r"C:\projects\investments\portfolio\docs\U8516450_20260101_20260408.pdf"))
+    mixed_ib_path = STATEMENT_2026_PATH
     _require_path(mixed_ib_path)
     _require_path(FREEDOM24_PATH)
     client = TestClient(app)
@@ -133,8 +133,14 @@ def test_analyze_route_accepts_mixed_broker_statement_paths() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["snapshot"]["statement"]["importer"] == "multi_broker"
-    assert payload["snapshot"]["statement"]["account_id"] == "185960 + U8516450"
+    assert "185960" in payload["snapshot"]["statement"]["account_id"]
+    assert "U8516450" in payload["snapshot"]["statement"]["account_id"]
     assert len(payload["snapshot"]["statements"]) == 2
+    assert payload["history_context"]["importer"] == "multi_broker"
+    assert payload["history_context"]["statement_period"] == "2025-12-31 - 2026-04-13"
+    assert payload["history_context"]["history_start_date"] == "2025-12-31"
+    assert payload["history_context"]["history_end_date"] == "2026-04-13"
+    assert set(payload["history_context"]["source_file_names"]) == {FREEDOM24_PATH, STATEMENT_2026_PATH}
 
 
 def test_analyze_snapshot_route_accepts_portfolio_snapshot_payload() -> None:

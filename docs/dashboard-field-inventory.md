@@ -151,10 +151,17 @@ Important rule:
 
 ## Immediate Follow-up Targets
 
-1. Add explicit test coverage for the remaining gaps, especially statement-period/account fallbacks, empty draft states, and sector-pie empty states.
-2. Decide which current UI derivations should move into backend/dashboard contracts:
+1. Keep App-level regressions in place for imported base/imported child snapshot/child variant transitions so broker-truth history is only shown on direct imported nodes.
+2. Add any remaining visual-state coverage gaps that are still untested, such as sector-pie empty-state presentation details rather than just labels and fallback text.
+3. Decide which current UI derivations should move into backend/dashboard contracts:
    - start value
    - MWR
    - drawdown
    - monthly returns
-3. Tighten the remaining unavailable behavior so missing history never falls back to misleading zero-like values.
+4. Tighten the remaining unavailable behavior so missing history never falls back to misleading zero-like values.
+
+## Current Coverage Status
+
+- `apps/desktop/src/features/portfolio/DashboardPanel.test.tsx` now covers IB2026 imported golden values, account metadata fallbacks, statement period fallbacks, draft capital helper values, locked-sector interactions, technology drilldown weights, unstable-history states, and empty draft allocation states.
+- `apps/desktop/src/app/App.test.tsx` now covers imported-base restore, imported child-snapshot open, variant-to-imported-base switching, and imported-child-variant restore where history cards must remain unavailable instead of reusing imported broker-truth dashboard history.
+- `apps/desktop/src/test/ib2026DashboardGolden.ts` is generated from backend output and now uses normalized import timestamps so fixture regeneration does not create timestamp-only diffs.

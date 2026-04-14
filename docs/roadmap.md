@@ -323,6 +323,8 @@ Status note:
 - the repository now has a single Python test runner at `scripts/run_all_tests.py` that regenerates IB2026 dashboard goldens, runs the full backend suite, and runs the full desktop suite
 - Dashboard now has a generated `IB2026.pdf` golden-data path: backend tests validate imported overview/history against broker-truth expectations, desktop tests consume a generated TypeScript golden fixture derived from live backend outputs, and App-level restore/open-node regressions verify the same canonical values survive orchestration flows
 - the current Dashboard accuracy contract is now explicit: imported nodes may show broker-truth history, while snapshot-only/variant flows must be correct or render `unavailable` rather than plausible fabricated history
+- desktop Dashboard coverage now includes account/statement fallback states, empty draft allocation states, imported-base restore, imported child-snapshot open, variant-to-base switching, and imported-child-variant restore with unavailable history enforcement
+- the generated `IB2026` golden fixture is now deterministic across runs, with stable normalized import timestamps to avoid timestamp-only diffs
 
 ### Stage 5. Backtest Engine Refactor
 
@@ -446,11 +448,9 @@ Current imported-upload contract status:
 
 When implementation resumes, start here:
 
-1. expand the `IB2026.pdf` golden path until every visible Dashboard field is covered and mapped to a traceable provider chain
-2. add App-level snapshot-switch regressions for base/imported/variant transitions, enforcing "correct or unavailable" behavior whenever imported broker-truth history is not valid
-3. continue route-level and engine-level coverage for `dashboard-history`, `exposure`, and `diagnostics`, especially around unavailable-state behavior and imported-history replay correctness
-4. proceed with backtest engine cleanup against explicit snapshot/history inputs after Dashboard financial accuracy is stable
-5. add a local derived-result cache keyed by snapshot and history context only after correctness contracts are locked
+1. continue route-level and engine-level coverage for `dashboard-history`, `exposure`, and `diagnostics`, especially around unavailable-state behavior and imported-history replay correctness
+2. proceed with backtest engine cleanup against explicit snapshot/history inputs after Dashboard financial accuracy is stable
+3. add a local derived-result cache keyed by snapshot and history context only after correctness contracts are locked
 
 Current backend naming status:
 

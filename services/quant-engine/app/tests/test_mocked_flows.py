@@ -135,6 +135,50 @@ def test_imported_dashboard_history_route_with_mocked_market_data(mocker) -> Non
     assert payload["source_status"]["performance_history"] == "live"
 
 
+def test_imported_dashboard_history_route_reconciles_terminal_value_to_statement_totals(mocker) -> None:
+    mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+    ]
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 100.0},
+            {"date": "2026-04-11", "price": 101.0},
+        ]
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/engines/dashboard-history/run-imported",
+        json={
+            "statement": {
+                "importer": "interactive_brokers",
+                "imported_at": "2026-04-10T00:00:00Z",
+                "source_path": "IB2026.pdf",
+                "detected_format": "pdf",
+                "account_id": "U123",
+                "base_currency": "USD",
+                "statement_period": "2026-04-10 - 2026-04-11",
+                "page_count": 1,
+            },
+            "statements": [],
+            "statement_totals": {"starting_nav": 1000, "ending_nav": 1200},
+            "instruments": [],
+            "cash_balances": [{"currency": "USD", "ending_cash": 100}],
+            "positions": [{"symbol": "AAPL", "quantity": 10, "market_value": 1100, "currency": "USD", "as_of_date": "2026-04-11", "cost_basis": 1000, "close_price": 110, "unrealized_pnl": 100}],
+            "ledger_entries": [{"entry_type": "BUY", "trade_date": "2026-04-10", "symbol": "AAPL", "quantity": 10, "price": 100, "gross_amount": 1000, "net_amount": 1000, "currency": "USD", "source_section": "Trades"}],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_status"]["performance_history"] == "live"
+    assert payload["daily_states"][-1]["total_portfolio_value"] == 1200
+    assert payload["range_metrics"]["All"]["summary"]["end_value"] == 1200
+
+
 def test_imported_diagnostics_route_with_mocked_market_data(mocker) -> None:
     mock_service = mocker.patch("app.services.diagnostics_engine.MarketDataService")
     service_instance = mock_service.return_value
@@ -167,3 +211,44 @@ def test_imported_diagnostics_route_with_mocked_market_data(mocker) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
+
+
+def test_diagnostics_route_accepts_mixed_broker_history_context_with_mocked_market_data(mocker) -> None:
+    mock_service = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices.return_value = [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}]
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}],
+        "SPY": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}],
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/engines/diagnostics/run",
+        json={
+            "benchmark_symbol": "SPY",
+            "base_currency": "USD",
+            "statement_period": "2025-12-31 - 2026-04-13",
+            "imported_at": "2026-04-14T00:00:00Z",
+            "importer": "multi_broker",
+            "source_file_names": ["FF2026.pdf", "IB2026.pdf"],
+            "positions": [{"symbol": "AAPL", "market_value": 1100, "quantity": 10, "currency": "USD", "sector": "Technology"}],
+            "cash_balances": [{"currency": "USD", "amount": 100}],
+            "history_context": {
+                "benchmark_symbol": "SPY",
+                "statement_period": "2025-12-31 - 2026-04-13",
+                "imported_at": "2026-04-14T00:00:00Z",
+                "importer": "multi_broker",
+                "source_file_names": ["FF2026.pdf", "IB2026.pdf"],
+                "history_start_date": "2025-12-31",
+                "history_end_date": "2026-04-13",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["availability"]["historical_sections_available"] is True
+    assert payload["availability"]["history_context_required"] is True
+    assert payload["risk_summary"]["benchmark_symbol"] == "SPY"
+    assert payload["risk_summary"]["observations"] > 0
