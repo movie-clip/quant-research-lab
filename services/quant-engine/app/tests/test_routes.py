@@ -250,6 +250,7 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
+    assert payload["availability"]["history_context_required"] is True
 
 
 def test_dashboard_history_engine_route_accepts_snapshot_with_history_context() -> None:
@@ -321,6 +322,40 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
     assert "range_metrics" in payload
 
 
+def test_imported_dashboard_history_engine_route_marks_missing_imported_history_as_unavailable() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/engines/dashboard-history/run-imported",
+        json={
+            "statement": {
+                "importer": "interactive_brokers",
+                "imported_at": "2026-04-10T00:00:00Z",
+                "source_path": "IB2026.pdf",
+                "detected_format": "pdf",
+                "account_id": "U123",
+                "base_currency": "USD",
+                "statement_period": "2026-04-10 - 2026-04-11",
+                "page_count": 1,
+            },
+            "statements": [],
+            "statement_totals": None,
+            "instruments": [],
+            "cash_balances": [{"currency": "USD", "ending_cash": 1000}],
+            "positions": [],
+            "ledger_entries": [],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_status"]["performance_history"] == "unavailable"
+    assert payload["source_status"]["monthly_returns"] == "unavailable"
+    assert payload["daily_states"] == []
+    assert payload["performance_series"] == []
+    assert payload["range_metrics"]["3M"]["summary"]["start_value"] is None
+
+
 def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -> None:
     client = TestClient(app)
 
@@ -349,4 +384,38 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
+    assert payload["availability"]["history_context_required"] is True
     assert payload["risk_summary"]["benchmark_symbol"] == "SPY"
+
+
+def test_imported_diagnostics_engine_route_marks_missing_imported_history_as_unavailable() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/engines/diagnostics/run-imported",
+        json={
+            "statement": {
+                "importer": "interactive_brokers",
+                "imported_at": "2026-04-10T00:00:00Z",
+                "source_path": "IB2026.pdf",
+                "detected_format": "pdf",
+                "account_id": "U123",
+                "base_currency": "USD",
+                "statement_period": "2026-04-10 - 2026-04-11",
+                "page_count": 1,
+            },
+            "statements": [],
+            "statement_totals": None,
+            "instruments": [],
+            "cash_balances": [{"currency": "USD", "ending_cash": 1000}],
+            "positions": [],
+            "ledger_entries": [],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["availability"]["historical_sections_available"] is False
+    assert payload["availability"]["history_context_required"] is True
+    assert "portfoliohistorycontext" in payload["availability"]["note"].lower()
+    assert payload["risk_summary"]["observations"] == 0

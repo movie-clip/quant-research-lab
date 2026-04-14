@@ -534,6 +534,7 @@ def test_run_diagnostics_engine_uses_history_context_for_snapshot_requests(mocke
     result = run_diagnostics_engine(request)
 
     assert result.availability.historical_sections_available is True
+    assert result.availability.history_context_required is True
     assert result.risk_summary.observations > 0
     assert result.statistical_factor_model.windows
 
@@ -578,6 +579,7 @@ def test_variant_snapshot_diagnostics_history_stays_in_plausible_bounds() -> Non
     result = run_diagnostics_engine(request)
 
     assert result.availability.historical_sections_available is True
+    assert result.availability.history_context_required is True
     assert result.risk_summary.observations > 20
     assert result.risk_summary.portfolio_beta is not None
     assert abs(result.risk_summary.portfolio_beta) < 10

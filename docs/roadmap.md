@@ -325,6 +325,7 @@ Status note:
 - the current Dashboard accuracy contract is now explicit: imported nodes may show broker-truth history, while snapshot-only/variant flows must be correct or render `unavailable` rather than plausible fabricated history
 - desktop Dashboard coverage now includes account/statement fallback states, empty draft allocation states, imported-base restore, imported child-snapshot open, variant-to-base switching, and imported-child-variant restore with unavailable history enforcement
 - the generated `IB2026` golden fixture is now deterministic across runs, with stable normalized import timestamps to avoid timestamp-only diffs
+- diagnostics `availability.history_context_required` is now treated as a requirement flag, not a presence flag: it stays `true` for both available and unavailable historical diagnostics because those sections fundamentally depend on history context
 
 ### Stage 5. Backtest Engine Refactor
 

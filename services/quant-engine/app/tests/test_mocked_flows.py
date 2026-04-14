@@ -179,6 +179,75 @@ def test_imported_dashboard_history_route_reconciles_terminal_value_to_statement
     assert payload["range_metrics"]["All"]["summary"]["end_value"] == 1200
 
 
+def test_imported_dashboard_history_route_accepts_mixed_broker_snapshot_with_mocked_market_data(mocker) -> None:
+    mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+    ]
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}],
+        "VUAA": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}],
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/engines/dashboard-history/run-imported",
+        json={
+            "statement": {
+                "importer": "multi_broker",
+                "imported_at": "2026-04-14T00:00:00Z",
+                "source_path": "combined.pdf",
+                "detected_format": "pdf",
+                "account_id": "185960 + U8516450",
+                "base_currency": "USD",
+                "statement_period": "2025-12-31 - 2026-04-13",
+                "page_count": 2,
+            },
+            "statements": [
+                {
+                    "importer": "freedom24",
+                    "imported_at": "2026-04-14T00:00:00Z",
+                    "source_path": "FF2026.pdf",
+                    "detected_format": "pdf",
+                    "account_id": "185960",
+                    "base_currency": "USD",
+                    "statement_period": "2025-12-31 - 2026-04-11",
+                    "page_count": 1,
+                },
+                {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2026-04-14T00:00:00Z",
+                    "source_path": "IB2026.pdf",
+                    "detected_format": "pdf",
+                    "account_id": "U8516450",
+                    "base_currency": "USD",
+                    "statement_period": "2026-01-01 - 2026-04-13",
+                    "page_count": 1,
+                },
+            ],
+            "statement_totals": {"starting_nav": 1000, "ending_nav": 1300},
+            "instruments": [],
+            "cash_balances": [{"currency": "USD", "ending_cash": 200}],
+            "positions": [
+                {"symbol": "AAPL", "quantity": 5, "market_value": 550, "currency": "USD", "as_of_date": "2026-04-11", "cost_basis": 500, "close_price": 110, "unrealized_pnl": 50},
+                {"symbol": "VUAA", "quantity": 5, "market_value": 550, "currency": "USD", "as_of_date": "2026-04-11", "cost_basis": 500, "close_price": 110, "unrealized_pnl": 50},
+            ],
+            "ledger_entries": [
+                {"entry_type": "BUY", "trade_date": "2026-04-10", "symbol": "AAPL", "quantity": 5, "price": 100, "gross_amount": 500, "net_amount": 500, "currency": "USD", "source_section": "Trades"},
+                {"entry_type": "BUY", "trade_date": "2026-04-10", "symbol": "VUAA", "quantity": 5, "price": 100, "gross_amount": 500, "net_amount": 500, "currency": "USD", "source_section": "Trades"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_status"]["performance_history"] == "live"
+    assert payload["source_status"]["monthly_returns"] == "live"
+    assert payload["daily_states"][-1]["total_portfolio_value"] == 1300
+
+
 def test_imported_diagnostics_route_with_mocked_market_data(mocker) -> None:
     mock_service = mocker.patch("app.services.diagnostics_engine.MarketDataService")
     service_instance = mock_service.return_value
@@ -211,6 +280,75 @@ def test_imported_diagnostics_route_with_mocked_market_data(mocker) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
+    assert payload["availability"]["history_context_required"] is True
+
+
+def test_imported_diagnostics_route_accepts_mixed_broker_snapshot_with_mocked_market_data(mocker) -> None:
+    mock_service = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices.return_value = [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}]
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}],
+        "VUAA": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}],
+        "SPY": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}],
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/engines/diagnostics/run-imported",
+        json={
+            "statement": {
+                "importer": "multi_broker",
+                "imported_at": "2026-04-14T00:00:00Z",
+                "source_path": "combined.pdf",
+                "detected_format": "pdf",
+                "account_id": "185960 + U8516450",
+                "base_currency": "USD",
+                "statement_period": "2025-12-31 - 2026-04-13",
+                "page_count": 2,
+            },
+            "statements": [
+                {
+                    "importer": "freedom24",
+                    "imported_at": "2026-04-14T00:00:00Z",
+                    "source_path": "FF2026.pdf",
+                    "detected_format": "pdf",
+                    "account_id": "185960",
+                    "base_currency": "USD",
+                    "statement_period": "2025-12-31 - 2026-04-11",
+                    "page_count": 1,
+                },
+                {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2026-04-14T00:00:00Z",
+                    "source_path": "IB2026.pdf",
+                    "detected_format": "pdf",
+                    "account_id": "U8516450",
+                    "base_currency": "USD",
+                    "statement_period": "2026-01-01 - 2026-04-13",
+                    "page_count": 1,
+                },
+            ],
+            "statement_totals": None,
+            "instruments": [],
+            "cash_balances": [{"currency": "USD", "ending_cash": 200}],
+            "positions": [
+                {"symbol": "AAPL", "quantity": 5, "market_value": 550, "currency": "USD", "as_of_date": "2026-04-11", "cost_basis": 500, "close_price": 110, "unrealized_pnl": 50},
+                {"symbol": "VUAA", "quantity": 5, "market_value": 550, "currency": "USD", "as_of_date": "2026-04-11", "cost_basis": 500, "close_price": 110, "unrealized_pnl": 50},
+            ],
+            "ledger_entries": [
+                {"entry_type": "BUY", "trade_date": "2026-04-10", "symbol": "AAPL", "quantity": 5, "price": 100, "gross_amount": 500, "net_amount": 500, "currency": "USD", "source_section": "Trades"},
+                {"entry_type": "BUY", "trade_date": "2026-04-10", "symbol": "VUAA", "quantity": 5, "price": 100, "gross_amount": 500, "net_amount": 500, "currency": "USD", "source_section": "Trades"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["availability"]["historical_sections_available"] is True
+    assert payload["availability"]["history_context_required"] is True
+    assert payload["risk_summary"]["benchmark_symbol"] == "SPY"
+    assert payload["risk_summary"]["observations"] > 0
 
 
 def test_diagnostics_route_accepts_mixed_broker_history_context_with_mocked_market_data(mocker) -> None:
