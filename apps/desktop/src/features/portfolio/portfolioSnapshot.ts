@@ -79,6 +79,44 @@ export function clonePortfolioSnapshot(snapshot: PortfolioSnapshot): PortfolioSn
   return normalizePortfolioSnapshot(JSON.parse(JSON.stringify(snapshot)) as PortfolioSnapshot)
 }
 
+export function overlayImportedSnapshot(baseSnapshot: PortfolioSnapshot, importedSnapshot: PortfolioSnapshot): PortfolioSnapshot {
+  const next = clonePortfolioSnapshot(baseSnapshot)
+
+  const positionBySymbol = new Map(next.positions.map((position) => [position.symbol, position]))
+  for (const importedPosition of importedSnapshot.positions) {
+    const existing = positionBySymbol.get(importedPosition.symbol)
+    positionBySymbol.set(importedPosition.symbol, {
+      ...existing,
+      ...importedPosition,
+      sector: importedPosition.sector ?? existing?.sector ?? null,
+      currency: importedPosition.currency ?? existing?.currency ?? next.baseCurrency,
+      sourceType: importedPosition.sourceType ?? existing?.sourceType,
+      name: importedPosition.name ?? existing?.name,
+    })
+  }
+
+  const cashByCurrency = new Map(next.cashBalances.map((balance) => [balance.currency, balance]))
+  for (const importedCashBalance of importedSnapshot.cashBalances) {
+    cashByCurrency.set(importedCashBalance.currency, importedCashBalance)
+  }
+
+  next.baseCurrency = importedSnapshot.baseCurrency ?? next.baseCurrency
+  next.importedMeta = {
+    importer: importedSnapshot.importedMeta.importer ?? next.importedMeta.importer,
+    statementPeriod: importedSnapshot.importedMeta.statementPeriod ?? next.importedMeta.statementPeriod,
+    importedAt: importedSnapshot.importedMeta.importedAt,
+    sourceFileNames: Array.from(new Set([...next.importedMeta.sourceFileNames, ...importedSnapshot.importedMeta.sourceFileNames])),
+  }
+  next.positions = Array.from(positionBySymbol.values())
+  next.cashBalances = Array.from(cashByCurrency.values())
+  next.metadata = {
+    ...next.metadata,
+    benchmarkSymbol: importedSnapshot.metadata.benchmarkSymbol ?? next.metadata.benchmarkSymbol,
+  }
+
+  return normalizePortfolioSnapshot(next)
+}
+
 export function getPortfolioSnapshotGrossExposure(snapshot: PortfolioSnapshot) {
   return snapshot.positions.reduce((total, position) => total + Math.abs(position.marketValue), 0)
 }

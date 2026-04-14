@@ -8,6 +8,7 @@ import type {
   ImportedExposureSource,
   ImportedPortfolioSnapshotSource,
 } from '../features/portfolio/types'
+import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from './ib2026DashboardGolden'
 
 type ImportedAnalysisFixture = ImportedDashboardSource
   & ImportedPortfolioSnapshotSource
@@ -303,6 +304,38 @@ export function createImportedAnalysisFixture(): ImportedAnalysisFixture {
       { date: '2025-03-03', total_market_value: 11000, total_portfolio_value: 12000, external_cash_flow: 0, cash: { USD: 1000 }, positions: [] },
     ],
     source_status: { performance_history: 'live', monthly_returns: 'live' },
+    range_metrics: {
+      '1M': {
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+        max_drawdown_pct: 0,
+        monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
+        monthly_returns_reliable: true,
+      },
+      '3M': {
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+        max_drawdown_pct: 0,
+        monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
+        monthly_returns_reliable: true,
+      },
+      YTD: {
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+        max_drawdown_pct: 0,
+        monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
+        monthly_returns_reliable: true,
+      },
+      '1Y': {
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+        max_drawdown_pct: 0,
+        monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
+        monthly_returns_reliable: true,
+      },
+      All: {
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+        max_drawdown_pct: 0,
+        monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
+        monthly_returns_reliable: true,
+      },
+    },
     rolling_risk: projection.analysis.diagnostics.rolling_risk,
     lookthrough: projection.analysis.exposure.lookthrough,
     lookthrough_sector_exposure: projection.analysis.exposure.lookthrough_sector_exposure,
@@ -323,6 +356,10 @@ export function createImportedAnalysisFixture(): ImportedAnalysisFixture {
 
 export function createImportedDashboardFixture(): ImportedDashboardSource & ImportedPortfolioSnapshotSource {
   return createImportedAnalysisFixture()
+}
+
+export function createIb2026ImportedDashboardFixture(): ImportedDashboardSource & ImportedPortfolioSnapshotSource {
+  return ib2026ImportedDashboardGoldenFixture
 }
 
 export function createImportedExposureFixture(): ImportedExposureSource & ImportedDiagnosticsSource & ImportedExposureFactorModelSource {

@@ -8,10 +8,10 @@ import { buildExposureFactorModel, buildPortfolioBaselineAnalysis, composeDashbo
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
 import { DiagnosticsPanel } from '../features/portfolio/DiagnosticsPanel'
 import { VariantList } from '../features/portfolio/VariantList'
-import { buildPortfolioSnapshotFromAnalysis } from '../features/portfolio/portfolioSnapshot'
-import type { ImportedBootstrapResponse, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineAnalysis } from '../features/portfolio/types'
+import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
+import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineAnalysis } from '../features/portfolio/types'
 import type { PortfolioNode, PortfolioWorkspace, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, isDraftDirty, migrateLegacyImportSession, resetLocalPortfolioDatabase, saveDraft, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, isDraftDirty, migrateLegacyImportSession, resetLocalPortfolioDatabase, saveDraft, saveImportedSnapshotNode, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 
 
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
@@ -20,7 +20,89 @@ const StrategyLabPanel = lazy(async () => ({ default: (await import('../features
 
 
 const defaultSymbolOverrides = '{}'
-type ImportMode = 'replace' | 'append'
+type ImportMode = 'replace' | 'add_snapshot'
+
+function formatShortBrokerName(importer: ImportedStatementImporter | null | undefined) {
+  if (importer === 'freedom24') return 'FF'
+  if (importer === 'espp') return 'ESPP'
+  if (importer === 'multi_broker') return 'MULTI'
+  return 'IB'
+}
+
+function extractStatementEndDate(snapshot: ImportedSnapshot) {
+  const explicitAsOf = snapshot.positions
+    .map((position) => position.as_of_date)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1)
+  if (explicitAsOf) {
+    return explicitAsOf
+  }
+
+  const period = snapshot.statement.statement_period ?? snapshot.statements.at(-1)?.statement_period ?? null
+  if (period?.includes(' - ')) {
+    return period.split(' - ').at(-1) ?? period
+  }
+
+  const importedAt = snapshot.statements.at(-1)?.imported_at ?? null
+  return importedAt ? importedAt.slice(0, 10) : 'undated'
+}
+
+function buildImportedSnapshotName(snapshot: ImportedSnapshot) {
+  return `${formatShortBrokerName(snapshot.statement.importer)} ${extractStatementEndDate(snapshot)}`
+}
+
+function getNodeImportSource(node: PortfolioNode | null, workspace: PortfolioWorkspace | null) {
+  if (!node) return null
+  if (node.kind === 'imported_snapshot') {
+    return node.source ?? null
+  }
+  if (node.kind === 'imported_base') {
+    return workspace?.source ?? null
+  }
+  return null
+}
+
+function getEffectiveNodeImportSource(node: PortfolioNode | null, nodes: PortfolioNode[], workspace: PortfolioWorkspace | null) {
+  let current = node
+  const nodeById = new Map(nodes.map((item) => [item.id, item]))
+
+  while (current) {
+    const directSource = getNodeImportSource(current, workspace)
+    if (directSource) {
+      return directSource
+    }
+    current = current.parentId ? (nodeById.get(current.parentId) ?? null) : null
+  }
+
+  return null
+}
+
+function getDirectNodeImportSource(node: PortfolioNode | null, workspace: PortfolioWorkspace | null) {
+  return getNodeImportSource(node, workspace)
+}
+
+function mergeHistoryContext(
+  baseHistoryContext: PortfolioWorkspace['source']['historyContext'] | null | undefined,
+  importedHistoryContext: PortfolioWorkspace['source']['historyContext'] | null | undefined,
+) {
+  if (!baseHistoryContext) return importedHistoryContext ?? null
+  if (!importedHistoryContext) return baseHistoryContext
+
+  return {
+    benchmarkSymbol: importedHistoryContext.benchmarkSymbol || baseHistoryContext.benchmarkSymbol,
+    statementPeriod: `${baseHistoryContext.historyStartDate ?? importedHistoryContext.historyStartDate ?? ''} - ${importedHistoryContext.historyEndDate ?? baseHistoryContext.historyEndDate ?? ''}`.trim(),
+    importedAt: importedHistoryContext.importedAt ?? baseHistoryContext.importedAt,
+    importer: importedHistoryContext.importer ?? baseHistoryContext.importer,
+    sourceFileNames: Array.from(new Set([...baseHistoryContext.sourceFileNames, ...importedHistoryContext.sourceFileNames])),
+    historyStartDate: baseHistoryContext.historyStartDate ?? importedHistoryContext.historyStartDate,
+    historyEndDate: importedHistoryContext.historyEndDate ?? baseHistoryContext.historyEndDate,
+  }
+}
+
+function canUseImportedDiagnostics(source: ReturnType<typeof getNodeImportSource>) {
+  return Boolean(source?.importedHistorySnapshot)
+}
 
 function buildImportFormData(files: File[]) {
   const formData = new FormData()
@@ -30,27 +112,6 @@ function buildImportFormData(files: File[]) {
   formData.append('benchmark_symbol', 'SPY')
   formData.append('symbol_overrides', defaultSymbolOverrides)
   return formData
-}
-
-function buildFileSignature(file: File) {
-  return `${file.name}:${file.size}:${file.lastModified}`
-}
-
-function mergeImportedFiles(existingFiles: File[], nextFiles: File[]) {
-  const mergedFiles: File[] = []
-  const seen = new Set<string>()
-
-  for (const file of [...existingFiles, ...nextFiles]) {
-    const signature = buildFileSignature(file)
-    if (seen.has(signature)) {
-      continue
-    }
-
-    seen.add(signature)
-    mergedFiles.push(file)
-  }
-
-  return mergedFiles
 }
 
 function resolveSelectedSnapshot(
@@ -113,13 +174,14 @@ export function App() {
       importedHistorySnapshot?: PortfolioWorkspace['source']['importedHistorySnapshot'] | null
       useImportedDiagnostics?: boolean
       preserveDashboardAnalysis?: boolean
+      historyContext?: PortfolioWorkspace['source']['historyContext'] | null
     },
   ) {
     const [exposure, diagnostics] = await Promise.all([
       runExposureEngine(snapshot),
       options?.useImportedDiagnostics && options.importedHistorySnapshot
         ? runImportedDiagnosticsEngine(options.importedHistorySnapshot)
-        : runDiagnosticsEngine(snapshot, activeWorkspace?.source.historyContext ?? null),
+        : runDiagnosticsEngine(snapshot, options?.historyContext ?? activeWorkspace?.source.historyContext ?? null),
     ])
     const exposureView = composeExposureView(exposure, diagnostics)
     setExposureAnalysis(exposureView)
@@ -131,7 +193,11 @@ export function App() {
     setBaselineAnalysis(buildPortfolioBaselineAnalysis(exposure))
     setSelectedExposureSnapshotId(snapshotId)
     if (workspaceId) {
-      await setSelectedExposureSnapshot({ workspaceId, snapshotId })
+      try {
+        await setSelectedExposureSnapshot({ workspaceId, snapshotId })
+      } catch {
+        // Keep analytics usable when local persistence is unavailable.
+      }
     }
     return diagnostics
   }
@@ -167,7 +233,11 @@ export function App() {
     setBaselineAnalysis(buildPortfolioBaselineAnalysis(exposure))
     setSelectedExposureSnapshotId(snapshotId)
     if (workspaceId) {
-      await setSelectedExposureSnapshot({ workspaceId, snapshotId })
+      try {
+        await setSelectedExposureSnapshot({ workspaceId, snapshotId })
+      } catch {
+        // Keep analytics usable when local persistence is unavailable.
+      }
     }
     return diagnostics
   }
@@ -201,7 +271,7 @@ export function App() {
       setActiveNode(node)
       setWorkingDraft(draft)
       setWorkspaceNodes(nodes)
-      setLastImportedFileNames(workspace.source.importedFileNames)
+      setLastImportedFileNames(getNodeImportSource(node, workspace)?.importedFileNames ?? workspace.source.importedFileNames)
       setRestoredSession(true)
 
       const resolvedSnapshot = resolveSelectedSnapshot(restoredWorkspaceState.selectedExposureSnapshotId, nodes, node, draft)
@@ -210,7 +280,18 @@ export function App() {
       setSelectedExposureSnapshotId(resolvedSnapshot.id)
 
         if (resolvedSnapshot.snapshot.positions.length || resolvedSnapshot.snapshot.cashBalances.length) {
-          await analyzeRestoredSnapshot(resolvedSnapshot.snapshot, resolvedSnapshot.id, workspace.source.historyContext, workspace.source.importedHistorySnapshot, workspace.id)
+          const selectedNode = resolvedSnapshot.id === 'draft'
+            ? (draft ? nodes.find((item) => item.id === draft.baseNodeId) ?? node : node)
+            : nodes.find((item) => item.id === resolvedSnapshot.id) ?? node
+          const selectedSource = getEffectiveNodeImportSource(selectedNode, nodes, workspace)
+          const selectedDirectSource = getDirectNodeImportSource(selectedNode, workspace)
+          await analyzeRestoredSnapshot(
+            resolvedSnapshot.snapshot,
+            resolvedSnapshot.id,
+            selectedSource?.historyContext ?? workspace.source.historyContext,
+            selectedDirectSource?.importedHistorySnapshot ?? null,
+            workspace.id,
+          )
           if (!active) return
         }
       })()
@@ -330,12 +411,19 @@ export function App() {
     setWorkspaceNodes(nextNodes)
     setActiveNode(nextNode)
     setWorkingDraft(nextDraft)
-    if (nextDraft) {
-      await analyzeExposureSnapshot(nextDraft.portfolioSnapshot, 'draft', activeWorkspace.id, {
-        importedHistorySnapshot: nextNode?.kind === 'imported_base' ? (nextWorkspace?.source.importedHistorySnapshot ?? null) : null,
-        useImportedDiagnostics: nextNode?.kind === 'imported_base',
-        preserveDashboardAnalysis: true,
-      })
+    setLastImportedFileNames(getEffectiveNodeImportSource(nextNode, nextNodes, nextWorkspace ?? activeWorkspace)?.importedFileNames ?? activeWorkspace.source.importedFileNames)
+    const dashboardSnapshot = nextDraft?.portfolioSnapshot ?? nextNode?.portfolioSnapshot ?? null
+    const dashboardSnapshotId = nextDraft ? 'draft' : nextNode?.id ?? null
+    if (dashboardSnapshot && dashboardSnapshotId) {
+      const nodeSource = getEffectiveNodeImportSource(nextNode, nextNodes, nextWorkspace ?? activeWorkspace)
+      const directNodeSource = getDirectNodeImportSource(nextNode, nextWorkspace ?? activeWorkspace)
+      await analyzeRestoredSnapshot(
+        dashboardSnapshot,
+        dashboardSnapshotId,
+        nodeSource?.historyContext ?? null,
+        directNodeSource?.importedHistorySnapshot ?? null,
+        activeWorkspace.id,
+      )
     }
   }
 
@@ -345,9 +433,7 @@ export function App() {
       return
     }
 
-    const files = importModeRef.current === 'append'
-      ? mergeImportedFiles(loadedStatementFiles, selectedFiles)
-      : selectedFiles
+    const files = selectedFiles
 
     setImportingPortfolio(true)
     setImportError(null)
@@ -368,22 +454,83 @@ export function App() {
 
       const nextAnalysis = (await response.json()) as ImportedBootstrapResponse
       const importedViews = projectImportedBootstrap(nextAnalysis)
+      const importedFileNames = files.map((file) => file.name)
+      const importedSnapshot = buildPortfolioSnapshotFromAnalysis(importedViews.workspace, importedFileNames)
+      const analysisSnapshot = importModeRef.current === 'add_snapshot' && (workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot)
+        ? overlayImportedSnapshot(workingDraft?.portfolioSnapshot ?? activeNode!.portfolioSnapshot, importedSnapshot)
+        : importedSnapshot
+      if (importModeRef.current === 'add_snapshot') {
+        if (!activeWorkspace) {
+          throw new Error('No active workspace available for adding a statement')
+        }
+
+        const baseSnapshot = workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot
+        if (!baseSnapshot) {
+          throw new Error('No active snapshot available for adding a statement')
+        }
+        const overlaidSnapshot = overlayImportedSnapshot(baseSnapshot, importedSnapshot)
+        const baseNode = workingDraft
+          ? (workspaceNodes.find((item) => item.id === workingDraft.baseNodeId) ?? activeNode)
+          : activeNode
+        const baseSource = getEffectiveNodeImportSource(baseNode, workspaceNodes, activeWorkspace)
+        const mergedHistoryContext = mergeHistoryContext(baseSource?.historyContext ?? null, importedViews.historyContext)
+
+        const savedNode = await saveImportedSnapshotNode({
+          workspaceId: activeWorkspace.id,
+          parentNodeId: baseNode?.id ?? activeWorkspace.rootNodeId,
+          portfolioSnapshot: overlaidSnapshot,
+          importedFileNames,
+          historyContext: mergedHistoryContext,
+          importedHistorySnapshot: null,
+          name: buildImportedSnapshotName(nextAnalysis.snapshot),
+        })
+        const [nextNode, nextDraft, nextNodes] = await Promise.all([
+          getNode(savedNode.node.id),
+          getDraft(activeWorkspace.id),
+          getWorkspaceNodes(activeWorkspace.id),
+        ])
+
+        setLoadedStatementFiles(files)
+        setLastImportedFileNames(importedFileNames)
+        setActiveWorkspace(savedNode.workspace)
+        setActiveNode(nextNode ?? savedNode.node)
+        setWorkingDraft(nextDraft)
+        setWorkspaceNodes(nextNodes)
+        setRestoredSession(false)
+        const dashboardNode = nextNode ?? savedNode.node
+        const dashboardSnapshot = nextDraft?.portfolioSnapshot ?? dashboardNode.portfolioSnapshot
+        const dashboardSnapshotId = nextDraft ? 'draft' : dashboardNode.id
+        if (dashboardSnapshot) {
+          await analyzeRestoredSnapshot(
+            dashboardSnapshot,
+            dashboardSnapshotId,
+            mergedHistoryContext,
+            null,
+            activeWorkspace.id,
+          )
+        } else {
+          setSelectedExposureSnapshotId(dashboardSnapshotId)
+        }
+        return
+      }
+
+      const dashboardHistory = await runImportedDashboardHistory(nextAnalysis.snapshot)
+      const [exposure, diagnostics] = await Promise.all([
+        runExposureEngine(analysisSnapshot),
+        runImportedDiagnosticsEngine(nextAnalysis.snapshot),
+      ])
+      const exposureView = composeExposureView(exposure, diagnostics)
+
       const workspaceResult = await createWorkspaceFromImport({
         analysis: importedViews.workspace,
-        importedFileNames: files.map((file) => file.name),
+        importedFileNames,
         historyContext: importedViews.historyContext,
         importedHistorySnapshot: nextAnalysis.snapshot,
       })
       const normalizedDraft = {
         ...workspaceResult.draft,
-        portfolioSnapshot: buildPortfolioSnapshotFromAnalysis(importedViews.workspace, files.map((file) => file.name)),
+        portfolioSnapshot: importedSnapshot,
       }
-      const dashboardHistory = await runImportedDashboardHistory(nextAnalysis.snapshot)
-      const [exposure, diagnostics] = await Promise.all([
-        runExposureEngine(normalizedDraft.portfolioSnapshot),
-        runImportedDiagnosticsEngine(nextAnalysis.snapshot),
-      ])
-      const exposureView = composeExposureView(exposure, diagnostics)
 
       setAnalysis(
         dashboardHistory
@@ -398,7 +545,7 @@ export function App() {
       setDiagnosticsAnalysis(diagnostics)
       setExposureFactorModel(buildExposureFactorModel(exposureView))
       setLoadedStatementFiles(files)
-      setLastImportedFileNames(files.map((file) => file.name))
+      setLastImportedFileNames(importedFileNames)
       setActiveWorkspace(workspaceResult.workspace)
       setActiveNode(workspaceResult.rootNode)
       setWorkingDraft(normalizedDraft)
@@ -453,7 +600,7 @@ export function App() {
             lastImportedFileNames={lastImportedFileNames}
             restoredSession={restoredSession}
             onImportPortfolio={() => openImportPicker('replace')}
-            onAppendStatement={analysis && loadedStatementFiles.length ? () => openImportPicker('append') : undefined}
+            onAppendStatement={analysis && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
             onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
             onResetLocalDatabase={handleResetLocalDatabase}
             onPreviewExposure={handlePreviewExposure}
@@ -481,11 +628,14 @@ export function App() {
                   if (!activeWorkspace) return
                   if (snapshotId === 'draft' && workingDraft) {
                     const selectedBaseNode = workspaceNodes.find((item) => item.id === workingDraft.baseNodeId) ?? activeNode
+                    const selectedBaseSource = getEffectiveNodeImportSource(selectedBaseNode, workspaceNodes, activeWorkspace)
+                    const selectedBaseDirectSource = getDirectNodeImportSource(selectedBaseNode, activeWorkspace)
                     await analyzeExposureSnapshot(workingDraft.portfolioSnapshot, 'draft', activeWorkspace.id, {
-                      importedHistorySnapshot: selectedBaseNode?.kind === 'imported_base' && workingDraft.status === 'clean'
-                        ? (activeWorkspace.source.importedHistorySnapshot ?? null)
+                      importedHistorySnapshot: canUseImportedDiagnostics(selectedBaseDirectSource) && workingDraft.status === 'clean'
+                        ? (selectedBaseDirectSource?.importedHistorySnapshot ?? null)
                         : null,
-                      useImportedDiagnostics: selectedBaseNode?.kind === 'imported_base' && workingDraft.status === 'clean',
+                      useImportedDiagnostics: canUseImportedDiagnostics(selectedBaseDirectSource) && workingDraft.status === 'clean',
+                      historyContext: selectedBaseSource?.historyContext ?? null,
                       preserveDashboardAnalysis: true,
                     })
                     return
@@ -493,9 +643,12 @@ export function App() {
 
                   const node = workspaceNodes.find((item) => item.id === snapshotId) ?? await getNode(snapshotId)
                   if (!node) return
+                  const nodeSource = getEffectiveNodeImportSource(node, workspaceNodes, activeWorkspace)
+                  const directNodeSource = getDirectNodeImportSource(node, activeWorkspace)
                   await analyzeExposureSnapshot(node.portfolioSnapshot, snapshotId, activeWorkspace.id, {
-                    importedHistorySnapshot: node.kind === 'imported_base' ? (activeWorkspace.source.importedHistorySnapshot ?? null) : null,
-                    useImportedDiagnostics: node.kind === 'imported_base',
+                    importedHistorySnapshot: directNodeSource?.importedHistorySnapshot ?? null,
+                    useImportedDiagnostics: canUseImportedDiagnostics(directNodeSource),
+                    historyContext: nodeSource?.historyContext ?? null,
                     preserveDashboardAnalysis: true,
                   })
                 })()

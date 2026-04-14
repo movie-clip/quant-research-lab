@@ -279,6 +279,8 @@ def test_dashboard_history_engine_route_accepts_snapshot_with_history_context() 
     assert "performance_series" in payload
     assert "source_status" in payload
     assert payload["source_status"]["performance_history"] == "unavailable"
+    assert "range_metrics" in payload
+    assert payload["range_metrics"]["3M"]["summary"]["start_value"] is None
 
 
 def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_payload() -> None:
@@ -310,6 +312,7 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
     payload = response.json()
     assert "daily_states" in payload
     assert "performance_series" in payload
+    assert "range_metrics" in payload
 
 
 def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -> None:

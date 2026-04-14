@@ -250,6 +250,25 @@ export type SourceStatus = {
   monthly_returns: string
 }
 
+export type DashboardRangeMetrics = {
+  summary: {
+    start_value: number | null
+    end_value: number | null
+    net_contributions: number
+    investment_gain: number | null
+    time_weighted_return_pct: number | null
+    money_weighted_return_pct: number | null
+    benchmark_return_pct: number | null
+    excess_return_pct: number | null
+  }
+  max_drawdown_pct: number | null
+  monthly_returns: Array<{
+    month: string
+    return_pct: number
+  }>
+  monthly_returns_reliable: boolean
+}
+
 export type PerformanceSeriesPoint = {
   date: string
   portfolio_value: number
@@ -618,6 +637,7 @@ export type ImportedDashboardSource = {
   performance_series: PerformanceSeriesPoint[]
   daily_states: DailyPortfolioState[]
   source_status?: SourceStatus | null
+  range_metrics?: Record<string, DashboardRangeMetrics> | null
 }
 
 export type ImportedBaselineSource = {
@@ -686,6 +706,7 @@ export type DashboardHistoryEngineResponse = {
   performance_series: PerformanceSeriesPoint[]
   source_status?: SourceStatus | null
   benchmark: BenchmarkSummary | null
+  range_metrics?: Record<string, DashboardRangeMetrics> | null
 }
 
 export type DashboardAnalysis = ImportedDashboardSource

@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { createImportedDashboardFixture } from '../../test/portfolioFixtures'
+import { ib2026DashboardGolden } from '../../test/ib2026DashboardGolden'
+import { createIb2026ImportedDashboardFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
 import { buildImportedDashboardView } from './portfolioAnalysisAdapter'
 import { buildPortfolioSnapshotFromAnalysis } from './portfolioSnapshot'
@@ -9,6 +10,8 @@ import type { DashboardAnalysis, ImportedDashboardSource, ImportedPortfolioSnaps
 
 const mockAnalysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createImportedDashboardFixture()
 const mockDashboardView: DashboardAnalysis = buildImportedDashboardView(mockAnalysis)
+const ib2026Analysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createIb2026ImportedDashboardFixture()
+const ib2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ib2026Analysis)
 
 describe('DashboardPanel', () => {
   it('renders account summary and monthly returns', () => {
@@ -21,6 +24,75 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Monthly Returns')).toBeTruthy()
     expect(screen.getByText('Interactive Brokers')).toBeTruthy()
     expect(screen.getByText('Live market history')).toBeTruthy()
+  })
+
+  it('renders key IB2026 dashboard values from the imported analysis chain', () => {
+    expect(ib2026DashboardView.snapshot.statement.statement_period).toBe('January 1, 2026 - April 13, 2026')
+    expect(ib2026DashboardView.performance_series[ib2026DashboardView.performance_series.length - 1].portfolio_value).toBe(62023.98)
+    const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
+
+    const view = render(<DashboardPanel result={ib2026DashboardView} draftSnapshot={draftSnapshot} />)
+    const scoped = within(view.container)
+
+    expect(ib2026DashboardView.daily_states.length).toBeGreaterThan(10)
+    expect(ib2026DashboardView.performance_series.length).toBeGreaterThan(10)
+
+    expect(scoped.getAllByText(ib2026DashboardGolden.accountId).length).toBeGreaterThan(0)
+    expect(scoped.getAllByText(ib2026DashboardGolden.brokerLabel).length).toBeGreaterThan(0)
+    expect(scoped.getAllByText(ib2026DashboardGolden.sourceLabel).length).toBeGreaterThan(0)
+    expect(scoped.getByText(ib2026DashboardGolden.accountSummary)).toBeTruthy()
+    expect(scoped.getByText((content) => content.includes(ib2026DashboardGolden.statementPeriod))).toBeTruthy()
+    expect(scoped.getAllByText(ib2026DashboardGolden.performanceTitle).length).toBeGreaterThan(0)
+    expect(scoped.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy()
+    expect(scoped.getAllByText(ib2026DashboardGolden.monthlyStatusLabel).length).toBeGreaterThan(0)
+
+    expect(scoped.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy()
+    expect(scoped.getByText(`Start value: ${ib2026DashboardGolden.startValue}`)).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.timeWeightedReturn)).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.netContributions)).toBeTruthy()
+    expect(scoped.getByText('Drawdown')).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(scoped.getAllByText('Money-Weighted Return').length).toBeGreaterThan(0)
+    expect(scoped.getByText(ib2026DashboardGolden.moneyWeightedReturn)).toBeTruthy()
+
+    for (const monthly of ib2026DashboardGolden.monthlyReturns) {
+      expect(scoped.getByText(monthly.month)).toBeTruthy()
+      expect(scoped.getByText(monthly.returnPct)).toBeTruthy()
+    }
+
+    expect(scoped.getByText('Technology')).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.sectors.Technology)).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.sectors['Broad Market'])).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.sectors.Commodities)).toBeTruthy()
+    expect(scoped.getByText('Draft Capital Check')).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.draftCapitalCheck)).toBeTruthy()
+    expect(scoped.getByText(ib2026DashboardGolden.draftCapitalHelper)).toBeTruthy()
+    expect(scoped.getByText('No sector locked')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('Technology'))
+    for (const symbol of ib2026DashboardGolden.technologyHoldings) {
+      expect(screen.getByDisplayValue(symbol)).toBeTruthy()
+      expect(screen.getByText(ib2026DashboardGolden.technologyHoldingWeights[symbol])).toBeTruthy()
+    }
+    expect(screen.getByText('Locked on Technology')).toBeTruthy()
+    expect(screen.getByDisplayValue(ib2026DashboardGolden.sxrvValue)).toBeTruthy()
+  })
+
+  it('keeps generated IB2026 backend range metrics aligned with visible dashboard output', () => {
+    const view = render(<DashboardPanel result={ib2026DashboardView} draftSnapshot={buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])} />)
+    const scoped = within(view.container)
+
+    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.start_value).toBe(52386.1)
+    expect(ib2026DashboardView.range_metrics?.['3M']?.max_drawdown_pct).toBeCloseTo(-28.3981, 3)
+    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.money_weighted_return_pct).toBeCloseTo(-0.6188, 3)
+    expect(scoped.getAllByText(`Start value: ${ib2026DashboardGolden.startValue}`).length).toBeGreaterThan(0)
+    expect(scoped.getAllByText(ib2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
+    expect(scoped.getAllByText(ib2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
+
+    for (const monthly of ib2026DashboardGolden.monthlyReturns) {
+      expect(scoped.getByText(monthly.month)).toBeTruthy()
+      expect(scoped.getByText(monthly.returnPct)).toBeTruthy()
+    }
   })
 
   it('shows combined statement metadata when multiple statements are loaded', () => {
@@ -128,11 +200,47 @@ describe('DashboardPanel', () => {
     expect(screen.getAllByText('Restored on launch').length).toBeGreaterThan(0)
   })
 
+  it('renders account metadata fallbacks when statement fields are missing', () => {
+    render(
+      <DashboardPanel
+        result={buildImportedDashboardView({
+          ...mockAnalysis,
+          snapshot: {
+            ...mockAnalysis.snapshot,
+            statement: {
+              ...mockAnalysis.snapshot.statement,
+              account_id: null,
+              statement_period: null,
+            },
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Unknown')).toBeTruthy()
+    expect(screen.getByText(/Statement period unavailable/)).toBeTruthy()
+  })
+
+  it('shows empty draft allocation states when no editable snapshot is available', () => {
+    const emptyDraftSnapshot = {
+      ...buildPortfolioSnapshotFromAnalysis(mockAnalysis, ['IB2025.pdf']),
+      positions: [],
+      cashBalances: [],
+    }
+
+    render(<DashboardPanel result={mockDashboardView} draftSnapshot={emptyDraftSnapshot} />)
+
+    expect(screen.getAllByText('No positions available for sector breakdown.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('No sector locked').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Hover or click a sector to inspect its holdings.').length).toBeGreaterThan(0)
+  })
+
   it('keeps rendering account summary when early portfolio history starts at zero', () => {
     render(
       <DashboardPanel
         result={buildImportedDashboardView({
           ...mockAnalysis,
+          range_metrics: null,
           performance_series: [
             { date: '2022-01-03', portfolio_value: 0, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
             { date: '2022-04-12', portfolio_value: 5378.38, benchmark_price: 102, portfolio_return_pct: 0, benchmark_return_pct: 2 },
@@ -172,6 +280,7 @@ describe('DashboardPanel', () => {
       <DashboardPanel
         result={buildImportedDashboardView({
           ...mockAnalysis,
+          range_metrics: null,
           snapshot: {
             ...mockAnalysis.snapshot,
             statement_totals: {
@@ -207,6 +316,7 @@ describe('DashboardPanel', () => {
       <DashboardPanel
         result={buildImportedDashboardView({
           ...mockAnalysis,
+          range_metrics: null,
           performance_series: [
             { date: '2025-01-02', portfolio_value: 0, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
             { date: '2025-06-30', portfolio_value: 3139.15, benchmark_price: 110, portfolio_return_pct: 0, benchmark_return_pct: 10 },
@@ -232,6 +342,7 @@ describe('DashboardPanel', () => {
       <DashboardPanel
         result={buildImportedDashboardView({
           ...mockAnalysis,
+          range_metrics: null,
           source_status: {
             performance_history: 'sample',
             monthly_returns: 'suppressed',
@@ -249,6 +360,29 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Monthly returns are not reliable for this imported history.')).toBeTruthy()
     expect(screen.getAllByText('Sample or reconstructed history').length).toBeGreaterThan(0)
     expect(screen.queryByText('2025-07')).toBeNull()
+  })
+
+  it('renders n/a for drawdown and money-weighted return when performance history is unavailable', () => {
+    const view = render(
+      <DashboardPanel
+        result={buildImportedDashboardView({
+          ...mockAnalysis,
+          performance_series: [],
+          daily_states: [],
+          range_metrics: null,
+          source_status: {
+            performance_history: 'unavailable',
+            monthly_returns: 'unavailable',
+          },
+        })}
+      />,
+    )
+    const scoped = within(view.container)
+
+    expect(scoped.getByText('No performance history available yet.')).toBeTruthy()
+    expect(scoped.getAllByText('Drawdown').length).toBeGreaterThan(0)
+    expect(scoped.getAllByText('Money-Weighted Return').length).toBeGreaterThan(0)
+    expect(scoped.getAllByText('n/a').length).toBeGreaterThan(0)
   })
 
   it('builds a scenario preview for exposure from size-only sector edits', () => {

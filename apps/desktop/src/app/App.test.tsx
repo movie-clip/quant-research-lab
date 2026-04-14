@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedAnalysisFixture, createImportedBootstrapResponseFixture } from '../test/portfolioFixtures'
+import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from '../test/ib2026DashboardGolden'
 import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import type { PortfolioSnapshot } from '../features/portfolio/workspaceTypes'
@@ -18,6 +19,38 @@ const dashboardHistoryPayload = (() => {
     benchmark: fixture.benchmark,
   }
 })()
+const ib2026DashboardHistoryPayload = {
+  performance_series: ib2026ImportedDashboardGoldenFixture.performance_series,
+  daily_states: ib2026ImportedDashboardGoldenFixture.daily_states,
+  source_status: ib2026ImportedDashboardGoldenFixture.source_status,
+  benchmark: ib2026ImportedDashboardGoldenFixture.benchmark,
+  range_metrics: ib2026ImportedDashboardGoldenFixture.range_metrics,
+}
+const ib2026ExposurePayload = {
+  ...createExposureEngineFixture(),
+  snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
+  overview: ib2026ImportedDashboardGoldenFixture.overview,
+}
+const ib2026DiagnosticsPayload = {
+  ...createDiagnosticsEngineFixture(),
+  snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
+  risk_summary: ib2026ImportedDashboardGoldenFixture.risk_summary,
+  benchmark: ib2026ImportedDashboardGoldenFixture.benchmark,
+}
+const ib2026BootstrapPayload = {
+  snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
+  overview: ib2026ImportedDashboardGoldenFixture.overview,
+  risk_summary: ib2026ImportedDashboardGoldenFixture.risk_summary,
+  history_context: {
+    benchmarkSymbol: 'SPY',
+    statementPeriod: ib2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+    importedAt: ib2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+    importer: ib2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
+    sourceFileNames: ib2026DashboardGolden.loadedFiles,
+    historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
+    historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
+  },
+}
 const appendedExposurePayload = {
   ...exposurePayload,
   snapshot: {
@@ -102,6 +135,51 @@ const persistedSnapshot: PortfolioSnapshot = {
   metadata: { benchmarkSymbol: 'SPY', notes: null, tags: [] },
 }
 
+const variantSnapshot: PortfolioSnapshot = {
+  ...persistedSnapshot,
+  importedMeta: {
+    ...persistedSnapshot.importedMeta,
+    statementPeriod: '2026-01-01 - 2026-04-10',
+    sourceFileNames: ['IB2025.pdf', 'IB2026.pdf'],
+  },
+  positions: [{ symbol: 'AAPL', marketValue: 15000, quantity: 15, currency: 'USD', sector: 'Technology', sourceType: 'equity' }],
+  cashBalances: [{ currency: 'USD', amount: 500 }],
+}
+
+const variantExposurePayload = {
+  ...exposurePayload,
+  snapshot: {
+    ...exposurePayload.snapshot,
+    statement: {
+      ...exposurePayload.snapshot.statement,
+      statement_period: '2026-01-01 - 2026-04-10',
+    },
+    statement_totals: {
+      ...exposurePayload.snapshot.statement_totals,
+      ending_nav: 15500,
+      starting_nav: 14000,
+    },
+    positions: [{ symbol: 'AAPL', quantity: 15, market_value: 15000, currency: 'USD', as_of_date: '2026-04-10' }],
+    cash_balances: [{ currency: 'USD', ending_cash: 500 }],
+  },
+  overview: {
+    ...exposurePayload.overview,
+    total_market_value: 15500,
+  },
+}
+
+const variantDashboardHistoryPayload = {
+  ...dashboardHistoryPayload,
+  daily_states: [
+    { ...dashboardHistoryPayload.daily_states[0], total_portfolio_value: 14000, external_cash_flow: 0 },
+    { ...dashboardHistoryPayload.daily_states[dashboardHistoryPayload.daily_states.length - 1], total_portfolio_value: 15500, external_cash_flow: 0 },
+  ],
+  performance_series: [
+    { ...dashboardHistoryPayload.performance_series[0], portfolio_value: 14000, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
+    { ...dashboardHistoryPayload.performance_series[dashboardHistoryPayload.performance_series.length - 1], portfolio_value: 15500, benchmark_price: 105, portfolio_return_pct: 10.71, benchmark_return_pct: 5 },
+  ],
+}
+
 function mockImportedWorkspace() {
   return {
     workspace: { id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: { importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot } },
@@ -120,7 +198,7 @@ function mockSavedVariantNode() {
     name: 'Raise MSFT',
     createdAt: '2026-04-10T00:10:00Z',
     changeSummary: { label: 'Raise MSFT', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: 0, netCapitalDelta: 0 },
-    portfolioSnapshot: persistedSnapshot,
+    portfolioSnapshot: variantSnapshot,
   }
 }
 
@@ -130,23 +208,72 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  it('appends new statement files onto the existing imported set', async () => {
+  it('adds a new imported snapshot node from Dashboard Add Statement', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'migrateLegacyImportSession').mockResolvedValue(null)
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
-    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(mockImportedWorkspace())
+    const importedWorkspace = mockImportedWorkspace()
+    const importedSnapshotNode = {
+      id: 'node-2',
+      workspaceId: 'workspace-1',
+      parentId: 'node-1',
+      kind: 'imported_snapshot' as const,
+      name: 'IB 2026-04-08',
+      createdAt: '2026-04-10T00:05:00Z',
+      changeSummary: { label: 'IB 2026-04-08', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: 0, netCapitalDelta: 0 },
+      portfolioSnapshot: persistedSnapshot,
+      source: {
+        importedFileNames: ['IB2026.pdf'],
+        importedAt: '2026-04-10T00:05:00Z',
+        importer: 'interactive_brokers' as const,
+        baseCurrency: 'USD',
+        historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2026-01-01 - 2026-04-08', importedAt: '2026-04-10T00:05:00Z', importer: 'interactive_brokers' as const, sourceFileNames: ['IB2026.pdf'], historyStartDate: '2026-01-02', historyEndDate: '2026-04-08' },
+        importedHistorySnapshot: bootstrapPayload.snapshot,
+      },
+    }
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([importedWorkspace.rootNode, importedSnapshotNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(importedWorkspace)
+    const saveImportedSnapshotNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveImportedSnapshotNode').mockResolvedValue({
+      node: importedSnapshotNode,
+      workspace: { ...importedWorkspace.workspace, activeNodeId: 'node-2', updatedAt: '2026-04-10T00:05:00Z' },
+      workspaceState: { ...importedWorkspace.workspaceState, activeNodeId: 'node-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:05:00Z' },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
+      if (nodeId === 'node-2') return importedSnapshotNode
+      if (nodeId === 'node-1') return importedWorkspace.rootNode
+      return null
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...importedWorkspace.draft,
+        baseNodeId: 'node-2',
+        updatedAt: '2026-04-10T00:05:00Z',
+      })
     vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
+
+    const addSnapshotBootstrapPayload = {
+      ...bootstrapPayload,
+      snapshot: {
+        ...bootstrapPayload.snapshot,
+        statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' },
+        statements: [{ ...bootstrapPayload.snapshot.statements[0], statement_period: '2026-01-01 - 2026-04-08', source_path: 'C:\\docs\\IB2026.pdf', imported_at: '2026-04-10T00:05:00Z', page_count: 17 }],
+        positions: bootstrapPayload.snapshot.positions.map((position) => ({ ...position, as_of_date: '2026-04-08' })),
+      },
+      history_context: { ...bootstrapPayload.history_context, statement_period: '2026-01-01 - 2026-04-08', source_file_names: ['IB2026.pdf'], history_end_date: '2026-04-08' },
+    }
 
     const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ...bootstrapPayload, snapshot: { ...bootstrapPayload.snapshot, statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2025-01-01 - 2026-04-08' }, statements: [...bootstrapPayload.snapshot.statements, { ...bootstrapPayload.snapshot.statements[0], statement_period: '2026-01-01 - 2026-04-08', source_path: 'C:\\docs\\IB2026.pdf', imported_at: '2026-04-10T00:05:00Z', page_count: 17 }] }, history_context: { ...bootstrapPayload.history_context, statement_period: '2025-01-01 - 2026-04-08', source_file_names: ['IB2025.pdf', 'IB2026.pdf'] } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(appendedExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(appendedDiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(addSnapshotBootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...appendedExposurePayload, snapshot: { ...appendedExposurePayload.snapshot, statement: { ...appendedExposurePayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' }, statements: [{ ...appendedExposurePayload.snapshot.statements[1], statement_period: '2026-01-01 - 2026-04-08', source_path: 'C:\\docs\\IB2026.pdf' }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...appendedDiagnosticsPayload, snapshot: { ...appendedDiagnosticsPayload.snapshot, statement: { ...appendedDiagnosticsPayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' }, statements: [{ ...appendedDiagnosticsPayload.snapshot.statements[1], statement_period: '2026-01-01 - 2026-04-08', source_path: 'C:\\docs\\IB2026.pdf' }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -155,16 +282,161 @@ describe('App', () => {
     const file2026 = new File(['2026'], 'IB2026.pdf', { type: 'application/pdf', lastModified: 2 })
 
     fireEvent.change(input, { target: { files: [file2025] } })
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
+    expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [file2026] } })
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(8))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
 
     const appendAnalyzeBody = fetchMock.mock.calls[4]?.[1]?.body as FormData
     const uploadedFiles = appendAnalyzeBody.getAll('statement_files') as File[]
-    expect(uploadedFiles.map((file) => file.name)).toEqual(['IB2025.pdf', 'IB2026.pdf'])
+    expect(uploadedFiles.map((file) => file.name)).toEqual(['IB2026.pdf'])
+    expect(saveImportedSnapshotNodeSpy).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'workspace-1', parentNodeId: 'node-1', importedFileNames: ['IB2026.pdf'], name: 'IB 2026-04-08' }))
+    expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.portfolioSnapshot.importedMeta.sourceFileNames).toContain('IB2026.pdf')
+    expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.portfolioSnapshot.positions.some((position: { symbol: string }) => position.symbol === 'AAPL')).toBe(true)
+    expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.historyContext?.sourceFileNames).toEqual(['IB2025.pdf', 'IB2026.pdf'])
+    expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.historyContext?.historyEndDate).toBe('2026-04-08')
+    await waitFor(() => expect(saveImportedSnapshotNodeSpy).toHaveBeenCalled())
+  })
+
+  it('refreshes dashboard allocation and cards after adding a statement snapshot', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'migrateLegacyImportSession').mockResolvedValue(null)
+    const importedWorkspace = mockImportedWorkspace()
+    const addedSnapshot = {
+      ...persistedSnapshot,
+      importedMeta: {
+        ...persistedSnapshot.importedMeta,
+        statementPeriod: '2026-01-01 - 2026-04-08',
+        sourceFileNames: ['IB2025.pdf', 'FF2026.pdf'],
+      },
+      positions: [
+        { symbol: 'AAPL', marketValue: 10000, quantity: 10, currency: 'USD', sector: 'Technology', sourceType: 'equity' as const },
+        { symbol: 'JPM', marketValue: 5000, quantity: 20, currency: 'USD', sector: 'Financials', sourceType: 'equity' as const },
+      ],
+      cashBalances: [{ currency: 'USD', amount: 1200 }],
+    }
+    const importedSnapshotNode = {
+      id: 'node-2',
+      workspaceId: 'workspace-1',
+      parentId: 'node-1',
+      kind: 'imported_snapshot' as const,
+      name: 'FF 2026-04-08',
+      createdAt: '2026-04-10T00:05:00Z',
+      changeSummary: { label: 'FF 2026-04-08', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 5000, netCapitalDelta: 5000 },
+      portfolioSnapshot: addedSnapshot,
+      source: {
+        importedFileNames: ['FF2026.pdf'],
+        importedAt: '2026-04-10T00:05:00Z',
+        importer: 'freedom24' as const,
+        baseCurrency: 'USD',
+        historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2026-01-01 - 2026-04-08', importedAt: '2026-04-10T00:05:00Z', importer: 'freedom24' as const, sourceFileNames: ['IB2025.pdf', 'FF2026.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2026-04-08' },
+        importedHistorySnapshot: null,
+      },
+    }
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([importedWorkspace.rootNode, importedSnapshotNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(importedWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveImportedSnapshotNode').mockResolvedValue({
+      node: importedSnapshotNode,
+      workspace: { ...importedWorkspace.workspace, activeNodeId: 'node-2', updatedAt: '2026-04-10T00:05:00Z' },
+      workspaceState: { ...importedWorkspace.workspaceState, activeNodeId: 'node-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:05:00Z' },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
+      if (nodeId === 'node-2') return importedSnapshotNode
+      if (nodeId === 'node-1') return importedWorkspace.rootNode
+      return null
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        ...importedWorkspace.draft,
+        baseNodeId: 'node-2',
+        portfolioSnapshot: addedSnapshot,
+        updatedAt: '2026-04-10T00:05:00Z',
+      })
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
+
+    const ffBootstrapPayload = {
+      ...bootstrapPayload,
+      snapshot: {
+        ...bootstrapPayload.snapshot,
+        statement: { ...bootstrapPayload.snapshot.statement, importer: 'freedom24', statement_period: '2026-01-01 - 2026-04-08' },
+        statements: [{ ...bootstrapPayload.snapshot.statements[0], importer: 'freedom24', source_path: 'C:\\docs\\FF2026.pdf', statement_period: '2026-01-01 - 2026-04-08', imported_at: '2026-04-10T00:05:00Z' }],
+        positions: [
+          { ...bootstrapPayload.snapshot.positions[0], symbol: 'JPM', market_value: 5000, quantity: 20, as_of_date: '2026-04-08' },
+        ],
+      },
+      history_context: {
+        ...bootstrapPayload.history_context,
+        importer: 'freedom24',
+        statement_period: '2026-01-01 - 2026-04-08',
+        source_file_names: ['FF2026.pdf'],
+        history_end_date: '2026-04-08',
+      },
+    }
+
+    const ffExposurePayload = {
+      ...exposurePayload,
+      snapshot: {
+        ...exposurePayload.snapshot,
+        statement: { ...exposurePayload.snapshot.statement, importer: 'freedom24', statement_period: '2026-01-01 - 2026-04-08' },
+        statements: [{ ...exposurePayload.snapshot.statements[0], importer: 'freedom24', source_path: 'C:\\docs\\FF2026.pdf', statement_period: '2026-01-01 - 2026-04-08' }],
+        positions: [
+          { ...exposurePayload.snapshot.positions[0], symbol: 'AAPL', market_value: 10000, quantity: 10 },
+          { ...exposurePayload.snapshot.positions[0], symbol: 'JPM', market_value: 5000, quantity: 20 },
+        ],
+      },
+      overview: {
+        ...exposurePayload.overview,
+        total_market_value: 15000,
+        sector_allocation: [
+          { sector: 'Technology', market_value: 10000, weight: 2 / 3 },
+          { sector: 'Financials', market_value: 5000, weight: 1 / 3 },
+        ],
+        sector_position_breakdown: {
+          Technology: [{ symbol: 'AAPL', market_value: 10000, weight: 2 / 3 }],
+          Financials: [{ symbol: 'JPM', market_value: 5000, weight: 1 / 3 }],
+        },
+      },
+    }
+
+    const unavailableHistoryPayload = { performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ffBootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ffExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(unavailableHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const ibFile = new File(['ib'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    const ffFile = new File(['ff'], 'FF2026.pdf', { type: 'application/pdf', lastModified: 2 })
+
+    fireEvent.change(input, { target: { files: [ibFile] } })
+    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
+    expect(screen.getByText('Portfolio Value')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('Add Statement'))
+    fireEvent.change(input, { target: { files: [ffFile] } })
+
+    await waitFor(() => expect(screen.getByText('Loaded file: FF2026.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('n/a').length).toBeGreaterThan(0))
+    expect(screen.getByText('Technology')).toBeTruthy()
+    expect(screen.getByText('Financials')).toBeTruthy()
+    expect(screen.getByDisplayValue('AAPL')).toBeTruthy()
+    fireEvent.click(screen.getByText('Financials'))
+    expect(screen.getByDisplayValue('JPM')).toBeTruthy()
   })
 
   it('restores persisted import state on startup', async () => {
@@ -184,6 +456,59 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
     expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
+  })
+
+  it('restores IB2026 dashboard values consistently from persisted imported state', async () => {
+    const snapshot = {
+      snapshotVersion: 1 as const,
+      baseCurrency: 'USD',
+      importedMeta: {
+        importer: 'interactive_brokers' as const,
+        statementPeriod: ib2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+        importedAt: ib2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+        sourceFileNames: ib2026DashboardGolden.loadedFiles,
+      },
+      positions: ib2026ImportedDashboardGoldenFixture.overview.sector_allocation.flatMap((sector) =>
+        (ib2026ImportedDashboardGoldenFixture.overview.sector_position_breakdown[sector.sector] ?? []).map((position) => ({
+          symbol: position.symbol,
+          marketValue: position.market_value,
+          quantity: null,
+          currency: 'USD',
+          sector: sector.sector,
+          sourceType: 'equity' as const,
+        })),
+      ),
+      cashBalances: Object.entries(ib2026ImportedDashboardGoldenFixture.overview.cash_by_currency).map(([currency, amount]) => ({ currency, amount })),
+      metadata: { benchmarkSymbol: 'SPY', notes: null, tags: [] },
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'migrateLegacyImportSession').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'IB 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 }, portfolioSnapshot: snapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-14T00:00:00Z', updatedAt: '2026-04-14T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: { importedFileNames: ib2026DashboardGolden.loadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: ib2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ib2026DashboardGolden.loadedFiles, historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null, historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null }, importedHistorySnapshot: ib2026BootstrapPayload.snapshot } })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'IB 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 }, portfolioSnapshot: snapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-14T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: snapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
+    expect(screen.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy()
+    expect(screen.getByText(`Start value: ${ib2026DashboardGolden.startValue}`)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.timeWeightedReturn)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.netContributions)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.moneyWeightedReturn)).toBeTruthy()
+    expect(screen.getByText('Technology')).toBeTruthy()
+    fireEvent.click(screen.getByText('Technology'))
+    expect(screen.getByDisplayValue('SXRV')).toBeTruthy()
+    expect(screen.getByDisplayValue(ib2026DashboardGolden.sxrvValue)).toBeTruthy()
   })
 
   it('clears restored import state and persisted session', async () => {
@@ -396,8 +721,9 @@ describe('App', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(variantExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -407,6 +733,193 @@ describe('App', () => {
     await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
     expect(screen.getByLabelText('Sector allocation pie chart')).toBeTruthy()
     expect(screen.getByText('Portfolio Value')).toBeTruthy()
+    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
+    expect(screen.getByText((content) => content.includes('2026-01-01 - 2026-04-10'))).toBeTruthy()
+  })
+
+  it('switches from a variant back to the imported base and restores imported dashboard history', async () => {
+    const baseNode = { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base' as const, name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }
+    const variantNode = mockSavedVariantNode()
+    const variantDraft = { id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-10T00:12:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: persistedSnapshot }
+    const baseDraft = { id: 'draft-3', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:13:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: persistedSnapshot }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'migrateLegacyImportSession').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
+      id: 'workspace-1',
+      name: 'Portfolio Workspace',
+      createdAt: '2026-04-10T00:00:00Z',
+      updatedAt: '2026-04-10T00:12:00Z',
+      rootNodeId: 'node-1',
+      activeNodeId: 'node-2',
+      source: {
+        importedFileNames: ['IB2025.pdf'],
+        importedAt: '2026-04-10T00:00:00Z',
+        importer: 'interactive_brokers',
+        baseCurrency: 'USD',
+        historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' },
+        importedHistorySnapshot: bootstrapPayload.snapshot,
+      },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([baseNode, variantNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => nodeId === 'node-1' ? baseNode : variantNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
+      .mockResolvedValueOnce(variantDraft)
+      .mockResolvedValueOnce(baseDraft)
+    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:13:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:13:00Z' })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
+    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
+
+    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-1', createDraftFromNode: true }))
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    expect(screen.getByText('Portfolio Value')).toBeTruthy()
+    expect(screen.getByText('Start value: $10000.00')).toBeTruthy()
+    expect(screen.getByText('20.00%')).toBeTruthy()
+  })
+
+  it('opens an IB2026 imported snapshot node and keeps canonical dashboard values aligned', async () => {
+    const baseSnapshot: PortfolioSnapshot = {
+      snapshotVersion: 1,
+      baseCurrency: 'USD',
+      importedMeta: {
+        importer: 'interactive_brokers',
+        statementPeriod: '2025-01-01 - 2025-12-31',
+        importedAt: '2026-04-10T00:00:00Z',
+        sourceFileNames: ['IB2025.pdf'],
+      },
+      positions: [{ symbol: 'AAPL', marketValue: 10000, quantity: 10, currency: 'USD', sector: 'Technology', sourceType: 'equity' }],
+      cashBalances: [{ currency: 'USD', amount: 1000 }],
+      metadata: { benchmarkSymbol: 'SPY', notes: null, tags: [] },
+    }
+    const ib2026Snapshot: PortfolioSnapshot = {
+      snapshotVersion: 1,
+      baseCurrency: 'USD',
+      importedMeta: {
+        importer: 'interactive_brokers',
+        statementPeriod: ib2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+        importedAt: ib2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+        sourceFileNames: ib2026DashboardGolden.loadedFiles,
+      },
+      positions: Object.entries(ib2026ImportedDashboardGoldenFixture.overview.sector_position_breakdown).flatMap(([sector, positions]) =>
+        positions.map((position) => ({
+          symbol: position.symbol,
+          marketValue: position.market_value,
+          quantity: null,
+          currency: 'USD',
+          sector,
+          sourceType: 'equity' as const,
+        })),
+      ),
+      cashBalances: Object.entries(ib2026ImportedDashboardGoldenFixture.overview.cash_by_currency).map(([currency, amount]) => ({ currency, amount })),
+      metadata: { benchmarkSymbol: 'SPY', notes: null, tags: [] },
+    }
+    const importedSnapshotNode = {
+      id: 'node-2',
+      workspaceId: 'workspace-1',
+      parentId: 'node-1',
+      kind: 'imported_snapshot' as const,
+      name: 'IB 2026',
+      createdAt: '2026-04-14T00:00:00Z',
+      changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 },
+      portfolioSnapshot: ib2026Snapshot,
+      source: {
+        importedFileNames: ib2026DashboardGolden.loadedFiles,
+        importedAt: '2026-04-14T00:00:00Z',
+        importer: 'interactive_brokers' as const,
+        baseCurrency: 'USD',
+        historyContext: {
+          benchmarkSymbol: 'SPY',
+          statementPeriod: ib2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+          importedAt: '2026-04-14T00:00:00Z',
+          importer: 'interactive_brokers' as const,
+          sourceFileNames: ib2026DashboardGolden.loadedFiles,
+          historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
+          historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
+        },
+        importedHistorySnapshot: ib2026BootstrapPayload.snapshot,
+      },
+    }
+    const cleanImportedDraft = {
+      id: 'draft-2',
+      workspaceId: 'workspace-1',
+      baseNodeId: 'node-2',
+      updatedAt: '2026-04-14T00:00:00Z',
+      name: 'Working Draft',
+      status: 'clean' as const,
+      portfolioSnapshot: ib2026Snapshot,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'migrateLegacyImportSession').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
+      id: 'workspace-1',
+      name: 'Portfolio Workspace',
+      createdAt: '2026-04-10T00:00:00Z',
+      updatedAt: '2026-04-14T00:00:00Z',
+      rootNodeId: 'node-1',
+      activeNodeId: 'node-1',
+      source: {
+        importedFileNames: ['IB2025.pdf'],
+        importedAt: '2026-04-10T00:00:00Z',
+        importer: 'interactive_brokers',
+        baseCurrency: 'USD',
+        historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-12-31' },
+        importedHistorySnapshot: bootstrapPayload.snapshot,
+      },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([
+      { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: baseSnapshot },
+      importedSnapshotNode,
+    ])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
+      if (nodeId === 'node-2') return importedSnapshotNode
+      return { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: baseSnapshot }
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
+      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: baseSnapshot })
+      .mockResolvedValueOnce(cleanImportedDraft)
+    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
+
+    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
+    expect(screen.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy()
+    expect(screen.getByText(`Start value: ${ib2026DashboardGolden.startValue}`)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.timeWeightedReturn)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.netContributions)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.moneyWeightedReturn)).toBeTruthy()
+    expect(screen.getByText((content) => content.includes(ib2026DashboardGolden.statementPeriod))).toBeTruthy()
+    fireEvent.click(screen.getByText('Technology'))
+    expect(screen.getByDisplayValue('SXRV')).toBeTruthy()
+    expect(screen.getByDisplayValue(ib2026DashboardGolden.sxrvValue)).toBeTruthy()
   })
 
   it('shows base and child variant lineage consistently after reload', async () => {

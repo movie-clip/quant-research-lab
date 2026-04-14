@@ -311,6 +311,7 @@ Status note:
 - snapshot-only exposure still renders current-state look-through data, while the frontend now explicitly labels historical diagnostics as unavailable instead of showing a confusing near-empty view
 - exposure engine coverage now includes deterministic tests against real `IB2026.pdf`, `FF2026.pdf`, and `ESPP2026.pdf` snapshots plus a rolling-regression calibration test for the core loading math
 - workspace lineage is now surfaced consistently in Dashboard and Exposure as `base`, `base -> variant`, and `Working Draft · <active lineage>`
+- Dashboard `Add Statement` now creates an immutable imported child snapshot under `base` instead of mutating the existing imported workspace; imported child nodes are named `{short broker} {statement end date}` such as `IB 2026-04-08`
 - diagnostics now supports a history-aware snapshot path, so saved variants and working drafts can render rolling factor/risk sections when workspace history context is available
 - variant/draft historical diagnostics currently use a stable snapshot-history approximation rather than broker-truth replay, which is sufficient for usable rolling factor/risk views but still distinct from imported-base history
 - opening or selecting nodes from Dashboard/Exposure no longer overwrites the rich dashboard analysis state with an exposure-only shell
@@ -318,6 +319,10 @@ Status note:
 - backend import bootstrap orchestration now lives in `import_engine.py`, with bootstrap response assembly in `import_engine_composer.py`
 - shared benchmark summary assembly used by dashboard history now lives in neutral `benchmark_service.py`
 - import-side history window and `PortfolioHistoryContext` derivation now live in dedicated `history_context_builder.py`
+- dashboard sector classification now maps `SXRV` / Nasdaq-100 style holdings to `Technology` instead of `Broad Market`, so Dashboard better reflects concentration risk
+- the repository now has a single Python test runner at `scripts/run_all_tests.py` that regenerates IB2026 dashboard goldens, runs the full backend suite, and runs the full desktop suite
+- Dashboard now has a generated `IB2026.pdf` golden-data path: backend tests validate imported overview/history against broker-truth expectations, desktop tests consume a generated TypeScript golden fixture derived from live backend outputs, and App-level restore/open-node regressions verify the same canonical values survive orchestration flows
+- the current Dashboard accuracy contract is now explicit: imported nodes may show broker-truth history, while snapshot-only/variant flows must be correct or render `unavailable` rather than plausible fabricated history
 
 ### Stage 5. Backtest Engine Refactor
 
@@ -379,6 +384,7 @@ Do not aggressively delete docs before replacement exists. Instead:
 ### Keep and update
 
 - `docs/roadmap.md`
+- `docs/dashboard-field-inventory.md`
 - `README.md`
 - `services/quant-engine/README.md`
 - `apps/desktop/src/features/portfolio/README.md`
@@ -403,6 +409,8 @@ Do not aggressively delete docs before replacement exists. Instead:
 - routes remain thin
 - every engine gets direct unit tests plus one route-level integration test
 - any metric shown in UI must be traceable to one engine response field
+- every Dashboard value should be traceable further: UI field -> app state -> adapter/engine response -> snapshot/import source -> statement truth or explicit `unavailable`
+- `docs/IB2026.pdf` is the current canonical broker-truth fixture for Dashboard financial accuracy work
 
 ## Current Known Accuracy Rule
 
@@ -438,10 +446,11 @@ Current imported-upload contract status:
 
 When implementation resumes, start here:
 
-1. continue route-level and engine-level test coverage for `dashboard-history`, `exposure`, and `diagnostics`
-2. proceed with backtest engine cleanup against explicit snapshot/history inputs
-3. add a local derived-result cache keyed by snapshot and history context
-4. keep trimming legacy-shaped test fixtures so they reflect engine-based runtime contracts
+1. expand the `IB2026.pdf` golden path until every visible Dashboard field is covered and mapped to a traceable provider chain
+2. add App-level snapshot-switch regressions for base/imported/variant transitions, enforcing "correct or unavailable" behavior whenever imported broker-truth history is not valid
+3. continue route-level and engine-level coverage for `dashboard-history`, `exposure`, and `diagnostics`, especially around unavailable-state behavior and imported-history replay correctness
+4. proceed with backtest engine cleanup against explicit snapshot/history inputs after Dashboard financial accuracy is stable
+5. add a local derived-result cache keyed by snapshot and history context only after correctness contracts are locked
 
 Current backend naming status:
 

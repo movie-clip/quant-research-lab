@@ -201,6 +201,7 @@ export function composeDashboardAnalysisFromEngines(exposure: ExposureEngineResp
     source_status: null,
     daily_states: [],
     performance_series: [],
+    range_metrics: null,
   }
 }
 
@@ -214,6 +215,7 @@ export function composeDashboardAnalysisWithHistory(
     source_status: history.source_status ?? null,
     daily_states: history.daily_states,
     performance_series: history.performance_series,
+    range_metrics: history.range_metrics ?? null,
   }
 }
 
@@ -256,6 +258,7 @@ export function buildImportedDashboardView(analysis: ImportedDashboardSource): D
     performance_series: analysis.performance_series,
     daily_states: analysis.daily_states,
     source_status: analysis.source_status ?? null,
+    range_metrics: analysis.range_metrics ?? null,
   }
 }
 

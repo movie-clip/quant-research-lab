@@ -45,6 +45,110 @@ if not STATEMENT_2026_PATH.exists():
     STATEMENT_2026_PATH = Path(r"C:\projects\investments\portfolio\docs\IB2026.pdf")
 
 
+IB2026_DASHBOARD_GOLDEN = {
+    "account_id": "U8516450",
+    "statement_period": "January 1, 2026 - April 13, 2026",
+    "summary": {
+        "start_value": 52386.10,
+        "end_value": 62023.98,
+        "net_contributions": 9963.00,
+        "time_weighted_return_pct": 4.78,
+        "money_weighted_return_pct": -0.62,
+        "max_drawdown_pct": -28.40,
+    },
+    "monthly_returns": [
+        ("2026-01", 5.23),
+        ("2026-02", -6.91),
+        ("2026-03", -3.49),
+        ("2026-04", 10.87),
+    ],
+    "overview": {
+        "total_market_value": 50368.17,
+        "cash_by_currency": {"EUR": 0.0, "GBP": 0.0, "USD": 8896.43},
+        "technology_sector_market_value": 5156.87,
+        "sxrv_market_value": 2466.00,
+        "sxrv_weight": 0.0490,
+        "broad_market_sector": "Broad Market",
+    },
+}
+
+
+def _compute_dashboard_visible_summary(daily_states: list[DailyPortfolioState], performance_series: list) -> dict[str, float | None]:
+    if not daily_states:
+        return {
+            "start_value": None,
+            "end_value": None,
+            "net_contributions": 0.0,
+            "time_weighted_return_pct": None,
+            "money_weighted_return_pct": None,
+        }
+
+    anchor_index = next((index for index, state in enumerate(daily_states) if state.total_portfolio_value > 0), 0)
+    anchored_states = daily_states[anchor_index:]
+    anchor_date = anchored_states[0].date if anchored_states else daily_states[0].date
+    anchored_perf = [point for point in performance_series if point.date >= anchor_date]
+
+    start_value = anchored_states[0].total_portfolio_value if anchored_states else None
+    end_value = daily_states[-1].total_portfolio_value
+    net_contributions = round(sum(state.external_cash_flow for state in anchored_states[1:]), 2) if anchored_states else 0.0
+    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf else None
+
+    money_weighted_return_pct = None
+    if anchored_states and len(anchored_states) >= 2:
+        flow_states = anchored_states[1:]
+        total_flows = sum(state.external_cash_flow for state in flow_states)
+        total_periods = max(len(anchored_states) - 1, 1)
+        weighted_flows = sum(
+            state.external_cash_flow * ((total_periods - index - 1) / total_periods)
+            for index, state in enumerate(flow_states)
+        )
+        start_value_amount = start_value if start_value is not None else 0.0
+        denominator = start_value_amount + weighted_flows
+        if denominator != 0:
+            money_weighted_return_pct = round(((end_value - start_value_amount - total_flows) / denominator) * 100, 2)
+
+    return {
+        "start_value": round(start_value, 2) if start_value is not None else None,
+        "end_value": round(end_value, 2),
+        "net_contributions": net_contributions,
+        "time_weighted_return_pct": time_weighted_return_pct,
+        "money_weighted_return_pct": money_weighted_return_pct,
+    }
+
+
+def _compute_dashboard_monthly_returns(daily_states: list[DailyPortfolioState]) -> list[tuple[str, float]]:
+    anchor_index = next((index for index, state in enumerate(daily_states) if state.total_portfolio_value > 0), 0)
+    anchored_states = daily_states[anchor_index:]
+    if not anchored_states:
+        return []
+
+    grouped: dict[str, list[DailyPortfolioState]] = {}
+    for state in anchored_states:
+        grouped.setdefault(state.date[:7], []).append(state)
+
+    monthly_returns: list[tuple[str, float]] = []
+    for month, month_states in grouped.items():
+        cumulative_growth = 1.0
+        previous_state = None
+        for state in month_states:
+            if previous_state is not None and previous_state.total_portfolio_value != 0:
+                daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_state.total_portfolio_value) - 1
+                cumulative_growth *= 1 + daily_return
+            previous_state = state
+        monthly_returns.append((month, round((cumulative_growth - 1) * 100, 2)))
+    return monthly_returns
+
+
+def _compute_dashboard_max_drawdown(performance_series: list) -> float:
+    peak = 0.0
+    max_drawdown = 0.0
+    for point in performance_series:
+        peak = max(peak, point.portfolio_value)
+        if peak > 0:
+            max_drawdown = min(max_drawdown, ((point.portfolio_value - peak) / peak) * 100)
+    return round(max_drawdown, 2)
+
+
 def _sample_snapshot() -> ImportedPortfolioSnapshot:
     return ImportedPortfolioSnapshot(
         statement=ImportedStatement(
@@ -145,8 +249,8 @@ def test_build_portfolio_overview_classifies_2026_ucits_and_thematic_holdings() 
     assert any(item["symbol"] == "HOOD" for item in overview.sector_position_breakdown["Financials"])
     assert any(item["symbol"] == "IUFS" for item in overview.sector_position_breakdown["Financials"])
     assert any(item["symbol"] == "IUHC" for item in overview.sector_position_breakdown["Health Care"])
-    assert any(item["symbol"] == "BTEC" for item in overview.sector_position_breakdown["Health Care"])
     assert any(item["symbol"] == "DFND" for item in overview.sector_position_breakdown["Defense"])
+    assert any(item["symbol"] == "SXRV" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "VUAA" for item in overview.sector_position_breakdown["Broad Market"])
     assert any(item["symbol"] == "VDST" for item in overview.sector_position_breakdown["Fixed Income"])
 
@@ -176,6 +280,33 @@ def test_attach_snapshot_metadata_classifies_isln_as_commodities() -> None:
 
     assert metadata["ISLN"].sector == "Commodities"
     assert metadata["ISLN"].category == "Commodity UCITS ETF"
+
+
+def test_attach_snapshot_metadata_classifies_sxrv_as_technology() -> None:
+    registry = InstrumentRegistry()
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="sample.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[ImportedInstrument(symbol="SXRV", description="ISHARES NASDAQ 100 USD ACC", currency="EUR", instrument_type="ETF", listing_exchange="IBIS2")],
+        cash_balances=[],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 10), symbol="SXRV", quantity=10.0, cost_basis=100.0, close_price=10.0, market_value=100.0, unrealized_pnl=0.0, currency="EUR")],
+        ledger_entries=[],
+    )
+
+    metadata = registry.attach_snapshot_metadata(snapshot)
+
+    assert metadata["SXRV"].sector == "Technology"
+    assert metadata["SXRV"].category == "Thematic ETF"
 
 
 def test_canonicalize_symbol_normalizes_lse_aliases() -> None:
@@ -304,6 +435,10 @@ def test_run_dashboard_history_engine_returns_unavailable_without_complete_histo
     assert result.performance_series == []
     assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
     assert result.benchmark is None
+    assert result.range_metrics is not None
+    assert result.range_metrics["3M"].summary.start_value is None
+    assert result.range_metrics["3M"].max_drawdown_pct is None
+    assert result.range_metrics["3M"].monthly_returns == []
     market_data.assert_not_called()
 
 
@@ -332,6 +467,8 @@ def test_run_dashboard_history_engine_returns_unavailable_for_snapshot_only_requ
     assert result.benchmark is None
     assert result.daily_states == []
     assert result.performance_series == []
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.start_value is None
     market_data.assert_not_called()
 
 
@@ -493,6 +630,8 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert result.benchmark.symbol == "SPY"
     assert len(result.daily_states) == 2
     assert len(result.performance_series) == 2
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.end_value == result.daily_states[-1].total_portfolio_value
 
 
 def test_build_portfolio_risk_summary_and_position_contributions() -> None:
@@ -1631,10 +1770,50 @@ def test_run_imported_dashboard_history_matches_ib2026_statement_ending_value() 
     result = run_imported_dashboard_history(snapshot, "SPY")
 
     assert snapshot.statement_totals is not None
-    assert round(snapshot.statement_totals.ending_nav or 0, 2) == 61623.07
+    assert round(snapshot.statement_totals.ending_nav or 0, 2) == 62023.98
     assert result.daily_states
-    assert round(result.daily_states[-1].total_portfolio_value, 2) == 61623.07
-    assert round(result.performance_series[-1].portfolio_value, 2) == 61623.07
+    assert round(result.daily_states[-1].total_portfolio_value, 2) == 62023.98
+    assert round(result.performance_series[-1].portfolio_value, 2) == 62023.98
+
+
+def test_ib2026_dashboard_golden_values_match_imported_history_and_overview() -> None:
+    if not STATEMENT_2026_PATH.exists():
+        return
+
+    snapshot = import_statement(STATEMENT_2026_PATH)
+    history = run_imported_dashboard_history(snapshot, "SPY")
+    overview = build_portfolio_overview(snapshot)
+    visible_summary = _compute_dashboard_visible_summary(history.daily_states, history.performance_series)
+    monthly_returns = _compute_dashboard_monthly_returns(history.daily_states)
+    max_drawdown = _compute_dashboard_max_drawdown(history.performance_series)
+
+    assert snapshot.statement.account_id == IB2026_DASHBOARD_GOLDEN["account_id"]
+    assert snapshot.statement.statement_period == IB2026_DASHBOARD_GOLDEN["statement_period"]
+
+    expected_summary = IB2026_DASHBOARD_GOLDEN["summary"]
+    assert visible_summary["start_value"] == expected_summary["start_value"]
+    assert visible_summary["end_value"] == expected_summary["end_value"]
+    assert visible_summary["net_contributions"] == expected_summary["net_contributions"]
+    assert visible_summary["time_weighted_return_pct"] == expected_summary["time_weighted_return_pct"]
+    assert visible_summary["money_weighted_return_pct"] == expected_summary["money_weighted_return_pct"]
+    assert max_drawdown == expected_summary["max_drawdown_pct"]
+    assert history.range_metrics is not None
+    assert round(history.range_metrics["3M"].summary.start_value or 0, 2) == expected_summary["start_value"]
+    assert round(history.range_metrics["3M"].summary.money_weighted_return_pct or 0, 2) == expected_summary["money_weighted_return_pct"]
+    assert round(history.range_metrics["3M"].max_drawdown_pct or 0, 2) == expected_summary["max_drawdown_pct"]
+
+    assert monthly_returns == IB2026_DASHBOARD_GOLDEN["monthly_returns"]
+    assert [(item.month, round(item.return_pct, 2)) for item in history.range_metrics["3M"].monthly_returns] == IB2026_DASHBOARD_GOLDEN["monthly_returns"]
+    assert history.range_metrics["3M"].monthly_returns_reliable is True
+    assert history.source_status == {"performance_history": "live", "monthly_returns": "live"}
+
+    expected_overview = IB2026_DASHBOARD_GOLDEN["overview"]
+    assert overview.total_market_value == expected_overview["total_market_value"]
+    assert overview.cash_by_currency == expected_overview["cash_by_currency"]
+    assert any(item["sector"] == "Technology" and item["market_value"] == expected_overview["technology_sector_market_value"] for item in overview.sector_allocation)
+    assert any(item["sector"] == expected_overview["broad_market_sector"] for item in overview.sector_allocation)
+    assert any(item["symbol"] == "SXRV" and item["market_value"] == expected_overview["sxrv_market_value"] and item["weight"] == expected_overview["sxrv_weight"] for item in overview.sector_position_breakdown["Technology"])
+    assert not any(item["symbol"] == "SXRV" for item in overview.sector_position_breakdown.get("Broad Market", []))
 
 
 def test_performance_series_chain_links_across_deposit_and_withdrawal() -> None:

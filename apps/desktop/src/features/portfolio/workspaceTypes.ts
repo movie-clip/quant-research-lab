@@ -38,6 +38,23 @@ export type PortfolioSnapshot = {
   }
 }
 
+export type ImportedNodeSource = {
+  importedFileNames: string[]
+  importedAt: string
+  importer: ImportedStatementImporter | null
+  baseCurrency: string | null
+  historyContext?: {
+    benchmarkSymbol: string
+    statementPeriod: string | null
+    importedAt: string | null
+    importer: ImportedStatementImporter | null
+    sourceFileNames: string[]
+    historyStartDate: string | null
+    historyEndDate: string | null
+  } | null
+  importedHistorySnapshot?: ImportedSnapshot | null
+}
+
 export type PortfolioWorkspace = {
   id: PortfolioWorkspaceId
   name: string
@@ -45,25 +62,10 @@ export type PortfolioWorkspace = {
   updatedAt: string
   rootNodeId: PortfolioNodeId
   activeNodeId: PortfolioNodeId
-  source: {
-    importedFileNames: string[]
-    importedAt: string
-    importer: ImportedStatementImporter | null
-    baseCurrency: string | null
-    historyContext?: {
-      benchmarkSymbol: string
-      statementPeriod: string | null
-      importedAt: string | null
-      importer: ImportedStatementImporter | null
-      sourceFileNames: string[]
-      historyStartDate: string | null
-      historyEndDate: string | null
-    } | null
-    importedHistorySnapshot?: ImportedSnapshot | null
-  }
+  source: ImportedNodeSource
 }
 
-export type PortfolioNodeKind = 'imported_base' | 'variant'
+export type PortfolioNodeKind = 'imported_base' | 'imported_snapshot' | 'variant'
 
 export type PortfolioNode = {
   id: PortfolioNodeId
@@ -81,6 +83,7 @@ export type PortfolioNode = {
     netCapitalDelta?: number | null
   }
   portfolioSnapshot: PortfolioSnapshot
+  source?: ImportedNodeSource | null
 }
 
 export type WorkingDraft = {

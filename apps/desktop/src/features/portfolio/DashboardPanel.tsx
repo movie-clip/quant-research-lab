@@ -360,11 +360,25 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
     return result.daily_states.filter((state) => visibleDates.has(state.date))
   }, [perf, result])
 
+  const selectedRangeMetrics = result?.range_metrics?.[selectedRange] ?? null
+
   const visibleSummary = useMemo(() => computeVisibleSummary(visibleStates, perf), [perf, visibleStates])
+  const resolvedSummary = selectedRangeMetrics?.summary
+    ? {
+        startValue: selectedRangeMetrics.summary.start_value,
+        endValue: selectedRangeMetrics.summary.end_value,
+        netContributions: selectedRangeMetrics.summary.net_contributions,
+        investmentGain: selectedRangeMetrics.summary.investment_gain,
+        timeWeightedReturnPct: selectedRangeMetrics.summary.time_weighted_return_pct,
+        moneyWeightedReturnPct: selectedRangeMetrics.summary.money_weighted_return_pct,
+        benchmarkReturnPct: selectedRangeMetrics.summary.benchmark_return_pct,
+        excessReturnPct: selectedRangeMetrics.summary.excess_return_pct,
+      }
+    : visibleSummary
   const latestPerf = perf.length ? perf[perf.length - 1] : null
   const displayedPortfolioValue = useMemo(
-    () => resolveDisplayedPortfolioValue(result, visibleSummary.endValue, latestPerf?.portfolio_value ?? null),
-    [latestPerf?.portfolio_value, result, visibleSummary.endValue],
+    () => resolveDisplayedPortfolioValue(result, resolvedSummary.endValue, latestPerf?.portfolio_value ?? null),
+    [latestPerf?.portfolio_value, result, resolvedSummary.endValue],
   )
 
   const normalizedPerf = useMemo(() => normalizePerformanceSeries(perf), [perf])
@@ -381,9 +395,12 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
     const peak = Math.max(...perf.slice(0, index + 1).map((item) => item.portfolio_value))
     return peak > 0 ? ((point.portfolio_value - peak) / peak) * 100 : 0
   })
-  const maxDrawdown = drawdownSeries.length ? Math.min(...drawdownSeries, 0) : 0
-  const monthlyReturns = useMemo(() => computeContributionAdjustedMonthlyReturns(visibleStates), [visibleStates])
-  const monthlyReturnsReliable = useMemo(() => monthlyReturnsAreReliable(monthlyReturns, visibleStates), [monthlyReturns, visibleStates])
+  const maxDrawdown = selectedRangeMetrics?.max_drawdown_pct ?? (drawdownSeries.length ? Math.min(...drawdownSeries, 0) : null)
+  const monthlyReturns = useMemo(
+    () => selectedRangeMetrics?.monthly_returns?.map((item) => ({ month: item.month, returnPct: item.return_pct })) ?? computeContributionAdjustedMonthlyReturns(visibleStates),
+    [selectedRangeMetrics?.monthly_returns, visibleStates],
+  )
+  const monthlyReturnsReliable = selectedRangeMetrics?.monthly_returns_reliable ?? monthlyReturnsAreReliable(monthlyReturns, visibleStates)
   const nextDraftSnapshot = useMemo(() => buildSnapshotFromSectorDraft(draftSnapshot, sectorDraft), [draftSnapshot, sectorDraft])
   const sectorAllocation = useMemo(() => buildSectorAllocationFromSnapshot(nextDraftSnapshot), [nextDraftSnapshot])
   const activeSector = hoveredSector ?? lockedSector
@@ -405,8 +422,8 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
   const contributionBaseSeries = visibleStates.map((state, index) => ({
     date: state.date,
     contributionBase:
-      visibleSummary.startValue != null
-        ? visibleSummary.startValue + visibleStates.slice(1, index + 1).reduce((total, item) => total + item.external_cash_flow, 0)
+      resolvedSummary.startValue != null
+        ? resolvedSummary.startValue + visibleStates.slice(1, index + 1).reduce((total, item) => total + item.external_cash_flow, 0)
         : state.total_portfolio_value,
     portfolioValue: state.total_portfolio_value,
   }))
@@ -563,16 +580,16 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
         <div className="summary-card">
           <p className="stat-label">Portfolio Value</p>
           <p className="summary-value">{formatMoney(displayedPortfolioValue)}</p>
-          <p className="helper">Start value: {formatMoney(visibleSummary.startValue)}</p>
+          <p className="helper">Start value: {formatMoney(resolvedSummary.startValue)}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Time-Weighted Return</p>
-          <p className="summary-value positive-text">{formatPct(visibleSummary.timeWeightedReturnPct)}</p>
+          <p className="summary-value positive-text">{formatPct(resolvedSummary.timeWeightedReturnPct)}</p>
           <p className="helper">Contribution-neutral return for the selected range</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Net Contributions</p>
-          <p className="summary-value">{formatMoney(visibleSummary.netContributions)}</p>
+          <p className="summary-value">{formatMoney(resolvedSummary.netContributions)}</p>
           <p className="helper">Deposits minus withdrawals in the selected range</p>
         </div>
       </div>
@@ -641,7 +658,6 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
         <div className="section-header-inline sector-list-header dashboard-edit-toolbar">
           <div>
             <p className="panel-label">Allocation Overview</p>
-            <p className="helper">Edit the working draft from {activeNodeName ?? 'Base Import'}, preview it in Exposure, then save as an immutable child variant when ready.</p>
           </div>
           <div className="actions dashboard-edit-actions dashboard-edit-actions-global dashboard-edit-actions-compact">
             <input className="path-input dashboard-variant-input" value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="Variant name" />
@@ -699,7 +715,6 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
               <div>
                 <p className="panel-label">Diversification by Sector</p>
               </div>
-              <p className="helper">Hover to preview, click to lock. Draft edits update sector mix before sending the scenario to Exposure.</p>
             </div>
             {sectorAllocation.length ? (
               <div className="sector-legend">
@@ -775,7 +790,7 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
         <section>
           <p className="panel-label">Money-Weighted Return</p>
           <div className="stat drawdown-card">
-            <p className="summary-value">{formatPct(visibleSummary.moneyWeightedReturnPct)}</p>
+              <p className="summary-value">{formatPct(resolvedSummary.moneyWeightedReturnPct)}</p>
             <p className="helper">Modified Dietz style money-weighted return for the selected range.</p>
           </div>
         </section>

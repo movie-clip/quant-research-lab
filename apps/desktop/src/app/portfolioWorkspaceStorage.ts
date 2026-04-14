@@ -1,7 +1,7 @@
 import { appStateStoreName, deletePortfolioDatabase, portfolioNodeStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
-import type { PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 type LegacySessionRecord = {
   id: string
@@ -275,6 +275,54 @@ export async function saveVariantFromDraft(input: { workspaceId: string; draftId
   const workspace = await getWorkspace(input.workspaceId)
   if (!workspace) throw new Error('Workspace not found after saving variant')
   return { node, workspace, workspaceState }
+}
+
+export async function saveImportedSnapshotNode(input: {
+  workspaceId: string
+  parentNodeId: string
+  portfolioSnapshot: PortfolioSnapshot
+  importedFileNames: string[]
+  historyContext?: ImportedNodeSource['historyContext']
+  importedHistorySnapshot?: ImportedSnapshot | null
+  name: string
+}) {
+  const workspace = await getWorkspace(input.workspaceId)
+  if (!workspace) throw new Error('Workspace not found')
+
+  const parentNode = await getNode(input.parentNodeId)
+  if (!parentNode) throw new Error('Parent node not found')
+
+  const source: ImportedNodeSource = {
+    importedFileNames: input.importedFileNames,
+    importedAt: input.portfolioSnapshot.importedMeta.importedAt,
+    importer: input.portfolioSnapshot.importedMeta.importer,
+    baseCurrency: input.portfolioSnapshot.baseCurrency,
+    historyContext: input.historyContext ?? null,
+    importedHistorySnapshot: input.importedHistorySnapshot ?? null,
+  }
+
+  const node: PortfolioNode = {
+    id: createId('node'),
+    workspaceId: input.workspaceId,
+    parentId: input.parentNodeId,
+    kind: 'imported_snapshot',
+    name: input.name,
+    createdAt: input.portfolioSnapshot.importedMeta.importedAt,
+    changeSummary: createChangeSummary(parentNode.portfolioSnapshot, input.portfolioSnapshot, input.name),
+    portfolioSnapshot: input.portfolioSnapshot,
+    source,
+  }
+
+  await withStore<void>(portfolioNodeStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(node)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save imported snapshot node'))
+  })
+
+  const workspaceState = await setActiveNode({ workspaceId: input.workspaceId, nodeId: node.id, createDraftFromNode: true })
+  const nextWorkspace = await getWorkspace(input.workspaceId)
+  if (!nextWorkspace) throw new Error('Workspace not found after saving imported snapshot node')
+  return { node, workspace: nextWorkspace, workspaceState }
 }
 
 export async function clearPortfolioWorkspaceState() {

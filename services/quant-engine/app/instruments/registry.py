@@ -93,6 +93,7 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "PLD": _instrument("equity-pld", "PLD", "Prologis", "equity", "Real Estate", "Equity", "USD"),
     "VNQ": _instrument("etf-vnq", "VNQ", "Vanguard Real Estate ETF", "etf", "Real Estate", "ETF", "USD"),
     "VUAA": _instrument("etf-vuaa", "VUAA", "Vanguard S&P 500 UCITS ETF", "etf", "Broad Market", "Broad Market UCITS ETF", "USD"),
+    "SXRV": _instrument("etf-sxrv", "SXRV", "iShares Nasdaq 100 UCITS ETF", "etf", "Technology", "Thematic UCITS ETF", "EUR"),
     "ISLN": _instrument("etf-isln", "ISLN", "iShares Physical Silver ETC", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
     "SGLD": _instrument("etf-sgld", "SGLD", "Invesco Physical Gold ETC", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
     "ICOM": _instrument("etf-icom", "ICOM", "iShares Diversified Commodity Swap UCITS ETF", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
@@ -180,6 +181,9 @@ class InstrumentRegistry:
             elif "TREAS" in description_upper or "TRBD" in description_upper or "BOND" in description_upper:
                 sector = "Fixed Income"
                 category = "Bond UCITS ETF" if category == "UCITS ETF" else "Bond ETF"
+            elif ("NASDAQ" in description_upper and "100" in description_upper) or "QQQ" in description_upper:
+                sector = "Technology"
+                category = "Thematic UCITS ETF" if category == "UCITS ETF" else "Thematic ETF"
             elif "S&P500" in description_upper or "S&P 500" in description_upper:
                 sector = "Broad Market"
                 category = "Broad Market UCITS ETF" if category == "UCITS ETF" else "Broad Market ETF"

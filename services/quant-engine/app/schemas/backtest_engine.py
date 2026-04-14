@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
-from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, StrategyDefinition
+from app.schemas.research import AllocationRebalanceFrequency, BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, StrategyDefinition
 
 
 class BacktestConfig(BaseModel):
@@ -94,7 +94,6 @@ class OverlayRun(BaseModel):
     notes: str | None = None
 
 
-AllocationRebalanceFrequency = Literal["none", "monthly", "quarterly"]
 AllocationBacktestStatus = Literal["ok", "degraded", "rejected"]
 
 

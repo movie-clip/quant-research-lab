@@ -204,10 +204,11 @@ def _merge_statement_totals(snapshots: list[ImportedPortfolioSnapshot], terminal
     ) if terminal_totals else latest.stock_total
     terminal_ending_nav = round(terminal_cash_total + terminal_stock_total, 2) if terminal_cash_total is not None and terminal_stock_total is not None else latest.ending_nav
 
+    earliest_starting_nav = earliest.starting_nav if earliest is not None else None
     starting_nav_candidates = [total.starting_nav for total in totals if total.starting_nav is not None and total.starting_nav > 0]
 
     return ImportedStatementTotals(
-        starting_nav=starting_nav_candidates[0] if starting_nav_candidates else None,
+        starting_nav=earliest_starting_nav if earliest_starting_nav is not None else (starting_nav_candidates[0] if starting_nav_candidates else None),
         ending_nav=terminal_ending_nav,
         cash_total=terminal_cash_total,
         stock_total=terminal_stock_total,

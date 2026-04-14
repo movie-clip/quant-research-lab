@@ -14,6 +14,7 @@ StrategySide = Literal["long", "short", "both"]
 BacktestFrequency = Literal["1d", "1h", "15m", "5m"]
 RollMethod = Literal["none", "calendar", "volume", "open_interest"]
 DistributionPolicy = Literal["accumulating", "distributing", "unknown"]
+AllocationRebalanceFrequency = Literal["none", "monthly", "quarterly"]
 
 
 class Instrument(BaseModel):
