@@ -29,11 +29,17 @@ Dashboard currently renders from two root inputs:
    - sourced from the active working draft or opened node snapshot in `apps/desktop/src/app/App.tsx`
    - Allocation Overview, sector pie, sector drilldown, draft capital check, and editable holdings come from this path
 
+Broker-truth fixtures in active use today:
+
+- `docs/IB2026.pdf` is the canonical Interactive Brokers fixture for Dashboard golden-value coverage
+- `docs/FF2026.pdf` is the active Freedom24 fixture for 2026 YTD validation and mixed-broker coverage
+
 Important rule:
 
 - imported direct-source history is allowed for imported nodes
 - changed variants or snapshot-only paths must be correct or unavailable
 - Dashboard must not inherit imported broker-truth history for a changed snapshot if that would make numbers look plausible but wrong
+- imported engine routes must also degrade to unavailable when broker-truth replay cannot be supported by benchmark history or usable symbol price history
 
 ## Truth Classes
 
@@ -131,6 +137,7 @@ Important rule:
   - snapshot-only nodes: `runDashboardHistoryEngine(...)` or unavailable
 - origin truth:
   - imported path: broker-truth replay plus engine-derived path math
+  - imported path becomes `unavailable` if benchmark history or usable symbol price history is missing
   - snapshot path: currently limited; must be unavailable when not trustworthy
 
 ### Allocation Overview and draft editing
@@ -148,6 +155,7 @@ Important rule:
 3. Allocation Overview is a draft editor and should be treated as draft-derived, not historical truth.
 4. If cards/chart/history come from one snapshot and allocation comes from another snapshot, Dashboard is internally inconsistent and that is a bug.
 5. If a history-based field cannot be supported faithfully, the UI must render `n/a`, hide the unstable cards, or show an unavailable panel.
+6. Imported history replay is only trustworthy when the broker snapshot and required market-data support are both present; otherwise the result must degrade to `unavailable`.
 
 ## Immediate Follow-up Targets
 
@@ -166,3 +174,5 @@ Important rule:
 - `apps/desktop/src/app/App.test.tsx` now covers imported-base restore, imported child-snapshot open, variant-to-imported-base switching, and imported-child-variant restore where history cards must remain unavailable instead of reusing imported broker-truth dashboard history.
 - `apps/desktop/src/test/ib2026DashboardGolden.ts` is generated from backend output and now uses normalized import timestamps so fixture regeneration does not create timestamp-only diffs.
 - diagnostics/exposure availability semantics remain requirement-oriented: `history_context_required` describes whether the historical sections fundamentally depend on history context, so it can remain `true` even when those sections are successfully available.
+- backend route coverage now includes mixed-broker `IB2026.pdf` + `FF2026.pdf` bootstrap/history-context validation plus imported-route unavailable regressions for empty or unsupported benchmark/symbol market-data conditions.
+- backend analytics coverage now includes direct `FF2026.pdf` imported dashboard truth assertions for summary metrics, monthly returns, and overview composition, similar in spirit to the stronger `IB2026` truth path.

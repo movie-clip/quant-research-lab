@@ -321,11 +321,14 @@ Status note:
 - import-side history window and `PortfolioHistoryContext` derivation now live in dedicated `history_context_builder.py`
 - dashboard sector classification now maps `SXRV` / Nasdaq-100 style holdings to `Technology` instead of `Broad Market`, so Dashboard better reflects concentration risk
 - the repository now has a single Python test runner at `scripts/run_all_tests.py` that regenerates IB2026 dashboard goldens, runs the full backend suite, and runs the full desktop suite
-- Dashboard now has a generated `IB2026.pdf` golden-data path: backend tests validate imported overview/history against broker-truth expectations, desktop tests consume a generated TypeScript golden fixture derived from live backend outputs, and App-level restore/open-node regressions verify the same canonical values survive orchestration flows
+- Dashboard now has a generated `IB2026.pdf` golden-data path: backend tests validate imported overview/history against broker-truth expectations, desktop tests consume a generated TypeScript golden fixture derived from live backend outputs, and App-level restore/open-node regressions verify the same canonical values survive orchestration flows; `FF2026.pdf` is also an important Freedom24 broker-truth fixture for 2026 YTD coverage, mixed-broker validation, and direct imported dashboard truth assertions in backend analytics tests
 - the current Dashboard accuracy contract is now explicit: imported nodes may show broker-truth history, while snapshot-only/variant flows must be correct or render `unavailable` rather than plausible fabricated history
 - desktop Dashboard coverage now includes account/statement fallback states, empty draft allocation states, imported-base restore, imported child-snapshot open, variant-to-base switching, and imported-child-variant restore with unavailable history enforcement
 - the generated `IB2026` golden fixture is now deterministic across runs, with stable normalized import timestamps to avoid timestamp-only diffs
 - diagnostics `availability.history_context_required` is now treated as a requirement flag, not a presence flag: it stays `true` for both available and unavailable historical diagnostics because those sections fundamentally depend on history context
+- backend route coverage now explicitly includes mixed-broker import bootstrap history-context merging plus mixed-broker imported `dashboard-history` and `diagnostics` engine paths under mocked market data
+- backend route coverage now explicitly checks malformed or incomplete imported-history payloads degrade to `unavailable` for both `dashboard-history` and `diagnostics` instead of fabricating history from empty imported inputs
+- imported engine routes now also degrade to `unavailable` when benchmark history or symbol market-data support is effectively missing, rather than returning plausible-looking but unsupported historical outputs
 
 ### Stage 5. Backtest Engine Refactor
 
@@ -414,6 +417,7 @@ Do not aggressively delete docs before replacement exists. Instead:
 - any metric shown in UI must be traceable to one engine response field
 - every Dashboard value should be traceable further: UI field -> app state -> adapter/engine response -> snapshot/import source -> statement truth or explicit `unavailable`
 - `docs/IB2026.pdf` is the current canonical broker-truth fixture for Dashboard financial accuracy work
+- `docs/FF2026.pdf` is the current Freedom24 broker-truth fixture for 2026 YTD validation and mixed-broker coverage; longer Freedom24 history exists beyond 2026, but `FF2026.pdf` is the main local fixture in active test use today
 
 ## Current Known Accuracy Rule
 

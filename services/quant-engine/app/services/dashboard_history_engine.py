@@ -49,6 +49,9 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
         history_end_date,
     )
 
+    if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
+        return _build_unavailable_dashboard_history_result()
+
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
     daily_states = build_daily_portfolio_states(
         snapshot=snapshot,
@@ -62,7 +65,7 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
         daily_states=daily_states,
         performance_series=performance_series,
         source_status={
-            "performance_history": "live" if benchmark_rows and symbol_price_histories else "sample",
+            "performance_history": "live",
             "monthly_returns": "suppressed" if any(state.total_portfolio_value < 0 for state in daily_states) else "live",
         },
         benchmark=build_benchmark_comparison(resolved_benchmark_symbol, benchmark_rows),
@@ -86,6 +89,10 @@ def _derive_imported_history_window(snapshot: ImportedPortfolioSnapshot) -> tupl
     if not dates:
         return None, None
     return min(dates), max(dates)
+
+
+def _has_any_symbol_price_history(symbol_price_histories: dict[str, list[dict]]) -> bool:
+    return any(rows for rows in symbol_price_histories.values())
 
 
 def _build_range_metrics(daily_states, performance_series) -> dict[str, DashboardRangeMetrics]:

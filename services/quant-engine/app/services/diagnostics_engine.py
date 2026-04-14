@@ -209,6 +209,8 @@ def run_diagnostics_engine(request: DiagnosticsEngineRequest) -> DiagnosticsResu
         history_context.history_end_date,
     )
     factor_histories[history_context.benchmark_symbol or request.benchmark_symbol] = benchmark_rows
+    if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
+        return build_unavailable_diagnostics_result(snapshot, history_context.benchmark_symbol or request.benchmark_symbol)
     valuation_dates = sorted({row['date'] for row in benchmark_rows})
     daily_states = _build_synthetic_snapshot_history_states(
         snapshot=snapshot,
@@ -324,6 +326,8 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
     )
     factor_histories = market_data.get_historical_prices_for_symbols(list(FACTOR_PROXY_MAP.values()), history_start_date, history_end_date)
     factor_histories[resolved_benchmark_symbol] = benchmark_rows
+    if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
+        return build_unavailable_diagnostics_result(snapshot, resolved_benchmark_symbol)
     valuation_dates = sorted({row['date'] for row in benchmark_rows})
     daily_states = build_daily_portfolio_states(
         snapshot=snapshot,
@@ -345,3 +349,7 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
         market_overlap=exposure_result.market_overlap,
         lookthrough_sector_exposure=exposure_result.lookthrough_sector_exposure,
     )
+
+
+def _has_any_symbol_price_history(symbol_price_histories: dict[str, list[dict]]) -> bool:
+    return any(rows for rows in symbol_price_histories.values())

@@ -73,6 +73,34 @@ IB2026_DASHBOARD_GOLDEN = {
 }
 
 
+FF2026_DASHBOARD_GOLDEN = {
+    "account_id": "185960",
+    "statement_period": "2025-12-31 - 2026-04-11",
+    "summary": {
+        "start_value": 4033.48,
+        "end_value": 3071.00,
+        "net_contributions": 0.0,
+        "time_weighted_return_pct": -23.86,
+        "money_weighted_return_pct": -23.86,
+        "max_drawdown_pct": -25.30,
+    },
+    "monthly_returns": [
+        ("2025-12", 0.14),
+        ("2026-01", 0.95),
+        ("2026-02", -0.81),
+        ("2026-03", -3.90),
+        ("2026-04", -22.04),
+    ],
+    "overview": {
+        "total_market_value": 3018.96,
+        "cash_by_currency": {"USD": 52.04, "EUR": 0.0},
+        "broad_market_sector": "Broad Market",
+        "vti_market_value": 3018.96,
+        "vti_weight": 1.0,
+    },
+}
+
+
 def _compute_dashboard_visible_summary(daily_states: list[DailyPortfolioState], performance_series: list) -> dict[str, float | None]:
     if not daily_states:
         return {
@@ -1816,6 +1844,46 @@ def test_ib2026_dashboard_golden_values_match_imported_history_and_overview() ->
     assert any(item["sector"] == expected_overview["broad_market_sector"] for item in overview.sector_allocation)
     assert any(item["symbol"] == "SXRV" and item["market_value"] == expected_overview["sxrv_market_value"] and item["weight"] == expected_overview["sxrv_weight"] for item in overview.sector_position_breakdown["Technology"])
     assert not any(item["symbol"] == "SXRV" for item in overview.sector_position_breakdown.get("Broad Market", []))
+
+
+def test_ff2026_dashboard_truth_values_match_imported_history_and_overview() -> None:
+    ff_2026_path = Path(r"C:\projects\investments\portfolio\docs\FF2026.pdf")
+    if not ff_2026_path.exists():
+        return
+
+    snapshot = import_statements([str(ff_2026_path)])
+    history = run_imported_dashboard_history(snapshot, "SPY")
+    overview = build_portfolio_overview(snapshot)
+    visible_summary = _compute_dashboard_visible_summary(history.daily_states, history.performance_series)
+    monthly_returns = _compute_dashboard_monthly_returns(history.daily_states)
+    max_drawdown = _compute_dashboard_max_drawdown(history.performance_series)
+
+    assert snapshot.statement.account_id == FF2026_DASHBOARD_GOLDEN["account_id"]
+    assert snapshot.statement.statement_period == FF2026_DASHBOARD_GOLDEN["statement_period"]
+
+    expected_summary = FF2026_DASHBOARD_GOLDEN["summary"]
+    assert visible_summary["start_value"] == expected_summary["start_value"]
+    assert visible_summary["end_value"] == expected_summary["end_value"]
+    assert visible_summary["net_contributions"] == expected_summary["net_contributions"]
+    assert visible_summary["time_weighted_return_pct"] == expected_summary["time_weighted_return_pct"]
+    assert visible_summary["money_weighted_return_pct"] == expected_summary["money_weighted_return_pct"]
+    assert max_drawdown == expected_summary["max_drawdown_pct"]
+    assert history.range_metrics is not None
+    assert round(history.range_metrics["3M"].summary.start_value or 0, 2) == expected_summary["start_value"]
+    assert round(history.range_metrics["3M"].summary.end_value or 0, 2) == expected_summary["end_value"]
+    assert round(history.range_metrics["3M"].summary.money_weighted_return_pct or 0, 2) == expected_summary["money_weighted_return_pct"]
+    assert round(history.range_metrics["3M"].max_drawdown_pct or 0, 2) == expected_summary["max_drawdown_pct"]
+
+    assert monthly_returns == FF2026_DASHBOARD_GOLDEN["monthly_returns"]
+    assert [(item.month, round(item.return_pct, 2)) for item in history.range_metrics["All"].monthly_returns] == FF2026_DASHBOARD_GOLDEN["monthly_returns"]
+    assert history.range_metrics["All"].monthly_returns_reliable is True
+    assert history.source_status == {"performance_history": "live", "monthly_returns": "live"}
+
+    expected_overview = FF2026_DASHBOARD_GOLDEN["overview"]
+    assert overview.total_market_value == expected_overview["total_market_value"]
+    assert overview.cash_by_currency == expected_overview["cash_by_currency"]
+    assert any(item["sector"] == expected_overview["broad_market_sector"] and item["market_value"] == expected_overview["vti_market_value"] for item in overview.sector_allocation)
+    assert any(item["symbol"] == "VTI" and item["market_value"] == expected_overview["vti_market_value"] and item["weight"] == expected_overview["vti_weight"] for item in overview.sector_position_breakdown["Broad Market"])
 
 
 def test_performance_series_chain_links_across_deposit_and_withdrawal() -> None:
