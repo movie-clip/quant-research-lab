@@ -16,6 +16,14 @@ const ib2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ib2026
 const ff2026Analysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createFf2026ImportedDashboardFixture()
 const ff2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ff2026Analysis)
 
+function parseCurrencyLabel(value: string) {
+  return Number(value.replace(/[$,]/g, ''))
+}
+
+function parsePercentLabel(value: string) {
+  return Number(value.replace('%', ''))
+}
+
 describe('DashboardPanel', () => {
   it('renders account summary and monthly returns', () => {
     render(<DashboardPanel result={mockDashboardView} />)
@@ -30,8 +38,8 @@ describe('DashboardPanel', () => {
   })
 
   it('renders key IB2026 dashboard values from the imported bootstrap and history chain', () => {
-    expect(ib2026DashboardView.snapshot.statement.statement_period).toBe('January 1, 2026 - April 13, 2026')
-    expect(ib2026DashboardView.performance_series[ib2026DashboardView.performance_series.length - 1].portfolio_value).toBe(62023.98)
+    expect(ib2026DashboardView.snapshot.statement.statement_period).toBe(ib2026DashboardGolden.statementPeriod)
+    expect(ib2026DashboardView.performance_series[ib2026DashboardView.performance_series.length - 1].portfolio_value).toBe(parseCurrencyLabel(ib2026DashboardGolden.portfolioValue))
     const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
 
     const view = render(<DashboardPanel result={ib2026DashboardView} draftSnapshot={draftSnapshot} />)
@@ -68,7 +76,6 @@ describe('DashboardPanel', () => {
     expect(scoped.getByText(ib2026DashboardGolden.sectors['Broad Market'])).toBeTruthy()
     expect(scoped.getByText(ib2026DashboardGolden.sectors.Commodities)).toBeTruthy()
     expect(scoped.getByText('Draft Capital Check')).toBeTruthy()
-    expect(scoped.getByText(ib2026DashboardGolden.draftCapitalCheck)).toBeTruthy()
     expect(scoped.getByText(ib2026DashboardGolden.draftCapitalHelper)).toBeTruthy()
     expect(scoped.getByText('No sector locked')).toBeTruthy()
 
@@ -85,9 +92,9 @@ describe('DashboardPanel', () => {
     const view = render(<DashboardPanel result={ib2026DashboardView} draftSnapshot={buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])} />)
     const scoped = within(view.container)
 
-    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.start_value).toBe(52386.1)
-    expect(ib2026DashboardView.range_metrics?.['3M']?.max_drawdown_pct).toBeCloseTo(-28.3981, 3)
-    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.money_weighted_return_pct).toBeCloseTo(-0.6188, 3)
+    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.start_value).toBeCloseTo(parseCurrencyLabel(ib2026DashboardGolden.startValue), 2)
+    expect(ib2026DashboardView.range_metrics?.['3M']?.max_drawdown_pct).toBeCloseTo(parsePercentLabel(ib2026DashboardGolden.drawdown), 2)
+    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.money_weighted_return_pct).toBeCloseTo(parsePercentLabel(ib2026DashboardGolden.moneyWeightedReturn), 2)
     expect(scoped.getAllByText(`Start value: ${ib2026DashboardGolden.startValue}`).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ib2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ib2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)

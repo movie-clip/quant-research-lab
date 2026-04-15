@@ -1,42 +1,28 @@
 import { appStateStoreName, deletePortfolioDatabase, portfolioNodeStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
+import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
-import type { ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
-type LegacySessionRecord = {
-  id: string
-  schemaVersion?: number
-  files: File[]
-  analysis: ImportedPortfolioSnapshotSource
-  factorModel: unknown
-  lastImportedFileNames: string[]
-}
-
-const legacySessionKey = 'portfolio-import-session'
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
-function buildPersistedHistorySource(input: {
-  historyContext?: ImportedNodeSource['historyContext']
+export function buildPersistedImportedSource(input: {
+  importedFileNames: string[]
+  importedAt: string
+  importer: ImportedNodeSource['importer']
+  baseCurrency: string | null
+  historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
-}): ImportedNodeSource['historySource'] {
-  if (input.importedHistorySnapshot) {
-    return {
-      kind: 'imported_replay',
-      historyContext: input.historyContext ?? null,
-      importedHistorySnapshot: input.importedHistorySnapshot,
-    }
-  }
-  if (input.historyContext) {
-    return {
-      kind: 'history_context',
-      historyContext: input.historyContext,
-      importedHistorySnapshot: null,
-    }
-  }
+}): ImportedNodeSource {
   return {
-    kind: 'none',
-    historyContext: null,
-    importedHistorySnapshot: null,
+    importedFileNames: input.importedFileNames,
+    importedAt: input.importedAt,
+    importer: input.importer,
+    baseCurrency: input.baseCurrency,
+    historySource: buildImportedHistorySource({
+      historyContext: input.historyContext ?? null,
+      importedHistorySnapshot: input.importedHistorySnapshot ?? null,
+    }),
   }
 }
 
@@ -67,15 +53,7 @@ export async function createWorkspaceFromImport(input: {
   name?: string
   analysis: ImportedPortfolioSnapshotSource
   importedFileNames: string[]
-  historyContext?: {
-    benchmarkSymbol: string
-    statementPeriod: string | null
-    importedAt: string | null
-    importer: ImportedPortfolioSnapshotSource['snapshot']['statement']['importer'] | null
-    sourceFileNames: string[]
-    historyStartDate: string | null
-    historyEndDate: string | null
-  } | null
+  historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
 }): Promise<{ workspace: PortfolioWorkspace; rootNode: PortfolioNode; draft: WorkingDraft; workspaceState: WorkspaceState }> {
   const portfolioSnapshot = buildPortfolioSnapshotFromAnalysis(input.analysis, input.importedFileNames)
@@ -90,18 +68,14 @@ export async function createWorkspaceFromImport(input: {
     updatedAt: importedAt,
     rootNodeId,
     activeNodeId: rootNodeId,
-    source: {
+    source: buildPersistedImportedSource({
       importedFileNames: input.importedFileNames,
       importedAt,
       importer: portfolioSnapshot.importedMeta.importer,
       baseCurrency: portfolioSnapshot.baseCurrency,
-      historySource: buildPersistedHistorySource({
-        historyContext: input.historyContext ?? null,
-        importedHistorySnapshot: input.importedHistorySnapshot ?? null,
-      }),
       historyContext: input.historyContext ?? null,
       importedHistorySnapshot: input.importedHistorySnapshot ?? null,
-    },
+    }),
   }
   const rootNode: PortfolioNode = {
     id: rootNodeId,
@@ -311,7 +285,7 @@ export async function saveImportedSnapshotNode(input: {
   parentNodeId: string
   portfolioSnapshot: PortfolioSnapshot
   importedFileNames: string[]
-  historyContext?: ImportedNodeSource['historyContext']
+  historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
   name: string
 }) {
@@ -321,18 +295,14 @@ export async function saveImportedSnapshotNode(input: {
   const parentNode = await getNode(input.parentNodeId)
   if (!parentNode) throw new Error('Parent node not found')
 
-  const source: ImportedNodeSource = {
+  const source: ImportedNodeSource = buildPersistedImportedSource({
     importedFileNames: input.importedFileNames,
     importedAt: input.portfolioSnapshot.importedMeta.importedAt,
     importer: input.portfolioSnapshot.importedMeta.importer,
     baseCurrency: input.portfolioSnapshot.baseCurrency,
-    historySource: buildPersistedHistorySource({
-      historyContext: input.historyContext ?? null,
-      importedHistorySnapshot: input.importedHistorySnapshot ?? null,
-    }),
     historyContext: input.historyContext ?? null,
     importedHistorySnapshot: input.importedHistorySnapshot ?? null,
-  }
+  })
 
   const node: PortfolioNode = {
     id: createId('node'),
@@ -382,27 +352,4 @@ export async function getLastOpenedWorkspaceState() {
   })
   if (!pointer) return null
   return getWorkspaceState(pointer.workspaceId)
-}
-
-export async function migrateLegacyImportSession() {
-  const legacyRecord = await withStore<LegacySessionRecord | null>(appStateStoreName, 'readonly', (store, resolve, reject) => {
-    const request = store.get(legacySessionKey)
-    request.onsuccess = () => resolve((request.result as LegacySessionRecord | undefined) ?? null)
-    request.onerror = () => reject(request.error ?? new Error('Failed to load legacy session'))
-  })
-
-  if (!legacyRecord?.analysis) return null
-
-  const workspace = await createWorkspaceFromImport({
-    analysis: legacyRecord.analysis,
-    importedFileNames: legacyRecord.lastImportedFileNames ?? legacyRecord.files?.map((file) => file.name) ?? [],
-  })
-
-  await withStore<void>(appStateStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(legacySessionKey)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to clear legacy session after migration'))
-  })
-
-  return workspace
 }

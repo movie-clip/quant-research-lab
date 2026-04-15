@@ -70,9 +70,7 @@ export type ImportedNodeSource = {
   importedAt: string
   importer: ImportedStatementImporter | null
   baseCurrency: string | null
-  historySource?: ImportedHistorySource | null
-  historyContext?: ImportedHistoryContext | null
-  importedHistorySnapshot?: ImportedSnapshot | null
+  historySource: ImportedHistorySource
 }
 
 export type PortfolioWorkspace = {

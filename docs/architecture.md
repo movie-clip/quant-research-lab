@@ -209,6 +209,14 @@ Saved portfolio variants are immutable child nodes. The visible lineage contract
 
 Engine outputs are recalculated or restored as derived views and are not the persisted truth of the workspace. When the active node or selected exposure snapshot changes, the app refreshes exposure/diagnostics for that selection without replacing the rich dashboard history state already loaded for the workspace. For stability during development and recovery from stale persisted state, the desktop also exposes a hard local IndexedDB reset action.
 
+Persisted imported-history metadata now writes a single `historySource` shape in workspace source metadata. Runtime restore/open-node flow is `historySource`-only; local IndexedDB schema upgrades reset prior workspace caches rather than attempting compatibility reconstruction across removed source shapes. The restore/open-node contract is explicit:
+
+- direct imported nodes may restore broker-truth replay via `historySource.kind = imported_replay`
+- inherited ancestors contribute only `history_context`, not imported replay payloads
+- variants and drafts may reuse historical context for diagnostics/dashboard-history approximation, but must not inherit direct imported replay from an ancestor imported node
+
+The current steady state is a clean `historySource`-only runtime and persistence model. Old local caches are invalidated by the database version/reset path rather than carried forward inside runtime code.
+
 ## MVP Boundary Rules
 
 - UI owns presentation and workflow state

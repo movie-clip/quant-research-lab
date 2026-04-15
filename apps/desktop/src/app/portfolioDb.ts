@@ -1,5 +1,5 @@
 const databaseName = 'portfolio-workstation'
-const databaseVersion = 2
+const databaseVersion = 3
 
 export const appStateStoreName = 'app-state'
 export const workspaceStoreName = 'workspaces'
@@ -29,6 +29,22 @@ export function openPortfolioDatabase() {
 
       request.onupgradeneeded = () => {
         const database = request.result
+
+        if (request.transaction && request.oldVersion < 3) {
+          const storeNames = [
+            appStateStoreName,
+            workspaceStoreName,
+            portfolioNodeStoreName,
+            workingDraftStoreName,
+            workspaceStateStoreName,
+          ]
+
+          for (const storeName of storeNames) {
+            if (database.objectStoreNames.contains(storeName)) {
+              database.deleteObjectStore(storeName)
+            }
+          }
+        }
 
         if (!database.objectStoreNames.contains(appStateStoreName)) {
           database.createObjectStore(appStateStoreName, { keyPath: 'id' })

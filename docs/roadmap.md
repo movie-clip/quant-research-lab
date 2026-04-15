@@ -332,6 +332,28 @@ Status note:
 - backend route coverage now explicitly includes mixed-broker import bootstrap history-context merging plus mixed-broker imported `dashboard-history` and `diagnostics` engine paths under mocked market data
 - backend route coverage now explicitly checks malformed or incomplete imported-history payloads degrade to `unavailable` for both `dashboard-history` and `diagnostics` instead of fabricating history from empty imported inputs
 - imported engine routes now also degrade to `unavailable` when benchmark history or symbol market-data support is effectively missing, rather than returning plausible-looking but unsupported historical outputs
+- persisted workspace source metadata and runtime restore flow are now `historySource`-only
+- restore/open-node/snapshot-selection now allow imported replay only for nodes that directly own imported history; descendant variants inherit only history context so broker-truth replay cannot leak across lineage
+- new workspace/node writes now persist `historySource` only, and the IndexedDB version path resets older local workspace caches instead of preserving removed source shapes in runtime code
+- desktop storage/App tests now lock down current-format persistence and restore behavior without carrying compatibility reconstruction paths
+
+### Deprecated Storage Removal Plan
+
+Goal:
+
+- remove the remaining cleanup-era residue so the project carries only the current persistence contract and a versioned local reset path
+
+Tasks:
+
+- keep database-version resets as the only local-cache invalidation mechanism for removed workspace formats
+- remove any remaining cleanup-era names/messages/tests that imply runtime compatibility reconstruction
+- update docs/tests so they describe only current-format persistence and versioned local reset behavior
+
+Exit criteria:
+
+- no workspace/node runtime code or tests mention removed source fields or compatibility reconstruction paths
+- persistence, restore, and test fixtures are all `historySource`-only
+- local cache invalidation is handled only by database-version reset behavior, not ad hoc runtime scans
 
 ### Stage 5. Backtest Engine Refactor
 

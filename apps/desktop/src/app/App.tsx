@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react'
 
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 import { buildExposureFactorModelResponse } from '../features/portfolio/exposureFactorModel'
+import { canUseImportedReplay, collapseToHistoryContextSource, resolveEffectiveHistorySource } from '../features/portfolio/historySource'
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
 import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
@@ -10,8 +11,8 @@ import { DiagnosticsPanel } from '../features/portfolio/DiagnosticsPanel'
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView } from '../features/portfolio/types'
-import type { ImportedHistorySource, ImportedNodeSource, PortfolioNode, PortfolioWorkspace, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, isDraftDirty, migrateLegacyImportSession, resetLocalPortfolioDatabase, saveDraft, saveImportedSnapshotNode, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft } from '../features/portfolio/workspaceTypes'
+import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, isDraftDirty, resetLocalPortfolioDatabase, saveDraft, saveImportedSnapshotNode, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 
 
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
@@ -52,48 +53,13 @@ function buildImportedSnapshotName(snapshot: ImportedSnapshot) {
   return `${formatShortBrokerName(snapshot.statement.importer)} ${extractStatementEndDate(snapshot)}`
 }
 
-type NormalizedImportSource = Omit<ImportedNodeSource, 'historySource'> & {
-  historySource: ImportedHistorySource
-}
-
-function normalizeHistorySource(source: ImportedNodeSource | null | undefined): ImportedHistorySource {
-  if (source?.historySource) return source.historySource
-  if (source?.importedHistorySnapshot) {
-    return {
-      kind: 'imported_replay',
-      historyContext: source.historyContext ?? null,
-      importedHistorySnapshot: source.importedHistorySnapshot,
-    }
-  }
-  if (source?.historyContext) {
-    return {
-      kind: 'history_context',
-      historyContext: source.historyContext,
-      importedHistorySnapshot: null,
-    }
-  }
-  return {
-    kind: 'none',
-    historyContext: null,
-    importedHistorySnapshot: null,
-  }
-}
-
-function normalizeImportSource(source: ImportedNodeSource | null | undefined): NormalizedImportSource | null {
-  if (!source) return null
-  return {
-    ...source,
-    historySource: normalizeHistorySource(source),
-  }
-}
-
 function getNodeImportSource(node: PortfolioNode | null, workspace: PortfolioWorkspace | null) {
   if (!node) return null
   if (node.kind === 'imported_snapshot') {
-    return normalizeImportSource(node.source ?? null)
+    return node.source ?? null
   }
   if (node.kind === 'imported_base') {
-    return normalizeImportSource(workspace?.source ?? null)
+    return workspace?.source ?? null
   }
   return null
 }
@@ -118,8 +84,8 @@ function getDirectNodeImportSource(node: PortfolioNode | null, workspace: Portfo
 }
 
 function mergeHistoryContext(
-  baseHistoryContext: PortfolioWorkspace['source']['historyContext'] | null | undefined,
-  importedHistoryContext: PortfolioWorkspace['source']['historyContext'] | null | undefined,
+  baseHistoryContext: ImportedHistoryContext | null | undefined,
+  importedHistoryContext: ImportedHistoryContext | null | undefined,
 ) {
   if (!baseHistoryContext) return importedHistoryContext ?? null
   if (!importedHistoryContext) return baseHistoryContext
@@ -133,34 +99,6 @@ function mergeHistoryContext(
     historyStartDate: baseHistoryContext.historyStartDate ?? importedHistoryContext.historyStartDate,
     historyEndDate: importedHistoryContext.historyEndDate ?? baseHistoryContext.historyEndDate,
   }
-}
-
-function canUseImportedDiagnostics(source: ReturnType<typeof getNodeImportSource>) {
-  return source?.historySource.kind === 'imported_replay'
-}
-
-function collapseToHistoryContextSource(source: ReturnType<typeof getNodeImportSource>): ImportedHistorySource {
-  return source?.historySource.historyContext
-    ? {
-        kind: 'history_context',
-        historyContext: source.historySource.historyContext,
-        importedHistorySnapshot: null,
-      }
-    : {
-        kind: 'none',
-        historyContext: null,
-        importedHistorySnapshot: null,
-      }
-}
-
-function resolvePersistedHistorySource(
-  effectiveSource: ReturnType<typeof getNodeImportSource>,
-  directSource: ReturnType<typeof getNodeImportSource>,
-): ImportedHistorySource {
-  if (canUseImportedDiagnostics(directSource)) {
-    return directSource!.historySource
-  }
-  return collapseToHistoryContextSource(effectiveSource)
 }
 
 function buildImportFormData(files: File[]) {
@@ -236,9 +174,9 @@ export function App() {
   ) {
     const [exposure, diagnostics] = await Promise.all([
       runExposureEngine(snapshot),
-      options?.historySource?.kind === 'imported_replay'
-        ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
-        : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? normalizeHistorySource(activeWorkspace?.source).historyContext),
+        options?.historySource?.kind === 'imported_replay'
+          ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
+          : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? activeWorkspace?.source.historySource?.historyContext ?? null),
     ])
     const exposureView = composeExposureView(exposure, diagnostics)
     setExposureAnalysis(exposureView)
@@ -302,11 +240,7 @@ export function App() {
     let active = true
 
     void (async () => {
-      let restoredWorkspaceState = await getLastOpenedWorkspaceState()
-      if (!restoredWorkspaceState) {
-        const migrated = await migrateLegacyImportSession()
-        restoredWorkspaceState = migrated?.workspaceState ?? null
-      }
+      const restoredWorkspaceState = await getLastOpenedWorkspaceState()
 
       if (!active || !restoredWorkspaceState) {
         return
@@ -344,7 +278,7 @@ export function App() {
           await analyzeRestoredSnapshot(
             resolvedSnapshot.snapshot,
             resolvedSnapshot.id,
-            resolvePersistedHistorySource(selectedSource, selectedDirectSource) ?? normalizeHistorySource(workspace.source),
+            resolveEffectiveHistorySource(selectedSource, selectedDirectSource) ?? workspace.source.historySource ?? null,
             workspace.id,
           )
           if (!active) return
@@ -475,7 +409,7 @@ export function App() {
       await analyzeRestoredSnapshot(
         dashboardSnapshot,
         dashboardSnapshotId,
-        resolvePersistedHistorySource(nodeSource, directNodeSource),
+        resolveEffectiveHistorySource(nodeSource, directNodeSource),
         activeWorkspace.id,
       )
     }
@@ -527,7 +461,7 @@ export function App() {
           ? (workspaceNodes.find((item) => item.id === workingDraft.baseNodeId) ?? activeNode)
           : activeNode
         const baseSource = getEffectiveNodeImportSource(baseNode, workspaceNodes, activeWorkspace)
-        const mergedHistoryContext = mergeHistoryContext(baseSource?.historyContext ?? null, importedViews.historyContext)
+        const mergedHistoryContext = mergeHistoryContext(baseSource?.historySource.historyContext ?? null, importedViews.historyContext)
 
         const savedNode = await saveImportedSnapshotNode({
           workspaceId: activeWorkspace.id,
@@ -690,7 +624,7 @@ export function App() {
                     const selectedBaseSource = getEffectiveNodeImportSource(selectedBaseNode, workspaceNodes, activeWorkspace)
                     const selectedBaseDirectSource = getDirectNodeImportSource(selectedBaseNode, activeWorkspace)
                     await analyzeExposureSnapshot(workingDraft.portfolioSnapshot, 'draft', activeWorkspace.id, {
-                      historySource: canUseImportedDiagnostics(selectedBaseDirectSource) && workingDraft.status === 'clean'
+                      historySource: canUseImportedReplay(selectedBaseDirectSource) && workingDraft.status === 'clean'
                         ? (selectedBaseDirectSource?.historySource ?? null)
                         : collapseToHistoryContextSource(selectedBaseSource),
                       preserveDashboardAnalysis: true,
@@ -703,7 +637,7 @@ export function App() {
                   const nodeSource = getEffectiveNodeImportSource(node, workspaceNodes, activeWorkspace)
                   const directNodeSource = getDirectNodeImportSource(node, activeWorkspace)
                   await analyzeExposureSnapshot(node.portfolioSnapshot, snapshotId, activeWorkspace.id, {
-                    historySource: resolvePersistedHistorySource(nodeSource, directNodeSource),
+                    historySource: resolveEffectiveHistorySource(nodeSource, directNodeSource),
                     preserveDashboardAnalysis: true,
                   })
                 })()

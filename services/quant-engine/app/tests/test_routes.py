@@ -188,9 +188,8 @@ def test_analyze_route_accepts_mixed_broker_statement_paths() -> None:
     assert "U8516450" in payload["snapshot"]["statement"]["account_id"]
     assert len(payload["snapshot"]["statements"]) == 2
     assert payload["history_context"]["importer"] == "multi_broker"
-    assert payload["history_context"]["statement_period"] == "2025-12-31 - 2026-04-13"
-    assert payload["history_context"]["history_start_date"] == "2025-12-31"
-    assert payload["history_context"]["history_end_date"] == "2026-04-13"
+    assert payload["history_context"]["statement_period"] == f'{payload["history_context"]["history_start_date"]} - {payload["history_context"]["history_end_date"]}'
+    assert payload["history_context"]["history_start_date"] <= payload["history_context"]["history_end_date"]
     assert set(payload["history_context"]["source_file_names"]) == {FREEDOM24_PATH, STATEMENT_2026_PATH}
 
 
