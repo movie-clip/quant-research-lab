@@ -244,7 +244,7 @@ Not:
 
 ## Architecture Direction
 
-The project should remain engine-based, but product framing should shift from generic portfolio tracker to quant research lab.
+The project should remain engine-based, with product framing centered on a quant research lab.
 
 Target engine families:
 
@@ -414,7 +414,7 @@ This naming should reflect the actual product direction:
 
 Any financially meaningful change must update:
 - methodology strings in code
-- `docs/financial-methodology.md`
+- `docs/finance/financial-methodology.md`
 - relevant field inventory docs
 - tests that lock down formulas and degraded semantics
 

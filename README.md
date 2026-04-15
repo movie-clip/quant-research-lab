@@ -43,13 +43,17 @@ quant-research-lab/
   services/
     quant-engine/           # Python engine for imports, factors, analytics, ranking, and replay
   docs/
-    roadmap.md              # product roadmap
-    technical-quant-roadmap.md
-    financial-methodology.md
-    architecture.md
-    dashboard-field-inventory.md
-    exposure-field-inventory.md
-    backtest-field-inventory.md
+    product/
+      roadmap.md
+      technical-roadmap.md
+    finance/
+      financial-methodology.md
+    architecture/
+      system-architecture.md
+    contracts/
+      dashboard-fields.md
+      exposure-fields.md
+      backtest-fields.md
   scripts/
   data/
 ```
@@ -59,19 +63,19 @@ quant-research-lab/
 The docs folder should stay small and high-signal.
 
 Core docs:
-- `docs/roadmap.md`
+- `docs/product/roadmap.md`
   - product direction and execution order
-- `docs/technical-quant-roadmap.md`
+- `docs/product/technical-roadmap.md`
   - technical implementation roadmap for the quant-lab pivot
-- `docs/financial-methodology.md`
+- `docs/finance/financial-methodology.md`
   - source of truth for financial formulas, assumptions, and implemented methods
-- `docs/architecture.md`
+- `docs/architecture/system-architecture.md`
   - system boundaries, truth classes, engine responsibilities, and provenance rules
-- `docs/dashboard-field-inventory.md`
+- `docs/contracts/dashboard-fields.md`
   - dashboard financial field traceability
-- `docs/exposure-field-inventory.md`
+- `docs/contracts/exposure-fields.md`
   - exposure and diagnostics field traceability
-- `docs/backtest-field-inventory.md`
+- `docs/contracts/backtest-fields.md`
   - backtest and replay field traceability
 
 Rule:
@@ -86,8 +90,8 @@ The project follows these rules:
 - adjusted-close or total-return-aware inputs are required for return-based analytics wherever economically meaningful
 
 See:
-- `docs/financial-methodology.md`
-- `docs/architecture.md`
+- `docs/finance/financial-methodology.md`
+- `docs/architecture/system-architecture.md`
 
 ## Broker Fixtures and Test Inputs
 

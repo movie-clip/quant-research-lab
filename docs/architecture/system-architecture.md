@@ -283,7 +283,7 @@ The current steady state is a clean `historySource`-only runtime and persistence
 ## Documentation Rule
 
 If a financially meaningful formula, methodology, or truth-class assumption changes, update:
-- `docs/financial-methodology.md`
+- `docs/finance/financial-methodology.md`
 - the relevant field inventory document
 - tests that lock the behavior
 

@@ -528,7 +528,7 @@ Key ideas:
 The project has an explicit rule that financially meaningful formulas must be documented and traceable.
 
 Relevant documentation and policy references:
-- `docs/roadmap.md`
+- `docs/product/roadmap.md`
 - `README.md`
 
 Important project rule:

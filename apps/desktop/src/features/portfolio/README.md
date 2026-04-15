@@ -9,7 +9,7 @@ Current contract split:
 - `DiagnosticsPanel` consumes `DiagnosticsEngineResponse`
 - portfolio improvement baseline seeding consumes `PortfolioBaselineView`
 - imported upload responses should be projected into narrower import-specific contracts as early as possible
-- accuracy inventories live in `docs/dashboard-field-inventory.md` and `docs/exposure-field-inventory.md`
+- accuracy inventories live in `docs/contracts/dashboard-fields.md` and `docs/contracts/exposure-fields.md`
 
 Quant-lab direction for this feature:
 - current portfolio truth and intelligence

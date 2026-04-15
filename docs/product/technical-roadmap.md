@@ -2,7 +2,7 @@
 
 ## Goal
 
-Pivot the project from a portfolio analytics app into a local-first quant research lab for personal and systematic investing.
+Evolve the project into a local-first quant research lab for personal and systematic investing.
 
 Recommended naming direction:
 - product: `Quant Research Lab`
