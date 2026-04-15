@@ -1057,6 +1057,44 @@ export type EtfRankingResponse = {
     unknown_metadata_symbols: string[]
     peer_group_unclassified_symbols: string[]
   }
+  request?: {
+    peer_group: string | null
+    universe: string[]
+    benchmark_symbol: string
+    lookback_months: number
+  }
+  effective_inputs?: {
+    effective_peer_group: string | null
+    effective_component_weights: {
+      momentum: number
+      benchmark_relative_strength: number
+      realized_volatility: number
+      downside_volatility: number
+      max_drawdown: number
+      liquidity: number
+      implementation_fit: number
+    }
+    requested_universe: string[]
+    evaluated_universe: string[]
+    excluded_symbols: Array<{
+      symbol: string
+      reason: string
+    }>
+  }
+  run_metadata?: {
+    ranking_id: string
+    methodology_id: string
+    methodology: string
+    as_of_date: string
+    ranking_basis_date: string
+    price_basis: 'close'
+    source_status: {
+      price_history: 'sample' | 'live' | 'mixed'
+      benchmark_history: 'sample' | 'live'
+      holdings_support: 'sample' | 'mixed' | 'unavailable'
+    }
+    confidence: 'high' | 'medium' | 'low'
+  }
   ranked_universe: Array<{
     rank: number
     symbol: string

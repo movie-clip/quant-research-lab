@@ -282,6 +282,37 @@ class EtfRankingWarnings(BaseModel):
     peer_group_unclassified_symbols: list[str] = Field(default_factory=list)
 
 
+class EtfRankingRequestContext(BaseModel):
+    universe: list[str] = Field(default_factory=list)
+    benchmark_symbol: str
+    lookback_months: int
+    prefer_live_data: bool = False
+    peer_group: str | None = None
+    weights: EtfRankingComponentWeights
+
+
+class EtfRankingEffectiveInputs(BaseModel):
+    benchmark_symbol: str
+    lookback_months: int
+    price_basis: Literal["close"] = "close"
+    requested_universe: list[str] = Field(default_factory=list)
+    evaluated_universe: list[str] = Field(default_factory=list)
+    effective_peer_group: str | None = None
+    effective_component_weights: EtfRankingComponentWeights
+    excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)
+
+
+class EtfRankingRunMetadata(BaseModel):
+    ranking_id: str
+    methodology_id: str
+    methodology: str
+    as_of_date: str
+    ranking_basis_date: str
+    price_basis: Literal["close"] = "close"
+    source_status: EtfRankingSourceStatus
+    confidence: Literal["high", "medium", "low"]
+
+
 class EtfRankingResponse(BaseModel):
     ranking_id: str
     title: str
@@ -295,5 +326,8 @@ class EtfRankingResponse(BaseModel):
     effective_component_weights: EtfRankingComponentWeights
     source_status: EtfRankingSourceStatus
     warnings: EtfRankingWarnings
+    request: EtfRankingRequestContext
+    effective_inputs: EtfRankingEffectiveInputs
+    run_metadata: EtfRankingRunMetadata
     ranked_universe: list[EtfRankingRow] = Field(default_factory=list)
     excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)

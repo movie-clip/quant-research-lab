@@ -34,6 +34,19 @@ def test_etf_ranking_route_returns_ranked_universe_and_component_scores() -> Non
     assert payload["effective_peer_group"] is None
     assert payload["source_status"]["price_history"] in {"sample", "live"}
     assert payload["warnings"]["confidence"] in {"high", "medium", "low"}
+    assert payload["request"]["universe"] == ["XLK", "XLF", "XLV", "XLE", "XLI"]
+    assert payload["request"]["benchmark_symbol"] == "SPY"
+    assert payload["request"]["lookback_months"] == 6
+    assert payload["effective_inputs"]["requested_universe"] == ["XLK", "XLF", "XLV", "XLE", "XLI"]
+    assert payload["effective_inputs"]["evaluated_universe"] == [row["symbol"] for row in payload["ranked_universe"]]
+    assert payload["effective_inputs"]["effective_component_weights"] == payload["effective_component_weights"]
+    assert payload["run_metadata"]["ranking_id"] == payload["ranking_id"]
+    assert payload["run_metadata"]["methodology_id"] == "etf_ranking_methodology_v1"
+    assert payload["run_metadata"]["as_of_date"] == payload["as_of_date"]
+    assert payload["run_metadata"]["ranking_basis_date"] == payload["as_of_date"]
+    assert payload["run_metadata"]["price_basis"] == payload["price_basis"]
+    assert payload["run_metadata"]["source_status"] == payload["source_status"]
+    assert payload["run_metadata"]["confidence"] == payload["warnings"]["confidence"]
 
 
 def test_etf_ranking_route_supports_custom_weights() -> None:
@@ -61,6 +74,8 @@ def test_etf_ranking_route_supports_custom_weights() -> None:
     payload = response.json()
     assert payload["effective_component_weights"]["realized_volatility"] == 1.0
     assert payload["effective_component_weights"]["momentum"] == 0.0
+    assert payload["request"]["weights"]["realized_volatility"] == 1.0
+    assert payload["effective_inputs"]["effective_component_weights"]["realized_volatility"] == 1.0
 
 
 def test_etf_ranking_route_rejects_empty_universe() -> None:
@@ -113,9 +128,12 @@ def test_etf_ranking_route_filters_to_requested_peer_group() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["effective_peer_group"] == "Sector UCITS ETF"
+    assert payload["request"]["peer_group"] == "Sector UCITS ETF"
+    assert payload["effective_inputs"]["effective_peer_group"] == "Sector UCITS ETF"
     assert {row["symbol"] for row in payload["ranked_universe"]} == {"IUFS", "IUHC"}
     excluded = next(item for item in payload["excluded_symbols"] if item["symbol"] == "VDST")
     assert excluded["reason"] == "instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF"
+    assert payload["effective_inputs"]["excluded_symbols"] == payload["excluded_symbols"]
 
 
 def test_etf_ranking_route_reports_warnings_for_unknown_metadata_and_unclassified_peer_group_symbols(monkeypatch: MonkeyPatch) -> None:
@@ -166,6 +184,10 @@ def test_etf_ranking_route_reports_warnings_for_unknown_metadata_and_unclassifie
     assert "MYSTERY" in result.warnings.unknown_metadata_symbols
     assert "MYSTERY" in result.warnings.peer_group_unclassified_symbols
     assert any("price history only" in warning for warning in result.warnings.warnings)
+    assert result.request.peer_group == "Sector UCITS ETF"
+    assert result.effective_inputs.evaluated_universe == [row.symbol for row in result.ranked_universe]
+    assert result.run_metadata.methodology_id == "etf_ranking_methodology_v1"
+    assert result.run_metadata.confidence == result.warnings.confidence
 
 
 def test_etf_cross_sectional_momentum_route_returns_rankings_and_curve() -> None:

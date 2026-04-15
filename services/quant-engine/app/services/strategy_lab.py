@@ -9,11 +9,12 @@ from typing import Any, Literal, Mapping
 from app.datasets import DatasetCatalog
 from app.instruments.registry import InstrumentRegistry
 from app.schemas.research import BarRecord
-from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight, EtfRankingComponentScore, EtfRankingComponentWeights, EtfRankingExcludedSymbol, EtfRankingInstrumentContext, EtfRankingResponse, EtfRankingRow, EtfRankingSourceStatus, EtfRankingWarnings, RankingDirection, RankingUnit
+from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight, EtfRankingComponentScore, EtfRankingComponentWeights, EtfRankingEffectiveInputs, EtfRankingExcludedSymbol, EtfRankingInstrumentContext, EtfRankingRequestContext, EtfRankingResponse, EtfRankingRow, EtfRankingRunMetadata, EtfRankingSourceStatus, EtfRankingWarnings, RankingDirection, RankingUnit
 from app.services.market_data import MarketDataService
 
 DEFAULT_ETF_ROTATION_UNIVERSE = ["XLK", "XLF", "XLV", "XLE", "XLI", "QQQ", "IWM"]
 DEFAULT_ETF_ROTATION_BENCHMARK = "SPY"
+ETF_RANKING_METHODOLOGY_ID = "etf_ranking_methodology_v1"
 LIVE_HISTORY_BUFFER_MONTHS = 84
 LIVE_LEADER_CONSTITUENT_LIMIT = 12
 
@@ -357,6 +358,41 @@ def build_etf_ranking_analysis(
         warning_messages.append("Implementation-fit support is not complete across the ranked universe.")
         confidence = "medium" if confidence == "high" else confidence
 
+    source_status = EtfRankingSourceStatus(
+        price_history=base_data.price_history_status,
+        benchmark_history=base_data.price_history_status,
+        holdings_support=holdings_support,
+    )
+    methodology = _build_ranking_methodology(base_data.price_source_label)
+    request_context = EtfRankingRequestContext(
+        universe=symbols,
+        benchmark_symbol=benchmark,
+        lookback_months=lookback_months,
+        prefer_live_data=prefer_live_data,
+        peer_group=peer_group,
+        weights=weights or EtfRankingComponentWeights(),
+    )
+    effective_inputs = EtfRankingEffectiveInputs(
+        benchmark_symbol=benchmark,
+        lookback_months=lookback_months,
+        price_basis="close",
+        requested_universe=symbols,
+        evaluated_universe=[row.symbol for row in rows],
+        effective_peer_group=peer_group,
+        effective_component_weights=effective_weights,
+        excluded_symbols=excluded_symbols,
+    )
+    run_metadata = EtfRankingRunMetadata(
+        ranking_id="etf_ranking_engine_v1",
+        methodology_id=ETF_RANKING_METHODOLOGY_ID,
+        methodology=methodology,
+        as_of_date=benchmark_window.current_date,
+        ranking_basis_date=benchmark_window.current_date,
+        price_basis="close",
+        source_status=source_status,
+        confidence=confidence,
+    )
+
     return EtfRankingResponse(
         ranking_id="etf_ranking_engine_v1",
         title="ETF Ranking Engine",
@@ -364,20 +400,19 @@ def build_etf_ranking_analysis(
         benchmark_symbol=benchmark,
         universe=symbols,
         lookback_months=lookback_months,
-        methodology=_build_ranking_methodology(base_data.price_source_label),
+        methodology=methodology,
         effective_peer_group=peer_group,
         effective_component_weights=effective_weights,
-        source_status=EtfRankingSourceStatus(
-            price_history=base_data.price_history_status,
-            benchmark_history=base_data.price_history_status,
-            holdings_support=holdings_support,
-        ),
+        source_status=source_status,
         warnings=EtfRankingWarnings(
             confidence=confidence,
             warnings=warning_messages,
             unknown_metadata_symbols=sorted(set(unknown_metadata_symbols)),
             peer_group_unclassified_symbols=sorted(set(peer_group_unclassified_symbols)),
         ),
+        request=request_context,
+        effective_inputs=effective_inputs,
+        run_metadata=run_metadata,
         ranked_universe=rows,
         excluded_symbols=excluded_symbols,
     )

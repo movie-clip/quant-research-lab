@@ -2,6 +2,22 @@
 
 This document captures the current backend contract for ETF ranking outputs used by the quant framework work.
 
+The preferred authoritative contract shape is now grouped into:
+- `request`
+- `effective_inputs`
+- `run_metadata`
+
+The legacy top-level ETF ranking fields remain present in slice one for compatibility with the current desktop consumer.
+
+Contract intent:
+- `request` = normalized request intent
+- `effective_inputs` = scoring-truth inputs actually used by the engine
+- `run_metadata` = audit metadata describing run basis and reproducibility boundaries
+
+Reproducibility guardrail:
+- these fields describe only metadata that is truthfully authoritative at runtime today
+- they do not imply persisted run ids, dataset revision ids, holdings snapshot revision ids, execution timestamps, or code version pinning
+
 ## Core Request Fields
 
 Source schema:
@@ -30,18 +46,102 @@ Source schema:
 - component weights for the ranking composite
 - normalized server-side before scoring
 
-## Core Response Fields
+## Preferred Grouped Response Fields
 
 Source schema:
 - `services/quant-engine/app/schemas/research.py`
 
-### `effective_peer_group`
+### `request`
+- normalized request intent fields preserved for audit and downstream presentation
+- current fields:
+  - `universe`
+  - `benchmark_symbol`
+  - `lookback_months`
+  - `prefer_live_data`
+  - `peer_group`
+  - `weights`
+- `universe` is uppercase-normalized server-side before execution
+- `weights` reflect request intent, not necessarily effective scoring truth
+
+### `effective_inputs`
+- engine-applied scoring truth used to produce the ranked output
+- current fields:
+  - `benchmark_symbol`
+  - `lookback_months`
+  - `price_basis`
+  - `requested_universe`
+  - `evaluated_universe`
+  - `effective_peer_group`
+  - `effective_component_weights`
+  - `excluded_symbols`
+
+#### `effective_inputs.requested_universe`
+- uppercase-normalized universe after backend normalization
+
+#### `effective_inputs.evaluated_universe`
+- symbols that were actually ranked after deterministic exclusions
+- should match `ranked_universe[].symbol` in rank order
+
+#### `effective_inputs.effective_peer_group`
 - echoes the applied request-level peer-group filter
 - `null` means no peer-group filter was requested
+- does not imply all ranked symbols had metadata-confirmed membership; warnings may still report unclassified symbols that remained eligible on price-history-only grounds
 
-### `effective_component_weights`
+#### `effective_inputs.effective_component_weights`
 - normalized weights actually used by the engine
-- must be treated as the scoring truth, not the raw request payload
+- must be treated as scoring truth, not the raw request payload
+
+#### `effective_inputs.excluded_symbols[]`
+- deterministic exclusions applied before ranking
+- mirrors the explicit top-level exclusion list for compatibility in slice one
+
+### `run_metadata`
+- run-basis audit metadata that explains how to interpret the result
+- current fields:
+  - `ranking_id`
+  - `methodology_id`
+  - `methodology`
+  - `as_of_date`
+  - `ranking_basis_date`
+  - `price_basis`
+  - `source_status`
+  - `confidence`
+
+#### `run_metadata.methodology_id`
+- stable methodology identifier for contract/audit use
+- current value: `etf_ranking_methodology_v1`
+
+#### `run_metadata.as_of_date`
+- date basis used for the ranking output
+
+#### `run_metadata.ranking_basis_date`
+- currently the same as `as_of_date`
+- split explicitly so later contracts can evolve without reinterpreting `as_of_date`
+
+#### `run_metadata.source_status`
+- explicit run-basis source context already known at runtime
+
+#### `run_metadata.confidence`
+- explicit audit-level copy of ranking confidence
+- mirrors `warnings.confidence` for grouped contract readability in slice one
+
+## Compatibility Top-Level Response Fields
+
+The following top-level fields remain present for current consumers and must remain compatible in this slice:
+- `ranking_id`
+- `title`
+- `as_of_date`
+- `benchmark_symbol`
+- `universe`
+- `lookback_months`
+- `price_basis`
+- `methodology`
+- `effective_peer_group`
+- `effective_component_weights`
+- `source_status`
+- `warnings`
+- `ranked_universe`
+- `excluded_symbols`
 
 ### `ranked_universe[]`
 - ranked eligible rows after deterministic exclusions
@@ -103,6 +203,8 @@ Current explicit exclusion paths include:
 
 ### `warnings`
 - non-fatal contract metadata for interpreting ranking quality
+- warnings remain explicit and separate from `run_metadata`
+- do not move warning interpretation into generic metadata or imply stronger certainty than the engine provides today
 
 #### `warnings.confidence`
 - current values:
@@ -137,7 +239,10 @@ Current implemented ranking formulas in `services/quant-engine/app/services/stra
 
 - ranking is deterministic; no hidden ML or non-deterministic scoring is allowed
 - request-time eligibility and response-time warnings are separate concepts and must not be conflated
+- downstream consumers should prefer `request`, `effective_inputs`, and `run_metadata` as the authoritative grouped shape
+- top-level fields remain a compatibility surface in slice one and should not be treated as the long-term preferred audit shape
 - excluded symbols must remain explicit through `excluded_symbols[]`; do not silently drop them
 - `effective_peer_group` must echo the actual applied filter so downstream consumers can interpret exclusions correctly
 - symbols without metadata may remain eligible if price history is sufficient; this must produce warnings rather than fabricated classification certainty
 - peer-group filtering currently uses instrument category metadata only; do not overstate it as a full mandate-classification system
+- do not imply dataset-version precision, holdings revision precision, persisted run identity, or exact execution-time provenance that the engine does not currently capture

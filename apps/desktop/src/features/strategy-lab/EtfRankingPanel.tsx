@@ -52,6 +52,22 @@ function metricTone(value: number | null | undefined, baseline: number | null | 
   return 'comparison-tone-neutral'
 }
 
+function rankingPeerGroup(result: EtfRankingResponse) {
+  return result.effective_inputs?.effective_peer_group ?? result.effective_peer_group
+}
+
+function rankingConfidence(result: EtfRankingResponse) {
+  return result.run_metadata?.confidence ?? result.warnings.confidence
+}
+
+function rankingSourceStatus(result: EtfRankingResponse) {
+  return result.run_metadata?.source_status ?? result.source_status
+}
+
+function rankingExcludedSymbols(result: EtfRankingResponse) {
+  return result.effective_inputs?.excluded_symbols ?? result.excluded_symbols
+}
+
 export function EtfRankingPanel() {
   const apiBase = useMemo(() => '/api', [])
   const [universe, setUniverse] = useState('IUFS,IUHC,VDST,VUAA')
@@ -65,6 +81,10 @@ export function EtfRankingPanel() {
   const winner = result?.ranked_universe[0] ?? null
   const runnerUp = result?.ranked_universe[1] ?? null
   const winnerExplanation = whyWinnerRows(result)
+  const resolvedPeerGroup = result ? rankingPeerGroup(result) : null
+  const resolvedConfidence = result ? rankingConfidence(result) : null
+  const resolvedSourceStatus = result ? rankingSourceStatus(result) : null
+  const resolvedExcludedSymbols = result ? rankingExcludedSymbols(result) : []
 
   async function runRanking() {
     setLoading(true)
@@ -175,9 +195,9 @@ export function EtfRankingPanel() {
       {result ? (
         <>
           <div className="tab-bar" style={{ justifyContent: 'flex-start', margin: '8px 0 0' }}>
-            <span className="backtest-source-badge">Peer Group: {result.effective_peer_group ?? 'none'}</span>
-            <span className="backtest-source-badge">Confidence: {result.warnings.confidence}</span>
-            <span className="backtest-source-badge">Holdings Support: {result.source_status.holdings_support}</span>
+            <span className="backtest-source-badge">Peer Group: {resolvedPeerGroup ?? 'none'}</span>
+            <span className="backtest-source-badge">Confidence: {resolvedConfidence}</span>
+            <span className="backtest-source-badge">Holdings Support: {resolvedSourceStatus?.holdings_support}</span>
           </div>
 
           <section className="dashboard-bottom-grid">
@@ -195,7 +215,7 @@ export function EtfRankingPanel() {
               </div>
               <div className="strategy-summary-card">
                 <p className="stat-label">Confidence</p>
-                <p className="summary-value">{result.warnings.confidence}</p>
+                <p className="summary-value">{resolvedConfidence}</p>
                 <p className="helper">Check trust before considering a switch</p>
               </div>
               <div className="strategy-summary-card">
@@ -205,8 +225,8 @@ export function EtfRankingPanel() {
               </div>
               <div className="strategy-summary-card strategy-summary-card-risk">
                 <p className="stat-label">Excluded</p>
-                <p className="summary-value">{result.excluded_symbols.length}</p>
-                <p className="helper">{formatCountLabel(result.excluded_symbols.length, 'deterministic exclusion', 'deterministic exclusions')}</p>
+                <p className="summary-value">{resolvedExcludedSymbols.length}</p>
+                <p className="helper">{formatCountLabel(resolvedExcludedSymbols.length, 'deterministic exclusion', 'deterministic exclusions')}</p>
               </div>
               <div className="strategy-summary-card">
                 <p className="stat-label">Top Composite</p>
@@ -229,7 +249,7 @@ export function EtfRankingPanel() {
               <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{result.warnings.warnings.length}</p></div>
               <div className="summary-card"><p className="stat-label">Unknown Metadata</p><p className="summary-value">{result.warnings.unknown_metadata_symbols.length}</p></div>
               <div className="summary-card"><p className="stat-label">Unclassified Peer Group</p><p className="summary-value">{result.warnings.peer_group_unclassified_symbols.length}</p></div>
-              <div className="summary-card"><p className="stat-label">Holdings Support</p><p className="summary-value">{result.source_status.holdings_support}</p></div>
+              <div className="summary-card"><p className="stat-label">Holdings Support</p><p className="summary-value">{resolvedSourceStatus?.holdings_support}</p></div>
             </div>
             <div className="list-table">
               {result.warnings.warnings.length ? result.warnings.warnings.map((warning) => <div className="list-row list-row-wide" key={warning}><span>{warning}</span></div>) : <div className="list-row"><span>No active ranking warnings.</span></div>}
@@ -295,7 +315,7 @@ export function EtfRankingPanel() {
           <section className="dashboard-bottom-grid">
             <div className="section-header-inline sector-list-header"><div><p className="panel-label">Excluded Symbols</p></div><p className="helper">Symbols that were evaluated but not ranked. Exclusions are explicit and never silent.</p></div>
             <div className="list-table">
-              {result.excluded_symbols.length ? result.excluded_symbols.map((item) => <div className="list-row list-row-wide" key={`${item.symbol}-${item.reason}`}><span>{item.symbol}</span><span>{item.reason}</span></div>) : <div className="list-row"><span>No exclusions.</span></div>}
+              {resolvedExcludedSymbols.length ? resolvedExcludedSymbols.map((item) => <div className="list-row list-row-wide" key={`${item.symbol}-${item.reason}`}><span>{item.symbol}</span><span>{item.reason}</span></div>) : <div className="list-row"><span>No exclusions.</span></div>}
             </div>
           </section>
 
