@@ -1,18 +1,19 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createImportedExposureFixture } from '../../test/portfolioFixtures'
+import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
 import { ExposurePanel, sortTooltipPayloadRows } from './ExposurePanel'
 import { composeExposureView } from './portfolioAnalysisAdapter'
-import type { DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedDiagnosticsSource, ImportedExposureFactorModelSource, ImportedExposureSource } from './types'
+import type { DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse } from './types'
 
-const mockAnalysis: ImportedExposureSource & ImportedDiagnosticsSource & ImportedExposureFactorModelSource = createImportedExposureFixture()
+const mockExposureEngineResult: ExposureEngineResponse = createExposureEngineFixture()
+const mockDiagnosticsResult: DiagnosticsEngineResponse = createDiagnosticsEngineFixture()
 
 const mockFactorModel: ExposureFactorModelResponse = {
   benchmark_symbol: 'SPY',
   methodology: 'Orthogonalized rolling ridge factor model using US ETF proxies for market, style, sector, and macro exposures; UCITS symbols are shown separately as EU execution examples.',
   factor_registry: [
-    ...mockAnalysis.factor_registry,
+    ...mockDiagnosticsResult.factor_registry,
     { key: 'value', label: 'Value', category: 'style', us_proxy: 'IVE', target_exposure: 'US value', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IWVL'], mapping_quality: 'medium-high', default_enabled: true, orthogonalization_order: 3, description: 'Value tilt.' },
     { key: 'small_cap', label: 'Small Cap', category: 'style', us_proxy: 'IWM', target_exposure: 'US small cap', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IUSN'], mapping_quality: 'medium-high', default_enabled: true, orthogonalization_order: 4, description: 'Small-cap tilt.' },
     { key: 'technology', label: 'Technology', category: 'sector', us_proxy: 'XLK', target_exposure: 'US technology', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'high', default_enabled: true, orthogonalization_order: 5, description: 'Technology sector.' },
@@ -25,38 +26,10 @@ const mockFactorModel: ExposureFactorModelResponse = {
     { key: 'credit', label: 'Credit', category: 'macro', us_proxy: 'LQD', target_exposure: 'Investment grade credit', primary_mapping: null, alternative_mappings: [], ucits_examples: ['LQDE'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 12, description: 'Credit spread risk.' },
     { key: 'commodities', label: 'Commodities', category: 'macro', us_proxy: 'DBC', target_exposure: 'Broad commodities', primary_mapping: null, alternative_mappings: [], ucits_examples: ['ICOM'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 13, description: 'Commodities basket.' },
   ],
-  statistical_factor_model: mockAnalysis.statistical_factor_model,
+  statistical_factor_model: mockDiagnosticsResult.statistical_factor_model,
 }
 
-  const mockExposureView: ExposureAnalysis = composeExposureView(
-  {
-    snapshot: mockAnalysis.snapshot,
-    overview: mockAnalysis.overview,
-    lookthrough: mockAnalysis.lookthrough,
-    lookthrough_sector_exposure: mockAnalysis.lookthrough_sector_exposure,
-    market_overlap: mockAnalysis.market_overlap,
-  } satisfies ExposureEngineResponse,
-  {
-    snapshot: mockAnalysis.snapshot,
-    risk_summary: mockAnalysis.risk_summary,
-    rolling_risk: mockAnalysis.rolling_risk,
-    relative_risk: mockAnalysis.relative_risk,
-    volatility_regime: mockAnalysis.volatility_regime,
-    factor_exposures: mockAnalysis.factor_exposures,
-    factor_shift_diagnostics: mockAnalysis.factor_shift_diagnostics,
-    risk_contribution_breakdown: mockAnalysis.risk_contribution_breakdown,
-    model_reliability: mockAnalysis.model_reliability,
-    factor_registry: mockAnalysis.factor_registry,
-    factor_methodology: mockAnalysis.factor_methodology,
-    statistical_factor_model: mockAnalysis.statistical_factor_model,
-    stress_scenarios: mockAnalysis.stress_scenarios,
-    availability: {
-      historical_sections_available: true,
-      history_context_required: true,
-      note: null,
-    },
-  } satisfies DiagnosticsEngineResponse,
-)
+const mockExposureView: ExposureAnalysis = composeExposureView(mockExposureEngineResult, mockDiagnosticsResult)
 
 afterEach(() => {
   cleanup()

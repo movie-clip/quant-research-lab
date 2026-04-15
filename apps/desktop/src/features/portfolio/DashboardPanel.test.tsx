@@ -7,13 +7,13 @@ import { createFf2026ImportedDashboardFixture, createIb2026ImportedDashboardFixt
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
 import { buildImportedDashboardView } from './portfolioAnalysisAdapter'
 import { buildPortfolioSnapshotFromAnalysis } from './portfolioSnapshot'
-import type { DashboardAnalysis, ImportedDashboardSource, ImportedPortfolioSnapshotSource } from './types'
+import type { DashboardAnalysis, ImportedDashboardSource } from './types'
 
-const mockAnalysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createImportedDashboardFixture()
+const mockAnalysis: ImportedDashboardSource = createImportedDashboardFixture()
 const mockDashboardView: DashboardAnalysis = buildImportedDashboardView(mockAnalysis)
-const ib2026Analysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createIb2026ImportedDashboardFixture()
+const ib2026Analysis: ImportedDashboardSource = createIb2026ImportedDashboardFixture()
 const ib2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ib2026Analysis)
-const ff2026Analysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createFf2026ImportedDashboardFixture()
+const ff2026Analysis: ImportedDashboardSource = createFf2026ImportedDashboardFixture()
 const ff2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ff2026Analysis)
 
 function parseCurrencyLabel(value: string) {

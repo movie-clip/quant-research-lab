@@ -282,6 +282,47 @@ Status note:
 - import/history-context plumbing is now present on both backend and desktop persistence
 - dashboard historical restore now has a dedicated `dashboard-history` engine path
 - remaining work is coverage expansion plus cleanup of remaining approximation boundaries and contract edges
+- production-grade factor math still needs hardening before Exposure/Diagnostics should be treated as fully decision-grade. The main remaining math tasks are:
+  - guarantee adjusted-close or total-return-equivalent price basis for benchmark and factor return series used by the statistical factor model, and degrade explicitly when unavailable
+  - document and expose factor-order sensitivity in the orthogonalized proxy model instead of treating the ordering as implicit
+  - add stronger model-reliability fields for factor math, including current-window collinearity severity, observation sufficiency, factor-count used, and residual share visibility
+  - distinguish broker-truth historical diagnostics from synthetic snapshot-history diagnostics more explicitly anywhere factor outputs are shown
+  - expand route/engine tests to verify factor math remains stable under adjusted-price inputs, missing-history degradation, and proxy-overlap stress cases
+
+### Stage 3a. Production-Grade Factor Math Hardening
+
+Goal:
+
+- make the factor model and rolling diagnostics financially robust enough for production-grade portfolio interpretation
+
+Tasks:
+
+- require adjusted-close or total-return-equivalent input series for benchmark and ETF factor proxies before computing factor returns
+- add explicit degraded/unavailable handling when factor or benchmark histories lack adjusted-price support
+- surface factor-model assumptions in structured form, including:
+  - return price basis
+  - orthogonalization order
+  - rolling windows used
+  - ridge parameter used
+- add a dedicated model-reliability payload for current factor math, including:
+  - current window used for diagnostics
+  - observation count
+  - factors used vs dropped
+  - current-window max absolute factor correlation
+  - collinearity pair count
+  - residual volatility / residual share
+  - overall status/confidence
+- verify that benchmark alignment does not silently shrink portfolio history without explicit degraded signaling
+- tighten tests around factor overlap cases such as `SPY`/`QQQ`/`XLK` and around missing adjusted-price histories
+- update methodology text and inventory docs whenever factor formulas or assumptions change
+
+Exit criteria:
+
+- factor and benchmark return series used by Exposure/Diagnostics are explicitly total-return-aware or explicitly degraded
+- factor-model assumptions are visible in backend payloads instead of hidden in code only
+- factor outputs shown in UI have a companion reliability/status signal
+- synthetic snapshot-history factor outputs are clearly distinguishable from broker-truth historical diagnostics
+- engine and route tests cover adjusted-price requirements, degradation semantics, and overlapping-proxy stability cases
 
 ### Stage 4. Import Engine Extraction
 
@@ -316,6 +357,7 @@ Status note:
 - Dashboard `Add Statement` now creates an immutable imported child snapshot under `base` instead of mutating the existing imported workspace; imported child nodes are named `{short broker} {statement end date}` such as `IB 2026-04-08`
 - diagnostics now supports a history-aware snapshot path, so saved variants and working drafts can render rolling factor/risk sections when workspace history context is available
 - variant/draft historical diagnostics currently use a stable snapshot-history approximation rather than broker-truth replay, which is sufficient for usable rolling factor/risk views but still distinct from imported-base history
+- factor math on variant/draft historical diagnostics remains useful but should not be treated as broker-truth replay; production UI should keep those truth classes visually distinct when presenting rolling factor outputs
 - opening or selecting nodes from Dashboard/Exposure no longer overwrites the rich dashboard analysis state with an exposure-only shell
 - the desktop now exposes a hard `Reset Local DB` action that deletes the IndexedDB workspace database for maximum local-state recovery
 - backend import bootstrap orchestration now lives in `import_engine.py`, with bootstrap response assembly in `import_engine_composer.py`
@@ -337,23 +379,14 @@ Status note:
 - new workspace/node writes now persist `historySource` only, and the IndexedDB version path resets older local workspace caches instead of preserving removed source shapes in runtime code
 - desktop storage/App tests now lock down current-format persistence and restore behavior without carrying compatibility reconstruction paths
 
-### Deprecated Storage Removal Plan
+### Deprecated Storage Cleanup Status
 
-Goal:
+Completed:
 
-- remove the remaining cleanup-era residue so the project carries only the current persistence contract and a versioned local reset path
-
-Tasks:
-
-- keep database-version resets as the only local-cache invalidation mechanism for removed workspace formats
-- remove any remaining cleanup-era names/messages/tests that imply runtime compatibility reconstruction
-- update docs/tests so they describe only current-format persistence and versioned local reset behavior
-
-Exit criteria:
-
-- no workspace/node runtime code or tests mention removed source fields or compatibility reconstruction paths
-- persistence, restore, and test fixtures are all `historySource`-only
-- local cache invalidation is handled only by database-version reset behavior, not ad hoc runtime scans
+- workspace/node runtime types, persistence, and restore flow are now `historySource`-only
+- removed source-shape reconstruction and legacy import-session restore paths from runtime code
+- local cache invalidation now happens through the IndexedDB version/reset path rather than ad hoc runtime scanning
+- docs/tests now describe current-format persistence and restore behavior instead of compatibility reconstruction
 
 ### Stage 5. Backtest Engine Refactor
 
@@ -443,6 +476,7 @@ Do not aggressively delete docs before replacement exists. Instead:
 - financially meaningful formulas must be documented with their methodology and implementation location; if a formula changes, update both code-level methodology text and the relevant accuracy docs/tests
 - `docs/exposure-field-inventory.md` should stay aligned with actual Exposure formulas, truth classes, and degraded/unavailable semantics
 - `docs/backtest-field-inventory.md` should stay aligned with actual replay metrics, diagnostics provenance, comparison semantics, and implementation assumptions
+- factor-model methodology must document price basis, orthogonalization order, and reliability/degradation semantics whenever those inputs materially affect interpretation
 - `docs/IB2026.pdf` is the current canonical broker-truth fixture for Dashboard financial accuracy work
 - `docs/FF2026.pdf` is the current Freedom24 broker-truth fixture for 2026 YTD validation and mixed-broker coverage; longer Freedom24 history exists beyond 2026, but `FF2026.pdf` is the main local fixture in active test use today
 

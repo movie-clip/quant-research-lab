@@ -1,5 +1,5 @@
 import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, PortfolioBaselineView } from './types'
-import type { PortfolioSnapshot } from './workspaceTypes'
+import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import { DEFAULT_FACTOR_MODEL_METHODOLOGY } from './exposureFactorModel'
 
 type SnapshotAnalysisRequest = {
@@ -23,15 +23,17 @@ type SnapshotAnalysisRequest = {
 }
 
 type DashboardHistoryRequest = SnapshotAnalysisRequest & {
-  history_context: {
-    benchmark_symbol: string
-    statement_period: string | null
-    imported_at: string | null
-    importer: string | null
-    source_file_names: string[]
-    history_start_date: string | null
-    history_end_date: string | null
-  }
+  history_context: EngineHistoryContextRequest
+}
+
+type EngineHistoryContextRequest = {
+  benchmark_symbol: string
+  statement_period: string | null
+  imported_at: string | null
+  importer: string | null
+  source_file_names: string[]
+  history_start_date: string | null
+  history_end_date: string | null
 }
 
 function buildSnapshotAnalysisRequest(snapshot: PortfolioSnapshot): SnapshotAnalysisRequest {
@@ -56,6 +58,18 @@ function buildSnapshotAnalysisRequest(snapshot: PortfolioSnapshot): SnapshotAnal
   }
 }
 
+function buildHistoryContextRequest(historyContext: ImportedHistoryContext): EngineHistoryContextRequest {
+  return {
+    benchmark_symbol: historyContext.benchmarkSymbol,
+    statement_period: historyContext.statementPeriod,
+    imported_at: historyContext.importedAt,
+    importer: historyContext.importer,
+    source_file_names: historyContext.sourceFileNames,
+    history_start_date: historyContext.historyStartDate,
+    history_end_date: historyContext.historyEndDate,
+  }
+}
+
 export async function runExposureEngine(snapshot: PortfolioSnapshot): Promise<ExposureEngineResponse> {
   const response = await fetch('/api/engines/exposure/run', {
     method: 'POST',
@@ -71,29 +85,13 @@ export async function runExposureEngine(snapshot: PortfolioSnapshot): Promise<Ex
   return (await response.json()) as ExposureEngineResponse
 }
 
-export async function runDiagnosticsEngine(snapshot: PortfolioSnapshot, historyContext?: {
-  benchmarkSymbol: string
-  statementPeriod: string | null
-  importedAt: string | null
-  importer: string | null
-  sourceFileNames: string[]
-  historyStartDate: string | null
-  historyEndDate: string | null
-} | null): Promise<DiagnosticsEngineResponse> {
+export async function runDiagnosticsEngine(snapshot: PortfolioSnapshot, historyContext?: ImportedHistoryContext | null): Promise<DiagnosticsEngineResponse> {
   const response = await fetch('/api/engines/diagnostics/run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...buildSnapshotAnalysisRequest(snapshot),
-      history_context: historyContext ? {
-        benchmark_symbol: historyContext.benchmarkSymbol,
-        statement_period: historyContext.statementPeriod,
-        imported_at: historyContext.importedAt,
-        importer: historyContext.importer,
-        source_file_names: historyContext.sourceFileNames,
-        history_start_date: historyContext.historyStartDate,
-        history_end_date: historyContext.historyEndDate,
-      } : null,
+      history_context: historyContext ? buildHistoryContextRequest(historyContext) : null,
     }),
   })
 
@@ -120,26 +118,10 @@ export async function runImportedDiagnosticsEngine(snapshot: ImportedDashboardSo
   return (await response.json()) as DiagnosticsEngineResponse
 }
 
-export async function runDashboardHistoryEngine(snapshot: PortfolioSnapshot, historyContext: {
-  benchmarkSymbol: string
-  statementPeriod: string | null
-  importedAt: string | null
-  importer: string | null
-  sourceFileNames: string[]
-  historyStartDate: string | null
-  historyEndDate: string | null
-}): Promise<DashboardHistoryEngineResponse> {
+export async function runDashboardHistoryEngine(snapshot: PortfolioSnapshot, historyContext: ImportedHistoryContext): Promise<DashboardHistoryEngineResponse> {
   const payload: DashboardHistoryRequest = {
     ...buildSnapshotAnalysisRequest(snapshot),
-    history_context: {
-      benchmark_symbol: historyContext.benchmarkSymbol,
-      statement_period: historyContext.statementPeriod,
-      imported_at: historyContext.importedAt,
-      importer: historyContext.importer,
-      source_file_names: historyContext.sourceFileNames,
-      history_start_date: historyContext.historyStartDate,
-      history_end_date: historyContext.historyEndDate,
-    },
+    history_context: buildHistoryContextRequest(historyContext),
   }
 
   const response = await fetch('/api/engines/dashboard-history/run', {

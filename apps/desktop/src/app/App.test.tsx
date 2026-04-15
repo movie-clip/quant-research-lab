@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedPortfolioViewFixture } from '../test/portfolioFixtures'
+import { createDiagnosticsEngineFixture, createExposureEngineFixture, createFf2026DiagnosticsEngineFixture, createFf2026ExposureEngineFixture, createIb2026DiagnosticsEngineFixture, createIb2026ExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../test/portfolioFixtures'
 import { ff2026DashboardGolden, ff2026ImportedDashboardGoldenFixture } from '../test/ff2026DashboardGolden'
 import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from '../test/ib2026DashboardGolden'
 import { App } from './App'
@@ -12,15 +12,7 @@ import type { ImportedHistoryContext, ImportedNodeSource, PortfolioSnapshot } fr
 const exposurePayload = createExposureEngineFixture()
 const diagnosticsPayload = createDiagnosticsEngineFixture()
 const bootstrapPayload = createImportedBootstrapResponseFixture()
-const dashboardHistoryPayload = (() => {
-  const fixture = createImportedPortfolioViewFixture()
-  return {
-    performance_series: fixture.performance_series,
-    daily_states: fixture.daily_states,
-    source_status: fixture.source_status,
-    benchmark: fixture.benchmark,
-  }
-})()
+const dashboardHistoryPayload = createImportedDashboardHistoryFixture()
 const ib2026DashboardHistoryPayload = {
   performance_series: ib2026ImportedDashboardGoldenFixture.performance_series,
   daily_states: ib2026ImportedDashboardGoldenFixture.daily_states,
@@ -28,17 +20,8 @@ const ib2026DashboardHistoryPayload = {
   benchmark: ib2026ImportedDashboardGoldenFixture.benchmark,
   range_metrics: ib2026ImportedDashboardGoldenFixture.range_metrics,
 }
-const ib2026ExposurePayload = {
-  ...createExposureEngineFixture(),
-  snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
-  overview: ib2026ImportedDashboardGoldenFixture.overview,
-}
-const ib2026DiagnosticsPayload = {
-  ...createDiagnosticsEngineFixture(),
-  snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
-  risk_summary: ib2026ImportedDashboardGoldenFixture.risk_summary,
-  benchmark: ib2026ImportedDashboardGoldenFixture.benchmark,
-}
+const ib2026ExposurePayload = createIb2026ExposureEngineFixture()
+const ib2026DiagnosticsPayload = createIb2026DiagnosticsEngineFixture()
 const ib2026BootstrapPayload = {
   snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
   overview: ib2026ImportedDashboardGoldenFixture.overview,
@@ -60,17 +43,8 @@ const ff2026DashboardHistoryPayload = {
   benchmark: ff2026ImportedDashboardGoldenFixture.benchmark,
   range_metrics: ff2026ImportedDashboardGoldenFixture.range_metrics,
 }
-const ff2026ExposurePayload = {
-  ...createExposureEngineFixture(),
-  snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
-  overview: ff2026ImportedDashboardGoldenFixture.overview,
-}
-const ff2026DiagnosticsPayload = {
-  ...createDiagnosticsEngineFixture(),
-  snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
-  risk_summary: ff2026ImportedDashboardGoldenFixture.risk_summary,
-  benchmark: ff2026ImportedDashboardGoldenFixture.benchmark,
-}
+const ff2026ExposurePayload = createFf2026ExposureEngineFixture()
+const ff2026DiagnosticsPayload = createFf2026DiagnosticsEngineFixture()
 const ff2026BootstrapPayload = {
   snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
   overview: ff2026ImportedDashboardGoldenFixture.overview,

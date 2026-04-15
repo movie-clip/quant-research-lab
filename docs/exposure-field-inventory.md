@@ -225,6 +225,7 @@ Confidence semantics currently mean:
 ## Immediate Follow-up Targets
 
 1. Add field-level inventory for any remaining overlap-adjacent metrics surfaced indirectly through factor tilts or scenario approximations.
+2. Expand the `Sector` factor group in the Exposure panel so the sector-correlation / sector-factor list explicitly includes `XLK`, `XLI`, `XLF`, `XLE`, `XLV`, `XLP`, `XLU`, and `XLY`.
 2. Tighten any remaining Exposure fields that still collapse degraded and unavailable states together.
 3. Add App-level regression coverage for degraded exposure availability messaging if that becomes restore-critical.
 
