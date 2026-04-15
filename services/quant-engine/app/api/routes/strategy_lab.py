@@ -40,6 +40,7 @@ def run_etf_ranking(request: EtfRankingRequest) -> EtfRankingResponse:
             benchmark_symbol=request.benchmark_symbol,
             lookback_months=request.lookback_months,
             prefer_live_data=request.prefer_live_data,
+            peer_group=request.peer_group,
             weights=request.weights,
         )
     except ValueError as exc:

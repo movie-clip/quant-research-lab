@@ -190,13 +190,40 @@ function createImportedStatisticalFactorModelFixture() {
 }
 
 function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImportedSnapshotFixture>) {
+  const drawdownSummary = {
+    current_drawdown_pct: -4.2,
+    max_drawdown_pct: -8.9,
+  }
+  const volatilitySummary = {
+    portfolio_volatility_pct: 18.2,
+    benchmark_volatility_pct: 12.4,
+    downside_volatility_pct: 10.1,
+    tracking_error_pct: 7.2,
+  }
+  const riskConcentrationSummary = {
+    top_1_factor_risk_share: null,
+    top_3_factor_risk_share: null,
+    top_1_position_risk_share: null,
+    top_5_position_risk_share: null,
+    factor_hhi: null,
+    position_hhi: null,
+  }
+
   return {
     snapshot,
+    provenance: {
+      snapshot_basis: 'snapshot_request' as const,
+      historical_basis: 'market_data_history' as const,
+      note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.',
+    },
     availability: {
       historical_sections_available: true,
       history_context_required: true,
       note: null,
     },
+    drawdown_summary: drawdownSummary,
+    volatility_summary: volatilitySummary,
+    risk_concentration_summary: riskConcentrationSummary,
     risk_summary: {
       benchmark_symbol: 'SPY',
       methodology: 'historical regression vs SPY daily returns',
@@ -225,6 +252,10 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
       { factor: 'SPY Overlap', exposure: 0.55, description: 'Look-through share of the portfolio that overlaps SPY constituents when benchmark holdings are available.', basis: 'benchmark_holdings_required' },
       { factor: 'Growth Tilt', exposure: 0.42, description: 'Technology and related growth sleeves.', basis: 'current_state' },
       { factor: 'Technology Tilt', exposure: 0.4, description: 'Look-through allocation to technology equity and technology ETF exposure.', basis: 'current_state' },
+      { factor: 'Consumer Discretionary Tilt', exposure: 0.12, description: 'Look-through allocation to consumer discretionary equity and retail-cyclical exposure.', basis: 'current_state' },
+      { factor: 'Consumer Staples Tilt', exposure: 0.08, description: 'Look-through allocation to defensive consumer staples exposure.', basis: 'current_state' },
+      { factor: 'Health Care Tilt', exposure: 0.06, description: 'Look-through allocation to health care and biotechnology exposure.', basis: 'current_state' },
+      { factor: 'Utilities Tilt', exposure: 0.04, description: 'Look-through allocation to utilities and regulated-infrastructure exposure.', basis: 'current_state' },
     ],
     factor_shift_diagnostics: { methodology: 'm', snapshots: [], largest_positive_shifts_20d: [], largest_negative_shifts_20d: [], largest_absolute_shifts_20d: [], largest_absolute_shifts_60d: [] },
     risk_contribution_breakdown: {
@@ -275,6 +306,25 @@ function createImportedExposureFixture(snapshot: ReturnType<typeof createImporte
       active_share: 0.62,
       portfolio_in_benchmark_weight: 0.55,
       benchmark_covered_weight: 1,
+    },
+    current_state_concentration: {
+      top_positions: [
+        { name: 'AAPL', market_value: 10000, weight: 0.2 },
+        { name: 'MSFT', market_value: 8000, weight: 0.16 },
+        { name: 'JPM', market_value: 12000, weight: 0.24 },
+      ],
+      top_sectors: [
+        { name: 'Technology', market_value: 18000, weight: 0.36 },
+        { name: 'Financials', market_value: 12000, weight: 0.24 },
+      ],
+      top_1_position_weight: 0.24,
+      top_3_position_weight: 0.6,
+      top_5_position_weight: 0.6,
+      top_sector_weight: 0.36,
+      top_3_sector_weight: 0.6,
+      position_hhi: 0.1232,
+      sector_hhi: 0.1872,
+      effective_holdings: 8.12,
     },
     availability: {
       lookthrough_status: 'live',
@@ -450,6 +500,11 @@ export function createIb2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
   return {
     ...createDiagnosticsEngineFixture(),
     snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
+    provenance: {
+      snapshot_basis: 'imported_snapshot',
+      historical_basis: 'imported_portfolio_history',
+      note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
+    },
     risk_summary: ib2026ImportedDashboardGoldenFixture.risk_summary,
     benchmark: ib2026ImportedDashboardGoldenFixture.benchmark,
   }
@@ -467,6 +522,11 @@ export function createFf2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
   return {
     ...createDiagnosticsEngineFixture(),
     snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
+    provenance: {
+      snapshot_basis: 'imported_snapshot',
+      historical_basis: 'imported_portfolio_history',
+      note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
+    },
     risk_summary: ff2026ImportedDashboardGoldenFixture.risk_summary,
     benchmark: ff2026ImportedDashboardGoldenFixture.benchmark,
   }
@@ -490,11 +550,40 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
       instruments: [],
       cash_balances: [],
     },
+    provenance: {
+      snapshot_basis: 'snapshot_request',
+      historical_basis: 'market_data_history',
+      note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.',
+    },
+    drawdown_summary: { current_drawdown_pct: -4.2, max_drawdown_pct: -8.9 },
+    volatility_summary: {
+      portfolio_volatility_pct: 18.2,
+      benchmark_volatility_pct: 12.4,
+      downside_volatility_pct: 10.1,
+      tracking_error_pct: 7.2,
+    },
+    risk_concentration_summary: {
+      top_1_factor_risk_share: 0.52,
+      top_3_factor_risk_share: 0.52,
+      top_1_position_risk_share: 0.55,
+      top_5_position_risk_share: 1,
+      factor_hhi: 0.27,
+      position_hhi: 0.51,
+    },
     risk_summary: { benchmark_symbol: 'SPY', methodology: 'm', start_date: null, end_date: null, observations: 0, portfolio_beta: null, portfolio_correlation: null, r_squared: null, portfolio_volatility_pct: null, benchmark_volatility_pct: null },
     rolling_risk: [],
     relative_risk: { benchmark_symbol: 'SPY', tracking_error_pct: null, active_return_pct: null, information_ratio: null },
     volatility_regime: { methodology: 'm', assumptions: { return_basis: 'time_weighted_daily_return', cash_flow_timing: 'external_cash_flow_applied_before_end_of_day_measurement', drawdown_basis: 'compounded_return_index', benchmark_basis: 'aligned_daily_price_return', downside_mar: 0, annualization_days: 252 }, rolling_series: [], snapshot: { realized_vol_20d: null, realized_vol_60d: null, realized_vol_252d: null, downside_vol_20d: null, downside_vol_60d: null, downside_vol_252d: null, benchmark_vol_20d: null, benchmark_vol_60d: null, benchmark_vol_252d: null, tracking_error_20d: null, tracking_error_60d: null, tracking_error_252d: null, current_drawdown_pct: null, max_drawdown_pct: null, vol_ratio_20_60: null, vol_ratio_20_252: null, current_20d_vol_percentile: null }, regime: { label: 'normal', confidence: 'low' } },
-    factor_exposures: [],
+    factor_exposures: [
+      { factor: 'Market', exposure: null, description: 'Historical broad-market beta versus SPY.', basis: 'historical_benchmark_relative' },
+      { factor: 'SPY Overlap', exposure: null, description: 'Look-through share of the portfolio that overlaps SPY constituents when benchmark holdings are available.', basis: 'benchmark_holdings_required' },
+      { factor: 'Growth Tilt', exposure: 0.42, description: 'Technology, communication services, and consumer discretionary sleeve weight.', basis: 'current_state' },
+      { factor: 'Technology Tilt', exposure: 0.4, description: 'Look-through allocation to technology equity and technology ETF exposure.', basis: 'current_state' },
+      { factor: 'Consumer Discretionary Tilt', exposure: 0.12, description: 'Look-through allocation to consumer discretionary equity and retail-cyclical exposure.', basis: 'current_state' },
+      { factor: 'Consumer Staples Tilt', exposure: 0.08, description: 'Look-through allocation to defensive consumer staples exposure.', basis: 'current_state' },
+      { factor: 'Health Care Tilt', exposure: 0.06, description: 'Look-through allocation to health care and biotechnology exposure.', basis: 'current_state' },
+      { factor: 'Utilities Tilt', exposure: 0.04, description: 'Look-through allocation to utilities and regulated-infrastructure exposure.', basis: 'current_state' },
+    ],
     factor_shift_diagnostics: { methodology: 'm', snapshots: [{ key: 'market', label: 'Market', us_proxy: 'SPY', category: 'market', current_loading_20d: 1.1, current_loading_60d: 1.0, current_loading_252d: null, change_20d: 0.3, change_60d: null, abs_change_20d: 0.3, abs_change_60d: null, stability_gap_20d_60d: 0.1, stability_gap_60d_252d: null, available_windows_count: 2, shift_flag_20d: true, shift_flag_60d: false, stability_flag: false, collinearity_flag: false, volatility_flag: true, confidence: 'medium' }], largest_positive_shifts_20d: [{ key: 'market', label: 'Market', us_proxy: 'SPY', current_loading: 1.1, change_value: 0.3, absolute_change: 0.3 }], largest_negative_shifts_20d: [], largest_absolute_shifts_20d: [{ key: 'market', label: 'Market', us_proxy: 'SPY', current_loading: 1.1, change_value: 0.3, absolute_change: 0.3 }], largest_absolute_shifts_60d: [] },
     risk_contribution_breakdown: { methodology: 'm', window_days: 60, observation_count: 60, status: 'ok', factor_contributions: [{ key: 'market', label: 'Market', us_proxy: 'SPY', loading: 1.1, factor_volatility: 12.4, variance_contribution: 0.0123, risk_share: 0.52 }], factor_total_variance: 0.0123, specific_variance: 0.0031, total_variance: 0.0154, factor_risk_share_total: 0.7987, specific_risk_share: 0.2013, residual_volatility: 8.4, position_contributions: [{ symbol: 'AAPL', weight: 0.5, volatility: 20.2, marginal_contribution: 0.0123, component_contribution: 0.0061, risk_share: 0.55 }], concentration: { top_1_factor_risk_share: 0.52, top_3_factor_risk_share: 0.52, top_1_position_risk_share: 0.55, top_5_position_risk_share: 1, factor_hhi: 0.27, position_hhi: 0.51 } },
     model_reliability: { window_days: 60, observation_count: 60, r_squared: 0.66, residual_volatility: 8.4, collinearity_pair_count: 1, max_abs_factor_correlation: 0.89, factor_count_used: 5, missing_factor_count: 7, status: 'ok', confidence: 'medium', stability_score: 0.87 },

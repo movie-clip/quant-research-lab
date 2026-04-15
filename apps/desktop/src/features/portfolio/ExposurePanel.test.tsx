@@ -21,10 +21,13 @@ const mockFactorModel: ExposureFactorModelResponse = {
     { key: 'health_care', label: 'Health Care', category: 'sector', us_proxy: 'XLV', target_exposure: 'US health care', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IUHC'], mapping_quality: 'medium-high', default_enabled: true, orthogonalization_order: 7, description: 'Health care sector.' },
     { key: 'energy', label: 'Energy', category: 'sector', us_proxy: 'XLE', target_exposure: 'US energy', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IUES'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 8, description: 'Energy sector.' },
     { key: 'industrials', label: 'Industrials', category: 'sector', us_proxy: 'XLI', target_exposure: 'US industrials', primary_mapping: null, alternative_mappings: [], ucits_examples: ['EXH1'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 9, description: 'Industrials sector.' },
-    { key: 'rates_ief', label: '1-3Y Rates', category: 'macro', us_proxy: 'IEF', target_exposure: 'Intermediate rates', primary_mapping: null, alternative_mappings: [], ucits_examples: ['VDST'], mapping_quality: 'medium-high', default_enabled: false, orthogonalization_order: 10, description: 'Intermediate duration rates.' },
-    { key: 'rates_tlt', label: 'Long Rates', category: 'macro', us_proxy: 'TLT', target_exposure: 'Long rates', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IDTL'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 11, description: 'Long duration rates.' },
-    { key: 'credit', label: 'Credit', category: 'macro', us_proxy: 'LQD', target_exposure: 'Investment grade credit', primary_mapping: null, alternative_mappings: [], ucits_examples: ['LQDE'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 12, description: 'Credit spread risk.' },
-    { key: 'commodities', label: 'Commodities', category: 'macro', us_proxy: 'DBC', target_exposure: 'Broad commodities', primary_mapping: null, alternative_mappings: [], ucits_examples: ['ICOM'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 13, description: 'Commodities basket.' },
+    { key: 'consumer_staples', label: 'Consumer Staples', category: 'sector', us_proxy: 'XLP', target_exposure: 'US consumer staples', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 10, description: 'Consumer staples sector.' },
+    { key: 'utilities', label: 'Utilities', category: 'sector', us_proxy: 'XLU', target_exposure: 'US utilities', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 11, description: 'Utilities sector.' },
+    { key: 'consumer_discretionary', label: 'Consumer Discretionary', category: 'sector', us_proxy: 'XLY', target_exposure: 'US consumer discretionary', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 12, description: 'Consumer discretionary sector.' },
+    { key: 'rates_ief', label: '1-3Y Rates', category: 'macro', us_proxy: 'IEF', target_exposure: 'Intermediate rates', primary_mapping: null, alternative_mappings: [], ucits_examples: ['VDST'], mapping_quality: 'medium-high', default_enabled: false, orthogonalization_order: 13, description: 'Intermediate duration rates.' },
+    { key: 'rates_tlt', label: 'Long Rates', category: 'macro', us_proxy: 'TLT', target_exposure: 'Long rates', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IDTL'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 14, description: 'Long duration rates.' },
+    { key: 'credit', label: 'Credit', category: 'macro', us_proxy: 'LQD', target_exposure: 'Investment grade credit', primary_mapping: null, alternative_mappings: [], ucits_examples: ['LQDE'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 15, description: 'Credit spread risk.' },
+    { key: 'commodities', label: 'Commodities', category: 'macro', us_proxy: 'DBC', target_exposure: 'Broad commodities', primary_mapping: null, alternative_mappings: [], ucits_examples: ['ICOM'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 16, description: 'Commodities basket.' },
   ],
   statistical_factor_model: mockDiagnosticsResult.statistical_factor_model,
 }
@@ -65,6 +68,9 @@ describe('ExposurePanel', () => {
   it('renders volatility regime metrics and n/a values', () => {
     render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
 
+    expect(screen.getByText('Historical diagnostics live')).toBeTruthy()
+    expect(screen.getByText('Look-through live')).toBeTruthy()
+    expect(screen.getByText('Overlap live')).toBeTruthy()
     expect(screen.getByText('Volatility')).toBeTruthy()
     expect(screen.getByText('Drawdown')).toBeTruthy()
     expect(screen.getByText('Benchmark Sensitivity')).toBeTruthy()
@@ -120,13 +126,18 @@ describe('ExposurePanel', () => {
     render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
 
     expect(screen.getByText('Broad Market Risk')).toBeTruthy()
+    expect(screen.getByText('Current-State Concentration')).toBeTruthy()
+    expect(screen.getByText(/Snapshot holdings concentration only; separate from history-derived diagnostics risk concentration./)).toBeTruthy()
+    expect(screen.getByText('Top Positions')).toBeTruthy()
+    expect(screen.getByText('Top Sectors')).toBeTruthy()
+    expect(screen.getByText('24.00%')).toBeTruthy()
     expect(screen.getByText('Current-State Overlap')).toBeTruthy()
     expect(screen.getByText('Historical Benchmark Risk')).toBeTruthy()
     expect(screen.getByText(/Historical benchmark-relative diagnostics path for sensitivity, active risk, realized volatility, and current regime/)).toBeTruthy()
     expect(screen.getByText(/Historical broad-market sensitivity aligned with the drawdown horizon/)).toBeTruthy()
     expect(screen.getByText('Actual Exposure')).toBeTruthy()
     expect(screen.getByText('Look-Through Sectors')).toBeTruthy()
-    expect(screen.getByText('AAPL')).toBeTruthy()
+    expect(screen.getAllByText('AAPL').length).toBeGreaterThan(0)
     expect(screen.getByText('62.00%')).toBeTruthy()
     expect(screen.getByText(/Constituent Coverage 100.00%/)).toBeTruthy()
   })
@@ -139,6 +150,24 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Broad Market Selloff')).toBeTruthy()
     expect(screen.getAllByText('SPY Overlap').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Growth Tilt').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Consumer Discretionary Tilt').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Consumer Staples Tilt').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Utilities Tilt').length).toBeGreaterThan(0)
+  })
+
+  it('shows the expanded sector factor set when filtering to sectors', () => {
+    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Sectors' })[0])
+
+    expect(screen.getAllByText(/Technology/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Financials/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Health Care/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Energy/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Industrials/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Consumer Staples/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Utilities/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Consumer Discretionary/).length).toBeGreaterThan(0)
   })
 
   it('renders reliability and collinearity diagnostics', () => {
@@ -187,6 +216,7 @@ describe('ExposurePanel', () => {
     )
 
     expect(screen.getByText('Current exposure is available, but historical diagnostics are unavailable for this snapshot.')).toBeTruthy()
+    expect(screen.getByText('Historical diagnostics unavailable')).toBeTruthy()
     expect(screen.getByText('Actual Exposure')).toBeTruthy()
     expect(screen.getByText(/Historical broad-market beta versus SPY\. Currently unavailable because historical diagnostics are unavailable for this snapshot\./)).toBeTruthy()
     expect(screen.getByText(/Historical benchmark-relative diagnostics path for sensitivity, active risk, realized volatility, and current regime/)).toBeTruthy()
@@ -215,6 +245,8 @@ describe('ExposurePanel', () => {
     )
 
     expect(screen.getByText('Look-through confidence is medium; benchmark overlap confidence is low; historical diagnostics confidence is high.')).toBeTruthy()
+    expect(screen.getByText('Look-through partial')).toBeTruthy()
+    expect(screen.getByText('Overlap unavailable')).toBeTruthy()
     expect(screen.getByText(/benchmark composition could not be loaded/i)).toBeTruthy()
     expect(screen.getByText(/partial ETF resolution/i)).toBeTruthy()
     expect(screen.getByText(/Current-state overlap is shown separately from historical benchmark-risk diagnostics/)).toBeTruthy()

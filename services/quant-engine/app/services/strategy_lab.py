@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from math import sqrt
+from math import log, sqrt
+from statistics import median
 from typing import Any, Literal, Mapping
 
 from app.datasets import DatasetCatalog
 from app.instruments.registry import InstrumentRegistry
 from app.schemas.research import BarRecord
-from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight, EtfRankingComponentScore, EtfRankingComponentWeights, EtfRankingExcludedSymbol, EtfRankingInstrumentContext, EtfRankingResponse, EtfRankingRow, EtfRankingSourceStatus, RankingDirection, RankingUnit
+from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight, EtfRankingComponentScore, EtfRankingComponentWeights, EtfRankingExcludedSymbol, EtfRankingInstrumentContext, EtfRankingResponse, EtfRankingRow, EtfRankingSourceStatus, EtfRankingWarnings, RankingDirection, RankingUnit
 from app.services.market_data import MarketDataService
 
 DEFAULT_ETF_ROTATION_UNIVERSE = ["XLK", "XLF", "XLV", "XLE", "XLI", "QQQ", "IWM"]
@@ -211,6 +212,7 @@ def build_etf_ranking_analysis(
     benchmark_symbol: str = DEFAULT_ETF_ROTATION_BENCHMARK,
     lookback_months: int = 6,
     prefer_live_data: bool = False,
+    peer_group: str | None = None,
     weights: EtfRankingComponentWeights | None = None,
 ) -> EtfRankingResponse:
     symbols = [symbol.upper() for symbol in (universe or DEFAULT_ETF_ROTATION_UNIVERSE)]
@@ -236,7 +238,24 @@ def build_etf_ranking_analysis(
     raw_metrics: list[_RankingRawMetrics] = []
     excluded_symbols: list[EtfRankingExcludedSymbol] = []
     holdings_supported = 0
+    normalized_peer_group = peer_group.strip().lower() if peer_group else None
+    unknown_metadata_symbols: list[str] = []
+    peer_group_unclassified_symbols: list[str] = []
     for symbol in symbols:
+        instrument = instrument_registry.get_instrument(symbol)
+        if instrument is not None and instrument.asset_class != "etf":
+            excluded_symbols.append(EtfRankingExcludedSymbol(symbol=symbol, reason=f"instrument metadata marks {symbol} as {instrument.asset_class}, not etf"))
+            continue
+        if instrument is None:
+            unknown_metadata_symbols.append(symbol)
+        if normalized_peer_group is not None and instrument is not None:
+            instrument_group = (instrument.category or "").strip().lower()
+            if instrument_group != normalized_peer_group:
+                excluded_symbols.append(EtfRankingExcludedSymbol(symbol=symbol, reason=f"instrument category {instrument.category or 'unknown'} does not match requested peer group {peer_group}"))
+                continue
+        elif normalized_peer_group is not None and instrument is None:
+            peer_group_unclassified_symbols.append(symbol)
+
         window = _build_ranking_window_for_symbol_against_benchmark(
             symbol=symbol,
             bars=bars_by_symbol.get(symbol, []),
@@ -270,16 +289,17 @@ def build_etf_ranking_analysis(
 
     effective_weights = (weights or EtfRankingComponentWeights()).normalized()
     component_specs: dict[str, tuple[str, RankingDirection, RankingUnit]] = {
-        "momentum": ("Trailing return", "higher_is_better", "pct"),
+        "momentum": ("Blended momentum", "higher_is_better", "pct"),
         "benchmark_relative_strength": ("Benchmark-relative strength", "higher_is_better", "pct"),
         "realized_volatility": ("Realized volatility", "lower_is_better", "pct"),
         "downside_volatility": ("Downside volatility", "lower_is_better", "pct"),
         "max_drawdown": ("Max drawdown", "lower_is_better", "pct"),
-        "liquidity": ("Average volume", "higher_is_better", "volume"),
+        "liquidity": ("Median dollar volume", "higher_is_better", "score"),
         "implementation_fit": ("Implementation fit", "higher_is_better", "score"),
     }
     rows: list[EtfRankingRow] = []
     for metrics in raw_metrics:
+        instrument = instrument_registry.get_instrument(metrics.symbol)
         component_scores: dict[str, EtfRankingComponentScore] = {}
         composite_score = 0.0
         for key, (label, direction, raw_unit) in component_specs.items():
@@ -298,7 +318,6 @@ def build_etf_ranking_analysis(
                 weighted_score=round(weighted_score, 4),
             )
 
-        instrument = instrument_registry.get_instrument(metrics.symbol)
         rows.append(
             EtfRankingRow(
                 rank=0,
@@ -326,6 +345,18 @@ def build_etf_ranking_analysis(
     elif holdings_supported > 0:
         holdings_support = "mixed"
 
+    warning_messages: list[str] = []
+    confidence: Literal["high", "medium", "low"] = "high"
+    if unknown_metadata_symbols:
+        warning_messages.append("Some symbols lack instrument metadata and remain eligible based on price history only.")
+        confidence = "medium"
+    if normalized_peer_group is not None and peer_group_unclassified_symbols:
+        warning_messages.append("Some symbols could not be classified into the requested peer group and remain eligible based on price history only.")
+        confidence = "medium" if confidence == "high" else confidence
+    if holdings_support != "sample":
+        warning_messages.append("Implementation-fit support is not complete across the ranked universe.")
+        confidence = "medium" if confidence == "high" else confidence
+
     return EtfRankingResponse(
         ranking_id="etf_ranking_engine_v1",
         title="ETF Ranking Engine",
@@ -334,11 +365,18 @@ def build_etf_ranking_analysis(
         universe=symbols,
         lookback_months=lookback_months,
         methodology=_build_ranking_methodology(base_data.price_source_label),
+        effective_peer_group=peer_group,
         effective_component_weights=effective_weights,
         source_status=EtfRankingSourceStatus(
             price_history=base_data.price_history_status,
             benchmark_history=base_data.price_history_status,
             holdings_support=holdings_support,
+        ),
+        warnings=EtfRankingWarnings(
+            confidence=confidence,
+            warnings=warning_messages,
+            unknown_metadata_symbols=sorted(set(unknown_metadata_symbols)),
+            peer_group_unclassified_symbols=sorted(set(peer_group_unclassified_symbols)),
         ),
         ranked_universe=rows,
         excluded_symbols=excluded_symbols,
@@ -732,9 +770,9 @@ def _build_methodology(price_source_label: str, internals_mode: str) -> str:
 
 def _build_ranking_methodology(price_source_label: str) -> str:
     return (
-        "ETF ranking prototype: score the requested universe on trailing momentum, benchmark-relative strength, realized and downside volatility, drawdown, liquidity, "
+        "ETF ranking prototype: score the requested universe on blended momentum, benchmark-relative strength, realized and downside volatility, drawdown, liquidity, "
         "and implementation fit, then combine normalized component scores into a weighted composite. "
-        f"Price history source: {price_source_label}. Implementation fit currently uses local ETF holdings coverage as a proxy for execution/readiness support."
+        f"Price history source: {price_source_label}. Momentum uses a 12_1 and 6_1-style blended lookback when sufficient monthly history exists, with conservative fallback on shorter windows. Liquidity uses log(1 + median dollar volume). Implementation fit currently uses local ETF holdings coverage as a proxy for execution/readiness support."
     )
 
 
@@ -795,6 +833,33 @@ def _window_returns(bars: list[BarRecord]) -> list[float]:
 def _average_volume(bars: list[BarRecord]) -> float:
     finite_volumes = [float(bar.volume) for bar in bars if bar.volume is not None]
     return sum(finite_volumes) / len(finite_volumes) if finite_volumes else 0.0
+
+
+def _blended_momentum(bars: list[BarRecord]) -> float:
+    if len(bars) < 2:
+        return 0.0
+
+    latest_close = bars[-1].close
+    one_month_ago_close = bars[-2].close
+    if one_month_ago_close <= 0:
+        return 0.0
+
+    if len(bars) >= 13:
+        momentum_12_1 = (one_month_ago_close / bars[-13].close) - 1 if bars[-13].close > 0 else 0.0
+        momentum_6_1 = (one_month_ago_close / bars[-7].close) - 1 if bars[-7].close > 0 else 0.0
+        return (0.6 * momentum_12_1) + (0.4 * momentum_6_1)
+
+    if len(bars) >= 7:
+        return (one_month_ago_close / bars[-7].close) - 1 if bars[-7].close > 0 else 0.0
+
+    return (latest_close / bars[0].close) - 1 if bars[0].close > 0 else 0.0
+
+
+def _median_dollar_volume(bars: list[BarRecord]) -> float:
+    dollar_volumes = [bar.close * float(bar.volume) for bar in bars if bar.volume is not None and bar.close > 0]
+    if not dollar_volumes:
+        return 0.0
+    return log(1 + median(dollar_volumes))
 
 
 def _annualized_volatility(returns: list[float]) -> float:

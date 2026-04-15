@@ -1,3 +1,5 @@
+from typing import Literal
+
 from app.analytics.risk import (
     FACTOR_PROXY_MAP,
     build_factor_exposures,
@@ -15,7 +17,15 @@ from app.analytics.risk import (
 )
 from app.analytics.performance import build_daily_portfolio_states
 from app.schemas.imports import ImportedPortfolioSnapshot
-from app.schemas.diagnostics import DiagnosticsAvailability, DiagnosticsEngineRequest, DiagnosticsResult
+from app.schemas.diagnostics import (
+    DiagnosticsAvailability,
+    DiagnosticsDrawdownSummary,
+    DiagnosticsEngineRequest,
+    DiagnosticsProvenance,
+    DiagnosticsResult,
+    DiagnosticsRiskConcentrationSummary,
+    DiagnosticsVolatilitySummary,
+)
 from app.schemas.reconciliation import (
     DailyPortfolioState,
     DailyStatePosition,
@@ -47,6 +57,7 @@ def build_historical_diagnostics_result(
     factor_histories: dict[str, list[dict]],
     market_overlap: MarketOverlapSummary,
     lookthrough_sector_exposure: list[LookThroughSectorExposure],
+    provenance: DiagnosticsProvenance,
 ) -> DiagnosticsResult:
     factor_registry = build_factor_registry()
     risk_summary = build_portfolio_risk_summary(daily_states, benchmark_rows, benchmark_symbol)
@@ -66,13 +77,33 @@ def build_historical_diagnostics_result(
     model_reliability = build_model_reliability_snapshot(statistical_factor_model)
     stress_scenarios = build_stress_scenarios(statistical_factor_model)
     factor_exposures = build_factor_exposures(risk_summary, market_overlap, lookthrough_sector_exposure)
+    concentration = risk_contribution_breakdown.concentration
 
     return DiagnosticsResult(
         snapshot=snapshot,
+        provenance=provenance,
         availability=DiagnosticsAvailability(
             historical_sections_available=True,
             history_context_required=True,
             note=None,
+        ),
+        drawdown_summary=DiagnosticsDrawdownSummary(
+            current_drawdown_pct=volatility_regime.snapshot.current_drawdown_pct,
+            max_drawdown_pct=volatility_regime.snapshot.max_drawdown_pct,
+        ),
+        volatility_summary=DiagnosticsVolatilitySummary(
+            portfolio_volatility_pct=risk_summary.portfolio_volatility_pct,
+            benchmark_volatility_pct=risk_summary.benchmark_volatility_pct,
+            downside_volatility_pct=volatility_regime.snapshot.downside_vol_60d,
+            tracking_error_pct=relative_risk.tracking_error_pct,
+        ),
+        risk_concentration_summary=DiagnosticsRiskConcentrationSummary(
+            top_1_factor_risk_share=concentration.top_1_factor_risk_share,
+            top_3_factor_risk_share=concentration.top_3_factor_risk_share,
+            top_1_position_risk_share=concentration.top_1_position_risk_share,
+            top_5_position_risk_share=concentration.top_5_position_risk_share,
+            factor_hhi=concentration.factor_hhi,
+            position_hhi=concentration.position_hhi,
         ),
         risk_summary=risk_summary,
         rolling_risk=rolling_risk,
@@ -89,16 +120,24 @@ def build_historical_diagnostics_result(
     )
 
 
-def build_unavailable_diagnostics_result(snapshot, benchmark_symbol: str) -> DiagnosticsResult:
+def build_unavailable_diagnostics_result(snapshot, benchmark_symbol: str, snapshot_basis: Literal["imported_snapshot", "snapshot_request"] = "snapshot_request") -> DiagnosticsResult:
     factor_registry = build_factor_registry()
 
     return DiagnosticsResult(
         snapshot=snapshot,
+        provenance=DiagnosticsProvenance(
+            snapshot_basis=snapshot_basis,
+            historical_basis="unavailable",
+            note="Historical diagnostics are unavailable because no valid historical portfolio path was available for this input.",
+        ),
         availability=DiagnosticsAvailability(
             historical_sections_available=False,
             history_context_required=True,
             note='Historical diagnostics are unavailable from snapshot-only input. Attach PortfolioHistoryContext to run rolling diagnostics accurately.',
         ),
+        drawdown_summary=DiagnosticsDrawdownSummary(),
+        volatility_summary=DiagnosticsVolatilitySummary(),
+        risk_concentration_summary=DiagnosticsRiskConcentrationSummary(),
         risk_summary=PortfolioRiskSummary(
             benchmark_symbol=benchmark_symbol,
             methodology='unavailable_without_history_context',
@@ -190,7 +229,7 @@ def run_diagnostics_engine(request: DiagnosticsEngineRequest) -> DiagnosticsResu
     snapshot = build_snapshot_from_exposure_request(request)
     history_context = request.history_context
     if history_context is None or not history_context.history_start_date or not history_context.history_end_date:
-        return build_unavailable_diagnostics_result(snapshot, request.benchmark_symbol)
+        return build_unavailable_diagnostics_result(snapshot, request.benchmark_symbol, snapshot_basis="snapshot_request")
 
     market_data = MarketDataService()
     benchmark_rows = market_data.get_historical_prices(
@@ -210,7 +249,7 @@ def run_diagnostics_engine(request: DiagnosticsEngineRequest) -> DiagnosticsResu
     )
     factor_histories[history_context.benchmark_symbol or request.benchmark_symbol] = benchmark_rows
     if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
-        return build_unavailable_diagnostics_result(snapshot, history_context.benchmark_symbol or request.benchmark_symbol)
+        return build_unavailable_diagnostics_result(snapshot, history_context.benchmark_symbol or request.benchmark_symbol, snapshot_basis="snapshot_request")
     valuation_dates = sorted({row['date'] for row in benchmark_rows})
     daily_states = _build_synthetic_snapshot_history_states(
         snapshot=snapshot,
@@ -230,6 +269,11 @@ def run_diagnostics_engine(request: DiagnosticsEngineRequest) -> DiagnosticsResu
         factor_histories=factor_histories,
         market_overlap=exposure_result.market_overlap,
         lookthrough_sector_exposure=exposure_result.lookthrough_sector_exposure,
+        provenance=DiagnosticsProvenance(
+            snapshot_basis="snapshot_request",
+            historical_basis="market_data_history",
+            note="Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.",
+        ),
     )
 
 
@@ -312,7 +356,7 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
     history_dates = [entry.trade_date.isoformat() for entry in snapshot.ledger_entries if entry.trade_date is not None]
     history_dates.extend(position.as_of_date.isoformat() for position in snapshot.positions if position.as_of_date is not None)
     if not history_dates:
-        return build_unavailable_diagnostics_result(snapshot, benchmark_symbol or 'SPY')
+        return build_unavailable_diagnostics_result(snapshot, benchmark_symbol or 'SPY', snapshot_basis="imported_snapshot")
 
     history_start_date = min(history_dates)
     history_end_date = max(history_dates)
@@ -327,7 +371,7 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
     factor_histories = market_data.get_historical_prices_for_symbols(list(FACTOR_PROXY_MAP.values()), history_start_date, history_end_date)
     factor_histories[resolved_benchmark_symbol] = benchmark_rows
     if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
-        return build_unavailable_diagnostics_result(snapshot, resolved_benchmark_symbol)
+        return build_unavailable_diagnostics_result(snapshot, resolved_benchmark_symbol, snapshot_basis="imported_snapshot")
     valuation_dates = sorted({row['date'] for row in benchmark_rows})
     daily_states = build_daily_portfolio_states(
         snapshot=snapshot,
@@ -348,6 +392,11 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
         factor_histories=factor_histories,
         market_overlap=exposure_result.market_overlap,
         lookthrough_sector_exposure=exposure_result.lookthrough_sector_exposure,
+        provenance=DiagnosticsProvenance(
+            snapshot_basis="imported_snapshot",
+            historical_basis="imported_portfolio_history",
+            note="Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.",
+        ),
     )
 
 

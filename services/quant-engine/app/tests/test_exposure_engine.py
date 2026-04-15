@@ -147,6 +147,10 @@ def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
     assert result.market_overlap.active_share is not None
     assert 0 <= result.market_overlap.overlap_weight <= 1
     assert 0 <= result.market_overlap.active_share <= 1
+    assert result.current_state_concentration.top_positions
+    assert result.current_state_concentration.top_1_position_weight is not None
+    assert result.current_state_concentration.position_hhi is not None
+    assert result.current_state_concentration.effective_holdings is not None
     assert result.availability.lookthrough_status in {"live", "partial"}
     assert result.availability.lookthrough_confidence in {"high", "medium"}
     assert result.availability.benchmark_overlap_status in {"live", "partial"}
@@ -171,6 +175,8 @@ def test_exposure_engine_builds_expected_shape_for_freedom24_2026(mocker) -> Non
     assert result.market_overlap.benchmark_symbol == "SPY"
     assert result.availability.lookthrough_status in {"live", "partial"}
     assert result.availability.lookthrough_confidence in {"high", "medium"}
+    assert result.current_state_concentration.top_positions
+    assert result.current_state_concentration.top_sectors
     assert result.lookthrough.top_constituents is not None
 
 
@@ -187,6 +193,7 @@ def test_exposure_engine_builds_expected_shape_for_espp2026(mocker) -> None:
     assert result.lookthrough.portfolio_market_value > 0
     assert result.market_overlap.benchmark_symbol == "SPY"
     assert len(result.lookthrough.top_constituents) >= 1
+    assert result.current_state_concentration.top_positions
 
 
 def test_exposure_engine_marks_zero_market_value_snapshot_as_unavailable(mocker) -> None:
@@ -214,6 +221,9 @@ def test_exposure_engine_marks_zero_market_value_snapshot_as_unavailable(mocker)
     assert result.lookthrough.coverage_ratio == 0.0
     assert len(result.lookthrough.top_constituents) == 1
     assert result.lookthrough.top_constituents[0].effective_market_value == 0.0
+    assert result.current_state_concentration.top_1_position_weight == 0.0
+    assert result.current_state_concentration.position_hhi == 0.0
+    assert result.current_state_concentration.effective_holdings is None
     assert result.availability.lookthrough_status == "unavailable"
     assert result.availability.lookthrough_confidence == "low"
     assert result.availability.benchmark_overlap_status == "unavailable"
@@ -246,6 +256,10 @@ def test_exposure_engine_marks_all_unresolved_etf_snapshot_as_partial_and_zero_c
     assert result.lookthrough.uncovered_positions == ["VUAA"]
     assert result.lookthrough.top_constituents[0].symbol == "VUAA"
     assert result.lookthrough_sector_exposure[0].sector == "Broad Market"
+    assert result.current_state_concentration.top_1_position_weight == 1.0
+    assert result.current_state_concentration.top_sector_weight == 1.0
+    assert result.current_state_concentration.position_hhi == 1.0
+    assert result.current_state_concentration.effective_holdings == 1.0
     assert result.availability.lookthrough_status == "partial"
     assert result.availability.lookthrough_confidence == "medium"
     assert result.availability.benchmark_overlap_status == "unavailable"
@@ -268,6 +282,11 @@ def test_exposure_engine_marks_cash_only_snapshot_as_unavailable(mocker) -> None
     assert result.lookthrough.coverage_ratio == 0.0
     assert result.lookthrough.top_constituents == []
     assert result.lookthrough_sector_exposure == []
+    assert result.current_state_concentration.top_positions == []
+    assert result.current_state_concentration.top_sectors == []
+    assert result.current_state_concentration.top_1_position_weight is None
+    assert result.current_state_concentration.position_hhi is None
+    assert result.current_state_concentration.effective_holdings is None
     assert result.market_overlap.overlap_weight is None
     assert result.market_overlap.active_share is None
     assert result.availability.lookthrough_status == "unavailable"
@@ -313,6 +332,10 @@ def test_exposure_engine_handles_mixed_resolved_unresolved_and_cash_snapshot(moc
     assert result.lookthrough.coverage_ratio == 0.1
     assert result.lookthrough.uncovered_positions == ["VUAA"]
     assert [item.symbol for item in result.lookthrough.top_constituents[:2]] == ["VUAA", "AAPL"]
+    assert result.current_state_concentration.top_1_position_weight == 0.9
+    assert result.current_state_concentration.top_3_position_weight == 1.0
+    assert result.current_state_concentration.position_hhi == 0.82
+    assert result.current_state_concentration.effective_holdings == 1.22
     assert result.availability.lookthrough_status == "partial"
     assert result.availability.lookthrough_confidence == "medium"
     assert result.availability.benchmark_overlap_status == "unavailable"

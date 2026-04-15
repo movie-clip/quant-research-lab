@@ -129,6 +129,17 @@ Confidence semantics currently mean:
 | Sector market value | `item.market_value` | `analysis.lookthrough_sector_exposure[].market_value` | `engine-derived` | if unavailable, omit row | derived from constituent-level sources |
 | Sector weight | `item.weight` | `analysis.lookthrough_sector_exposure[].weight` | `engine-derived` | if unavailable, omit row | weight of total current look-through market value |
 
+### Current-state concentration section
+
+| UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Top position weights | `result.current_state_concentration.top_positions` in `apps/desktop/src/features/portfolio/ExposurePanel.tsx` | `analysis.current_state_concentration.top_positions` | `current-state-truth` | if no positions, show empty state / `n/a` summary cards | sourced from snapshot holdings only, not historical diagnostics |
+| Top sector weights | `result.current_state_concentration.top_sectors` | `analysis.current_state_concentration.top_sectors` | `current-state-truth` | if no sectors, show empty state / `n/a` summary cards | sourced from overview sector allocation |
+| Top 1 / 3 / 5 position weight | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.top_1_position_weight`, `top_3_position_weight`, `top_5_position_weight` | `current-state-truth` | if no positions, render `n/a` | direct holdings concentration, not risk contribution |
+| Top sector / top 3 sectors weight | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.top_sector_weight`, `top_3_sector_weight` | `current-state-truth` | if no sectors, render `n/a` | sector concentration from current holdings metadata |
+| Position HHI / sector HHI | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.position_hhi`, `sector_hhi` | `current-state-truth` | if no weights, render `n/a` | Herfindahl concentration from current holdings/sector weights |
+| Effective holdings | summary card in `ExposurePanel.tsx` | `analysis.current_state_concentration.effective_holdings` | `current-state-truth` | if HHI is `0` or unavailable, render `n/a` | computed as `1 / position_hhi` |
+
 ### Benchmark overlap section
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
@@ -189,13 +200,14 @@ Confidence semantics currently mean:
 ### Current-state look-through and overlap
 
 - UI: `apps/desktop/src/features/portfolio/ExposurePanel.tsx`
-- App state: `analysis.lookthrough`, `analysis.lookthrough_sector_exposure`, `analysis.market_overlap`, `analysis.exposure_availability`
+- App state: `analysis.lookthrough`, `analysis.lookthrough_sector_exposure`, `analysis.market_overlap`, `analysis.current_state_concentration`, `analysis.exposure_availability`
 - Adapter: `composeExposureView(...)` / `buildImportedExposureView(...)`
 - Engine source: `services/quant-engine/app/services/exposure_engine.py`
 - analytics source:
   - `services/quant-engine/app/analytics/risk.py` -> `build_lookthrough_exposure(...)`
   - `services/quant-engine/app/analytics/risk.py` -> `build_lookthrough_sector_exposure(...)`
   - `services/quant-engine/app/analytics/risk.py` -> `build_market_overlap_summary(...)`
+  - `services/quant-engine/app/analytics/overview.py` -> `build_portfolio_overview(...)`
 
 ### Historical diagnostics sections
 
@@ -221,11 +233,11 @@ Confidence semantics currently mean:
 4. Missing benchmark holdings must render overlap values as unavailable, not `0.0`.
 5. Scenario sections must remain explicitly labeled as scenario/current-state approximations.
 6. If a financially meaningful formula changes, methodology text and this inventory should be updated together.
+7. Current-state concentration must remain separate from diagnostics-side history-derived risk concentration.
 
 ## Immediate Follow-up Targets
 
 1. Add field-level inventory for any remaining overlap-adjacent metrics surfaced indirectly through factor tilts or scenario approximations.
-2. Expand the `Sector` factor group in the Exposure panel so the sector-correlation / sector-factor list explicitly includes `XLK`, `XLI`, `XLF`, `XLE`, `XLV`, `XLP`, `XLU`, and `XLY`.
 2. Tighten any remaining Exposure fields that still collapse degraded and unavailable states together.
 3. Add App-level regression coverage for degraded exposure availability messaging if that becomes restore-critical.
 

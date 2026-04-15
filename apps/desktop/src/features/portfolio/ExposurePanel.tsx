@@ -89,6 +89,9 @@ const FACTOR_LINE_COLORS: Record<string, string> = {
   health_care: '#d6a45e',
   energy: '#de7047',
   industrials: '#c99b5a',
+  consumer_staples: '#8f9b4f',
+  utilities: '#6aa3a1',
+  consumer_discretionary: '#b86f9b',
   rates_ief: '#9aa7bf',
   rates_tlt: '#7a8da8',
   credit: '#b6a36a',
@@ -441,6 +444,24 @@ function getFactorGroupKey(category: string): FactorGroupFilter {
   return 'market_style'
 }
 
+function historicalDiagnosticsBadge(result: ExposureAnalysis) {
+  return result.availability?.historical_sections_available === false ? 'Historical diagnostics unavailable' : 'Historical diagnostics live'
+}
+
+function lookthroughBadge(result: ExposureAnalysis) {
+  const status = result.exposure_availability?.lookthrough_status ?? 'live'
+  if (status === 'partial') return 'Look-through partial'
+  if (status === 'unavailable') return 'Look-through unavailable'
+  return 'Look-through live'
+}
+
+function overlapBadge(result: ExposureAnalysis) {
+  const status = result.exposure_availability?.benchmark_overlap_status ?? 'live'
+  if (status === 'partial') return 'Overlap partial'
+  if (status === 'unavailable') return 'Overlap unavailable'
+  return 'Overlap live'
+}
+
 function ChartTooltip(
   {
     active,
@@ -631,7 +652,9 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
 
   const topLookthrough = result?.lookthrough.top_constituents.slice(0, 10) ?? []
   const topLookthroughSectors = result?.lookthrough_sector_exposure.slice(0, 8) ?? []
-  const factorExposures = result?.factor_exposures.slice(0, 6) ?? []
+  const topConcentrationPositions = result?.current_state_concentration.top_positions.slice(0, 5) ?? []
+  const topConcentrationSectors = result?.current_state_concentration.top_sectors.slice(0, 5) ?? []
+  const factorExposures = result?.factor_exposures ?? []
   const scenarioPreview = result?.scenario_preview ?? null
   const sectorDrifts = scenarioPreview?.sector_drifts.slice(0, 5) ?? []
   const positionDrifts = scenarioPreview?.position_drifts.slice(0, 5) ?? []
@@ -823,6 +846,11 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <div>
           <p className="panel-label">Exposure</p>
           <h2>Core exposure and factor model</h2>
+          <div className="tab-bar" style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
+            <span className="backtest-source-badge">{historicalDiagnosticsBadge(result)}</span>
+            <span className="backtest-source-badge">{lookthroughBadge(result)}</span>
+            <span className="backtest-source-badge">{overlapBadge(result)}</span>
+          </div>
         </div>
         {snapshotOptions.length ? (
           <label className="exposure-snapshot-picker">
@@ -1326,6 +1354,29 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       ) : null}
 
       <div className="split-grid dashboard-bottom-grid">
+        <section>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Current-State Concentration</p></div><p className="helper">Snapshot holdings concentration only; separate from history-derived diagnostics risk concentration.</p></div>
+          <div className="dashboard-summary compact-summary-grid">
+            <div className="summary-card"><p className="stat-label">Top 1 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_1_position_weight != null ? result.current_state_concentration.top_1_position_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top 3 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_3_position_weight != null ? result.current_state_concentration.top_3_position_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top 5 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_5_position_weight != null ? result.current_state_concentration.top_5_position_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top Sector Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_sector_weight != null ? result.current_state_concentration.top_sector_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top 3 Sectors Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_3_sector_weight != null ? result.current_state_concentration.top_3_sector_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(result.current_state_concentration.position_hhi, 4)}</p></div>
+            <div className="summary-card"><p className="stat-label">Sector HHI</p><p className="summary-value">{formatNumber(result.current_state_concentration.sector_hhi, 4)}</p></div>
+            <div className="summary-card"><p className="stat-label">Effective Holdings</p><p className="summary-value">{formatNumber(result.current_state_concentration.effective_holdings, 2)}</p></div>
+          </div>
+          <div className="split-grid dashboard-bottom-grid">
+            <section>
+              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Top Positions</p></div><p className="helper">Largest current holdings by market value</p></div>
+              <div className="list-table">{topConcentrationPositions.map((item) => <div className="list-row" key={`concentration-position-${item.name}`}><span>{item.name}</span><span>{formatCompactMoney(item.market_value)} · {formatPct(item.weight * 100)}</span></div>)}</div>
+            </section>
+            <section>
+              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Top Sectors</p></div><p className="helper">Largest current sector allocations from holdings metadata</p></div>
+              <div className="list-table">{topConcentrationSectors.map((item) => <div className="list-row" key={`concentration-sector-${item.name}`}><span>{item.name}</span><span>{formatCompactMoney(item.market_value)} · {formatPct(item.weight * 100)}</span></div>)}</div>
+            </section>
+          </div>
+        </section>
         <section>
           <div className="section-header-inline sector-list-header"><div><p className="panel-label">Actual Exposure</p></div><p className="helper">Top look-through constituents by snapshot market value{lookthroughDegraded ? ' · partial ETF resolution' : ''}{scenarioPreview ? ' in the draft scenario' : ''}</p></div>
           <div className="list-table">{topLookthrough.map((item) => <div className="list-row" key={`lookthrough-${item.symbol}`}><span>{item.symbol}</span><span>{formatCompactMoney(item.effective_market_value)} · {formatPct(item.portfolio_weight * 100)}</span></div>)}</div>

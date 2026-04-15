@@ -147,6 +147,10 @@ def test_exposure_route_returns_current_state_view_when_etf_holdings_are_unresol
     assert payload["market_overlap"]["active_share"] is None
     assert payload["lookthrough"]["top_constituents"][0]["symbol"] == "VUAA"
     assert payload["lookthrough"]["top_constituents"][1]["symbol"] == "AAPL"
+    assert payload["current_state_concentration"]["top_1_position_weight"] == 0.9
+    assert payload["current_state_concentration"]["top_3_position_weight"] == 1.0
+    assert payload["current_state_concentration"]["position_hhi"] == 0.82
+    assert payload["current_state_concentration"]["effective_holdings"] == 1.22
 
 
 def test_exposure_route_keeps_lookthrough_but_zeroes_overlap_when_benchmark_holdings_are_unresolved(mocker) -> None:
@@ -199,6 +203,10 @@ def test_exposure_route_keeps_lookthrough_but_zeroes_overlap_when_benchmark_hold
     assert payload["market_overlap"]["active_share"] is None
     assert payload["lookthrough"]["top_constituents"][0]["symbol"] == "AAPL"
     assert payload["lookthrough"]["top_constituents"][1]["symbol"] == "MSFT"
+    assert payload["current_state_concentration"]["top_1_position_weight"] == 0.9
+    assert payload["current_state_concentration"]["top_3_position_weight"] == 1.0
+    assert payload["current_state_concentration"]["position_hhi"] == 0.82
+    assert payload["current_state_concentration"]["effective_holdings"] == 1.22
 
 
 def test_dashboard_history_route_without_history_context_returns_unavailable_without_market_data_calls(mocker) -> None:

@@ -304,6 +304,10 @@ def test_exposure_engine_route_accepts_portfolio_snapshot_payload() -> None:
     assert payload["overview"]["total_market_value"] == 18000
     assert "lookthrough" in payload
     assert "market_overlap" in payload
+    assert payload["current_state_concentration"]["top_1_position_weight"] == 0.5556
+    assert payload["current_state_concentration"]["top_3_position_weight"] == 1.0
+    assert payload["current_state_concentration"]["position_hhi"] == 0.5062
+    assert payload["current_state_concentration"]["effective_holdings"] == 1.98
 
 
 def test_diagnostics_engine_route_marks_snapshot_only_history_as_unavailable() -> None:
@@ -329,6 +333,24 @@ def test_diagnostics_engine_route_marks_snapshot_only_history_as_unavailable() -
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
     assert payload["availability"]["history_context_required"] is True
+    assert payload["drawdown_summary"] == {
+        "current_drawdown_pct": None,
+        "max_drawdown_pct": None,
+    }
+    assert payload["volatility_summary"] == {
+        "portfolio_volatility_pct": None,
+        "benchmark_volatility_pct": None,
+        "downside_volatility_pct": None,
+        "tracking_error_pct": None,
+    }
+    assert payload["risk_concentration_summary"] == {
+        "top_1_factor_risk_share": None,
+        "top_3_factor_risk_share": None,
+        "top_1_position_risk_share": None,
+        "top_5_position_risk_share": None,
+        "factor_hhi": None,
+        "position_hhi": None,
+    }
 
 
 def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
@@ -361,6 +383,16 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
     assert payload["availability"]["history_context_required"] is True
+    assert payload["provenance"]["snapshot_basis"] == "snapshot_request"
+    assert payload["provenance"]["historical_basis"] == "market_data_history"
+    assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
+    assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
+    assert payload["volatility_summary"]["portfolio_volatility_pct"] == payload["risk_summary"]["portfolio_volatility_pct"]
+    assert payload["volatility_summary"]["benchmark_volatility_pct"] == payload["risk_summary"]["benchmark_volatility_pct"]
+    assert payload["volatility_summary"]["downside_volatility_pct"] == payload["volatility_regime"]["snapshot"]["downside_vol_60d"]
+    assert payload["volatility_summary"]["tracking_error_pct"] == payload["relative_risk"]["tracking_error_pct"]
+    assert payload["risk_concentration_summary"]["factor_hhi"] == payload["risk_contribution_breakdown"]["concentration"]["factor_hhi"]
+    assert payload["risk_concentration_summary"]["position_hhi"] == payload["risk_contribution_breakdown"]["concentration"]["position_hhi"]
 
 
 def test_dashboard_history_engine_route_accepts_snapshot_with_history_context() -> None:
@@ -546,6 +578,15 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
     assert payload["availability"]["history_context_required"] is True
+    assert payload["provenance"]["snapshot_basis"] == "imported_snapshot"
+    assert payload["provenance"]["historical_basis"] == "imported_portfolio_history"
+    assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
+    assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
+    assert payload["volatility_summary"]["portfolio_volatility_pct"] == payload["risk_summary"]["portfolio_volatility_pct"]
+    assert payload["volatility_summary"]["benchmark_volatility_pct"] == payload["risk_summary"]["benchmark_volatility_pct"]
+    assert payload["volatility_summary"]["tracking_error_pct"] == payload["relative_risk"]["tracking_error_pct"]
+    assert payload["risk_concentration_summary"]["factor_hhi"] == payload["risk_contribution_breakdown"]["concentration"]["factor_hhi"]
+    assert payload["risk_concentration_summary"]["position_hhi"] == payload["risk_contribution_breakdown"]["concentration"]["position_hhi"]
     assert payload["risk_summary"]["benchmark_symbol"] == "SPY"
 
 
@@ -578,6 +619,26 @@ def test_imported_diagnostics_engine_route_marks_missing_imported_history_as_una
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
     assert payload["availability"]["history_context_required"] is True
+    assert payload["provenance"]["snapshot_basis"] == "imported_snapshot"
+    assert payload["provenance"]["historical_basis"] == "unavailable"
+    assert payload["drawdown_summary"] == {
+        "current_drawdown_pct": None,
+        "max_drawdown_pct": None,
+    }
+    assert payload["volatility_summary"] == {
+        "portfolio_volatility_pct": None,
+        "benchmark_volatility_pct": None,
+        "downside_volatility_pct": None,
+        "tracking_error_pct": None,
+    }
+    assert payload["risk_concentration_summary"] == {
+        "top_1_factor_risk_share": None,
+        "top_3_factor_risk_share": None,
+        "top_1_position_risk_share": None,
+        "top_5_position_risk_share": None,
+        "factor_hhi": None,
+        "position_hhi": None,
+    }
 
 
 def test_imported_diagnostics_engine_route_rejects_invalid_imported_cash_currency_length() -> None:

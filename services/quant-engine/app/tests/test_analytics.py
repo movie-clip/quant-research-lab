@@ -30,7 +30,7 @@ from app.schemas.imports import (
 )
 from app.schemas.dashboard_history import DashboardHistoryEngineRequest
 from app.schemas.diagnostics import DiagnosticsEngineRequest
-from app.schemas.exposure import ExposureAvailability, ExposureResult
+from app.schemas.exposure import ExposureAvailability, ExposureConcentrationItem, ExposureCurrentStateConcentration, ExposureResult
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PortfolioRiskSummary
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
@@ -226,6 +226,18 @@ def _sample_exposure_result(snapshot: ImportedPortfolioSnapshot) -> ExposureResu
             active_share=1.0,
             portfolio_in_benchmark_weight=0.0,
             benchmark_covered_weight=1.0,
+        ),
+        current_state_concentration=ExposureCurrentStateConcentration(
+            top_positions=[],
+            top_sectors=[],
+            top_1_position_weight=None,
+            top_3_position_weight=None,
+            top_5_position_weight=None,
+            top_sector_weight=None,
+            top_3_sector_weight=None,
+            position_hhi=None,
+            sector_hhi=None,
+            effective_holdings=None,
         ),
         availability=ExposureAvailability(
             lookthrough_status="live",
@@ -542,6 +554,16 @@ def test_run_diagnostics_engine_uses_history_context_for_snapshot_requests(mocke
 
     assert result.availability.historical_sections_available is True
     assert result.availability.history_context_required is True
+    assert result.provenance.snapshot_basis == "snapshot_request"
+    assert result.provenance.historical_basis == "market_data_history"
+    assert result.drawdown_summary.current_drawdown_pct == result.volatility_regime.snapshot.current_drawdown_pct
+    assert result.drawdown_summary.max_drawdown_pct == result.volatility_regime.snapshot.max_drawdown_pct
+    assert result.volatility_summary.portfolio_volatility_pct == result.risk_summary.portfolio_volatility_pct
+    assert result.volatility_summary.benchmark_volatility_pct == result.risk_summary.benchmark_volatility_pct
+    assert result.volatility_summary.downside_volatility_pct == result.volatility_regime.snapshot.downside_vol_60d
+    assert result.volatility_summary.tracking_error_pct == result.relative_risk.tracking_error_pct
+    assert result.risk_concentration_summary.factor_hhi == result.risk_contribution_breakdown.concentration.factor_hhi
+    assert result.risk_concentration_summary.position_hhi == result.risk_contribution_breakdown.concentration.position_hhi
     assert result.risk_summary.observations > 0
     assert result.statistical_factor_model.windows
 
@@ -587,6 +609,8 @@ def test_variant_snapshot_diagnostics_history_stays_in_plausible_bounds() -> Non
 
     assert result.availability.historical_sections_available is True
     assert result.availability.history_context_required is True
+    assert result.provenance.snapshot_basis == "snapshot_request"
+    assert result.provenance.historical_basis == "market_data_history"
     assert result.risk_summary.observations > 20
     assert result.risk_summary.portfolio_beta is not None
     assert abs(result.risk_summary.portfolio_beta) < 10
@@ -624,11 +648,103 @@ def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_hi
 
     assert result.availability.historical_sections_available is False
     assert result.availability.history_context_required is True
+    assert result.provenance.snapshot_basis == "imported_snapshot"
+    assert result.provenance.historical_basis == "unavailable"
+    assert result.drawdown_summary.current_drawdown_pct is None
+    assert result.drawdown_summary.max_drawdown_pct is None
+    assert result.volatility_summary.portfolio_volatility_pct is None
+    assert result.volatility_summary.tracking_error_pct is None
+    assert result.risk_concentration_summary.factor_hhi is None
+    assert result.risk_concentration_summary.position_hhi is None
     assert result.risk_summary.benchmark_symbol == "SPY"
     assert result.risk_summary.observations == 0
     assert result.rolling_risk == []
     assert result.statistical_factor_model.status == "unavailable"
     market_data.assert_not_called()
+
+
+def test_run_imported_diagnostics_engine_populates_history_derived_summary_fields(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+        {"date": "2026-04-14", "price": 102.0},
+        {"date": "2026-04-15", "price": 103.0},
+        {"date": "2026-04-16", "price": 104.0},
+        {"date": "2026-04-17", "price": 105.0},
+        {"date": "2026-04-18", "price": 106.0},
+        {"date": "2026-04-21", "price": 107.0},
+        {"date": "2026-04-22", "price": 108.0},
+        {"date": "2026-04-23", "price": 109.0},
+    ]
+    service.get_historical_prices_for_symbols.side_effect = [
+        {
+            "AAPL": [
+                {"date": "2026-04-10", "price": 100.0},
+                {"date": "2026-04-11", "price": 101.0},
+                {"date": "2026-04-14", "price": 102.0},
+                {"date": "2026-04-15", "price": 103.0},
+                {"date": "2026-04-16", "price": 104.0},
+                {"date": "2026-04-17", "price": 105.0},
+                {"date": "2026-04-18", "price": 106.0},
+                {"date": "2026-04-21", "price": 107.0},
+                {"date": "2026-04-22", "price": 108.0},
+                {"date": "2026-04-23", "price": 109.0},
+            ]
+        },
+        {
+            definition.us_proxy: [
+                {"date": "2026-04-10", "price": 100.0},
+                {"date": "2026-04-11", "price": 100.1},
+                {"date": "2026-04-14", "price": 100.2},
+                {"date": "2026-04-15", "price": 100.3},
+                {"date": "2026-04-16", "price": 100.4},
+                {"date": "2026-04-17", "price": 100.5},
+                {"date": "2026-04-18", "price": 100.6},
+                {"date": "2026-04-21", "price": 100.7},
+                {"date": "2026-04-22", "price": 100.8},
+                {"date": "2026-04-23", "price": 100.9},
+            ]
+            for definition in DEFAULT_FACTOR_DEFINITIONS
+        },
+    ]
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 23),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-23",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 23), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=109.0, market_value=1090.0, unrealized_pnl=90.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.availability.historical_sections_available is True
+    assert result.provenance.snapshot_basis == "imported_snapshot"
+    assert result.provenance.historical_basis == "imported_portfolio_history"
+    assert result.drawdown_summary.current_drawdown_pct == result.volatility_regime.snapshot.current_drawdown_pct
+    assert result.drawdown_summary.max_drawdown_pct == result.volatility_regime.snapshot.max_drawdown_pct
+    assert result.volatility_summary.portfolio_volatility_pct == result.risk_summary.portfolio_volatility_pct
+    assert result.volatility_summary.benchmark_volatility_pct == result.risk_summary.benchmark_volatility_pct
+    assert result.volatility_summary.downside_volatility_pct == result.volatility_regime.snapshot.downside_vol_60d
+    assert result.volatility_summary.tracking_error_pct == result.relative_risk.tracking_error_pct
+    assert result.risk_concentration_summary.top_1_factor_risk_share == result.risk_contribution_breakdown.concentration.top_1_factor_risk_share
+    assert result.risk_concentration_summary.top_3_factor_risk_share == result.risk_contribution_breakdown.concentration.top_3_factor_risk_share
+    assert result.risk_concentration_summary.top_1_position_risk_share == result.risk_contribution_breakdown.concentration.top_1_position_risk_share
+    assert result.risk_concentration_summary.top_5_position_risk_share == result.risk_contribution_breakdown.concentration.top_5_position_risk_share
+    assert result.risk_concentration_summary.factor_hhi == result.risk_contribution_breakdown.concentration.factor_hhi
+    assert result.risk_concentration_summary.position_hhi == result.risk_contribution_breakdown.concentration.position_hhi
 
 
 def test_run_imported_dashboard_history_returns_unavailable_without_imported_history_dates(mocker) -> None:
@@ -744,6 +860,8 @@ def test_run_imported_diagnostics_engine_returns_unavailable_when_symbol_history
 
     assert result.availability.historical_sections_available is False
     assert result.availability.history_context_required is True
+    assert result.provenance.snapshot_basis == "imported_snapshot"
+    assert result.provenance.historical_basis == "unavailable"
     assert result.risk_summary.benchmark_symbol == "SPY"
     assert result.risk_summary.observations == 0
     assert result.rolling_risk == []
@@ -781,6 +899,8 @@ def test_run_imported_diagnostics_engine_returns_unavailable_when_benchmark_hist
 
     assert result.availability.historical_sections_available is False
     assert result.availability.history_context_required is True
+    assert result.provenance.snapshot_basis == "imported_snapshot"
+    assert result.provenance.historical_basis == "unavailable"
     assert result.risk_summary.benchmark_symbol == "SPY"
     assert result.risk_summary.observations == 0
     assert result.rolling_risk == []
@@ -1255,6 +1375,9 @@ def test_build_lookthrough_exposure_combines_direct_and_etf_holdings() -> None:
 
     assert sector_exposure[0].sector in {"Technology", "Broad Market", "Other"}
     assert any(item.factor == "Market" for item in factor_exposures)
+    assert any(item.factor == "Consumer Discretionary Tilt" for item in factor_exposures)
+    assert any(item.factor == "Consumer Staples Tilt" for item in factor_exposures)
+    assert any(item.factor == "Utilities Tilt" for item in factor_exposures)
 
     factor_model = build_statistical_factor_model(
         daily_states,
@@ -1265,7 +1388,7 @@ def test_build_lookthrough_exposure_combines_direct_and_etf_holdings() -> None:
 
     assert factor_model.benchmark_symbol == "SPY"
     assert factor_model.status in {"ok", "partial"}
-    assert len(factor_model.current_factor_snapshot) == 13
+    assert len(factor_model.current_factor_snapshot) == 16
     assert factor_model.current_factor_snapshot[0].label == "Market"
     assert stress
 

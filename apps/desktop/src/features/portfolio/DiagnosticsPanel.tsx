@@ -27,6 +27,20 @@ function getShiftFlags(snapshot: DiagnosticsEngineResponse['factor_shift_diagnos
   ].filter((item): item is string => item != null)
 }
 
+function diagnosticsHistoryBasisLabel(result: DiagnosticsEngineResponse) {
+  if (result.provenance.historical_basis === 'imported_portfolio_history') return 'Imported portfolio history'
+  if (result.provenance.historical_basis === 'market_data_history') return 'Synthetic snapshot-history'
+  return 'History unavailable'
+}
+
+function diagnosticsStatusLabel(result: DiagnosticsEngineResponse) {
+  return result.availability.historical_sections_available ? 'Historical sections live' : 'Historical sections unavailable'
+}
+
+function diagnosticsLead() {
+  return 'Review provenance and decision-grade signals before drilling into deeper factor and risk detail.'
+}
+
 export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse | null }) {
   const [shiftCategoryFilter, setShiftCategoryFilter] = useState<ShiftCategoryFilter>('all')
   const [shiftSortMode, setShiftSortMode] = useState<'absolute_20d' | 'absolute_60d'>('absolute_20d')
@@ -72,6 +86,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
       <article className="panel">
         <p className="panel-label">Diagnostics</p>
         <h2>Factor and risk diagnostics</h2>
+        <p className="lead compact-lead">{diagnosticsLead()}</p>
         <p className="lead compact-lead">Import a portfolio from the Dashboard to inspect current risk diagnostics.</p>
       </article>
     )
@@ -82,9 +97,16 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
       <article className="panel">
         <p className="panel-label">Diagnostics</p>
         <h2>Factor and risk diagnostics</h2>
+        <p className="lead compact-lead">{diagnosticsLead()}</p>
+        <div className="tab-bar" style={{ justifyContent: 'flex-start', margin: '8px 0 0' }}>
+          <span className="backtest-source-badge">{diagnosticsHistoryBasisLabel(result)}</span>
+          <span className="backtest-source-badge">{diagnosticsStatusLabel(result)}</span>
+        </div>
+        <p className="helper">{result.provenance.note}</p>
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">Historical diagnostics unavailable for this snapshot.</p>
           <p className="helper">{result.availability.note ?? 'This view requires imported portfolio history context and is not approximated from a snapshot alone.'}</p>
+          <p className="helper">Historical diagnostics are not approximated when history context is missing.</p>
         </div>
       </article>
     )
@@ -94,9 +116,74 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
     <article className="panel">
       <p className="panel-label">Diagnostics</p>
       <h2>Factor and risk diagnostics</h2>
+      <p className="lead compact-lead">{diagnosticsLead()}</p>
+      <div className="tab-bar" style={{ justifyContent: 'flex-start', margin: '8px 0 0' }}>
+        <span className="backtest-source-badge">{diagnosticsHistoryBasisLabel(result)}</span>
+        <span className="backtest-source-badge">{diagnosticsStatusLabel(result)}</span>
+      </div>
+      <p className="helper">{result.provenance.note}</p>
+      {result.availability.note ? <p className="helper">{result.availability.note}</p> : null}
+
+      <section className="dashboard-bottom-grid" data-testid="diagnostics-decision-readout">
+        <div className="section-header-inline sector-list-header">
+          <div><p className="panel-label">Decision Readout</p></div>
+          <p className="helper">Top-line diagnostics surfaced directly from authoritative backend provenance and summary outputs.</p>
+        </div>
+        <div className="dashboard-summary compact-summary-grid">
+          <div className="summary-card"><p className="stat-label">History Basis</p><p className="summary-value">{diagnosticsHistoryBasisLabel(result)}</p></div>
+          <div className="summary-card"><p className="stat-label">Historical Status</p><p className="summary-value">{diagnosticsStatusLabel(result)}</p></div>
+          <div className="summary-card"><p className="stat-label">Model Confidence</p><p className="summary-value">{result.model_reliability.confidence}</p></div>
+          <div className="summary-card"><p className="stat-label">Current Drawdown</p><p className="summary-value">{formatPct(result.drawdown_summary.current_drawdown_pct)}</p></div>
+          <div className="summary-card"><p className="stat-label">Top 3 Factor Risk Share</p><p className="summary-value">{formatPct(result.risk_concentration_summary.top_3_factor_risk_share != null ? result.risk_concentration_summary.top_3_factor_risk_share * 100 : null)}</p></div>
+          <div className="summary-card"><p className="stat-label">Top 5 Position Risk Share</p><p className="summary-value">{formatPct(result.risk_concentration_summary.top_5_position_risk_share != null ? result.risk_concentration_summary.top_5_position_risk_share * 100 : null)}</p></div>
+        </div>
+      </section>
 
       <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Risk Contribution</p></div><p className="helper">{result.risk_contribution_breakdown.window_days}d / {result.risk_contribution_breakdown.observation_count} obs / {result.risk_contribution_breakdown.status}</p></div>
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Risk Concentration</p></div><p className="helper">Concentration of factor and position risk within the historical diagnostics window.</p></div>
+        <div className="dashboard-summary compact-summary-grid">
+          <div className="summary-card"><p className="stat-label">Top 1 Factor Risk Share</p><p className="summary-value">{formatPct(result.risk_concentration_summary.top_1_factor_risk_share != null ? result.risk_concentration_summary.top_1_factor_risk_share * 100 : null)}</p></div>
+          <div className="summary-card"><p className="stat-label">Top 3 Factor Risk Share</p><p className="summary-value">{formatPct(result.risk_concentration_summary.top_3_factor_risk_share != null ? result.risk_concentration_summary.top_3_factor_risk_share * 100 : null)}</p></div>
+          <div className="summary-card"><p className="stat-label">Top 1 Position Risk Share</p><p className="summary-value">{formatPct(result.risk_concentration_summary.top_1_position_risk_share != null ? result.risk_concentration_summary.top_1_position_risk_share * 100 : null)}</p></div>
+          <div className="summary-card"><p className="stat-label">Top 5 Position Risk Share</p><p className="summary-value">{formatPct(result.risk_concentration_summary.top_5_position_risk_share != null ? result.risk_concentration_summary.top_5_position_risk_share * 100 : null)}</p></div>
+          <div className="summary-card"><p className="stat-label">Factor HHI</p><p className="summary-value">{formatNumber(result.risk_concentration_summary.factor_hhi, 4)}</p></div>
+          <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(result.risk_concentration_summary.position_hhi, 4)}</p></div>
+        </div>
+      </section>
+
+      <section className="dashboard-bottom-grid">
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Model Reliability</p></div><p className="helper">Backend model fit and stability for the current diagnostics window; interpret it alongside provenance and availability.</p></div>
+        <div className="dashboard-summary compact-summary-grid">
+          <div className="summary-card"><p className="stat-label">R-Squared</p><p className="summary-value">{formatNumber(result.model_reliability.r_squared, 4)}</p></div>
+          <div className="summary-card"><p className="stat-label">Residual Volatility</p><p className="summary-value">{formatPct(result.model_reliability.residual_volatility)}</p></div>
+          <div className="summary-card"><p className="stat-label">Collinearity Pairs</p><p className="summary-value">{formatNumber(result.model_reliability.collinearity_pair_count, 0)}</p></div>
+          <div className="summary-card"><p className="stat-label">Max Abs Correlation</p><p className="summary-value">{formatNumber(result.model_reliability.max_abs_factor_correlation, 4)}</p></div>
+          <div className="summary-card"><p className="stat-label">Factors Used</p><p className="summary-value">{formatNumber(result.model_reliability.factor_count_used, 0)}</p></div>
+          <div className="summary-card"><p className="stat-label">Missing Factors</p><p className="summary-value">{formatNumber(result.model_reliability.missing_factor_count, 0)}</p></div>
+          <div className="summary-card"><p className="stat-label">Stability Score</p><p className="summary-value">{formatNumber(result.model_reliability.stability_score, 4)}</p></div>
+          <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{result.model_reliability.confidence}</p></div>
+        </div>
+      </section>
+
+      <section className="dashboard-bottom-grid">
+        <div className="section-header-inline sector-list-header">
+          <div><p className="panel-label">Historical Summary</p></div>
+          <p className="helper">History-derived summary only; current-state holdings concentration is tracked separately.</p>
+        </div>
+        <div className="dashboard-summary compact-summary-grid">
+          <div className="summary-card"><p className="stat-label">Current Drawdown</p><p className="summary-value">{formatPct(result.drawdown_summary.current_drawdown_pct)}</p></div>
+          <div className="summary-card"><p className="stat-label">Max Drawdown</p><p className="summary-value">{formatPct(result.drawdown_summary.max_drawdown_pct)}</p></div>
+          <div className="summary-card"><p className="stat-label">Portfolio Volatility</p><p className="summary-value">{formatPct(result.volatility_summary.portfolio_volatility_pct)}</p></div>
+          <div className="summary-card"><p className="stat-label">Benchmark Volatility</p><p className="summary-value">{formatPct(result.volatility_summary.benchmark_volatility_pct)}</p></div>
+          <div className="summary-card"><p className="stat-label">Downside Volatility</p><p className="summary-value">{formatPct(result.volatility_summary.downside_volatility_pct)}</p></div>
+          <div className="summary-card"><p className="stat-label">Tracking Error</p><p className="summary-value">{formatPct(result.volatility_summary.tracking_error_pct)}</p></div>
+          <div className="summary-card"><p className="stat-label">Factor HHI</p><p className="summary-value">{formatNumber(result.risk_concentration_summary.factor_hhi, 4)}</p></div>
+          <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(result.risk_concentration_summary.position_hhi, 4)}</p></div>
+        </div>
+      </section>
+
+      <section className="dashboard-bottom-grid">
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Risk Contribution</p></div><p className="helper">Variance decomposition from the backend diagnostics window. {result.risk_contribution_breakdown.window_days}d / {result.risk_contribution_breakdown.observation_count} obs / {result.risk_contribution_breakdown.status}</p></div>
         <div className="dashboard-summary compact-summary-grid">
           <div className="summary-card"><p className="stat-label">Factor Total Variance</p><p className="summary-value">{formatNumber(result.risk_contribution_breakdown.factor_total_variance, 4)}</p></div>
           <div className="summary-card"><p className="stat-label">Specific Variance</p><p className="summary-value">{formatNumber(result.risk_contribution_breakdown.specific_variance, 4)}</p></div>
@@ -109,7 +196,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
 
       <div className="split-grid dashboard-bottom-grid">
         <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Contributions</p></div><div className="toggle-group" aria-label="Factor contribution sort mode"><button className={`toggle-chip${factorRiskSortMode === 'risk_share' ? ' active' : ''}`} onClick={() => setFactorRiskSortMode('risk_share')} type="button">Risk Share</button><button className={`toggle-chip${factorRiskSortMode === 'variance_contribution' ? ' active' : ''}`} onClick={() => setFactorRiskSortMode('variance_contribution')} type="button">Variance</button></div></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Contributions</p></div><p className="helper">Factor-level share of modeled portfolio risk for the current historical window.</p><div className="toggle-group" aria-label="Factor contribution sort mode"><button className={`toggle-chip${factorRiskSortMode === 'risk_share' ? ' active' : ''}`} onClick={() => setFactorRiskSortMode('risk_share')} type="button">Risk Share</button><button className={`toggle-chip${factorRiskSortMode === 'variance_contribution' ? ' active' : ''}`} onClick={() => setFactorRiskSortMode('variance_contribution')} type="button">Variance</button></div></div>
           <div className="factor-snapshot-table-wrap">
             <div className="risk-contrib-table-grid factor-snapshot-header-row">
               <span>Factor</span>
@@ -132,7 +219,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
           </div>
         </section>
         <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Position Contributions</p></div><div className="toggle-group" aria-label="Position contribution sort mode"><button className={`toggle-chip${positionRiskSortMode === 'risk_share' ? ' active' : ''}`} onClick={() => setPositionRiskSortMode('risk_share')} type="button">Risk Share</button><button className={`toggle-chip${positionRiskSortMode === 'component_contribution' ? ' active' : ''}`} onClick={() => setPositionRiskSortMode('component_contribution')} type="button">Component</button></div></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Position Contributions</p></div><p className="helper">Position-level share of modeled portfolio risk for the current historical window.</p><div className="toggle-group" aria-label="Position contribution sort mode"><button className={`toggle-chip${positionRiskSortMode === 'risk_share' ? ' active' : ''}`} onClick={() => setPositionRiskSortMode('risk_share')} type="button">Risk Share</button><button className={`toggle-chip${positionRiskSortMode === 'component_contribution' ? ' active' : ''}`} onClick={() => setPositionRiskSortMode('component_contribution')} type="button">Component</button></div></div>
           <div className="factor-snapshot-table-wrap">
             <div className="risk-position-table-grid factor-snapshot-header-row">
               <span>Symbol</span>
@@ -157,34 +244,9 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
       </div>
 
       <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Risk Concentration</p></div></div>
-        <div className="dashboard-summary compact-summary-grid">
-          <div className="summary-card"><p className="stat-label">Top 1 Factor Risk Share</p><p className="summary-value">{formatPct(result.risk_contribution_breakdown.concentration.top_1_factor_risk_share != null ? result.risk_contribution_breakdown.concentration.top_1_factor_risk_share * 100 : null)}</p></div>
-          <div className="summary-card"><p className="stat-label">Top 3 Factor Risk Share</p><p className="summary-value">{formatPct(result.risk_contribution_breakdown.concentration.top_3_factor_risk_share != null ? result.risk_contribution_breakdown.concentration.top_3_factor_risk_share * 100 : null)}</p></div>
-          <div className="summary-card"><p className="stat-label">Top 1 Position Risk Share</p><p className="summary-value">{formatPct(result.risk_contribution_breakdown.concentration.top_1_position_risk_share != null ? result.risk_contribution_breakdown.concentration.top_1_position_risk_share * 100 : null)}</p></div>
-          <div className="summary-card"><p className="stat-label">Top 5 Position Risk Share</p><p className="summary-value">{formatPct(result.risk_contribution_breakdown.concentration.top_5_position_risk_share != null ? result.risk_contribution_breakdown.concentration.top_5_position_risk_share * 100 : null)}</p></div>
-          <div className="summary-card"><p className="stat-label">Factor HHI</p><p className="summary-value">{formatNumber(result.risk_contribution_breakdown.concentration.factor_hhi, 4)}</p></div>
-          <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(result.risk_contribution_breakdown.concentration.position_hhi, 4)}</p></div>
-        </div>
-      </section>
-
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Model Reliability</p></div><p className="helper">{result.model_reliability.window_days}d / {result.model_reliability.observation_count} obs / {result.model_reliability.status}</p></div>
-        <div className="dashboard-summary compact-summary-grid">
-          <div className="summary-card"><p className="stat-label">R-Squared</p><p className="summary-value">{formatNumber(result.model_reliability.r_squared, 4)}</p></div>
-          <div className="summary-card"><p className="stat-label">Residual Volatility</p><p className="summary-value">{formatPct(result.model_reliability.residual_volatility)}</p></div>
-          <div className="summary-card"><p className="stat-label">Collinearity Pairs</p><p className="summary-value">{formatNumber(result.model_reliability.collinearity_pair_count, 0)}</p></div>
-          <div className="summary-card"><p className="stat-label">Max Abs Correlation</p><p className="summary-value">{formatNumber(result.model_reliability.max_abs_factor_correlation, 4)}</p></div>
-          <div className="summary-card"><p className="stat-label">Factors Used</p><p className="summary-value">{formatNumber(result.model_reliability.factor_count_used, 0)}</p></div>
-          <div className="summary-card"><p className="stat-label">Missing Factors</p><p className="summary-value">{formatNumber(result.model_reliability.missing_factor_count, 0)}</p></div>
-          <div className="summary-card"><p className="stat-label">Stability Score</p><p className="summary-value">{formatNumber(result.model_reliability.stability_score, 4)}</p></div>
-          <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{result.model_reliability.confidence}</p></div>
-        </div>
-      </section>
-
-      <section className="dashboard-bottom-grid">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Factor Change Monitor</p></div>
+          <p className="helper">Window-to-window loading shifts from the backend model; flags remain explicit when stability is weaker.</p>
           <div className="chart-controls">
             <div className="toggle-group" aria-label="Shift sort mode">
               <button className={`toggle-chip${shiftSortMode === 'absolute_20d' ? ' active' : ''}`} onClick={() => setShiftSortMode('absolute_20d')} type="button">Abs 20d</button>

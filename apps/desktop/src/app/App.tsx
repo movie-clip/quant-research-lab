@@ -18,6 +18,7 @@ import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getL
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 const BacktestWorkspacePanel = lazy(async () => ({ default: (await import('../features/backtest/BacktestWorkspacePanel')).BacktestWorkspacePanel }))
 const StrategyLabPanel = lazy(async () => ({ default: (await import('../features/strategy-lab/StrategyLabPanel')).StrategyLabPanel }))
+const EtfRankingPanel = lazy(async () => ({ default: (await import('../features/strategy-lab/EtfRankingPanel')).EtfRankingPanel }))
 
 
 const defaultSymbolOverrides = '{}'
@@ -140,7 +141,7 @@ function resolveSelectedSnapshot(
 }
 
 export function App() {
-  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'backtest' | 'strategy_lab'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'backtest' | 'strategy_lab' | 'etf_ranking'>('dashboard')
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null)
   const [baselineAnalysis, setBaselineAnalysis] = useState<PortfolioBaselineView | null>(null)
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
@@ -572,6 +573,7 @@ export function App() {
           <button className={`tab-button${tab === 'diagnostics' ? ' active' : ''}`} onClick={() => setTab('diagnostics')}>Diagnostics</button>
           <button className={`tab-button${tab === 'backtest' ? ' active' : ''}`} onClick={() => setTab('backtest')}>Backtest</button>
           <button className={`tab-button${tab === 'strategy_lab' ? ' active' : ''}`} onClick={() => setTab('strategy_lab')}>Strategy Lab</button>
+          <button className={`tab-button${tab === 'etf_ranking' ? ' active' : ''}`} onClick={() => setTab('etf_ranking')}>ETF Ranking</button>
         </nav>
         <div className="topbar-meta">
           <span className="status-dot" />
@@ -671,6 +673,14 @@ export function App() {
         <section className="grid grid-single">
           <Suspense fallback={<section className="panel"><p className="panel-label">Strategy Lab</p><p className="helper">Loading prototype research workspace...</p></section>}>
             <StrategyLabPanel />
+          </Suspense>
+        </section>
+      ) : null}
+
+      {tab === 'etf_ranking' ? (
+        <section className="grid grid-single">
+          <Suspense fallback={<section className="panel"><p className="panel-label">ETF Ranking</p><p className="helper">Loading ETF ranking workspace...</p></section>}>
+            <EtfRankingPanel />
           </Suspense>
         </section>
       ) : null}

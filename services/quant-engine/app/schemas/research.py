@@ -233,6 +233,7 @@ class EtfRankingRequest(BaseModel):
     benchmark_symbol: str = "SPY"
     lookback_months: int = 6
     prefer_live_data: bool = False
+    peer_group: str | None = None
     weights: EtfRankingComponentWeights = Field(default_factory=EtfRankingComponentWeights)
 
 
@@ -274,6 +275,13 @@ class EtfRankingSourceStatus(BaseModel):
     holdings_support: Literal["sample", "mixed", "unavailable"]
 
 
+class EtfRankingWarnings(BaseModel):
+    confidence: Literal["high", "medium", "low"]
+    warnings: list[str] = Field(default_factory=list)
+    unknown_metadata_symbols: list[str] = Field(default_factory=list)
+    peer_group_unclassified_symbols: list[str] = Field(default_factory=list)
+
+
 class EtfRankingResponse(BaseModel):
     ranking_id: str
     title: str
@@ -283,7 +291,9 @@ class EtfRankingResponse(BaseModel):
     lookback_months: int
     price_basis: Literal["close"] = "close"
     methodology: str
+    effective_peer_group: str | None = None
     effective_component_weights: EtfRankingComponentWeights
     source_status: EtfRankingSourceStatus
+    warnings: EtfRankingWarnings
     ranked_universe: list[EtfRankingRow] = Field(default_factory=list)
     excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)

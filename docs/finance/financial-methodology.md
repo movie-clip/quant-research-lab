@@ -28,7 +28,7 @@ Examples:
 - `QQQ` -> growth proxy
 - `IWD` -> value proxy
 - `IWM` -> small-cap proxy
-- `XLK`, `XLF`, `XLV`, `XLE`, `XLI` -> sector factor proxies
+- `XLK`, `XLI`, `XLF`, `XLE`, `XLV`, `XLP`, `XLU`, `XLY` -> sector factor proxies
 - `IEF`, `TLT`, `LQD`, `DBC` -> macro proxies
 
 Primary implementation:
@@ -49,6 +49,10 @@ This distinction matters because some panels can be financially exact for import
 
 Relevant implementation:
 - `services/quant-engine/app/services/diagnostics_engine.py`
+
+Diagnostics contract rule:
+- diagnostics responses must carry explicit provenance for snapshot basis and historical basis so imported portfolio history and synthetic snapshot-history analytics are not conflated
+- diagnostics summary fields must only expose history-derived diagnostics values and must not mix in current-state holdings concentration
 
 ## Market Data Basis
 
@@ -466,6 +470,10 @@ Implementation:
 Economic meaning:
 - helps identify concentration risk and diversification weakness
 
+Contract rule:
+- diagnostics summary concentration fields are derived from historical risk contribution outputs
+- current-state holdings concentration is a separate truth class and should live in exposure-side contracts instead
+
 ## Stress Scenarios
 
 The project estimates stress scenario returns by shocking current factor exposures.
@@ -502,6 +510,33 @@ Relevant implementation:
 
 Economic meaning:
 - helps distinguish apparent diversification from hidden overlap
+
+## Current-State Concentration
+
+The exposure contract now includes a current-state concentration block sourced only from snapshot holdings and current holdings metadata.
+
+Implemented concepts include:
+- top position weights
+- top sector weights
+- position HHI
+- sector HHI
+- effective holdings
+
+Implemented formulas:
+
+```text
+position_hhi = sum(weight_i^2)
+sector_hhi = sum(sector_weight_j^2)
+effective_holdings = 1 / position_hhi
+```
+
+Implementation:
+- `services/quant-engine/app/analytics/overview.py`
+- `services/quant-engine/app/services/exposure_engine.py`
+
+Truth-class rule:
+- this block is current-state concentration only
+- it must remain separate from diagnostics-side history-derived risk concentration
 
 ## Allocation Backtest Methodology
 

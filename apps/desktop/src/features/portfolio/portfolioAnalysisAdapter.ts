@@ -161,6 +161,7 @@ export function composeExposureView(exposure: ExposureEngineResponse, diagnostic
     lookthrough: exposure.lookthrough,
     lookthrough_sector_exposure: exposure.lookthrough_sector_exposure,
     market_overlap: exposure.market_overlap,
+    current_state_concentration: exposure.current_state_concentration,
     risk_summary: diagnostics.risk_summary,
     rolling_risk: diagnostics.rolling_risk,
     relative_risk: diagnostics.relative_risk,
@@ -223,6 +224,7 @@ export function buildImportedExposureView(analysis: ImportedExposureSource): Exp
     lookthrough: analysis.lookthrough,
     lookthrough_sector_exposure: analysis.lookthrough_sector_exposure,
     market_overlap: analysis.market_overlap,
+    current_state_concentration: analysis.current_state_concentration,
     risk_summary: analysis.risk_summary,
     rolling_risk: analysis.rolling_risk,
     relative_risk: analysis.relative_risk,
@@ -266,6 +268,10 @@ export function buildPortfolioBaselineView(analysis: ImportedBaselineSource): Po
 export function buildImportedDiagnosticsView(analysis: ImportedDiagnosticsSource): DiagnosticsEngineResponse {
   return {
     snapshot: analysis.snapshot,
+    provenance: analysis.provenance,
+    drawdown_summary: analysis.drawdown_summary,
+    volatility_summary: analysis.volatility_summary,
+    risk_concentration_summary: analysis.risk_concentration_summary,
     risk_summary: analysis.risk_summary,
     rolling_risk: analysis.rolling_risk,
     relative_risk: analysis.relative_risk,

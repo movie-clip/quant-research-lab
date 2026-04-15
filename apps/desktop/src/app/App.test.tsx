@@ -342,6 +342,14 @@ describe('App', () => {
     await waitFor(() => expect(saveImportedSnapshotNodeSpy).toHaveBeenCalled())
   })
 
+  it('shows the separate ETF Ranking tab', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByText('ETF Ranking'))
+
+    await waitFor(() => expect(screen.getByText('ETF ranking workspace')).toBeTruthy())
+  })
+
   it('refreshes dashboard allocation and cards after adding a statement snapshot', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     const importedWorkspace = mockImportedWorkspace()

@@ -1072,6 +1072,35 @@ select.path-input option {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr);
 }
 
+.strategy-lab-rank-grid-wide {
+  grid-template-columns: minmax(0, 0.5fr) minmax(0, 1fr) minmax(0, 1.1fr) repeat(7, minmax(0, 0.8fr));
+}
+
+.strategy-ranking-row-top {
+  border-color: rgba(62, 179, 127, 0.28);
+  background: linear-gradient(180deg, rgba(22, 40, 32, 0.72) 0%, rgba(15, 22, 30, 0.94) 100%);
+}
+
+.strategy-ranking-symbol-cell,
+.strategy-ranking-metric-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.strategy-ranking-symbol-cell strong,
+.strategy-ranking-metric-cell strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.strategy-ranking-symbol-cell small,
+.strategy-ranking-metric-cell small,
+.strategy-ranking-category-cell {
+  color: var(--text-dim);
+  font-size: 0.69rem;
+  line-height: 1.2;
+}
+
 .strategy-lab-history-grid {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 1.5fr) minmax(0, 0.8fr) minmax(0, 0.8fr);
 }

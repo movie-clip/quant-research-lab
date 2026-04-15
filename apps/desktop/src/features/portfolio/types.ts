@@ -485,6 +485,9 @@ export type StatisticalFactorModel = {
     health_care: number | null
     energy: number | null
     industrials: number | null
+    consumer_staples?: number | null
+    utilities?: number | null
+    consumer_discretionary?: number | null
     rates_ief: number | null
     rates_tlt: number | null
     credit: number | null
@@ -504,6 +507,9 @@ export type StatisticalFactorModel = {
     health_care: number | null
     energy: number | null
     industrials: number | null
+    consumer_staples?: number | null
+    utilities?: number | null
+    consumer_discretionary?: number | null
     rates_ief: number | null
     rates_tlt: number | null
     credit: number | null
@@ -523,6 +529,9 @@ export type StatisticalFactorModel = {
     health_care: number | null
     energy: number | null
     industrials: number | null
+    consumer_staples?: number | null
+    utilities?: number | null
+    consumer_discretionary?: number | null
     rates_ief: number | null
     rates_tlt: number | null
     credit: number | null
@@ -583,6 +592,27 @@ export type DiagnosticsAvailability = {
   note: string | null
 }
 
+export type DiagnosticsDrawdownSummary = {
+  current_drawdown_pct: number | null
+  max_drawdown_pct: number | null
+}
+
+export type DiagnosticsVolatilitySummary = {
+  portfolio_volatility_pct: number | null
+  benchmark_volatility_pct: number | null
+  downside_volatility_pct: number | null
+  tracking_error_pct: number | null
+}
+
+export type DiagnosticsRiskConcentrationSummary = {
+  top_1_factor_risk_share: number | null
+  top_3_factor_risk_share: number | null
+  top_1_position_risk_share: number | null
+  top_5_position_risk_share: number | null
+  factor_hhi: number | null
+  position_hhi: number | null
+}
+
 export type ImportedHistoryContext = {
   benchmark_symbol: string
   statement_period: string | null
@@ -604,6 +634,9 @@ export type ExposureEnginePayload = {
 export type DiagnosticsPayload = {
   snapshot: ImportedSnapshot
   availability: DiagnosticsAvailability
+  drawdown_summary: DiagnosticsDrawdownSummary
+  volatility_summary: DiagnosticsVolatilitySummary
+  risk_concentration_summary: DiagnosticsRiskConcentrationSummary
   risk_summary: PortfolioRiskSummary
   rolling_risk: RollingRiskPoint[]
   relative_risk: RelativeRiskSummary
@@ -657,6 +690,25 @@ export type ExposureAvailability = {
   note: string | null
 }
 
+export type ExposureConcentrationItem = {
+  name: string
+  market_value: number
+  weight: number
+}
+
+export type ExposureCurrentStateConcentration = {
+  top_positions: ExposureConcentrationItem[]
+  top_sectors: ExposureConcentrationItem[]
+  top_1_position_weight: number | null
+  top_3_position_weight: number | null
+  top_5_position_weight: number | null
+  top_sector_weight: number | null
+  top_3_sector_weight: number | null
+  position_hhi: number | null
+  sector_hhi: number | null
+  effective_holdings: number | null
+}
+
 export type ComposedExposureAvailability = ExposureAvailability & {
   historical_diagnostics_confidence: ExposureAvailabilityConfidence
 }
@@ -667,6 +719,7 @@ export type ImportedExposureSource = {
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
   market_overlap: MarketOverlapSummary
+  current_state_concentration: ExposureCurrentStateConcentration
   exposure_availability?: (ExposureAvailability & {
     historical_diagnostics_confidence?: ExposureAvailabilityConfidence
   }) | null
@@ -691,6 +744,14 @@ export type ImportedExposureSource = {
 
 export type ImportedDiagnosticsSource = {
   snapshot: ImportedSnapshot
+  provenance: {
+    snapshot_basis: 'imported_snapshot' | 'snapshot_request'
+    historical_basis: 'imported_portfolio_history' | 'market_data_history' | 'unavailable'
+    note: string
+  }
+  drawdown_summary: DiagnosticsDrawdownSummary
+  volatility_summary: DiagnosticsVolatilitySummary
+  risk_concentration_summary: DiagnosticsRiskConcentrationSummary
   risk_summary: PortfolioRiskSummary
   rolling_risk: RollingRiskPoint[]
   relative_risk: RelativeRiskSummary
@@ -718,6 +779,7 @@ export type ExposureEngineResponse = {
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
   market_overlap: MarketOverlapSummary
+  current_state_concentration: ExposureCurrentStateConcentration
   availability: ExposureAvailability
 }
 
@@ -963,6 +1025,64 @@ export type EtfMomentumStrategyResponse = {
     average_turnover_pct: number | null
     average_volume_participation_ratio: number | null
   }
+}
+
+export type EtfRankingResponse = {
+  ranking_id: string
+  title: string
+  as_of_date: string
+  benchmark_symbol: string
+  universe: string[]
+  lookback_months: number
+  price_basis: 'close'
+  methodology: string
+  effective_peer_group: string | null
+  effective_component_weights: {
+    momentum: number
+    benchmark_relative_strength: number
+    realized_volatility: number
+    downside_volatility: number
+    max_drawdown: number
+    liquidity: number
+    implementation_fit: number
+  }
+  source_status: {
+    price_history: 'sample' | 'live' | 'mixed'
+    benchmark_history: 'sample' | 'live'
+    holdings_support: 'sample' | 'mixed' | 'unavailable'
+  }
+  warnings: {
+    confidence: 'high' | 'medium' | 'low'
+    warnings: string[]
+    unknown_metadata_symbols: string[]
+    peer_group_unclassified_symbols: string[]
+  }
+  ranked_universe: Array<{
+    rank: number
+    symbol: string
+    composite_score: number
+    instrument: {
+      symbol: string
+      name: string | null
+      asset_class: string | null
+      sector: string | null
+      category: string | null
+      currency: string | null
+    }
+    component_scores: Record<string, {
+      label: string
+      direction: 'higher_is_better' | 'lower_is_better'
+      raw_value: number
+      raw_unit: 'pct' | 'volume' | 'score'
+      normalized_score: number
+      weight: number
+      weighted_score: number
+    }>
+  }>
+  excluded_symbols: Array<{
+    symbol: string
+    reason: string
+  }>
 }
 
 export type AllocationBacktestWeight = {

@@ -479,6 +479,9 @@ class RollingFactorLoadingPoint(BaseModel):
     health_care: float | None = None
     energy: float | None = None
     industrials: float | None = None
+    consumer_staples: float | None = None
+    utilities: float | None = None
+    consumer_discretionary: float | None = None
     rates_ief: float | None = None
     rates_tlt: float | None = None
     credit: float | None = None

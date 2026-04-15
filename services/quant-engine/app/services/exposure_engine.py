@@ -4,10 +4,16 @@ from app.analytics.risk import (
     build_lookthrough_sector_exposure,
     build_market_overlap_summary,
 )
-from app.schemas.exposure import ExposureAvailability, ExposureEngineRequest, ExposureResult
+from app.schemas.exposure import (
+    ExposureAvailability,
+    ExposureConcentrationItem,
+    ExposureCurrentStateConcentration,
+    ExposureEngineRequest,
+    ExposureResult,
+)
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest
-from app.schemas.reconciliation import LookThroughOverview
+from app.schemas.reconciliation import LookThroughOverview, PortfolioOverview
 from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
 
@@ -19,6 +25,7 @@ def build_snapshot_from_exposure_request(request: PortfolioEngineRequest) -> Imp
 def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> ExposureResult:
     benchmark_symbol = benchmark_symbol or 'SPY'
     symbol_overrides = symbol_overrides or {}
+    overview = build_portfolio_overview(snapshot)
 
     market_data = MarketDataService()
     lookthrough_constituents, etf_resolution, uncovered_positions, covered_market_value = build_lookthrough_exposure(snapshot, market_data, symbol_overrides)
@@ -26,6 +33,7 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
     _, benchmark_holdings = market_data.get_etf_holdings(benchmark_symbol)
     lookthrough_sector_exposure = build_lookthrough_sector_exposure(lookthrough_constituents)
     market_overlap = build_market_overlap_summary(lookthrough_constituents, benchmark_symbol, benchmark_holdings)
+    current_state_concentration = _build_current_state_concentration(overview)
     availability = _build_exposure_availability(
         total_market_value=total_market_value,
         lookthrough_constituents=lookthrough_constituents,
@@ -35,7 +43,7 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
 
     return ExposureResult(
         snapshot=snapshot,
-        overview=build_portfolio_overview(snapshot),
+        overview=overview,
         lookthrough=LookThroughOverview(
             portfolio_market_value=total_market_value,
             covered_market_value=round(covered_market_value, 2),
@@ -46,6 +54,7 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
         ),
         lookthrough_sector_exposure=lookthrough_sector_exposure,
         market_overlap=market_overlap,
+        current_state_concentration=current_state_concentration,
         availability=availability,
     )
 
@@ -100,3 +109,45 @@ def _build_exposure_availability(
         benchmark_overlap_confidence=benchmark_overlap_confidence,
         note=note,
     )
+
+
+def _build_current_state_concentration(overview: PortfolioOverview) -> ExposureCurrentStateConcentration:
+    top_positions = [_coerce_concentration_item(item, "symbol") for item in overview.top_positions]
+    top_sectors = [_coerce_concentration_item(item, "sector") for item in overview.sector_allocation[:8]]
+    position_weights = [item.weight for item in top_positions]
+    sector_weights = [item.weight for item in top_sectors]
+    position_hhi = _herfindahl_index(position_weights)
+    sector_hhi = _herfindahl_index(sector_weights)
+
+    return ExposureCurrentStateConcentration(
+        top_positions=top_positions,
+        top_sectors=top_sectors,
+        top_1_position_weight=_sum_top_weights(position_weights, 1),
+        top_3_position_weight=_sum_top_weights(position_weights, 3),
+        top_5_position_weight=_sum_top_weights(position_weights, 5),
+        top_sector_weight=_sum_top_weights(sector_weights, 1),
+        top_3_sector_weight=_sum_top_weights(sector_weights, 3),
+        position_hhi=position_hhi,
+        sector_hhi=sector_hhi,
+        effective_holdings=round(1 / position_hhi, 2) if position_hhi not in (None, 0) else None,
+    )
+
+
+def _coerce_concentration_item(item: dict[str, float | str], name_key: str) -> ExposureConcentrationItem:
+    return ExposureConcentrationItem(
+        name=str(item.get(name_key) or "n/a"),
+        market_value=round(float(item.get("market_value") or 0.0), 2),
+        weight=round(float(item.get("weight") or 0.0), 4),
+    )
+
+
+def _sum_top_weights(values: list[float], limit: int) -> float | None:
+    if not values:
+        return None
+    return round(sum(sorted(values, reverse=True)[:limit]), 4)
+
+
+def _herfindahl_index(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return round(sum(value * value for value in values), 4)
