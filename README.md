@@ -1,318 +1,175 @@
-# Portfolio Tracker and Research Workbench
+# Quant Research Lab
 
-Standalone investments portfolio tracker, backtester, and portfolio research app with local analytics and LLM-assisted workflows.
+Local-first quant research and portfolio construction platform for imported real portfolios, ETF and factor research, allocation replay, and systematic portfolio improvement.
 
-## Recommended Repo Structure
+This project is designed to become a practical `quant-research-lab` for personal investing and research workflows:
+- import broker statements and reconstruct portfolio truth
+- analyze exposures, factors, overlap, and risk
+- rank ETFs and instruments systematically
+- build candidate portfolios with explicit rules and constraints
+- compare baseline vs candidate portfolios through historical replay
+- monitor drift, concentration, volatility, and benchmark-relative behavior
 
-This repo should stay as a monorepo, but only split where responsibilities are clearly different.
+The product is not intended to be a black-box prediction engine.
+It is intended to be a deterministic, auditable, decision-support platform for systematic investing.
+
+## Product Direction
+
+The core direction of the project is:
+- `portfolio intelligence`
+- `quant ranking`
+- `portfolio construction`
+- `portfolio improvement`
+- `allocation replay`
+- `overlay and monitoring`
+
+Highest-priority quant methods for the platform:
+- factor investing
+- momentum and relative strength
+- ranking systems
+- risk budgeting
+- portfolio construction rules
+- trend / risk overlays
+- scenario analysis
+- monitoring
+
+## Repo Structure
 
 ```text
-portfolio/
+quant-research-lab/
   README.md
   apps/
-    desktop/                # Tauri shell + React UI
+    desktop/                # Desktop UI for research, diagnostics, replay, and review
   services/
-    quant-engine/           # Python API for ingestion, factors, analytics, backtests
-  packages/
-    ui/                     # Shared UI components, charts, tables, tokens
-    shared-types/           # TS schemas for portfolios, backtests, API payloads
-    prompts/                # Versioned system prompts / templates for LLM features
+    quant-engine/           # Python engine for imports, factors, analytics, ranking, and replay
+  docs/
+    roadmap.md              # product roadmap
+    technical-quant-roadmap.md
+    financial-methodology.md
+    architecture.md
+    dashboard-field-inventory.md
+    exposure-field-inventory.md
+    backtest-field-inventory.md
+  scripts/
   data/
-    raw/                    # FMP cache, original API payload snapshots if needed
-    curated/                # Cleaned parquet datasets
-    duckdb/                 # Local analytics database files
-    exports/                # User exports, reports, backtest outputs
-  docs/                     # Keep light; add only stable docs
-  scripts/                  # Bootstrap, sync, migration, maintenance scripts
-  tests/
-    e2e/                    # App-level tests
-    fixtures/               # Sample market data and portfolios
 ```
 
-## Folder Responsibilities
+## Documentation Structure
 
-- `apps/desktop`
-  - portfolio dashboard, holdings, rebalancing UI, charts, LLM chat
-  - stack: `Tauri`, `React`, `TypeScript`, `Vite`
-- `services/quant-engine`
-  - FMP ingestion, caching, normalization, signals, analytics, backtesting
-  - stack: `FastAPI`, `Polars`, `DuckDB`, `NumPy`, `cvxpy`
-- `packages/shared-types`
-  - keep the frontend and Python service aligned through shared schemas
-- `packages/prompts`
-  - useful once LLM features exist; keeps prompts versioned and testable
-- `data/`
-  - local-first storage, no cloud dependency required for normal use
+The docs folder should stay small and high-signal.
 
-## Suggested Internal Layout
+Core docs:
+- `docs/roadmap.md`
+  - product direction and execution order
+- `docs/technical-quant-roadmap.md`
+  - technical implementation roadmap for the quant-lab pivot
+- `docs/financial-methodology.md`
+  - source of truth for financial formulas, assumptions, and implemented methods
+- `docs/architecture.md`
+  - system boundaries, truth classes, engine responsibilities, and provenance rules
+- `docs/dashboard-field-inventory.md`
+  - dashboard financial field traceability
+- `docs/exposure-field-inventory.md`
+  - exposure and diagnostics field traceability
+- `docs/backtest-field-inventory.md`
+  - backtest and replay field traceability
 
-### `apps/desktop`
+Rule:
+- if a financially meaningful formula changes, update methodology text and the relevant field inventory at the same time
 
-```text
-apps/desktop/
-  src/
-    app/
-    features/
-      portfolio/
-      backtest/
-      market-data/
-      llm/
-      settings/
-    components/
-    lib/
-    hooks/
-    stores/
-    routes/
-```
+## Financial Accuracy Rules
 
-Use feature-first organization so holdings and backtest logic do not get mixed into generic folders too early.
+The project follows these rules:
+- every displayed financial metric must be traceable to one engine output and one code path
+- imported broker truth, snapshot current-state analytics, synthetic history, and hypothetical replay must remain clearly separated
+- if a historical result cannot be produced faithfully, the system should degrade explicitly rather than fabricate plausible values
+- adjusted-close or total-return-aware inputs are required for return-based analytics wherever economically meaningful
 
-### `services/quant-engine`
+See:
+- `docs/financial-methodology.md`
+- `docs/architecture.md`
 
-```text
-services/quant-engine/
-  app/
-    api/                    # FastAPI routes
-    core/                   # settings, logging, config
-    clients/                # FMP client, LLM provider adapters
-    ingestion/              # fetch + cache + normalize market data
-    datasets/               # parquet/duckdb dataset builders
-    factors/                # momentum, value, quality, volatility, etc.
-    models/                 # portfolio construction models
-    backtests/              # simulation engine and metrics
-    analytics/              # attribution, drawdown, exposures, reports
-    schemas/                # Pydantic request/response models
-    importers/              # broker statement importers
-    tests/
-```
+## Broker Fixtures and Test Inputs
 
-Keep `models/` separate from `backtests/` so portfolio construction and simulation do not become tightly coupled.
+The project already has source-of-truth broker statement examples from:
+- `IB2026.pdf`
+- `FF2026.pdf`
+- `ESPP2026.pdf`
 
-## Portfolio Import Direction
+Important usage rule:
+- use the document layout, section structure, and data-shape expectations from those broker exports as parser and regression references
+- do not hardcode tests to exact file binaries if you expect the user to re-export fresh copies over time
+- tests should prefer normalized expectations for:
+  - section layout
+  - field extraction shape
+  - accounting semantics
+  - combined snapshot behavior
 
-Portfolio data should support both manual entry and broker imports from the start.
+In other words:
+- use the files as format references
+- use extracted normalized data patterns as the durable test contract
 
-The first broker import should be `Interactive Brokers` statement files.
+## Main Workflows
 
-- import should normalize statements into the same transaction ledger used by manual entries
-- keep imported raw records for auditability and parser debugging
-- treat broker-specific parsing as an adapter layer, not core portfolio logic
-- support extending later for other brokers without changing the portfolio domain model
+### 1. Imported Portfolio Truth
+- import broker statements
+- normalize positions, balances, and ledger activity
+- reconstruct portfolio truth and history context
 
-## Backtesting Engine Options
+### 2. Portfolio Intelligence
+- analyze holdings, look-through exposure, benchmark overlap, factors, volatility, drawdown, and concentration
 
-### `vectorbt`
+### 3. Ranking
+- rank ETFs or instruments systematically using transparent components such as momentum, volatility, drawdown, liquidity, and implementation fit
 
-- best fit for fast research and portfolio-level simulations
-- great with pandas/NumPy style vectorized workflows
-- strong for parameter sweeps, signals research, factor experiments, ranking systems
-- easier to connect with `PyPortfolioOpt`, `cvxpy`, `Polars`-to-pandas bridges, and custom analytics
-- weaker when you need highly realistic event-driven order handling or broker simulation
+### 4. Construction
+- build candidate portfolios from rules and constraints
 
-### `backtrader`
+### 5. Improvement
+- compare baseline vs candidate portfolios through replay and before/after diagnostics
 
-- stronger for event-driven strategy simulation and order lifecycle modeling
-- useful for classic trading-system workflows with bars, orders, fills, commissions, slippage
-- older ecosystem and heavier framework feel
-- less attractive for modern portfolio research across many assets and repeated allocation replay runs
-- slower and more rigid for large-scale cross-sectional screening work
-
-### Custom Engine
-
-- best long-term control if you need exact portfolio rules, tax logic, cash flows, rebalancing schedules, and explainable accounting
-- higher upfront cost and more validation burden
-- ideal once your product rules become more important than generic strategy framework features
-
-## Recommendation
-
-Use a phased approach:
-
-1. Start with `vectorbt` for research speed and faster MVP delivery.
-2. Build your own thin domain layer around portfolios, constraints, transactions, and reports.
-3. Add a custom backtest core for portfolio accounting only when product rules outgrow `vectorbt`.
-4. Do not start with `backtrader` unless realistic trade execution simulation is the main product.
-
-For this project, the likely path is:
-
-- portfolio tracker + factor research + fast replay workflows -> `vectorbt` first
-- institutional-grade accounting / tax lots / complex rebalance rules -> custom engine later
-- intraday execution simulator / broker-style order events -> consider `backtrader` or custom event engine
-
-## Recommended Model Stack
-
-Early models to support in `services/quant-engine/app/models/`:
-
-- equal weight
-- minimum volatility
-- risk parity
-- Black-Litterman
-- momentum ranking
-- quality/value composite ranking
-
-Keep these deterministic. Let the LLM explain, filter, and propose constraints, but not directly own allocations.
-
-## Practical MVP Direction
-
-Build in this order:
-
-1. FMP ingestion + local cache
-2. portfolio tracker and transaction ledger
-3. historical performance and benchmark comparison
-4. `vectorbt`-based backtests
-5. allocation replay and backtest workflows
-6. LLM assistant for explanation and portfolio change proposals
-
-## Current Starter Implementation
-
-- desktop frontend scaffolded in `apps/desktop`
-- local quant API scaffolded in `services/quant-engine/app/api/main.py`
-- first Interactive Brokers PDF import endpoint available at `POST /portfolios/import/interactive-brokers`
-- first parser implemented against `docs/U8516450_2025_2025.pdf`
-- FMP API configuration now loads from `services/quant-engine/.env`
-- the import endpoint can now return reconciliation, holdings timeline, and benchmark comparison without DB persistence
-- FMP responses now use a local file cache in `data/raw/fmp-cache` with TTLs tuned for quotes vs historical prices
+### 6. Monitoring
+- monitor drift, factor changes, volatility regime, and concentration over time
 
 ## Current Architecture Direction
 
-The repo is in an active refactor away from one monolithic import-time analysis payload toward narrower engine and UI contracts.
+The project is organized around engine outputs rather than one monolithic analysis payload.
 
-- `PortfolioSnapshot` is the persisted truth for local portfolio workspaces and immutable saved variants
-- exposure, diagnostics, dashboard, and backtest baseline views are being split into narrower concern-specific contracts
-- the desktop app should project import bootstrap results into these narrower contracts immediately rather than passing a broad upload-time payload through the UI
-- historical diagnostics must require history context; if it is missing, the UI should show unavailable rather than approximate from a static snapshot
-- financially meaningful formulas must be documented with both the methodology used and the code location that implements them, so financial-accuracy review can trace every calculation quickly
+The main engine families are:
+- import / truth engines
+- exposure and diagnostics engines
+- ranking and research engines
+- construction and replay engines
+- overlay and monitoring engines
 
-Canonical roadmap for this refactor lives in `docs/roadmap.md`.
+The frontend should remain thin on finance logic and should not synthesize financial analytics locally.
 
-## Run Frontend And Backend Together
+## Development Notes
 
-Use the repo helper to run both dev servers with prefixed logs in one terminal:
+Desktop app:
+- `apps/desktop`
+
+Python quant engine:
+- `services/quant-engine`
+
+Run both dev servers:
 
 ```bash
 python scripts/run_dev.py
 ```
 
-Checks only:
+Check only:
 
 ```bash
 python scripts/run_dev.py --check
 ```
 
-This starts:
+## Naming Direction
 
-- backend on `127.0.0.1:8000`
-- frontend on `127.0.0.1:5173`
+Recommended project / repo name:
+- `quant-research-lab`
 
-Why this is useful:
+Current local folder may still be named differently until a full rename pass is completed.
 
-- one command for daily development
-- backend and frontend logs stay visible together
-- easier to stop both services with one `Ctrl+C`
-
-## Manage FMP Cache
-
-List cached FMP entries:
-
-```bash
-python scripts/manage_cache.py list
-```
-
-Clear all cached FMP entries:
-
-```bash
-python scripts/manage_cache.py clear
-```
-
-Clear one cache namespace only:
-
-```bash
-python scripts/manage_cache.py clear --namespace quote
-```
-
-Namespaces:
-
-- `quote`
-- `history`
-- `fx`
-
-## OpenCode Handoff Workflow
-
-Use the repo-root handoff files to coordinate across OpenCode sessions without external services.
-
-- `opencode-status.md`
-  - current session state
-  - what changed
-  - what remains
-  - how the work was validated
-- `opencode-next-ticket.md`
-  - the single best next ticket for the next session to pick up
-- `scripts/opencode_handoff.py`
-  - optional validator for required headings
-
-### Session Workflow
-
-1. Start a session by reading `opencode-status.md` and `opencode-next-ticket.md`.
-2. If `opencode-status.md` shows `done`, `ready for review`, or an outdated task, treat `opencode-next-ticket.md` as the next unit of work.
-3. Change `opencode-status.md` to reflect the active task, owner/session name, status, files changed, and risks as work progresses.
-4. When implementation is complete, update:
-   - `Status`
-   - `What Was Completed`
-   - `Remaining Work`
-   - `Validation Run`
-   - `Recommended Next Step`
-   - `Last Updated Timestamp`
-5. Replace `opencode-next-ticket.md` with the next best ticket before ending the session.
-
-### Monitoring / Review Flow
-
-A monitoring OpenCode session can determine completion quickly by checking:
-
-- `opencode-status.md`
-  - `Status` is `ready for review` or `done`
-  - `Validation Run` shows passing checks
-  - `Remaining Work` is empty or explicitly non-blocking
-- `opencode-next-ticket.md`
-  - contains a fresh next task rather than the just-finished task
-
-If the work is complete, the monitoring session should:
-
-1. review the changed files noted in `Files Changed`
-2. rerun the listed validation steps if needed
-3. update `Status` to `done` if the result is acceptable
-4. start the next ticket from `opencode-next-ticket.md`
-
-### Optional Validation Command
-
-Run this from the repo root to confirm the handoff files still contain all required headings:
-
-```bash
-python scripts/opencode_handoff.py validate
-```
-
-This script is intentionally minimal and adds no dependencies.
-
-## OpenCode Skills
-
-This repo also keeps local reusable OpenCode skill definitions in `.opencode/skills/`.
-
-- Current skill library index: `.opencode/skills/README.md`
-- Current analytics guard skill: `.opencode/skills/portfolio-analytics-guard.md`
-
-Use case:
-
-- recurring repo-specific workflows that should be applied consistently across sessions
-- especially useful for analytics, schema-sync, import workflows, and frontend polish rules
-
-Current note:
-
-- the repo stores these as local skill-definition files
-- if runtime skill registration is not available in the current OpenCode environment, ask the agent to follow the relevant file explicitly
-
-## Decision Snapshot
-
-- desktop shell: `Tauri`
-- frontend: `React` + `TypeScript`
-- analytics engine: `Python`
-- local analytics store: `DuckDB` + `Parquet`
-- first backtest engine: `vectorbt`
-- later extension path: custom portfolio engine
+Target git remote:
+- `git@github.com:movie-clip/quant-research-lab.git`

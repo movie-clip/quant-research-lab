@@ -4,6 +4,71 @@ from app.api.main import app
 from app.services.strategy_lab import _normalize_fmp_holdings, _normalize_fmp_holdings_snapshot, _rows_to_monthly_bars
 
 
+def test_etf_ranking_route_returns_ranked_universe_and_component_scores() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ranking_id"] == "etf_ranking_engine_v1"
+    assert payload["ranked_universe"]
+    assert payload["ranked_universe"][0]["rank"] == 1
+    assert payload["ranked_universe"][0]["component_scores"]["momentum"]["normalized_score"] is not None
+    assert payload["ranked_universe"][0]["component_scores"]["realized_volatility"]["direction"] == "lower_is_better"
+    assert payload["effective_component_weights"]["momentum"] > 0
+    assert payload["source_status"]["price_history"] in {"sample", "live"}
+
+
+def test_etf_ranking_route_supports_custom_weights() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "weights": {
+                "momentum": 0.0,
+                "benchmark_relative_strength": 0.0,
+                "realized_volatility": 1.0,
+                "downside_volatility": 0.0,
+                "max_drawdown": 0.0,
+                "liquidity": 0.0,
+                "implementation_fit": 0.0,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["effective_component_weights"]["realized_volatility"] == 1.0
+    assert payload["effective_component_weights"]["momentum"] == 0.0
+
+
+def test_etf_ranking_route_rejects_empty_universe() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": [],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert response.status_code == 400
+
+
 def test_etf_cross_sectional_momentum_route_returns_rankings_and_curve() -> None:
     client = TestClient(app)
 

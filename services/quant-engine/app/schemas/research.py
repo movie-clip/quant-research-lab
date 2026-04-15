@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 
@@ -175,3 +175,115 @@ class EtfMomentumStrategyResponse(BaseModel):
     source_status: EtfMomentumSourceStatus
     equity_curve: list[EtfMomentumPoint] = Field(default_factory=list)
     metrics: EtfMomentumMetrics
+
+
+RankingDirection = Literal["higher_is_better", "lower_is_better"]
+RankingUnit = Literal["pct", "volume", "score"]
+
+
+class EtfRankingComponentWeights(BaseModel):
+    momentum: float = 0.30
+    benchmark_relative_strength: float = 0.20
+    realized_volatility: float = 0.15
+    downside_volatility: float = 0.10
+    max_drawdown: float = 0.10
+    liquidity: float = 0.10
+    implementation_fit: float = 0.05
+
+    @model_validator(mode="after")
+    def validate_weights(self) -> "EtfRankingComponentWeights":
+        values = [
+            self.momentum,
+            self.benchmark_relative_strength,
+            self.realized_volatility,
+            self.downside_volatility,
+            self.max_drawdown,
+            self.liquidity,
+            self.implementation_fit,
+        ]
+        if any(value < 0 for value in values):
+            raise ValueError("ranking component weights must be non-negative")
+        if sum(values) <= 0:
+            raise ValueError("at least one ranking component weight must be positive")
+        return self
+
+    def normalized(self) -> "EtfRankingComponentWeights":
+        total = (
+            self.momentum
+            + self.benchmark_relative_strength
+            + self.realized_volatility
+            + self.downside_volatility
+            + self.max_drawdown
+            + self.liquidity
+            + self.implementation_fit
+        )
+        return EtfRankingComponentWeights(
+            momentum=self.momentum / total,
+            benchmark_relative_strength=self.benchmark_relative_strength / total,
+            realized_volatility=self.realized_volatility / total,
+            downside_volatility=self.downside_volatility / total,
+            max_drawdown=self.max_drawdown / total,
+            liquidity=self.liquidity / total,
+            implementation_fit=self.implementation_fit / total,
+        )
+
+
+class EtfRankingRequest(BaseModel):
+    universe: list[str] = Field(default_factory=list)
+    benchmark_symbol: str = "SPY"
+    lookback_months: int = 6
+    prefer_live_data: bool = False
+    weights: EtfRankingComponentWeights = Field(default_factory=EtfRankingComponentWeights)
+
+
+class EtfRankingInstrumentContext(BaseModel):
+    symbol: str
+    name: str | None = None
+    asset_class: AssetClass | None = None
+    sector: str | None = None
+    category: str | None = None
+    currency: str | None = None
+
+
+class EtfRankingComponentScore(BaseModel):
+    label: str
+    direction: RankingDirection
+    raw_value: float
+    raw_unit: RankingUnit
+    normalized_score: float
+    weight: float
+    weighted_score: float
+
+
+class EtfRankingRow(BaseModel):
+    rank: int
+    symbol: str
+    composite_score: float
+    instrument: EtfRankingInstrumentContext
+    component_scores: dict[str, EtfRankingComponentScore] = Field(default_factory=dict)
+
+
+class EtfRankingExcludedSymbol(BaseModel):
+    symbol: str
+    reason: str
+
+
+class EtfRankingSourceStatus(BaseModel):
+    price_history: Literal["sample", "live", "mixed"]
+    benchmark_history: Literal["sample", "live"]
+    holdings_support: Literal["sample", "mixed", "unavailable"]
+
+
+class EtfRankingResponse(BaseModel):
+    ranking_id: str
+    title: str
+    as_of_date: str
+    benchmark_symbol: str
+    universe: list[str] = Field(default_factory=list)
+    lookback_months: int
+    price_basis: Literal["close"] = "close"
+    methodology: str
+    effective_component_weights: EtfRankingComponentWeights
+    source_status: EtfRankingSourceStatus
+    ranked_universe: list[EtfRankingRow] = Field(default_factory=list)
+    excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)

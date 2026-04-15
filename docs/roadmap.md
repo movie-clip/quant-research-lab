@@ -1,526 +1,422 @@
-# Engine Refactor Roadmap
+# Quant Research Lab Roadmap
 
-This roadmap replaces the older generic roadmap and becomes the working plan for the portfolio-engine refactor.
+This roadmap replaces the older engine-refactor roadmap as the main product direction.
 
-The target architecture is:
+The project is being steered toward a `quant-research-lab` model:
+- a local-first portfolio intelligence and construction platform
+- grounded in financially meaningful analytics
+- focused on systematic portfolio decisions rather than generic dashboarding
+- built for portfolio improvement, risk control, ranking, factor analysis, allocation replay, and disciplined research workflows
 
-- `ImportEngine` produces `PortfolioSnapshot` plus optional `PortfolioHistoryContext`
-- `ExposureEngine` accepts `PortfolioSnapshot` and returns exposure data for UI rendering
-- `DiagnosticsEngine` accepts `PortfolioSnapshot` plus optional `PortfolioHistoryContext`
-- `BacktestEngine` accepts explicit portfolio or strategy inputs and returns backtest results
-- the UI consumes engine outputs and does not synthesize financial analytics locally
+The target product is not a black-box predictor.
+It is a transparent systematic investing and portfolio-construction workbench.
 
-## Principles
+## Product Thesis
 
-1. `PortfolioSnapshot` is the persisted truth for saved portfolio variants.
-2. Historical diagnostics must require `PortfolioHistoryContext`.
-3. If required history is missing, engines return `unavailable` rather than approximate silently.
-4. Engine outputs are derived artifacts, not persisted truth.
-5. Routes stay thin and delegate to engine services.
-6. UI should never patch financial outputs by hand.
+The project should evolve into a professional-grade workflow for:
+- understanding current portfolio exposures and risks
+- ranking ETFs / instruments systematically
+- constructing candidate portfolios with explicit rules
+- comparing current vs candidate portfolios historically
+- monitoring factor drift, concentration, volatility, and benchmark-relative behavior
+- applying quant methods that professionals actually use in practice
 
-## Current Problem Summary
+The strongest quant direction for this product is:
+- `ranking systems`
+- `factor investing`
+- `risk budgeting`
+- `portfolio construction`
+- `allocation replay`
+- `trend / momentum overlays`
+- `scenario analysis`
+- `monitoring`
 
-The project currently has a mixed architecture:
+The project should avoid centering itself on:
+- opaque ML return prediction
+- unconstrained Markowitz optimization
+- short-horizon mean reversion trading
+- overfit macro regime forecasting
 
-- import, exposure, diagnostics, and parts of backtest behavior were historically concentrated around one broad import-time analysis service before the engine split
-- the frontend is moving toward `PortfolioSnapshot`, but backend engine boundaries are still blurred
-- static-snapshot reanalysis is not equivalent to historically faithful imported analysis for rolling diagnostics
-- this caused real accuracy bugs, including mismatched 20d `QQQ`/Growth values between broad import-time analysis and snapshot analysis
+## Core Product Principles
 
-## Target Backend Modules
+1. Financial outputs must be methodologically explicit.
+2. Every displayed metric must be traceable to one engine output and one implementation path.
+3. Broker-truth history, snapshot current-state analytics, and synthetic history approximations must remain clearly separated.
+4. Systematic decision support is more important than signal novelty.
+5. Portfolio construction rules and risk controls matter more than black-box alpha.
+6. The UI should present decision-grade information, not quant-debug noise.
+7. Any quant model added to the project must justify its economic meaning, data requirements, and operational usefulness.
 
-### 1. Import Engine
+## What the Project Should Become
 
-Purpose:
-
-- read broker statements
-- normalize imported records
-- build canonical snapshot
-- build optional history context
-
-Target files:
-
-- `services/quant-engine/app/services/import_engine.py`
-- `services/quant-engine/app/services/import_engine_composer.py`
-- `services/quant-engine/app/services/benchmark_service.py`
-- `services/quant-engine/app/services/statement_importer.py`
-- `services/quant-engine/app/services/history_context_builder.py`
-
-Primary outputs:
-
-- `PortfolioSnapshot`
-- `PortfolioHistoryContext`
-- `ImportMetadata`
-
-### 2. Exposure Engine
+### 1. Portfolio Intelligence Layer
 
 Purpose:
+- explain what the portfolio currently is
+- identify hidden exposures and concentrations
+- benchmark the portfolio against market, style, sector, and macro factors
 
-- current holdings-based exposure only
-- look-through constituent exposure
+Core capabilities:
+- look-through exposure
+- benchmark overlap / active share
 - sector exposure
-- overlap
-- current factor snapshot
-- current concentration and current-state risk decomposition if supported
+- factor model
+- volatility / drawdown / tracking error
+- risk contribution
+- concentration
+- stress scenarios
 
-Target files:
-
-- `services/quant-engine/app/services/exposure_engine.py`
-- `services/quant-engine/app/schemas/exposure.py`
-
-Allowed input:
-
-- `PortfolioSnapshot`
-- optional engine context such as benchmark or symbol overrides
-
-Must not depend on:
-
-- imported statement history for basic current exposure
-
-### 3. Diagnostics Engine
+### 2. Quant Ranking Layer
 
 Purpose:
+- rank ETFs and instruments using systematic criteria
+- support candidate selection and sleeve rotation
 
-- rolling risk
-- rolling factor loadings
-- volatility regime
-- historical benchmark sensitivity
-- risk path and other history-based diagnostics
+Target methods:
+- momentum ranking
+- volatility-adjusted ranking
+- drawdown-aware ranking
+- liquidity-aware ranking
+- mapping-fit-aware ranking for UCITS vs US proxy translation
+- later: factor-composite ranking
 
-Target files:
+Outputs:
+- ranked universe
+- composite score
+- component score breakdown
+- inclusion/exclusion filters
 
-- `services/quant-engine/app/services/diagnostics_engine.py`
-- `services/quant-engine/app/schemas/diagnostics.py`
-
-Required rule:
-
-- historical sections require `PortfolioHistoryContext`
-- if absent, return `unavailable`
-
-### 4. Backtest Engine
+### 3. Portfolio Construction Layer
 
 Purpose:
+- convert rankings, exposures, and constraints into target weights
 
-- strategy backtests
-- portfolio allocation replay
-- future portfolio-variant replay or compare workflows
+Target methods:
+- equal weight
+- capped score-weighting
+- volatility-scaled weighting
+- benchmark + tilt construction
+- risk-budget-aware sizing
+- concentration-constrained allocation
 
-Target files:
+Outputs:
+- target weights
+- turnover estimate
+- implementation assumptions
+- baseline vs candidate comparison
 
-- `services/quant-engine/app/services/backtest_engine.py`
-- `services/quant-engine/app/schemas/backtest_engine.py`
+### 4. Portfolio Improvement Layer
 
-Important:
+Purpose:
+- show whether changes actually improve the portfolio
 
-- do not couple this engine to a broad import-time analysis response object
+Target workflow:
+- baseline portfolio
+- candidate portfolio
+- historical allocation replay
+- before/after diagnostics
 
-## Target API Shape
+Comparison dimensions:
+- return
+- annualized return
+- volatility
+- downside volatility
+- drawdown
+- tracking error
+- information ratio
+- factor exposure change
+- risk contribution change
+- concentration change
+- stress scenario change
 
-### Import
+### 5. Overlay and Monitoring Layer
 
-- `POST /portfolio/import/upload`
-- `POST /portfolio/import/path`
+Purpose:
+- maintain discipline after the portfolio is built
 
-Response:
+Target methods:
+- trend-following overlay
+- risk-on / risk-off overlay
+- volatility / regime monitoring
+- factor drift monitoring
+- concentration drift monitoring
+- benchmark-relative drift monitoring
 
-- `snapshot`
-- `history_context_ref` or inline `history_context` for local mode
-- `import_metadata`
+## Quant Methods the Product Should Prioritize
 
-### Exposure
+### Tier 1: Highest-Value Methods
 
-- `POST /engines/exposure/run`
+These are the most realistic and useful quant methods for this project and for personal investing.
 
-Request:
+1. `Ranking systems`
+2. `Momentum`
+3. `Factor investing`
+4. `Portfolio construction rules`
+5. `Risk budgeting`
+6. `Allocation replay / current vs candidate comparison`
+7. `Monitoring`
 
-- `snapshot`
-- `engine_context`
+### Tier 2: Strong Supporting Methods
 
-Response:
+1. `Trend-following overlays`
+2. `Scenario analysis`
+3. `Simple regime flags`
+4. `Constrained minimum-volatility construction`
+5. `Multi-asset risk budgeting`
 
-- `ExposureResult`
+### Tier 3: Use Carefully
 
-### Diagnostics
+1. `Risk parity`
+2. `Optimization`
+3. `Theme rotation`
 
-- `POST /engines/diagnostics/run`
+These should only be implemented with strong constraints and clear economic framing.
 
-Request:
+### Deprioritized / Not Core
 
-- `snapshot`
-- optional `history_context_ref`
-- `engine_context`
+1. `Short-horizon mean reversion`
+2. `Black-box ML return prediction`
+3. `Complex macro regime engines`
+4. `Unconstrained expected-return optimization`
 
-Response:
+## Current Project Strengths to Build On
 
-- `DiagnosticsResult`
+The project already has strong foundations in:
+- factor and exposure analytics
+- look-through and overlap analysis
+- volatility and relative-risk diagnostics
+- candidate vs reference allocation replay
+- ETF momentum / ranking-adjacent strategy-lab workflow
+- financial methodology documentation
 
-### Backtest
+This means the project is already best positioned as:
+- a `portfolio intelligence + portfolio construction` platform
 
-- `POST /engines/backtest/run`
+not yet as:
+- a full institutional alpha-research stack
 
-Request:
+## Current Product Gaps
 
-- explicit strategy or replay request
-- optional `snapshot`
-- optional benchmark and date context
+The main gaps blocking a real quant-research-lab direction are:
 
-Response:
+1. no unified instrument / ETF ranking engine
+2. no true portfolio-construction rule engine
+3. no robust optimization layer with constraints
+4. no integrated portfolio-improvement workspace as the primary workflow
+5. insufficiently production-grade factor math and reliability framing
+6. diagnostics panels still partly optimized for debug-style outputs rather than PM decision flow
+7. strategy research workflows are narrower than portfolio construction workflows
 
-- `BacktestResult`
+## Required Financial Accuracy Work
 
-## Frontend Target Shape
+Before the quant lab can be treated as decision-grade, the project must harden the financial math behind the analytics.
 
-### Portfolio Workspace
+### Production-Grade Factor Math Hardening
 
-The workspace model remains the correct direction:
+Required work:
+- guarantee adjusted-close or total-return-equivalent input series for benchmark and ETF factor returns
+- degrade explicitly when benchmark or factor histories are not total-return-aware
+- expose factor-model assumptions structurally:
+  - price basis
+  - orthogonalization order
+  - windows used
+  - ridge parameter
+- add stronger model reliability fields:
+  - factors used vs dropped
+  - observation count
+  - collinearity severity
+  - residual volatility / residual share
+  - current-window reliability status
+- make synthetic snapshot-history factor outputs visibly distinct from broker-truth historical diagnostics
+- expand tests around proxy overlap, missing adjusted-price histories, and degradation semantics
 
-- `PortfolioWorkspace`
-- `PortfolioNode`
-- `WorkingDraft`
-- `PortfolioSnapshot`
+### Production-Grade Diagnostics Prioritization
 
-### Frontend Responsibilities
+Diagnostics should prioritize:
+1. risk contribution
+2. concentration
+3. model reliability
+4. factor change monitoring
 
-Frontend should do only these things:
+Not:
+- biggest movers
+- heuristic flags as the main decision surface
 
-- persist local snapshot variants
-- select active snapshot or draft
-- call engine endpoints
-- render engine responses
+## Architecture Direction
 
-Frontend must not:
+The project should remain engine-based, but product framing should shift from generic portfolio tracker to quant research lab.
 
-- synthesize financial risk or exposure outputs
-- patch broad upload-time analysis objects locally
-- infer historical diagnostics from a static snapshot
+Target engine families:
 
-### Current Frontend Status
+### Import / Truth Engines
+- import engine
+- history-context builder
+- benchmark service
 
-The desktop app has now made meaningful progress on the contract split:
+### Portfolio Intelligence Engines
+- exposure engine
+- diagnostics engine
+- dashboard history engine
 
-- `ExposurePanel` consumes a dedicated `ExposureAnalysis` contract derived from exposure and diagnostics engine outputs
-- `DiagnosticsPanel` consumes `DiagnosticsEngineResponse` directly and renders an unavailable state when historical sections require missing history context
-- `DashboardPanel` consumes `DashboardAnalysis` instead of a broad import-time analysis payload
-- backtest baseline seeding consumes `PortfolioBaselineView`
-- import-upload flows are projected immediately into narrower imported contracts for dashboard, exposure, diagnostics, baseline, snapshot, and factor-model concerns
-- local workspace persistence keeps `PortfolioSnapshot` as truth while engine outputs remain derived runtime artifacts
+### Portfolio Construction Engines
+- portfolio allocation replay engine
+- portfolio improvement engine
+- later: construction / optimizer engine
 
-This means the remaining frontend work is no longer the original exposure/diagnostics split. The remaining work is concentrated in:
+### Quant Research Engines
+- ranking engine
+- momentum engine
+- later: factor-composite engine
+- later: overlay engine
 
-- finishing backend import/exposure/diagnostics engine extraction
-- replacing the remaining broad upload-time response decode with dedicated import-engine contracts
-- continuing to shrink large test fixtures and any residual monolithic-type coupling
+The UI should consume narrow engine outputs rather than one broad analysis blob.
 
 ## Execution Plan
 
-### Stage 1. Canonical Engine Contracts
+### Stage 1. Production-Grade Financial Core
 
 Goal:
-
-- define explicit request/response schemas for each engine
+- make existing analytics trustworthy enough to serve as the base of a quant lab
 
 Tasks:
-
-- create `PortfolioSnapshot` backend schema to match frontend canonical shape
-- create `PortfolioHistoryContext` backend schema
-- create `ExposureResult`, `DiagnosticsResult`, and `BacktestResult`
-- stop using one oversized import-time analysis payload as the shared contract for everything
+- complete production-grade factor math hardening
+- strengthen diagnostics ordering and reliability fields
+- keep truth classes explicit in payloads and UI
+- update financial methodology and inventory docs alongside code changes
 
 Exit criteria:
+- rolling factor and risk diagnostics are decision-grade or explicitly degraded
+- model reliability is visible anywhere factor outputs are shown
 
-- engine contracts exist in dedicated schema files
-- no new feature work extends the monolithic import-time analysis response
-
-### Stage 2. Exposure Engine Extraction
+### Stage 2. ETF / Instrument Ranking Engine
 
 Goal:
-
-- make Exposure a true snapshot-in/service-out flow
+- make ranking a first-class product capability
 
 Tasks:
-
-- move look-through, overlap, sector exposure, factor exposure, and current factor snapshot logic into `exposure_engine.py`
-- add `/engines/exposure/run`
-- update frontend `ExposurePanel` path to call the new exposure engine adapter
-- remove remaining exposure-specific dependence on broad import-time analysis contracts
+- define ranking request/response contracts
+- build ranking components such as:
+  - momentum
+  - realized volatility
+  - downside volatility
+  - drawdown
+  - benchmark-relative strength
+  - liquidity and implementation fit
+- support configurable composite weights
+- expose ranked universe and component scores to the UI
 
 Exit criteria:
+- the project can rank ETF universes systematically
+- ranked output is usable as input to construction workflows
 
-- Exposure tab uses `ExposureResult`
-- fresh import, saved node, and draft all use the same exposure engine contract
-
-Status note:
-
-- `ExposurePanel` is already running through the dedicated exposure route and `ExposureAnalysis` bridge
-- `services/quant-engine/app/services/exposure_engine.py` and `/engines/exposure/run` are in place
-- remaining work is contract hardening, route/engine coverage expansion, and removal of residual monolithic import-time analysis assumptions
-
-### Stage 3. Diagnostics Engine Extraction
+### Stage 3. Portfolio Construction Rules
 
 Goal:
-
-- separate current snapshot exposure from historical diagnostics
+- turn ranked or chosen assets into candidate portfolios using systematic rules
 
 Tasks:
-
-- move rolling risk, rolling factor loadings, volatility regime, and related diagnostics into `diagnostics_engine.py`
-- require `PortfolioHistoryContext` for historical sections
-- return structured `unavailable` sections when no history context exists
-- update `DiagnosticsPanel` and history-heavy parts of `ExposurePanel` to consume diagnostics-engine responses
+- implement rule-based weighting modes:
+  - equal weight
+  - capped score-weight
+  - volatility-scaled
+  - benchmark + tilt
+  - concentration-capped
+- expose hard constraints:
+  - max position weight
+  - max sleeve weight
+  - turnover guardrails
+  - concentration guardrails
 
 Exit criteria:
+- candidate portfolios can be built systematically rather than only manually
 
-- historical metrics are never silently approximated from a static snapshot
-- current and historical analytics are clearly separated
-
-Status note:
-
-- `DiagnosticsPanel` is already running through dedicated diagnostics contracts
-- unavailable-state handling is already in place for missing history context
-- backend-side dedicated diagnostics contracts are in place
-- import/history-context plumbing is now present on both backend and desktop persistence
-- dashboard historical restore now has a dedicated `dashboard-history` engine path
-- remaining work is coverage expansion plus cleanup of remaining approximation boundaries and contract edges
-- production-grade factor math still needs hardening before Exposure/Diagnostics should be treated as fully decision-grade. The main remaining math tasks are:
-  - guarantee adjusted-close or total-return-equivalent price basis for benchmark and factor return series used by the statistical factor model, and degrade explicitly when unavailable
-  - document and expose factor-order sensitivity in the orthogonalized proxy model instead of treating the ordering as implicit
-  - add stronger model-reliability fields for factor math, including current-window collinearity severity, observation sufficiency, factor-count used, and residual share visibility
-  - distinguish broker-truth historical diagnostics from synthetic snapshot-history diagnostics more explicitly anywhere factor outputs are shown
-  - expand route/engine tests to verify factor math remains stable under adjusted-price inputs, missing-history degradation, and proxy-overlap stress cases
-
-### Stage 3a. Production-Grade Factor Math Hardening
+### Stage 4. Portfolio Improvement Workspace
 
 Goal:
-
-- make the factor model and rolling diagnostics financially robust enough for production-grade portfolio interpretation
+- make current vs candidate the central product workflow
 
 Tasks:
-
-- require adjusted-close or total-return-equivalent input series for benchmark and ETF factor proxies before computing factor returns
-- add explicit degraded/unavailable handling when factor or benchmark histories lack adjusted-price support
-- surface factor-model assumptions in structured form, including:
-  - return price basis
-  - orthogonalization order
-  - rolling windows used
-  - ridge parameter used
-- add a dedicated model-reliability payload for current factor math, including:
-  - current window used for diagnostics
-  - observation count
-  - factors used vs dropped
-  - current-window max absolute factor correlation
-  - collinearity pair count
-  - residual volatility / residual share
-  - overall status/confidence
-- verify that benchmark alignment does not silently shrink portfolio history without explicit degraded signaling
-- tighten tests around factor overlap cases such as `SPY`/`QQQ`/`XLK` and around missing adjusted-price histories
-- update methodology text and inventory docs whenever factor formulas or assumptions change
+- baseline seeding from current portfolio
+- candidate builder with fast editing
+- historical replay summary with baseline / candidate / delta
+- before/after diagnostics:
+  - factor exposure changes
+  - volatility and drawdown changes
+  - concentration changes
+  - risk contribution changes
+  - stress scenario changes
 
 Exit criteria:
+- the user can tell whether a portfolio change is actually an improvement
 
-- factor and benchmark return series used by Exposure/Diagnostics are explicitly total-return-aware or explicitly degraded
-- factor-model assumptions are visible in backend payloads instead of hidden in code only
-- factor outputs shown in UI have a companion reliability/status signal
-- synthetic snapshot-history factor outputs are clearly distinguishable from broker-truth historical diagnostics
-- engine and route tests cover adjusted-price requirements, degradation semantics, and overlapping-proxy stability cases
-
-### Stage 4. Import Engine Extraction
+### Stage 5. Overlay and Monitoring System
 
 Goal:
-
-- reduce import to import-only concerns
+- support disciplined ongoing management after portfolio construction
 
 Tasks:
-
-- keep import orchestration in a dedicated `import_engine.py` module with import-only responsibilities
-- make import routes return snapshot plus history context metadata
-- keep statement importer and broker-specific parsing behind import-engine boundaries
-- preserve upload-path accuracy for imported base portfolios
+- trend filter overlay
+- volatility / regime state monitoring
+- drift alerts for exposures and concentration
+- benchmark-relative drift monitoring
 
 Exit criteria:
+- the project can monitor and maintain a systematic portfolio, not just analyze it once
 
-- import route no longer acts as the master analytics route
-- imported base workflow has explicit historical context available for diagnostics
-
-Status note:
-
-- frontend import handling now consumes a bootstrap-only import response and immediately hands off analytics recomputation to engine routes
-- persistence and workspace creation now depend on import bootstrap data plus persisted history context rather than any broad upload-time analytics payload
-- import upload responses now return only the imported base bootstrap needed for workspace creation
-- fresh import and restore both recompute dashboard history via the dedicated dashboard-history engine path
-- workspace persistence now keeps the imported snapshot needed for accurate dashboard-history replay on restore
-- imported dashboard-history replay now reconciles its terminal state to broker statement totals so ending value matches the statement
-- snapshot-only dashboard-history requests degrade to `unavailable` rather than fabricating historical values from end-state holdings
-- snapshot-only exposure still renders current-state look-through data, while the frontend now explicitly labels historical diagnostics as unavailable instead of showing a confusing near-empty view
-- exposure engine coverage now includes deterministic tests against real `IB2026.pdf`, `FF2026.pdf`, and `ESPP2026.pdf` snapshots plus a rolling-regression calibration test for the core loading math
-- workspace lineage is now surfaced consistently in Dashboard and Exposure as `base`, `base -> variant`, and `Working Draft · <active lineage>`
-- Dashboard `Add Statement` now creates an immutable imported child snapshot under `base` instead of mutating the existing imported workspace; imported child nodes are named `{short broker} {statement end date}` such as `IB 2026-04-08`
-- diagnostics now supports a history-aware snapshot path, so saved variants and working drafts can render rolling factor/risk sections when workspace history context is available
-- variant/draft historical diagnostics currently use a stable snapshot-history approximation rather than broker-truth replay, which is sufficient for usable rolling factor/risk views but still distinct from imported-base history
-- factor math on variant/draft historical diagnostics remains useful but should not be treated as broker-truth replay; production UI should keep those truth classes visually distinct when presenting rolling factor outputs
-- opening or selecting nodes from Dashboard/Exposure no longer overwrites the rich dashboard analysis state with an exposure-only shell
-- the desktop now exposes a hard `Reset Local DB` action that deletes the IndexedDB workspace database for maximum local-state recovery
-- backend import bootstrap orchestration now lives in `import_engine.py`, with bootstrap response assembly in `import_engine_composer.py`
-- shared benchmark summary assembly used by dashboard history now lives in neutral `benchmark_service.py`
-- import-side history window and `PortfolioHistoryContext` derivation now live in dedicated `history_context_builder.py`
-- dashboard sector classification now maps `SXRV` / Nasdaq-100 style holdings to `Technology` instead of `Broad Market`, so Dashboard better reflects concentration risk
-- the repository now has a single Python test runner at `scripts/run_all_tests.py` that regenerates dashboard goldens for both `IB2026.pdf` and `FF2026.pdf`, runs the full backend suite, and runs the full desktop suite
-- Dashboard now has generated desktop golden-data paths for both `IB2026.pdf` and `FF2026.pdf`: backend tests validate imported overview/history against broker-truth expectations, desktop tests consume generated TypeScript golden fixtures derived from live backend outputs, and App-level restore/open-node regressions verify the same canonical values survive orchestration flows for both brokers
-- the current Dashboard accuracy contract is now explicit: imported nodes may show broker-truth history, while snapshot-only/variant flows must be correct or render `unavailable` rather than plausible fabricated history
-- Dashboard range-derived financial values now flow from backend `range_metrics` rather than parallel UI recomputation, so `start value`, `MWR`, `drawdown`, and monthly returns render from engine output or `n/a` when the backend does not provide trustworthy metrics
-- desktop Dashboard coverage now includes account/statement fallback states, empty draft allocation states, imported-base restore, imported child-snapshot open, variant-to-base switching, and imported-child-variant restore with unavailable history enforcement
-- generated dashboard goldens are now deterministic across runs, with stable normalized import timestamps to avoid timestamp-only diffs
-- diagnostics `availability.history_context_required` is now treated as a requirement flag, not a presence flag: it stays `true` for both available and unavailable historical diagnostics because those sections fundamentally depend on history context
-- backend route coverage now explicitly includes mixed-broker import bootstrap history-context merging plus mixed-broker imported `dashboard-history` and `diagnostics` engine paths under mocked market data
-- backend route coverage now explicitly checks malformed or incomplete imported-history payloads degrade to `unavailable` for both `dashboard-history` and `diagnostics` instead of fabricating history from empty imported inputs
-- imported engine routes now also degrade to `unavailable` when benchmark history or symbol market-data support is effectively missing, rather than returning plausible-looking but unsupported historical outputs
-- persisted workspace source metadata and runtime restore flow are now `historySource`-only
-- restore/open-node/snapshot-selection now allow imported replay only for nodes that directly own imported history; descendant variants inherit only history context so broker-truth replay cannot leak across lineage
-- new workspace/node writes now persist `historySource` only, and the IndexedDB version path resets older local workspace caches instead of preserving removed source shapes in runtime code
-- desktop storage/App tests now lock down current-format persistence and restore behavior without carrying compatibility reconstruction paths
-
-### Deprecated Storage Cleanup Status
-
-Completed:
-
-- workspace/node runtime types, persistence, and restore flow are now `historySource`-only
-- removed source-shape reconstruction and legacy import-session restore paths from runtime code
-- local cache invalidation now happens through the IndexedDB version/reset path rather than ad hoc runtime scanning
-- docs/tests now describe current-format persistence and restore behavior instead of compatibility reconstruction
-
-### Stage 5. Backtest Engine Refactor
+### Stage 6. Constrained Optimization
 
 Goal:
-
-- make backtests consume explicit inputs instead of mixed UI/import blobs
+- use optimization as a constrained refinement tool, not as a black-box portfolio generator
 
 Tasks:
-
-- split current strategy backtests and allocation replay into explicit engine requests
-- allow future portfolio variant replay against a given snapshot
-- keep backtest outputs separate from exposure and diagnostics outputs
+- implement minimum-volatility / tracking-error-aware / turnover-aware optimizers
+- enforce strong constraints and regularization
+- keep rule-based construction available as the primary baseline
 
 Exit criteria:
+- optimization improves construction under clear guardrails
 
-- backtest routes consume dedicated requests only
-- no backtest logic depends on the monolithic import-time analysis response
-
-Status note:
-
-- backtest contracts now live in dedicated `services/quant-engine/app/schemas/backtest_engine.py`
-- the route-owned `BacktestRequest` has been retired into engine-owned schemas
-- portfolio-allocation replay now builds explicit synthetic imported snapshots directly in `portfolio_backtest_engine.py` rather than routing through the shared snapshot builder
-- portfolio-allocation diagnostics now assemble explicit replay-derived inputs (`synthetic_snapshot`, `replay_daily_states`) separately from historical market-data inputs (`benchmark_price_history`, `factor_price_histories`)
-- backtest diagnostics snapshots now carry typed provenance so the UI can distinguish synthetic replay snapshot basis from external historical market-data basis
-
-### Stage 6. Local Derived Result Cache
+### Stage 7. Strategy Research Expansion
 
 Goal:
-
-- preserve accuracy while keeping snapshot as truth
+- broaden the strategy-lab side after portfolio construction workflows are strong
 
 Tasks:
-
-- add optional local cache keyed by:
-  - `engine_name`
-  - `snapshot_hash`
-  - `history_context_hash`
-  - `engine_context_hash`
-- cache imported base-node diagnostics that require history context
-- keep cache invalidation explicit and safe
+- expand universe presets
+- add reusable research templates
+- support richer ranking experiments
+- support walk-forward comparisons where realistic
 
 Exit criteria:
+- the project supports both portfolio construction research and selected strategy research workflows
 
-- imported root nodes can reopen with accurate historical diagnostics without redefining persisted truth
+## Immediate Priorities
 
-## Immediate Refactor Order
+1. finish production-grade factor math hardening
+2. turn diagnostics into a PM-first panel
+3. build the ETF / instrument ranking engine
+4. build portfolio construction rules on top of ranking
+5. make the portfolio improvement workspace the main backtest workflow
 
-1. expand route-level and engine-level coverage for `dashboard-history`, `diagnostics`, and `exposure`, especially unavailable-state behavior and imported-history replay correctness
-2. remove the remaining residual monolithic import-time analysis assumptions and stale wording across code/docs
-3. proceed with backtest engine cleanup against explicit snapshot/history inputs
-4. add a local derived-result cache only after correctness contracts are locked
+## Naming Direction
 
-## Documentation Cleanup Plan
+Recommended product naming direction:
+- `Quant Research Lab`
+- `quant-research-lab`
 
-Do not aggressively delete docs before replacement exists. Instead:
+This naming should reflect the actual product direction:
+- systematic portfolio intelligence
+- ranking and construction
+- historical replay and improvement workflows
+- transparent, documented quant methodology
 
-### Keep and update
+## Documentation Rules
 
-- `docs/roadmap.md`
-- `docs/dashboard-field-inventory.md`
-- `README.md`
-- `services/quant-engine/README.md`
-- `apps/desktop/src/features/portfolio/README.md`
+Any financially meaningful change must update:
+- methodology strings in code
+- `docs/financial-methodology.md`
+- relevant field inventory docs
+- tests that lock down formulas and degraded semantics
 
-### Review for rewrite or retirement after Stage 2-4
-
-- `docs/architecture.md`
-- `docs/mvp-data-flow.md`
-- `docs/strategy-research-architecture.md`
-- any README that still describes broad import-time analysis as the primary architecture
-
-### Cleanup rules
-
-- remove docs that describe flows that no longer exist
-- prefer one current architecture doc over many partially stale docs
-- keep historical design notes only if explicitly labeled as archived
-
-## Implementation Guardrails
-
-- no more frontend financial patching for exposure or diagnostics
-- no more hidden historical approximations from snapshot-only inputs
-- routes remain thin
-- every engine gets direct unit tests plus one route-level integration test
-- any metric shown in UI must be traceable to one engine response field
-- every Dashboard value should be traceable further: UI field -> app state -> adapter/engine response -> snapshot/import source -> statement truth or explicit `unavailable`
-- financially meaningful formulas must be documented with their methodology and implementation location; if a formula changes, update both code-level methodology text and the relevant accuracy docs/tests
-- `docs/exposure-field-inventory.md` should stay aligned with actual Exposure formulas, truth classes, and degraded/unavailable semantics
-- `docs/backtest-field-inventory.md` should stay aligned with actual replay metrics, diagnostics provenance, comparison semantics, and implementation assumptions
-- factor-model methodology must document price basis, orthogonalization order, and reliability/degradation semantics whenever those inputs materially affect interpretation
-- `docs/IB2026.pdf` is the current canonical broker-truth fixture for Dashboard financial accuracy work
-- `docs/FF2026.pdf` is the current Freedom24 broker-truth fixture for 2026 YTD validation and mixed-broker coverage; longer Freedom24 history exists beyond 2026, but `FF2026.pdf` is the main local fixture in active test use today
-
-## Current Known Accuracy Rule
-
-Until the refactor is complete:
-
-- imported nodes can render historically accurate broker-truth outputs through dedicated imported engine routes
-- snapshot-only reanalysis is valid for current exposure
-- snapshot-only or variant historical outputs are not valid unless they are explicitly trustworthy, explicitly approximate, or marked unavailable
-
-## Current Frontend Contract Inventory
-
-Current desktop contracts in active use:
-
-- `DashboardAnalysis`
-- `ExposureAnalysis`
-- `DiagnosticsEngineResponse`
-- `PortfolioBaselineView`
-- import-only source projections for dashboard, exposure, diagnostics, baseline, snapshot, and factor-model flows
-
-This is the intended direction. New frontend work should extend these narrow contracts rather than reintroducing broad upload-time analysis dependencies.
-
-Current imported-upload contract status:
-
-- import routes now return a bootstrap-only response containing:
-  - `snapshot`
-  - `overview`
-  - `risk_summary`
-  - `history_context`
-- desktop import mapping uses that bootstrap payload only for workspace creation and initial snapshot normalization
-- exposure, diagnostics, and dashboard history are recomputed through dedicated engine routes for both fresh import and restore
-- restore/open-node flows follow the same recomputation model rather than reviving a broad upload-time analysis blob
-
-## What To Implement Next
-
-When implementation resumes, start here:
-
-1. continue route-level and engine-level coverage for `dashboard-history`, `exposure`, and `diagnostics`, especially around unavailable-state behavior for snapshot/history-context flows and imported-history replay correctness
-2. remove any remaining residual monolithic import-time analysis assumptions in contracts, adapters, and docs
-3. proceed with backtest engine cleanup against explicit snapshot/history inputs after Dashboard correctness contracts are locked
-4. add a local derived-result cache keyed by snapshot and history context only after correctness contracts are locked
-
-Current backend naming status:
-
-- legacy `import_analysis.py` and `import_analysis_composer.py` names have been retired
-- import-side bootstrap code now uses import-engine naming consistently
+This roadmap should remain focused on product direction and execution order.
+Detailed implementation plans should live in dedicated specs and technical roadmap files.

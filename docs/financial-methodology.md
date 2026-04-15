@@ -11,6 +11,8 @@ It is intended to describe:
 
 This file should be updated whenever financially meaningful formulas, assumptions, or truth classes change.
 
+This document is the core finance-methodology reference for the `Quant Research Lab` direction of the project.
+
 ## Terminology
 
 The project uses the term `factor` rather than `quant`.

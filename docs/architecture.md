@@ -1,15 +1,32 @@
-# Architecture Notes
+# Quant Research Lab Architecture
 
 ## System Boundaries
 
-The project is split into a desktop application and a local quant service.
+The project is split into a desktop application and a local quant engine.
 
 - `apps/desktop`
-  - user interface, local settings, charts, portfolio views, assistant UX
+  - workflow UI, workspace state, charts, review flows, and research interaction
 - `services/quant-engine`
-  - market data ingestion, normalization, portfolio import, backtests, analytics
+  - deterministic finance and quant engines: imports, datasets, ranking, analytics, replay, monitoring
 
 The desktop app should treat the quant engine as the source of truth for portfolio calculations.
+
+## Product Architecture Direction
+
+The target product is a local-first quant research lab.
+
+Core engine families:
+- truth and import engines
+- portfolio intelligence engines
+- quant ranking engines
+- portfolio construction and replay engines
+- overlay and monitoring engines
+
+The system should prioritize:
+- deterministic outputs
+- explicit methodology
+- truth-class clarity
+- financial auditability
 
 ## API Boundary
 
@@ -35,6 +52,19 @@ Suggested API groups:
 - `POST /backtests`
 - `GET /backtests/{backtest_id}`
 - `POST /assistant/portfolio-review`
+- `POST /strategy-lab/etf-ranking`
+
+## Broker Import and Source-of-Truth Files
+
+The project already has source-of-truth broker statement examples from:
+- `IB2026.pdf`
+- `FF2026.pdf`
+- `ESPP2026.pdf`
+
+These should be used as parser-layout and accounting-shape references.
+
+Important rule:
+- tests should rely on normalized extracted data shape and accounting semantics rather than exact binary file identity, because source PDFs may be re-exported over time
 
 ## Interactive Brokers Import
 
@@ -82,6 +112,29 @@ This gives enough coverage to build an imported portfolio, a transaction ledger,
 - `BacktestRun`
 - `ImportedStatement`
 
+Recommended research-side and construction-side domain entities:
+- `UniverseDefinition`
+- `RankingSpec`
+- `RankingRun`
+- `ConstructionSpec`
+- `ConstraintSet`
+- `CandidatePortfolio`
+- `AllocationReplayRun`
+- `ImprovementRun`
+- `OverlaySpec`
+- `MonitorDefinition`
+
+## Truth Classes
+
+The project uses explicit truth classes when reasoning about financial outputs:
+
+- `broker-truth historical diagnostics`
+- `snapshot current-state analytics`
+- `synthetic snapshot-history diagnostics`
+- `replay-derived hypothetical outputs`
+
+These must remain visibly distinct in both payloads and UI.
+
 ## Data Flow
 
 ### FMP market data
@@ -99,8 +152,18 @@ This gives enough coverage to build an imported portfolio, a transaction ledger,
 2. normalize into domain transactions and balances
 3. build `PortfolioSnapshot` plus optional history context
 4. persist snapshot as local truth in the desktop workspace model
-5. call dedicated engines for exposure, diagnostics, and backtests
+5. call dedicated engines for exposure, diagnostics, ranking, construction, replay, and monitoring as appropriate
 6. send derived engine outputs to UI
+
+### Ranking and construction
+
+1. define investable universe
+2. compute component scores
+3. build ranked universe output
+4. apply construction rules and constraints
+5. produce candidate portfolio
+6. replay candidate vs baseline
+7. emit before/after diagnostics
 
 ## Backtest Diagnostics Provenance
 
@@ -216,6 +279,13 @@ Persisted imported-history metadata now writes a single `historySource` shape in
 - variants and drafts may reuse historical context for diagnostics/dashboard-history approximation, but must not inherit direct imported replay from an ancestor imported node
 
 The current steady state is a clean `historySource`-only runtime and persistence model. Old local caches are invalidated by the database version/reset path rather than carried forward inside runtime code.
+
+## Documentation Rule
+
+If a financially meaningful formula, methodology, or truth-class assumption changes, update:
+- `docs/financial-methodology.md`
+- the relevant field inventory document
+- tests that lock the behavior
 
 ## MVP Boundary Rules
 

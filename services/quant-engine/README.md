@@ -1,17 +1,19 @@
 # Quant Engine
 
-Local Python service for market data ingestion, portfolio import, analytics, and backtesting.
+Local Python service for market data ingestion, portfolio truth, ranking, analytics, construction, replay, and monitoring.
 
 ## Responsibilities
 
 - FMP client and caching
 - dataset normalization
-- Interactive Brokers statement import
+- broker statement import
 - portfolio accounting and analytics
-- backtest runs
+- ETF / instrument ranking
+- construction and replay workflows
+- monitoring and diagnostics
 - LLM-safe portfolio explanation inputs
 
-## Current Engine Skeleton
+## Current Engine Direction
 
 The backend now has explicit early boundaries for the long-term product shape:
 
@@ -20,19 +22,26 @@ The backend now has explicit early boundaries for the long-term product shape:
 - `app/domain/`
   - canonical ledger and portfolio accounting helpers
 - `app/analytics/`
-  - imported portfolio analytics and reconciliation
+  - imported portfolio analytics, factors, diagnostics, and reconciliation
 - `app/instruments/`
-  - instrument master and futures metadata skeleton
+  - instrument master and metadata
 - `app/datasets/`
-  - local dataset catalog skeleton
+  - local dataset catalog and sample/live history access
 - `app/strategies/`
-  - strategy registry skeleton for book-style systems
+  - strategy and ranking research workflows
 - `app/backtests/`
-  - backtest engine skeleton returning `BacktestRun`
+  - replay and backtest engines
 - `app/overlay/`
-  - overlay preview skeleton for portfolio + strategy workflows
+  - overlay preview and later overlay engine workflows
 
-This is intentionally a structural foundation first. The modules should work together now, while detailed futures logic can be implemented later without reshaping the app again.
+The service should evolve into the deterministic backend for the quant research lab.
+
+Priority backend directions:
+- production-grade financial math
+- ranking engine
+- portfolio construction rules
+- portfolio improvement comparison
+- overlay and monitoring systems
 
 ## FMP Cache Strategy
 

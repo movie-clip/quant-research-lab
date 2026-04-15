@@ -29,11 +29,17 @@ Dashboard currently renders from two root inputs:
    - sourced from the active working draft or opened node snapshot in `apps/desktop/src/app/App.tsx`
    - Allocation Overview, sector pie, sector drilldown, draft capital check, and editable holdings come from this path
 
-Broker-truth fixtures in active use today:
+Broker source-of-truth statement formats in active use today:
 
-- `docs/IB2026.pdf` is the canonical Interactive Brokers fixture for Dashboard golden-value coverage
-- `docs/FF2026.pdf` is the active Freedom24 fixture for 2026 YTD validation, mixed-broker coverage, and desktop golden-value coverage
+- `docs/IB2026.pdf` is the canonical Interactive Brokers layout reference for Dashboard golden-value coverage
+- `docs/FF2026.pdf` is the active Freedom24 layout reference for 2026 YTD validation, mixed-broker coverage, and desktop golden-value coverage
+- `docs/ESPP2026.pdf` is the ESPP layout reference for simplified equity-compensation import coverage
 - generated desktop fixtures now live in `apps/desktop/src/test/dashboardGoldens.ts`, with broker-specific re-export shims at `apps/desktop/src/test/ib2026DashboardGolden.ts` and `apps/desktop/src/test/ff2026DashboardGolden.ts`
+
+Important fixture rule:
+
+- these broker PDFs should be treated as statement-format and data-layout references
+- durable tests should lock normalized extracted values and accounting semantics rather than assuming identical binary exports over time
 
 Important rule:
 

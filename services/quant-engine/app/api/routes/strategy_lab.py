@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.schemas.research import EtfMomentumStrategyResponse
+from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingRequest, EtfRankingResponse
 from app.services.market_data import MarketDataService
-from app.services.strategy_lab import DEFAULT_ETF_ROTATION_BENCHMARK, DEFAULT_ETF_ROTATION_UNIVERSE, build_etf_momentum_strategy_analysis
+from app.services.strategy_lab import DEFAULT_ETF_ROTATION_BENCHMARK, DEFAULT_ETF_ROTATION_UNIVERSE, build_etf_momentum_strategy_analysis, build_etf_ranking_analysis
 
 
 router = APIRouter(prefix="/strategy-lab", tags=["strategy-lab"])
@@ -25,6 +25,25 @@ class HoldingsRefreshRequest(BaseModel):
 
 class HoldingsRefreshResponse(BaseModel):
     refreshed: list[dict[str, int | str | None]] = Field(default_factory=list)
+
+
+@router.post("/etf-ranking", response_model=EtfRankingResponse)
+def run_etf_ranking(request: EtfRankingRequest) -> EtfRankingResponse:
+    if request.lookback_months < 1:
+        raise HTTPException(status_code=400, detail="lookback_months must be at least 1")
+    if not request.universe:
+        raise HTTPException(status_code=400, detail="universe must include at least one symbol")
+
+    try:
+        return build_etf_ranking_analysis(
+            universe=request.universe,
+            benchmark_symbol=request.benchmark_symbol,
+            lookback_months=request.lookback_months,
+            prefer_live_data=request.prefer_live_data,
+            weights=request.weights,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/etf-cross-sectional-momentum", response_model=EtfMomentumStrategyResponse)

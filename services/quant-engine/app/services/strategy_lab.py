@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any, Mapping
+from math import sqrt
+from typing import Any, Literal, Mapping
 
 from app.datasets import DatasetCatalog
+from app.instruments.registry import InstrumentRegistry
 from app.schemas.research import BarRecord
-from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight
+from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight, EtfRankingComponentScore, EtfRankingComponentWeights, EtfRankingExcludedSymbol, EtfRankingInstrumentContext, EtfRankingResponse, EtfRankingRow, EtfRankingSourceStatus, RankingDirection, RankingUnit
 from app.services.market_data import MarketDataService
 
 DEFAULT_ETF_ROTATION_UNIVERSE = ["XLK", "XLF", "XLV", "XLE", "XLI", "QQQ", "IWM"]
@@ -34,7 +36,7 @@ class _StrategyBaseData:
     bars_by_symbol: dict[str, list[BarRecord]]
     price_source_label: str
     internals_mode: str
-    price_history_status: str
+    price_history_status: Literal["sample", "live"]
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,25 @@ class _LeaderInternalsBuildResult:
     observations: list[EtfLeaderInternalsObservation]
     etf_internals_history: dict[str, list[EtfConstituentInternalsObservation]]
     status: EtfMomentumSourceStatus
+
+
+@dataclass(frozen=True)
+class _RankingWindow:
+    current_date: str
+    lookback_date: str
+    bars: list[BarRecord]
+
+
+@dataclass(frozen=True)
+class _RankingRawMetrics:
+    symbol: str
+    momentum: float
+    benchmark_relative_strength: float
+    realized_volatility: float
+    downside_volatility: float
+    max_drawdown: float
+    liquidity: float
+    implementation_fit: float
 
 
 def build_etf_momentum_strategy_analysis(
@@ -182,6 +203,145 @@ def build_etf_momentum_strategy_analysis(
         source_status=source_status,
         equity_curve=equity_curve,
         metrics=_build_metrics(strategy_returns, benchmark_returns, turnover_values, participation_values, strategy_equity, benchmark_equity, equity_curve),
+    )
+
+
+def build_etf_ranking_analysis(
+    universe: list[str] | None = None,
+    benchmark_symbol: str = DEFAULT_ETF_ROTATION_BENCHMARK,
+    lookback_months: int = 6,
+    prefer_live_data: bool = False,
+    weights: EtfRankingComponentWeights | None = None,
+) -> EtfRankingResponse:
+    symbols = [symbol.upper() for symbol in (universe or DEFAULT_ETF_ROTATION_UNIVERSE)]
+    if not symbols:
+        raise ValueError("universe must include at least one symbol")
+
+    benchmark = benchmark_symbol.upper()
+    dataset_catalog = DatasetCatalog()
+    instrument_registry = InstrumentRegistry()
+    base_data = _load_base_data(symbols, benchmark, lookback_months, prefer_live_data, dataset_catalog)
+    bars_by_symbol = dict(base_data.bars_by_symbol)
+    benchmark_bars = bars_by_symbol.get(benchmark, [])
+    if len(benchmark_bars) <= lookback_months:
+        raise ValueError("Not enough benchmark history for the selected ranking lookback")
+
+    benchmark_window = _build_ranking_window(benchmark_bars, lookback_months)
+    if benchmark_window is None:
+        raise ValueError("Not enough benchmark history for the selected ranking lookback")
+
+    benchmark_returns = _window_returns(benchmark_window.bars)
+    benchmark_trailing_return = (benchmark_window.bars[-1].close / benchmark_window.bars[0].close) - 1
+
+    raw_metrics: list[_RankingRawMetrics] = []
+    excluded_symbols: list[EtfRankingExcludedSymbol] = []
+    holdings_supported = 0
+    for symbol in symbols:
+        window = _build_ranking_window_for_symbol_against_benchmark(
+            symbol=symbol,
+            bars=bars_by_symbol.get(symbol, []),
+            benchmark_dates={bar.date for bar in benchmark_bars},
+            as_of_date=benchmark_window.current_date,
+            lookback_months=lookback_months,
+        )
+        if window is None:
+            excluded_symbols.append(EtfRankingExcludedSymbol(symbol=symbol, reason="insufficient aligned price history for benchmark-relative ranking window"))
+            continue
+
+        symbol_returns = _window_returns(window.bars)
+        holdings = dataset_catalog.get_etf_holdings(symbol)
+        if holdings:
+            holdings_supported += 1
+        raw_metrics.append(
+            _RankingRawMetrics(
+                symbol=symbol,
+                momentum=(window.bars[-1].close / window.bars[0].close) - 1,
+                benchmark_relative_strength=((window.bars[-1].close / window.bars[0].close) - 1) - benchmark_trailing_return,
+                realized_volatility=_annualized_volatility(symbol_returns),
+                downside_volatility=_annualized_downside_volatility(symbol_returns),
+                max_drawdown=abs(_max_drawdown(window.bars)),
+                liquidity=_average_volume(window.bars),
+                implementation_fit=1.0 if holdings else 0.4,
+            )
+        )
+
+    if not raw_metrics:
+        raise ValueError("No symbols had enough aligned price history for ranking")
+
+    effective_weights = (weights or EtfRankingComponentWeights()).normalized()
+    component_specs: dict[str, tuple[str, RankingDirection, RankingUnit]] = {
+        "momentum": ("Trailing return", "higher_is_better", "pct"),
+        "benchmark_relative_strength": ("Benchmark-relative strength", "higher_is_better", "pct"),
+        "realized_volatility": ("Realized volatility", "lower_is_better", "pct"),
+        "downside_volatility": ("Downside volatility", "lower_is_better", "pct"),
+        "max_drawdown": ("Max drawdown", "lower_is_better", "pct"),
+        "liquidity": ("Average volume", "higher_is_better", "volume"),
+        "implementation_fit": ("Implementation fit", "higher_is_better", "score"),
+    }
+    rows: list[EtfRankingRow] = []
+    for metrics in raw_metrics:
+        component_scores: dict[str, EtfRankingComponentScore] = {}
+        composite_score = 0.0
+        for key, (label, direction, raw_unit) in component_specs.items():
+            raw_value = getattr(metrics, key)
+            normalized_score = _normalize_component_score(raw_metrics, key, raw_value, direction)
+            weight = getattr(effective_weights, key)
+            weighted_score = normalized_score * weight
+            composite_score += weighted_score
+            component_scores[key] = EtfRankingComponentScore(
+                label=label,
+                direction=direction,
+                raw_value=round(raw_value * 100, 4) if raw_unit == "pct" else round(raw_value, 4),
+                raw_unit=raw_unit,
+                normalized_score=round(normalized_score, 4),
+                weight=round(weight, 4),
+                weighted_score=round(weighted_score, 4),
+            )
+
+        instrument = instrument_registry.get_instrument(metrics.symbol)
+        rows.append(
+            EtfRankingRow(
+                rank=0,
+                symbol=metrics.symbol,
+                composite_score=round(composite_score, 4),
+                instrument=EtfRankingInstrumentContext(
+                    symbol=metrics.symbol,
+                    name=instrument.name if instrument else None,
+                    asset_class=instrument.asset_class if instrument else None,
+                    sector=instrument.sector if instrument else None,
+                    category=instrument.category if instrument else None,
+                    currency=instrument.currency if instrument else None,
+                ),
+                component_scores=component_scores,
+            )
+        )
+
+    rows.sort(key=lambda item: item.composite_score, reverse=True)
+    for index, row in enumerate(rows, start=1):
+        row.rank = index
+
+    holdings_support: Literal["sample", "mixed", "unavailable"] = "unavailable"
+    if holdings_supported == len(raw_metrics):
+        holdings_support = "sample"
+    elif holdings_supported > 0:
+        holdings_support = "mixed"
+
+    return EtfRankingResponse(
+        ranking_id="etf_ranking_engine_v1",
+        title="ETF Ranking Engine",
+        as_of_date=benchmark_window.current_date,
+        benchmark_symbol=benchmark,
+        universe=symbols,
+        lookback_months=lookback_months,
+        methodology=_build_ranking_methodology(base_data.price_source_label),
+        effective_component_weights=effective_weights,
+        source_status=EtfRankingSourceStatus(
+            price_history=base_data.price_history_status,
+            benchmark_history=base_data.price_history_status,
+            holdings_support=holdings_support,
+        ),
+        ranked_universe=rows,
+        excluded_symbols=excluded_symbols,
     )
 
 
@@ -570,6 +730,14 @@ def _build_methodology(price_source_label: str, internals_mode: str) -> str:
     )
 
 
+def _build_ranking_methodology(price_source_label: str) -> str:
+    return (
+        "ETF ranking prototype: score the requested universe on trailing momentum, benchmark-relative strength, realized and downside volatility, drawdown, liquidity, "
+        "and implementation fit, then combine normalized component scores into a weighted composite. "
+        f"Price history source: {price_source_label}. Implementation fit currently uses local ETF holdings coverage as a proxy for execution/readiness support."
+    )
+
+
 def _rank_assets(symbols: list[str], by_symbol_and_date: Mapping[str, Mapping[str, BarRecord]], common_dates: list[str], index: int, lookback_months: int) -> list[_RankedAsset]:
     ranked: list[_RankedAsset] = []
     current_date = common_dates[index]
@@ -585,6 +753,92 @@ def _rank_assets(symbols: list[str], by_symbol_and_date: Mapping[str, Mapping[st
             average_volume = sum(finite_volumes) / len(finite_volumes)
         ranked.append(_RankedAsset(symbol=symbol, score=trailing_return, trailing_return_pct=trailing_return * 100, average_volume=average_volume))
     return sorted(ranked, key=lambda item: item.score, reverse=True)
+
+
+def _build_ranking_window(bars: list[BarRecord], lookback_months: int) -> _RankingWindow | None:
+    if len(bars) <= lookback_months:
+        return None
+    sorted_bars = sorted(bars, key=lambda bar: bar.date)
+    current_index = len(sorted_bars) - 1
+    lookback_index = current_index - lookback_months
+    return _RankingWindow(
+        current_date=sorted_bars[current_index].date,
+        lookback_date=sorted_bars[lookback_index].date,
+        bars=sorted_bars[lookback_index: current_index + 1],
+    )
+
+
+def _build_ranking_window_for_symbol_against_benchmark(
+    symbol: str,
+    bars: list[BarRecord],
+    benchmark_dates: set[str],
+    as_of_date: str,
+    lookback_months: int,
+) -> _RankingWindow | None:
+    aligned = [bar for bar in sorted(bars, key=lambda item: item.date) if bar.date in benchmark_dates and bar.date <= as_of_date]
+    if len(aligned) <= lookback_months:
+        return None
+    if aligned[-1].date != as_of_date:
+        return None
+    lookback_index = len(aligned) - 1 - lookback_months
+    return _RankingWindow(
+        current_date=aligned[-1].date,
+        lookback_date=aligned[lookback_index].date,
+        bars=aligned[lookback_index:],
+    )
+
+
+def _window_returns(bars: list[BarRecord]) -> list[float]:
+    return [(bars[index].close / bars[index - 1].close) - 1 for index in range(1, len(bars))]
+
+
+def _average_volume(bars: list[BarRecord]) -> float:
+    finite_volumes = [float(bar.volume) for bar in bars if bar.volume is not None]
+    return sum(finite_volumes) / len(finite_volumes) if finite_volumes else 0.0
+
+
+def _annualized_volatility(returns: list[float]) -> float:
+    if not returns:
+        return 0.0
+    mean = sum(returns) / len(returns)
+    variance = sum((value - mean) ** 2 for value in returns) / len(returns)
+    return sqrt(variance) * sqrt(12)
+
+
+def _annualized_downside_volatility(returns: list[float]) -> float:
+    if not returns:
+        return 0.0
+    downside = [min(value, 0.0) for value in returns]
+    variance = sum(value ** 2 for value in downside) / len(downside)
+    return sqrt(variance) * sqrt(12)
+
+
+def _max_drawdown(bars: list[BarRecord]) -> float:
+    peak = 0.0
+    max_drawdown = 0.0
+    for bar in bars:
+        peak = max(peak, bar.close)
+        if peak <= 0:
+            continue
+        drawdown = (bar.close / peak) - 1
+        max_drawdown = min(max_drawdown, drawdown)
+    return max_drawdown
+
+
+def _normalize_component_score(
+    raw_metrics: list[_RankingRawMetrics],
+    key: str,
+    raw_value: float,
+    direction: str,
+) -> float:
+    values = [getattr(item, key) for item in raw_metrics]
+    minimum = min(values)
+    maximum = max(values)
+    if maximum == minimum:
+        return 1.0
+    if direction == "lower_is_better":
+        return (maximum - raw_value) / (maximum - minimum)
+    return (raw_value - minimum) / (maximum - minimum)
 
 
 def _build_leader_internals_from_holdings(
