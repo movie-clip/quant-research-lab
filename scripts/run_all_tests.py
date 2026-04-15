@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "services" / "quant-engine"
 FRONTEND_DIR = ROOT / "apps" / "desktop"
 BACKEND_REQUIREMENTS = BACKEND_DIR / "requirements.txt"
-GOLDEN_GENERATOR = BACKEND_DIR / "app" / "scripts" / "export_ib2026_dashboard_golden.py"
+GOLDEN_GENERATOR = BACKEND_DIR / "app" / "scripts" / "export_dashboard_goldens.py"
 
 
 def npm_command() -> str:
@@ -60,8 +60,8 @@ def install_dependencies() -> None:
 
 def run_all_tests() -> None:
     run_step(
-        "Generate IB2026 golden fixture",
-        [sys.executable, "-m", "app.scripts.export_ib2026_dashboard_golden"],
+        "Generate dashboard golden fixtures",
+        [sys.executable, "-m", "app.scripts.export_dashboard_goldens"],
         BACKEND_DIR,
     )
     run_step(

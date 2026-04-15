@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.schemas.imported_analysis import ImportedBootstrapResponse
+from app.schemas.import_bootstrap import ImportedBootstrapResponse
 from app.schemas.imports import ImportedPortfolioSnapshot, SnapshotAnalysisRequest
 from app.services.import_engine import build_import_bootstrap, build_import_bootstrap_from_portfolio_snapshot_request
 from app.services.statement_importer import import_statements

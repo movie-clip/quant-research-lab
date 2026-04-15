@@ -522,6 +522,20 @@ def build_position_risk_contributions(snapshot: ImportedPortfolioSnapshot, price
 
 
 def build_lookthrough_exposure(snapshot: ImportedPortfolioSnapshot, market_data: HoldingsMarketData, symbol_overrides: dict[str, list[str]] | None = None) -> tuple[list[LookThroughConstituent], dict[str, str], list[str], float]:
+    """
+    Build constituent-level exposure from current positions.
+
+    Coverage methodology:
+    - covered_market_value counts market value that is economically resolved to a
+      constituent-level exposure.
+    - direct single-name positions count as covered at 100% of their market value.
+    - ETF positions count as covered only when ETF holdings are successfully resolved.
+    - unresolved ETF positions may still appear as direct placeholders in the
+      constituent list for usability, but they do not count toward covered_market_value.
+
+    This makes coverage_ratio represent constituent-resolution coverage rather than
+    generic current-holdings representability.
+    """
     registry = InstrumentRegistry()
     metadata = registry.attach_snapshot_metadata(snapshot)
     total_market_value = sum(position.market_value for position in snapshot.positions)
@@ -559,6 +573,17 @@ def build_lookthrough_exposure(snapshot: ImportedPortfolioSnapshot, market_data:
                 continue
 
             uncovered_positions.append(position.symbol)
+            constituent_values[position.symbol] += position.market_value
+            constituent_names.setdefault(position.symbol, instrument.name if instrument and instrument.name else position.symbol)
+            constituent_sources[position.symbol].append(
+                LookThroughSource(
+                    source_symbol=position.symbol,
+                    source_market_value=round(position.market_value, 2),
+                    source_weight=1.0,
+                    resolved_via=position.symbol,
+                )
+            )
+            continue
 
         constituent_values[position.symbol] += position.market_value
         constituent_names.setdefault(position.symbol, instrument.name if instrument and instrument.name else position.symbol)
@@ -590,8 +615,30 @@ def build_market_overlap_summary(
     benchmark_symbol: str,
     benchmark_holdings: list[dict],
 ) -> MarketOverlapSummary:
+    """
+    Build benchmark-overlap metrics from look-through portfolio weights.
+
+    Overlap methodology when benchmark holdings are available:
+    - overlap_weight = sum(min(portfolio_weight_i, benchmark_weight_i)) for shared symbols
+    - active_share = 0.5 * sum(abs(portfolio_weight_i - benchmark_weight_i)) over the union of symbols
+    - portfolio_in_benchmark_weight = sum(portfolio_weight_i) for shared symbols
+    - benchmark_covered_weight = sum(benchmark_weight_i) for benchmark constituents loaded into the comparison set
+
+    Availability rule:
+    - if benchmark holdings are unavailable or empty, these overlap fields return None
+      instead of zero-like placeholders, because a true zero-overlap conclusion would be misleading
+    """
     portfolio_weights = {item.symbol: item.portfolio_weight for item in lookthrough_constituents}
     portfolio_names = {item.symbol: item.name for item in lookthrough_constituents}
+
+    if not portfolio_weights:
+        return MarketOverlapSummary(
+            benchmark_symbol=benchmark_symbol,
+            overlap_weight=None,
+            active_share=None,
+            portfolio_in_benchmark_weight=None,
+            benchmark_covered_weight=None,
+        )
 
     benchmark_weights: dict[str, float] = {}
     benchmark_names: dict[str, str] = {}
@@ -602,6 +649,15 @@ def build_market_overlap_summary(
             continue
         benchmark_weights[symbol] = weight
         benchmark_names[symbol] = str(row.get("name") or symbol).strip()
+
+    if not benchmark_weights:
+        return MarketOverlapSummary(
+            benchmark_symbol=benchmark_symbol,
+            overlap_weight=None,
+            active_share=None,
+            portfolio_in_benchmark_weight=None,
+            benchmark_covered_weight=None,
+        )
 
     shared_symbols = sorted(set(portfolio_weights) & set(benchmark_weights))
     top_shared = [
@@ -835,14 +891,14 @@ def build_factor_exposures(
     growth_tilt = sector_weights.get("Technology", 0.0) + sector_weights.get("Communication Services", 0.0) + sector_weights.get("Consumer Discretionary", 0.0)
 
     return [
-        FactorExposurePoint(factor="Market", exposure=round(risk_summary.portfolio_beta or 0.0, 4), description="Historical broad-market beta versus SPY."),
-        FactorExposurePoint(factor="SPY Overlap", exposure=round(market_overlap.portfolio_in_benchmark_weight, 4), description="Look-through share of the portfolio that overlaps SPY constituents."),
-        FactorExposurePoint(factor="Growth Tilt", exposure=round(growth_tilt, 4), description="Technology, communication services, and consumer discretionary sleeve weight."),
-        FactorExposurePoint(factor="Technology Tilt", exposure=round(sector_weights.get("Technology", 0.0), 4), description="Look-through allocation to technology equity and technology ETF exposure."),
-        FactorExposurePoint(factor="Health Care Tilt", exposure=round(sector_weights.get("Health Care", 0.0), 4), description="Look-through allocation to health care and biotechnology exposure."),
-        FactorExposurePoint(factor="Defense Tilt", exposure=round(sector_weights.get("Defense", 0.0), 4), description="Look-through allocation to defense and aerospace exposure."),
-        FactorExposurePoint(factor="Commodities Hedge", exposure=round(sector_weights.get("Commodities", 0.0), 4), description="Look-through allocation to commodity-linked holdings."),
-        FactorExposurePoint(factor="Fixed Income Ballast", exposure=round(sector_weights.get("Fixed Income", 0.0), 4), description="Look-through allocation to treasury and short-duration bond sleeves."),
+        FactorExposurePoint(factor="Market", exposure=round(risk_summary.portfolio_beta, 4) if risk_summary.portfolio_beta is not None else None, description="Historical broad-market beta versus SPY.", basis="historical_benchmark_relative"),
+        FactorExposurePoint(factor="SPY Overlap", exposure=round(market_overlap.portfolio_in_benchmark_weight, 4) if market_overlap.portfolio_in_benchmark_weight is not None else None, description="Look-through share of the portfolio that overlaps SPY constituents when benchmark holdings are available.", basis="benchmark_holdings_required"),
+        FactorExposurePoint(factor="Growth Tilt", exposure=round(growth_tilt, 4), description="Technology, communication services, and consumer discretionary sleeve weight.", basis="current_state"),
+        FactorExposurePoint(factor="Technology Tilt", exposure=round(sector_weights.get("Technology", 0.0), 4), description="Look-through allocation to technology equity and technology ETF exposure.", basis="current_state"),
+        FactorExposurePoint(factor="Health Care Tilt", exposure=round(sector_weights.get("Health Care", 0.0), 4), description="Look-through allocation to health care and biotechnology exposure.", basis="current_state"),
+        FactorExposurePoint(factor="Defense Tilt", exposure=round(sector_weights.get("Defense", 0.0), 4), description="Look-through allocation to defense and aerospace exposure.", basis="current_state"),
+        FactorExposurePoint(factor="Commodities Hedge", exposure=round(sector_weights.get("Commodities", 0.0), 4), description="Look-through allocation to commodity-linked holdings.", basis="current_state"),
+        FactorExposurePoint(factor="Fixed Income Ballast", exposure=round(sector_weights.get("Fixed Income", 0.0), 4), description="Look-through allocation to treasury and short-duration bond sleeves.", basis="current_state"),
     ]
 
 

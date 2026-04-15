@@ -473,7 +473,7 @@ export function PortfolioAllocationBacktestPanel({ result, onResult, analysis }:
 
           {result.diagnostics_comparison ? (
             <section className="dashboard-bottom-grid">
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Before / After Diagnostics</p></div></div>
+              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Before / After Diagnostics</p></div><p className="helper">{result.candidate_diagnostics?.provenance.note ?? 'Diagnostics compare synthetic replay snapshots against historical market-data inputs.'}</p></div>
               <div className="split-grid dashboard-bottom-grid">
                 <DiagnosticsComparisonTable title="Factor Exposure Change" rows={result.diagnostics_comparison.factor_exposure_changes} />
                 <DiagnosticsComparisonTable title="Volatility / Drawdown Change" rows={result.diagnostics_comparison.volatility_changes} />

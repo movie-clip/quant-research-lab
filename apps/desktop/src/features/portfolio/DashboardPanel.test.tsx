@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { ff2026DashboardGolden } from '../../test/ff2026DashboardGolden'
 import { ib2026DashboardGolden } from '../../test/ib2026DashboardGolden'
-import { createIb2026ImportedDashboardFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
+import { createFf2026ImportedDashboardFixture, createIb2026ImportedDashboardFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
 import { buildImportedDashboardView } from './portfolioAnalysisAdapter'
 import { buildPortfolioSnapshotFromAnalysis } from './portfolioSnapshot'
@@ -12,6 +13,8 @@ const mockAnalysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = 
 const mockDashboardView: DashboardAnalysis = buildImportedDashboardView(mockAnalysis)
 const ib2026Analysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createIb2026ImportedDashboardFixture()
 const ib2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ib2026Analysis)
+const ff2026Analysis: ImportedDashboardSource & ImportedPortfolioSnapshotSource = createFf2026ImportedDashboardFixture()
+const ff2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ff2026Analysis)
 
 describe('DashboardPanel', () => {
   it('renders account summary and monthly returns', () => {
@@ -26,7 +29,7 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Live market history')).toBeTruthy()
   })
 
-  it('renders key IB2026 dashboard values from the imported analysis chain', () => {
+  it('renders key IB2026 dashboard values from the imported bootstrap and history chain', () => {
     expect(ib2026DashboardView.snapshot.statement.statement_period).toBe('January 1, 2026 - April 13, 2026')
     expect(ib2026DashboardView.performance_series[ib2026DashboardView.performance_series.length - 1].portfolio_value).toBe(62023.98)
     const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
@@ -93,6 +96,53 @@ describe('DashboardPanel', () => {
       expect(scoped.getByText(monthly.month)).toBeTruthy()
       expect(scoped.getByText(monthly.returnPct)).toBeTruthy()
     }
+  })
+
+  it('renders Freedom24 FF2026 dashboard values from the imported bootstrap and history chain', () => {
+    expect(ff2026DashboardView.snapshot.statement.importer).toBe('freedom24')
+    expect(ff2026DashboardView.performance_series[ff2026DashboardView.performance_series.length - 1].portfolio_value).toBe(3071)
+    const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ff2026Analysis, ['FF2026.pdf'])
+
+    const view = render(<DashboardPanel result={ff2026DashboardView} draftSnapshot={draftSnapshot} />)
+    const scoped = within(view.container)
+
+    expect(ff2026DashboardView.daily_states.length).toBeGreaterThan(10)
+    expect(ff2026DashboardView.performance_series.length).toBeGreaterThan(10)
+
+    expect(scoped.getAllByText(ff2026DashboardGolden.accountId).length).toBeGreaterThan(0)
+    expect(scoped.getAllByText(ff2026DashboardGolden.brokerLabel).length).toBeGreaterThan(0)
+    expect(scoped.getAllByText(ff2026DashboardGolden.sourceLabel).length).toBeGreaterThan(0)
+    expect(scoped.getByText(ff2026DashboardGolden.accountSummary)).toBeTruthy()
+    expect(scoped.getByText((content) => content.includes(ff2026DashboardGolden.statementPeriod))).toBeTruthy()
+    expect(scoped.getAllByText(ff2026DashboardGolden.performanceTitle).length).toBeGreaterThan(0)
+    expect(scoped.getByText(ff2026DashboardGolden.loadedFileLabel)).toBeTruthy()
+    expect(scoped.getAllByText(ff2026DashboardGolden.monthlyStatusLabel).length).toBeGreaterThan(0)
+
+    expect(scoped.getByText(ff2026DashboardGolden.portfolioValue)).toBeTruthy()
+    expect(scoped.getByText(`Start value: ${ff2026DashboardGolden.startValue}`)).toBeTruthy()
+    expect(scoped.getAllByText(ff2026DashboardGolden.timeWeightedReturn).length).toBeGreaterThan(0)
+    expect(scoped.getAllByText(ff2026DashboardGolden.netContributions).length).toBeGreaterThan(0)
+    expect(scoped.getByText(ff2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(scoped.getAllByText(ff2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
+
+    for (const monthly of ff2026DashboardGolden.monthlyReturns) {
+      expect(scoped.getByText(monthly.month)).toBeTruthy()
+      expect(scoped.getByText(monthly.returnPct)).toBeTruthy()
+    }
+
+    expect(scoped.getByText('Broad Market')).toBeTruthy()
+    expect(scoped.getByText(ff2026DashboardGolden.sectors['Broad Market'])).toBeTruthy()
+    expect(scoped.getAllByText(ff2026DashboardGolden.draftCapitalCheck).length).toBeGreaterThan(0)
+    expect(scoped.getByText(ff2026DashboardGolden.draftCapitalHelper)).toBeTruthy()
+    expect(scoped.getByText('No sector locked')).toBeTruthy()
+
+    fireEvent.click(scoped.getAllByText('Broad Market')[0])
+    for (const symbol of ff2026DashboardGolden.broadMarketHoldings) {
+      expect(screen.getByDisplayValue(symbol)).toBeTruthy()
+      expect(screen.getByText(ff2026DashboardGolden.broadMarketHoldingWeights[symbol])).toBeTruthy()
+    }
+    expect(screen.getByText('Locked on Broad Market')).toBeTruthy()
+    expect(screen.getByDisplayValue(ff2026DashboardGolden.vtiValue)).toBeTruthy()
   })
 
   it('shows combined statement metadata when multiple statements are loaded', () => {
@@ -235,7 +285,7 @@ describe('DashboardPanel', () => {
     expect(screen.getAllByText('Hover or click a sector to inspect its holdings.').length).toBeGreaterThan(0)
   })
 
-  it('keeps rendering account summary when early portfolio history starts at zero', () => {
+  it('renders n/a summary values when range metrics are absent even if history exists', () => {
     render(
       <DashboardPanel
         result={buildImportedDashboardView({
@@ -256,8 +306,9 @@ describe('DashboardPanel', () => {
     )
 
     fireEvent.click(screen.getAllByText('All')[0])
-    expect(screen.getByText('Start value: $5378.38')).toBeTruthy()
+    expect(screen.getAllByText('Start value: n/a').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Portfolio vs SPY path for the selected range').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
   })
 
   it('normalizes all-range performance from first non-zero portfolio point', () => {
@@ -311,7 +362,7 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('$61623.07')).toBeTruthy()
   })
 
-  it('anchors visible performance summary to the first non-zero portfolio value', () => {
+  it('does not recompute visible summary locally when backend range metrics are absent', () => {
     render(
       <DashboardPanel
         result={buildImportedDashboardView({
@@ -333,8 +384,8 @@ describe('DashboardPanel', () => {
 
     fireEvent.click(screen.getAllByText('All')[0])
     expect(screen.getAllByText('Time-Weighted Return').length).toBeGreaterThan(0)
-    expect(screen.getByText('871.82%')).toBeTruthy()
-    expect(screen.getByText('Start value: $3139.15')).toBeTruthy()
+    expect(screen.getAllByText('Start value: n/a').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
   })
 
   it('hides monthly returns when reconstructed history is economically unstable', () => {
@@ -357,7 +408,7 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getByText('Monthly returns are not reliable for this imported history.')).toBeTruthy()
+    expect(screen.getAllByText('Monthly returns are not reliable for this imported history.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Sample or reconstructed history').length).toBeGreaterThan(0)
     expect(screen.queryByText('2025-07')).toBeNull()
   })

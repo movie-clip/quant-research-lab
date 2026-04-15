@@ -231,7 +231,14 @@ class AllocationBacktestComparison(BaseModel):
     total_cost_diff: float | None = None
 
 
+class PortfolioDiagnosticsProvenance(BaseModel):
+    snapshot_basis: Literal["synthetic_replay_snapshot"]
+    historical_basis: Literal["market_data_history"]
+    note: str
+
+
 class PortfolioDiagnosticsSnapshot(BaseModel):
+    provenance: PortfolioDiagnosticsProvenance
     factor_snapshot: list[SnapshotItem] = Field(default_factory=list)
     volatility_snapshot: VolatilitySnapshot | None = None
     risk_contribution: RiskContributionBreakdownPayload | None = None

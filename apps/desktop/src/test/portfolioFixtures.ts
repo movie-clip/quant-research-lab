@@ -8,15 +8,16 @@ import type {
   ImportedExposureSource,
   ImportedPortfolioSnapshotSource,
 } from '../features/portfolio/types'
+import { ff2026ImportedDashboardGoldenFixture } from './ff2026DashboardGolden'
 import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from './ib2026DashboardGolden'
 
-type ImportedAnalysisFixture = ImportedDashboardSource
+type ImportedPortfolioViewFixture = ImportedDashboardSource
   & ImportedPortfolioSnapshotSource
   & ImportedExposureSource
   & ImportedDiagnosticsSource
   & ImportedExposureFactorModelSource
 
-export function createLegacyImportedAnalysisFixture() {
+export function createImportedWorkflowFixtureSeed() {
   const snapshot = {
     statement: {
       importer: 'interactive_brokers' as const,
@@ -173,9 +174,10 @@ export function createLegacyImportedAnalysisFixture() {
       regime: { label: 'normal', confidence: 'medium' },
     },
     factor_exposures: [
-      { factor: 'Market', exposure: 1.1, description: 'Historical broad-market beta versus SPY.' },
-      { factor: 'Growth Tilt', exposure: 0.42, description: 'Technology and related growth sleeves.' },
-      { factor: 'Technology Tilt', exposure: 0.4, description: 'Look-through allocation to technology equity and technology ETF exposure.' },
+      { factor: 'Market', exposure: 1.1, description: 'Historical broad-market beta versus SPY.', basis: 'historical_benchmark_relative' },
+      { factor: 'SPY Overlap', exposure: 0.55, description: 'Look-through share of the portfolio that overlaps SPY constituents when benchmark holdings are available.', basis: 'benchmark_holdings_required' },
+      { factor: 'Growth Tilt', exposure: 0.42, description: 'Technology and related growth sleeves.', basis: 'current_state' },
+      { factor: 'Technology Tilt', exposure: 0.4, description: 'Look-through allocation to technology equity and technology ETF exposure.', basis: 'current_state' },
     ],
     factor_shift_diagnostics: { methodology: 'm', snapshots: [], largest_positive_shifts_20d: [], largest_negative_shifts_20d: [], largest_absolute_shifts_20d: [], largest_absolute_shifts_60d: [] },
     risk_contribution_breakdown: {
@@ -251,6 +253,13 @@ export function createLegacyImportedAnalysisFixture() {
           portfolio_in_benchmark_weight: 0.55,
           benchmark_covered_weight: 1,
         },
+        availability: {
+          lookthrough_status: 'live',
+          lookthrough_confidence: 'high',
+          benchmark_overlap_status: 'live',
+          benchmark_overlap_confidence: 'high',
+          note: null,
+        },
       },
       diagnostics,
     },
@@ -269,7 +278,7 @@ export function createLegacyImportedAnalysisFixture() {
 }
 
 export function createImportedBootstrapResponseFixture(): ImportedBootstrapResponse {
-  const analysis = createLegacyImportedAnalysisFixture()
+  const analysis = createImportedWorkflowFixtureSeed()
   return {
     snapshot: analysis.analysis.exposure.snapshot,
     overview: analysis.analysis.exposure.overview,
@@ -279,15 +288,15 @@ export function createImportedBootstrapResponseFixture(): ImportedBootstrapRespo
 }
 
 export function createExposureEngineFixture() {
-  return createLegacyImportedAnalysisFixture().analysis.exposure
+  return createImportedWorkflowFixtureSeed().analysis.exposure
 }
 
 export function createDiagnosticsEngineFixture() {
-  return createLegacyImportedAnalysisFixture().analysis.diagnostics
+  return createImportedWorkflowFixtureSeed().analysis.diagnostics
 }
 
-export function createImportedAnalysisFixture(): ImportedAnalysisFixture {
-  const projection = createLegacyImportedAnalysisFixture()
+export function createImportedPortfolioViewFixture(): ImportedPortfolioViewFixture {
+  const projection = createImportedWorkflowFixtureSeed()
   return {
     snapshot: projection.analysis.exposure.snapshot,
     overview: projection.analysis.exposure.overview,
@@ -340,6 +349,10 @@ export function createImportedAnalysisFixture(): ImportedAnalysisFixture {
     lookthrough: projection.analysis.exposure.lookthrough,
     lookthrough_sector_exposure: projection.analysis.exposure.lookthrough_sector_exposure,
     market_overlap: projection.analysis.exposure.market_overlap,
+    exposure_availability: {
+      ...projection.analysis.exposure.availability,
+      historical_diagnostics_confidence: 'high',
+    },
     relative_risk: projection.analysis.diagnostics.relative_risk,
     volatility_regime: projection.analysis.diagnostics.volatility_regime,
     factor_exposures: projection.analysis.diagnostics.factor_exposures,
@@ -355,19 +368,23 @@ export function createImportedAnalysisFixture(): ImportedAnalysisFixture {
 }
 
 export function createImportedDashboardFixture(): ImportedDashboardSource & ImportedPortfolioSnapshotSource {
-  return createImportedAnalysisFixture()
+  return createImportedPortfolioViewFixture()
 }
 
 export function createIb2026ImportedDashboardFixture(): ImportedDashboardSource & ImportedPortfolioSnapshotSource {
   return ib2026ImportedDashboardGoldenFixture
 }
 
+export function createFf2026ImportedDashboardFixture(): ImportedDashboardSource & ImportedPortfolioSnapshotSource {
+  return ff2026ImportedDashboardGoldenFixture
+}
+
 export function createImportedExposureFixture(): ImportedExposureSource & ImportedDiagnosticsSource & ImportedExposureFactorModelSource {
-  return createImportedAnalysisFixture()
+  return createImportedPortfolioViewFixture()
 }
 
 export function createImportedBaselineFixture(): ImportedBaselineSource {
-  const fixture = createImportedAnalysisFixture()
+  const fixture = createImportedPortfolioViewFixture()
   return {
     snapshot: fixture.snapshot,
     overview: fixture.overview,

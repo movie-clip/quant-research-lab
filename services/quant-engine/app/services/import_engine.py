@@ -1,5 +1,5 @@
 from app.schemas.imports import ImportedPortfolioSnapshot, SnapshotAnalysisRequest
-from app.schemas.imported_analysis import ImportedBootstrapResponse
+from app.schemas.import_bootstrap import ImportedBootstrapResponse
 from app.schemas.reconciliation import PortfolioRiskSummary
 
 from app.services.import_engine_composer import compose_import_bootstrap_response

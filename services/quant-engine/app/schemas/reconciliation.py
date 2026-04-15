@@ -147,10 +147,10 @@ class MarketOverlapConstituent(BaseModel):
 
 class MarketOverlapSummary(BaseModel):
     benchmark_symbol: str
-    overlap_weight: float
-    active_share: float
-    portfolio_in_benchmark_weight: float
-    benchmark_covered_weight: float
+    overlap_weight: float | None
+    active_share: float | None
+    portfolio_in_benchmark_weight: float | None
+    benchmark_covered_weight: float | None
 
 
 class EtfOverlapConstituent(BaseModel):
@@ -349,8 +349,9 @@ class RiskContributionBreakdownPayload(BaseModel):
 
 class FactorExposurePoint(BaseModel):
     factor: str
-    exposure: float
+    exposure: float | None
     description: str
+    basis: str = "current_state"
 
 
 class StatisticalFactorLoading(BaseModel):
@@ -554,4 +555,3 @@ class SimulatedTrade(BaseModel):
     quantity: float
     reference_price: float | None
     estimated_cash_impact: float | None
-

@@ -32,7 +32,8 @@ Dashboard currently renders from two root inputs:
 Broker-truth fixtures in active use today:
 
 - `docs/IB2026.pdf` is the canonical Interactive Brokers fixture for Dashboard golden-value coverage
-- `docs/FF2026.pdf` is the active Freedom24 fixture for 2026 YTD validation and mixed-broker coverage
+- `docs/FF2026.pdf` is the active Freedom24 fixture for 2026 YTD validation, mixed-broker coverage, and desktop golden-value coverage
+- generated desktop fixtures now live in `apps/desktop/src/test/dashboardGoldens.ts`, with broker-specific re-export shims at `apps/desktop/src/test/ib2026DashboardGolden.ts` and `apps/desktop/src/test/ff2026DashboardGolden.ts`
 
 Important rule:
 
@@ -58,29 +59,29 @@ Important rule:
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Broker badge | `formatBrokerLabel(result.snapshot.statement.importer)` in `apps/desktop/src/features/portfolio/DashboardPanel.tsx` | `analysis.snapshot.statement.importer` | `broker-truth` | if importer missing, current code still falls back to Interactive Brokers label logic; should eventually render explicit unknown | covered by IB2026 golden tests |
-| Dashboard source badge | `dashboardSourceLabel(result.source_status?.performance_history)` | `analysis.source_status.performance_history` | `engine-derived` | if missing, badge may be absent | covered by IB2026 golden tests |
-| Loaded file(s) | `formatLoadedStatements(result, lastImportedFileNames)` | `analysis.snapshot.statements` first, fallback `lastImportedFileNames` | `broker-truth` | if no statements and no fallback files, omit | covered by IB2026 golden tests |
+| Broker badge | `formatBrokerLabel(result.snapshot.statement.importer)` in `apps/desktop/src/features/portfolio/DashboardPanel.tsx` | `analysis.snapshot.statement.importer` | `broker-truth` | if importer missing, current code still falls back to Interactive Brokers label logic; should eventually render explicit unknown | covered by IB2026 and FF2026 golden tests |
+| Dashboard source badge | `dashboardSourceLabel(result.source_status?.performance_history)` | `analysis.source_status.performance_history` | `engine-derived` | if missing, badge may be absent | covered by IB2026 and FF2026 golden tests |
+| Loaded file(s) | `formatLoadedStatements(result, lastImportedFileNames)` | `analysis.snapshot.statements` first, fallback `lastImportedFileNames` | `broker-truth` | if no statements and no fallback files, omit | covered by IB2026 and FF2026 golden tests |
 | Restored on launch | `restoredSession` | App local state | not financial | n/a | session/UI state only |
-| Account id | `result.snapshot.statement.account_id` | `analysis.snapshot.statement.account_id` | `broker-truth` | if null, UI shows `Unknown` | covered by IB2026 golden tests |
-| Statement period | `result.snapshot.statement.statement_period` | `analysis.snapshot.statement.statement_period` | `broker-truth` | if null, UI shows `Statement period unavailable` | covered by IB2026 golden tests |
+| Account id | `result.snapshot.statement.account_id` | `analysis.snapshot.statement.account_id` | `broker-truth` | if null, UI shows `Unknown` | covered by IB2026 and FF2026 golden tests |
+| Statement period | `result.snapshot.statement.statement_period` | `analysis.snapshot.statement.statement_period` | `broker-truth` | if null, UI shows `Statement period unavailable` | covered by IB2026 and FF2026 golden tests |
 | Combined statement count | `result.snapshot.statements.length` | `analysis.snapshot.statements` | `broker-truth` | if one statement, suffix hidden | imported multi-statement metadata |
 
 ### Summary cards
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Portfolio Value | `resolveDisplayedPortfolioValue(result, visibleSummary.endValue, latestPerf?.portfolio_value)` | `analysis.snapshot.statement_totals.ending_nav`, `analysis.daily_states`, `analysis.performance_series` | `broker-truth` for imported snapshots when statement ending NAV exists, otherwise `engine-derived` | if no history and no statement ending NAV, render `n/a` | covered by IB2026 golden tests and ending-NAV override regression |
-| Start value | `visibleSummary.startValue` from `computeVisibleSummary(...)` | filtered `analysis.daily_states` + `analysis.performance_series` for selected range | `engine-derived` | if no visible states, render `n/a` | covered by IB2026 golden tests; this is the visible-range anchor, not always statement starting NAV |
-| Time-Weighted Return | `visibleSummary.timeWeightedReturnPct` | filtered `analysis.performance_series` | `engine-derived` | if no anchored performance points, render `n/a` | covered by IB2026 golden tests |
-| Net Contributions | `visibleSummary.netContributions` | filtered `analysis.daily_states` | `engine-derived` | if no states, current code falls back to `0`; should stay traceable to visible states | covered by IB2026 golden tests |
+| Portfolio Value | `resolveDisplayedPortfolioValue(result, selectedRangeMetrics.summary.end_value, latestPerf?.portfolio_value)` | `analysis.snapshot.statement_totals.ending_nav`, `analysis.range_metrics`, `analysis.daily_states`, `analysis.performance_series` | `broker-truth` for imported snapshots when statement ending NAV exists, otherwise `engine-derived` | if no history and no statement ending NAV, render `n/a` | covered by IB2026 and FF2026 golden tests plus ending-NAV override regression |
+| Start value | `selectedRangeMetrics.summary.start_value` | `analysis.range_metrics[selectedRange].summary.start_value` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests; this is the visible-range anchor, not always statement starting NAV |
+| Time-Weighted Return | `selectedRangeMetrics.summary.time_weighted_return_pct` | `analysis.range_metrics[selectedRange].summary.time_weighted_return_pct` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
+| Net Contributions | `selectedRangeMetrics.summary.net_contributions` | `analysis.range_metrics[selectedRange].summary.net_contributions` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
 
 ### Performance section
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Performance title | selected by `performanceView` | local UI state + available performance path | not financial | n/a | presentational |
-| Monthly-return status | `dashboardSourceLabel(result.source_status?.monthly_returns)` | `analysis.source_status.monthly_returns` | `engine-derived` | hide label if status missing | covered by IB2026 golden tests |
+| Monthly-return status | `dashboardSourceLabel(result.source_status?.monthly_returns)` | `analysis.source_status.monthly_returns` | `engine-derived` | hide label if status missing | covered by IB2026 and FF2026 golden tests |
 | TWR chart path | `normalizedPerf` / `performancePathData` | `analysis.performance_series` | `engine-derived` | if no visible performance path, show empty state panel | current display transform from engine points |
 | Benchmark chart path | `normalizedPerf` / `performancePathData` | `analysis.performance_series` | `engine-derived` | if no visible performance path, show empty state panel | benchmark is currently SPY for imported dashboard history |
 | MWR chart path | `capitalChartData` and visible states used when `performanceView === 'mwr'` | `analysis.daily_states` | `engine-derived` | if no visible states, show empty state panel | portfolio growth path for selected range |
@@ -92,11 +93,11 @@ Important rule:
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Sector allocation pie | `buildSectorAllocationFromSnapshot(nextDraftSnapshot)` | `draftSnapshot` and local `sectorDraft` edits | `draft-derived` | if no positions, show empty state | visible, but IB2026 tests currently assert labels/state rather than SVG geometry |
-| Sector allocation percentages | `sectorAllocation[].weight` | `draftSnapshot` and `sectorDraft` | `draft-derived` | if no positions, omit/list empty | covered by IB2026 golden tests for key sector labels |
-| Sector drilldown holdings | `selectedSectorPositions` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if no sector selected or no positions, show empty state | covered by IB2026 golden tests for Technology drilldown |
+| Sector allocation percentages | `sectorAllocation[].weight` | `draftSnapshot` and `sectorDraft` | `draft-derived` | if no positions, omit/list empty | covered by IB2026 and FF2026 golden tests for key sector labels |
+| Sector drilldown holdings | `selectedSectorPositions` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if no sector selected or no positions, show empty state | covered by IB2026 and FF2026 golden tests for broker-specific drilldowns |
 | Holding market values | `position.market_value` in draft rows | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if missing, should remain explicit editable value | editable draft only |
-| Holding weights inside selected sector | `(position.market_value / editedNetCapital) * 100` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if edited capital is zero, current code shows `0.00%` | covered by IB2026 golden tests for Technology holdings |
-| Draft Capital Check | `remainingCapital` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if no draft snapshot, currently derives from zero | covered by IB2026 golden tests |
+| Holding weights inside selected sector | `(position.market_value / editedNetCapital) * 100` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if edited capital is zero, current code shows `0.00%` | covered by IB2026 and FF2026 golden tests for broker-specific holdings |
+| Draft Capital Check | `remainingCapital` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if no draft snapshot, currently derives from zero | covered by IB2026 and FF2026 golden tests |
 | Leverage ratio | `leverageRatio` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if base capital is zero, current code shows `0.00x` | covered by IB2026 golden tests via Draft Capital Check helper |
 | Locked-on sector helper | `lockedSector` | local UI state | not financial | n/a | covered by IB2026 interaction tests |
 
@@ -104,16 +105,16 @@ Important rule:
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Drawdown | `maxDrawdown` from local calculation over visible `perf` | filtered `analysis.performance_series` | `engine-derived` | if no visible perf, should render `n/a` instead of a misleading `0.00%` | covered by IB2026 golden tests; current imported path now prefers backend `range_metrics` |
-| Money-Weighted Return | `visibleSummary.moneyWeightedReturnPct` from `computeVisibleSummary(...)` | filtered `analysis.daily_states` | `engine-derived` | if denominator is zero or history missing, render `n/a` | covered by IB2026 golden tests; current imported path now prefers backend `range_metrics` |
+| Drawdown | `selectedRangeMetrics.max_drawdown_pct` | `analysis.range_metrics[selectedRange].max_drawdown_pct` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
+| Money-Weighted Return | `selectedRangeMetrics.summary.money_weighted_return_pct` | `analysis.range_metrics[selectedRange].summary.money_weighted_return_pct` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
 
 ### Monthly Returns section
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Monthly return month labels | `computeContributionAdjustedMonthlyReturns(visibleStates)` | filtered `analysis.daily_states` | `engine-derived` | hide whole grid when unreliable | covered by IB2026 golden tests |
-| Monthly return percentages | `item.returnPct.toFixed(2)` | filtered `analysis.daily_states` | `engine-derived` | hide whole grid when `monthlyReturnsAreReliable(...)` is false | covered by IB2026 golden tests |
-| Monthly returns hidden-state panel | `!monthlyReturnsReliable` | filtered `analysis.daily_states` + local reliability rule | `unavailable-required` | must hide unstable monthly cards rather than show plausible garbage | covered by unstable-history regression tests |
+| Monthly return month labels | `selectedRangeMetrics.monthly_returns[].month` | `analysis.range_metrics[selectedRange].monthly_returns` | `engine-derived` | hide whole grid when backend range metrics are absent or marked unreliable | covered by IB2026 and FF2026 golden tests |
+| Monthly return percentages | `item.returnPct.toFixed(2)` from `selectedRangeMetrics.monthly_returns` | `analysis.range_metrics[selectedRange].monthly_returns` | `engine-derived` | hide whole grid when backend range metrics are absent or marked unreliable | covered by IB2026 and FF2026 golden tests |
+| Monthly returns hidden-state panel | `!selectedRangeMetrics.monthly_returns_reliable` | `analysis.range_metrics[selectedRange].monthly_returns_reliable` | `unavailable-required` | must hide unstable monthly cards rather than show plausible garbage | covered by unstable-history regression tests |
 
 ## Current Provider Chain By Section
 
@@ -129,8 +130,8 @@ Important rule:
 
 ### Performance cards and chart values
 
-- UI: `computeVisibleSummary(...)`, `normalizePerformanceSeries(...)`, local drawdown/monthly-return helpers in `DashboardPanel.tsx`
-- App state: `analysis.daily_states`, `analysis.performance_series`, `analysis.source_status`
+- UI: `normalizePerformanceSeries(...)`, `resolveDisplayedPortfolioValue(...)`, and backend-driven `range_metrics` selection in `DashboardPanel.tsx`
+- App state: `analysis.range_metrics`, `analysis.daily_states`, `analysis.performance_series`, `analysis.source_status`
 - Adapter: `composeDashboardAnalysisWithHistory(...)`
 - Engine source:
   - imported nodes: `runImportedDashboardHistory(...)`
@@ -161,18 +162,13 @@ Important rule:
 
 1. Keep App-level regressions in place for imported base/imported child snapshot/child variant transitions so broker-truth history is only shown on direct imported nodes.
 2. Add any remaining visual-state coverage gaps that are still untested, such as sector-pie empty-state presentation details rather than just labels and fallback text.
-3. Decide which current UI derivations should move into backend/dashboard contracts:
-   - start value
-   - MWR
-   - drawdown
-   - monthly returns
-4. Tighten the remaining unavailable behavior so missing history never falls back to misleading zero-like values.
+3. Tighten the remaining unavailable behavior so missing history never falls back to misleading zero-like values.
 
 ## Current Coverage Status
 
-- `apps/desktop/src/features/portfolio/DashboardPanel.test.tsx` now covers IB2026 imported golden values, account metadata fallbacks, statement period fallbacks, draft capital helper values, locked-sector interactions, technology drilldown weights, unstable-history states, and empty draft allocation states.
-- `apps/desktop/src/app/App.test.tsx` now covers imported-base restore, imported child-snapshot open, variant-to-imported-base switching, and imported-child-variant restore where history cards must remain unavailable instead of reusing imported broker-truth dashboard history.
-- `apps/desktop/src/test/ib2026DashboardGolden.ts` is generated from backend output and now uses normalized import timestamps so fixture regeneration does not create timestamp-only diffs.
+- `apps/desktop/src/features/portfolio/DashboardPanel.test.tsx` now covers both IB2026 and FF2026 imported golden values, plus account metadata fallbacks, statement period fallbacks, draft capital helper values, broker-specific sector drilldowns, unstable-history states, empty draft allocation states, and the contract that missing backend `range_metrics` renders `n/a` instead of triggering local financial recomputation.
+- `apps/desktop/src/app/App.test.tsx` now covers imported-base restore for both IB2026 and FF2026, imported child-snapshot open, variant-to-imported-base switching, and imported-child-variant restore where history cards must remain unavailable instead of reusing imported broker-truth dashboard history; restore regressions also assert that missing backend `range_metrics` stays unavailable in the UI.
+- `apps/desktop/src/test/dashboardGoldens.ts` is generated from backend output for both brokers and uses normalized import timestamps so fixture regeneration does not create timestamp-only diffs; broker-specific desktop imports flow through `apps/desktop/src/test/ib2026DashboardGolden.ts` and `apps/desktop/src/test/ff2026DashboardGolden.ts`.
 - diagnostics/exposure availability semantics remain requirement-oriented: `history_context_required` describes whether the historical sections fundamentally depend on history context, so it can remain `true` even when those sections are successfully available.
 - backend route coverage now includes mixed-broker `IB2026.pdf` + `FF2026.pdf` bootstrap/history-context validation plus imported-route unavailable regressions for empty or unsupported benchmark/symbol market-data conditions.
 - backend analytics coverage now includes direct `FF2026.pdf` imported dashboard truth assertions for summary metrics, monthly returns, and overview composition, similar in spirit to the stronger `IB2026` truth path.

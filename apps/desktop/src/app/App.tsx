@@ -3,7 +3,7 @@ import type { ChangeEvent } from 'react'
 
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 import { buildExposureFactorModelResponse } from '../features/portfolio/exposureFactorModel'
-import { projectImportedBootstrap } from '../features/portfolio/importedAnalysisMapper'
+import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
 import { buildExposureFactorModel, buildPortfolioBaselineAnalysis, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
 import { DiagnosticsPanel } from '../features/portfolio/DiagnosticsPanel'

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
 
+from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
 from app.services.exposure_engine import build_exposure_result
 from app.services.diagnostics_engine import run_imported_diagnostics_engine
 from app.services.statement_importer import import_statements
@@ -94,6 +96,35 @@ class StubMarketDataService:
         }
         return holdings.get(symbol, (None, []))
 
+
+class UnresolvedEtfMarketDataService(StubMarketDataService):
+    def get_etf_holdings(self, symbol: str, symbol_overrides=None):
+        self.holdings_calls.append(symbol)
+        if symbol in {"SPY", "VUAA"}:
+            return (None, [])
+        return super().get_etf_holdings(symbol, symbol_overrides)
+
+
+def _build_snapshot(positions: list[ImportedPosition], cash_balances: list[ImportedCashBalance] | None = None) -> ImportedPortfolioSnapshot:
+    return ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 11),
+            source_path="snapshot.json",
+            detected_format="snapshot",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=cash_balances or [ImportedCashBalance(currency="USD", ending_cash=0.0)],
+        positions=positions,
+        ledger_entries=[],
+    )
+
     def get_company_profile(self, symbol: str, symbol_overrides=None):
         return None
 
@@ -112,8 +143,14 @@ def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
     assert result.lookthrough.covered_market_value > 0
     assert 0 <= result.lookthrough.coverage_ratio <= 1
     assert result.market_overlap.benchmark_symbol == "SPY"
+    assert result.market_overlap.overlap_weight is not None
+    assert result.market_overlap.active_share is not None
     assert 0 <= result.market_overlap.overlap_weight <= 1
     assert 0 <= result.market_overlap.active_share <= 1
+    assert result.availability.lookthrough_status in {"live", "partial"}
+    assert result.availability.lookthrough_confidence in {"high", "medium"}
+    assert result.availability.benchmark_overlap_status in {"live", "partial"}
+    assert result.availability.benchmark_overlap_confidence in {"high", "medium"}
     assert len(result.lookthrough.top_constituents) > 0
     assert len(result.lookthrough_sector_exposure) > 0
     assert "SPY" in stub.holdings_calls
@@ -130,7 +167,10 @@ def test_exposure_engine_builds_expected_shape_for_freedom24_2026(mocker) -> Non
     assert result.snapshot.statement.importer == "freedom24"
     assert result.overview.positions_count == len(snapshot.positions)
     assert result.lookthrough.portfolio_market_value >= result.lookthrough.covered_market_value
+    assert 0 <= result.lookthrough.coverage_ratio <= 1
     assert result.market_overlap.benchmark_symbol == "SPY"
+    assert result.availability.lookthrough_status in {"live", "partial"}
+    assert result.availability.lookthrough_confidence in {"high", "medium"}
     assert result.lookthrough.top_constituents is not None
 
 
@@ -147,6 +187,138 @@ def test_exposure_engine_builds_expected_shape_for_espp2026(mocker) -> None:
     assert result.lookthrough.portfolio_market_value > 0
     assert result.market_overlap.benchmark_symbol == "SPY"
     assert len(result.lookthrough.top_constituents) >= 1
+
+
+def test_exposure_engine_marks_zero_market_value_snapshot_as_unavailable(mocker) -> None:
+    snapshot = _build_snapshot(
+        positions=[
+            ImportedPosition(
+                as_of_date=date(2026, 4, 11),
+                symbol="AAPL",
+                quantity=0.0,
+                cost_basis=0.0,
+                close_price=0.0,
+                market_value=0.0,
+                unrealized_pnl=0.0,
+                currency="USD",
+            )
+        ]
+    )
+    stub = StubMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.lookthrough.portfolio_market_value == 0.0
+    assert result.lookthrough.covered_market_value == 0.0
+    assert result.lookthrough.coverage_ratio == 0.0
+    assert len(result.lookthrough.top_constituents) == 1
+    assert result.lookthrough.top_constituents[0].effective_market_value == 0.0
+    assert result.availability.lookthrough_status == "unavailable"
+    assert result.availability.lookthrough_confidence == "low"
+    assert result.availability.benchmark_overlap_status == "unavailable"
+    assert result.availability.benchmark_overlap_confidence == "low"
+
+
+def test_exposure_engine_marks_all_unresolved_etf_snapshot_as_partial_and_zero_coverage(mocker) -> None:
+    snapshot = _build_snapshot(
+        positions=[
+            ImportedPosition(
+                as_of_date=date(2026, 4, 11),
+                symbol="VUAA",
+                quantity=10.0,
+                cost_basis=1000.0,
+                close_price=100.0,
+                market_value=1000.0,
+                unrealized_pnl=0.0,
+                currency="USD",
+            )
+        ]
+    )
+    stub = UnresolvedEtfMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.lookthrough.portfolio_market_value == 1000.0
+    assert result.lookthrough.covered_market_value == 0.0
+    assert result.lookthrough.coverage_ratio == 0.0
+    assert result.lookthrough.uncovered_positions == ["VUAA"]
+    assert result.lookthrough.top_constituents[0].symbol == "VUAA"
+    assert result.lookthrough_sector_exposure[0].sector == "Broad Market"
+    assert result.availability.lookthrough_status == "partial"
+    assert result.availability.lookthrough_confidence == "medium"
+    assert result.availability.benchmark_overlap_status == "unavailable"
+    assert result.availability.benchmark_overlap_confidence == "low"
+
+
+def test_exposure_engine_marks_cash_only_snapshot_as_unavailable(mocker) -> None:
+    snapshot = _build_snapshot(
+        positions=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=2500.0)],
+    )
+    stub = StubMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.overview.total_market_value == 0.0
+    assert result.lookthrough.portfolio_market_value == 0.0
+    assert result.lookthrough.covered_market_value == 0.0
+    assert result.lookthrough.coverage_ratio == 0.0
+    assert result.lookthrough.top_constituents == []
+    assert result.lookthrough_sector_exposure == []
+    assert result.market_overlap.overlap_weight is None
+    assert result.market_overlap.active_share is None
+    assert result.availability.lookthrough_status == "unavailable"
+    assert result.availability.lookthrough_confidence == "low"
+    assert result.availability.benchmark_overlap_status == "unavailable"
+    assert result.availability.benchmark_overlap_confidence == "low"
+
+
+def test_exposure_engine_handles_mixed_resolved_unresolved_and_cash_snapshot(mocker) -> None:
+    snapshot = _build_snapshot(
+        positions=[
+            ImportedPosition(
+                as_of_date=date(2026, 4, 11),
+                symbol="AAPL",
+                quantity=1.0,
+                cost_basis=100.0,
+                close_price=100.0,
+                market_value=100.0,
+                unrealized_pnl=0.0,
+                currency="USD",
+            ),
+            ImportedPosition(
+                as_of_date=date(2026, 4, 11),
+                symbol="VUAA",
+                quantity=9.0,
+                cost_basis=900.0,
+                close_price=100.0,
+                market_value=900.0,
+                unrealized_pnl=0.0,
+                currency="USD",
+            ),
+        ],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=500.0)],
+    )
+    stub = UnresolvedEtfMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.overview.total_market_value == 1000.0
+    assert result.lookthrough.portfolio_market_value == 1000.0
+    assert result.lookthrough.covered_market_value == 100.0
+    assert result.lookthrough.coverage_ratio == 0.1
+    assert result.lookthrough.uncovered_positions == ["VUAA"]
+    assert [item.symbol for item in result.lookthrough.top_constituents[:2]] == ["VUAA", "AAPL"]
+    assert result.availability.lookthrough_status == "partial"
+    assert result.availability.lookthrough_confidence == "medium"
+    assert result.availability.benchmark_overlap_status == "unavailable"
+    assert result.availability.benchmark_overlap_confidence == "low"
+    assert result.market_overlap.overlap_weight is None
+    assert result.market_overlap.active_share is None
 
 
 def test_exposure_engine_is_deterministic_for_repeated_ib2026_requests(mocker) -> None:

@@ -737,8 +737,8 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   const drawdownStats = useMemo(() => getSeriesStats(volatilitySeries, 'drawdown_pct'), [volatilitySeries])
   const betaTone = toneFromBeta(result?.risk_summary.portfolio_beta)
   const correlationTone = toneFromCorrelation(result?.risk_summary.portfolio_correlation)
-  const overlapTone = toneFromOverlap(result ? result.market_overlap.portfolio_in_benchmark_weight * 100 : null)
-  const activeShareTone = toneFromActiveShare(result ? result.market_overlap.active_share * 100 : null)
+  const overlapTone = toneFromOverlap(result?.market_overlap.portfolio_in_benchmark_weight != null ? result.market_overlap.portfolio_in_benchmark_weight * 100 : null)
+  const activeShareTone = toneFromActiveShare(result?.market_overlap.active_share != null ? result.market_overlap.active_share * 100 : null)
   const trackingErrorTone = toneFromTrackingError(result?.relative_risk.tracking_error_pct)
   const informationRatioTone = toneFromInformationRatio(result?.relative_risk.information_ratio)
   const realizedVol20Tone = toneFromRangePosition(vol20Stats?.position)
@@ -786,6 +786,9 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   }
 
   const diagnosticsUnavailable = result.availability?.historical_sections_available === false
+  const exposureAvailability = result.exposure_availability ?? null
+  const lookthroughDegraded = exposureAvailability?.lookthrough_status === 'partial'
+  const overlapUnavailable = exposureAvailability?.benchmark_overlap_status === 'unavailable'
 
   const topRiskPath = [
     {
@@ -836,12 +839,19 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
           <p className="helper">{result.availability?.note ?? 'Current holdings, look-through exposure, and overlap are shown below. Historical factor and risk sections require persisted import history.'}</p>
         </div>
       ) : null}
+      {exposureAvailability?.note ? (
+        <div className="empty-state-panel compact-empty-state">
+          <p className="empty-state-title">Look-through confidence is {exposureAvailability.lookthrough_confidence}; benchmark overlap confidence is {exposureAvailability.benchmark_overlap_confidence}; historical diagnostics confidence is {exposureAvailability.historical_diagnostics_confidence ?? 'high'}.</p>
+          <p className="helper">{exposureAvailability.note}</p>
+        </div>
+      ) : null}
       {scenarioPreview ? (
         <div className="summary-card strategy-summary-card dashboard-edit-summary-card">
           <p className="stat-label">Scenario Preview</p>
           <p className="summary-value">{formatRatio(scenarioPreview.leverage_ratio)}x leverage</p>
           <p className="helper">Net {formatMoney(scenarioPreview.net_capital)} vs base {formatMoney(scenarioPreview.base_capital)} · gross {formatMoney(scenarioPreview.gross_exposure)}</p>
           <p className="helper">{scenarioPreview.methodology}</p>
+          <p className="helper">Scenario-only current-state approximation. Historical diagnostics and historical overlap/risk sections are not rerun from edited holdings unless explicitly labeled otherwise.</p>
         </div>
       ) : null}
 
@@ -849,7 +859,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <section className="dashboard-bottom-grid exposure-primary-section exposure-top-path-section">
           <div className="section-header-inline sector-list-header">
             <div><p className="panel-label">Scenario Drift</p></div>
-            <p className="helper">Current-state sections update from draft holdings edits; historical sections remain baseline.</p>
+            <p className="helper">Current-state sections update from draft holdings edits; historical sections remain baseline and are not recomputed from scenario trades.</p>
           </div>
           <div className="split-grid">
             <section>
@@ -892,7 +902,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       <section className="dashboard-bottom-grid exposure-primary-section exposure-top-path-section">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Risk Path</p></div>
-          <p className="helper">Fast read of benchmark sensitivity, active risk, realized volatility, and current regime.{scenarioPreview ? ' Historical baseline from the imported analysis.' : ''}</p>
+          <p className="helper">Historical benchmark-relative diagnostics path for sensitivity, active risk, realized volatility, and current regime.{scenarioPreview ? ' Historical baseline from the imported portfolio history.' : ''}</p>
         </div>
         <div className="risk-path-grid">
           {topRiskPath.map((item) => (
@@ -906,18 +916,26 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       </section>
 
       <section className="dashboard-bottom-grid exposure-primary-section exposure-priority-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Broad Market Risk</p></div><p className="helper">{result.risk_summary.observations} obs · {result.risk_summary.start_date ?? 'n/a'} to {result.risk_summary.end_date ?? 'n/a'}{scenarioPreview ? ' · baseline historical model' : ''}</p></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Broad Market Risk</p></div><p className="helper">Current-state overlap is shown separately from historical benchmark-risk diagnostics.{scenarioPreview ? ' Historical diagnostics remain baseline.' : ''}</p></div>
         <div className="market-risk-layout">
           <div className="dashboard-summary market-risk-grid market-risk-grid-dense">
+          <div className="summary-card metric-card metric-card-neutral">
+            <p className="stat-label">Current-State Overlap</p>
+            <p className="helper">Look-through overlap versus benchmark constituents using current holdings only</p>
+          </div>
           <div className={metricCardClass(overlapTone)}>
             <p className="stat-label">Portfolio in {result.market_overlap.benchmark_symbol} Names</p>
-            <p className={`summary-value ${signalToneClass(overlapTone)}`}>{formatPct(result.market_overlap.portfolio_in_benchmark_weight * 100)}</p>
-            <p className="helper">Look-through overlap inside benchmark constituents</p>
+            <p className={`summary-value ${signalToneClass(overlapTone)}`}>{formatPct(result.market_overlap.portfolio_in_benchmark_weight != null ? result.market_overlap.portfolio_in_benchmark_weight * 100 : null)}</p>
+            <p className="helper">Look-through overlap inside benchmark constituents when benchmark holdings are available</p>
           </div>
           <div className={metricCardClass(activeShareTone)}>
             <p className="stat-label">Active Share vs {result.market_overlap.benchmark_symbol}</p>
-            <p className={`summary-value ${signalToneClass(activeShareTone)}`}>{formatPct(result.market_overlap.active_share * 100)}</p>
-            <p className="helper">Lower reads closer to benchmark construction</p>
+            <p className={`summary-value ${signalToneClass(activeShareTone)}`}>{formatPct(result.market_overlap.active_share != null ? result.market_overlap.active_share * 100 : null)}</p>
+            <p className="helper">Lower reads closer to benchmark construction when benchmark holdings are available</p>
+          </div>
+          <div className="summary-card metric-card metric-card-neutral">
+            <p className="stat-label">Historical Benchmark Risk</p>
+            <p className="helper">History-aware benchmark-relative diagnostics from persisted import history</p>
           </div>
           <div className={metricCardClass(trackingErrorTone)}>
             <p className="stat-label">Tracking Error</p>
@@ -968,7 +986,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       </div>
 
       <section className="dashboard-bottom-grid exposure-primary-section">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Sensitivity</p></div><p className="helper">Current broad-market sensitivity aligned with the drawdown horizon. {formatCoverageLabel(rollingRiskCoverage)}{scenarioPreview ? ' Historical baseline only.' : ''}</p></div>
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Sensitivity</p></div><p className="helper">Historical broad-market sensitivity aligned with the drawdown horizon. {formatCoverageLabel(rollingRiskCoverage)}{scenarioPreview ? ' Historical baseline only.' : ''}</p></div>
         <div className="dashboard-summary compact-summary-grid">
           <div className={metricCardClass(betaTone)}>
             <p className="stat-label">Beta vs {result.risk_summary.benchmark_symbol}</p>
@@ -987,7 +1005,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       <section className="dashboard-bottom-grid factor-master-detail-section">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Rolling Factor Loadings</p></div>
-          <p className="helper">{formatCoverageLabel(rollingFactorCoverage)}{selectedWindowSummary ? ` · status ${selectedWindowSummary.status}` : ''}{scenarioPreview ? ' · baseline historical loadings' : ''}</p>
+          <p className="helper">Historical rolling-factor diagnostics across the selected window. {formatCoverageLabel(rollingFactorCoverage)}{selectedWindowSummary ? ` · status ${selectedWindowSummary.status}` : ''}{scenarioPreview ? ' Scenario edits do not rerun these rolling historical loadings.' : ''}</p>
         </div>
         <div className="dashboard-summary compact-summary-grid">
           <div className={metricCardClass(modelReliabilityTone)}>
@@ -1115,16 +1133,16 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
                   <p className="helper">Methodology: {resolvedFactorModel?.methodology ?? result.factor_methodology ?? DEFAULT_FACTOR_MODEL_METHODOLOGY}</p>
                   <p className="helper">Window status: {selectedWindowSummary?.status ?? resolvedFactorModel?.statistical_factor_model.status ?? 'n/a'}</p>
                   <p className="helper">Observations: {selectedWindowSummary?.observations ?? 0}</p>
-                  <p className="helper">Table shows current snapshot plus selected {rollingWindow}d window loadings.</p>
+                  <p className="helper">Table separates current snapshot loadings from historical {rollingWindow}d rolling-window loadings.</p>
                   <p className="helper">Benchmark: {resolvedFactorModel?.statistical_factor_model.benchmark_symbol ?? result.benchmark?.symbol ?? 'SPY'}</p>
-                  <p className="helper">Reliability: {result.model_reliability.confidence} confidence{scenarioPreview ? ' · current values in this table are scenario-aware, rolling ranges stay baseline' : ''}</p>
+                  <p className="helper">Reliability: {result.model_reliability.confidence} confidence{scenarioPreview ? ' · current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical' : ''}</p>
                 </div>
                 <div className="factor-snapshot-table-wrap">
               <div className="factor-snapshot-table-grid factor-snapshot-header-row">
                 <span>Factor</span>
                 <span>Proxy</span>
-                <span>Current Loading</span>
-                <span>{rollingWindow}d Loading</span>
+                <span>Current Snapshot Loading</span>
+                <span>Historical {rollingWindow}d Loading</span>
                 <span>Category</span>
                 <span>UCITS Examples</span>
                 <span>Mapping Match</span>
@@ -1178,7 +1196,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       </section>
 
       <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Volatility & Regime</p></div><p className="helper">{formatCoverageLabel(volatilityCoverage)}{scenarioPreview ? ' · imported historical baseline' : ''}</p></div>
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Volatility & Regime</p></div><p className="helper">Historical volatility and regime diagnostics from persisted portfolio history. {formatCoverageLabel(volatilityCoverage)}{scenarioPreview ? ' Scenario edits do not rerun this historical regime path.' : ''}</p></div>
         <div className="factor-snapshot-meta-row">
           <p className="helper">Methodology: {result.volatility_regime.methodology}</p>
           <p className="helper">Return Basis: {result.volatility_regime.assumptions.return_basis}</p>
@@ -1209,15 +1227,26 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       </section>
 
       <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Tilts</p></div><p className="helper">Current benchmark, style, sector, and macro sleeves.{scenarioPreview ? ' Scenario-aware from edited holdings.' : ''}</p></div>
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Tilts</p></div><p className="helper">Current benchmark, style, sector, and macro sleeves.{scenarioPreview ? ' Scenario-aware from edited holdings as a current-state approximation only.' : ''}</p></div>
         <div className="dashboard-summary">
-          {factorExposures.map((item) => (
-            <div className="summary-card" key={`factor-${item.factor}`}>
-              <p className="stat-label">{item.factor}</p>
-              <p className="summary-value">{item.factor === 'Market' ? formatNumber(item.exposure, 2) : formatPct(item.exposure * 100)}</p>
-              <p className="helper">{item.description}</p>
-            </div>
-          ))}
+          {factorExposures.map((item) => {
+            const unavailableBecauseBenchmarkHoldings = item.basis === 'benchmark_holdings_required' && overlapUnavailable
+            const unavailableBecauseHistoricalDiagnostics = item.basis === 'historical_benchmark_relative' && diagnosticsUnavailable
+            const displayExposure = unavailableBecauseBenchmarkHoldings || unavailableBecauseHistoricalDiagnostics ? null : item.exposure
+            const helperSuffix = unavailableBecauseHistoricalDiagnostics
+              ? ' Currently unavailable because historical diagnostics are unavailable for this snapshot.'
+              : unavailableBecauseBenchmarkHoldings
+                ? ' Currently unavailable because benchmark holdings could not be loaded.'
+                : ''
+
+            return (
+              <div className="summary-card" key={`factor-${item.factor}`}>
+                <p className="stat-label">{item.factor}</p>
+                <p className="summary-value">{item.factor === 'Market' ? formatNumber(displayExposure, 2) : formatPct(displayExposure != null ? displayExposure * 100 : null)}</p>
+                <p className="helper">{item.description}{helperSuffix}</p>
+              </div>
+            )
+          })}
         </div>
       </section>
 
@@ -1254,7 +1283,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       </div>
 
       <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Stress Scenarios</p></div><p className="helper">Factor-shock estimates based on the 12-factor model{scenarioPreview ? ' · scenario-aware current-state approximation' : ''}</p></div>
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Stress Scenarios</p></div><p className="helper">Factor-shock estimates based on the 12-factor model{scenarioPreview ? ' · scenario-aware current-state approximation only' : ''}</p></div>
         <div className="list-table">
           {scenarioStressScenarios
             ? scenarioStressScenarios.map((item) => <div className="list-row" key={`stress-${item.name}`}><span>{item.name}</span><span>{formatPct(item.estimated_return_pct)} ({formatSignedPct(item.delta_return_pct)})</span></div>)
@@ -1265,7 +1294,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
 
       {scenarioRiskContribution ? (
         <section className="dashboard-bottom-grid">
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Risk Contribution</p></div><p className="helper">{scenarioRiskContribution.window_days}d / {scenarioRiskContribution.observation_count} obs / {scenarioRiskContribution.status} · scenario-aware approximation</p></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Risk Contribution</p></div><p className="helper">{scenarioRiskContribution.window_days}d / {scenarioRiskContribution.observation_count} obs / {scenarioRiskContribution.status} · scenario-aware current-state approximation only</p></div>
           <div className="dashboard-summary compact-summary-grid">
             <div className="summary-card"><p className="stat-label">Factor Total Variance</p><p className="summary-value">{formatNumber(scenarioRiskContribution.factor_total_variance, 4)}</p></div>
             <div className="summary-card"><p className="stat-label">Specific Variance</p><p className="summary-value">{formatNumber(scenarioRiskContribution.specific_variance, 4)}</p></div>
@@ -1298,12 +1327,12 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
 
       <div className="split-grid dashboard-bottom-grid">
         <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Actual Exposure</p></div><p className="helper">Top look-through constituents by snapshot market value{scenarioPreview ? ' in the draft scenario' : ''}</p></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Actual Exposure</p></div><p className="helper">Top look-through constituents by snapshot market value{lookthroughDegraded ? ' · partial ETF resolution' : ''}{scenarioPreview ? ' in the draft scenario' : ''}</p></div>
           <div className="list-table">{topLookthrough.map((item) => <div className="list-row" key={`lookthrough-${item.symbol}`}><span>{item.symbol}</span><span>{formatCompactMoney(item.effective_market_value)} · {formatPct(item.portfolio_weight * 100)}</span></div>)}</div>
-          <p className="helper">Coverage {formatPct(result.lookthrough.coverage_ratio * 100)}</p>
+          <p className="helper">Constituent Coverage {formatPct(result.lookthrough.coverage_ratio * 100)} · direct single-name positions and ETFs with resolved holdings only</p>
         </section>
         <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Look-Through Sectors</p></div><p className="helper">Economic exposure after ETF unpacking{scenarioPreview ? ' for the draft scenario' : ''}</p></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Look-Through Sectors</p></div><p className="helper">Economic exposure after ETF unpacking{lookthroughDegraded ? ' with unresolved holdings left at direct-position level' : ''}{scenarioPreview ? ' for the draft scenario' : ''}</p></div>
           <div className="allocation-list">{topLookthroughSectors.map((item) => <div className="allocation-row" key={`lt-sector-${item.sector}`}><div className="allocation-head"><span>{item.sector}</span><span>{formatPct(item.weight * 100)}</span></div><div className="allocation-bar"><div className="allocation-fill" style={{ width: `${Math.max(item.weight * 100, 2)}%` }} /></div></div>)}</div>
         </section>
       </div>

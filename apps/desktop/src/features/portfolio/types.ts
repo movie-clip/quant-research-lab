@@ -154,10 +154,10 @@ export type LookThroughSectorExposure = {
 
 export type MarketOverlapSummary = {
   benchmark_symbol: string
-  overlap_weight: number
-  active_share: number
-  portfolio_in_benchmark_weight: number
-  benchmark_covered_weight: number
+  overlap_weight: number | null
+  active_share: number | null
+  portfolio_in_benchmark_weight: number | null
+  benchmark_covered_weight: number | null
 }
 
 export type RelativeRiskSummary = {
@@ -169,8 +169,9 @@ export type RelativeRiskSummary = {
 
 export type FactorExposurePoint = {
   factor: string
-  exposure: number
+  exposure: number | null
   description: string
+  basis?: string
 }
 
 export type FactorShiftDiagnostics = {
@@ -645,12 +646,30 @@ export type ImportedBaselineSource = {
   overview: PortfolioOverview
 }
 
+export type ExposureAvailabilityStatus = 'live' | 'partial' | 'unavailable'
+export type ExposureAvailabilityConfidence = 'high' | 'medium' | 'low'
+
+export type ExposureAvailability = {
+  lookthrough_status: ExposureAvailabilityStatus
+  lookthrough_confidence: ExposureAvailabilityConfidence
+  benchmark_overlap_status: ExposureAvailabilityStatus
+  benchmark_overlap_confidence: ExposureAvailabilityConfidence
+  note: string | null
+}
+
+export type ComposedExposureAvailability = ExposureAvailability & {
+  historical_diagnostics_confidence: ExposureAvailabilityConfidence
+}
+
 export type ImportedExposureSource = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
   market_overlap: MarketOverlapSummary
+  exposure_availability?: (ExposureAvailability & {
+    historical_diagnostics_confidence?: ExposureAvailabilityConfidence
+  }) | null
   risk_summary: PortfolioRiskSummary
   rolling_risk: RollingRiskPoint[]
   relative_risk: RelativeRiskSummary
@@ -699,6 +718,7 @@ export type ExposureEngineResponse = {
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
   market_overlap: MarketOverlapSummary
+  availability: ExposureAvailability
 }
 
 export type DashboardHistoryEngineResponse = {
@@ -1056,6 +1076,11 @@ export type AllocationBacktestComparison = {
 }
 
 export type PortfolioDiagnosticsSnapshot = {
+  provenance: {
+    snapshot_basis: 'synthetic_replay_snapshot'
+    historical_basis: 'market_data_history'
+    note: string
+  }
   factor_snapshot: StatisticalFactorSnapshotItem[]
   volatility_snapshot: VolatilitySnapshot | null
   risk_contribution: RiskContributionBreakdown | null

@@ -35,117 +35,16 @@ function hasRichDashboardData(result: DashboardAnalysis | null) {
   return Boolean(result && (result.performance_series.length || result.daily_states.length || result.source_status))
 }
 
-function computeMoneyWeightedReturn(states: DashboardAnalysis['daily_states']) {
-  if (states.length < 2) {
-    return null
-  }
-
-  const startValue = states[0].total_portfolio_value
-  const endValue = states[states.length - 1].total_portfolio_value
-  const flowStates = states.slice(1)
-  const totalFlows = flowStates.reduce((total, state) => total + state.external_cash_flow, 0)
-  const totalPeriods = Math.max(states.length - 1, 1)
-  const weightedFlows = flowStates.reduce((total, state, index) => {
-    const periodsRemaining = totalPeriods - index - 1
-    const weight = totalPeriods > 0 ? periodsRemaining / totalPeriods : 0
-    return total + (state.external_cash_flow * weight)
-  }, 0)
-
-  const denominator = startValue + weightedFlows
-  if (denominator === 0) {
-    return null
-  }
-
-  return ((endValue - startValue - totalFlows) / denominator) * 100
-}
-
-function computeContributionAdjustedMonthlyReturns(states: DashboardAnalysis['daily_states']) {
-  const anchorIndex = states.findIndex((state) => state.total_portfolio_value > 0)
-  const anchoredStates = anchorIndex >= 0 ? states.slice(anchorIndex) : states
-
-  if (!anchoredStates.length) {
-    return []
-  }
-
-  const grouped = new Map<string, DashboardAnalysis['daily_states']>()
-
-  for (const state of anchoredStates) {
-    const month = state.date.slice(0, 7)
-    const existing = grouped.get(month)
-    if (existing) {
-      existing.push(state)
-    } else {
-      grouped.set(month, [state])
-    }
-  }
-
-  return Array.from(grouped.entries()).map(([month, monthStates]) => {
-    let cumulativeGrowth = 1
-    let previousState: DashboardAnalysis['daily_states'][number] | null = null
-
-    for (const state of monthStates) {
-      if (previousState && previousState.total_portfolio_value !== 0) {
-        const dailyReturn = ((state.total_portfolio_value - state.external_cash_flow) / previousState.total_portfolio_value) - 1
-        cumulativeGrowth *= 1 + dailyReturn
-      }
-      previousState = state
-    }
-
-    return { month, returnPct: (cumulativeGrowth - 1) * 100 }
-  })
-}
-
-function monthlyReturnsAreReliable(monthlyReturns: Array<{ month: string; returnPct: number }>, states: DashboardAnalysis['daily_states']) {
-  if (monthlyReturns.length < 2) return false
-
-  const anchorIndex = states.findIndex((state) => state.total_portfolio_value > 0)
-  const anchoredStates = anchorIndex >= 0 ? states.slice(anchorIndex) : states
-  if (anchoredStates.length < 2) return false
-
-  const hasNegativePortfolioValue = anchoredStates.some((state) => state.total_portfolio_value < 0)
-  const extremeMonthlyMove = monthlyReturns.some((item) => Math.abs(item.returnPct) > 100)
-  return !hasNegativePortfolioValue && !extremeMonthlyMove
-}
-
-function computeVisibleSummary(states: DashboardAnalysis['daily_states'], perf: DashboardAnalysis['performance_series']) {
-  if (!states.length) {
-    return {
-      startValue: null,
-      endValue: null,
-      netContributions: 0,
-      investmentGain: null,
-      timeWeightedReturnPct: null,
-      moneyWeightedReturnPct: null,
-      benchmarkReturnPct: null,
-      excessReturnPct: null,
-    }
-  }
-
-  const anchorIndex = states.findIndex((state) => state.total_portfolio_value > 0)
-  const anchoredStates = anchorIndex >= 0 ? states.slice(anchorIndex) : states
-  const anchorDate = anchoredStates[0]?.date ?? states[0].date
-  const anchoredPerf = perf.filter((point) => point.date >= anchorDate)
-
-  const startValue = anchoredStates[0].total_portfolio_value
-  const endValue = states[states.length - 1].total_portfolio_value
-  const netContributions = anchoredStates.slice(1).reduce((total, state) => total + state.external_cash_flow, 0)
-  const investmentGain = endValue - startValue - netContributions
-  const timeWeightedReturnPct = anchoredPerf.length ? anchoredPerf[anchoredPerf.length - 1].portfolio_return_pct : null
-  const benchmarkReturnPct = anchoredPerf.length ? anchoredPerf[anchoredPerf.length - 1].benchmark_return_pct : null
-  const moneyWeightedReturnPct = computeMoneyWeightedReturn(anchoredStates)
-
+function buildUnavailableRangeSummary() {
   return {
-    startValue,
-    endValue,
-    netContributions,
-    investmentGain,
-    timeWeightedReturnPct,
-    moneyWeightedReturnPct,
-    benchmarkReturnPct,
-    excessReturnPct:
-      timeWeightedReturnPct != null && benchmarkReturnPct != null
-        ? timeWeightedReturnPct - benchmarkReturnPct
-        : null,
+    startValue: null,
+    endValue: null,
+    netContributions: null,
+    investmentGain: null,
+    timeWeightedReturnPct: null,
+    moneyWeightedReturnPct: null,
+    benchmarkReturnPct: null,
+    excessReturnPct: null,
   }
 }
 
@@ -153,15 +52,16 @@ function resolveDisplayedPortfolioValue(result: DashboardAnalysis | null, visibl
   if (!result) return visibleSummaryEndValue ?? latestPerfValue
   const statementEndingNav = result.snapshot.statement_totals?.ending_nav ?? null
   const latestStateValue = result.daily_states.length ? result.daily_states[result.daily_states.length - 1].total_portfolio_value : null
+  const candidateEndValue = visibleSummaryEndValue ?? latestStateValue ?? latestPerfValue
   if (
     statementEndingNav != null
     && latestStateValue != null
     && Math.abs(latestStateValue - statementEndingNav) > 0.01
-    && visibleSummaryEndValue === latestStateValue
+    && candidateEndValue === latestStateValue
   ) {
     return statementEndingNav
   }
-  return visibleSummaryEndValue ?? latestPerfValue
+  return candidateEndValue
 }
 
 export function normalizePerformanceSeries(perf: DashboardAnalysis['performance_series']) {
@@ -362,7 +262,6 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
 
   const selectedRangeMetrics = result?.range_metrics?.[selectedRange] ?? null
 
-  const visibleSummary = useMemo(() => computeVisibleSummary(visibleStates, perf), [perf, visibleStates])
   const resolvedSummary = selectedRangeMetrics?.summary
     ? {
         startValue: selectedRangeMetrics.summary.start_value,
@@ -374,7 +273,7 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
         benchmarkReturnPct: selectedRangeMetrics.summary.benchmark_return_pct,
         excessReturnPct: selectedRangeMetrics.summary.excess_return_pct,
       }
-    : visibleSummary
+    : buildUnavailableRangeSummary()
   const latestPerf = perf.length ? perf[perf.length - 1] : null
   const displayedPortfolioValue = useMemo(
     () => resolveDisplayedPortfolioValue(result, resolvedSummary.endValue, latestPerf?.portfolio_value ?? null),
@@ -391,16 +290,12 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
     ? Math.min(...normalizedPerf.map((point) => Math.min(point.portfolio_index ?? 100, point.benchmark_index ?? 100, 100)))
     : 100
   const indexRange = Math.max(maxIndex - minIndex, 1)
-  const drawdownSeries = perf.map((point, index) => {
-    const peak = Math.max(...perf.slice(0, index + 1).map((item) => item.portfolio_value))
-    return peak > 0 ? ((point.portfolio_value - peak) / peak) * 100 : 0
-  })
-  const maxDrawdown = selectedRangeMetrics?.max_drawdown_pct ?? (drawdownSeries.length ? Math.min(...drawdownSeries, 0) : null)
+  const maxDrawdown = selectedRangeMetrics?.max_drawdown_pct ?? null
   const monthlyReturns = useMemo(
-    () => selectedRangeMetrics?.monthly_returns?.map((item) => ({ month: item.month, returnPct: item.return_pct })) ?? computeContributionAdjustedMonthlyReturns(visibleStates),
-    [selectedRangeMetrics?.monthly_returns, visibleStates],
+    () => selectedRangeMetrics?.monthly_returns?.map((item) => ({ month: item.month, returnPct: item.return_pct })) ?? [],
+    [selectedRangeMetrics?.monthly_returns],
   )
-  const monthlyReturnsReliable = selectedRangeMetrics?.monthly_returns_reliable ?? monthlyReturnsAreReliable(monthlyReturns, visibleStates)
+  const monthlyReturnsReliable = selectedRangeMetrics?.monthly_returns_reliable ?? false
   const nextDraftSnapshot = useMemo(() => buildSnapshotFromSectorDraft(draftSnapshot, sectorDraft), [draftSnapshot, sectorDraft])
   const sectorAllocation = useMemo(() => buildSectorAllocationFromSnapshot(nextDraftSnapshot), [nextDraftSnapshot])
   const activeSector = hoveredSector ?? lockedSector

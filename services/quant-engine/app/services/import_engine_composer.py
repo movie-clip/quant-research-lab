@@ -1,4 +1,4 @@
-from app.schemas.imported_analysis import ImportedBootstrapResponse
+from app.schemas.import_bootstrap import ImportedBootstrapResponse
 from app.schemas.portfolio_engine import PortfolioHistoryContext
 from app.schemas.reconciliation import PortfolioOverview, PortfolioRiskSummary
 

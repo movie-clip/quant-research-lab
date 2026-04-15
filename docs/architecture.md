@@ -102,6 +102,96 @@ This gives enough coverage to build an imported portfolio, a transaction ledger,
 5. call dedicated engines for exposure, diagnostics, and backtests
 6. send derived engine outputs to UI
 
+## Backtest Diagnostics Provenance
+
+Portfolio-allocation backtests now expose diagnostics provenance explicitly.
+
+Current contract:
+
+- synthetic replay snapshot basis: `synthetic_replay_snapshot`
+- historical diagnostics basis: `market_data_history`
+
+This means portfolio-improvement diagnostics are not imported broker-truth diagnostics. They are built from:
+
+- a synthetic snapshot generated from the replay ending weights
+- replay-derived daily states from the backtest equity curve
+- external historical benchmark and factor market data
+
+Implementation locations:
+
+- typed provenance schema: `services/quant-engine/app/schemas/backtest_engine.py` in `PortfolioDiagnosticsProvenance`
+- diagnostics input assembly: `services/quant-engine/app/services/portfolio_backtest_engine.py` in `BacktestDiagnosticsInputs` and `_build_backtest_diagnostics_inputs(...)`
+- synthetic snapshot builder: `services/quant-engine/app/services/portfolio_backtest_engine.py` in `_build_synthetic_snapshot_from_weights(...)`
+
+UI rule:
+
+- backtest diagnostics should present this provenance explicitly so users do not confuse synthetic replay diagnostics with imported history-backed portfolio diagnostics
+
+## Exposure Coverage Methodology
+
+Exposure currently reports `lookthrough.coverage_ratio` with this formula:
+
+- `coverage_ratio = covered_market_value / portfolio_market_value`
+
+Where:
+
+- `portfolio_market_value` is the sum of current position market values
+- `covered_market_value` includes:
+  - direct single-name positions at 100% of their market value
+  - ETF positions only when their constituent holdings are successfully resolved
+- unresolved ETF positions may still appear as direct placeholders in current-state exposure lists, but they do not count toward `covered_market_value`
+
+Implementation locations:
+
+- constituent-resolution logic: `services/quant-engine/app/analytics/risk.py` in `build_lookthrough_exposure(...)`
+- response assembly and exposure availability semantics: `services/quant-engine/app/services/exposure_engine.py` in `build_exposure_result(...)`
+
+This means `coverage_ratio` is a constituent-resolution metric, not a generic “we can display the current holdings” metric.
+
+Benchmark overlap currently reports these formulas when benchmark holdings are available:
+
+- `overlap_weight = sum(min(portfolio_weight_i, benchmark_weight_i))` over shared symbols
+- `active_share = 0.5 * sum(abs(portfolio_weight_i - benchmark_weight_i))` over the union of symbols
+- `portfolio_in_benchmark_weight = sum(portfolio_weight_i)` over shared symbols
+- `benchmark_covered_weight = sum(benchmark_weight_i)` over benchmark constituents loaded into the comparison set
+
+Degraded/unavailable rule:
+
+- if benchmark holdings are unavailable, overlap fields return `null` rather than `0.0`
+- this prevents a missing-benchmark case from looking like true zero overlap or true zero benchmark coverage
+
+Implementation locations:
+
+- overlap calculation: `services/quant-engine/app/analytics/risk.py` in `build_market_overlap_summary(...)`
+- exposure availability / degraded-state messaging: `services/quant-engine/app/services/exposure_engine.py` in `build_exposure_result(...)`
+
+Exposure availability/confidence semantics currently use these meanings:
+
+- `lookthrough_status`
+  - `live`: no unresolved ETF holdings remain in current look-through resolution
+  - `partial`: some ETF holdings are unresolved, but usable current-state exposure still exists
+  - `unavailable`: no resolvable look-through holdings were produced
+- `lookthrough_confidence`
+  - `high`: current look-through resolution is fully available
+  - `medium`: current look-through is usable but partial
+  - `low`: current look-through is not trustworthy enough to treat as resolved exposure
+- `benchmark_overlap_status`
+  - `live`: benchmark-relative overlap is computed from available benchmark holdings
+  - `partial`: benchmark-relative overlap exists but inherits partial look-through resolution
+  - `unavailable`: benchmark holdings are missing or overlap cannot be trusted
+- `benchmark_overlap_confidence`
+  - `high`: benchmark-relative overlap is fully available
+  - `medium`: benchmark-relative overlap is usable but depends on partial look-through resolution
+  - `low`: benchmark-relative overlap is unavailable or not trustworthy
+- `historical_diagnostics_confidence`
+  - `high`: history-aware diagnostics are available
+  - `low`: history-aware diagnostics are unavailable
+
+Implementation locations:
+
+- backend exposure availability: `services/quant-engine/app/services/exposure_engine.py` in `_build_exposure_availability(...)`
+- desktop-composed historical diagnostics confidence: `apps/desktop/src/features/portfolio/portfolioAnalysisAdapter.ts` in `composeExposureView(...)`
+
 ### Desktop workspace model
 
 The desktop app now follows a local-first workspace structure:

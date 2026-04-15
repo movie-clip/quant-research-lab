@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from app.analytics.risk import build_factor_registry, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload
-from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioEngineRequest, PortfolioPositionSnapshot
+from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, SnapshotItem
 from app.backtests.portfolio_engine import PortfolioAllocationBacktestEngine
 from app.instruments.registry import InstrumentRegistry
@@ -13,6 +14,7 @@ from app.schemas.backtest_engine import (
     AllocationBacktestResult,
     AllocationBacktestStatus,
     DistributionPolicy,
+    PortfolioDiagnosticsProvenance,
     PortfolioDiagnosticsComparisonRow,
     PortfolioDiagnosticsSnapshot,
     PortfolioImprovementComparison,
@@ -20,10 +22,17 @@ from app.schemas.backtest_engine import (
     PortfolioAllocationBacktestResponse,
 )
 from app.services.market_data import MarketDataService
-from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
 
 
 METHODOLOGY = "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions."
+
+
+@dataclass(frozen=True)
+class BacktestDiagnosticsInputs:
+    synthetic_snapshot: ImportedPortfolioSnapshot
+    replay_daily_states: list[DailyPortfolioState]
+    benchmark_price_history: list[dict]
+    factor_price_histories: dict[str, list[dict]]
 
 
 def build_portfolio_allocation_backtest_analysis(request: PortfolioAllocationBacktestRequest) -> PortfolioAllocationBacktestResponse:
@@ -200,17 +209,25 @@ def _build_portfolio_diagnostics_snapshot(
     benchmark_rows: list[dict],
     histories: dict[str, list[dict]],
 ) -> PortfolioDiagnosticsSnapshot:
-    snapshot = _build_snapshot_from_weights(portfolio_name, weights, result)
-    daily_states = _build_daily_states_from_equity_curve(result, weights, histories)
-    benchmark_history = [row for row in benchmark_rows if result.start_date <= row["date"] <= result.end_date]
+    diagnostics_inputs = _build_backtest_diagnostics_inputs(
+        portfolio_name=portfolio_name,
+        weights=weights,
+        result=result,
+        benchmark_rows=benchmark_rows,
+        histories=histories,
+    )
     factor_registry = build_factor_registry()
-    factor_histories = {definition.us_proxy: histories.get(definition.us_proxy, benchmark_rows) for definition in factor_registry}
-    model = build_statistical_factor_model(daily_states, factor_histories, result.benchmark_symbol or "SPY")
+    model = build_statistical_factor_model(diagnostics_inputs.replay_daily_states, diagnostics_inputs.factor_price_histories, result.benchmark_symbol or "SPY")
     factor_snapshot = model.current_factor_snapshot if model.current_factor_snapshot else _build_fallback_factor_snapshot(weights, factor_registry)
-    volatility = build_volatility_regime_payload(daily_states, benchmark_history)
-    risk_contribution = build_risk_contribution_breakdown(snapshot, daily_states, {item.symbol: histories.get(item.symbol, []) for item in weights}, factor_histories, factor_registry, model)
+    volatility = build_volatility_regime_payload(diagnostics_inputs.replay_daily_states, diagnostics_inputs.benchmark_price_history)
+    risk_contribution = build_risk_contribution_breakdown(diagnostics_inputs.synthetic_snapshot, diagnostics_inputs.replay_daily_states, {item.symbol: histories.get(item.symbol, []) for item in weights}, diagnostics_inputs.factor_price_histories, factor_registry, model)
 
     return PortfolioDiagnosticsSnapshot(
+        provenance=PortfolioDiagnosticsProvenance(
+            snapshot_basis="synthetic_replay_snapshot",
+            historical_basis="market_data_history",
+            note="Backtest diagnostics combine a synthetic replay snapshot with replay-derived daily states and external historical market data.",
+        ),
         factor_snapshot=factor_snapshot,
         volatility_snapshot=volatility.snapshot,
         risk_contribution=risk_contribution,
@@ -218,29 +235,56 @@ def _build_portfolio_diagnostics_snapshot(
     )
 
 
-def _build_snapshot_from_weights(portfolio_name: str, weights, result: AllocationBacktestResult):
-    request = _build_portfolio_engine_request_from_weights(portfolio_name, weights, result)
-    return build_imported_snapshot_from_request(request)
+def _build_backtest_diagnostics_inputs(
+    *,
+    portfolio_name: str,
+    weights,
+    result: AllocationBacktestResult,
+    benchmark_rows: list[dict],
+    histories: dict[str, list[dict]],
+) -> BacktestDiagnosticsInputs:
+    factor_registry = build_factor_registry()
+    return BacktestDiagnosticsInputs(
+        synthetic_snapshot=_build_synthetic_snapshot_from_weights(portfolio_name, weights, result),
+        replay_daily_states=_build_daily_states_from_equity_curve(result, weights, histories),
+        benchmark_price_history=[row for row in benchmark_rows if result.start_date <= row["date"] <= result.end_date],
+        factor_price_histories={definition.us_proxy: histories.get(definition.us_proxy, benchmark_rows) for definition in factor_registry},
+    )
 
 
-def _build_portfolio_engine_request_from_weights(portfolio_name: str, weights, result: AllocationBacktestResult) -> PortfolioEngineRequest:
+def _build_synthetic_snapshot_from_weights(portfolio_name: str, weights, result: AllocationBacktestResult):
+    imported_at = datetime.fromisoformat(result.end_date).replace(tzinfo=UTC)
     ending_equity = result.equity_curve[-1].equity if result.equity_curve else 0.0
-    return PortfolioEngineRequest(
-        benchmark_symbol=result.benchmark_symbol or "SPY",
-        base_currency=result.assumptions.investor_base_currency or "USD",
-        statement_period=f"{result.start_date} - {result.end_date}",
-        imported_at=datetime.now(UTC),
-        source_file_names=[f"{portfolio_name.lower()}-backtest"],
+    base_currency = result.assumptions.investor_base_currency or "USD"
+    return ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="multi_broker",
+            imported_at=imported_at,
+            source_path=f"{portfolio_name.lower()}-backtest",
+            detected_format="synthetic_backtest",
+            account_id=portfolio_name,
+            base_currency=base_currency,
+            statement_period=f"{result.start_date} - {result.end_date}",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency=base_currency, ending_cash=0.0)],
         positions=[
-            PortfolioPositionSnapshot(
+            ImportedPosition(
+                as_of_date=datetime.fromisoformat(result.end_date).date(),
                 symbol=item.symbol,
-                market_value=round(ending_equity * item.target_weight, 2),
                 quantity=1.0,
-                currency=result.assumptions.investor_base_currency or "USD",
+                cost_basis=round(ending_equity * item.target_weight, 2),
+                close_price=round(ending_equity * item.target_weight, 2),
+                market_value=round(ending_equity * item.target_weight, 2),
+                unrealized_pnl=0.0,
+                currency=base_currency,
             )
             for item in weights
         ],
-        cash_balances=[PortfolioCashBalanceSnapshot(currency=result.assumptions.investor_base_currency or "USD", amount=0.0)],
+        ledger_entries=[],
     )
 
 

@@ -172,6 +172,7 @@ export async function runImportedDashboardHistory(snapshot: ImportedDashboardSou
 }
 
 export function composeExposureView(exposure: ExposureEngineResponse, diagnostics: DiagnosticsEngineResponse): ExposureAnalysis {
+  const historicalDiagnosticsConfidence = diagnostics.availability.historical_sections_available ? 'high' : 'low'
   return {
     snapshot: exposure.snapshot,
     overview: exposure.overview,
@@ -190,6 +191,10 @@ export function composeExposureView(exposure: ExposureEngineResponse, diagnostic
     stress_scenarios: diagnostics.stress_scenarios,
     benchmark: null,
     scenario_preview: null,
+    exposure_availability: {
+      ...exposure.availability,
+      historical_diagnostics_confidence: historicalDiagnosticsConfidence,
+    },
     availability: diagnostics.availability,
   }
 }
@@ -229,6 +234,7 @@ export function buildExposureFactorModel(result: Pick<ExposureAnalysis, 'benchma
 }
 
 export function buildImportedExposureView(analysis: ImportedExposureSource): ExposureAnalysis {
+  const historicalDiagnosticsConfidence = analysis.availability?.historical_sections_available === false ? 'low' : 'high'
   return {
     snapshot: analysis.snapshot,
     overview: analysis.overview,
@@ -247,6 +253,12 @@ export function buildImportedExposureView(analysis: ImportedExposureSource): Exp
     stress_scenarios: analysis.stress_scenarios,
     benchmark: analysis.benchmark,
     scenario_preview: analysis.scenario_preview ?? null,
+    exposure_availability: analysis.exposure_availability
+      ? {
+          ...analysis.exposure_availability,
+          historical_diagnostics_confidence: analysis.exposure_availability.historical_diagnostics_confidence ?? historicalDiagnosticsConfidence,
+        }
+      : null,
     availability: analysis.availability ?? null,
   }
 }

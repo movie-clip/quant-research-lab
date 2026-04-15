@@ -30,12 +30,12 @@ from app.schemas.imports import (
 )
 from app.schemas.dashboard_history import DashboardHistoryEngineRequest
 from app.schemas.diagnostics import DiagnosticsEngineRequest
-from app.schemas.exposure import ExposureResult
+from app.schemas.exposure import ExposureAvailability, ExposureResult
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PortfolioRiskSummary
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import run_dashboard_history_engine, run_imported_dashboard_history
-from app.services.diagnostics_engine import run_diagnostics_engine
+from app.services.diagnostics_engine import run_diagnostics_engine, run_imported_diagnostics_engine
 from app.services.import_engine import build_import_bootstrap_from_snapshot
 from app.services.statement_importer import import_statements
 
@@ -254,6 +254,13 @@ def _sample_exposure_result(snapshot: ImportedPortfolioSnapshot) -> ExposureResu
             active_share=1.0,
             portfolio_in_benchmark_weight=0.0,
             benchmark_covered_weight=1.0,
+        ),
+        availability=ExposureAvailability(
+            lookthrough_status="live",
+            lookthrough_confidence="high",
+            benchmark_overlap_status="live",
+            benchmark_overlap_confidence="high",
+            note=None,
         ),
     )
 
@@ -620,6 +627,73 @@ def test_variant_snapshot_diagnostics_history_stays_in_plausible_bounds() -> Non
     assert growth_snapshot.latest_loading is not None
 
 
+def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_history_dates(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=1000.0)],
+        positions=[],
+        ledger_entries=[],
+    )
+
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.availability.historical_sections_available is False
+    assert result.availability.history_context_required is True
+    assert result.risk_summary.benchmark_symbol == "SPY"
+    assert result.risk_summary.observations == 0
+    assert result.rolling_risk == []
+    assert result.statistical_factor_model.status == "unavailable"
+    market_data.assert_not_called()
+
+
+def test_run_imported_dashboard_history_returns_unavailable_without_imported_history_dates(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=1000.0)],
+        positions=[],
+        ledger_entries=[],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.benchmark is None
+    assert result.daily_states == []
+    assert result.performance_series == []
+    assert result.range_metrics is not None
+    assert result.range_metrics["3M"].summary.start_value is None
+    assert result.range_metrics["3M"].summary.end_value is None
+    assert result.range_metrics["3M"].monthly_returns == []
+    assert result.range_metrics["3M"].monthly_returns_reliable is False
+    market_data.assert_not_called()
+
+
 def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_returns_live_result(mocker) -> None:
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service = market_data.return_value
@@ -662,6 +736,163 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert len(result.performance_series) == 2
     assert result.range_metrics is not None
     assert result.range_metrics["All"].summary.end_value == result.daily_states[-1].total_portfolio_value
+
+
+def test_run_imported_diagnostics_engine_returns_unavailable_when_symbol_history_is_missing(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+    ]
+    service.get_historical_prices_for_symbols.side_effect = [
+        {"AAPL": []},
+        {},
+    ]
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.availability.historical_sections_available is False
+    assert result.availability.history_context_required is True
+    assert result.risk_summary.benchmark_symbol == "SPY"
+    assert result.risk_summary.observations == 0
+    assert result.rolling_risk == []
+    assert result.statistical_factor_model.status == "unavailable"
+
+
+def test_run_imported_diagnostics_engine_returns_unavailable_when_benchmark_history_is_missing(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = []
+    service.get_historical_prices_for_symbols.side_effect = [
+        {"AAPL": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}]},
+        {},
+    ]
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.availability.historical_sections_available is False
+    assert result.availability.history_context_required is True
+    assert result.risk_summary.benchmark_symbol == "SPY"
+    assert result.risk_summary.observations == 0
+    assert result.rolling_risk == []
+    assert result.statistical_factor_model.status == "unavailable"
+
+
+def test_run_imported_dashboard_history_returns_unavailable_when_symbol_history_is_missing(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+    ]
+    service.get_historical_prices_for_symbols.return_value = {"AAPL": []}
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.benchmark is None
+    assert result.daily_states == []
+    assert result.performance_series == []
+    assert result.range_metrics is not None
+    assert result.range_metrics["3M"].summary.start_value is None
+    assert result.range_metrics["3M"].monthly_returns == []
+    assert result.range_metrics["3M"].monthly_returns_reliable is False
+
+
+def test_run_imported_dashboard_history_returns_unavailable_when_benchmark_history_is_missing(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = []
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 100.0},
+            {"date": "2026-04-11", "price": 101.0},
+        ]
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.benchmark is None
+    assert result.daily_states == []
+    assert result.performance_series == []
+    assert result.range_metrics is not None
+    assert result.range_metrics["3M"].summary.start_value is None
+    assert result.range_metrics["3M"].monthly_returns == []
+    assert result.range_metrics["3M"].monthly_returns_reliable is False
 
 
 def test_build_portfolio_risk_summary_and_position_contributions() -> None:
@@ -1004,6 +1235,7 @@ def test_build_lookthrough_exposure_combines_direct_and_etf_holdings() -> None:
     )
 
     assert overlap.benchmark_symbol == "SPY"
+    assert overlap.overlap_weight is not None
     assert round(overlap.overlap_weight, 4) == 0.105
     sector_exposure = build_lookthrough_sector_exposure(constituents)
     factor_exposures = build_factor_exposures(

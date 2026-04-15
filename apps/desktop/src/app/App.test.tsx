@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedAnalysisFixture, createImportedBootstrapResponseFixture } from '../test/portfolioFixtures'
+import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedPortfolioViewFixture } from '../test/portfolioFixtures'
+import { ff2026DashboardGolden, ff2026ImportedDashboardGoldenFixture } from '../test/ff2026DashboardGolden'
 import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from '../test/ib2026DashboardGolden'
 import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
@@ -11,7 +12,7 @@ const exposurePayload = createExposureEngineFixture()
 const diagnosticsPayload = createDiagnosticsEngineFixture()
 const bootstrapPayload = createImportedBootstrapResponseFixture()
 const dashboardHistoryPayload = (() => {
-  const fixture = createImportedAnalysisFixture()
+  const fixture = createImportedPortfolioViewFixture()
   return {
     performance_series: fixture.performance_series,
     daily_states: fixture.daily_states,
@@ -49,6 +50,38 @@ const ib2026BootstrapPayload = {
     sourceFileNames: ib2026DashboardGolden.loadedFiles,
     historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
     historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
+  },
+}
+const ff2026DashboardHistoryPayload = {
+  performance_series: ff2026ImportedDashboardGoldenFixture.performance_series,
+  daily_states: ff2026ImportedDashboardGoldenFixture.daily_states,
+  source_status: ff2026ImportedDashboardGoldenFixture.source_status,
+  benchmark: ff2026ImportedDashboardGoldenFixture.benchmark,
+  range_metrics: ff2026ImportedDashboardGoldenFixture.range_metrics,
+}
+const ff2026ExposurePayload = {
+  ...createExposureEngineFixture(),
+  snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
+  overview: ff2026ImportedDashboardGoldenFixture.overview,
+}
+const ff2026DiagnosticsPayload = {
+  ...createDiagnosticsEngineFixture(),
+  snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
+  risk_summary: ff2026ImportedDashboardGoldenFixture.risk_summary,
+  benchmark: ff2026ImportedDashboardGoldenFixture.benchmark,
+}
+const ff2026BootstrapPayload = {
+  snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
+  overview: ff2026ImportedDashboardGoldenFixture.overview,
+  risk_summary: ff2026ImportedDashboardGoldenFixture.risk_summary,
+  history_context: {
+    benchmarkSymbol: 'SPY',
+    statementPeriod: ff2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+    importedAt: ff2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+    importer: ff2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
+    sourceFileNames: ff2026DashboardGolden.loadedFiles,
+    historyStartDate: ff2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
+    historyEndDate: ff2026ImportedDashboardGoldenFixture.daily_states[ff2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
   },
 }
 const appendedExposurePayload = {
@@ -511,6 +544,60 @@ describe('App', () => {
     expect(screen.getByDisplayValue(ib2026DashboardGolden.sxrvValue)).toBeTruthy()
   })
 
+  it('restores FF2026 dashboard values consistently from persisted imported state', async () => {
+    const snapshot = {
+      snapshotVersion: 1 as const,
+      baseCurrency: 'USD',
+      importedMeta: {
+        importer: 'freedom24' as const,
+        statementPeriod: ff2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+        importedAt: ff2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+        sourceFileNames: ff2026DashboardGolden.loadedFiles,
+      },
+      positions: ff2026ImportedDashboardGoldenFixture.overview.sector_allocation.flatMap((sector) =>
+        (ff2026ImportedDashboardGoldenFixture.overview.sector_position_breakdown[sector.sector] ?? []).map((position) => ({
+          symbol: position.symbol,
+          marketValue: position.market_value,
+          quantity: null,
+          currency: 'USD',
+          sector: sector.sector,
+          sourceType: 'equity' as const,
+        })),
+      ),
+      cashBalances: Object.entries(ff2026ImportedDashboardGoldenFixture.overview.cash_by_currency).map(([currency, amount]) => ({ currency, amount })),
+      metadata: { benchmarkSymbol: 'SPY', notes: null, tags: [] },
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'migrateLegacyImportSession').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'FF 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'FF 2026', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 3018.96, netCapitalDelta: 3018.96 }, portfolioSnapshot: snapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-14T00:00:00Z', updatedAt: '2026-04-14T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: { importedFileNames: ff2026DashboardGolden.loadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'freedom24', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: ff2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period, importedAt: '2026-04-14T00:00:00Z', importer: 'freedom24', sourceFileNames: ff2026DashboardGolden.loadedFiles, historyStartDate: ff2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null, historyEndDate: ff2026ImportedDashboardGoldenFixture.daily_states[ff2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null }, importedHistorySnapshot: ff2026BootstrapPayload.snapshot } })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'FF 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'FF 2026', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 3018.96, netCapitalDelta: 3018.96 }, portfolioSnapshot: snapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-14T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: snapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(ff2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ff2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ff2026DashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
+    expect(screen.getByText(ff2026DashboardGolden.loadedFileLabel)).toBeTruthy()
+    expect(screen.getByText(ff2026DashboardGolden.portfolioValue)).toBeTruthy()
+    expect(screen.getByText(`Start value: ${ff2026DashboardGolden.startValue}`)).toBeTruthy()
+    expect(screen.getAllByText(ff2026DashboardGolden.timeWeightedReturn).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(ff2026DashboardGolden.netContributions).length).toBeGreaterThan(0)
+    expect(screen.getByText(ff2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(screen.getAllByText(ff2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getAllByText('All')[0])
+    expect(screen.getByText('Broad Market')).toBeTruthy()
+    fireEvent.click(screen.getByText('Broad Market'))
+    expect(screen.getByDisplayValue('VTI')).toBeTruthy()
+    expect(screen.getByDisplayValue(ff2026DashboardGolden.vtiValue)).toBeTruthy()
+  })
+
   it('clears restored import state and persisted session', async () => {
     const clearSpy = vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', lastOpenedAt: '2026-04-10T00:00:00Z' })
@@ -535,7 +622,7 @@ describe('App', () => {
     expect(screen.queryByText('Clear Imported Session')).toBeNull()
   })
 
-  it('passes imported analysis into the backtest workspace', async () => {
+  it('passes imported bootstrap data into the backtest workspace', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'migrateLegacyImportSession').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
@@ -787,8 +874,8 @@ describe('App', () => {
     await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-1', createDraftFromNode: true }))
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
     expect(screen.getByText('Portfolio Value')).toBeTruthy()
-    expect(screen.getByText('Start value: $10000.00')).toBeTruthy()
-    expect(screen.getByText('20.00%')).toBeTruthy()
+    expect(screen.getAllByText('Start value: n/a').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
   })
 
   it('opens an IB2026 imported snapshot node and keeps canonical dashboard values aligned', async () => {

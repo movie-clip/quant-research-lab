@@ -9,3 +9,4 @@ Current contract split:
 - `DiagnosticsPanel` consumes `DiagnosticsEngineResponse`
 - portfolio improvement baseline seeding consumes `PortfolioBaselineAnalysis`
 - imported upload responses should be projected into narrower import-specific contracts as early as possible
+- accuracy inventories live in `docs/dashboard-field-inventory.md` and `docs/exposure-field-inventory.md`

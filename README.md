@@ -174,12 +174,13 @@ Build in this order:
 
 ## Current Architecture Direction
 
-The repo is in an active refactor away from one monolithic import-analysis payload toward narrower engine and UI contracts.
+The repo is in an active refactor away from one monolithic import-time analysis payload toward narrower engine and UI contracts.
 
 - `PortfolioSnapshot` is the persisted truth for local portfolio workspaces and immutable saved variants
 - exposure, diagnostics, dashboard, and backtest baseline views are being split into narrower concern-specific contracts
-- the desktop app should project imported upload results into these narrower contracts immediately rather than passing a full analysis blob through the UI
+- the desktop app should project import bootstrap results into these narrower contracts immediately rather than passing a broad upload-time payload through the UI
 - historical diagnostics must require history context; if it is missing, the UI should show unavailable rather than approximate from a static snapshot
+- financially meaningful formulas must be documented with both the methodology used and the code location that implements them, so financial-accuracy review can trace every calculation quickly
 
 Canonical roadmap for this refactor lives in `docs/roadmap.md`.
 
