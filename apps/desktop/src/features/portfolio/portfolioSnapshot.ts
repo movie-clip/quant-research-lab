@@ -1,4 +1,4 @@
-import type { ImportedPortfolioSnapshotSource } from './types'
+import type { BenchmarkSummary, ImportedPortfolioSnapshotSource, PortfolioRiskSummary } from './types'
 import type { PortfolioPositionSnapshot, PortfolioSnapshot } from './workspaceTypes'
 
 function inferSourceType(symbol: string) {
@@ -39,7 +39,13 @@ export function normalizePortfolioSnapshot(snapshot: PortfolioSnapshot): Portfol
   }
 }
 
-export function buildPortfolioSnapshotFromAnalysis(analysis: ImportedPortfolioSnapshotSource, importedFileNames: string[]): PortfolioSnapshot {
+export function buildPortfolioSnapshotFromAnalysis(
+  analysis: Pick<ImportedPortfolioSnapshotSource, 'snapshot' | 'overview'> & {
+    benchmark?: BenchmarkSummary | null
+    risk_summary?: PortfolioRiskSummary
+  },
+  importedFileNames: string[],
+): PortfolioSnapshot {
   const sectorBySymbol = new Map(
     Object.entries(analysis.overview.sector_position_breakdown).flatMap(([sector, positions]) =>
       positions.map((position) => [String(position.symbol).toUpperCase(), sector] as const),
@@ -68,7 +74,7 @@ export function buildPortfolioSnapshotFromAnalysis(analysis: ImportedPortfolioSn
       amount: balance.ending_cash ?? 0,
     })),
     metadata: {
-      benchmarkSymbol: analysis.benchmark?.symbol ?? analysis.risk_summary.benchmark_symbol ?? 'SPY',
+      benchmarkSymbol: analysis.benchmark?.symbol ?? analysis.risk_summary?.benchmark_symbol ?? 'SPY',
       notes: null,
       tags: [],
     },

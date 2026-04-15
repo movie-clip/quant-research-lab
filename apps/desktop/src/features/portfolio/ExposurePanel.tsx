@@ -386,7 +386,7 @@ function getSelectedWindowFactorLoading(
   const series = getRollingLoadingsSeries(result, window)
   for (let index = series.length - 1; index >= 0; index -= 1) {
     const point = series[index]
-    const value = point?.[factorKey]
+    const value = point?.[factorKey as keyof typeof point]
     if (typeof value === 'number') {
       return value
     }

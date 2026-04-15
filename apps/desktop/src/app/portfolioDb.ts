@@ -31,10 +31,11 @@ export function openPortfolioDatabase() {
     databasePromise = new Promise((resolve, reject) => {
       const request = getIndexedDb().open(databaseName, databaseVersion)
 
-      request.onupgradeneeded = () => {
+      request.onupgradeneeded = (event) => {
         const database = request.result
+        const oldVersion = event.oldVersion
 
-        if (request.transaction && request.oldVersion < 3) {
+        if (request.transaction && oldVersion < 3) {
           const storeNames = [
             appStateStoreName,
             workspaceStoreName,

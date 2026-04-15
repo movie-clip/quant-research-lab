@@ -48,7 +48,7 @@ export function resolveEffectiveHistorySource(
   effectiveSource: Pick<ImportedNodeSource, 'historySource'> | null | undefined,
   directSource: Pick<ImportedNodeSource, 'historySource'> | null | undefined,
 ): ImportedHistorySource {
-  if (canUseImportedReplay(directSource)) {
+  if (directSource && canUseImportedReplay(directSource)) {
     return directSource.historySource
   }
   return collapseToHistoryContextSource(effectiveSource)

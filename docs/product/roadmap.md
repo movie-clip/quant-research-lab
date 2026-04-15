@@ -352,6 +352,7 @@ Current implemented Stage 4 slice:
 - replay review now includes PM-first diagnostics delta review
 - diagnostics groups expose backend-ranked top callouts with visible selection-rule provenance and backend-provided rationale
 - reviewed hypothetical replay results can now be recorded as immutable local versioned proposal artifacts
+- saved proposals can now be inspected in a dedicated review/readout surface that uses persisted artifact data only rather than active draft state
 - these callouts remain review support only and do not imply recommendation or applied portfolio change
 
 Exit criteria:

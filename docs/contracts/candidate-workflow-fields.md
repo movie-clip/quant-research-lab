@@ -11,6 +11,8 @@ Current supported workflow states:
 - persisted seed annotation per draft
 - explicit replacement intent per draft
 - hypothetical replay preview from replacement intent
+- immutable versioned proposal artifact saved from reviewed hypothetical replay
+- saved proposal review/readout rendered from proposal artifact data only
 
 These are review artifacts, not portfolio truth.
 
@@ -166,6 +168,12 @@ Rules:
 - proposal save snapshots the reviewed replay payload and review basis at save time
 - saving a proposal does not apply holdings changes and does not upgrade review metadata into portfolio truth
 - proposal version numbers are assigned deterministically within the workspace in creation order for this MVP slice
+
+Saved proposal review/readout rules:
+- desktop may render a proposal-specific review surface from the saved artifact alone
+- that readout must not depend on active draft state, active replacement intent state, or live replay cache state
+- the readout should emphasize artifact identity, lineage, replay basis, compact replay summary, diagnostics delta summary, and explicit non-applied status
+- the readout remains review support only and must not imply approval, recommendation, or applied portfolio truth
 
 Explicit rejection conditions for MVP:
 - no replacement intent

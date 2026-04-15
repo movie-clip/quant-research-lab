@@ -32,21 +32,23 @@ function formatShortBrokerName(importer: ImportedStatementImporter | null | unde
 }
 
 function extractStatementEndDate(snapshot: ImportedSnapshot) {
-  const explicitAsOf = snapshot.positions
+  const sortedAsOfDates = snapshot.positions
     .map((position) => position.as_of_date)
     .filter((value): value is string => Boolean(value))
     .sort()
-    .at(-1)
+  const explicitAsOf = sortedAsOfDates[sortedAsOfDates.length - 1]
   if (explicitAsOf) {
     return explicitAsOf
   }
 
-  const period = snapshot.statement.statement_period ?? snapshot.statements.at(-1)?.statement_period ?? null
+  const lastStatement = snapshot.statements[snapshot.statements.length - 1] ?? null
+  const period = snapshot.statement.statement_period ?? lastStatement?.statement_period ?? null
   if (period?.includes(' - ')) {
-    return period.split(' - ').at(-1) ?? period
+    const parts = period.split(' - ')
+    return parts[parts.length - 1] ?? period
   }
 
-  const importedAt = snapshot.statements.at(-1)?.imported_at ?? null
+  const importedAt = lastStatement?.imported_at ?? null
   return importedAt ? importedAt.slice(0, 10) : 'undated'
 }
 
@@ -495,7 +497,7 @@ export function App() {
       reviewStatus: 'recorded',
       sourceIntent: replacementIntentDraft,
       replayBasis: {
-        benchmarkSymbol: hypotheticalReplacementReplay.replay.candidate_result.benchmark_symbol,
+        benchmarkSymbol: hypotheticalReplacementReplay.replay.candidate_result.benchmark_symbol ?? replacementIntentDraft.benchmarkSymbol,
         startDate: hypotheticalReplacementReplay.replay.candidate_result.start_date,
         endDate: hypotheticalReplacementReplay.replay.candidate_result.end_date,
         rebalanceFrequency: hypotheticalReplacementReplay.replay.candidate_result.rebalance_frequency,

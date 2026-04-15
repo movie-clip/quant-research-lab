@@ -242,6 +242,7 @@ Current implemented progress inside this flow:
 - each diagnostics group can surface a backend-ranked top callout with explicit selection-rule provenance and rationale
 - desktop renders backend-ranked diagnostics callouts directly and does not infer salience from array order
 - a reviewed hypothetical replay can now be saved locally as an immutable versioned proposal artifact within the workspace
+- the latest saved proposal can now be reviewed in a proposal-specific readout that is rendered from saved artifact data only, without depending on active draft or live replay state
 
 ### Required comparison surfaces
 - total and annualized return
@@ -389,6 +390,7 @@ Exit: candidate portfolios can be built systematically and audited.
 - make baseline-vs-candidate the primary workflow
 - add replay, diagnostics delta, and proposal persistence
 - optimize UI around PM decisions rather than debug surfaces
+- add proposal-specific saved-artifact review/readout so recorded proposals remain inspectable after reload and outside active draft context
 
 Exit: users can decide whether a change improves the portfolio.
 

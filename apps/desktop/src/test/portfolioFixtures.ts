@@ -4,9 +4,22 @@ import type {
   ImportedBootstrapResponse,
   ImportedBaselineSource,
   ImportedDashboardSource,
+  ImportedHistoryContext,
+  PortfolioRiskSummary,
 } from '../features/portfolio/types'
 import { ff2026ImportedDashboardGoldenFixture } from './ff2026DashboardGolden'
 import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from './ib2026DashboardGolden'
+
+type DashboardGoldenFixture = ImportedDashboardSource & {
+  risk_summary: PortfolioRiskSummary
+}
+
+function cloneMutable<T>(value: unknown): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+const ib2026MutableDashboardFixture = cloneMutable<DashboardGoldenFixture>(ib2026ImportedDashboardGoldenFixture)
+const ff2026MutableDashboardFixture = cloneMutable<DashboardGoldenFixture>(ff2026ImportedDashboardGoldenFixture)
 
 function createImportedBenchmarkFixture() {
   return { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: 5 }
@@ -69,7 +82,7 @@ function createImportedOverviewFixture() {
   }
 }
 
-function createImportedHistoryContextFixture() {
+function createImportedHistoryContextFixture(): ImportedHistoryContext {
   return {
     benchmark_symbol: 'SPY',
     statement_period: '2025-01-01 - 2025-12-31',
@@ -281,7 +294,7 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
   }
 }
 
-function createImportedExposureFixture(snapshot: ReturnType<typeof createImportedSnapshotFixture>, overview: ReturnType<typeof createImportedOverviewFixture>) {
+function createImportedExposureFixture(snapshot: ReturnType<typeof createImportedSnapshotFixture>, overview: ReturnType<typeof createImportedOverviewFixture>): ExposureEngineResponse {
   return {
     snapshot,
     overview,
@@ -433,7 +446,6 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
   return {
     snapshot: fixture.snapshot,
     overview: fixture.overview,
-    benchmark: { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: 5 },
     performance_series: [
       { date: '2025-01-02', portfolio_value: 10000, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
       { date: '2025-02-03', portfolio_value: 11000, benchmark_price: 102, portfolio_return_pct: 10, benchmark_return_pct: 2 },
@@ -481,54 +493,52 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
 }
 
 export function createIb2026ImportedDashboardFixture(): ImportedDashboardSource {
-  return ib2026ImportedDashboardGoldenFixture
+  return cloneMutable(ib2026MutableDashboardFixture)
 }
 
 export function createFf2026ImportedDashboardFixture(): ImportedDashboardSource {
-  return ff2026ImportedDashboardGoldenFixture
+  return cloneMutable(ff2026MutableDashboardFixture)
 }
 
 export function createIb2026ExposureEngineFixture(): ExposureEngineResponse {
   return {
     ...createExposureEngineFixture(),
-    snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
-    overview: ib2026ImportedDashboardGoldenFixture.overview,
+    snapshot: cloneMutable(ib2026MutableDashboardFixture.snapshot),
+    overview: cloneMutable(ib2026MutableDashboardFixture.overview),
   }
 }
 
 export function createIb2026DiagnosticsEngineFixture(): DiagnosticsEngineResponse {
   return {
     ...createDiagnosticsEngineFixture(),
-    snapshot: ib2026ImportedDashboardGoldenFixture.snapshot,
+    snapshot: cloneMutable(ib2026MutableDashboardFixture.snapshot),
     provenance: {
       snapshot_basis: 'imported_snapshot',
       historical_basis: 'imported_portfolio_history',
       note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
     },
-    risk_summary: ib2026ImportedDashboardGoldenFixture.risk_summary,
-    benchmark: ib2026ImportedDashboardGoldenFixture.benchmark,
+    risk_summary: cloneMutable(ib2026MutableDashboardFixture.risk_summary),
   }
 }
 
 export function createFf2026ExposureEngineFixture(): ExposureEngineResponse {
   return {
     ...createExposureEngineFixture(),
-    snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
-    overview: ff2026ImportedDashboardGoldenFixture.overview,
+    snapshot: cloneMutable(ff2026MutableDashboardFixture.snapshot),
+    overview: cloneMutable(ff2026MutableDashboardFixture.overview),
   }
 }
 
 export function createFf2026DiagnosticsEngineFixture(): DiagnosticsEngineResponse {
   return {
     ...createDiagnosticsEngineFixture(),
-    snapshot: ff2026ImportedDashboardGoldenFixture.snapshot,
+    snapshot: cloneMutable(ff2026MutableDashboardFixture.snapshot),
     provenance: {
       snapshot_basis: 'imported_snapshot',
       historical_basis: 'imported_portfolio_history',
       note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
     },
-    risk_summary: ff2026ImportedDashboardGoldenFixture.risk_summary,
-    benchmark: ff2026ImportedDashboardGoldenFixture.benchmark,
+    risk_summary: cloneMutable(ff2026MutableDashboardFixture.risk_summary),
   }
 }
 

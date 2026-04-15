@@ -256,7 +256,7 @@ function buildDiagnosticsTopCallout(row: PortfolioDiagnosticsTopCallout | null):
 function formatSelectionRuleLabel(selectionRule: string) {
   if (selectionRule === 'largest_absolute_delta') return 'largest absolute delta'
   if (selectionRule === 'fixed_priority') return 'fixed priority rule'
-  return selectionRule.replaceAll('_', ' ')
+  return selectionRule.replace(/_/g, ' ')
 }
 
 function normalizeRows(rows: AllocationWeightRow[]) {

@@ -216,7 +216,13 @@ function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNa
   }
 
   return result.snapshot.statements
-    .map((statement) => statement.source_path.split(/[/\\]/).pop() || statement.source_path)
+    .map((statement) => {
+      const sourcePath = statement.source_path
+      if (!sourcePath) {
+        return statement.statement_period || 'Imported statement'
+      }
+      return sourcePath.split(/[/\\]/).pop() || sourcePath
+    })
     .join(', ')
 }
 
