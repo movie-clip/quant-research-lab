@@ -227,11 +227,21 @@ Make current-vs-candidate the core product workflow.
 ### Target flow
 1. load imported or current portfolio baseline
 2. seed candidate from baseline or ranking output
+   - current implemented state: ETF ranking can seed draft-scoped candidate review metadata without mutating `PortfolioSnapshot`
+   - seed metadata persists locally per draft and has explicit no-propagation lifecycle rules
+   - replacement intent can now be recorded explicitly as a separate draft-scoped review object
 3. edit construction rules and constraints
 4. run historical allocation replay
 5. compare baseline, candidate, and delta
 6. inspect diagnostics changes
 7. save candidate as a versioned proposal
+
+Current implemented progress inside this flow:
+- hypothetical replacement replay now has a PM-first diagnostics delta review surface
+- diagnostics groups currently read in decision order: concentration, factor exposure, volatility/drawdown, risk contribution, stress/scenario
+- each diagnostics group can surface a backend-ranked top callout with explicit selection-rule provenance and rationale
+- desktop renders backend-ranked diagnostics callouts directly and does not infer salience from array order
+- a reviewed hypothetical replay can now be saved locally as an immutable versioned proposal artifact within the workspace
 
 ### Required comparison surfaces
 - total and annualized return
@@ -251,6 +261,10 @@ No candidate portfolio should be shown without:
 - truth-class label
 - replay methodology
 - risk and concentration delta
+
+Current boundary before replay/construction:
+- seeded candidates and replacement intents are metadata-only review objects
+- they must not be treated as candidate portfolio truth, replay output, or applied portfolio change
 
 ## Overlay Roadmap
 

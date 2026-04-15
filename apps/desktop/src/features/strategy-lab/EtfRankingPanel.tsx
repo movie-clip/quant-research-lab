@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import type { EtfRankingResponse } from '../portfolio/types'
+import type { CandidateImprovementSeed } from '../portfolio/workspaceTypes'
 
 const PEER_GROUP_OPTIONS = ['Sector UCITS ETF', 'Bond UCITS ETF', 'Broad Market UCITS ETF', 'Thematic UCITS ETF', 'Commodity UCITS ETF']
 const COMPONENT_ORDER = ['momentum', 'benchmark_relative_strength', 'realized_volatility', 'downside_volatility', 'max_drawdown', 'liquidity', 'implementation_fit'] as const
@@ -53,22 +54,50 @@ function metricTone(value: number | null | undefined, baseline: number | null | 
 }
 
 function rankingPeerGroup(result: EtfRankingResponse) {
-  return result.effective_inputs?.effective_peer_group ?? result.effective_peer_group
+  return result.effective_inputs.effective_peer_group
 }
 
 function rankingConfidence(result: EtfRankingResponse) {
-  return result.run_metadata?.confidence ?? result.warnings.confidence
+  return result.run_metadata.confidence
 }
 
 function rankingSourceStatus(result: EtfRankingResponse) {
-  return result.run_metadata?.source_status ?? result.source_status
+  return result.run_metadata.source_status
 }
 
 function rankingExcludedSymbols(result: EtfRankingResponse) {
-  return result.effective_inputs?.excluded_symbols ?? result.excluded_symbols
+  return result.effective_inputs.excluded_symbols
 }
 
-export function EtfRankingPanel() {
+function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRankingResponse['ranked_universe'][number], baseSymbol: string): CandidateImprovementSeed {
+  return {
+    kind: 'etf_replacement_candidate',
+    source: 'etf_ranking',
+    seededAt: new Date().toISOString(),
+    baseSymbol,
+    candidateSymbol: row.symbol,
+    candidateRank: row.rank,
+    peerGroup: result.effective_inputs.effective_peer_group,
+    benchmarkSymbol: result.request.benchmark_symbol,
+    lookbackMonths: result.request.lookback_months,
+    rankingId: result.run_metadata.ranking_id,
+    methodologyId: result.run_metadata.methodology_id,
+    rankingBasisDate: result.run_metadata.ranking_basis_date,
+    confidence: result.run_metadata.confidence,
+    holdingsSupport: result.run_metadata.source_status.holdings_support,
+    requestUniverse: result.request.universe,
+    evaluatedUniverse: result.effective_inputs.evaluated_universe,
+    warningCount: result.warnings.warnings.length,
+    excludedSymbolsCount: result.effective_inputs.excluded_symbols.length,
+  }
+}
+
+type EtfRankingPanelProps = {
+  draftSymbols?: string[]
+  onSeedCandidateDraft?: (seed: CandidateImprovementSeed) => void
+}
+
+export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: EtfRankingPanelProps) {
   const apiBase = useMemo(() => '/api', [])
   const [universe, setUniverse] = useState('IUFS,IUHC,VDST,VUAA')
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
@@ -77,6 +106,9 @@ export function EtfRankingPanel() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<EtfRankingResponse | null>(null)
+  const [seedTarget, setSeedTarget] = useState<EtfRankingResponse['ranked_universe'][number] | null>(null)
+  const [selectedBaseSymbol, setSelectedBaseSymbol] = useState('')
+  const [seedSuccess, setSeedSuccess] = useState<string | null>(null)
 
   const winner = result?.ranked_universe[0] ?? null
   const runnerUp = result?.ranked_universe[1] ?? null
@@ -85,6 +117,7 @@ export function EtfRankingPanel() {
   const resolvedConfidence = result ? rankingConfidence(result) : null
   const resolvedSourceStatus = result ? rankingSourceStatus(result) : null
   const resolvedExcludedSymbols = result ? rankingExcludedSymbols(result) : []
+  const incumbentOptions = useMemo(() => Array.from(new Set(draftSymbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))).sort(), [draftSymbols])
 
   async function runRanking() {
     setLoading(true)
@@ -105,12 +138,29 @@ export function EtfRankingPanel() {
         throw new Error(typeof payload?.detail === 'string' ? payload.detail : 'ETF ranking request failed')
       }
       setResult(payload as EtfRankingResponse)
+      setSeedTarget(null)
+      setSelectedBaseSymbol('')
+      setSeedSuccess(null)
     } catch (caught) {
       setResult(null)
       setError(caught instanceof Error ? caught.message : 'ETF ranking request failed')
     } finally {
       setLoading(false)
     }
+  }
+
+  function openSeedDraftConfirmation(row: EtfRankingResponse['ranked_universe'][number]) {
+    setSeedTarget(row)
+    setSelectedBaseSymbol('')
+    setSeedSuccess(null)
+  }
+
+  function confirmSeedDraft() {
+    if (!result || !seedTarget || !selectedBaseSymbol) return
+    onSeedCandidateDraft?.(buildCandidateImprovementSeed(result, seedTarget, selectedBaseSymbol))
+    setSeedSuccess('Candidate draft created. Review it before making any portfolio decision.')
+    setSeedTarget(null)
+    setSelectedBaseSymbol('')
   }
 
   return (
@@ -199,6 +249,43 @@ export function EtfRankingPanel() {
             <span className="backtest-source-badge">Confidence: {resolvedConfidence}</span>
             <span className="backtest-source-badge">Holdings Support: {resolvedSourceStatus?.holdings_support}</span>
           </div>
+
+          {seedSuccess ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="helper">{seedSuccess}</p>
+            </div>
+          ) : null}
+
+          {seedTarget ? (
+            <section className="dashboard-bottom-grid">
+              <div className="summary-card">
+                <p className="panel-label">Create candidate improvement draft</p>
+                <p className="helper">This carries the selected ETF and its ranking context into a draft review. It does not recommend a switch, change allocations, or execute anything.</p>
+                <label className="field-group">
+                  <span className="field-label">Incumbent ETF</span>
+                  <select className="path-input" value={selectedBaseSymbol} onChange={(event) => setSelectedBaseSymbol(event.target.value)}>
+                    <option value="">Select incumbent ETF</option>
+                    {incumbentOptions.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}
+                  </select>
+                </label>
+                {incumbentOptions.length ? null : <p className="helper">No active draft holdings are available for incumbent selection.</p>}
+                <div className="dashboard-summary compact-summary-grid">
+                  <div className="summary-card"><p className="stat-label">Selected ETF</p><p className="summary-value">{seedTarget.symbol}</p></div>
+                  <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">ETF Ranking</p></div>
+                  <div className="summary-card"><p className="stat-label">Peer Group</p><p className="summary-value">{resolvedPeerGroup ?? 'none'}</p></div>
+                  <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{result.request.benchmark_symbol}</p></div>
+                  <div className="summary-card"><p className="stat-label">Lookback</p><p className="summary-value">{result.request.lookback_months}</p></div>
+                  <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{resolvedConfidence}</p></div>
+                  <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{result.warnings.warnings.length}</p></div>
+                  <div className="summary-card"><p className="stat-label">Exclusions</p><p className="summary-value">{resolvedExcludedSymbols.length}</p></div>
+                </div>
+                <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+                  <button className="primary-button" type="button" onClick={confirmSeedDraft} disabled={!selectedBaseSymbol}>Create Draft</button>
+                  <button className="secondary-button" type="button" onClick={() => { setSeedTarget(null); setSelectedBaseSymbol('') }}>Cancel</button>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="dashboard-bottom-grid">
             <div className="section-header-inline sector-list-header"><div><p className="panel-label">Replacement Decision</p></div><p className="helper">Start here to see whether the top-ranked ETF looks like a credible substitute, not an automatic switch.</p></div>
@@ -298,7 +385,7 @@ export function EtfRankingPanel() {
               {result.ranked_universe.map((item) => (
                 <div className={`risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide ${item.rank === 1 ? 'strategy-ranking-row-top' : ''}`} key={item.symbol}>
                   <span>{item.rank}</span>
-                  <span className="strategy-ranking-symbol-cell"><strong>{item.symbol}</strong><small>{item.instrument.sector ?? 'Unknown sector'}</small></span>
+                  <span className="strategy-ranking-symbol-cell"><strong>{item.symbol}</strong><small>{item.instrument.sector ?? 'Unknown sector'}</small><button className="secondary-button" type="button" onClick={() => openSeedDraftConfirmation(item)} disabled={!incumbentOptions.length}>Seed Candidate Draft</button><small>Carry this ETF into a draft portfolio-improvement review without implying a switch.</small></span>
                   <span className="strategy-ranking-category-cell">{item.instrument.category ?? 'n/a'}</span>
                   <span className="strategy-ranking-metric-cell"><strong>{formatNumber(item.composite_score, 4)}</strong><small>Composite</small></span>
                   <span className={`strategy-ranking-metric-cell ${metricTone(item.component_scores.momentum?.raw_value, runnerUp?.component_scores.momentum?.raw_value, true)}`}><strong>{formatNumber(item.component_scores.momentum?.raw_value, 2)}</strong><small>Blended</small></span>

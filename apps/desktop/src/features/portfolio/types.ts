@@ -1057,13 +1057,13 @@ export type EtfRankingResponse = {
     unknown_metadata_symbols: string[]
     peer_group_unclassified_symbols: string[]
   }
-  request?: {
+  request: {
     peer_group: string | null
     universe: string[]
     benchmark_symbol: string
     lookback_months: number
   }
-  effective_inputs?: {
+  effective_inputs: {
     effective_peer_group: string | null
     effective_component_weights: {
       momentum: number
@@ -1081,7 +1081,7 @@ export type EtfRankingResponse = {
       reason: string
     }>
   }
-  run_metadata?: {
+  run_metadata: {
     ranking_id: string
     methodology_id: string
     methodology: string
@@ -1253,12 +1253,27 @@ export type PortfolioDiagnosticsComparisonRow = {
   delta_value: number | null
 }
 
+export type PortfolioDiagnosticsTopCallout = {
+  key: string
+  label: string
+  baseline_value: number | null
+  candidate_value: number | null
+  delta_value: number | null
+  selection_rule: string
+  rationale: string
+}
+
 export type PortfolioImprovementComparison = {
   factor_exposure_changes: PortfolioDiagnosticsComparisonRow[]
+  top_factor_exposure_change: PortfolioDiagnosticsTopCallout | null
   volatility_changes: PortfolioDiagnosticsComparisonRow[]
+  top_volatility_change: PortfolioDiagnosticsTopCallout | null
   risk_contribution_changes: PortfolioDiagnosticsComparisonRow[]
+  top_risk_contribution_change: PortfolioDiagnosticsTopCallout | null
   concentration_changes: PortfolioDiagnosticsComparisonRow[]
+  top_concentration_change: PortfolioDiagnosticsTopCallout | null
   stress_scenario_changes: PortfolioDiagnosticsComparisonRow[]
+  top_stress_scenario_change: PortfolioDiagnosticsTopCallout | null
 }
 
 export type PortfolioAllocationBacktestResponse = {
@@ -1269,4 +1284,22 @@ export type PortfolioAllocationBacktestResponse = {
   reference_diagnostics: PortfolioDiagnosticsSnapshot | null
   candidate_diagnostics: PortfolioDiagnosticsSnapshot | null
   diagnostics_comparison: PortfolioImprovementComparison | null
+}
+
+export type HypotheticalReplacementReplayResponse = {
+  proposal: {
+    source: 'draft_replacement_intent'
+    incumbent_symbol: string
+    candidate_symbol: string
+    draft_id: string
+    base_node_id: string
+  }
+  derivation: {
+    baseline_basis: 'draft_snapshot_positions_normalized'
+    candidate_construction_rule: 'single_symbol_weight_substitution'
+  }
+  baseline_weights: AllocationBacktestWeight[]
+  candidate_weights: AllocationBacktestWeight[]
+  replay: PortfolioAllocationBacktestResponse
+  warnings: string[]
 }

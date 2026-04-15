@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { PortfolioAllocationBacktestPanel } from './PortfolioAllocationBacktestPanel'
-import type { ImportedBaselineSource, PortfolioAllocationBacktestResponse } from '../portfolio/types'
+import type { HypotheticalReplacementReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse } from '../portfolio/types'
+import type { ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 const mockAnalysis = {
   snapshot: {
@@ -31,11 +32,84 @@ const mockResponse: PortfolioAllocationBacktestResponse = {
   candidate_diagnostics: { provenance: { snapshot_basis: 'synthetic_replay_snapshot', historical_basis: 'market_data_history', note: 'Backtest diagnostics combine a synthetic replay snapshot with replay-derived daily states and external historical market data.' }, factor_snapshot: [{ key: 'market', label: 'Market', category: 'market', us_proxy: 'SPY', latest_loading: 0.8, target_exposure: null, primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'high', description: 'broad market' }], volatility_snapshot: { realized_vol_20d: null, realized_vol_60d: null, realized_vol_252d: 9, downside_vol_20d: null, downside_vol_60d: null, downside_vol_252d: 5, benchmark_vol_20d: null, benchmark_vol_60d: null, benchmark_vol_252d: null, tracking_error_20d: null, tracking_error_60d: null, tracking_error_252d: 4, current_drawdown_pct: -1.5, max_drawdown_pct: -3, vol_ratio_20_60: null, vol_ratio_20_252: null, current_20d_vol_percentile: null }, risk_contribution: { methodology: 'm', window_days: 60, observation_count: 60, status: 'ok', factor_contributions: [{ key: 'market', label: 'Market', us_proxy: 'SPY', loading: 0.8, factor_volatility: 11, variance_contribution: 0.008, risk_share: 0.45 }], factor_total_variance: 0.008, specific_variance: 0.004, total_variance: 0.012, factor_risk_share_total: 0.6667, specific_risk_share: 0.3333, residual_volatility: 4.5, position_contributions: [{ symbol: 'SPY', weight: 0.6, volatility: 9, marginal_contribution: 0.008, component_contribution: 0.006, risk_share: 0.7 }], concentration: { top_1_factor_risk_share: 0.45, top_3_factor_risk_share: 0.45, top_1_position_risk_share: 0.7, top_5_position_risk_share: 1, factor_hhi: 0.2, position_hhi: 0.58 } }, stress_scenarios: [{ name: 'Broad Market Selloff', estimated_return_pct: -6.4, description: 'x' }] },
   diagnostics_comparison: {
     factor_exposure_changes: [{ key: 'market', label: 'Market', baseline_value: 1, candidate_value: 0.8, delta_value: -0.2 }],
+    top_factor_exposure_change: { key: 'market', label: 'Market', baseline_value: 1, candidate_value: 0.8, delta_value: -0.2, selection_rule: 'largest_absolute_delta', rationale: 'Largest valid factor exposure delta in this group (candidate - baseline).' },
     volatility_changes: [{ key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1 }],
+    top_volatility_change: { key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1, selection_rule: 'fixed_priority', rationale: 'Selected by fixed priority order: max drawdown, then annualized volatility, then downside volatility.' },
     risk_contribution_changes: [{ key: 'market', label: 'Market', baseline_value: 0.6, candidate_value: 0.45, delta_value: -0.15 }],
+    top_risk_contribution_change: { key: 'market', label: 'Market', baseline_value: 0.6, candidate_value: 0.45, delta_value: -0.15, selection_rule: 'largest_absolute_delta', rationale: 'Largest valid factor risk-contribution delta in this group (candidate - baseline).' },
     concentration_changes: [{ key: 'factor_hhi', label: 'Factor HHI', baseline_value: 0.36, candidate_value: 0.2, delta_value: -0.16 }],
+    top_concentration_change: { key: 'factor_hhi', label: 'Factor HHI', baseline_value: 0.36, candidate_value: 0.2, delta_value: -0.16, selection_rule: 'fixed_priority', rationale: 'Selected by fixed priority order: factor HHI, then top 1 position risk share.' },
     stress_scenario_changes: [{ key: 'broad_market_selloff', label: 'Broad Market Selloff', baseline_value: -8.5, candidate_value: -6.4, delta_value: 2.1 }],
+    top_stress_scenario_change: { key: 'broad_market_selloff', label: 'Broad Market Selloff', baseline_value: -8.5, candidate_value: -6.4, delta_value: 2.1, selection_rule: 'largest_absolute_delta', rationale: 'Largest valid stress-scenario delta in this group (candidate - baseline).' },
   },
+}
+
+const replacementIntent: ReplacementIntentDraftArtifact = {
+  kind: 'etf_replacement_intent',
+  source: 'candidate_seed',
+  createdAt: '2026-04-15T00:05:00Z',
+  draftId: 'draft-1',
+  workspaceId: 'workspace-1',
+  baseNodeId: 'node-1',
+  baseSymbol: 'AAPL',
+  candidateSymbol: 'IUFS',
+  seededFromDraftId: 'draft-1',
+  seedRankingId: 'etf_ranking_engine_v1',
+  seedMethodologyId: 'etf_ranking_methodology_v1',
+  seedRankingBasisDate: '2026-04-15',
+  peerGroup: 'Sector UCITS ETF',
+  benchmarkSymbol: 'SPY',
+  lookbackMonths: 6,
+  confidence: 'medium',
+  holdingsSupport: 'mixed',
+  warningCount: 1,
+}
+
+const hypotheticalResponse: HypotheticalReplacementReplayResponse = {
+  proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' },
+  baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
+  candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
+  replay: mockResponse,
+  warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'],
+}
+
+const mockDraftSnapshot = {
+  snapshotVersion: 1 as const,
+  baseCurrency: 'USD',
+  importedMeta: { importer: 'interactive_brokers' as const, statementPeriod: '2025', importedAt: '2026-04-10T00:00:00Z', sourceFileNames: ['IB2025.pdf'] },
+  positions: [
+    { symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' as const },
+    { symbol: 'MSFT', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' as const },
+  ],
+  cashBalances: [],
+  metadata: { benchmarkSymbol: 'SPY', notes: null, tags: [] },
+}
+
+const savedProposal: VersionedProposalArtifact = {
+  id: 'proposal-1',
+  kind: 'single_replacement_hypothetical_replay_proposal',
+  schemaVersion: 1,
+  createdAt: '2026-04-16T00:00:00Z',
+  workspaceId: 'workspace-1',
+  sourceDraftId: 'draft-1',
+  sourceBaseNodeId: 'node-1',
+  proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+  versionNumber: 1,
+  savedFrom: 'desktop_hypothetical_replay_review',
+  reviewStatus: 'recorded',
+  sourceIntent: replacementIntent,
+  replayBasis: {
+    benchmarkSymbol: 'SPY',
+    startDate: '2024-01-01',
+    endDate: '2024-12-31',
+    rebalanceFrequency: 'monthly',
+    commissionBps: 0,
+    slippageBps: 0,
+    derivationBasis: 'draft_snapshot_positions_normalized',
+    candidateConstructionRule: 'single_symbol_weight_substitution',
+  },
+  reviewSnapshot: hypotheticalResponse,
 }
 
 describe('PortfolioAllocationBacktestPanel', () => {
@@ -45,16 +119,25 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('renders workspace sections and diagnostics comparison', () => {
-    render(<PortfolioAllocationBacktestPanel result={mockResponse} onResult={() => {}} analysis={mockAnalysis} />)
+    render(<PortfolioAllocationBacktestPanel result={mockResponse} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     expect(screen.getByText('Current Import')).toBeTruthy()
     expect(screen.getByText('Baseline Portfolio')).toBeTruthy()
     expect(screen.getByText('Candidate Portfolio Builder')).toBeTruthy()
     expect(screen.getByText('Replay Summary')).toBeTruthy()
+    expect(screen.getAllByText('Total Turnover').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('+12.00%').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('candidate worsens this metric relative to baseline').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Total Return').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('+2.00%').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('candidate improves this metric relative to baseline').length).toBeGreaterThan(0)
     expect(screen.getByText('Before / After Diagnostics')).toBeTruthy()
+    expect(screen.getAllByText('Most salient change in this group').length).toBeGreaterThan(0)
+    expect(screen.getByText('Largest valid factor exposure delta in this group (candidate - baseline).')).toBeTruthy()
+    expect(screen.getAllByText('Selection rule: largest absolute delta').length).toBeGreaterThan(0)
     expect(screen.getByText(/Backtest diagnostics combine a synthetic replay snapshot with replay-derived daily states and external historical market data/)).toBeTruthy()
     expect(screen.getByText('Factor Exposure Change')).toBeTruthy()
-    expect(screen.getByText('Stress Scenario Change')).toBeTruthy()
+    expect(screen.getByText('Stress / Scenario Change')).toBeTruthy()
     expect(screen.getByText('Implementation Details')).toBeTruthy()
   })
 
@@ -63,7 +146,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => mockResponse })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={onResult} analysis={mockAnalysis} />)
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={onResult} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     fireEvent.click(screen.getByText('Use Current Portfolio'))
     fireEvent.click(screen.getByText('Copy Baseline to Candidate'))
@@ -80,12 +163,118 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('prefills baseline weights from imported portfolio holdings', () => {
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} />)
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     expect(screen.getByDisplayValue('AAPL')).toBeTruthy()
     expect(screen.getByDisplayValue('0.6000')).toBeTruthy()
     expect(screen.getByDisplayValue('MSFT')).toBeTruthy()
     expect(screen.getByDisplayValue('0.4000')).toBeTruthy()
     expect(screen.getByText('$100000.00')).toBeTruthy()
+  })
+
+  it('renders hypothetical replay controls and submits replacement-intent preview payload', async () => {
+    const onHypotheticalReplayResult = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => hypotheticalResponse })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
+
+    expect(screen.getByText('Hypothetical Replay')).toBeTruthy()
+    expect(screen.getByText('Replay Preflight')).toBeTruthy()
+    expect(screen.getByText('Ready for backend validation')).toBeTruthy()
+    expect(screen.getByText('AAPL is present in the draft basis at 60.00%.')).toBeTruthy()
+    expect(screen.getByText('IUFS is not already held in the current draft basis.')).toBeTruthy()
+    expect(screen.getByText('The backend still has to confirm candidate history coverage and sufficient common replay dates before a preview can succeed.')).toBeTruthy()
+    expect(screen.getByText('Review this as a draft-only comparison built from one explicit replacement intent. Read the basis first, then compare baseline and candidate results.')).toBeTruthy()
+    expect(screen.getByText('No hypothetical replay has been run for this replacement intent yet.')).toBeTruthy()
+    fireEvent.click(screen.getByText('Preview Hypothetical Replay'))
+    expect(screen.getByText('Preview hypothetical current-vs-candidate replay')).toBeTruthy()
+    expect(screen.getAllByText('Baseline').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Hypothetical Candidate').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Intent Source').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Replay Basis').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByText('Run Preview'))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, request] = fetchMock.mock.calls[0]
+    const payload = JSON.parse(String(request.body))
+    expect(String(url)).toContain('/api/backtests/portfolio-allocation/replacement-intent-preview')
+    expect(payload.replacement_intent.base_symbol).toBe('AAPL')
+    expect(payload.replacement_intent.candidate_symbol).toBe('IUFS')
+    expect(payload.snapshot.positions).toHaveLength(2)
+    expect(onHypotheticalReplayResult).toHaveBeenCalledWith(hypotheticalResponse)
+  })
+
+  it('blocks hypothetical replay preview when the intent candidate is already held in the draft basis', () => {
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+
+    expect(screen.getByText('Blocked before preview')).toBeTruthy()
+    expect(screen.getByText('IUFS is already held in the current draft basis, so the MVP replay must reject it.')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Preview Hypothetical Replay' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('renders hypothetical replay provenance and interpretation notes after a preview run', () => {
+    const onSaveProposal = vi.fn()
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={hypotheticalResponse} savedProposals={[savedProposal]} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
+
+    const readout = screen.getByText('Replay Decision Readout')
+    const summary = screen.getAllByText('Replay Summary').find((element) => element.className === 'panel-label') as HTMLElement
+    expect(readout.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText('Baseline: current portfolio basis')).toBeTruthy()
+    expect(screen.getByText('Candidate: hypothetical replacement-intent variant')).toBeTruthy()
+    expect(screen.getByText('Status: not applied to holdings')).toBeTruthy()
+    expect(screen.getByText('Start here before reading the charts and tables. Confirm what this replay compares, what changed in the candidate, and what did not.')).toBeTruthy()
+    expect(screen.getByText('Replay Type')).toBeTruthy()
+    expect(screen.getByText('Hypothetical current-vs-candidate')).toBeTruthy()
+    expect(screen.getAllByText('Intent Pair').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
+    expect(screen.getByText('Baseline Basis')).toBeTruthy()
+    expect(screen.getByText('Current draft or imported portfolio state')).toBeTruthy()
+    expect(screen.getByText('Candidate Basis')).toBeTruthy()
+    expect(screen.getByText('Single replacement-intent variant')).toBeTruthy()
+    expect(screen.getByText('What Changed')).toBeTruthy()
+    expect(screen.getByText('The candidate replay changes one thing only: it replaces AAPL with IUFS inside a hypothetical draft-only portfolio variant.')).toBeTruthy()
+    expect(screen.getByText('What Did Not Change')).toBeTruthy()
+    expect(screen.getByText('No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.')).toBeTruthy()
+    expect(screen.getAllByText('Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Hypothetical Replay Diagnostics Delta Review')).toBeTruthy()
+    expect(screen.getByText('Use this section to compare how the hypothetical replacement changes portfolio diagnostics under a shared replay basis. Read it as draft-only review support, not as approval, execution, or proof that the change should be made.')).toBeTruthy()
+    expect(screen.getByText('Candidate - baseline')).toBeTruthy()
+    expect(screen.getByText('Available with degradation. Interpret this comparison cautiously because one or both replay variants have limited diagnostics support.')).toBeTruthy()
+    expect(screen.getByText('Baseline diagnostics reflect the current portfolio basis. Candidate diagnostics reflect a hypothetical replacement-intent variant and have not been applied to holdings.')).toBeTruthy()
+    expect(screen.getAllByText('Concentration').length).toBeGreaterThan(0)
+    expect(screen.getByText('Review whether the hypothetical replacement changes how concentrated portfolio risk remains across positions or factors.')).toBeTruthy()
+    expect(screen.getAllByText('Most salient change in this group').length).toBeGreaterThan(0)
+    expect(screen.getByText('Selected by fixed priority order: factor HHI, then top 1 position risk share.')).toBeTruthy()
+    expect(screen.getAllByText('Selection rule: fixed priority rule').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Factor HHI').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Factor Exposure').length).toBeGreaterThan(0)
+    expect(screen.getByText('Review how the candidate variant shifts portfolio exposure relative to the current baseline. Read this as hypothetical exposure change, not a target allocation decision.')).toBeTruthy()
+    expect(screen.getAllByText('Volatility & Drawdown').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Risk Contribution').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Stress / Scenario').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Before / After Diagnostics')).toBeNull()
+    expect(screen.getByText('Save Proposal v2')).toBeTruthy()
+    expect(screen.getByText('Latest Saved Proposal')).toBeTruthy()
+    expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByText('Save Proposal v2'))
+    expect(onSaveProposal).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Use this surface to review whether the explicit replacement intent produces a meaningfully different hypothetical path under a shared window. It does not recommend the change or prove it should be applied.')).toBeTruthy()
+  })
+
+  it('renders saved proposal review from artifact data without relying on live draft state', () => {
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[savedProposal]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+
+    expect(screen.getByText('Saved Proposal Review')).toBeTruthy()
+    expect(screen.getByText('This is a saved proposal artifact, not live portfolio truth. It preserves prior hypothetical replay outputs and lineage exactly as reviewed when saved, even if the current draft or portfolio state has changed.')).toBeTruthy()
+    expect(screen.getByText('Proposal Artifact')).toBeTruthy()
+    expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
+    expect(screen.getByText('Proposal Lineage')).toBeTruthy()
+    expect(screen.getByText(/Workspace: workspace-1 · Draft: draft-1 · Base node: node-1/)).toBeTruthy()
+    expect(screen.getByText('Proposal Basis')).toBeTruthy()
+    expect(screen.getByText('draft_snapshot_positions_normalized')).toBeTruthy()
+    expect(screen.getAllByText('Replay Summary').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Diagnostics Delta Summary').length).toBeGreaterThan(0)
+    expect(screen.getByText('This proposal is a saved review snapshot, not applied holdings, candidate truth, or live draft state.')).toBeTruthy()
   })
 })

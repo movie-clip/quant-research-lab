@@ -346,8 +346,22 @@ Tasks:
   - risk contribution changes
   - stress scenario changes
 
+Current implemented Stage 4 slice:
+- ETF ranking can seed a draft-scoped candidate review workflow
+- explicit replacement intent can drive a hypothetical one-for-one replay preview
+- replay review now includes PM-first diagnostics delta review
+- diagnostics groups expose backend-ranked top callouts with visible selection-rule provenance and backend-provided rationale
+- reviewed hypothetical replay results can now be recorded as immutable local versioned proposal artifacts
+- these callouts remain review support only and do not imply recommendation or applied portfolio change
+
 Exit criteria:
 - the user can tell whether a portfolio change is actually an improvement
+
+Current implemented pre-stage boundary:
+- ETF ranking can seed a draft-scoped candidate review artifact
+- that seed can persist locally and be restored deterministically
+- a draft-scoped replacement intent can be recorded explicitly
+- these artifacts remain review metadata only and do not mutate `PortfolioSnapshot`
 
 ### Stage 5. Overlay and Monitoring System
 

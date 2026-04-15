@@ -29,11 +29,17 @@ The portfolio-allocation backtest UI currently renders from two root inputs:
    - built in `services/quant-engine/app/services/portfolio_backtest_engine.py`
    - contains replay curves, summary metrics, diagnostics snapshots, diagnostics comparison, and implementation details
 
+3. `hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null`
+   - returned by `POST /backtests/portfolio-allocation/replacement-intent-preview`
+   - built in `services/quant-engine/app/services/portfolio_backtest_engine.py`
+   - wraps a standard replay payload plus proposal/derivation metadata, derived baseline/candidate weights, and warnings
+
 Important rules:
 
 - imported holdings seed the workspace, but the replay result is hypothetical and must never be confused with imported broker-truth history
 - backtest diagnostics are synthetic replay diagnostics with explicit provenance, not imported portfolio diagnostics
 - financially meaningful formulas must be documented with both methodology and implementation location
+- replacement-intent replay preview derives weights in backend only; desktop must not construct candidate weights for this workflow
 
 ## Truth Classes
 
@@ -108,6 +114,18 @@ Implementation:
 | Candidate Total | `candidateWeightTotal` | local form state | not financial truth | warn if not near `1.00` | local validation state |
 | Replay Setup | local form state | local form state | not financial truth | n/a | user-entered replay assumptions |
 
+### Hypothetical replay section
+
+| UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Hypothetical Replay header/helper | `PortfolioAllocationBacktestPanel.tsx` static copy | none | explanatory only | always render when backtest workspace renders | frames the replacement-intent replay as draft-only |
+| Baseline / Hypothetical Candidate / Intent Source / Replay Basis | static summary cards in `PortfolioAllocationBacktestPanel.tsx` | replacement-intent replay workflow | explanatory only | if no replacement intent, render explicit unavailable helper | not financial outputs |
+| Proposal metadata | `hypotheticalReplayResult.proposal` | replacement-intent replay response | review metadata + replay input provenance | if no preview run, hidden | traces replay back to explicit replacement intent |
+| Derivation metadata | `hypotheticalReplayResult.derivation` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | current rule is `draft_snapshot_positions_normalized` plus `single_symbol_weight_substitution` |
+| Baseline weights | `hypotheticalReplayResult.baseline_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | derived on backend from draft snapshot position market values |
+| Candidate weights | `hypotheticalReplayResult.candidate_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | backend-only one-for-one incumbent-to-candidate substitution |
+| Warnings | `hypotheticalReplayResult.warnings` | replacement-intent replay response | explanatory provenance | if none, hidden | may include cash-exclusion or hypothetical-only notes |
+
 ### Replay summary section
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
@@ -141,6 +159,64 @@ Implementation:
 | Risk Contribution Change | `diagnostics_comparison.risk_contribution_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | synthetic snapshot + historical factor data |
 | Concentration Change | `diagnostics_comparison.concentration_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | derived from diagnostics snapshots |
 | Stress Scenario Change | `diagnostics_comparison.stress_scenario_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | uses diagnostics model outputs, not imported truth |
+| Top diagnostics callouts | `diagnostics_comparison.top_*` fields | diagnostics comparison payload | `diagnostics-derived` | if the backend cannot select a reliable group callout, render no callout for that group | authoritative backend-selected summary rows; desktop must not infer these from array order |
+
+Each `top_*` callout now includes:
+
+- `key`
+- `label`
+- `baseline_value`
+- `candidate_value`
+- `delta_value`
+- `selection_rule`
+- `rationale`
+
+Stable `selection_rule` API values:
+
+- `largest_absolute_delta`
+  - meaning: backend selected the eligible row with the largest absolute `candidate - baseline` delta in that group
+  - current groups using it: factor exposure, risk contribution, stress / scenario
+- `fixed_priority`
+  - meaning: backend selected the first eligible row in a pre-declared priority list for that group
+  - current groups using it: volatility / drawdown, concentration
+
+API stability rule:
+
+- these `selection_rule` values are contract values and should be treated as stable API surface
+- desktop may format them for display, but must not reinterpret them into different semantic categories
+- if a new rule is introduced, the contract doc and typed schemas must be updated together
+
+UI rule:
+
+- desktop must render the backend-provided `rationale` directly for callout explanation
+- desktop must not substitute a generic heuristic explanation when authoritative rationale is available
+
+Current backend selection semantics for `diagnostics_comparison.top_*`:
+
+- `top_factor_exposure_change`
+  - selected as the eligible factor row with the largest absolute `delta_value`
+  - eligibility requires non-null baseline, candidate, and delta values
+- `top_volatility_change`
+  - selected by fixed priority order, not cross-metric magnitude ranking
+  - priority: `max_drawdown` -> `annualized_volatility` -> `downside_volatility`
+  - each selected row must have non-null baseline, candidate, and delta values
+- `top_risk_contribution_change`
+  - selected as the eligible risk-contribution row with the largest absolute `delta_value`
+  - current implementation ranks only factor-contribution comparison rows, not mixed factor/position rows
+- `top_concentration_change`
+  - selected by fixed priority order, not cross-metric magnitude ranking
+  - priority: `factor_hhi` -> `top_1_position_risk_share`
+  - each selected row must have non-null baseline, candidate, and delta values
+- `top_stress_scenario_change`
+  - selected as the eligible stress-scenario row with the largest absolute `delta_value`
+  - delta remains `candidate - baseline` in the scenario return unit
+
+Important semantics:
+
+- these callouts are `diagnostics-derived` summaries of the existing group arrays, not new truth classes
+- the callout means `most salient valid change in this group` under the documented backend rule, not `best`, `recommended`, or `approved`
+- desktop must render the returned callout fields as-is and must not recompute ranking from array order
+- if no eligible row exists for a group, the corresponding `top_*` field must be `null`
 
 ### Implementation details section
 
@@ -168,9 +244,10 @@ Implementation:
 3. Diagnostics comparison deltas are always `candidate - baseline`.
 4. If candidate/reference/benchmark date windows do not share enough common dates, the route must fail explicitly rather than compare incompatible replays.
 5. If a financially meaningful backtest formula or assumption changes, methodology text and this inventory should be updated together.
+6. Replacement-intent replay preview must reject invalid substitution cases rather than invent renormalization or portfolio-construction behavior.
 
 ## Current Coverage Status
 
-- backend route coverage verifies weight validation, execution-lag validation, proxy-history fallbacks, typed diagnostics provenance, and insufficient common-date rejection
+- backend route coverage verifies weight validation, execution-lag validation, proxy-history fallbacks, typed diagnostics provenance, insufficient common-date rejection, and replacement-intent replay validation/derivation rules
 - backend service coverage verifies synthetic snapshot creation and explicit diagnostics input assembly
-- desktop coverage verifies workspace rendering, imported baseline seeding, replay submission payloads, and diagnostics provenance messaging
+- desktop coverage verifies workspace rendering, imported baseline seeding, manual replay submission payloads, replacement-intent replay preview payloads, and diagnostics provenance messaging

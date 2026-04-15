@@ -44,6 +44,29 @@ describe('EtfRankingPanel', () => {
           unknown_metadata_symbols: [],
           peer_group_unclassified_symbols: [],
         },
+        request: {
+          peer_group: 'Sector UCITS ETF',
+          universe: ['IUFS', 'IUHC', 'VDST'],
+          benchmark_symbol: 'SPY',
+          lookback_months: 6,
+        },
+        effective_inputs: {
+          effective_peer_group: 'Sector UCITS ETF',
+          effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+          requested_universe: ['IUFS', 'IUHC', 'VDST'],
+          evaluated_universe: ['IUFS', 'IUHC'],
+          excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+        },
+        run_metadata: {
+          ranking_id: 'etf_ranking_engine_v1',
+          methodology_id: 'etf_ranking_methodology_v1',
+          methodology: 'm',
+          as_of_date: '2026-04-15',
+          ranking_basis_date: '2026-04-15',
+          price_basis: 'close',
+          source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+          confidence: 'medium',
+        },
         ranked_universe: [
           {
             rank: 1,
@@ -78,7 +101,7 @@ describe('EtfRankingPanel', () => {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     )
 
-    render(<EtfRankingPanel />)
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
 
     fireEvent.click(screen.getByText('Run ETF Ranking'))
 
@@ -115,6 +138,8 @@ describe('EtfRankingPanel', () => {
     expect(screen.getAllByText('IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('IUHC').length).toBeGreaterThan(0)
     expect(screen.getAllByText('0.8123').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Seed Candidate Draft').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Carry this ETF into a draft portfolio-improvement review without implying a switch.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blended').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Lower better').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Implementation').length).toBeGreaterThan(0)
@@ -201,7 +226,7 @@ describe('EtfRankingPanel', () => {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     )
 
-    render(<EtfRankingPanel />)
+    render(<EtfRankingPanel draftSymbols={['VUAA']} />)
 
     fireEvent.click(screen.getByText('Run ETF Ranking'))
 
@@ -213,7 +238,9 @@ describe('EtfRankingPanel', () => {
     expect(screen.queryByText('Legacy exclusion reason')).toBeNull()
   })
 
-  it('falls back to legacy top-level metadata when grouped fields are absent', async () => {
+  it('creates a candidate improvement draft only after explicit incumbent selection', async () => {
+    const onSeedCandidateDraft = vi.fn()
+
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
         ranking_id: 'etf_ranking_engine_v1',
@@ -232,6 +259,29 @@ describe('EtfRankingPanel', () => {
           warnings: ['Implementation-fit support is not complete across the ranked universe.'],
           unknown_metadata_symbols: [],
           peer_group_unclassified_symbols: [],
+        },
+        request: {
+          peer_group: 'Sector UCITS ETF',
+          universe: ['IUFS', 'IUHC', 'VDST'],
+          benchmark_symbol: 'SPY',
+          lookback_months: 6,
+        },
+        effective_inputs: {
+          effective_peer_group: 'Sector UCITS ETF',
+          effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+          requested_universe: ['IUFS', 'IUHC', 'VDST'],
+          evaluated_universe: ['IUFS', 'IUHC'],
+          excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+        },
+        run_metadata: {
+          ranking_id: 'etf_ranking_engine_v1',
+          methodology_id: 'etf_ranking_methodology_v1',
+          methodology: 'm',
+          as_of_date: '2026-04-15',
+          ranking_basis_date: '2026-04-15',
+          price_basis: 'close',
+          source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+          confidence: 'medium',
         },
         ranked_universe: [
           {
@@ -267,15 +317,52 @@ describe('EtfRankingPanel', () => {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
     )
 
-    render(<EtfRankingPanel />)
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} onSeedCandidateDraft={onSeedCandidateDraft} />)
 
     fireEvent.click(screen.getByText('Run ETF Ranking'))
 
     await waitFor(() => expect(screen.getByText('Ranked Universe')).toBeTruthy())
-    expect(screen.getByText('Peer Group: Sector UCITS ETF')).toBeTruthy()
-    expect(screen.getByText('Confidence: medium')).toBeTruthy()
-    expect(screen.getByText('Holdings Support: mixed')).toBeTruthy()
-    expect(screen.getByText('instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF')).toBeTruthy()
+    fireEvent.click(screen.getAllByText('Seed Candidate Draft')[0])
+
+    expect(screen.getByText('Create candidate improvement draft')).toBeTruthy()
+    expect(screen.getByText('This carries the selected ETF and its ranking context into a draft review. It does not recommend a switch, change allocations, or execute anything.')).toBeTruthy()
+    expect(screen.getAllByText('Selected ETF').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Source').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Peer Group').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Benchmark').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Lookback').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Confidence').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Warnings').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Exclusions').length).toBeGreaterThan(0)
+
+    const createDraftButton = screen.getByText('Create Draft') as HTMLButtonElement
+    expect(createDraftButton.disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'VUAA' } })
+    expect(createDraftButton.disabled).toBe(false)
+    fireEvent.click(createDraftButton)
+
+    expect(onSeedCandidateDraft).toHaveBeenCalledTimes(1)
+    expect(onSeedCandidateDraft.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'etf_replacement_candidate',
+      source: 'etf_ranking',
+      baseSymbol: 'VUAA',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      peerGroup: 'Sector UCITS ETF',
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['IUFS', 'IUHC', 'VDST'],
+      evaluatedUniverse: ['IUFS', 'IUHC'],
+      warningCount: 1,
+      excludedSymbolsCount: 1,
+    })
+    expect(screen.getByText('Candidate draft created. Review it before making any portfolio decision.')).toBeTruthy()
   })
 
   it('renders a structured error state when the ranking request fails', async () => {

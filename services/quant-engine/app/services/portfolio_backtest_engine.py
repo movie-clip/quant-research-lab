@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from app.analytics.risk import build_factor_registry, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload
 from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
@@ -13,13 +13,20 @@ from app.schemas.backtest_engine import (
     AllocationBacktestInstrumentMeta,
     AllocationBacktestResult,
     AllocationBacktestStatus,
+    DraftPortfolioSnapshotInput,
     DistributionPolicy,
+    HypotheticalReplayDerivation,
+    HypotheticalReplayProposal,
+    HypotheticalReplacementReplayRequest,
+    HypotheticalReplacementReplayResponse,
     PortfolioDiagnosticsProvenance,
     PortfolioDiagnosticsComparisonRow,
     PortfolioDiagnosticsSnapshot,
+    PortfolioDiagnosticsTopCallout,
     PortfolioImprovementComparison,
     PortfolioAllocationBacktestRequest,
     PortfolioAllocationBacktestResponse,
+    PortfolioWeightInput,
 )
 from app.services.market_data import MarketDataService
 
@@ -174,6 +181,115 @@ def _aligned_dates(symbols: list[str], histories: dict[str, list[dict]], benchma
     if len(ordered) < 2:
         raise ValueError("Not enough common dates across portfolio symbols and benchmark")
     return ordered
+
+
+def _build_snapshot_baseline_weights(snapshot: DraftPortfolioSnapshotInput) -> list[PortfolioWeightInput]:
+    positions = [position for position in snapshot.positions if position.symbol and position.market_value > 0]
+    if not positions:
+        raise ValueError("snapshot must include at least one positive-weight position")
+
+    total_market_value = sum(position.market_value for position in positions)
+    if total_market_value <= 0:
+        raise ValueError("snapshot positions must sum to a positive market value")
+
+    weights = [PortfolioWeightInput(symbol=position.symbol.upper(), target_weight=round(position.market_value / total_market_value, 8)) for position in positions]
+    total_weight = sum(item.target_weight for item in weights)
+    if abs(total_weight - 1.0) > 0.000001:
+        raise ValueError("snapshot position weights could not be represented deterministically")
+    return weights
+
+
+def _build_candidate_weights_from_replacement_intent(baseline_weights: list[PortfolioWeightInput], incumbent_symbol: str, candidate_symbol: str) -> list[PortfolioWeightInput]:
+    incumbent = incumbent_symbol.upper()
+    candidate = candidate_symbol.upper()
+    if candidate == incumbent:
+        raise ValueError("replacement intent candidate must differ from incumbent")
+
+    baseline_by_symbol = {item.symbol: item for item in baseline_weights}
+    incumbent_weight = baseline_by_symbol.get(incumbent)
+    if incumbent_weight is None:
+        raise ValueError(f"replacement intent incumbent not found in draft snapshot: {incumbent}")
+    if incumbent_weight.target_weight <= 0:
+        raise ValueError(f"replacement intent incumbent has non-positive starting weight: {incumbent}")
+    if candidate in baseline_by_symbol:
+        raise ValueError(f"replacement intent candidate is already held in draft snapshot: {candidate}")
+
+    candidate_weights = [PortfolioWeightInput(symbol=item.symbol, target_weight=item.target_weight) for item in baseline_weights if item.symbol != incumbent]
+    candidate_weights.append(PortfolioWeightInput(symbol=candidate, target_weight=incumbent_weight.target_weight))
+    total_weight = sum(item.target_weight for item in candidate_weights)
+    if abs(total_weight - 1.0) > 0.000001:
+        raise ValueError("candidate weights must preserve the baseline total exactly")
+    return candidate_weights
+
+
+def _build_hypothetical_replay_warnings(snapshot: DraftPortfolioSnapshotInput) -> list[str]:
+    warnings: list[str] = []
+    if snapshot.cash_balances:
+        warnings.append("Cash balances are not included in the hypothetical replay baseline for this MVP.")
+    warnings.append("Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.")
+    return warnings
+
+
+def build_hypothetical_replacement_replay_preview(request: HypotheticalReplacementReplayRequest) -> HypotheticalReplacementReplayResponse:
+    if request.replacement_intent is None:
+        raise ValueError("replacement_intent is required")
+
+    baseline_weights = _build_snapshot_baseline_weights(request.snapshot)
+    candidate_weights = _build_candidate_weights_from_replacement_intent(baseline_weights, request.replacement_intent.base_symbol, request.replacement_intent.candidate_symbol)
+    if request.replacement_intent.benchmark_symbol and request.replacement_intent.benchmark_symbol != request.benchmark_symbol:
+        raise ValueError("replacement intent benchmark does not match replay benchmark")
+
+    symbols = [item.symbol for item in candidate_weights]
+    market_data = MarketDataService()
+    histories = market_data.get_historical_prices_for_symbols(
+        symbols,
+        request.start_date.isoformat(),
+        request.end_date.isoformat(),
+        symbol_overrides=request.symbol_overrides,
+        allow_proxy_fallback=True,
+    )
+    candidate_symbol = request.replacement_intent.candidate_symbol.upper()
+    if not histories.get(candidate_symbol):
+        raise ValueError(f"No historical prices found for symbol: {candidate_symbol}")
+
+    replay_request = PortfolioAllocationBacktestRequest(
+        portfolio_name="Hypothetical Candidate",
+        weights=candidate_weights,
+        reference_weights=baseline_weights,
+        benchmark_symbol=request.benchmark_symbol,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        initial_capital=request.initial_capital,
+        rebalance_frequency=request.rebalance_frequency,
+        base_currency=request.base_currency,
+        commission_bps=request.commission_bps,
+        slippage_bps=request.slippage_bps,
+        drift_tolerance_pct=request.drift_tolerance_pct,
+        price_basis=request.price_basis,
+        execution_price_field=request.execution_price_field,
+        execution_lag_days=request.execution_lag_days,
+        symbol_overrides=request.symbol_overrides,
+    )
+
+    replay = build_portfolio_allocation_backtest_analysis(replay_request)
+
+    return HypotheticalReplacementReplayResponse(
+        proposal=HypotheticalReplayProposal(
+            source="draft_replacement_intent",
+            incumbent_symbol=request.replacement_intent.base_symbol,
+            candidate_symbol=request.replacement_intent.candidate_symbol,
+            draft_id=request.replacement_intent.draft_id,
+            base_node_id=request.replacement_intent.base_node_id,
+        ),
+        derivation=HypotheticalReplayDerivation(
+            baseline_basis="draft_snapshot_positions_normalized",
+            candidate_construction_rule="single_symbol_weight_substitution",
+        ),
+        baseline_weights=baseline_weights,
+        candidate_weights=candidate_weights,
+        replay=replay,
+        warnings=_build_hypothetical_replay_warnings(request.snapshot),
+    )
 
 
 def _compare_results(reference: AllocationBacktestResult, candidate: AllocationBacktestResult) -> AllocationBacktestComparison:
@@ -351,12 +467,23 @@ def _build_diagnostics_comparison(
     baseline: PortfolioDiagnosticsSnapshot,
     candidate: PortfolioDiagnosticsSnapshot,
 ) -> PortfolioImprovementComparison:
+    factor_rows = _factor_exposure_change_rows(baseline, candidate)
+    volatility_rows = _volatility_change_rows(baseline, candidate)
+    risk_rows = _risk_contribution_change_rows(baseline, candidate)
+    concentration_rows = _concentration_change_rows(baseline, candidate)
+    stress_rows = _stress_change_rows(baseline, candidate)
+
     return PortfolioImprovementComparison(
-        factor_exposure_changes=_factor_exposure_change_rows(baseline, candidate),
-        volatility_changes=_volatility_change_rows(baseline, candidate),
-        risk_contribution_changes=_risk_contribution_change_rows(baseline, candidate),
-        concentration_changes=_concentration_change_rows(baseline, candidate),
-        stress_scenario_changes=_stress_change_rows(baseline, candidate),
+        factor_exposure_changes=factor_rows,
+        top_factor_exposure_change=_top_largest_absolute_delta_callout(factor_rows, rationale="Largest valid factor exposure delta in this group (candidate - baseline)."),
+        volatility_changes=volatility_rows,
+        top_volatility_change=_top_priority_callout(volatility_rows, ["max_drawdown", "annualized_volatility", "downside_volatility"], selection_rule="fixed_priority", rationale="Selected by fixed priority order: max drawdown, then annualized volatility, then downside volatility."),
+        risk_contribution_changes=risk_rows,
+        top_risk_contribution_change=_top_largest_absolute_delta_callout(risk_rows, rationale="Largest valid factor risk-contribution delta in this group (candidate - baseline)."),
+        concentration_changes=concentration_rows,
+        top_concentration_change=_top_priority_callout(concentration_rows, ["factor_hhi", "top_1_position_risk_share"], selection_rule="fixed_priority", rationale="Selected by fixed priority order: factor HHI, then top 1 position risk share."),
+        stress_scenario_changes=stress_rows,
+        top_stress_scenario_change=_top_largest_absolute_delta_callout(stress_rows, rationale="Largest valid stress-scenario delta in this group (candidate - baseline)."),
     )
 
 
@@ -456,6 +583,43 @@ def _stress_change_rows(baseline: PortfolioDiagnosticsSnapshot, candidate: Portf
             )
         )
     return rows
+
+
+def _largest_absolute_delta_row(rows: list[PortfolioDiagnosticsComparisonRow]) -> PortfolioDiagnosticsComparisonRow | None:
+    eligible = [row for row in rows if row.delta_value is not None and row.baseline_value is not None and row.candidate_value is not None]
+    if not eligible:
+        return None
+    return max(eligible, key=lambda row: (abs(row.delta_value or 0.0), row.label, row.key))
+
+
+def _top_priority_row(rows: list[PortfolioDiagnosticsComparisonRow], priority_keys: list[str]) -> PortfolioDiagnosticsComparisonRow | None:
+    row_map = {row.key: row for row in rows if row.delta_value is not None and row.baseline_value is not None and row.candidate_value is not None}
+    for key in priority_keys:
+        if key in row_map:
+            return row_map[key]
+    return None
+
+
+def _build_top_callout(row: PortfolioDiagnosticsComparisonRow | None, *, selection_rule: str, rationale: str) -> PortfolioDiagnosticsTopCallout | None:
+    if row is None:
+        return None
+    return PortfolioDiagnosticsTopCallout(
+        key=row.key,
+        label=row.label,
+        baseline_value=row.baseline_value,
+        candidate_value=row.candidate_value,
+        delta_value=row.delta_value,
+        selection_rule=selection_rule,
+        rationale=rationale,
+    )
+
+
+def _top_largest_absolute_delta_callout(rows: list[PortfolioDiagnosticsComparisonRow], *, rationale: str) -> PortfolioDiagnosticsTopCallout | None:
+    return _build_top_callout(_largest_absolute_delta_row(rows), selection_rule="largest_absolute_delta", rationale=rationale)
+
+
+def _top_priority_callout(rows: list[PortfolioDiagnosticsComparisonRow], priority_keys: list[str], *, selection_rule: str, rationale: str) -> PortfolioDiagnosticsTopCallout | None:
+    return _build_top_callout(_top_priority_row(rows, priority_keys), selection_rule=selection_rule, rationale=rationale)
 
 
 def _derive_status(

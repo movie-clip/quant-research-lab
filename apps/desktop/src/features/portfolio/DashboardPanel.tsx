@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 
 import type { DashboardAnalysis, ImportedStatementImporter } from './types'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
-import type { PortfolioSnapshot } from './workspaceTypes'
+import type { CandidateImprovementDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact } from './workspaceTypes'
 
 type RangeOption = '1M' | '3M' | 'YTD' | '1Y' | 'All'
 type PerformanceView = 'twr' | 'mwr' | 'capital'
@@ -189,6 +189,8 @@ type DashboardPanelProps = {
   draftSnapshot?: PortfolioSnapshot | null
   activeNodeName?: string | null
   draftStatus?: 'clean' | 'dirty' | null
+  candidateImprovementDraft?: CandidateImprovementDraftArtifact | null
+  replacementIntentDraft?: ReplacementIntentDraftArtifact | null
   importing?: boolean
   importError?: string | null
   lastImportedFileNames?: string[]
@@ -201,6 +203,9 @@ type DashboardPanelProps = {
   onDraftSnapshotChange?: (snapshot: PortfolioSnapshot) => void | Promise<void>
   onDiscardDraft?: () => void | Promise<void>
   onSaveVariant?: (variantName: string) => void | Promise<void>
+  onCreateReplacementIntent?: () => void | Promise<void>
+  onClearReplacementIntent?: () => void | Promise<void>
+  onPreviewHypotheticalReplay?: () => void | Promise<void>
 }
 
 const DashboardPerformanceChart = lazy(async () => ({ default: (await import('./DashboardPerformanceChart')).DashboardPerformanceChart }))
@@ -215,7 +220,13 @@ function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNa
     .join(', ')
 }
 
-export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = null, draftStatus = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onPreviewExposure, onDraftSnapshotChange, onDiscardDraft, onSaveVariant }: DashboardPanelProps) {
+function formatSeedDisplayValue(value: string | number | null | undefined) {
+  if (value == null) return 'n/a'
+  if (typeof value === 'string') return value.trim() ? value : 'n/a'
+  return String(value)
+}
+
+export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = null, draftStatus = null, candidateImprovementDraft = null, replacementIntentDraft = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onPreviewExposure, onDraftSnapshotChange, onDiscardDraft, onSaveVariant, onCreateReplacementIntent, onClearReplacementIntent, onPreviewHypotheticalReplay }: DashboardPanelProps) {
   const [selectedRange, setSelectedRange] = useState<RangeOption>('3M')
   const [showPortfolio, setShowPortfolio] = useState(true)
   const [showBenchmark, setShowBenchmark] = useState(true)
@@ -224,6 +235,7 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
   const [lockedSector, setLockedSector] = useState<string | null>(null)
   const [sectorDraft, setSectorDraft] = useState<Record<string, EditableHolding[]>>({})
   const [variantName, setVariantName] = useState('')
+  const [showReplacementIntentConfirmation, setShowReplacementIntentConfirmation] = useState(false)
 
   useEffect(() => {
     setSectorDraft(buildEditableSectorDraftFromSnapshot(draftSnapshot))
@@ -466,7 +478,7 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
         </div>
       </div>
 
-        <div className="dashboard-summary">
+      <div className="dashboard-summary">
           <div className="summary-card">
             <p className="stat-label">Account</p>
             <p className="summary-value">{result.snapshot.statement.account_id ?? 'Unknown'}</p>
@@ -488,6 +500,101 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
           <p className="helper">Deposits minus withdrawals in the selected range</p>
         </div>
       </div>
+
+      {candidateImprovementDraft ? (
+        <section className="dashboard-bottom-grid">
+          <div className="summary-card">
+            <p className="panel-label">Seeded from ETF Ranking</p>
+            <p className="helper">This draft starts from a ranked ETF candidate only. No substitution, weighting, turnover, or construction logic has been applied.</p>
+            <p className="helper">Use this draft to continue portfolio review. Ranking helps identify a possible same-mandate candidate; it does not decide whether the portfolio should change.</p>
+            <p className="helper">Base: {candidateImprovementDraft.seed.baseSymbol} · Candidate: {candidateImprovementDraft.seed.candidateSymbol} · Rank #{candidateImprovementDraft.seed.candidateRank}</p>
+            {replacementIntentDraft ? null : (
+              <>
+                <p className="helper">Turn this seeded pair into an explicit proposed replacement without changing holdings or portfolio state.</p>
+                <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+                  {onCreateReplacementIntent ? <button className="secondary-button" onClick={() => setShowReplacementIntentConfirmation(true)} type="button">Promote to Replacement Intent</button> : null}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {candidateImprovementDraft && showReplacementIntentConfirmation && !replacementIntentDraft ? (
+        <section className="dashboard-bottom-grid">
+          <div className="summary-card">
+            <p className="panel-label">Create replacement intent</p>
+            <p className="helper">This records an explicit incumbent-to-candidate replacement intent inside the draft. It does not apply the change, endorse it, or run any portfolio logic.</p>
+            <div className="dashboard-summary compact-summary-grid">
+              <div className="summary-card"><p className="stat-label">From</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.baseSymbol)}</p><p className="helper">Incumbent ETF named in the intent</p></div>
+              <div className="summary-card"><p className="stat-label">To</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.candidateSymbol)}</p><p className="helper">Candidate ETF named in the intent</p></div>
+              <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">ETF Ranking seed</p><p className="helper">Origin of this replacement intent</p></div>
+            </div>
+            <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+              {onCreateReplacementIntent ? <button className="primary-button" onClick={() => { void onCreateReplacementIntent(); setShowReplacementIntentConfirmation(false) }} type="button">Create Intent</button> : null}
+              <button className="secondary-button" onClick={() => setShowReplacementIntentConfirmation(false)} type="button">Cancel</button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {candidateImprovementDraft ? (
+        <section className="dashboard-bottom-grid">
+          <div className="section-header-inline sector-list-header">
+            <div><p className="panel-label">Seeded Candidate Review</p></div>
+            <p className="helper">Review what the ETF ranking workflow carried into this draft before doing any deeper portfolio analysis.</p>
+          </div>
+          <div className="dashboard-summary compact-summary-grid">
+            <div className="summary-card"><p className="stat-label">Incumbent</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.baseSymbol)}</p><p className="helper">ETF currently selected as the comparison base</p></div>
+            <div className="summary-card"><p className="stat-label">Candidate</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.candidateSymbol)}</p><p className="helper">ETF carried forward from the ranking result</p></div>
+            <div className="summary-card"><p className="stat-label">Rank</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.candidateRank)}</p><p className="helper">Candidate position inside the ranked eligible universe</p></div>
+            <div className="summary-card"><p className="stat-label">Peer Group</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.peerGroup)}</p><p className="helper">Same-mandate grouping used during ranking</p></div>
+            <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.confidence)}</p><p className="helper">Ranking trust level carried from the source run</p></div>
+            <div className="summary-card"><p className="stat-label">Holdings Support</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.holdingsSupport)}</p><p className="helper">Implementation-fit support available in the ranking source</p></div>
+          </div>
+          <div className="dashboard-summary compact-summary-grid">
+            <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.benchmarkSymbol)}</p><p className="helper">Used for benchmark-relative strength in the source run</p></div>
+            <div className="summary-card"><p className="stat-label">Lookback</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.lookbackMonths)}</p><p className="helper">Ranking window from the source run</p></div>
+            <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.warningCount)}</p><p className="helper">Warnings stayed with the seed and still need interpretation</p></div>
+            <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">{formatSeedDisplayValue(candidateImprovementDraft.seed.source)}</p><p className="helper">This draft seed came from the ETF ranking workspace</p></div>
+          </div>
+          <div className="summary-card">
+            <p className="stat-label">What This Seed Means</p>
+            <p className="helper">This draft now contains a candidate ETF idea with source metadata, not a portfolio decision. No substitution, allocation change, turnover analysis, or construction logic has been applied.</p>
+            <p className="helper">Use this section to confirm what was carried forward, then continue review in the draft context without assuming the portfolio should change.</p>
+          </div>
+        </section>
+      ) : null}
+
+      {replacementIntentDraft ? (
+        <section className="dashboard-bottom-grid">
+          <div className="section-header-inline sector-list-header">
+            <div><p className="panel-label">Replacement Intent</p></div>
+            <p className="helper">This draft now carries an explicit proposed replacement pair. It remains a review object only.</p>
+          </div>
+          <div className="dashboard-summary compact-summary-grid">
+            <div className="summary-card"><p className="stat-label">From</p><p className="summary-value">{formatSeedDisplayValue(replacementIntentDraft.baseSymbol)}</p><p className="helper">Incumbent ETF named in the intent</p></div>
+            <div className="summary-card"><p className="stat-label">To</p><p className="summary-value">{formatSeedDisplayValue(replacementIntentDraft.candidateSymbol)}</p><p className="helper">Candidate ETF named in the intent</p></div>
+            <div className="summary-card"><p className="stat-label">Status</p><p className="summary-value">Draft intent</p><p className="helper">Recorded for review only; not applied to holdings</p></div>
+            <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">ETF Ranking seed</p><p className="helper">Origin of this replacement intent</p></div>
+          </div>
+          <div className="summary-card">
+            <p className="helper">No holdings have changed. No replay, construction, weighting, turnover, or execution logic has been applied.</p>
+            {onPreviewHypotheticalReplay ? (
+              <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+                <button className="secondary-button" onClick={() => void onPreviewHypotheticalReplay()} type="button">Preview Hypothetical Replay</button>
+              </div>
+            ) : null}
+            {onPreviewHypotheticalReplay ? <p className="helper">Compare the current portfolio against a draft-only candidate built from this replacement intent.</p> : null}
+            {onClearReplacementIntent ? (
+              <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+                <button className="secondary-button" onClick={() => void onClearReplacementIntent()} type="button">Clear Intent</button>
+              </div>
+            ) : null}
+            {onClearReplacementIntent ? <p className="helper">Remove the explicit replacement intent while leaving the rest of the draft unchanged.</p> : null}
+          </div>
+        </section>
+      ) : null}
 
       <section className="performance-section">
         <div className="performance-toolbar">

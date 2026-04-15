@@ -1,11 +1,15 @@
 const databaseName = 'portfolio-workstation'
-const databaseVersion = 3
+const databaseVersion = 7
 
 export const appStateStoreName = 'app-state'
 export const workspaceStoreName = 'workspaces'
 export const portfolioNodeStoreName = 'portfolio_nodes'
 export const workingDraftStoreName = 'working_drafts'
 export const workspaceStateStoreName = 'workspace_state'
+export const candidateImprovementDraftStoreName = 'candidate_improvement_drafts'
+export const replacementIntentDraftStoreName = 'replacement_intent_drafts'
+export const hypotheticalReplacementReplayDraftStoreName = 'hypothetical_replacement_replay_drafts'
+export const versionedProposalStoreName = 'versioned_proposals'
 
 let databasePromise: Promise<IDBDatabase> | null = null
 let openDatabaseHandle: IDBDatabase | null = null
@@ -37,6 +41,10 @@ export function openPortfolioDatabase() {
             portfolioNodeStoreName,
             workingDraftStoreName,
             workspaceStateStoreName,
+            candidateImprovementDraftStoreName,
+            replacementIntentDraftStoreName,
+            hypotheticalReplacementReplayDraftStoreName,
+            versionedProposalStoreName,
           ]
 
           for (const storeName of storeNames) {
@@ -63,6 +71,22 @@ export function openPortfolioDatabase() {
         }
         if (!database.objectStoreNames.contains(workspaceStateStoreName)) {
           database.createObjectStore(workspaceStateStoreName, { keyPath: 'workspaceId' })
+        }
+        if (!database.objectStoreNames.contains(candidateImprovementDraftStoreName)) {
+          const store = database.createObjectStore(candidateImprovementDraftStoreName, { keyPath: 'draftId' })
+          store.createIndex('workspaceId', 'workspaceId', { unique: false })
+        }
+        if (!database.objectStoreNames.contains(replacementIntentDraftStoreName)) {
+          const store = database.createObjectStore(replacementIntentDraftStoreName, { keyPath: 'draftId' })
+          store.createIndex('workspaceId', 'workspaceId', { unique: false })
+        }
+        if (!database.objectStoreNames.contains(hypotheticalReplacementReplayDraftStoreName)) {
+          const store = database.createObjectStore(hypotheticalReplacementReplayDraftStoreName, { keyPath: 'draftId' })
+          store.createIndex('workspaceId', 'workspaceId', { unique: false })
+        }
+        if (!database.objectStoreNames.contains(versionedProposalStoreName)) {
+          const store = database.createObjectStore(versionedProposalStoreName, { keyPath: 'id' })
+          store.createIndex('workspaceId', 'workspaceId', { unique: false })
         }
       }
 

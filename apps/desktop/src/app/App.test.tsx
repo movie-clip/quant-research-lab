@@ -658,6 +658,528 @@ describe('App', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
   })
 
+  it('seeds an ETF ranking candidate into draft review without mutating the portfolio snapshot', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ranking_id: 'etf_ranking_engine_v1',
+        title: 'ETF Ranking Engine',
+        as_of_date: '2026-04-15',
+        benchmark_symbol: 'SPY',
+        universe: ['IUFS', 'IUHC', 'VDST'],
+        lookback_months: 6,
+        price_basis: 'close',
+        methodology: 'm',
+        effective_peer_group: 'Sector UCITS ETF',
+        effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+        source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+        warnings: { confidence: 'medium', warnings: ['Implementation-fit support is not complete across the ranked universe.'], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
+        request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC', 'VDST'], benchmark_symbol: 'SPY', lookback_months: 6 },
+        effective_inputs: { effective_peer_group: 'Sector UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['IUFS', 'IUHC', 'VDST'], evaluated_universe: ['IUFS', 'IUHC'], excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }] },
+        run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
+        ranked_universe: [
+          { rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'iShares S&P 500 Financials Sector UCITS ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 }, benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 4.2, raw_unit: 'pct', normalized_score: 1, weight: 0.2, weighted_score: 0.2 }, realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 14.4, raw_unit: 'pct', normalized_score: 0.7, weight: 0.15, weighted_score: 0.105 }, max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 8.1, raw_unit: 'pct', normalized_score: 0.75, weight: 0.1, weighted_score: 0.075 }, liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 13.1, raw_unit: 'score', normalized_score: 0.8, weight: 0.1, weighted_score: 0.08 }, implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 } } },
+          { rank: 2, symbol: 'IUHC', composite_score: 0.7345, instrument: { symbol: 'IUHC', name: 'iShares S&P 500 Health Care Sector UCITS ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 }, benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 2.7, raw_unit: 'pct', normalized_score: 0.7, weight: 0.2, weighted_score: 0.14 }, realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 15.8, raw_unit: 'pct', normalized_score: 0.6, weight: 0.15, weighted_score: 0.09 }, max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 9.5, raw_unit: 'pct', normalized_score: 0.65, weight: 0.1, weighted_score: 0.065 }, liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 12.3, raw_unit: 'score', normalized_score: 0.7, weight: 0.1, weighted_score: 0.07 }, implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 } } },
+        ],
+        excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    fireEvent.click(screen.getByText('ETF Ranking'))
+    fireEvent.click(screen.getByText('Run ETF Ranking'))
+    await waitFor(() => expect(screen.getByText('Ranked Universe')).toBeTruthy())
+
+    fireEvent.click(screen.getAllByText('Seed Candidate Draft')[0])
+    fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'AAPL' } })
+    fireEvent.click(screen.getByText('Create Draft'))
+
+    await waitFor(() => expect(screen.getByText('Seeded from ETF Ranking')).toBeTruthy())
+    expect(screen.getByText('This draft starts from a ranked ETF candidate only. No substitution, weighting, turnover, or construction logic has been applied.')).toBeTruthy()
+    expect(screen.getByText('Use this draft to continue portfolio review. Ranking helps identify a possible same-mandate candidate; it does not decide whether the portfolio should change.')).toBeTruthy()
+    expect(screen.getByText('Base: AAPL · Candidate: IUFS · Rank #1')).toBeTruthy()
+    expect(screen.getByDisplayValue('AAPL')).toBeTruthy()
+  })
+
+  it('restores a persisted ETF ranking candidate annotation for the active draft', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      seed: {
+        kind: 'etf_replacement_candidate',
+        source: 'etf_ranking',
+        seededAt: '2026-04-15T00:00:00Z',
+        baseSymbol: 'AAPL',
+        candidateSymbol: 'IUFS',
+        candidateRank: 1,
+        peerGroup: 'Sector UCITS ETF',
+        benchmarkSymbol: 'SPY',
+        lookbackMonths: 6,
+        rankingId: 'etf_ranking_engine_v1',
+        methodologyId: 'etf_ranking_methodology_v1',
+        rankingBasisDate: '2026-04-15',
+        confidence: 'medium',
+        holdingsSupport: 'mixed',
+        requestUniverse: ['AAPL', 'IUFS'],
+        evaluatedUniverse: ['IUFS'],
+        warningCount: 1,
+        excludedSymbolsCount: 0,
+      },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Seeded from ETF Ranking')).toBeTruthy())
+    expect(screen.getByText('Base: AAPL · Candidate: IUFS · Rank #1')).toBeTruthy()
+  })
+
+  it('promotes a seed into a persisted replacement intent and restores it for the same draft', async () => {
+    const restoredReplacementIntent = {
+      kind: 'etf_replacement_intent' as const,
+      source: 'candidate_seed' as const,
+      createdAt: '2026-04-15T00:05:00Z',
+      draftId: 'draft-1',
+      workspaceId: 'workspace-1',
+      baseNodeId: 'node-1',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      seededFromDraftId: 'draft-1',
+      seedRankingId: 'etf_ranking_engine_v1',
+      seedMethodologyId: 'etf_ranking_methodology_v1',
+      seedRankingBasisDate: '2026-04-15',
+      peerGroup: 'Sector UCITS ETF',
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      confidence: 'medium' as const,
+      holdingsSupport: 'mixed' as const,
+      warningCount: 1,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      seed: {
+        kind: 'etf_replacement_candidate',
+        source: 'etf_ranking',
+        seededAt: '2026-04-15T00:00:00Z',
+        baseSymbol: 'AAPL',
+        candidateSymbol: 'IUFS',
+        candidateRank: 1,
+        peerGroup: 'Sector UCITS ETF',
+        benchmarkSymbol: 'SPY',
+        lookbackMonths: 6,
+        rankingId: 'etf_ranking_engine_v1',
+        methodologyId: 'etf_ranking_methodology_v1',
+        rankingBasisDate: '2026-04-15',
+        confidence: 'medium',
+        holdingsSupport: 'mixed',
+        requestUniverse: ['AAPL', 'IUFS'],
+        evaluatedUniverse: ['IUFS'],
+        warningCount: 1,
+        excludedSymbolsCount: 0,
+      },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(restoredReplacementIntent)
+    const saveReplacementIntentSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveReplacementIntentDraft').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Seeded from ETF Ranking')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Promote to Replacement Intent' }))
+    expect(screen.getByText('Create replacement intent')).toBeTruthy()
+    fireEvent.click(screen.getByText('Create Intent'))
+
+    expect(saveReplacementIntentSpy).toHaveBeenCalledTimes(1)
+    expect(saveReplacementIntentSpy.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'etf_replacement_intent',
+      source: 'candidate_seed',
+      draftId: 'draft-1',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      seededFromDraftId: 'draft-1',
+      seedRankingId: 'etf_ranking_engine_v1',
+      seedMethodologyId: 'etf_ranking_methodology_v1',
+    })
+
+    cleanup()
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
+    expect(screen.getByText('Draft intent')).toBeTruthy()
+    expect(screen.getAllByText('ETF Ranking seed').length).toBeGreaterThan(0)
+  })
+
+  it('opens the backtest workspace from the replacement intent hypothetical replay action', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue({ kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1 })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Hypothetical Replay' }))
+    expect(screen.getByText('Hypothetical Replay')).toBeTruthy()
+  })
+
+  it('persists and restores a hypothetical replay for the same draft intent', async () => {
+    const replacementIntent = { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium' as const, holdingsSupport: 'mixed' as const, warningCount: 1 }
+    const hypotheticalReplay = {
+      proposal: { source: 'draft_replacement_intent' as const, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized' as const, candidate_construction_rule: 'single_symbol_weight_substitution' as const },
+      baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
+      candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
+      replay: allocationBacktestPayload,
+      warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'],
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(replacementIntent)
+    vi.spyOn(portfolioWorkspaceStorage, 'getHypotheticalReplacementReplayDraft').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+      replacementIntentBaseSymbol: 'AAPL',
+      replacementIntentCandidateSymbol: 'IUFS',
+      replay: hypotheticalReplay,
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'saveHypotheticalReplacementReplayDraft').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
+    fireEvent.click(screen.getByText('Backtest'))
+    await waitFor(() => expect(screen.getByText('Replay Decision Readout')).toBeTruthy())
+    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
+    expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy()
+    expect(screen.getAllByText('Replay Summary').length).toBeGreaterThan(0)
+  })
+
+  it('saves a reviewed hypothetical replay as a versioned proposal artifact', async () => {
+    const replacementIntent = { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium' as const, holdingsSupport: 'mixed' as const, warningCount: 1 }
+    const hypotheticalReplay = {
+      proposal: { source: 'draft_replacement_intent' as const, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized' as const, candidate_construction_rule: 'single_symbol_weight_substitution' as const },
+      baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
+      candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
+      replay: allocationBacktestPayload,
+      warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'],
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(replacementIntent)
+    vi.spyOn(portfolioWorkspaceStorage, 'getHypotheticalReplacementReplayDraft').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+      replacementIntentBaseSymbol: 'AAPL',
+      replacementIntentCandidateSymbol: 'IUFS',
+      replay: hypotheticalReplay,
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([])
+    const saveProposalSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveProposalArtifact').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
+    fireEvent.click(screen.getByText('Backtest'))
+    await waitFor(() => expect(screen.getByText('Save Proposal v1')).toBeTruthy())
+    fireEvent.click(screen.getByText('Save Proposal v1'))
+
+    await waitFor(() => expect(saveProposalSpy).toHaveBeenCalledTimes(1))
+    expect(saveProposalSpy.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'single_replacement_hypothetical_replay_proposal',
+      workspaceId: 'workspace-1',
+      sourceDraftId: 'draft-1',
+      sourceBaseNodeId: 'node-1',
+      versionNumber: 1,
+      savedFrom: 'desktop_hypothetical_replay_review',
+      reviewStatus: 'recorded',
+    })
+    expect(screen.getByText('Latest Saved Proposal')).toBeTruthy()
+    expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
+  })
+
+  it('restores saved proposal review UI without needing live draft replay state', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([{ id: 'proposal-1', kind: 'single_replacement_hypothetical_replay_proposal', schemaVersion: 1, createdAt: '2026-04-16T00:00:00Z', workspaceId: 'workspace-1', sourceDraftId: 'draft-1', sourceBaseNodeId: 'node-1', proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z', versionNumber: 1, savedFrom: 'desktop_hypothetical_replay_review', reviewStatus: 'recorded', sourceIntent: { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1 }, replayBasis: { benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized', candidateConstructionRule: 'single_symbol_weight_substitution' }, reviewSnapshot: { proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' }, derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' }, baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }], replay: allocationBacktestPayload, warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'] } }])
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    fireEvent.click(screen.getByText('Backtest'))
+    await waitFor(() => expect(screen.getByText('Saved Proposal Review')).toBeTruthy())
+    expect(screen.getByText('Proposal Lineage')).toBeTruthy()
+    expect(screen.getByText('This proposal is a saved review snapshot, not applied holdings, candidate truth, or live draft state.')).toBeTruthy()
+  })
+
+  it('clears stale candidate annotation state when the restored draft has no saved annotation', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    expect(screen.queryByText('Seeded from ETF Ranking')).toBeNull()
+  })
+
+  it('does not propagate candidate annotation when switching active nodes', async () => {
+    const variantNode = mockSavedVariantNode()
+    const cleanVariantDraft = { id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-10T00:12:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: persistedSnapshot }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
+      id: 'workspace-1',
+      name: 'Portfolio Workspace',
+      createdAt: '2026-04-10T00:00:00Z',
+      updatedAt: '2026-04-10T00:12:00Z',
+      rootNodeId: 'node-1',
+      activeNodeId: 'node-1',
+      source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([
+      { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot },
+      variantNode,
+    ])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
+      if (nodeId === 'node-2') return variantNode
+      return { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
+      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+      .mockResolvedValueOnce(cleanVariantDraft)
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft')
+      .mockResolvedValueOnce({
+        workspaceId: 'workspace-1',
+        draftId: 'draft-1',
+        baseNodeId: 'node-1',
+        seed: {
+          kind: 'etf_replacement_candidate',
+          source: 'etf_ranking',
+          seededAt: '2026-04-15T00:00:00Z',
+          baseSymbol: 'AAPL',
+          candidateSymbol: 'IUFS',
+          candidateRank: 1,
+          peerGroup: 'Sector UCITS ETF',
+          benchmarkSymbol: 'SPY',
+          lookbackMonths: 6,
+          rankingId: 'etf_ranking_engine_v1',
+          methodologyId: 'etf_ranking_methodology_v1',
+          rankingBasisDate: '2026-04-15',
+          confidence: 'medium',
+          holdingsSupport: 'mixed',
+          requestUniverse: ['AAPL', 'IUFS'],
+          evaluatedUniverse: ['IUFS'],
+          warningCount: 1,
+          excludedSymbolsCount: 0,
+        },
+      })
+      .mockResolvedValueOnce(null)
+    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(variantExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Seeded from ETF Ranking')).toBeTruthy())
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
+
+    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
+    await waitFor(() => expect(screen.queryByText('Seeded from ETF Ranking')).toBeNull())
+  })
+
+  it('does not propagate candidate annotation after saving a variant', async () => {
+    const importedWorkspace = mockImportedWorkspace()
+    const variantNode = mockSavedVariantNode()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(importedWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveVariantFromDraft').mockResolvedValue({
+      node: variantNode,
+      workspace: { ...importedWorkspace.workspace, activeNodeId: 'node-2' },
+      workspaceState: { ...importedWorkspace.workspaceState, activeNodeId: 'node-2', selectedExposureSnapshotId: 'draft' },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
+      if (nodeId === 'node-2') return variantNode
+      if (nodeId === 'node-1') return importedWorkspace.rootNode
+      return null
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({
+      ...importedWorkspace.draft,
+      baseNodeId: 'node-2',
+      status: 'clean',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockImplementation(async () => [importedWorkspace.rootNode, variantNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:10:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    fireEvent.change(input, { target: { files: [file2025] } })
+
+    await waitFor(() => expect(screen.getByText('Portfolio Value')).toBeTruthy())
+    fireEvent.click(screen.getByText('ETF Ranking'))
+    expect(screen.queryByText('Seeded from ETF Ranking')).toBeNull()
+  })
+
+  it('uses fresh-draft discard flow so annotations do not survive discard', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
+      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:05:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft')
+      .mockResolvedValueOnce({
+        workspaceId: 'workspace-1',
+        draftId: 'draft-1',
+        baseNodeId: 'node-1',
+        seed: {
+          kind: 'etf_replacement_candidate',
+          source: 'etf_ranking',
+          seededAt: '2026-04-15T00:00:00Z',
+          baseSymbol: 'AAPL',
+          candidateSymbol: 'IUFS',
+          candidateRank: 1,
+          peerGroup: 'Sector UCITS ETF',
+          benchmarkSymbol: 'SPY',
+          lookbackMonths: 6,
+          rankingId: 'etf_ranking_engine_v1',
+          methodologyId: 'etf_ranking_methodology_v1',
+          rankingBasisDate: '2026-04-15',
+          confidence: 'medium',
+          holdingsSupport: 'mixed',
+          requestUniverse: ['AAPL', 'IUFS'],
+          evaluatedUniverse: ['IUFS'],
+          warningCount: 1,
+          excludedSymbolsCount: 0,
+        },
+      })
+      .mockResolvedValueOnce(null)
+    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:05:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Seeded from ETF Ranking')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }))
+
+    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-1', createDraftFromNode: true }))
+    await waitFor(() => expect(screen.queryByText('Seeded from ETF Ranking')).toBeNull())
+  })
+
   it('resets the local workspace database from the dashboard', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })

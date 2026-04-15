@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse
+from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse
 from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, StrategyDefinition
 from app.services.backtest_engine_service import BacktestAnalysisResult, build_backtest_analysis
-from app.services.portfolio_backtest_engine import build_portfolio_allocation_backtest_analysis
+from app.services.portfolio_backtest_engine import build_hypothetical_replacement_replay_preview, build_portfolio_allocation_backtest_analysis
 
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
@@ -56,6 +56,21 @@ def run_portfolio_allocation_backtest(request: PortfolioAllocationBacktestReques
 
     try:
         return build_portfolio_allocation_backtest_analysis(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/portfolio-allocation/replacement-intent-preview", response_model=HypotheticalReplacementReplayResponse)
+def run_hypothetical_replacement_preview(request: HypotheticalReplacementReplayRequest) -> HypotheticalReplacementReplayResponse:
+    if request.end_date < request.start_date:
+        raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
+    if request.initial_capital <= 0:
+        raise HTTPException(status_code=400, detail="initial_capital must be positive")
+    if request.execution_lag_days < 1:
+        raise HTTPException(status_code=400, detail="execution_lag_days must be at least 1")
+
+    try:
+        return build_hypothetical_replacement_replay_preview(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

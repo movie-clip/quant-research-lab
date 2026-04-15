@@ -1,8 +1,8 @@
-import { appStateStoreName, deletePortfolioDatabase, portfolioNodeStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
+import { appStateStoreName, candidateImprovementDraftStoreName, deletePortfolioDatabase, hypotheticalReplacementReplayDraftStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
-import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { CandidateImprovementDraftArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -165,6 +165,95 @@ export async function saveDraft(draft: WorkingDraft) {
   })
 }
 
+export async function getCandidateImprovementDraft(draftId: string) {
+  return withStore<CandidateImprovementDraftArtifact | null>(candidateImprovementDraftStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as CandidateImprovementDraftArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load candidate improvement draft'))
+  })
+}
+
+export async function saveCandidateImprovementDraft(annotation: CandidateImprovementDraftArtifact) {
+  await withStore<void>(candidateImprovementDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save candidate improvement draft'))
+  })
+}
+
+export async function deleteCandidateImprovementDraft(draftId: string) {
+  await withStore<void>(candidateImprovementDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete candidate improvement draft'))
+  })
+}
+
+export async function getReplacementIntentDraft(draftId: string) {
+  return withStore<ReplacementIntentDraftArtifact | null>(replacementIntentDraftStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as ReplacementIntentDraftArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load replacement intent draft'))
+  })
+}
+
+export async function saveReplacementIntentDraft(annotation: ReplacementIntentDraftArtifact) {
+  await withStore<void>(replacementIntentDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save replacement intent draft'))
+  })
+}
+
+export async function deleteReplacementIntentDraft(draftId: string) {
+  await withStore<void>(replacementIntentDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete replacement intent draft'))
+  })
+}
+
+export async function getHypotheticalReplacementReplayDraft(draftId: string) {
+  return withStore<HypotheticalReplacementReplayDraftArtifact | null>(hypotheticalReplacementReplayDraftStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as HypotheticalReplacementReplayDraftArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load hypothetical replay draft'))
+  })
+}
+
+export async function saveHypotheticalReplacementReplayDraft(annotation: HypotheticalReplacementReplayDraftArtifact) {
+  await withStore<void>(hypotheticalReplacementReplayDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save hypothetical replay draft'))
+  })
+}
+
+export async function deleteHypotheticalReplacementReplayDraft(draftId: string) {
+  await withStore<void>(hypotheticalReplacementReplayDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete hypothetical replay draft'))
+  })
+}
+
+export async function getWorkspaceProposalArtifacts(workspaceId: string) {
+  return withStore<VersionedProposalArtifact[]>(versionedProposalStoreName, 'readonly', (store, resolve, reject) => {
+    const index = store.index('workspaceId')
+    const request = index.getAll(workspaceId)
+    request.onsuccess = () => resolve(((request.result as VersionedProposalArtifact[] | undefined) ?? []).sort((left, right) => right.versionNumber - left.versionNumber || right.createdAt.localeCompare(left.createdAt)))
+    request.onerror = () => reject(request.error ?? new Error('Failed to load proposal artifacts'))
+  })
+}
+
+export async function saveProposalArtifact(proposal: VersionedProposalArtifact) {
+  await withStore<void>(versionedProposalStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(proposal)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save proposal artifact'))
+  })
+}
+
 export async function createDraftFromNode(input: { workspaceId: string; baseNodeId: string; name?: string }) {
   const node = await getNode(input.baseNodeId)
   if (!node) throw new Error('Base node not found')
@@ -179,6 +268,9 @@ export async function createDraftFromNode(input: { workspaceId: string; baseNode
     portfolioSnapshot: clonePortfolioSnapshot(node.portfolioSnapshot),
   }
   await saveDraft(draft)
+  await deleteCandidateImprovementDraft(draft.id)
+  await deleteReplacementIntentDraft(draft.id)
+  await deleteHypotheticalReplacementReplayDraft(draft.id)
   return draft
 }
 
@@ -329,11 +421,15 @@ export async function saveImportedSnapshotNode(input: {
 }
 
 export async function clearPortfolioWorkspaceState() {
-  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName], 'readwrite', (transaction, resolve, reject) => {
+  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, replacementIntentDraftStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName], 'readwrite', (transaction, resolve, reject) => {
     transaction.objectStore(workspaceStoreName).clear()
     transaction.objectStore(portfolioNodeStoreName).clear()
     transaction.objectStore(workingDraftStoreName).clear()
     transaction.objectStore(workspaceStateStoreName).clear()
+    transaction.objectStore(candidateImprovementDraftStoreName).clear()
+    transaction.objectStore(replacementIntentDraftStoreName).clear()
+    transaction.objectStore(hypotheticalReplacementReplayDraftStoreName).clear()
+    transaction.objectStore(versionedProposalStoreName).clear()
     const request = transaction.objectStore(appStateStoreName).delete(activeWorkspacePointerKey)
     request.onsuccess = () => resolve(undefined)
     request.onerror = () => reject(request.error ?? new Error('Failed to clear workspace state'))

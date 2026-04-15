@@ -1,5 +1,4 @@
-import type { ImportedStatementImporter } from './types'
-import type { ImportedSnapshot } from './types'
+import type { HypotheticalReplacementReplayResponse, ImportedStatementImporter, ImportedSnapshot } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -112,6 +111,91 @@ export type WorkingDraft = {
   name: string
   status: 'clean' | 'dirty'
   portfolioSnapshot: PortfolioSnapshot
+}
+
+export type CandidateImprovementSeed = {
+  kind: 'etf_replacement_candidate'
+  source: 'etf_ranking'
+  seededAt: string
+  baseSymbol: string
+  candidateSymbol: string
+  candidateRank: number
+  peerGroup: string | null
+  benchmarkSymbol: string
+  lookbackMonths: number
+  rankingId: string
+  methodologyId: string
+  rankingBasisDate: string
+  confidence: 'high' | 'medium' | 'low'
+  holdingsSupport: 'sample' | 'mixed' | 'unavailable'
+  requestUniverse: string[]
+  evaluatedUniverse: string[]
+  warningCount: number
+  excludedSymbolsCount: number
+}
+
+export type CandidateImprovementDraftArtifact = {
+  workspaceId: PortfolioWorkspaceId
+  draftId: PortfolioDraftId
+  baseNodeId: PortfolioNodeId
+  seed: CandidateImprovementSeed
+}
+
+export type ReplacementIntentDraftArtifact = {
+  kind: 'etf_replacement_intent'
+  source: 'candidate_seed'
+  createdAt: string
+  draftId: PortfolioDraftId
+  workspaceId: PortfolioWorkspaceId
+  baseNodeId: PortfolioNodeId
+  baseSymbol: string
+  candidateSymbol: string
+  seededFromDraftId: PortfolioDraftId
+  seedRankingId: string
+  seedMethodologyId: string
+  seedRankingBasisDate: string
+  peerGroup: string | null
+  benchmarkSymbol: string
+  lookbackMonths: number
+  confidence: 'high' | 'medium' | 'low'
+  holdingsSupport: 'sample' | 'mixed' | 'unavailable'
+  warningCount: number
+}
+
+export type HypotheticalReplacementReplayDraftArtifact = {
+  workspaceId: PortfolioWorkspaceId
+  draftId: PortfolioDraftId
+  baseNodeId: PortfolioNodeId
+  replacementIntentCreatedAt: string
+  replacementIntentBaseSymbol: string
+  replacementIntentCandidateSymbol: string
+  replay: HypotheticalReplacementReplayResponse
+}
+
+export type VersionedProposalArtifact = {
+  id: string
+  kind: 'single_replacement_hypothetical_replay_proposal'
+  schemaVersion: 1
+  createdAt: string
+  workspaceId: PortfolioWorkspaceId
+  sourceDraftId: PortfolioDraftId
+  sourceBaseNodeId: PortfolioNodeId
+  proposalFamilyId: string
+  versionNumber: number
+  savedFrom: 'desktop_hypothetical_replay_review'
+  reviewStatus: 'recorded'
+  sourceIntent: ReplacementIntentDraftArtifact
+  replayBasis: {
+    benchmarkSymbol: string
+    startDate: string
+    endDate: string
+    rebalanceFrequency: string
+    commissionBps: number
+    slippageBps: number
+    derivationBasis: HypotheticalReplacementReplayResponse['derivation']['baseline_basis']
+    candidateConstructionRule: HypotheticalReplacementReplayResponse['derivation']['candidate_construction_rule']
+  }
+  reviewSnapshot: HypotheticalReplacementReplayResponse
 }
 
 export type WorkspaceState = {

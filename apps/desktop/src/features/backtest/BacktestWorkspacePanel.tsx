@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 
 import { PortfolioAllocationBacktestPanel } from './PortfolioAllocationBacktestPanel'
-import type { BacktestRunResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView } from '../portfolio/types'
+import type { BacktestRunResponse, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView } from '../portfolio/types'
+import type { PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 type Props = {
   backtestResult: BacktestRunResponse | null
@@ -9,6 +10,12 @@ type Props = {
   allocationBacktestResult: PortfolioAllocationBacktestResponse | null
   onAllocationBacktestResult: (result: PortfolioAllocationBacktestResponse) => void
   analysis: PortfolioBaselineView | null
+  draftSnapshot: PortfolioSnapshot | null
+  replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
+  savedProposals: VersionedProposalArtifact[]
+  onSaveProposal: () => void | Promise<void>
+  onHypotheticalReplayResult: (result: HypotheticalReplacementReplayResponse) => void
 }
 
 function parseUniverse(value: string) {
@@ -18,7 +25,7 @@ function parseUniverse(value: string) {
     .filter(Boolean)
 }
 
-export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, allocationBacktestResult, onAllocationBacktestResult, analysis }: Props) {
+export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, replacementIntentDraft, hypotheticalReplayResult, savedProposals, onSaveProposal, onHypotheticalReplayResult }: Props) {
   const apiBase = useMemo(() => '/api', [])
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
   const [strategyId, setStrategyId] = useState('book_trend_breakout')
@@ -100,7 +107,7 @@ export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, alloc
       <h2>Portfolio improvement and strategy backtests</h2>
       <p className="lead compact-lead">Current portfolio vs candidate portfolio is the primary workflow; strategy backtests remain secondary.</p>
 
-      <PortfolioAllocationBacktestPanel result={allocationBacktestResult} onResult={onAllocationBacktestResult} analysis={analysis} />
+      <PortfolioAllocationBacktestPanel result={allocationBacktestResult} onResult={onAllocationBacktestResult} analysis={analysis} draftSnapshot={draftSnapshot} replacementIntentDraft={replacementIntentDraft} hypotheticalReplayResult={hypotheticalReplayResult} savedProposals={savedProposals} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={onHypotheticalReplayResult} />
 
       <div className="backtest-builder">
         <p className="panel-label">Strategy Backtest</p>

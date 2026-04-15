@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.imports import StatementImporter
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.schemas.research import AllocationRebalanceFrequency, BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, StrategyDefinition
 
@@ -102,10 +103,92 @@ class PortfolioWeightInput(BaseModel):
     target_weight: float
 
 
+class DraftPortfolioImportedMetaInput(BaseModel):
+    importer: StatementImporter | None = None
+    statement_period: str | None = None
+    imported_at: datetime | None = None
+    source_file_names: list[str] = Field(default_factory=list)
+
+
+class DraftPortfolioPositionInput(BaseModel):
+    symbol: str
+    market_value: float
+    quantity: float | None = None
+    currency: str | None = None
+    sector: str | None = None
+    name: str | None = None
+    source_type: Literal["equity", "etf", "cash_equivalent", "other"] | None = None
+
+
+class DraftPortfolioCashBalanceInput(BaseModel):
+    currency: str
+    amount: float
+
+
+class DraftPortfolioSnapshotInput(BaseModel):
+    snapshot_version: int = 1
+    base_currency: str | None = None
+    imported_meta: DraftPortfolioImportedMetaInput
+    positions: list[DraftPortfolioPositionInput] = Field(default_factory=list)
+    cash_balances: list[DraftPortfolioCashBalanceInput] = Field(default_factory=list)
+
+
+class ReplacementIntentReplayInput(BaseModel):
+    kind: Literal["etf_replacement_intent"]
+    source: Literal["candidate_seed"]
+    created_at: datetime | None = None
+    draft_id: str
+    workspace_id: str
+    base_node_id: str
+    base_symbol: str
+    candidate_symbol: str
+    seeded_from_draft_id: str
+    seed_ranking_id: str
+    seed_methodology_id: str
+    seed_ranking_basis_date: str
+    peer_group: str | None = None
+    benchmark_symbol: str
+    lookback_months: int
+    confidence: Literal["high", "medium", "low"]
+    holdings_support: Literal["sample", "mixed", "unavailable"]
+    warning_count: int = 0
+
+
 class PortfolioAllocationBacktestRequest(BaseModel):
     portfolio_name: str | None = None
     weights: list[PortfolioWeightInput] = Field(default_factory=list)
     reference_weights: list[PortfolioWeightInput] | None = None
+    benchmark_symbol: str = "SPY"
+    start_date: date
+    end_date: date
+    initial_capital: float = 100_000.0
+    rebalance_frequency: AllocationRebalanceFrequency = "monthly"
+    base_currency: str = "USD"
+    commission_bps: float = 0.0
+    slippage_bps: float = 0.0
+    drift_tolerance_pct: float | None = None
+    price_basis: Literal["adjusted_close"] = "adjusted_close"
+    execution_price_field: Literal["close"] = "close"
+    execution_lag_days: int = 1
+    symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class HypotheticalReplayProposal(BaseModel):
+    source: Literal["draft_replacement_intent"]
+    incumbent_symbol: str
+    candidate_symbol: str
+    draft_id: str
+    base_node_id: str
+
+
+class HypotheticalReplayDerivation(BaseModel):
+    baseline_basis: Literal["draft_snapshot_positions_normalized"]
+    candidate_construction_rule: Literal["single_symbol_weight_substitution"]
+
+
+class HypotheticalReplacementReplayRequest(BaseModel):
+    snapshot: DraftPortfolioSnapshotInput
+    replacement_intent: ReplacementIntentReplayInput | None = None
     benchmark_symbol: str = "SPY"
     start_date: date
     end_date: date
@@ -253,12 +336,27 @@ class PortfolioDiagnosticsComparisonRow(BaseModel):
     delta_value: float | None = None
 
 
+class PortfolioDiagnosticsTopCallout(BaseModel):
+    key: str
+    label: str
+    baseline_value: float | None = None
+    candidate_value: float | None = None
+    delta_value: float | None = None
+    selection_rule: str
+    rationale: str
+
+
 class PortfolioImprovementComparison(BaseModel):
     factor_exposure_changes: list[PortfolioDiagnosticsComparisonRow] = Field(default_factory=list)
+    top_factor_exposure_change: PortfolioDiagnosticsTopCallout | None = None
     volatility_changes: list[PortfolioDiagnosticsComparisonRow] = Field(default_factory=list)
+    top_volatility_change: PortfolioDiagnosticsTopCallout | None = None
     risk_contribution_changes: list[PortfolioDiagnosticsComparisonRow] = Field(default_factory=list)
+    top_risk_contribution_change: PortfolioDiagnosticsTopCallout | None = None
     concentration_changes: list[PortfolioDiagnosticsComparisonRow] = Field(default_factory=list)
+    top_concentration_change: PortfolioDiagnosticsTopCallout | None = None
     stress_scenario_changes: list[PortfolioDiagnosticsComparisonRow] = Field(default_factory=list)
+    top_stress_scenario_change: PortfolioDiagnosticsTopCallout | None = None
 
 
 class PortfolioAllocationBacktestResponse(BaseModel):
@@ -269,3 +367,12 @@ class PortfolioAllocationBacktestResponse(BaseModel):
     reference_diagnostics: PortfolioDiagnosticsSnapshot | None = None
     candidate_diagnostics: PortfolioDiagnosticsSnapshot | None = None
     diagnostics_comparison: PortfolioImprovementComparison | None = None
+
+
+class HypotheticalReplacementReplayResponse(BaseModel):
+    proposal: HypotheticalReplayProposal
+    derivation: HypotheticalReplayDerivation
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    replay: PortfolioAllocationBacktestResponse
+    warnings: list[str] = Field(default_factory=list)

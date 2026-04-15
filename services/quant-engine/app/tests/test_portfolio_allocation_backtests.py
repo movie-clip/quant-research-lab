@@ -1,5 +1,8 @@
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, PortfolioWeightInput
-from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_synthetic_snapshot_from_weights
+from datetime import datetime
+
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput
+from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
+from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -8,6 +11,46 @@ from app.api.main import app
 def _history(*prices: float) -> list[dict]:
     dates = ["2024-01-02", "2024-01-31", "2024-02-01", "2024-06-03", "2024-12-31"]
     return [{"date": date, "price": price} for date, price in zip(dates[: len(prices)], prices, strict=False)]
+
+
+def _draft_snapshot(*positions: tuple[str, float]) -> DraftPortfolioSnapshotInput:
+    return DraftPortfolioSnapshotInput(
+        base_currency="USD",
+        imported_meta=DraftPortfolioImportedMetaInput(
+            importer="interactive_brokers",
+            statement_period="2025-01-01 - 2025-12-31",
+            imported_at=datetime(2026, 4, 10),
+            source_file_names=["IB2025.pdf"],
+        ),
+        positions=[
+            DraftPortfolioPositionInput(symbol=symbol, market_value=market_value, quantity=1.0, currency="USD", source_type="etf")
+            for symbol, market_value in positions
+        ],
+        cash_balances=[],
+    )
+
+
+def _replacement_intent(base_symbol: str = "VUAA", candidate_symbol: str = "IUFS") -> ReplacementIntentReplayInput:
+    return ReplacementIntentReplayInput(
+        kind="etf_replacement_intent",
+        source="candidate_seed",
+        created_at=datetime(2026, 4, 15, 0, 5, 0),
+        draft_id="draft-1",
+        workspace_id="workspace-1",
+        base_node_id="node-1",
+        base_symbol=base_symbol,
+        candidate_symbol=candidate_symbol,
+        seeded_from_draft_id="draft-1",
+        seed_ranking_id="etf_ranking_engine_v1",
+        seed_methodology_id="etf_ranking_methodology_v1",
+        seed_ranking_basis_date="2026-04-15",
+        peer_group="Sector UCITS ETF",
+        benchmark_symbol="SPY",
+        lookback_months=6,
+        confidence="medium",
+        holdings_support="mixed",
+        warning_count=1,
+    )
 
 
 def test_build_synthetic_snapshot_from_weights_returns_explicit_imported_snapshot() -> None:
@@ -108,6 +151,79 @@ def test_build_backtest_diagnostics_inputs_separates_replay_and_historical_input
     assert diagnostics_inputs.replay_daily_states[-1].total_portfolio_value == 110000
     assert diagnostics_inputs.benchmark_price_history[-1]["date"] == "2024-02-01"
     assert "QQQ" in diagnostics_inputs.factor_price_histories
+
+
+def test_build_snapshot_baseline_weights_uses_draft_snapshot_market_values_without_extra_normalization() -> None:
+    weights = _build_snapshot_baseline_weights(_draft_snapshot(("VUAA", 600.0), ("IB01", 400.0)))
+
+    assert weights == [
+        PortfolioWeightInput(symbol="VUAA", target_weight=0.6),
+        PortfolioWeightInput(symbol="IB01", target_weight=0.4),
+    ]
+
+
+def test_build_candidate_weights_from_replacement_intent_performs_exact_one_for_one_substitution() -> None:
+    baseline = [
+        PortfolioWeightInput(symbol="VUAA", target_weight=0.6),
+        PortfolioWeightInput(symbol="IB01", target_weight=0.4),
+    ]
+
+    candidate = _build_candidate_weights_from_replacement_intent(baseline, "VUAA", "IUFS")
+
+    assert candidate == [
+        PortfolioWeightInput(symbol="IB01", target_weight=0.4),
+        PortfolioWeightInput(symbol="IUFS", target_weight=0.6),
+    ]
+    assert sum(item.target_weight for item in candidate) == 1.0
+
+
+def test_build_diagnostics_comparison_adds_explicit_top_callouts() -> None:
+    baseline = PortfolioDiagnosticsSnapshot(
+        provenance=PortfolioDiagnosticsProvenance(snapshot_basis="synthetic_replay_snapshot", historical_basis="market_data_history", note="n"),
+        factor_snapshot=[SnapshotItem(key="market", label="Market", category="market", us_proxy="SPY", latest_loading=1.0, target_exposure=None, primary_mapping=None, alternative_mappings=[], ucits_examples=[], mapping_quality="high", description="broad market"), SnapshotItem(key="value", label="Value", category="style", us_proxy="IWD", latest_loading=0.1, target_exposure=None, primary_mapping=None, alternative_mappings=[], ucits_examples=[], mapping_quality="high", description="value")],
+        volatility_snapshot=VolatilitySnapshot(realized_vol_252d=10.0, downside_vol_252d=6.0, tracking_error_252d=3.0, max_drawdown_pct=-4.0),
+        risk_contribution=RiskContributionBreakdownPayload(methodology="m", window_days=60, observation_count=60, status="ok", factor_contributions=[FactorRiskContributionItem(key="market", label="Market", us_proxy="SPY", loading=1.0, factor_volatility=12.0, variance_contribution=0.01, risk_share=0.6)], factor_total_variance=0.01, specific_variance=0.005, total_variance=0.015, factor_risk_share_total=0.66, specific_risk_share=0.34, residual_volatility=5.0, position_contributions=[], concentration=RiskConcentrationSnapshot(top_1_factor_risk_share=0.6, top_3_factor_risk_share=0.6, top_1_position_risk_share=1.0, top_5_position_risk_share=1.0, factor_hhi=0.36, position_hhi=1.0)),
+        stress_scenarios=[StressScenarioResult(name="Broad Market Selloff", estimated_return_pct=-8.5, description="x"), StressScenarioResult(name="Rates Shock", estimated_return_pct=-2.0, description="x")],
+    )
+    candidate = PortfolioDiagnosticsSnapshot(
+        provenance=PortfolioDiagnosticsProvenance(snapshot_basis="synthetic_replay_snapshot", historical_basis="market_data_history", note="n"),
+        factor_snapshot=[SnapshotItem(key="market", label="Market", category="market", us_proxy="SPY", latest_loading=0.8, target_exposure=None, primary_mapping=None, alternative_mappings=[], ucits_examples=[], mapping_quality="high", description="broad market"), SnapshotItem(key="value", label="Value", category="style", us_proxy="IWD", latest_loading=0.4, target_exposure=None, primary_mapping=None, alternative_mappings=[], ucits_examples=[], mapping_quality="high", description="value")],
+        volatility_snapshot=VolatilitySnapshot(realized_vol_252d=9.0, downside_vol_252d=5.0, tracking_error_252d=4.0, max_drawdown_pct=-2.5),
+        risk_contribution=RiskContributionBreakdownPayload(methodology="m", window_days=60, observation_count=60, status="ok", factor_contributions=[FactorRiskContributionItem(key="market", label="Market", us_proxy="SPY", loading=0.8, factor_volatility=11.0, variance_contribution=0.008, risk_share=0.3), FactorRiskContributionItem(key="value", label="Value", us_proxy="IWD", loading=0.4, factor_volatility=9.0, variance_contribution=0.007, risk_share=0.55)], factor_total_variance=0.015, specific_variance=0.004, total_variance=0.019, factor_risk_share_total=0.8, specific_risk_share=0.2, residual_volatility=4.5, position_contributions=[], concentration=RiskConcentrationSnapshot(top_1_factor_risk_share=0.55, top_3_factor_risk_share=0.55, top_1_position_risk_share=0.7, top_5_position_risk_share=1.0, factor_hhi=0.2, position_hhi=0.58)),
+        stress_scenarios=[StressScenarioResult(name="Broad Market Selloff", estimated_return_pct=-6.0, description="x"), StressScenarioResult(name="Rates Shock", estimated_return_pct=-5.5, description="x")],
+    )
+
+    comparison = _build_diagnostics_comparison(baseline, candidate)
+
+    assert comparison.top_factor_exposure_change is not None
+    assert comparison.top_factor_exposure_change == PortfolioDiagnosticsTopCallout(key="value", label="Value", baseline_value=0.1, candidate_value=0.4, delta_value=0.3, selection_rule="largest_absolute_delta", rationale="Largest valid factor exposure delta in this group (candidate - baseline).")
+    assert comparison.top_volatility_change is not None
+    assert comparison.top_volatility_change.key == "max_drawdown"
+    assert comparison.top_volatility_change.selection_rule == "fixed_priority"
+    assert comparison.top_risk_contribution_change is not None
+    assert comparison.top_risk_contribution_change.key == "market"
+    assert comparison.top_concentration_change is not None
+    assert comparison.top_concentration_change.key == "factor_hhi"
+    assert comparison.top_stress_scenario_change is not None
+    assert comparison.top_stress_scenario_change.key == "rates_shock"
+
+
+def test_build_diagnostics_comparison_returns_null_top_callouts_when_groups_have_no_eligible_rows() -> None:
+    empty = PortfolioDiagnosticsSnapshot(
+        provenance=PortfolioDiagnosticsProvenance(snapshot_basis="synthetic_replay_snapshot", historical_basis="market_data_history", note="n"),
+        factor_snapshot=[SnapshotItem(key="market", label="Market", category="market", us_proxy="SPY", latest_loading=None, target_exposure=None, primary_mapping=None, alternative_mappings=[], ucits_examples=[], mapping_quality="high", description="broad market")],
+        volatility_snapshot=VolatilitySnapshot(realized_vol_252d=None, downside_vol_252d=None, tracking_error_252d=None, max_drawdown_pct=None),
+        risk_contribution=None,
+        stress_scenarios=[],
+    )
+
+    comparison = _build_diagnostics_comparison(empty, empty)
+
+    assert comparison.top_factor_exposure_change is None
+    assert comparison.top_volatility_change is None
+    assert comparison.top_risk_contribution_change is None
+    assert comparison.top_concentration_change is None
+    assert comparison.top_stress_scenario_change is None
 
 
 def test_portfolio_allocation_backtest_route_returns_reference_assumptions_and_metadata(mocker) -> None:
@@ -472,3 +588,337 @@ def test_portfolio_allocation_backtest_falls_back_to_slv_history_for_isln(mocker
     assert response.status_code == 200
     payload = response.json()
     assert payload["candidate_result"]["starting_weights"][0]["symbol"] == "ISLN"
+
+
+def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_wrapped_replay(mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "VUAA": _history(100.0, 102.0, 102.2, 103.1, 107.5),
+        "IUFS": _history(100.0, 103.0, 103.5, 105.0, 109.0),
+        "IB01": _history(100.0, 101.0, 101.3, 102.0, 103.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {
+                    "importer": "interactive_brokers",
+                    "statement_period": "2025-01-01 - 2025-12-31",
+                    "imported_at": "2026-04-10T00:00:00Z",
+                    "source_file_names": ["IB2025.pdf"],
+                },
+                "positions": [
+                    {"symbol": "VUAA", "market_value": 60000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                    {"symbol": "IB01", "market_value": 40000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                ],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "rebalance_frequency": "monthly",
+            "commission_bps": 2,
+            "slippage_bps": 3,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["proposal"] == {
+        "source": "draft_replacement_intent",
+        "incumbent_symbol": "VUAA",
+        "candidate_symbol": "IUFS",
+        "draft_id": "draft-1",
+        "base_node_id": "node-1",
+    }
+    assert payload["derivation"] == {
+        "baseline_basis": "draft_snapshot_positions_normalized",
+        "candidate_construction_rule": "single_symbol_weight_substitution",
+    }
+    assert payload["baseline_weights"] == [
+        {"symbol": "VUAA", "target_weight": 0.6},
+        {"symbol": "IB01", "target_weight": 0.4},
+    ]
+    assert payload["candidate_weights"] == [
+        {"symbol": "IB01", "target_weight": 0.4},
+        {"symbol": "IUFS", "target_weight": 0.6},
+    ]
+    assert payload["replay"]["reference_result"] is not None
+    assert payload["replay"]["candidate_result"]["portfolio_name"] == "Hypothetical Candidate"
+    assert payload["replay"]["candidate_result"]["commission_bps"] == 2
+    assert payload["replay"]["candidate_result"]["slippage_bps"] == 3
+    assert payload["replay"]["candidate_diagnostics"]["provenance"]["snapshot_basis"] == "synthetic_replay_snapshot"
+    assert payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"] is not None
+    assert payload["replay"]["diagnostics_comparison"]["top_volatility_change"] is not None
+    assert payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"]["selection_rule"] == "largest_absolute_delta"
+    assert "candidate - baseline" in payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"]["rationale"]
+
+
+def test_hypothetical_replacement_preview_route_rejects_missing_intent() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [{"symbol": "VUAA", "market_value": 100000, "quantity": 1, "currency": "USD", "source_type": "etf"}],
+                "cash_balances": [],
+            },
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "replacement_intent is required"}
+
+
+def test_hypothetical_replacement_preview_route_rejects_incumbent_not_found() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [{"symbol": "IB01", "market_value": 100000, "quantity": 1, "currency": "USD", "source_type": "etf"}],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "replacement intent incumbent not found in draft snapshot: VUAA"}
+
+
+def test_hypothetical_replacement_preview_route_rejects_zero_weight_incumbent() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [
+                    {"symbol": "VUAA", "market_value": 0, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                    {"symbol": "IB01", "market_value": 100000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                ],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "replacement intent incumbent not found in draft snapshot: VUAA"}
+
+
+def test_hypothetical_replacement_preview_route_rejects_same_symbol_candidate() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [{"symbol": "VUAA", "market_value": 100000, "quantity": 1, "currency": "USD", "source_type": "etf"}],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent(candidate_symbol="VUAA").model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "replacement intent candidate must differ from incumbent"}
+
+
+def test_hypothetical_replacement_preview_route_rejects_candidate_already_held() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [
+                    {"symbol": "VUAA", "market_value": 60000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                    {"symbol": "IUFS", "market_value": 40000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                ],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "replacement intent candidate is already held in draft snapshot: IUFS"}
+
+
+def test_hypothetical_replacement_preview_route_rejects_candidate_with_missing_history(mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "VUAA": _history(100.0, 102.0, 102.2, 103.1, 107.5),
+        "IB01": _history(100.0, 101.0, 101.3, 102.0, 103.0),
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [
+                    {"symbol": "VUAA", "market_value": 60000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                    {"symbol": "IB01", "market_value": 40000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                ],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "No historical prices found for symbol: IUFS"}
+
+
+def test_hypothetical_replacement_preview_route_rejects_insufficient_common_dates(mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "VUAA": [
+            {"date": "2024-01-02", "price": 50.0},
+            {"date": "2024-01-03", "price": 51.0},
+        ],
+        "IB01": [
+            {"date": "2024-01-02", "price": 90.0},
+            {"date": "2024-01-03", "price": 91.0},
+        ],
+        "IUFS": [
+            {"date": "2024-01-03", "price": 80.0},
+        ],
+        "QQQ": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "IWD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "IWM": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "XLF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "XLV": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "XLE": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "XLI": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "IEF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "TLT": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "LQD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+        "GLD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-03", "price": 101.0},
+        ],
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [
+                    {"symbol": "VUAA", "market_value": 60000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                    {"symbol": "IB01", "market_value": 40000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                ],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Not enough common dates across portfolio symbols and benchmark"}
