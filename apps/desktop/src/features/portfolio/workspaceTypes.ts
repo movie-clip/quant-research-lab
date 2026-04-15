@@ -38,20 +38,40 @@ export type PortfolioSnapshot = {
   }
 }
 
+export type ImportedHistoryContext = {
+  benchmarkSymbol: string
+  statementPeriod: string | null
+  importedAt: string | null
+  importer: ImportedStatementImporter | null
+  sourceFileNames: string[]
+  historyStartDate: string | null
+  historyEndDate: string | null
+}
+
+export type ImportedHistorySource =
+  | {
+      kind: 'imported_replay'
+      historyContext: ImportedHistoryContext | null
+      importedHistorySnapshot: ImportedSnapshot
+    }
+  | {
+      kind: 'history_context'
+      historyContext: ImportedHistoryContext
+      importedHistorySnapshot: null
+    }
+  | {
+      kind: 'none'
+      historyContext: null
+      importedHistorySnapshot: null
+    }
+
 export type ImportedNodeSource = {
   importedFileNames: string[]
   importedAt: string
   importer: ImportedStatementImporter | null
   baseCurrency: string | null
-  historyContext?: {
-    benchmarkSymbol: string
-    statementPeriod: string | null
-    importedAt: string | null
-    importer: ImportedStatementImporter | null
-    sourceFileNames: string[]
-    historyStartDate: string | null
-    historyEndDate: string | null
-  } | null
+  historySource?: ImportedHistorySource | null
+  historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
 }
 

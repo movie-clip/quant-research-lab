@@ -1,4 +1,4 @@
-import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, PortfolioBaselineAnalysis } from './types'
+import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, PortfolioBaselineView } from './types'
 import type { PortfolioSnapshot } from './workspaceTypes'
 import { DEFAULT_FACTOR_MODEL_METHODOLOGY } from './exposureFactorModel'
 
@@ -274,7 +274,7 @@ export function buildImportedDashboardView(analysis: ImportedDashboardSource): D
   }
 }
 
-export function buildPortfolioBaselineAnalysis(analysis: ImportedBaselineSource): PortfolioBaselineAnalysis {
+export function buildPortfolioBaselineView(analysis: ImportedBaselineSource): PortfolioBaselineView {
   return {
     snapshot: analysis.snapshot,
     overview: analysis.overview,

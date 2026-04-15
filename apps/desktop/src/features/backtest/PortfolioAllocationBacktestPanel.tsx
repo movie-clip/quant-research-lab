@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-import type { PortfolioAllocationBacktestResponse, PortfolioBaselineAnalysis, PortfolioDiagnosticsComparisonRow } from '../portfolio/types'
+import type { PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow } from '../portfolio/types'
 
 type AllocationWeightRow = {
   symbol: string
@@ -11,7 +11,7 @@ type AllocationWeightRow = {
 type Props = {
   result: PortfolioAllocationBacktestResponse | null
   onResult: (result: PortfolioAllocationBacktestResponse) => void
-  analysis: PortfolioBaselineAnalysis | null
+  analysis: PortfolioBaselineView | null
 }
 
 type ComparisonMetricRow = {
@@ -109,7 +109,7 @@ function normalizeRows(rows: AllocationWeightRow[]) {
   return parsed.map((row) => ({ symbol: row.symbol, target_weight: (row.target_weight / total).toFixed(4) }))
 }
 
-function deriveBaselineRows(analysis: PortfolioBaselineAnalysis | null): AllocationWeightRow[] {
+function deriveBaselineRows(analysis: PortfolioBaselineView | null): AllocationWeightRow[] {
   if (!analysis?.snapshot.positions?.length) return []
   const total = analysis.snapshot.positions.reduce((sum, position) => sum + position.market_value, 0)
   if (!total) return []

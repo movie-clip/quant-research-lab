@@ -731,7 +731,7 @@ export type DashboardHistoryEngineResponse = {
 
 export type DashboardAnalysis = ImportedDashboardSource
 
-export type PortfolioBaselineAnalysis = ImportedBaselineSource
+export type PortfolioBaselineView = ImportedBaselineSource
 
 export type ExposureAnalysis = ImportedExposureSource
 

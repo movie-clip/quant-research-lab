@@ -15,6 +15,31 @@ type LegacySessionRecord = {
 const legacySessionKey = 'portfolio-import-session'
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
+function buildPersistedHistorySource(input: {
+  historyContext?: ImportedNodeSource['historyContext']
+  importedHistorySnapshot?: ImportedSnapshot | null
+}): ImportedNodeSource['historySource'] {
+  if (input.importedHistorySnapshot) {
+    return {
+      kind: 'imported_replay',
+      historyContext: input.historyContext ?? null,
+      importedHistorySnapshot: input.importedHistorySnapshot,
+    }
+  }
+  if (input.historyContext) {
+    return {
+      kind: 'history_context',
+      historyContext: input.historyContext,
+      importedHistorySnapshot: null,
+    }
+  }
+  return {
+    kind: 'none',
+    historyContext: null,
+    importedHistorySnapshot: null,
+  }
+}
+
 function createId(prefix: string) {
   return `${prefix}_${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
 }
@@ -70,6 +95,10 @@ export async function createWorkspaceFromImport(input: {
       importedAt,
       importer: portfolioSnapshot.importedMeta.importer,
       baseCurrency: portfolioSnapshot.baseCurrency,
+      historySource: buildPersistedHistorySource({
+        historyContext: input.historyContext ?? null,
+        importedHistorySnapshot: input.importedHistorySnapshot ?? null,
+      }),
       historyContext: input.historyContext ?? null,
       importedHistorySnapshot: input.importedHistorySnapshot ?? null,
     },
@@ -297,6 +326,10 @@ export async function saveImportedSnapshotNode(input: {
     importedAt: input.portfolioSnapshot.importedMeta.importedAt,
     importer: input.portfolioSnapshot.importedMeta.importer,
     baseCurrency: input.portfolioSnapshot.baseCurrency,
+    historySource: buildPersistedHistorySource({
+      historyContext: input.historyContext ?? null,
+      importedHistorySnapshot: input.importedHistorySnapshot ?? null,
+    }),
     historyContext: input.historyContext ?? null,
     importedHistorySnapshot: input.importedHistorySnapshot ?? null,
   }

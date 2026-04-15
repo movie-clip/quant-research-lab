@@ -202,7 +202,7 @@ The desktop app has now made meaningful progress on the contract split:
 - `ExposurePanel` consumes a dedicated `ExposureAnalysis` contract derived from exposure and diagnostics engine outputs
 - `DiagnosticsPanel` consumes `DiagnosticsEngineResponse` directly and renders an unavailable state when historical sections require missing history context
 - `DashboardPanel` consumes `DashboardAnalysis` instead of a broad import-time analysis payload
-- backtest baseline seeding consumes `PortfolioBaselineAnalysis`
+- backtest baseline seeding consumes `PortfolioBaselineView`
 - import-upload flows are projected immediately into narrower imported contracts for dashboard, exposure, diagnostics, baseline, snapshot, and factor-model concerns
 - local workspace persistence keeps `PortfolioSnapshot` as truth while engine outputs remain derived runtime artifacts
 
@@ -439,7 +439,7 @@ Current desktop contracts in active use:
 - `DashboardAnalysis`
 - `ExposureAnalysis`
 - `DiagnosticsEngineResponse`
-- `PortfolioBaselineAnalysis`
+- `PortfolioBaselineView`
 - import-only source projections for dashboard, exposure, diagnostics, baseline, snapshot, and factor-model flows
 
 This is the intended direction. New frontend work should extend these narrow contracts rather than reintroducing broad upload-time analysis dependencies.

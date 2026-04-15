@@ -19,7 +19,7 @@ For each visible backtest value, we want a traceable chain:
 
 The portfolio-allocation backtest UI currently renders from two root inputs:
 
-1. `analysis: PortfolioBaselineAnalysis | null`
+1. `analysis: PortfolioBaselineView | null`
    - produced in `apps/desktop/src/app/App.tsx`
    - used only to seed baseline/current imported holdings in the workspace form
    - this is not the backtest result itself

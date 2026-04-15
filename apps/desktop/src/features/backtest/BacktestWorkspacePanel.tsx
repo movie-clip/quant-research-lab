@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 
 import { PortfolioAllocationBacktestPanel } from './PortfolioAllocationBacktestPanel'
-import type { BacktestRunResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineAnalysis } from '../portfolio/types'
+import type { BacktestRunResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView } from '../portfolio/types'
 
 type Props = {
   backtestResult: BacktestRunResponse | null
   onBacktestResult: (result: BacktestRunResponse) => void
   allocationBacktestResult: PortfolioAllocationBacktestResponse | null
   onAllocationBacktestResult: (result: PortfolioAllocationBacktestResponse) => void
-  analysis: PortfolioBaselineAnalysis | null
+  analysis: PortfolioBaselineView | null
 }
 
 function parseUniverse(value: string) {
