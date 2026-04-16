@@ -390,6 +390,58 @@ class HypotheticalReplacementReplayResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class OverlayStateInput(BaseModel):
+    overlay_id: Literal["benchmark_trend_overlay_v1"]
+    status: Literal["risk_on", "risk_reduced", "unconfirmed", "unavailable"]
+    as_of_month_end: str
+    benchmark_symbol: str
+    signal_basis: Literal["10_month_sma_month_end"]
+    confirmation_count: int
+    rule_version: str
+
+
+class OverlayApplicationSummary(BaseModel):
+    overlay_id: Literal["benchmark_trend_overlay_v1"]
+    overlay_status: Literal["risk_on", "risk_reduced"]
+    as_of_month_end: str
+    benchmark_symbol: str
+    risky_weight_scale: float
+    cash_residual_weight: float
+    applied_to_candidate_only: bool = True
+
+
+class OverlayAwareHypotheticalReplayRequest(BaseModel):
+    snapshot: DraftPortfolioSnapshotInput
+    replacement_intent: ReplacementIntentReplayInput | None = None
+    constructed_candidate: ConstructedCandidateReplayInput | None = None
+    overlay_state: OverlayStateInput | None = None
+    benchmark_symbol: str = "SPY"
+    start_date: date
+    end_date: date
+    initial_capital: float = 100_000.0
+    rebalance_frequency: AllocationRebalanceFrequency = "monthly"
+    base_currency: str = "USD"
+    commission_bps: float = 0.0
+    slippage_bps: float = 0.0
+    drift_tolerance_pct: float | None = None
+    price_basis: Literal["adjusted_close"] = "adjusted_close"
+    execution_price_field: Literal["close"] = "close"
+    execution_lag_days: int = 1
+    symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class OverlayAwareHypotheticalReplayResponse(BaseModel):
+    proposal: HypotheticalReplayProposal
+    derivation: HypotheticalReplayDerivation
+    overlay_application: OverlayApplicationSummary
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights_pre_overlay: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights_post_overlay: list[PortfolioWeightInput] = Field(default_factory=list)
+    base_replay: PortfolioAllocationBacktestResponse
+    overlay_replay: PortfolioAllocationBacktestResponse
+    warnings: list[str] = Field(default_factory=list)
+
+
 class CandidateFormationState(BaseModel):
     kind: Literal["single_replacement_candidate_formation"]
     status: Literal["ok", "rejected"]

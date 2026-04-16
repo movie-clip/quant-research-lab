@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-import type { CandidateConstructionRuleInput, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { CandidateConstructionRuleInput, HypotheticalReplayResponse, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 type AllocationWeightRow = {
@@ -22,11 +22,13 @@ type HypotheticalReplaySectionProps = {
   formedCandidateArtifact: FormedCandidateArtifact | null
   constructedCandidateArtifact: ConstructedCandidateArtifact | null
   selectedConstructionRuleId: SingleReplacementConstructionRuleId
-  hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
+  hypotheticalReplayResult: HypotheticalReplayResponse | null
   savedProposalCount: number
   onSaveProposal: () => void | Promise<void>
-  onHypotheticalReplayResult: (result: HypotheticalReplacementReplayResponse) => void
+  onHypotheticalReplayResult: (result: HypotheticalReplayResponse) => void
 }
+
+type ReplayBasisMode = 'standard' | 'overlay_aware'
 
 type ComparisonMetricRow = {
   key: string
@@ -139,6 +141,32 @@ function formatDateLabel(value: string | number | null | undefined) {
 
 function formatWeightPct(value: number | null | undefined) {
   return value == null ? 'n/a' : `${(value * 100).toFixed(2)}%`
+}
+
+function isOverlayAwareReplayResponse(value: HypotheticalReplayResponse | null | undefined): value is OverlayAwareHypotheticalReplayResponse {
+  return Boolean(value && 'overlay_replay' in value)
+}
+
+function activeReplayFromHypothetical(result: HypotheticalReplayResponse | null | undefined) {
+  if (!result) return null
+  return isOverlayAwareReplayResponse(result) ? result.overlay_replay : result.replay
+}
+
+function standardReplayFromHypothetical(result: HypotheticalReplayResponse | null | undefined) {
+  if (!result) return null
+  return isOverlayAwareReplayResponse(result) ? result.base_replay : result.replay
+}
+
+function defaultOverlayState(benchmarkSymbol: string): OverlayStateInput {
+  return {
+    overlay_id: 'benchmark_trend_overlay_v1',
+    status: 'risk_reduced',
+    as_of_month_end: '2024-12-31',
+    benchmark_symbol: benchmarkSymbol,
+    signal_basis: '10_month_sma_month_end',
+    confirmation_count: 2,
+    rule_version: 'v1',
+  }
 }
 
 function formatTooltipLabel(label: unknown) {
@@ -870,7 +898,8 @@ function StandardDiagnosticsComparisonSection({ activeReplay }: { activeReplay: 
 }
 
 export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedProposalArtifact }) {
-  const proposalReplay = proposal.reviewSnapshot.replay
+  const proposalReplay = activeReplayFromHypothetical(proposal.reviewSnapshot)
+  if (!proposalReplay) return null
   const proposalSummaryRows = buildSummaryRows(proposalReplay)
   const proposalDeltaCallouts = buildReplayDeltaCallouts(proposalSummaryRows)
   const proposalDiagnosticsSections = diagnosticsSectionConfigs(proposalReplay)
@@ -912,8 +941,9 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{proposal.replayBasis.benchmarkSymbol}</p></div>
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(proposal.replayBasis.startDate, proposal.replayBasis.endDate)}</p></div>
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{proposal.replayBasis.rebalanceFrequency}</p><p className="helper">{proposal.replayBasis.commissionBps} commission bps / {proposal.replayBasis.slippageBps} slippage bps</p></div>
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{proposalReplay.candidate_result.status}</p><p className="helper">Snapshot of the saved hypothetical current-vs-candidate replay results captured with the proposal.</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{proposalReplay?.candidate_result.status ?? 'n/a'}</p><p className="helper">Snapshot of the saved hypothetical current-vs-candidate replay results captured with the proposal.</p></div>
       </div>
+      {'overlay_application' in proposal.reviewSnapshot ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{proposal.reviewSnapshot.overlay_application.overlay_status}</p><p className="helper">As of {proposal.reviewSnapshot.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(proposal.reviewSnapshot.overlay_application.cash_residual_weight)}</p><p className="helper">Stored with the saved overlay-aware replay</p></div></div> : null}
       {proposalDeltaCallouts.length ? (
         <div className="dashboard-summary compact-summary-grid">
           {proposalDeltaCallouts.map((callout) => (
@@ -947,8 +977,8 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
   )
 }
 
-export function DiagnosticsChangeSection({ result, hypotheticalReplayResult }: { result: PortfolioAllocationBacktestResponse | null; hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null }) {
-  const activeReplay = hypotheticalReplayResult?.replay ?? result
+export function DiagnosticsChangeSection({ result, hypotheticalReplayResult }: { result: PortfolioAllocationBacktestResponse | null; hypotheticalReplayResult: HypotheticalReplayResponse | null }) {
+  const activeReplay = activeReplayFromHypothetical(hypotheticalReplayResult) ?? result
 
   if (!activeReplay) return null
   if (hypotheticalReplayResult) return <DiagnosticsDeltaReviewSection activeReplay={activeReplay} />
@@ -977,13 +1007,29 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
   const [commissionBps, setCommissionBps] = useState('0')
   const [slippageBps, setSlippageBps] = useState('0')
   const [driftTolerancePct, setDriftTolerancePct] = useState('')
+  const [replayBasisMode, setReplayBasisMode] = useState<ReplayBasisMode>('standard')
+  const [overlayStatus, setOverlayStatus] = useState<OverlayStateInput['status']>('risk_reduced')
+  const [overlayAsOfMonthEnd, setOverlayAsOfMonthEnd] = useState('2024-12-31')
+  const [overlayConfirmationCount, setOverlayConfirmationCount] = useState('2')
+  const [overlayRuleVersion, setOverlayRuleVersion] = useState('v1')
   const [hypotheticalLoading, setHypotheticalLoading] = useState(false)
   const [hypotheticalError, setHypotheticalError] = useState<string | null>(null)
   const [showHypotheticalReplayConfirmation, setShowHypotheticalReplayConfirmation] = useState(false)
   const hypotheticalPreflight = useMemo(() => buildHypotheticalReplayPreflight(replacementIntentDraft, constructedCandidateArtifact, selectedConstructionRuleId), [replacementIntentDraft, constructedCandidateArtifact, selectedConstructionRuleId])
-  const activeReplay = hypotheticalReplayResult?.replay ?? result
+  const activeReplay = activeReplayFromHypothetical(hypotheticalReplayResult) ?? result
+  const baselineReplay = standardReplayFromHypothetical(hypotheticalReplayResult)
   const summaryRows = buildSummaryRows(activeReplay)
   const replayDeltaCallouts = useMemo(() => buildReplayDeltaCallouts(summaryRows), [summaryRows])
+  const overlayState = useMemo<OverlayStateInput | null>(() => {
+    if (!replacementIntentDraft || replayBasisMode !== 'overlay_aware') return null
+    return {
+      ...defaultOverlayState(replacementIntentDraft.benchmarkSymbol),
+      status: overlayStatus,
+      as_of_month_end: overlayAsOfMonthEnd,
+      confirmation_count: Number(overlayConfirmationCount) || 0,
+      rule_version: overlayRuleVersion || 'v1',
+    }
+  }, [overlayAsOfMonthEnd, overlayConfirmationCount, overlayRuleVersion, overlayStatus, replayBasisMode, replacementIntentDraft])
 
   async function runHypotheticalReplayPreview() {
     if (!draftSnapshot || !replacementIntentDraft || !constructedCandidateArtifact) return
@@ -992,7 +1038,8 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
     setHypotheticalError(null)
 
     try {
-      const response = await fetch(`${apiBase}/backtests/portfolio-allocation/replacement-intent-preview`, {
+      const isOverlayAware = replayBasisMode === 'overlay_aware'
+      const response = await fetch(`${apiBase}${isOverlayAware ? '/backtests/portfolio-allocation/replacement-intent-overlay-preview' : '/backtests/portfolio-allocation/replacement-intent-preview'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1037,6 +1084,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
             warning_count: replacementIntentDraft.warningCount,
           },
           constructed_candidate: constructedCandidateArtifact.construction,
+          ...(isOverlayAware ? { overlay_state: overlayState } : {}),
           benchmark_symbol: replacementIntentDraft.benchmarkSymbol,
           start_date: startDate,
           end_date: endDate,
@@ -1055,7 +1103,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
         const payload = (await response.json()) as { detail?: string }
         throw new Error(payload.detail ?? 'Hypothetical replay preview failed')
       }
-      onHypotheticalReplayResult((await response.json()) as HypotheticalReplacementReplayResponse)
+      onHypotheticalReplayResult((await response.json()) as HypotheticalReplayResponse)
       setShowHypotheticalReplayConfirmation(false)
     } catch (caughtError) {
       setHypotheticalError(caughtError instanceof Error ? caughtError.message : 'Hypothetical replay preview failed')
@@ -1086,7 +1134,38 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
             <div className="summary-card">
               <p className="panel-label">Preview hypothetical current-vs-candidate replay</p>
               <p className="helper">This creates a draft-only replay from the explicit construction artifact. It does not apply the replacement, endorse it, or run broader construction logic.</p>
-              <div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Baseline</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Hypothetical Candidate</p><p className="summary-value">Single constructed candidate from one explicit rule</p></div><div className="summary-card"><p className="stat-label">Intent Source</p><p className="summary-value">Replacement intent with explicit construction output</p></div><div className="summary-card"><p className="stat-label">Replay Basis</p><p className="summary-value">Hypothetical current-vs-candidate comparison</p></div></div>
+              <div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Baseline</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Hypothetical Candidate</p><p className="summary-value">Single constructed candidate from one explicit rule</p></div><div className="summary-card"><p className="stat-label">Intent Source</p><p className="summary-value">Replacement intent with explicit construction output</p></div><div className="summary-card"><p className="stat-label">Replay Basis</p><p className="summary-value">{replayBasisMode === 'overlay_aware' ? 'Overlay-aware hypothetical replay' : 'Hypothetical current-vs-candidate comparison'}</p></div></div>
+              <div className="summary-card">
+                <p className="panel-label">Replay Basis Selection</p>
+                <p className="helper">Choose one explicit replay basis. Standard replay remains available as the fallback path.</p>
+                <div className="list-table">
+                  <label className="list-row list-row-wide">
+                    <span>Standard replay</span>
+                    <span>Current-vs-candidate hypothetical comparison without overlay scaling.</span>
+                    <span><input checked={replayBasisMode === 'standard'} name="replay-basis-mode" onChange={() => setReplayBasisMode('standard')} type="radio" /></span>
+                  </label>
+                  <label className="list-row list-row-wide">
+                    <span>Overlay-aware replay</span>
+                    <span>Uses the selected overlay review state for the hypothetical candidate only and carries cash residual explicitly.</span>
+                    <span><input checked={replayBasisMode === 'overlay_aware'} name="replay-basis-mode" onChange={() => setReplayBasisMode('overlay_aware')} type="radio" /></span>
+                  </label>
+                </div>
+              </div>
+              {replayBasisMode === 'overlay_aware' ? (
+                <div className="summary-card">
+                  <p className="panel-label">Overlay State</p>
+                  <p className="helper">Overlay-aware replay requires an explicit replayable overlay state. This remains hypothetical candidate framing only.</p>
+                  <div className="dashboard-summary compact-summary-grid">
+                    <div className="summary-card"><p className="stat-label">Overlay Id</p><p className="summary-value">benchmark_trend_overlay_v1</p></div>
+                    <div className="summary-card"><p className="stat-label">Signal Basis</p><p className="summary-value">10_month_sma_month_end</p></div>
+                    <div className="summary-card"><p className="stat-label">Candidate Framing</p><p className="summary-value">Overlay applies to candidate only</p></div>
+                    <div className="summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">Backend-derived from overlay state</p></div>
+                  </div>
+                  <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Overlay Status</span><select className="path-input" value={overlayStatus} onChange={(event) => setOverlayStatus(event.target.value as OverlayStateInput['status'])}><option value="risk_reduced">risk_reduced</option><option value="risk_on">risk_on</option><option value="unconfirmed">unconfirmed</option><option value="unavailable">unavailable</option></select><span className="helper">Unconfirmed or unavailable overlay states keep this replay hypothetical and may limit interpretation quality.</span></label><label className="field-group"><span className="field-label">As Of Month End</span><input className="path-input" type="date" value={overlayAsOfMonthEnd} onChange={(event) => setOverlayAsOfMonthEnd(event.target.value)} /></label></div>
+                  <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Confirmation Count</span><input className="path-input" inputMode="numeric" value={overlayConfirmationCount} onChange={(event) => setOverlayConfirmationCount(event.target.value)} /></label><label className="field-group"><span className="field-label">Rule Version</span><input className="path-input" value={overlayRuleVersion} onChange={(event) => setOverlayRuleVersion(event.target.value)} /></label></div>
+                  <p className="helper">Overlay-aware replay preserves standard hypothetical semantics. It does not imply execution, approval, or a standalone overlay workflow.</p>
+                </div>
+              ) : null}
               <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Start Date</span><input className="path-input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label className="field-group"><span className="field-label">End Date</span><input className="path-input" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label></div>
               <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Initial Capital</span><input className="path-input" inputMode="decimal" value={initialCapital} onChange={(event) => setInitialCapital(event.target.value)} /></label><label className="field-group"><span className="field-label">Rebalance Frequency</span><select className="path-input" value={rebalanceFrequency} onChange={(event) => setRebalanceFrequency(event.target.value as 'none' | 'monthly' | 'quarterly')}><option value="none">None</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option></select></label></div>
               <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Commission Bps</span><input className="path-input" inputMode="decimal" value={commissionBps} onChange={(event) => setCommissionBps(event.target.value)} /></label><label className="field-group"><span className="field-label">Slippage Bps</span><input className="path-input" inputMode="decimal" value={slippageBps} onChange={(event) => setSlippageBps(event.target.value)} /></label></div>
@@ -1098,12 +1177,14 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
           {hypotheticalReplayResult ? (
             <>
               <div className="summary-card"><p className="helper">Baseline: current portfolio basis</p><p className="helper">Candidate: hypothetical replacement-intent variant</p><p className="helper">Status: not applied to holdings</p></div>
-              <section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Decision Readout</p></div></div><p className="helper">Start here before reading the charts and tables. Confirm what this replay compares, what changed in the candidate, and what did not.</p><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Replay Type</p><p className="summary-value">Hypothetical current-vs-candidate</p></div><div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{hypotheticalReplayResult.proposal.incumbent_symbol} -&gt; {hypotheticalReplayResult.proposal.candidate_symbol}</p></div><div className="summary-card"><p className="stat-label">Baseline Basis</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Candidate Basis</p><p className="summary-value">Single replacement-intent variant</p></div></div><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">What Changed</p><p className="helper">The candidate replay changes one thing only: it replaces {hypotheticalReplayResult.proposal.incumbent_symbol} with {hypotheticalReplayResult.proposal.candidate_symbol} inside a hypothetical draft-only portfolio variant.</p></div><div className="summary-card"><p className="stat-label">What Did Not Change</p><p className="helper">No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.</p></div></div></section>
-              <div className="summary-card"><p className="panel-label">Replay Metadata</p><p className="helper">Source: {hypotheticalReplayResult.proposal.source} · Draft: {hypotheticalReplayResult.proposal.draft_id} · Base node: {hypotheticalReplayResult.proposal.base_node_id}</p><p className="helper">Derivation: {hypotheticalReplayResult.derivation.baseline_basis} · {hypotheticalReplayResult.derivation.candidate_construction_rule}</p><div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className="primary-button" type="button" onClick={() => void onSaveProposal()}>Save Proposal v{savedProposalCount + 1}</button><p className="helper">Create an immutable reviewed proposal artifact from this hypothetical replay. It remains separate from portfolio truth and does not apply any holdings change.</p></div></div>
+              <section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Decision Readout</p></div></div><p className="helper">Start here before reading the charts and tables. Confirm what this replay compares, what changed in the candidate, and what did not.</p><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Replay Type</p><p className="summary-value">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? 'Overlay-aware hypothetical replay' : 'Hypothetical current-vs-candidate'}</p></div><div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{hypotheticalReplayResult.proposal.incumbent_symbol} -&gt; {hypotheticalReplayResult.proposal.candidate_symbol}</p></div><div className="summary-card"><p className="stat-label">Baseline Basis</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Candidate Basis</p><p className="summary-value">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? 'Single replacement-intent variant with overlay-aware candidate scaling' : 'Single replacement-intent variant'}</p></div></div><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">What Changed</p><p className="helper">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? `The candidate replay first replaces ${hypotheticalReplayResult.proposal.incumbent_symbol} with ${hypotheticalReplayResult.proposal.candidate_symbol}, then applies the selected overlay state to the hypothetical candidate only.` : `The candidate replay changes one thing only: it replaces ${hypotheticalReplayResult.proposal.incumbent_symbol} with ${hypotheticalReplayResult.proposal.candidate_symbol} inside a hypothetical draft-only portfolio variant.`}</p></div><div className="summary-card"><p className="stat-label">What Did Not Change</p><p className="helper">No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.</p></div></div></section>
+              <div className="summary-card"><p className="panel-label">Replay Metadata</p><p className="helper">Source: {hypotheticalReplayResult.proposal.source} · Draft: {hypotheticalReplayResult.proposal.draft_id} · Base node: {hypotheticalReplayResult.proposal.base_node_id}</p><p className="helper">Derivation: {hypotheticalReplayResult.derivation.baseline_basis} · {hypotheticalReplayResult.derivation.candidate_construction_rule}</p>{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <p className="helper">Overlay basis: {hypotheticalReplayResult.overlay_application.overlay_id} · {hypotheticalReplayResult.overlay_application.overlay_status} · Cash residual {formatWeightPct(hypotheticalReplayResult.overlay_application.cash_residual_weight)}</p> : null}<div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className="primary-button" type="button" onClick={() => void onSaveProposal()}>Save Proposal v{savedProposalCount + 1}</button><p className="helper">Create an immutable reviewed proposal artifact from this hypothetical replay. It remains separate from portfolio truth and does not apply any holdings change.</p></div></div>
               <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{activeReplay?.candidate_result.status ?? 'n/a'}</p><p className="helper">Candidate replay status under the shared implementation window</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{activeReplay?.candidate_result.benchmark_symbol ?? 'n/a'}</p><p className="helper">Shared benchmark for baseline and candidate replay</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(activeReplay?.candidate_result.start_date, activeReplay?.candidate_result.end_date)}</p><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{activeReplay?.candidate_result.rebalance_frequency ?? 'n/a'}</p><p className="helper">{activeReplay ? `${activeReplay.candidate_result.commission_bps} commission bps / ${activeReplay.candidate_result.slippage_bps} slippage bps` : 'n/a'}</p></div></div>
+              {isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{hypotheticalReplayResult.overlay_application.overlay_status}</p><p className="helper">As of {hypotheticalReplayResult.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay Basis</p><p className="summary-value">{hypotheticalReplayResult.overlay_application.overlay_id}</p><p className="helper">Candidate-only application: {hypotheticalReplayResult.overlay_application.applied_to_candidate_only ? 'yes' : 'no'}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Risky Weight Scale</p><p className="summary-value">{formatWeightPct(hypotheticalReplayResult.overlay_application.risky_weight_scale)}</p><p className="helper">Backend-authored overlay scaling</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(hypotheticalReplayResult.overlay_application.cash_residual_weight)}</p><p className="helper">Residual held as hypothetical cash only</p></div></div> : null}
               <section className="dashboard-bottom-grid"><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Summary</p></div><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div>{summaryRows.length && replayDeltaCallouts.length ? <div className="dashboard-summary compact-summary-grid">{replayDeltaCallouts.map((callout) => <div className="summary-card" key={callout.key}><p className="stat-label">{callout.label}</p><p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p><p className="helper">{callout.rationale}</p></div>)}</div> : null}{summaryRows.length ? <ComparisonTable rows={summaryRows} /> : <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">Run with baseline comparison enabled to view before/after replay metrics.</p></div>}</section>
               {activeReplay ? <BacktestCurve result={activeReplay} /> : null}
-              <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.baseline_weights.map((row) => <div className="list-row" key={`baseline-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights.map((row) => <div className="list-row" key={`candidate-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section></div>
+              {isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.baseline_weights.map((row) => <div className="list-row" key={`baseline-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Pre-Overlay</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights_pre_overlay.map((row) => <div className="list-row" key={`candidate-pre-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section></div> : <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.baseline_weights.map((row) => <div className="list-row" key={`baseline-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights.map((row) => <div className="list-row" key={`candidate-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section></div>}
+              {isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <section className="dashboard-bottom-grid"><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Post-Overlay</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights_post_overlay.map((row) => <div className="list-row" key={`candidate-post-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section> : null}
               {hypotheticalReplayResult.warnings.length ? <div className="summary-card"><p className="panel-label">Warnings</p>{hypotheticalReplayResult.warnings.map((warning) => <p className="helper" key={warning}>{warning}</p>)}</div> : null}
               <p className="helper">Use this surface to review whether the explicit replacement intent produces a meaningfully different hypothetical path under a shared window. It does not recommend the change or prove it should be applied.</p>
             </>

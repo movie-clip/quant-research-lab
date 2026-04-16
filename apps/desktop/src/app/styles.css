@@ -754,6 +754,60 @@ select.path-input option {
   margin: 0;
 }
 
+.overlay-panel-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.overlay-summary-grid,
+.overlay-component-grid,
+.overlay-driver-grid,
+.overlay-meta-grid {
+  margin-top: 0;
+}
+
+.overlay-component-block {
+  display: grid;
+  gap: 12px;
+}
+
+.overlay-section-header {
+  margin-bottom: 0;
+}
+
+.overlay-component-card,
+.overlay-meta-card {
+  display: grid;
+  gap: 8px;
+}
+
+.overlay-history-card {
+  gap: 12px;
+}
+
+.monitoring-panel-shell,
+.monitoring-grid,
+.monitoring-callout-grid,
+.monitoring-detail-list {
+  display: grid;
+  gap: 14px;
+}
+
+.monitoring-grid {
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+}
+
+.monitoring-list-card,
+.monitoring-detail-card,
+.monitoring-context-card {
+  display: grid;
+  gap: 12px;
+}
+
+.monitoring-detail-item {
+  margin: 0;
+}
+
 .metric-card {
   position: relative;
   overflow: hidden;

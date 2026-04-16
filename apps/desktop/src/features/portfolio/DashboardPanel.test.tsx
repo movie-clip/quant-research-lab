@@ -172,7 +172,7 @@ describe('DashboardPanel', () => {
 
     expect(screen.queryByText('Ranked Review')).toBeNull()
     expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy()
-    expect(screen.getByText('Improvement-lane review has moved out of the generic dashboard into the dedicated workflow shell in `Backtest`.')).toBeTruthy()
+    expect(screen.getByText('Improvement-lane review has moved out of the generic dashboard into the dedicated workflow shell in `Research`.')).toBeTruthy()
     expect(screen.getAllByText('Seed present: VUAA -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Draft Capital Check').length).toBeGreaterThan(0)
   })

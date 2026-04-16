@@ -1306,6 +1306,11 @@ export type PortfolioAllocationBacktestResponse = {
   diagnostics_comparison: PortfolioImprovementComparison | null
 }
 
+export type HypotheticalReplayDerivation = {
+  baseline_basis: 'draft_snapshot_positions_normalized'
+  candidate_construction_rule: 'single_symbol_weight_substitution'
+}
+
 export type HypotheticalReplacementReplayResponse = {
   proposal: {
     source: 'draft_replacement_intent'
@@ -1314,15 +1319,46 @@ export type HypotheticalReplacementReplayResponse = {
     draft_id: string
     base_node_id: string
   }
-  derivation: {
-    baseline_basis: 'draft_snapshot_positions_normalized'
-    candidate_construction_rule: 'single_symbol_weight_substitution'
-  }
+  derivation: HypotheticalReplayDerivation
   baseline_weights: AllocationBacktestWeight[]
   candidate_weights: AllocationBacktestWeight[]
   replay: PortfolioAllocationBacktestResponse
   warnings: string[]
 }
+
+export type OverlayStateInput = {
+  overlay_id: 'benchmark_trend_overlay_v1'
+  status: 'risk_on' | 'risk_reduced' | 'unconfirmed' | 'unavailable'
+  as_of_month_end: string
+  benchmark_symbol: string
+  signal_basis: '10_month_sma_month_end'
+  confirmation_count: number
+  rule_version: string
+}
+
+export type OverlayApplicationSummary = {
+  overlay_id: 'benchmark_trend_overlay_v1'
+  overlay_status: 'risk_on' | 'risk_reduced'
+  as_of_month_end: string
+  benchmark_symbol: string
+  risky_weight_scale: number
+  cash_residual_weight: number
+  applied_to_candidate_only: boolean
+}
+
+export type OverlayAwareHypotheticalReplayResponse = {
+  proposal: HypotheticalReplacementReplayResponse['proposal']
+  derivation: HypotheticalReplayDerivation
+  overlay_application: OverlayApplicationSummary
+  baseline_weights: AllocationBacktestWeight[]
+  candidate_weights_pre_overlay: AllocationBacktestWeight[]
+  candidate_weights_post_overlay: AllocationBacktestWeight[]
+  base_replay: PortfolioAllocationBacktestResponse
+  overlay_replay: PortfolioAllocationBacktestResponse
+  warnings: string[]
+}
+
+export type HypotheticalReplayResponse = HypotheticalReplacementReplayResponse | OverlayAwareHypotheticalReplayResponse
 
 export type CandidateFormationState = {
   kind: 'single_replacement_candidate_formation'

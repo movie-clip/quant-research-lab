@@ -672,7 +672,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
         <section className="dashboard-bottom-grid">
           <div className="summary-card">
             <p className="panel-label">Portfolio Improvement Workspace</p>
-            <p className="helper">Improvement-lane review has moved out of the generic dashboard into the dedicated workflow shell in `Backtest`.</p>
+            <p className="helper">Improvement-lane review has moved out of the generic dashboard into the dedicated workflow shell in `Research`.</p>
             <p className="helper">Truth classes stay separated there: current portfolio truth, candidate idea metadata, hypothetical replay evidence, diagnostics change, and saved proposal artifacts.</p>
             {candidateImprovementDraft ? <p className="helper">Seed present: {candidateImprovementDraft.seed.baseSymbol} {'->'} {candidateImprovementDraft.seed.candidateSymbol}</p> : null}
             {replacementIntentDraft ? <p className="helper">Replacement intent present: {replacementIntentDraft.baseSymbol} {'->'} {replacementIntentDraft.candidateSymbol}</p> : null}

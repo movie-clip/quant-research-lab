@@ -256,8 +256,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('Workflow Readiness').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Section Status Guidance').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Workflow / Analysis Guide').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Workflow Readiness')).toBeNull()
+    expect(screen.queryByText('Section Status Guidance')).toBeNull()
 
     const currentMatches = screen.getAllByText('Current Portfolio')
     const candidateMatches = screen.getAllByText('Candidate Idea')
@@ -306,10 +307,10 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('Diagnostics Change').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Saved Proposal').length).toBeGreaterThan(0)
     expect(screen.getAllByText('No saved proposal artifact yet.').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Shell-owned workflow guidance. Use this strip to see what is ready now and which section needs attention next.').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Read the workflow top-to-bottom. Each section stays shell-owned and describes its current role in the improvement review.').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Ready Sections').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('blocked').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Shell-owned orientation for the current workspace state. Use it to see what is blocked, what is ready now, and where to review next.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Guide Status').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Jump to section').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
   })
 
   it('updates readiness guidance when replay and saved proposal state exist', () => {
@@ -336,8 +337,38 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('recorded').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Recorded').length).toBeGreaterThan(0)
     expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
+  })
+
+  it('jumps from the workflow guide to the requested section', () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Jump to section' })[0] as HTMLButtonElement)
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
   })
 
   it('renders explicit candidate formation state between candidate idea and replay', () => {

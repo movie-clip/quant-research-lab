@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
-import type { PortfolioBaselineView, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { CandidateImprovementDraftArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 
@@ -80,7 +80,8 @@ function getLatestProposal(proposals: VersionedProposalArtifact[]) {
 }
 
 function getActiveReplay(props: Props) {
-  return props.hypotheticalReplayResult?.replay ?? props.allocationBacktestResult
+  if (!props.hypotheticalReplayResult) return props.allocationBacktestResult
+  return 'replay' in props.hypotheticalReplayResult ? props.hypotheticalReplayResult.replay : props.hypotheticalReplayResult.overlay_replay
 }
 
 function getActiveCandidatePair(props: Props) {
@@ -291,29 +292,42 @@ type Props = {
   constructedCandidateArtifact: ConstructedCandidateArtifact | null
   selectedConstructionRuleId: SingleReplacementConstructionRuleId
   allocationBacktestResult: PortfolioAllocationBacktestResponse | null
-  hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
+  hypotheticalReplayResult: HypotheticalReplayResponse | null
   savedProposals: VersionedProposalArtifact[]
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
   onSaveProposal: () => void | Promise<void>
-  onHypotheticalReplayResult: (result: HypotheticalReplacementReplayResponse) => void
+  onHypotheticalReplayResult: (result: HypotheticalReplayResponse) => void
   onFormedCandidateArtifact: (result: SingleReplacementCandidateFormationResponse) => void
   onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
   onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
 }
 
+const WORKFLOW_SECTION_IDS = {
+  currentPortfolio: 'workflow-section-current-portfolio',
+  candidateIdea: 'workflow-section-candidate-idea',
+  candidateFormation: 'workflow-section-candidate-formation',
+  constructionRule: 'workflow-section-construction-rule',
+  hypotheticalReplay: 'workflow-section-hypothetical-replay',
+  diagnosticsChange: 'workflow-section-diagnostics-change',
+  savedProposal: 'workflow-section-saved-proposal',
+} as const
+
 type WorkflowSectionStatus = 'ready' | 'in_progress' | 'blocked' | 'recorded'
 
-type WorkflowStatusCard = {
+type WorkflowGuideItem = {
   key: string
   title: string
   status: WorkflowSectionStatus
-  detail: string
+  guidance: string
+  targetId: (typeof WORKFLOW_SECTION_IDS)[keyof typeof WORKFLOW_SECTION_IDS]
 }
 
 function workflowStatusLabel(status: WorkflowSectionStatus) {
-  if (status === 'in_progress') return 'in progress'
-  return status
+  if (status === 'in_progress') return 'In progress'
+  if (status === 'blocked') return 'Blocked'
+  if (status === 'recorded') return 'Recorded'
+  return 'Ready'
 }
 
 function workflowStatusTextClass(status: WorkflowSectionStatus) {
@@ -328,7 +342,7 @@ function workflowStatusCardClass(status: WorkflowSectionStatus) {
   return 'metric-card-neutral'
 }
 
-function buildWorkflowStatuses(props: Props): WorkflowStatusCard[] {
+function buildWorkflowGuideItems(props: Props): WorkflowGuideItem[] {
   const hasCurrentPortfolio = Boolean(props.analysis || props.draftSnapshot)
   const hasCandidateSeed = Boolean(props.candidateImprovementDraft || props.intentBoundSeededEtfReplacementRankingDraft)
   const hasReplacementIntent = Boolean(props.replacementIntentDraft)
@@ -376,7 +390,7 @@ function buildWorkflowStatuses(props: Props): WorkflowStatusCard[] {
       || props.constructedCandidateArtifact.constructionRuleId !== props.selectedConstructionRuleId
     ),
   )
-  const activeReplay = props.hypotheticalReplayResult?.replay ?? props.allocationBacktestResult
+  const activeReplay = getActiveReplay(props)
   const hasReplay = Boolean(activeReplay)
   const hasDiagnostics = Boolean(activeReplay?.diagnostics_comparison)
   const hasSavedProposal = props.savedProposals.length > 0
@@ -386,37 +400,40 @@ function buildWorkflowStatuses(props: Props): WorkflowStatusCard[] {
       key: 'current-portfolio',
       title: 'Current Portfolio',
       status: hasCurrentPortfolio ? 'ready' : 'blocked',
-      detail: hasCurrentPortfolio
+      guidance: hasCurrentPortfolio
         ? 'Portfolio basis is available for workflow review.'
         : 'Import or restore a portfolio basis before starting the workflow.',
+      targetId: WORKFLOW_SECTION_IDS.currentPortfolio,
     },
     {
       key: 'candidate-idea',
       title: 'Candidate Idea',
       status: hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked',
-      detail: hasReplacementIntent
+      guidance: hasReplacementIntent
         ? 'A replacement intent is attached and ready for replay.'
         : hasCandidateSeed
           ? 'A candidate seed exists; promote it into an explicit replacement intent next.'
           : 'No seeded candidate is attached yet; use ETF Ranking to choose one.',
+      targetId: WORKFLOW_SECTION_IDS.candidateIdea,
     },
     {
       key: 'candidate-formation',
       title: 'Candidate Formation',
       status: hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked',
-      detail: hasFormedCandidate
+      guidance: hasFormedCandidate
         ? 'A formed candidate artifact is available for review-only replay handoff.'
         : hasRejectedFormation
           ? 'Candidate formation rejected the active replacement intent.'
           : hasReplacementIntent
             ? 'The workflow can form a review-only candidate next.'
             : 'Create a replacement intent before candidate formation can run.',
+      targetId: WORKFLOW_SECTION_IDS.candidateFormation,
     },
     {
       key: 'construction-rule',
       title: 'Construction Rule',
-        status: hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked',
-        detail: hasConstructedCandidate
+      status: hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked',
+      guidance: hasConstructedCandidate
         ? `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`
         : hasRejectedConstruction
           ? 'Construction rule rejected the active replacement intent.'
@@ -425,61 +442,91 @@ function buildWorkflowStatuses(props: Props): WorkflowStatusCard[] {
           : hasFormedCandidate
             ? `The workflow can build review-only construction output next with ${props.selectedConstructionRuleId}.`
             : 'Form a valid candidate before the construction rule can run.',
+      targetId: WORKFLOW_SECTION_IDS.constructionRule,
     },
     {
       key: 'hypothetical-replay',
       title: 'Hypothetical Replay',
       status: props.hypotheticalReplayResult ? 'ready' : hasConstructedCandidate ? 'in_progress' : 'blocked',
-      detail: props.hypotheticalReplayResult
+      guidance: props.hypotheticalReplayResult
         ? 'A draft-only hypothetical replay is available for review.'
         : hasConstructedCandidate
           ? 'The workflow can run a hypothetical replay next from the construction artifact.'
           : 'Construct a valid review-only candidate before hypothetical replay can run.',
+      targetId: WORKFLOW_SECTION_IDS.hypotheticalReplay,
     },
     {
       key: 'diagnostics-change',
       title: 'Diagnostics Change',
       status: hasDiagnostics ? 'ready' : hasReplay ? 'in_progress' : 'blocked',
-      detail: hasDiagnostics
+      guidance: hasDiagnostics
         ? 'Diagnostics delta review is available from the active replay.'
         : hasReplay
           ? 'Replay exists, but diagnostics comparison is not available yet.'
           : 'Run a replay before diagnostics change can be reviewed.',
+      targetId: WORKFLOW_SECTION_IDS.diagnosticsChange,
     },
     {
       key: 'saved-proposal',
       title: 'Saved Proposal',
       status: hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked',
-      detail: hasSavedProposal
+      guidance: hasSavedProposal
         ? 'An immutable proposal artifact has been recorded for this workflow.'
         : props.hypotheticalReplayResult
           ? 'A replay review is available; save it to record a proposal artifact.'
           : 'No saved proposal exists yet; review a hypothetical replay first.',
+      targetId: WORKFLOW_SECTION_IDS.savedProposal,
     },
   ]
 }
 
-function WorkflowReadinessStrip({ statuses }: { statuses: WorkflowStatusCard[] }) {
-  const blockedCount = statuses.filter((status) => status.status === 'blocked').length
-  const readyCount = statuses.filter((status) => status.status === 'ready' || status.status === 'recorded').length
+function WorkflowAnalysisGuide({ items }: { items: WorkflowGuideItem[] }) {
+  const blockedCount = items.filter((item) => item.status === 'blocked').length
+  const readyCount = items.filter((item) => item.status === 'ready' || item.status === 'recorded').length
+
+  const jumpToSection = (targetId: string) => {
+    const target = document.getElementById(targetId)
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Workflow Readiness</p></div>
-        <p className="helper">Shell-owned workflow guidance. Use this strip to see what is ready now and which section needs attention next.</p>
+        <div><p className="panel-label">Workflow / Analysis Guide</p></div>
+        <p className="helper">Shell-owned orientation for the current workspace state. Use it to see what is blocked, what is ready now, and where to review next.</p>
       </div>
       <div className="dashboard-summary compact-summary-grid">
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card">
-          <p className="stat-label">Ready Sections</p>
-          <p className="summary-value">{readyCount}/{statuses.length}</p>
+          <p className="stat-label">Guide Status</p>
+          <p className="summary-value">{readyCount}/{items.length}</p>
           <p className="helper">Blocked sections: {blockedCount}</p>
         </div>
-        {statuses.map((status) => (
-          <div className={`summary-card metric-card backtest-summary-card ${workflowStatusCardClass(status.status)}`} key={status.key}>
-            <p className="stat-label">{status.title}</p>
-            <p className={`summary-value ${workflowStatusTextClass(status.status)}`}>{workflowStatusLabel(status.status)}</p>
-            <p className="helper">{status.detail}</p>
+        {items.map((item) => (
+          <div className={`summary-card metric-card backtest-summary-card ${workflowStatusCardClass(item.status)}`} key={item.key}>
+            <p className="stat-label">{item.title}</p>
+            <p className={`summary-value ${workflowStatusTextClass(item.status)}`}>{workflowStatusLabel(item.status)}</p>
+            <p className="helper">{item.guidance}</p>
+          </div>
+        ))}
+      </div>
+      <div className="list-table">
+        <div className="list-row list-row-wide">
+          <span>Section</span>
+          <span>Status</span>
+          <span>Guidance</span>
+          <span>Jump</span>
+        </div>
+        {items.map((item) => (
+          <div className="list-row list-row-wide" key={`guide-${item.key}`}>
+            <span>{item.title}</span>
+            <span className={workflowStatusTextClass(item.status)}>{workflowStatusLabel(item.status)}</span>
+            <span>{item.guidance}</span>
+            <span>
+              <button className="secondary-button" onClick={() => jumpToSection(item.targetId)} type="button">
+                Jump to section
+              </button>
+            </span>
           </div>
         ))}
       </div>
@@ -502,31 +549,6 @@ function PortfolioImprovementDecisionSummary({ props }: { props: Props }) {
             <p className="stat-label">{card.title}</p>
             <p className="summary-value">{card.value}</p>
             <p className="helper">{card.detail}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function SectionStatusGuidance({ statuses }: { statuses: WorkflowStatusCard[] }) {
-  return (
-    <section className="dashboard-bottom-grid">
-      <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Section Status Guidance</p></div>
-        <p className="helper">Read the workflow top-to-bottom. Each section stays shell-owned and describes its current role in the improvement review.</p>
-      </div>
-      <div className="list-table">
-        <div className="list-row list-row-wide">
-          <span>Section</span>
-          <span>Status</span>
-          <span>Guidance</span>
-        </div>
-        {statuses.map((status) => (
-          <div className="list-row list-row-wide" key={`guidance-${status.key}`}>
-            <span>{status.title}</span>
-            <span className={workflowStatusTextClass(status.status)}>{workflowStatusLabel(status.status)}</span>
-            <span>{status.detail}</span>
           </div>
         ))}
       </div>
@@ -740,57 +762,70 @@ function SavedProposalSection({ proposals }: { proposals: VersionedProposalArtif
 }
 
 export function PortfolioImprovementWorkspaceShell(props: Props) {
-  const workflowStatuses = buildWorkflowStatuses(props)
+  const workflowGuideItems = buildWorkflowGuideItems(props)
 
   return (
     <section className="workspace-section">
       <p className="panel-label">Portfolio Improvement Workspace</p>
+      <WorkflowAnalysisGuide items={workflowGuideItems} />
       <PortfolioImprovementDecisionSummary props={props} />
-      <WorkflowReadinessStrip statuses={workflowStatuses} />
-      <SectionStatusGuidance statuses={workflowStatuses} />
-      <CurrentPortfolioSection analysis={props.analysis} draftSnapshot={props.draftSnapshot} />
-      <CandidateIdeaSection
-        candidateImprovementDraft={props.candidateImprovementDraft}
-        intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
-        replacementIntentDraft={props.replacementIntentDraft}
-        onCreateReplacementIntent={props.onCreateReplacementIntent}
-        onClearReplacementIntent={props.onClearReplacementIntent}
-      />
-      <CandidateFormationSection
-        draftSnapshot={props.draftSnapshot}
-        replacementIntentDraft={props.replacementIntentDraft}
-        formedCandidateArtifact={props.formedCandidateArtifact}
-        onFormedCandidateArtifact={props.onFormedCandidateArtifact}
-      />
-      <ConstructionRuleSection
-        draftSnapshot={props.draftSnapshot}
-        replacementIntentDraft={props.replacementIntentDraft}
-        formedCandidateArtifact={props.formedCandidateArtifact}
-        constructedCandidateArtifact={props.constructedCandidateArtifact}
-        selectedConstructionRuleId={props.selectedConstructionRuleId}
-        onConstructedCandidateArtifact={props.onConstructedCandidateArtifact}
-        onSelectedConstructionRuleChange={props.onSelectedConstructionRuleChange}
-      />
-      <HypotheticalReplaySection
-        result={props.allocationBacktestResult}
-        draftSnapshot={props.draftSnapshot}
-        replacementIntentDraft={props.replacementIntentDraft}
-        formedCandidateArtifact={props.formedCandidateArtifact}
-        constructedCandidateArtifact={props.constructedCandidateArtifact}
-        selectedConstructionRuleId={props.selectedConstructionRuleId}
-        hypotheticalReplayResult={props.hypotheticalReplayResult}
-        savedProposalCount={props.savedProposals.length}
-        onSaveProposal={props.onSaveProposal}
-        onHypotheticalReplayResult={props.onHypotheticalReplayResult}
-      />
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header">
-          <div><p className="panel-label">Diagnostics Change</p></div>
-          <p className="helper">Truth class: replay-derived hypothetical diagnostics only. This section isolates the before/after diagnostics change view from replay and saved proposal review.</p>
-        </div>
-      </section>
-      <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
-      <SavedProposalSection proposals={props.savedProposals} />
+      <div id={WORKFLOW_SECTION_IDS.currentPortfolio}>
+        <CurrentPortfolioSection analysis={props.analysis} draftSnapshot={props.draftSnapshot} />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.candidateIdea}>
+        <CandidateIdeaSection
+          candidateImprovementDraft={props.candidateImprovementDraft}
+          intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
+          replacementIntentDraft={props.replacementIntentDraft}
+          onCreateReplacementIntent={props.onCreateReplacementIntent}
+          onClearReplacementIntent={props.onClearReplacementIntent}
+        />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.candidateFormation}>
+        <CandidateFormationSection
+          draftSnapshot={props.draftSnapshot}
+          replacementIntentDraft={props.replacementIntentDraft}
+          formedCandidateArtifact={props.formedCandidateArtifact}
+          onFormedCandidateArtifact={props.onFormedCandidateArtifact}
+        />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.constructionRule}>
+        <ConstructionRuleSection
+          draftSnapshot={props.draftSnapshot}
+          replacementIntentDraft={props.replacementIntentDraft}
+          formedCandidateArtifact={props.formedCandidateArtifact}
+          constructedCandidateArtifact={props.constructedCandidateArtifact}
+          selectedConstructionRuleId={props.selectedConstructionRuleId}
+          onConstructedCandidateArtifact={props.onConstructedCandidateArtifact}
+          onSelectedConstructionRuleChange={props.onSelectedConstructionRuleChange}
+        />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.hypotheticalReplay}>
+        <HypotheticalReplaySection
+          result={props.allocationBacktestResult}
+          draftSnapshot={props.draftSnapshot}
+          replacementIntentDraft={props.replacementIntentDraft}
+          formedCandidateArtifact={props.formedCandidateArtifact}
+          constructedCandidateArtifact={props.constructedCandidateArtifact}
+          selectedConstructionRuleId={props.selectedConstructionRuleId}
+          hypotheticalReplayResult={props.hypotheticalReplayResult}
+          savedProposalCount={props.savedProposals.length}
+          onSaveProposal={props.onSaveProposal}
+          onHypotheticalReplayResult={props.onHypotheticalReplayResult}
+        />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.diagnosticsChange}>
+        <section className="dashboard-bottom-grid">
+          <div className="section-header-inline sector-list-header">
+            <div><p className="panel-label">Diagnostics Change</p></div>
+            <p className="helper">Truth class: replay-derived hypothetical diagnostics only. This section isolates the before/after diagnostics change view from replay and saved proposal review.</p>
+          </div>
+        </section>
+        <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.savedProposal}>
+        <SavedProposalSection proposals={props.savedProposals} />
+      </div>
     </section>
   )
 }

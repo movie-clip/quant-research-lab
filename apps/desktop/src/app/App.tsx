@@ -11,13 +11,15 @@ import { DiagnosticsPanel } from '../features/portfolio/DiagnosticsPanel'
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { desktopFeatureFlags } from './featureFlags'
-import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
+import type { HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
 import type { CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
 import { clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getCandidateImprovementDraft, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveCandidateImprovementDraft, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 
 
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 const BacktestWorkspacePanel = lazy(async () => ({ default: (await import('../features/backtest/BacktestWorkspacePanel')).BacktestWorkspacePanel }))
+const StrategyBacktestPanel = lazy(async () => ({ default: (await import('../features/backtest/StrategyBacktestPanel')).StrategyBacktestPanel }))
 const StrategyLabPanel = lazy(async () => ({ default: (await import('../features/strategy-lab/StrategyLabPanel')).StrategyLabPanel }))
 const EtfRankingPanel = lazy(async () => ({ default: (await import('../features/strategy-lab/EtfRankingPanel')).EtfRankingPanel }))
 
@@ -189,7 +191,7 @@ async function loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(
 async function loadHypotheticalReplacementReplayForCurrentDraft(
   draft: WorkingDraft | null,
   replacementIntentDraft: ReplacementIntentDraftArtifact | null,
-  setHypotheticalReplacementReplay: (value: HypotheticalReplacementReplayResponse | null) => void,
+  setHypotheticalReplacementReplay: (value: HypotheticalReplayResponse | null) => void,
 ) {
   if (!draft || !replacementIntentDraft) {
     setHypotheticalReplacementReplay(null)
@@ -284,7 +286,7 @@ async function loadWorkspaceProposalArtifacts(workspace: PortfolioWorkspace | nu
 }
 
 export function App() {
-  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'backtest' | 'strategy_lab' | 'etf_ranking'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'research' | 'backtest' | 'strategy_lab' | 'etf_ranking'>('dashboard')
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null)
   const [baselineAnalysis, setBaselineAnalysis] = useState<PortfolioBaselineView | null>(null)
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
@@ -292,7 +294,7 @@ export function App() {
   const [exposureFactorModel, setExposureFactorModel] = useState<ExposureFactorModelResponse | null>(null)
   const [backtestRun, setBacktestRun] = useState<BacktestRunResponse | null>(null)
   const [allocationBacktestRun, setAllocationBacktestRun] = useState<PortfolioAllocationBacktestResponse | null>(null)
-  const [hypotheticalReplacementReplay, setHypotheticalReplacementReplay] = useState<HypotheticalReplacementReplayResponse | null>(null)
+  const [hypotheticalReplacementReplay, setHypotheticalReplacementReplay] = useState<HypotheticalReplayResponse | null>(null)
   const [importingPortfolio, setImportingPortfolio] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [loadedStatementFiles, setLoadedStatementFiles] = useState<File[]>([])
@@ -590,7 +592,7 @@ export function App() {
   }
 
   function handlePreviewHypotheticalReplay() {
-    setTab('backtest')
+    setTab('research')
   }
 
   async function handleSaveProposal() {
@@ -610,12 +612,12 @@ export function App() {
       reviewStatus: 'recorded',
       sourceIntent: replacementIntentDraft,
       replayBasis: {
-        benchmarkSymbol: hypotheticalReplacementReplay.replay.candidate_result.benchmark_symbol ?? replacementIntentDraft.benchmarkSymbol,
-        startDate: hypotheticalReplacementReplay.replay.candidate_result.start_date,
-        endDate: hypotheticalReplacementReplay.replay.candidate_result.end_date,
-        rebalanceFrequency: hypotheticalReplacementReplay.replay.candidate_result.rebalance_frequency,
-        commissionBps: hypotheticalReplacementReplay.replay.candidate_result.commission_bps,
-        slippageBps: hypotheticalReplacementReplay.replay.candidate_result.slippage_bps,
+        benchmarkSymbol: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.benchmark_symbol ?? replacementIntentDraft.benchmarkSymbol,
+        startDate: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.start_date,
+        endDate: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.end_date,
+        rebalanceFrequency: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.rebalance_frequency,
+        commissionBps: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.commission_bps,
+        slippageBps: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.slippage_bps,
         derivationBasis: hypotheticalReplacementReplay.derivation.baseline_basis,
         candidateConstructionRule: hypotheticalReplacementReplay.derivation.candidate_construction_rule,
       },
@@ -892,6 +894,7 @@ export function App() {
           <button className={`tab-button${tab === 'dashboard' ? ' active' : ''}`} onClick={() => setTab('dashboard')}>Dashboard</button>
           <button className={`tab-button${tab === 'exposure' ? ' active' : ''}`} onClick={() => setTab('exposure')}>Exposure</button>
           <button className={`tab-button${tab === 'diagnostics' ? ' active' : ''}`} onClick={() => setTab('diagnostics')}>Diagnostics</button>
+          <button className={`tab-button${tab === 'research' ? ' active' : ''}`} onClick={() => setTab('research')}>Research</button>
           <button className={`tab-button${tab === 'backtest' ? ' active' : ''}`} onClick={() => setTab('backtest')}>Backtest</button>
           <button className={`tab-button${tab === 'strategy_lab' ? ' active' : ''}`} onClick={() => setTab('strategy_lab')}>Strategy Lab</button>
           <button className={`tab-button${tab === 'etf_ranking' ? ' active' : ''}`} onClick={() => setTab('etf_ranking')}>ETF Ranking</button>
@@ -975,18 +978,17 @@ export function App() {
         </section>
       ) : null}
 
-      {tab === 'diagnostics' ? (
-        <section className="grid grid-single">
-          <DiagnosticsPanel result={diagnosticsAnalysis} />
-        </section>
-      ) : null}
+        {tab === 'diagnostics' ? (
+          <section className="grid grid-single">
+            <TrendRiskOverlaysPanel result={diagnosticsAnalysis} />
+            <DiagnosticsPanel result={diagnosticsAnalysis} />
+          </section>
+        ) : null}
 
-      {tab === 'backtest' ? (
+      {tab === 'research' ? (
         <section className="grid grid-single">
-          <Suspense fallback={<section className="panel"><p className="panel-label">Backtest</p><p className="helper">Loading strategy tools...</p></section>}>
+          <Suspense fallback={<section className="panel"><p className="panel-label">Research</p><p className="helper">Loading research workspace...</p></section>}>
             <BacktestWorkspacePanel
-              backtestResult={backtestRun}
-              onBacktestResult={setBacktestRun}
               allocationBacktestResult={allocationBacktestRun}
               onAllocationBacktestResult={setAllocationBacktestRun}
               analysis={baselineAnalysis}
@@ -1068,6 +1070,14 @@ export function App() {
                 void saveHypotheticalReplacementReplayDraft(artifact).catch(() => undefined)
               }}
             />
+          </Suspense>
+        </section>
+      ) : null}
+
+      {tab === 'backtest' ? (
+        <section className="grid grid-single">
+          <Suspense fallback={<section className="panel"><p className="panel-label">Backtest</p><p className="helper">Loading generic backtest workspace...</p></section>}>
+            <StrategyBacktestPanel backtestResult={backtestRun} onBacktestResult={setBacktestRun} />
           </Suspense>
         </section>
       ) : null}

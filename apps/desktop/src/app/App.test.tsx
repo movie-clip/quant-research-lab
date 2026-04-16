@@ -6,7 +6,7 @@ import { ff2026DashboardGolden, ff2026ImportedDashboardGoldenFixture } from '../
 import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from '../test/ib2026DashboardGolden'
 import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
-import type { HypotheticalReplacementReplayResponse, ImportedSnapshot, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
+import type { HypotheticalReplayResponse, ImportedSnapshot, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
@@ -253,7 +253,7 @@ function makeReplacementIntent(): ReplacementIntentDraftArtifact {
   return { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1 }
 }
 
-function makeHypotheticalReplay(): HypotheticalReplacementReplayResponse {
+function makeHypotheticalReplay(): HypotheticalReplayResponse {
   return {
     proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
     derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' },
@@ -337,6 +337,7 @@ function mockSavedVariantNode() {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('App', () => {
@@ -433,6 +434,24 @@ describe('App', () => {
     fireEvent.click(screen.getByText('ETF Ranking'))
 
     await waitFor(() => expect(screen.getByText('ETF ranking workspace')).toBeTruthy())
+  })
+
+  it('shows trend and risk overlays above diagnostics on the diagnostics tab', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Account overview')).toBeTruthy())
+
+    fireEvent.click(screen.getByText('Diagnostics'))
+
+    await waitFor(() => expect(screen.getAllByText('Overlay analysis').length).toBeGreaterThan(0))
+    expect(screen.getByText('Trend / Risk Overlays')).toBeTruthy()
+    expect(screen.getByText('Factor and risk diagnostics')).toBeTruthy()
   })
 
   it('refreshes dashboard allocation and cards after adding a statement snapshot', async () => {
@@ -629,8 +648,8 @@ describe('App', () => {
     expect(screen.getByText(`Start value: ${ib2026DashboardGolden.startValue}`)).toBeTruthy()
     expect(screen.getByText(ib2026DashboardGolden.timeWeightedReturn)).toBeTruthy()
     expect(screen.getByText(ib2026DashboardGolden.netContributions)).toBeTruthy()
-    expect(screen.getByText(ib2026DashboardGolden.drawdown)).toBeTruthy()
-    expect(screen.getByText(ib2026DashboardGolden.moneyWeightedReturn)).toBeTruthy()
+    expect(screen.getAllByText(ib2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(ib2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
     expect(screen.getByText('Technology')).toBeTruthy()
     fireEvent.click(screen.getByText('Technology'))
     expect(screen.getByDisplayValue('SXRV')).toBeTruthy()
@@ -681,7 +700,7 @@ describe('App', () => {
     expect(screen.getByText(`Start value: ${ff2026DashboardGolden.startValue}`)).toBeTruthy()
     expect(screen.getAllByText(ff2026DashboardGolden.timeWeightedReturn).length).toBeGreaterThan(0)
     expect(screen.getAllByText(ff2026DashboardGolden.netContributions).length).toBeGreaterThan(0)
-    expect(screen.getByText(ff2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(screen.getAllByText(ff2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
     expect(screen.getAllByText(ff2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
     fireEvent.click(screen.getAllByText('All')[0])
     expect(screen.getByText('Broad Market')).toBeTruthy()
@@ -735,13 +754,55 @@ describe('App', () => {
     fireEvent.change(input, { target: { files: [file2025] } })
 
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
 
-    await waitFor(() => expect(screen.getByText('Current Import')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
+    expect(screen.getByText('Current Import')).toBeTruthy()
     expect(screen.getAllByText('$50000.00').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
+  })
+
+  it('keeps generic strategy backtests in the dedicated Backtest tab', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        run_id: 'run-1:book_trend_breakout',
+        config: {
+          strategy: { strategy_id: 'book_trend_breakout', name: 'Book Trend Breakout', description: null, timeframe: 'daily', side: 'long_only', universe: ['ES', 'NQ', 'CL'], parameters: [], tags: [] },
+          benchmark_symbol: 'SPY',
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          initial_capital: 100000,
+          base_currency: 'USD',
+          slippage_bps: 0,
+          commission_per_contract: 0,
+          rebalance_frequency: 'monthly',
+          use_continuous_contracts: false,
+          continuous_series: null,
+        },
+        dataset_info: { ES: { symbol: 'ES', timeframe: 'daily', source: 'fmp', continuous: false, ready: true } },
+        trades: [],
+        positions: [],
+        equity_curve: [],
+        total_return_pct: 1,
+        annualized_return_pct: 1,
+        max_drawdown_pct: -1,
+        sharpe_ratio: 1,
+        overlay_preview: null,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Backtest'))
+
+    await waitFor(() => expect(screen.getByText('Generic strategy backtests')).toBeTruthy())
+    expect(screen.queryByText('Portfolio Improvement Workspace')).toBeNull()
+    expect(screen.queryByText('Monitoring')).toBeNull()
+
+    fireEvent.click(screen.getByText('Run Backtest'))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
   })
 
   it('seeds an ETF ranking candidate into draft review without mutating the portfolio snapshot', async () => {
@@ -803,7 +864,7 @@ describe('App', () => {
       candidateRank: 1,
       rankingId: 'etf_ranking_engine_v1',
     })
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getByText('Seeded Candidate Review')).toBeTruthy())
     expect(screen.getByText('Ranked Review')).toBeTruthy()
     expect(screen.getByText('Excluded Symbols')).toBeTruthy()
@@ -889,7 +950,7 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy())
     expect(screen.getByText('Seed present: AAPL -> IUFS')).toBeTruthy()
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getByText('Ranked Review')).toBeTruthy())
     expect(screen.getByText('Seeded Candidate Review')).toBeTruthy()
     expect(screen.getByText('Base: AAPL · Candidate: IUFS · Rank #1')).toBeTruthy()
@@ -964,7 +1025,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getAllByText('Promote to Replacement Intent').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByRole('button', { name: 'Promote to Replacement Intent' }))
     expect(screen.getByText('Create replacement intent')).toBeTruthy()
@@ -986,13 +1047,13 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
     expect(screen.getByText('Draft intent')).toBeTruthy()
     expect(screen.getByText('Truth class: draft intent only. This explicit user-chosen pair is the handoff into hypothetical replay; it does not change holdings.')).toBeTruthy()
   })
 
-  it('opens the backtest workspace from the replacement intent hypothetical replay action', async () => {
+  it('opens the research workspace from the replacement intent hypothetical replay action', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
@@ -1046,7 +1107,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Preview Hypothetical Replay' }).length).toBeGreaterThan(0))
     fireEvent.click(screen.getAllByRole('button', { name: 'Preview Hypothetical Replay' })[0])
     expect(screen.getAllByText('Hypothetical Replay').length).toBeGreaterThan(0)
@@ -1100,7 +1161,7 @@ describe('App', () => {
     fireEvent.click(screen.getByText('Create Draft'))
 
     await waitFor(() => expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Promote to Replacement Intent' }).length).toBeGreaterThan(0))
     fireEvent.click(screen.getByRole('button', { name: 'Promote to Replacement Intent' }))
     fireEvent.click(screen.getByText('Create Intent'))
@@ -1140,7 +1201,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
     expect(screen.getByText('Portfolio Improvement Decision Summary')).toBeTruthy()
     expect(screen.getAllByText('Candidate Formation').length).toBeGreaterThan(0)
@@ -1190,7 +1251,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
     await waitFor(() => expect(screen.getAllByText('Save Proposal v1').length).toBeGreaterThan(0))
     fireEvent.click(screen.getAllByText('Save Proposal v1')[0])
@@ -1235,7 +1296,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getAllByText('Construction Rule').length).toBeGreaterThan(0))
     expect(screen.getAllByText('candidate_formation_derived').length).toBeGreaterThan(0)
     expect(screen.getAllByText('candidate_construction_derived').length).toBeGreaterThan(0)
@@ -1265,7 +1326,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getAllByText('fixed_split_50_50_substitution_v2').length).toBeGreaterThan(0))
     expect(screen.getAllByText('Stale').length).toBeGreaterThan(0)
   })
@@ -1289,7 +1350,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getAllByText('Saved Proposal Review').length).toBeGreaterThan(0))
     expect(screen.getByText('Latest Saved Artifact')).toBeTruthy()
     expect(screen.getAllByText('Proposal Lineage').length).toBeGreaterThan(0)
@@ -1318,7 +1379,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByText('Backtest'))
+    fireEvent.click(screen.getByText('Research'))
     await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
     expect(screen.getAllByText('AAPL -> IUIT').length).toBeGreaterThan(0)
 
@@ -1825,8 +1886,8 @@ describe('App', () => {
     expect(screen.getByText(`Start value: ${ib2026DashboardGolden.startValue}`)).toBeTruthy()
     expect(screen.getByText(ib2026DashboardGolden.timeWeightedReturn)).toBeTruthy()
     expect(screen.getByText(ib2026DashboardGolden.netContributions)).toBeTruthy()
-    expect(screen.getByText(ib2026DashboardGolden.drawdown)).toBeTruthy()
-    expect(screen.getByText(ib2026DashboardGolden.moneyWeightedReturn)).toBeTruthy()
+    expect(screen.getAllByText(ib2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(ib2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
     expect(screen.getByText((content) => content.includes(ib2026DashboardGolden.statementPeriod))).toBeTruthy()
     fireEvent.click(screen.getByText('Technology'))
     expect(screen.getByDisplayValue('SXRV')).toBeTruthy()

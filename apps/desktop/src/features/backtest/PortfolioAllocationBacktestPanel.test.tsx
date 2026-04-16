@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
-import type { HypotheticalReplacementReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { HypotheticalReplayResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ConstructedCandidateArtifact, FormedCandidateArtifact, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 const mockAnalysis = {
@@ -65,13 +65,33 @@ const replacementIntent: ReplacementIntentDraftArtifact = {
   warningCount: 1,
 }
 
-const hypotheticalResponse: HypotheticalReplacementReplayResponse = {
+const hypotheticalResponse: HypotheticalReplayResponse = {
   proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
   derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' },
   baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
   candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
   replay: mockResponse,
   warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'],
+}
+
+const overlayAwareHypotheticalResponse: OverlayAwareHypotheticalReplayResponse = {
+  proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' },
+  overlay_application: { overlay_id: 'benchmark_trend_overlay_v1', overlay_status: 'risk_reduced', as_of_month_end: '2024-12-31', benchmark_symbol: 'SPY', risky_weight_scale: 0.35, cash_residual_weight: 0.65, applied_to_candidate_only: true },
+  baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
+  candidate_weights_pre_overlay: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
+  candidate_weights_post_overlay: [{ symbol: 'MSFT', target_weight: 0.14 }, { symbol: 'IUFS', target_weight: 0.21 }, { symbol: '__CASH__', target_weight: 0.65 }],
+  base_replay: mockResponse,
+  overlay_replay: {
+    ...mockResponse,
+    candidate_result: {
+      ...mockResponse.candidate_result,
+      portfolio_name: 'Hypothetical Candidate Overlay-Aware',
+      starting_weights: [{ symbol: 'MSFT', target_weight: 0.14 }, { symbol: 'IUFS', target_weight: 0.21 }, { symbol: '__CASH__', target_weight: 0.65 }],
+      ending_weights: [{ symbol: 'MSFT', target_weight: 0.14 }, { symbol: 'IUFS', target_weight: 0.21 }, { symbol: '__CASH__', target_weight: 0.65 }],
+    },
+  },
+  warnings: ['Overlay-aware replay keeps the cash residual as hypothetical residual cash only.'],
 }
 
 const formedCandidateResponse: SingleReplacementCandidateFormationResponse = {
@@ -277,6 +297,35 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(onHypotheticalReplayResult).toHaveBeenCalledWith(hypotheticalResponse)
   })
 
+  it('submits overlay-aware hypothetical replay payload to the dedicated endpoint', async () => {
+    const onHypotheticalReplayResult = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => overlayAwareHypotheticalResponse })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
+
+    fireEvent.click(screen.getByText('Preview Hypothetical Replay'))
+    fireEvent.click(screen.getByRole('radio', { name: /Overlay-aware replay/i }))
+    expect(screen.getByText('Overlay State')).toBeTruthy()
+    expect(screen.getByText('Cash Residual')).toBeTruthy()
+    fireEvent.click(screen.getByText('Run Preview'))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, request] = fetchMock.mock.calls[0]
+    const payload = JSON.parse(String(request.body))
+    expect(String(url)).toContain('/api/backtests/portfolio-allocation/replacement-intent-overlay-preview')
+    expect(payload.overlay_state).toMatchObject({
+      overlay_id: 'benchmark_trend_overlay_v1',
+      status: 'risk_reduced',
+      as_of_month_end: '2024-12-31',
+      benchmark_symbol: 'SPY',
+      signal_basis: '10_month_sma_month_end',
+      confirmation_count: 2,
+      rule_version: 'v1',
+    })
+    expect(onHypotheticalReplayResult).toHaveBeenCalledWith(overlayAwareHypotheticalResponse)
+  })
+
   it('blocks hypothetical replay preview when the intent candidate is already held in the draft basis', () => {
     render(<HypotheticalReplaySection result={null} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} formedCandidateArtifact={null} constructedCandidateArtifact={null} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
@@ -313,6 +362,18 @@ describe('PortfolioAllocationBacktestPanel', () => {
     fireEvent.click(screen.getByText('Save Proposal v2'))
     expect(onSaveProposal).toHaveBeenCalledTimes(1)
     expect(screen.getByText('Use this surface to review whether the explicit replacement intent produces a meaningfully different hypothetical path under a shared window. It does not recommend the change or prove it should be applied.')).toBeTruthy()
+  })
+
+  it('renders overlay-aware replay framing, overlay basis, and cash residual after preview', () => {
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={overlayAwareHypotheticalResponse} savedProposalCount={1} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+
+    expect(screen.getByText('Overlay-aware hypothetical replay')).toBeTruthy()
+    expect(screen.getByText('Single replacement-intent variant with overlay-aware candidate scaling')).toBeTruthy()
+    expect(screen.getByText('Overlay basis: benchmark_trend_overlay_v1 · risk_reduced · Cash residual 65.00%')).toBeTruthy()
+    expect(screen.getByText('Candidate Pre-Overlay')).toBeTruthy()
+    expect(screen.getByText('Candidate Post-Overlay')).toBeTruthy()
+    expect(screen.getByText('__CASH__')).toBeTruthy()
+    expect(screen.getByText('Residual held as hypothetical cash only')).toBeTruthy()
   })
 
   it('maps candidate formation status and rejection copy for review display', () => {

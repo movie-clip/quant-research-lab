@@ -922,3 +922,121 @@ def test_hypothetical_replacement_preview_route_rejects_insufficient_common_date
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Not enough common dates across portfolio symbols and benchmark"}
+
+
+def test_overlay_aware_hypothetical_replacement_preview_route_returns_base_and_overlay_replays(mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "VUAA": _history(100.0, 102.0, 102.2, 103.1, 107.5),
+        "IUFS": _history(100.0, 103.0, 103.5, 105.0, 109.0),
+        "IB01": _history(100.0, 101.0, 101.3, 102.0, 103.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-overlay-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {
+                    "importer": "interactive_brokers",
+                    "statement_period": "2025-01-01 - 2025-12-31",
+                    "imported_at": "2026-04-10T00:00:00Z",
+                    "source_file_names": ["IB2025.pdf"],
+                },
+                "positions": [
+                    {"symbol": "VUAA", "market_value": 60000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                    {"symbol": "IB01", "market_value": 40000, "quantity": 1, "currency": "USD", "source_type": "etf"},
+                ],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "overlay_state": {
+                "overlay_id": "benchmark_trend_overlay_v1",
+                "status": "risk_reduced",
+                "as_of_month_end": "2024-12-31",
+                "benchmark_symbol": "SPY",
+                "signal_basis": "10_month_sma_month_end",
+                "confirmation_count": 2,
+                "rule_version": "v1",
+            },
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "rebalance_frequency": "monthly",
+            "commission_bps": 2,
+            "slippage_bps": 3,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["overlay_application"] == {
+        "overlay_id": "benchmark_trend_overlay_v1",
+        "overlay_status": "risk_reduced",
+        "as_of_month_end": "2024-12-31",
+        "benchmark_symbol": "SPY",
+        "risky_weight_scale": 0.35,
+        "cash_residual_weight": 0.65,
+        "applied_to_candidate_only": True,
+    }
+    assert payload["candidate_weights_pre_overlay"] == [
+        {"symbol": "IB01", "target_weight": 0.4},
+        {"symbol": "IUFS", "target_weight": 0.6},
+    ]
+    assert payload["candidate_weights_post_overlay"] == [
+        {"symbol": "IB01", "target_weight": 0.14},
+        {"symbol": "IUFS", "target_weight": 0.21},
+        {"symbol": "__CASH__", "target_weight": 0.65},
+    ]
+    assert payload["base_replay"]["candidate_result"]["portfolio_name"] == "Hypothetical Candidate"
+    assert payload["overlay_replay"]["candidate_result"]["portfolio_name"] == "Hypothetical Candidate Overlay-Aware"
+    assert payload["overlay_replay"]["candidate_result"]["starting_weights"][-1]["symbol"] == "__CASH__"
+
+
+def test_overlay_aware_hypothetical_replacement_preview_route_rejects_unconfirmed_overlay() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-overlay-preview",
+        json={
+            "snapshot": {
+                "base_currency": "USD",
+                "imported_meta": {"importer": "interactive_brokers", "statement_period": "2025", "imported_at": "2026-04-10T00:00:00Z", "source_file_names": ["IB2025.pdf"]},
+                "positions": [{"symbol": "VUAA", "market_value": 100000, "quantity": 1, "currency": "USD", "source_type": "etf"}],
+                "cash_balances": [],
+            },
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "overlay_state": {
+                "overlay_id": "benchmark_trend_overlay_v1",
+                "status": "unconfirmed",
+                "as_of_month_end": "2024-12-31",
+                "benchmark_symbol": "SPY",
+                "signal_basis": "10_month_sma_month_end",
+                "confirmation_count": 1,
+                "rule_version": "v1",
+            },
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "overlay_state status unconfirmed is not replayable"}

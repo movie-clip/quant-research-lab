@@ -16,6 +16,9 @@ from app.schemas.backtest_engine import (
     DistributionPolicy,
     HypotheticalReplayDerivation,
     HypotheticalReplayProposal,
+    OverlayApplicationSummary,
+    OverlayAwareHypotheticalReplayRequest,
+    OverlayAwareHypotheticalReplayResponse,
     HypotheticalReplacementReplayRequest,
     HypotheticalReplacementReplayResponse,
     PortfolioDiagnosticsProvenance,
@@ -28,11 +31,13 @@ from app.schemas.backtest_engine import (
 )
 from app.services.candidate_construction import build_candidate_weights_from_replacement_intent as _shared_build_candidate_weights_from_replacement_intent
 from app.services.candidate_construction import build_snapshot_baseline_weights as _shared_build_snapshot_baseline_weights
+from app.services.candidate_construction import derive_single_replacement_construction
 from app.services.candidate_construction import derive_same_weight_substitution_construction
 from app.services.market_data import MarketDataService
 
 
 METHODOLOGY = "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions."
+CASH_SYMBOL = "__CASH__"
 
 
 @dataclass(frozen=True)
@@ -61,6 +66,7 @@ def build_portfolio_allocation_backtest_analysis(request: PortfolioAllocationBac
     benchmark_rows = histories.get(request.benchmark_symbol, [])
     if not benchmark_rows:
         raise ValueError(f"No historical prices found for benchmark: {request.benchmark_symbol}")
+    _inject_cash_history(histories, benchmark_rows, symbols)
 
     registry = InstrumentRegistry()
     engine = PortfolioAllocationBacktestEngine()
@@ -261,16 +267,118 @@ def build_hypothetical_replacement_replay_preview(request: HypotheticalReplaceme
     )
 
 
+def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypotheticalReplayRequest) -> OverlayAwareHypotheticalReplayResponse:
+    if request.replacement_intent is None:
+        raise ValueError("replacement_intent is required")
+    if request.overlay_state is None:
+        raise ValueError("overlay_state is required")
+    if request.overlay_state.overlay_id != "benchmark_trend_overlay_v1":
+        raise ValueError(f"unsupported overlay_id: {request.overlay_state.overlay_id}")
+    if request.overlay_state.benchmark_symbol != request.benchmark_symbol:
+        raise ValueError("overlay benchmark does not match replay benchmark")
+    if request.overlay_state.status == "unavailable":
+        raise ValueError("overlay_state status unavailable is not replayable")
+    if request.overlay_state.status == "unconfirmed":
+        raise ValueError("overlay_state status unconfirmed is not replayable")
+
+    base_request = HypotheticalReplacementReplayRequest(
+        snapshot=request.snapshot,
+        replacement_intent=request.replacement_intent,
+        constructed_candidate=request.constructed_candidate,
+        benchmark_symbol=request.benchmark_symbol,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        initial_capital=request.initial_capital,
+        rebalance_frequency=request.rebalance_frequency,
+        base_currency=request.base_currency,
+        commission_bps=request.commission_bps,
+        slippage_bps=request.slippage_bps,
+        drift_tolerance_pct=request.drift_tolerance_pct,
+        price_basis=request.price_basis,
+        execution_price_field=request.execution_price_field,
+        execution_lag_days=request.execution_lag_days,
+        symbol_overrides=request.symbol_overrides,
+    )
+    baseline_weights, candidate_weights_pre_overlay = _resolve_hypothetical_replay_weights(base_request)
+    candidate_weights_post_overlay, overlay_application = _apply_overlay_to_candidate_weights(candidate_weights_pre_overlay, request.overlay_state)
+
+    base_replay = build_portfolio_allocation_backtest_analysis(
+        PortfolioAllocationBacktestRequest(
+            portfolio_name="Hypothetical Candidate",
+            weights=candidate_weights_pre_overlay,
+            reference_weights=baseline_weights,
+            benchmark_symbol=request.benchmark_symbol,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            initial_capital=request.initial_capital,
+            rebalance_frequency=request.rebalance_frequency,
+            base_currency=request.base_currency,
+            commission_bps=request.commission_bps,
+            slippage_bps=request.slippage_bps,
+            drift_tolerance_pct=request.drift_tolerance_pct,
+            price_basis=request.price_basis,
+            execution_price_field=request.execution_price_field,
+            execution_lag_days=request.execution_lag_days,
+            symbol_overrides=request.symbol_overrides,
+        )
+    )
+    overlay_replay = build_portfolio_allocation_backtest_analysis(
+        PortfolioAllocationBacktestRequest(
+            portfolio_name="Hypothetical Candidate Overlay-Aware",
+            weights=candidate_weights_post_overlay,
+            reference_weights=baseline_weights,
+            benchmark_symbol=request.benchmark_symbol,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            initial_capital=request.initial_capital,
+            rebalance_frequency=request.rebalance_frequency,
+            base_currency=request.base_currency,
+            commission_bps=request.commission_bps,
+            slippage_bps=request.slippage_bps,
+            drift_tolerance_pct=request.drift_tolerance_pct,
+            price_basis=request.price_basis,
+            execution_price_field=request.execution_price_field,
+            execution_lag_days=request.execution_lag_days,
+            symbol_overrides=request.symbol_overrides,
+        )
+    )
+
+    return OverlayAwareHypotheticalReplayResponse(
+        proposal=HypotheticalReplayProposal(
+            source="draft_replacement_intent",
+            incumbent_symbol=request.replacement_intent.base_symbol,
+            candidate_symbol=request.replacement_intent.candidate_symbol,
+            draft_id=request.replacement_intent.draft_id,
+            base_node_id=request.replacement_intent.base_node_id,
+        ),
+        derivation=HypotheticalReplayDerivation(
+            baseline_basis="draft_snapshot_positions_normalized",
+            candidate_construction_rule="single_symbol_weight_substitution",
+        ),
+        overlay_application=overlay_application,
+        baseline_weights=baseline_weights,
+        candidate_weights_pre_overlay=candidate_weights_pre_overlay,
+        candidate_weights_post_overlay=candidate_weights_post_overlay,
+        base_replay=base_replay,
+        overlay_replay=overlay_replay,
+        warnings=_build_overlay_aware_hypothetical_replay_warnings(request.snapshot, overlay_application.cash_residual_weight),
+    )
+
+
 def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayRequest) -> tuple[list, list]:
     constructed_candidate = request.constructed_candidate
     if constructed_candidate is None:
+        if request.replacement_intent is None:
+            raise ValueError("replacement_intent is required")
         construction = derive_same_weight_substitution_construction(request.snapshot, request.replacement_intent)
         return construction.baseline_weights, construction.candidate_weights
 
     if constructed_candidate.construction.status != "ok":
         raise ValueError("constructed_candidate must be ok before hypothetical replay can run")
-    if constructed_candidate.construction.rule_id != "same_weight_substitution_v1":
+    if constructed_candidate.construction.rule_id not in {"same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"}:
         raise ValueError("constructed_candidate rule_id is unsupported")
+    if request.replacement_intent is None:
+        raise ValueError("replacement_intent is required")
     if constructed_candidate.proposal.incumbent_symbol != request.replacement_intent.base_symbol:
         raise ValueError("constructed_candidate incumbent does not match replacement_intent")
     if constructed_candidate.proposal.candidate_symbol != request.replacement_intent.candidate_symbol:
@@ -285,6 +393,53 @@ def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayR
     if not candidate_weights:
         raise ValueError("constructed_candidate candidate weights are required")
     return baseline_weights, candidate_weights
+
+
+def _apply_overlay_to_candidate_weights(candidate_weights: list, overlay_state) -> tuple[list, OverlayApplicationSummary]:
+    if overlay_state.status == "risk_on":
+        return candidate_weights, OverlayApplicationSummary(
+            overlay_id="benchmark_trend_overlay_v1",
+            overlay_status="risk_on",
+            as_of_month_end=overlay_state.as_of_month_end,
+            benchmark_symbol=overlay_state.benchmark_symbol,
+            risky_weight_scale=1.0,
+            cash_residual_weight=0.0,
+            applied_to_candidate_only=True,
+        )
+
+    scaled_weights = [type(item)(symbol=item.symbol, target_weight=round(item.target_weight * 0.35, 8)) for item in candidate_weights if item.symbol != CASH_SYMBOL]
+    scaled_total = sum(item.target_weight for item in scaled_weights)
+    cash_residual = round(1.0 - scaled_total, 8)
+    if cash_residual < 0 or cash_residual > 1:
+        raise ValueError("overlay cash residual is out of bounds")
+    if cash_residual > 0:
+        scaled_weights.append(type(candidate_weights[0])(symbol=CASH_SYMBOL, target_weight=cash_residual))
+    total_weight = sum(item.target_weight for item in scaled_weights)
+    if abs(total_weight - 1.0) > 0.000001:
+        raise ValueError("overlay-adjusted candidate weights must preserve a total weight of 1.0")
+    return scaled_weights, OverlayApplicationSummary(
+        overlay_id="benchmark_trend_overlay_v1",
+        overlay_status="risk_reduced",
+        as_of_month_end=overlay_state.as_of_month_end,
+        benchmark_symbol=overlay_state.benchmark_symbol,
+        risky_weight_scale=0.35,
+        cash_residual_weight=cash_residual,
+        applied_to_candidate_only=True,
+    )
+
+
+def _build_overlay_aware_hypothetical_replay_warnings(snapshot, cash_residual_weight: float) -> list[str]:
+    warnings = _build_hypothetical_replay_warnings(snapshot)
+    warnings.append("Overlay-aware replay applies the benchmark trend overlay to the hypothetical candidate only.")
+    if cash_residual_weight > 0:
+        warnings.append("Overlay risk reduction allocates residual candidate weight to a synthetic cash sleeve.")
+    return warnings
+
+
+def _inject_cash_history(histories: dict[str, list[dict]], benchmark_rows: list[dict], symbols: list[str]) -> None:
+    if CASH_SYMBOL not in symbols:
+        return
+    histories[CASH_SYMBOL] = [{"date": row["date"], "price": 1.0, "close": 1.0, "adjClose": 1.0} for row in benchmark_rows if row.get("date") is not None]
 
 
 def _compare_results(reference: AllocationBacktestResult, candidate: AllocationBacktestResult) -> AllocationBacktestComparison:
@@ -644,6 +799,17 @@ def _derive_status(
 def _instrument_metadata(symbols: list[str], registry: InstrumentRegistry) -> list[AllocationBacktestInstrumentMeta]:
     metadata: list[AllocationBacktestInstrumentMeta] = []
     for symbol in symbols:
+        if symbol == CASH_SYMBOL:
+            metadata.append(
+                AllocationBacktestInstrumentMeta(
+                    symbol=CASH_SYMBOL,
+                    trading_currency="USD",
+                    instrument_base_currency="USD",
+                    currency_hedged=None,
+                    distribution_policy="unknown",
+                )
+            )
+            continue
         instrument = registry.get_instrument(symbol)
         metadata.append(
             AllocationBacktestInstrumentMeta(
