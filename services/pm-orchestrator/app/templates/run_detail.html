@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="panel">
+  <h1>Run {{ run.id }}</h1>
+  <p><strong>Request:</strong> {{ run.user_input }}</p>
+</section>
+
+<section
+  id="run-status"
+  hx-get="/runs/{{ run.id }}/status"
+  hx-trigger="load, every 2s"
+  hx-swap="outerHTML"
+>
+  <div class="panel">
+    <p>Loading run status...</p>
+  </div>
+</section>
+{% endblock %}

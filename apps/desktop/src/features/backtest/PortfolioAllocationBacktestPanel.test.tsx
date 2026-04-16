@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { PortfolioAllocationBacktestPanel } from './PortfolioAllocationBacktestPanel'
+import { DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 import type { HypotheticalReplacementReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse } from '../portfolio/types'
 import type { ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
@@ -118,27 +118,21 @@ describe('PortfolioAllocationBacktestPanel', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders workspace sections and diagnostics comparison', () => {
-    render(<PortfolioAllocationBacktestPanel result={mockResponse} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+  it('keeps the panel focused on builder controls and excludes shell-owned review sections', () => {
+    render(<PortfolioAllocationBacktestPanel result={mockResponse} onResult={() => {}} analysis={mockAnalysis} />)
 
     expect(screen.getByText('Current Import')).toBeTruthy()
     expect(screen.getByText('Baseline Portfolio')).toBeTruthy()
     expect(screen.getByText('Candidate Portfolio Builder')).toBeTruthy()
-    expect(screen.getByText('Replay Summary')).toBeTruthy()
-    expect(screen.getAllByText('Total Turnover').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('+12.00%').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('candidate worsens this metric relative to baseline').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Total Return').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('+2.00%').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('candidate improves this metric relative to baseline').length).toBeGreaterThan(0)
-    expect(screen.getByText('Before / After Diagnostics')).toBeTruthy()
-    expect(screen.getAllByText('Most salient change in this group').length).toBeGreaterThan(0)
-    expect(screen.getByText('Largest valid factor exposure delta in this group (candidate - baseline).')).toBeTruthy()
-    expect(screen.getAllByText('Selection rule: largest absolute delta').length).toBeGreaterThan(0)
-    expect(screen.getByText(/Backtest diagnostics combine a synthetic replay snapshot with replay-derived daily states and external historical market data/)).toBeTruthy()
-    expect(screen.getByText('Factor Exposure Change')).toBeTruthy()
-    expect(screen.getByText('Stress / Scenario Change')).toBeTruthy()
-    expect(screen.getByText('Implementation Details')).toBeTruthy()
+    expect(screen.getByText('Replay Engine Status')).toBeTruthy()
+    expect(screen.getByText('The lower-level builder has a completed replay result available for shell-owned review surfaces.')).toBeTruthy()
+    expect(screen.getByText('Candidate Status')).toBeTruthy()
+    expect(screen.getByText('Comparison')).toBeTruthy()
+    expect(screen.queryByText('Hypothetical Replay')).toBeNull()
+    expect(screen.queryByText('Replay Summary')).toBeNull()
+    expect(screen.queryByText('Before / After Diagnostics')).toBeNull()
+    expect(screen.queryByText('Saved Proposal Review')).toBeNull()
+    expect(screen.queryByText('Implementation Details')).toBeNull()
   })
 
   it('uses current portfolio and submits improvement replay payload', async () => {
@@ -146,7 +140,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => mockResponse })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={onResult} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={onResult} analysis={mockAnalysis} />)
 
     fireEvent.click(screen.getByText('Use Current Portfolio'))
     fireEvent.click(screen.getByText('Copy Baseline to Candidate'))
@@ -163,7 +157,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('prefills baseline weights from imported portfolio holdings', () => {
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} />)
 
     expect(screen.getByDisplayValue('AAPL')).toBeTruthy()
     expect(screen.getByDisplayValue('0.6000')).toBeTruthy()
@@ -177,7 +171,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => hypotheticalResponse })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
 
     expect(screen.getByText('Hypothetical Replay')).toBeTruthy()
     expect(screen.getByText('Replay Preflight')).toBeTruthy()
@@ -185,7 +179,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText('AAPL is present in the draft basis at 60.00%.')).toBeTruthy()
     expect(screen.getByText('IUFS is not already held in the current draft basis.')).toBeTruthy()
     expect(screen.getByText('The backend still has to confirm candidate history coverage and sufficient common replay dates before a preview can succeed.')).toBeTruthy()
-    expect(screen.getByText('Review this as a draft-only comparison built from one explicit replacement intent. Read the basis first, then compare baseline and candidate results.')).toBeTruthy()
+    expect(screen.getByText('Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit replacement intent.')).toBeTruthy()
     expect(screen.getByText('No hypothetical replay has been run for this replacement intent yet.')).toBeTruthy()
     fireEvent.click(screen.getByText('Preview Hypothetical Replay'))
     expect(screen.getByText('Preview hypothetical current-vs-candidate replay')).toBeTruthy()
@@ -206,7 +200,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('blocks hypothetical replay preview when the intent candidate is already held in the draft basis', () => {
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposals={[]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     expect(screen.getByText('Blocked before preview')).toBeTruthy()
     expect(screen.getByText('IUFS is already held in the current draft basis, so the MVP replay must reject it.')).toBeTruthy()
@@ -215,7 +209,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
 
   it('renders hypothetical replay provenance and interpretation notes after a preview run', () => {
     const onSaveProposal = vi.fn()
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={hypotheticalResponse} savedProposals={[savedProposal]} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={hypotheticalResponse} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
 
     const readout = screen.getByText('Replay Decision Readout')
     const summary = screen.getAllByText('Replay Summary').find((element) => element.className === 'panel-label') as HTMLElement
@@ -237,33 +231,22 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText('What Did Not Change')).toBeTruthy()
     expect(screen.getByText('No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.')).toBeTruthy()
     expect(screen.getAllByText('Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.').length).toBeGreaterThan(0)
-    expect(screen.getByText('Hypothetical Replay Diagnostics Delta Review')).toBeTruthy()
-    expect(screen.getByText('Use this section to compare how the hypothetical replacement changes portfolio diagnostics under a shared replay basis. Read it as draft-only review support, not as approval, execution, or proof that the change should be made.')).toBeTruthy()
-    expect(screen.getByText('Candidate - baseline')).toBeTruthy()
-    expect(screen.getByText('Available with degradation. Interpret this comparison cautiously because one or both replay variants have limited diagnostics support.')).toBeTruthy()
-    expect(screen.getByText('Baseline diagnostics reflect the current portfolio basis. Candidate diagnostics reflect a hypothetical replacement-intent variant and have not been applied to holdings.')).toBeTruthy()
-    expect(screen.getAllByText('Concentration').length).toBeGreaterThan(0)
-    expect(screen.getByText('Review whether the hypothetical replacement changes how concentrated portfolio risk remains across positions or factors.')).toBeTruthy()
-    expect(screen.getAllByText('Most salient change in this group').length).toBeGreaterThan(0)
-    expect(screen.getByText('Selected by fixed priority order: factor HHI, then top 1 position risk share.')).toBeTruthy()
-    expect(screen.getAllByText('Selection rule: fixed priority rule').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Factor HHI').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Factor Exposure').length).toBeGreaterThan(0)
-    expect(screen.getByText('Review how the candidate variant shifts portfolio exposure relative to the current baseline. Read this as hypothetical exposure change, not a target allocation decision.')).toBeTruthy()
-    expect(screen.getAllByText('Volatility & Drawdown').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Risk Contribution').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Stress / Scenario').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Before / After Diagnostics')).toBeNull()
     expect(screen.getByText('Save Proposal v2')).toBeTruthy()
-    expect(screen.getByText('Latest Saved Proposal')).toBeTruthy()
-    expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByText('Save Proposal v2'))
     expect(onSaveProposal).toHaveBeenCalledTimes(1)
     expect(screen.getByText('Use this surface to review whether the explicit replacement intent produces a meaningfully different hypothetical path under a shared window. It does not recommend the change or prove it should be applied.')).toBeTruthy()
   })
 
+  it('renders diagnostics change as a separate reusable section', () => {
+    render(<DiagnosticsChangeSection result={null} hypotheticalReplayResult={hypotheticalResponse} />)
+
+    expect(screen.getByText('Hypothetical Replay Diagnostics Delta Review')).toBeTruthy()
+    expect(screen.getByText('Candidate - baseline')).toBeTruthy()
+    expect(screen.getByText('Available with degradation. Interpret this comparison cautiously because one or both replay variants have limited diagnostics support.')).toBeTruthy()
+  })
+
   it('renders saved proposal review from artifact data without relying on live draft state', () => {
-    render(<PortfolioAllocationBacktestPanel result={null} onResult={() => {}} analysis={mockAnalysis} draftSnapshot={null} replacementIntentDraft={null} hypotheticalReplayResult={null} savedProposals={[savedProposal]} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<SavedProposalReadoutSection proposal={savedProposal} />)
 
     expect(screen.getByText('Saved Proposal Review')).toBeTruthy()
     expect(screen.getByText('This is a saved proposal artifact, not live portfolio truth. It preserves prior hypothetical replay outputs and lineage exactly as reviewed when saved, even if the current draft or portfolio state has changed.')).toBeTruthy()

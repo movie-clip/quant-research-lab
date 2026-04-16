@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title if title else "PM Orchestrator" }}</title>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">PM Orchestrator</a>
+      <p class="subtitle">Persistent `/pm` root agent with reusable specialist sessions.</p>
+    </header>
+    <main class="page-shell">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

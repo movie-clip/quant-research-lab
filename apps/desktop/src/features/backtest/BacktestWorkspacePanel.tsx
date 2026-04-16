@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 
 import { PortfolioAllocationBacktestPanel } from './PortfolioAllocationBacktestPanel'
+import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
 import type { BacktestRunResponse, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView } from '../portfolio/types'
-import type { PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { CandidateImprovementDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 type Props = {
   backtestResult: BacktestRunResponse | null
@@ -11,11 +12,15 @@ type Props = {
   onAllocationBacktestResult: (result: PortfolioAllocationBacktestResponse) => void
   analysis: PortfolioBaselineView | null
   draftSnapshot: PortfolioSnapshot | null
+  candidateImprovementDraft: CandidateImprovementDraftArtifact | null
+  intentBoundSeededEtfReplacementRankingDraft: IntentBoundSeededEtfReplacementRankingDraftArtifact | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
   hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
   savedProposals: VersionedProposalArtifact[]
   onSaveProposal: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplacementReplayResponse) => void
+  onCreateReplacementIntent?: () => void | Promise<void>
+  onClearReplacementIntent?: () => void | Promise<void>
 }
 
 function parseUniverse(value: string) {
@@ -25,7 +30,7 @@ function parseUniverse(value: string) {
     .filter(Boolean)
 }
 
-export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, replacementIntentDraft, hypotheticalReplayResult, savedProposals, onSaveProposal, onHypotheticalReplayResult }: Props) {
+export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, hypotheticalReplayResult, savedProposals, onSaveProposal, onHypotheticalReplayResult, onCreateReplacementIntent, onClearReplacementIntent }: Props) {
   const apiBase = useMemo(() => '/api', [])
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
   const [strategyId, setStrategyId] = useState('book_trend_breakout')
@@ -107,7 +112,9 @@ export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, alloc
       <h2>Portfolio improvement and strategy backtests</h2>
       <p className="lead compact-lead">Current portfolio vs candidate portfolio is the primary workflow; strategy backtests remain secondary.</p>
 
-      <PortfolioAllocationBacktestPanel result={allocationBacktestResult} onResult={onAllocationBacktestResult} analysis={analysis} draftSnapshot={draftSnapshot} replacementIntentDraft={replacementIntentDraft} hypotheticalReplayResult={hypotheticalReplayResult} savedProposals={savedProposals} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={onHypotheticalReplayResult} />
+      <PortfolioImprovementWorkspaceShell analysis={analysis} draftSnapshot={draftSnapshot} candidateImprovementDraft={candidateImprovementDraft} intentBoundSeededEtfReplacementRankingDraft={intentBoundSeededEtfReplacementRankingDraft} replacementIntentDraft={replacementIntentDraft} allocationBacktestResult={allocationBacktestResult} hypotheticalReplayResult={hypotheticalReplayResult} savedProposals={savedProposals} onCreateReplacementIntent={onCreateReplacementIntent} onClearReplacementIntent={onClearReplacementIntent} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={onHypotheticalReplayResult} />
+
+      <PortfolioAllocationBacktestPanel result={allocationBacktestResult} onResult={onAllocationBacktestResult} analysis={analysis} />
 
       <div className="backtest-builder">
         <p className="panel-label">Strategy Backtest</p>

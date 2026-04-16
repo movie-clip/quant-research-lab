@@ -299,6 +299,93 @@ describe('portfolioWorkspaceStorage', () => {
     })
   })
 
+  it('persists and restores intent-bound seeded ETF replacement ranking artifacts by draft id', async () => {
+    const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveIntentBoundSeededEtfReplacementRankingDraft').mockResolvedValue()
+    const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getIntentBoundSeededEtfReplacementRankingDraft').mockResolvedValue({
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: ['warning'],
+      excludedSymbols: [{ symbol: 'VDST', reason: 'excluded' }],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    })
+
+    await portfolioWorkspaceStorage.saveIntentBoundSeededEtfReplacementRankingDraft({
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: ['warning'],
+      excludedSymbols: [{ symbol: 'VDST', reason: 'excluded' }],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    })
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(await portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).toMatchObject({
+      draftId: 'draft-1',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+    })
+    expect(getSpy).toHaveBeenCalledWith('draft-1')
+  })
+
   it('persists hypothetical replay drafts by draft id', async () => {
     const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveHypotheticalReplacementReplayDraft').mockResolvedValue()
     const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getHypotheticalReplacementReplayDraft').mockResolvedValue({

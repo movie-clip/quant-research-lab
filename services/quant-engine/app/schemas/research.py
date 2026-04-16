@@ -331,3 +331,96 @@ class EtfRankingResponse(BaseModel):
     run_metadata: EtfRankingRunMetadata
     ranked_universe: list[EtfRankingRow] = Field(default_factory=list)
     excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)
+
+
+class IntentBoundReplacementIntent(BaseModel):
+    draft_id: str
+    workspace_id: str
+    base_node_id: str
+    base_symbol: str
+    candidate_symbol: str
+    seed_ranking_id: str
+    seed_methodology_id: str
+    seed_ranking_basis_date: str
+    peer_group: str
+
+
+class IntentBoundSeedContext(BaseModel):
+    ranking_id: str
+    methodology_id: str
+    ranking_basis_date: str
+    peer_group: str
+    seeded_symbols: list[str] = Field(default_factory=list)
+
+
+class IntentBoundEtfReplacementRankingRequest(BaseModel):
+    replacement_intent: IntentBoundReplacementIntent
+    seed_context: IntentBoundSeedContext
+    prefer_live_data: bool = False
+
+
+class IntentBoundEtfReplacementNormalizedRequest(BaseModel):
+    base_symbol: str
+    candidate_symbol: str
+    seeded_symbols: list[str] = Field(default_factory=list)
+    peer_group: str
+    ranking_basis_date: str
+
+
+class IntentBoundEtfReplacementRawFactors(BaseModel):
+    momentum_12_1: float
+    momentum_6_1: float
+    momentum_blended: float
+    realized_volatility_126d: float
+    max_drawdown_252d: float
+    liquidity_60d: float
+
+
+class IntentBoundEtfReplacementNormalizedScores(BaseModel):
+    momentum: float
+    realized_volatility: float
+    max_drawdown: float
+    liquidity: float
+
+
+class IntentBoundEtfReplacementCandidateRow(BaseModel):
+    symbol: str
+    rank: int | None = None
+    composite_score: float | None = None
+    raw_factors: IntentBoundEtfReplacementRawFactors | None = None
+    normalized_scores: IntentBoundEtfReplacementNormalizedScores | None = None
+    eligibility_status: Literal["eligible", "excluded"]
+    exclusion_reason: str | None = None
+    basis_date: str
+    draft_id: str
+    base_node_id: str
+    base_symbol: str
+    seed_ranking_id: str
+    seed_methodology_id: str
+
+
+class IntentBoundEtfReplacementRankingRunMetadata(BaseModel):
+    ranking_id: str
+    methodology_id: str
+    basis_date: str
+    request_hash: str
+    source_status: Literal["sample", "live", "mixed"]
+    tie_break_order: list[str] = Field(default_factory=list)
+    factor_weights: dict[str, float] = Field(default_factory=dict)
+
+
+class IntentBoundEtfReplacementRankingResponse(BaseModel):
+    ranking_id: str
+    methodology_id: str
+    basis_date: str
+    status: Literal["ok", "unavailable"]
+    request: IntentBoundEtfReplacementRankingRequest
+    normalized_request: IntentBoundEtfReplacementNormalizedRequest
+    request_hash: str
+    run_metadata: IntentBoundEtfReplacementRankingRunMetadata
+    eligible_count: int
+    excluded_count: int
+    ranked_candidates: list[IntentBoundEtfReplacementCandidateRow] = Field(default_factory=list)
+    excluded_candidates: list[IntentBoundEtfReplacementCandidateRow] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    unavailable_reason: str | None = None

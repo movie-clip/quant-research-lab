@@ -13,10 +13,14 @@ type Props = {
   result: PortfolioAllocationBacktestResponse | null
   onResult: (result: PortfolioAllocationBacktestResponse) => void
   analysis: PortfolioBaselineView | null
+}
+
+type HypotheticalReplaySectionProps = {
+  result: PortfolioAllocationBacktestResponse | null
   draftSnapshot: PortfolioSnapshot | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
   hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
-  savedProposals: VersionedProposalArtifact[]
+  savedProposalCount: number
   onSaveProposal: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplacementReplayResponse) => void
 }
@@ -559,7 +563,7 @@ function StandardDiagnosticsComparisonSection({ activeReplay }: { activeReplay: 
   )
 }
 
-function SavedProposalReadoutSection({ proposal }: { proposal: VersionedProposalArtifact }) {
+export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedProposalArtifact }) {
   const proposalReplay = proposal.reviewSnapshot.replay
   const proposalSummaryRows = buildSummaryRows(proposalReplay)
   const proposalDeltaCallouts = buildReplayDeltaCallouts(proposalSummaryRows)
@@ -637,10 +641,29 @@ function SavedProposalReadoutSection({ proposal }: { proposal: VersionedProposal
   )
 }
 
-export function PortfolioAllocationBacktestPanel({ result, onResult, analysis, draftSnapshot, replacementIntentDraft, hypotheticalReplayResult, savedProposals, onSaveProposal, onHypotheticalReplayResult }: Props) {
+export function DiagnosticsChangeSection({ result, hypotheticalReplayResult }: { result: PortfolioAllocationBacktestResponse | null; hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null }) {
+  const activeReplay = hypotheticalReplayResult?.replay ?? result
+
+  if (!activeReplay) return null
+  if (hypotheticalReplayResult) return <DiagnosticsDeltaReviewSection activeReplay={activeReplay} />
+  if (activeReplay.diagnostics_comparison) return <StandardDiagnosticsComparisonSection activeReplay={activeReplay} />
+
+  return (
+    <section className="dashboard-bottom-grid">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Diagnostics Change</p></div>
+        <p className="helper">Truth class: replay-derived hypothetical diagnostics only. Diagnostics comparison is not available for the current replay state.</p>
+      </div>
+      <div className="empty-state-panel compact-empty-state">
+        <p className="empty-state-title">No diagnostics change view is available yet.</p>
+        <p className="helper">Run a replay with diagnostics support to inspect before/after diagnostics change.</p>
+      </div>
+    </section>
+  )
+}
+
+export function HypotheticalReplaySection({ result, draftSnapshot, replacementIntentDraft, hypotheticalReplayResult, savedProposalCount, onSaveProposal, onHypotheticalReplayResult }: HypotheticalReplaySectionProps) {
   const apiBase = useMemo(() => '/api', [])
-  const [portfolioName, setPortfolioName] = useState('Candidate')
-  const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
   const [startDate, setStartDate] = useState('2024-01-01')
   const [endDate, setEndDate] = useState('2024-12-31')
   const [initialCapital, setInitialCapital] = useState('100000')
@@ -648,26 +671,13 @@ export function PortfolioAllocationBacktestPanel({ result, onResult, analysis, d
   const [commissionBps, setCommissionBps] = useState('0')
   const [slippageBps, setSlippageBps] = useState('0')
   const [driftTolerancePct, setDriftTolerancePct] = useState('')
-  const [candidateWeights, setCandidateWeights] = useState<AllocationWeightRow[]>([{ symbol: 'SPY', target_weight: '0.60' }, { symbol: 'TLT', target_weight: '0.40' }])
-  const [referenceWeights, setReferenceWeights] = useState<AllocationWeightRow[]>([{ symbol: 'SPY', target_weight: '1.00' }])
-  const [includeReference, setIncludeReference] = useState(true)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [hypotheticalLoading, setHypotheticalLoading] = useState(false)
   const [hypotheticalError, setHypotheticalError] = useState<string | null>(null)
   const [showHypotheticalReplayConfirmation, setShowHypotheticalReplayConfirmation] = useState(false)
-  const candidateWeightTotal = totalWeight(candidateWeights)
-  const referenceWeightTotal = totalWeight(referenceWeights)
-  const baselineRows = useMemo(() => deriveBaselineRows(analysis), [analysis])
   const hypotheticalPreflight = useMemo(() => buildHypotheticalReplayPreflight(draftSnapshot, replacementIntentDraft), [draftSnapshot, replacementIntentDraft])
-  const latestSavedProposal = savedProposals[0] ?? null
-  const importedPortfolioValue = analysis?.overview.total_market_value ?? null
-  const importedPositionsCount = analysis?.snapshot.positions.length ?? 0
-
-  useEffect(() => {
-    if (!baselineRows.length) return
-    setReferenceWeights((current) => (current.length === 1 && current[0]?.symbol === 'SPY' && current[0]?.target_weight === '1.00') ? baselineRows : current)
-  }, [baselineRows])
+  const activeReplay = hypotheticalReplayResult?.replay ?? result
+  const summaryRows = buildSummaryRows(activeReplay)
+  const replayDeltaCallouts = useMemo(() => buildReplayDeltaCallouts(summaryRows), [summaryRows])
 
   async function runHypotheticalReplayPreview() {
     if (!draftSnapshot || !replacementIntentDraft) return
@@ -746,6 +756,85 @@ export function PortfolioAllocationBacktestPanel({ result, onResult, analysis, d
       setHypotheticalLoading(false)
     }
   }
+
+  return (
+    <section className="dashboard-bottom-grid">
+      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Hypothetical Replay</p></div><p className="helper">Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit replacement intent.</p></div>
+      {replacementIntentDraft ? (
+        <>
+          <div className="summary-card">
+            <p className="panel-label">Replay Preflight</p>
+            <p className="helper">Check the draft basis first so obvious rejection cases are visible before backend preview.</p>
+            <div className="dashboard-summary compact-summary-grid">
+              <div className="summary-card"><p className="stat-label">Preflight Status</p><p className={`summary-value ${preflightToneClass(hypotheticalPreflight.overallStatus)}`}>{hypotheticalPreflight.overallStatus === 'ready' ? 'Ready for backend validation' : 'Blocked before preview'}</p></div>
+              <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{replacementIntentDraft.baseSymbol} -&gt; {replacementIntentDraft.candidateSymbol}</p></div>
+              <div className="summary-card"><p className="stat-label">Incumbent Starting Weight</p><p className="summary-value">{hypotheticalPreflight.incumbentWeight == null ? 'n/a' : formatPct(hypotheticalPreflight.incumbentWeight * 100)}</p></div>
+            </div>
+            <div className="list-table">{hypotheticalPreflight.checks.map((check) => <div className="list-row list-row-wide" key={check.label}><span>{check.label}</span><span className={preflightToneClass(check.status)}>{check.status === 'ready' ? 'Ready' : check.status === 'blocked' ? 'Blocked' : 'Pending backend'}</span><span>{check.detail}</span></div>)}</div>
+          </div>
+          {!hypotheticalReplayResult ? <p className="helper">No hypothetical replay has been run for this replacement intent yet.</p> : null}
+          {!showHypotheticalReplayConfirmation ? (
+            <div className="actions backtest-actions"><button className="secondary-button" disabled={hypotheticalPreflight.overallStatus === 'blocked'} type="button" onClick={() => setShowHypotheticalReplayConfirmation(true)}>Preview Hypothetical Replay</button><p className="helper">Use replay to validate the explicit candidate choice under a shared portfolio basis.</p></div>
+          ) : (
+            <div className="summary-card">
+              <p className="panel-label">Preview hypothetical current-vs-candidate replay</p>
+              <p className="helper">This creates a draft-only candidate portfolio by carrying the replacement intent into a hypothetical replay. It does not apply the replacement, endorse it, or run portfolio construction logic.</p>
+              <div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Baseline</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Hypothetical Candidate</p><p className="summary-value">Single incumbent-to-candidate replacement from the active replacement intent</p></div><div className="summary-card"><p className="stat-label">Intent Source</p><p className="summary-value">Replacement Intent from ETF Ranking seed</p></div><div className="summary-card"><p className="stat-label">Replay Basis</p><p className="summary-value">Hypothetical current-vs-candidate comparison</p></div></div>
+              <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Start Date</span><input className="path-input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label className="field-group"><span className="field-label">End Date</span><input className="path-input" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label></div>
+              <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Initial Capital</span><input className="path-input" inputMode="decimal" value={initialCapital} onChange={(event) => setInitialCapital(event.target.value)} /></label><label className="field-group"><span className="field-label">Rebalance Frequency</span><select className="path-input" value={rebalanceFrequency} onChange={(event) => setRebalanceFrequency(event.target.value as 'none' | 'monthly' | 'quarterly')}><option value="none">None</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option></select></label></div>
+              <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Commission Bps</span><input className="path-input" inputMode="decimal" value={commissionBps} onChange={(event) => setCommissionBps(event.target.value)} /></label><label className="field-group"><span className="field-label">Slippage Bps</span><input className="path-input" inputMode="decimal" value={slippageBps} onChange={(event) => setSlippageBps(event.target.value)} /></label></div>
+              <label className="field-group"><span className="field-label">Drift Tolerance Pct</span><input className="path-input" inputMode="decimal" value={driftTolerancePct} onChange={(event) => setDriftTolerancePct(event.target.value)} placeholder="Optional" /></label>
+              <div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className="primary-button" type="button" disabled={hypotheticalLoading} onClick={() => void runHypotheticalReplayPreview()}>{hypotheticalLoading ? 'Running Preview...' : 'Run Preview'}</button><button className="secondary-button" type="button" onClick={() => setShowHypotheticalReplayConfirmation(false)}>Cancel</button></div>
+            </div>
+          )}
+          {hypotheticalError ? <p className="error">{hypotheticalError}</p> : null}
+          {hypotheticalReplayResult ? (
+            <>
+              <div className="summary-card"><p className="helper">Baseline: current portfolio basis</p><p className="helper">Candidate: hypothetical replacement-intent variant</p><p className="helper">Status: not applied to holdings</p></div>
+              <section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Decision Readout</p></div></div><p className="helper">Start here before reading the charts and tables. Confirm what this replay compares, what changed in the candidate, and what did not.</p><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Replay Type</p><p className="summary-value">Hypothetical current-vs-candidate</p></div><div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{hypotheticalReplayResult.proposal.incumbent_symbol} -&gt; {hypotheticalReplayResult.proposal.candidate_symbol}</p></div><div className="summary-card"><p className="stat-label">Baseline Basis</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Candidate Basis</p><p className="summary-value">Single replacement-intent variant</p></div></div><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">What Changed</p><p className="helper">The candidate replay changes one thing only: it replaces {hypotheticalReplayResult.proposal.incumbent_symbol} with {hypotheticalReplayResult.proposal.candidate_symbol} inside a hypothetical draft-only portfolio variant.</p></div><div className="summary-card"><p className="stat-label">What Did Not Change</p><p className="helper">No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.</p></div></div></section>
+              <div className="summary-card"><p className="panel-label">Replay Metadata</p><p className="helper">Source: {hypotheticalReplayResult.proposal.source} · Draft: {hypotheticalReplayResult.proposal.draft_id} · Base node: {hypotheticalReplayResult.proposal.base_node_id}</p><p className="helper">Derivation: {hypotheticalReplayResult.derivation.baseline_basis} · {hypotheticalReplayResult.derivation.candidate_construction_rule}</p><div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className="primary-button" type="button" onClick={() => void onSaveProposal()}>Save Proposal v{savedProposalCount + 1}</button><p className="helper">Create an immutable reviewed proposal artifact from this hypothetical replay. It remains separate from portfolio truth and does not apply any holdings change.</p></div></div>
+              <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{activeReplay?.candidate_result.status ?? 'n/a'}</p><p className="helper">Candidate replay status under the shared implementation window</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{activeReplay?.candidate_result.benchmark_symbol ?? 'n/a'}</p><p className="helper">Shared benchmark for baseline and candidate replay</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(activeReplay?.candidate_result.start_date, activeReplay?.candidate_result.end_date)}</p><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{activeReplay?.candidate_result.rebalance_frequency ?? 'n/a'}</p><p className="helper">{activeReplay ? `${activeReplay.candidate_result.commission_bps} commission bps / ${activeReplay.candidate_result.slippage_bps} slippage bps` : 'n/a'}</p></div></div>
+              <section className="dashboard-bottom-grid"><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Summary</p></div><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div>{summaryRows.length && replayDeltaCallouts.length ? <div className="dashboard-summary compact-summary-grid">{replayDeltaCallouts.map((callout) => <div className="summary-card" key={callout.key}><p className="stat-label">{callout.label}</p><p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p><p className="helper">{callout.rationale}</p></div>)}</div> : null}{summaryRows.length ? <ComparisonTable rows={summaryRows} /> : <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">Run with baseline comparison enabled to view before/after replay metrics.</p></div>}</section>
+              {activeReplay ? <BacktestCurve result={activeReplay} /> : null}
+              <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.baseline_weights.map((row) => <div className="list-row" key={`baseline-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights.map((row) => <div className="list-row" key={`candidate-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section></div>
+              {hypotheticalReplayResult.warnings.length ? <div className="summary-card"><p className="panel-label">Warnings</p>{hypotheticalReplayResult.warnings.map((warning) => <p className="helper" key={warning}>{warning}</p>)}</div> : null}
+              <p className="helper">Use this surface to review whether the explicit replacement intent produces a meaningfully different hypothetical path under a shared window. It does not recommend the change or prove it should be applied.</p>
+            </>
+          ) : null}
+        </>
+      ) : (
+        <p className="helper">An explicit replacement intent is required before a hypothetical replay can run.</p>
+      )}
+    </section>
+  )
+}
+
+export function PortfolioAllocationBacktestPanel({ result, onResult, analysis }: Props) {
+  const apiBase = useMemo(() => '/api', [])
+  const [portfolioName, setPortfolioName] = useState('Candidate')
+  const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
+  const [startDate, setStartDate] = useState('2024-01-01')
+  const [endDate, setEndDate] = useState('2024-12-31')
+  const [initialCapital, setInitialCapital] = useState('100000')
+  const [rebalanceFrequency, setRebalanceFrequency] = useState<'none' | 'monthly' | 'quarterly'>('monthly')
+  const [commissionBps, setCommissionBps] = useState('0')
+  const [slippageBps, setSlippageBps] = useState('0')
+  const [driftTolerancePct, setDriftTolerancePct] = useState('')
+  const [candidateWeights, setCandidateWeights] = useState<AllocationWeightRow[]>([{ symbol: 'SPY', target_weight: '0.60' }, { symbol: 'TLT', target_weight: '0.40' }])
+  const [referenceWeights, setReferenceWeights] = useState<AllocationWeightRow[]>([{ symbol: 'SPY', target_weight: '1.00' }])
+  const [includeReference, setIncludeReference] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const candidateWeightTotal = totalWeight(candidateWeights)
+  const referenceWeightTotal = totalWeight(referenceWeights)
+  const baselineRows = useMemo(() => deriveBaselineRows(analysis), [analysis])
+  const importedPortfolioValue = analysis?.overview.total_market_value ?? null
+  const importedPositionsCount = analysis?.snapshot.positions.length ?? 0
+
+  useEffect(() => {
+    if (!baselineRows.length) return
+    setReferenceWeights((current) => (current.length === 1 && current[0]?.symbol === 'SPY' && current[0]?.target_weight === '1.00') ? baselineRows : current)
+  }, [baselineRows])
 
   function updateWeightRow(kind: 'candidate' | 'reference', index: number, key: keyof AllocationWeightRow, value: string) {
     const setter = kind === 'candidate' ? setCandidateWeights : setReferenceWeights
@@ -839,162 +928,8 @@ export function PortfolioAllocationBacktestPanel({ result, onResult, analysis, d
     }
   }
 
-  const activeReplay = hypotheticalReplayResult?.replay ?? result
-  const summaryRows = buildSummaryRows(activeReplay)
-  const replayDeltaCallouts = useMemo(() => buildReplayDeltaCallouts(summaryRows), [summaryRows])
-
   return (
     <section className="workspace-section">
-      <p className="panel-label">Portfolio Improvement Workspace</p>
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Hypothetical Replay</p></div></div>
-        <p className="helper">Review this as a draft-only comparison built from one explicit replacement intent. Read the basis first, then compare baseline and candidate results.</p>
-        {replacementIntentDraft ? (
-          <>
-            <div className="summary-card">
-              <p className="panel-label">Replay Preflight</p>
-              <p className="helper">Check the draft basis first so obvious MVP rejection cases are visible before you run the hypothetical replay.</p>
-              <div className="dashboard-summary compact-summary-grid">
-                <div className="summary-card">
-                  <p className="stat-label">Preflight Status</p>
-                  <p className={`summary-value ${preflightToneClass(hypotheticalPreflight.overallStatus)}`}>{hypotheticalPreflight.overallStatus === 'ready' ? 'Ready for backend validation' : 'Blocked before preview'}</p>
-                </div>
-                <div className="summary-card">
-                  <p className="stat-label">Intent Pair</p>
-                  <p className="summary-value">{replacementIntentDraft.baseSymbol} -&gt; {replacementIntentDraft.candidateSymbol}</p>
-                </div>
-                <div className="summary-card">
-                  <p className="stat-label">Incumbent Starting Weight</p>
-                  <p className="summary-value">{hypotheticalPreflight.incumbentWeight == null ? 'n/a' : formatPct(hypotheticalPreflight.incumbentWeight * 100)}</p>
-                </div>
-              </div>
-              <div className="list-table">
-                {hypotheticalPreflight.checks.map((check) => (
-                  <div className="list-row list-row-wide" key={check.label}>
-                    <span>{check.label}</span>
-                    <span className={preflightToneClass(check.status)}>{check.status === 'ready' ? 'Ready' : check.status === 'blocked' ? 'Blocked' : 'Pending backend'}</span>
-                    <span>{check.detail}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {!hypotheticalReplayResult ? <p className="helper">No hypothetical replay has been run for this replacement intent yet.</p> : null}
-            {!showHypotheticalReplayConfirmation ? (
-              <div className="actions backtest-actions">
-                <button className="secondary-button" disabled={hypotheticalPreflight.overallStatus === 'blocked'} type="button" onClick={() => setShowHypotheticalReplayConfirmation(true)}>Preview Hypothetical Replay</button>
-                <p className="helper">Compare the current portfolio against a draft-only candidate built from this replacement intent.</p>
-              </div>
-            ) : (
-              <div className="summary-card">
-                <p className="panel-label">Preview hypothetical current-vs-candidate replay</p>
-                <p className="helper">This creates a draft-only candidate portfolio by carrying the replacement intent into a hypothetical replay. It does not apply the replacement, endorse it, or run portfolio construction logic.</p>
-                <div className="dashboard-summary compact-summary-grid">
-                  <div className="summary-card"><p className="stat-label">Baseline</p><p className="summary-value">Current draft or imported portfolio state</p></div>
-                  <div className="summary-card"><p className="stat-label">Hypothetical Candidate</p><p className="summary-value">Single incumbent-to-candidate replacement from the active replacement intent</p></div>
-                  <div className="summary-card"><p className="stat-label">Intent Source</p><p className="summary-value">Replacement Intent from ETF Ranking seed</p></div>
-                  <div className="summary-card"><p className="stat-label">Replay Basis</p><p className="summary-value">Hypothetical current-vs-candidate comparison</p></div>
-                </div>
-                <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
-                  <button className="primary-button" type="button" disabled={hypotheticalLoading} onClick={() => void runHypotheticalReplayPreview()}>{hypotheticalLoading ? 'Running Preview...' : 'Run Preview'}</button>
-                  <button className="secondary-button" type="button" onClick={() => setShowHypotheticalReplayConfirmation(false)}>Cancel</button>
-                </div>
-              </div>
-            )}
-            {hypotheticalError ? <p className="error">{hypotheticalError}</p> : null}
-            {hypotheticalReplayResult ? (
-              <>
-                <div className="summary-card">
-                  <p className="helper">Baseline: current portfolio basis</p>
-                  <p className="helper">Candidate: hypothetical replacement-intent variant</p>
-                  <p className="helper">Status: not applied to holdings</p>
-                </div>
-                <section>
-                  <div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Decision Readout</p></div></div>
-                  <p className="helper">Start here before reading the charts and tables. Confirm what this replay compares, what changed in the candidate, and what did not.</p>
-                  <div className="dashboard-summary compact-summary-grid">
-                    <div className="summary-card"><p className="stat-label">Replay Type</p><p className="summary-value">Hypothetical current-vs-candidate</p></div>
-                    <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{hypotheticalReplayResult.proposal.incumbent_symbol} -&gt; {hypotheticalReplayResult.proposal.candidate_symbol}</p></div>
-                    <div className="summary-card"><p className="stat-label">Baseline Basis</p><p className="summary-value">Current draft or imported portfolio state</p></div>
-                    <div className="summary-card"><p className="stat-label">Candidate Basis</p><p className="summary-value">Single replacement-intent variant</p></div>
-                  </div>
-                  <div className="dashboard-summary compact-summary-grid">
-                    <div className="summary-card">
-                      <p className="stat-label">What Changed</p>
-                      <p className="helper">The candidate replay changes one thing only: it replaces {hypotheticalReplayResult.proposal.incumbent_symbol} with {hypotheticalReplayResult.proposal.candidate_symbol} inside a hypothetical draft-only portfolio variant.</p>
-                    </div>
-                    <div className="summary-card">
-                      <p className="stat-label">What Did Not Change</p>
-                      <p className="helper">No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.</p>
-                    </div>
-                  </div>
-                </section>
-                <div className="summary-card">
-                  <p className="panel-label">Replay Metadata</p>
-                  <p className="helper">Source: {hypotheticalReplayResult.proposal.source} · Draft: {hypotheticalReplayResult.proposal.draft_id} · Base node: {hypotheticalReplayResult.proposal.base_node_id}</p>
-                  <p className="helper">Derivation: {hypotheticalReplayResult.derivation.baseline_basis} · {hypotheticalReplayResult.derivation.candidate_construction_rule}</p>
-                  <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
-                    <button className="primary-button" type="button" onClick={() => void onSaveProposal()}>Save Proposal v{savedProposals.length + 1}</button>
-                    <p className="helper">Create an immutable reviewed proposal artifact from this hypothetical replay. It remains separate from portfolio truth and does not apply any holdings change.</p>
-                  </div>
-                </div>
-                {latestSavedProposal ? (
-                  <div className="summary-card">
-                    <p className="panel-label">Latest Saved Proposal</p>
-                    <div className="dashboard-summary compact-summary-grid">
-                      <div className="summary-card"><p className="stat-label">Version</p><p className="summary-value">v{latestSavedProposal.versionNumber}</p></div>
-                      <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{latestSavedProposal.sourceIntent.baseSymbol} -&gt; {latestSavedProposal.sourceIntent.candidateSymbol}</p></div>
-                      <div className="summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(latestSavedProposal.replayBasis.startDate, latestSavedProposal.replayBasis.endDate)}</p></div>
-                      <div className="summary-card"><p className="stat-label">Saved At</p><p className="summary-value">{latestSavedProposal.createdAt.slice(0, 10)}</p></div>
-                    </div>
-                    <p className="helper">Saved from draft {latestSavedProposal.sourceDraftId} / base node {latestSavedProposal.sourceBaseNodeId}. This proposal is a recorded review artifact and not an applied portfolio change.</p>
-                  </div>
-                ) : null}
-                <div className="dashboard-summary compact-summary-grid backtest-workspace-summary">
-                  <div className="summary-card metric-card metric-card-neutral backtest-summary-card">
-                    <p className="stat-label">Replay Status</p>
-                    <p className="summary-value">{activeReplay?.candidate_result.status ?? 'n/a'}</p>
-                    <p className="helper">Candidate replay status under the shared implementation window</p>
-                  </div>
-                  <div className="summary-card metric-card metric-card-neutral backtest-summary-card">
-                    <p className="stat-label">Benchmark</p>
-                    <p className="summary-value">{activeReplay?.candidate_result.benchmark_symbol ?? 'n/a'}</p>
-                    <p className="helper">Shared benchmark for baseline and candidate replay</p>
-                  </div>
-                  <div className="summary-card metric-card metric-card-neutral backtest-summary-card">
-                    <p className="stat-label">Replay Window</p>
-                    <p className="summary-value">{formatReplayWindow(activeReplay?.candidate_result.start_date, activeReplay?.candidate_result.end_date)}</p>
-                    <p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p>
-                  </div>
-                  <div className="summary-card metric-card metric-card-neutral backtest-summary-card">
-                    <p className="stat-label">Replay Setup</p>
-                    <p className="summary-value">{activeReplay?.candidate_result.rebalance_frequency ?? 'n/a'}</p>
-                    <p className="helper">{activeReplay ? `${activeReplay.candidate_result.commission_bps} commission bps / ${activeReplay.candidate_result.slippage_bps} slippage bps` : 'n/a'}</p>
-                  </div>
-                </div>
-                <div className="split-grid dashboard-bottom-grid">
-                  <section>
-                    <div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div>
-                    <div className="list-table">{hypotheticalReplayResult.baseline_weights.map((row) => <div className="list-row" key={`baseline-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
-                  </section>
-                  <section>
-                    <div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Weights</p></div></div>
-                    <div className="list-table">{hypotheticalReplayResult.candidate_weights.map((row) => <div className="list-row" key={`candidate-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
-                  </section>
-                </div>
-                {hypotheticalReplayResult.warnings.length ? (
-                  <div className="summary-card">
-                    <p className="panel-label">Warnings</p>
-                    {hypotheticalReplayResult.warnings.map((warning) => <p className="helper" key={warning}>{warning}</p>)}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-          </>
-        ) : (
-          <p className="helper">An explicit replacement intent is required before a hypothetical replay can run.</p>
-        )}
-      </section>
-      {latestSavedProposal ? <SavedProposalReadoutSection proposal={latestSavedProposal} /> : null}
       <div className="dashboard-summary compact-summary-grid backtest-workspace-summary">
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card">
           <p className="stat-label">Current Import</p>
@@ -1017,6 +952,19 @@ export function PortfolioAllocationBacktestPanel({ result, onResult, analysis, d
           <p className="helper">{benchmarkSymbol} benchmark / {formatMoney(Number(initialCapital) || null)} initial capital</p>
         </div>
       </div>
+
+      {result ? (
+        <div className="summary-card">
+          <p className="panel-label">Replay Engine Status</p>
+          <p className="helper">The lower-level builder has a completed replay result available for shell-owned review surfaces.</p>
+          <div className="dashboard-summary compact-summary-grid">
+            <div className="summary-card"><p className="stat-label">Candidate Status</p><p className="summary-value">{result.candidate_result.status}</p></div>
+            <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{result.candidate_result.benchmark_symbol}</p></div>
+            <div className="summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(result.candidate_result.start_date, result.candidate_result.end_date)}</p></div>
+            <div className="summary-card"><p className="stat-label">Comparison</p><p className="summary-value">{result.reference_result ? 'enabled' : 'disabled'}</p></div>
+          </div>
+        </div>
+      ) : null}
 
       <form className="import-form" onSubmit={runAllocationBacktest}>
         <div className="split-grid compact-split-grid backtest-config-grid">
@@ -1105,73 +1053,6 @@ export function PortfolioAllocationBacktestPanel({ result, onResult, analysis, d
         </div>
         {error ? <p className="error">{error}</p> : null}
       </form>
-
-      {activeReplay ? (
-        <>
-          <section className="dashboard-bottom-grid">
-            <div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Summary</p></div><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div>
-            {summaryRows.length && replayDeltaCallouts.length ? (
-              <div className="dashboard-summary compact-summary-grid">
-                {replayDeltaCallouts.map((callout) => (
-                  <div className="summary-card" key={callout.key}>
-                    <p className="stat-label">{callout.label}</p>
-                    <p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p>
-                    <p className="helper">{callout.rationale}</p>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {summaryRows.length ? <ComparisonTable rows={summaryRows} /> : <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">Run with baseline comparison enabled to view before/after replay metrics.</p></div>}
-          </section>
-
-          {hypotheticalReplayResult ? <DiagnosticsDeltaReviewSection activeReplay={activeReplay} /> : null}
-
-          <BacktestCurve result={activeReplay} />
-
-          {!hypotheticalReplayResult && activeReplay.diagnostics_comparison ? <StandardDiagnosticsComparisonSection activeReplay={activeReplay} /> : null}
-
-          <section className="dashboard-bottom-grid">
-            <div className="section-header-inline sector-list-header"><div><p className="panel-label">Implementation Details</p></div><p className="helper">{activeReplay.candidate_result.status} / {activeReplay.candidate_result.assumptions.calendar_policy}</p></div>
-            <div className="dashboard-summary compact-summary-grid">
-              <div className="summary-card"><p className="stat-label">Price Basis</p><p className="summary-value">{activeReplay.candidate_result.assumptions.price_basis}</p></div>
-              <div className="summary-card"><p className="stat-label">Execution Field</p><p className="summary-value">{activeReplay.candidate_result.assumptions.execution_price_field}</p></div>
-              <div className="summary-card"><p className="stat-label">Execution Lag</p><p className="summary-value">{formatNumber(activeReplay.candidate_result.assumptions.execution_lag_days, 0)}</p></div>
-              <div className="summary-card"><p className="stat-label">Tax Treatment</p><p className="summary-value">{activeReplay.candidate_result.assumptions.tax_treatment}</p></div>
-              <div className="summary-card"><p className="stat-label">Fractional Shares</p><p className="summary-value">{activeReplay.candidate_result.assumptions.fractional_shares ? 'true' : 'false'}</p></div>
-              <div className="summary-card"><p className="stat-label">Base Currency</p><p className="summary-value">{activeReplay.candidate_result.assumptions.investor_base_currency ?? 'n/a'}</p></div>
-            </div>
-          </section>
-
-          <div className="split-grid dashboard-bottom-grid">
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Starting Weights</p></div></div>
-              <div className="list-table">{activeReplay.candidate_result.starting_weights.map((row) => <div className="list-row" key={`starting-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
-            </section>
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Ending Weights</p></div></div>
-              <div className="list-table">{activeReplay.candidate_result.ending_weights.map((row) => <div className="list-row" key={`ending-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
-            </section>
-          </div>
-
-          <div className="split-grid dashboard-bottom-grid">
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Instrument Metadata</p></div></div>
-              <div className="list-table">{activeReplay.candidate_result.instrument_metadata.map((item) => <div className="list-row list-row-wide" key={`meta-${item.symbol}`}><span>{item.symbol}</span><span>{item.trading_currency ?? 'n/a'}</span><span>{item.instrument_base_currency ?? 'n/a'}</span><span>{item.currency_hedged == null ? 'n/a' : String(item.currency_hedged)}</span><span>{item.distribution_policy}</span></div>)}</div>
-            </section>
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Rebalance Events</p></div></div>
-              <div className="list-table">{activeReplay.candidate_result.rebalance_events.length ? activeReplay.candidate_result.rebalance_events.map((row) => <div className="list-row list-row-wide" key={`rebalance-${row.execution_date}`}><span>{row.decision_date}</span><span>{row.execution_date}</span><span>{formatPct(row.turnover_pct)}</span><span>{formatMoney(row.total_cost)}</span></div>) : <div className="list-row"><span>No rebalances</span><span>n/a</span></div>}</div>
-            </section>
-          </div>
-
-          <section className="dashboard-bottom-grid">
-            <div className="section-header-inline sector-list-header"><div><p className="panel-label">Trade Log</p></div><p className="helper">Showing first 12 candidate trades.</p></div>
-            <div className="list-table">{activeReplay.candidate_result.trades.slice(0, 12).map((trade, index) => <div className="list-row list-row-wide" key={`${trade.symbol}-${trade.date}-${index}`}><span>{trade.date}</span><span>{trade.action}</span><span>{trade.symbol}</span><span>{formatNumber(trade.quantity, 4)}</span><span>{formatMoney(trade.traded_notional)}</span><span>{formatMoney(trade.total_cost)}</span></div>)}</div>
-          </section>
-
-          {hypotheticalReplayResult ? <p className="helper">Use this surface to review whether the explicit replacement intent produces a meaningfully different hypothetical path under a shared window. It does not recommend the change or prove it should be applied.</p> : null}
-        </>
-      ) : null}
     </section>
   )
 }

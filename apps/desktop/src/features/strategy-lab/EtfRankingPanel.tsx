@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import type { EtfRankingResponse } from '../portfolio/types'
-import type { CandidateImprovementSeed } from '../portfolio/workspaceTypes'
+import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, IntentBoundSeededEtfReplacementRankingCandidateSnapshot } from '../portfolio/workspaceTypes'
 
 const PEER_GROUP_OPTIONS = ['Sector UCITS ETF', 'Bond UCITS ETF', 'Broad Market UCITS ETF', 'Thematic UCITS ETF', 'Commodity UCITS ETF']
 const COMPONENT_ORDER = ['momentum', 'benchmark_relative_strength', 'realized_volatility', 'downside_volatility', 'max_drawdown', 'liquidity', 'implementation_fit'] as const
@@ -92,9 +92,56 @@ function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRanki
   }
 }
 
+function buildRankingCandidateSnapshot(row: EtfRankingResponse['ranked_universe'][number]): IntentBoundSeededEtfReplacementRankingCandidateSnapshot {
+  return {
+    symbol: row.symbol,
+    rank: row.rank,
+    compositeScore: row.composite_score,
+    instrument: {
+      name: row.instrument.name,
+      assetClass: row.instrument.asset_class,
+      sector: row.instrument.sector,
+      category: row.instrument.category,
+      currency: row.instrument.currency,
+    },
+  }
+}
+
+function buildIntentBoundSeededRankingArtifact(
+  result: EtfRankingResponse,
+  row: EtfRankingResponse['ranked_universe'][number],
+  baseSymbol: string,
+): IntentBoundSeededEtfReplacementRankingDraftArtifactInput {
+  const topCandidate = result.ranked_universe[0] ?? null
+  const runnerUpCandidate = result.ranked_universe[1] ?? null
+  return {
+    kind: 'intent_bound_seeded_etf_replacement_ranking',
+    source: 'etf_ranking',
+    selectedAt: new Date().toISOString(),
+    baseSymbol,
+    candidateSymbol: row.symbol,
+    candidateRank: row.rank,
+    rankingId: result.run_metadata.ranking_id,
+    methodologyId: result.run_metadata.methodology_id,
+    rankingBasisDate: result.run_metadata.ranking_basis_date,
+    benchmarkSymbol: result.request.benchmark_symbol,
+    lookbackMonths: result.request.lookback_months,
+    peerGroup: result.effective_inputs.effective_peer_group,
+    confidence: result.run_metadata.confidence,
+    holdingsSupport: result.run_metadata.source_status.holdings_support,
+    requestUniverse: result.request.universe,
+    evaluatedUniverse: result.effective_inputs.evaluated_universe,
+    warnings: result.warnings.warnings,
+    excludedSymbols: result.effective_inputs.excluded_symbols,
+    selectedCandidate: buildRankingCandidateSnapshot(row),
+    topCandidate: topCandidate ? buildRankingCandidateSnapshot(topCandidate) : null,
+    runnerUpCandidate: runnerUpCandidate ? buildRankingCandidateSnapshot(runnerUpCandidate) : null,
+  }
+}
+
 type EtfRankingPanelProps = {
   draftSymbols?: string[]
-  onSeedCandidateDraft?: (seed: CandidateImprovementSeed) => void
+  onSeedCandidateDraft?: (input: { seed: CandidateImprovementSeed; rankingArtifact: IntentBoundSeededEtfReplacementRankingDraftArtifactInput | null }) => void
 }
 
 export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: EtfRankingPanelProps) {
@@ -156,8 +203,11 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
   }
 
   function confirmSeedDraft() {
-    if (!result || !seedTarget || !selectedBaseSymbol) return
-    onSeedCandidateDraft?.(buildCandidateImprovementSeed(result, seedTarget, selectedBaseSymbol))
+    if (!result || !seedTarget || !selectedBaseSymbol || selectedBaseSymbol === seedTarget.symbol) return
+    onSeedCandidateDraft?.({
+      seed: buildCandidateImprovementSeed(result, seedTarget, selectedBaseSymbol),
+      rankingArtifact: buildIntentBoundSeededRankingArtifact(result, seedTarget, selectedBaseSymbol),
+    })
     setSeedSuccess('Candidate draft created. Review it before making any portfolio decision.')
     setSeedTarget(null)
     setSelectedBaseSymbol('')
@@ -280,9 +330,10 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                   <div className="summary-card"><p className="stat-label">Exclusions</p><p className="summary-value">{resolvedExcludedSymbols.length}</p></div>
                 </div>
                 <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
-                  <button className="primary-button" type="button" onClick={confirmSeedDraft} disabled={!selectedBaseSymbol}>Create Draft</button>
+                  <button className="primary-button" type="button" onClick={confirmSeedDraft} disabled={!selectedBaseSymbol || selectedBaseSymbol === seedTarget.symbol}>Create Draft</button>
                   <button className="secondary-button" type="button" onClick={() => { setSeedTarget(null); setSelectedBaseSymbol('') }}>Cancel</button>
                 </div>
+                {selectedBaseSymbol === seedTarget.symbol ? <p className="helper">Incumbent and candidate must be different symbols.</p> : null}
               </div>
             </section>
           ) : null}

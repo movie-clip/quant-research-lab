@@ -10,9 +10,10 @@ import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/por
 import { DiagnosticsPanel } from '../features/portfolio/DiagnosticsPanel'
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
+import { desktopFeatureFlags } from './featureFlags'
 import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView } from '../features/portfolio/types'
-import type { CandidateImprovementDraftArtifact, CandidateImprovementSeed, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getCandidateImprovementDraft, getDraft, getHypotheticalReplacementReplayDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveCandidateImprovementDraft, saveDraft, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveProposalArtifact, saveReplacementIntentDraft, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import type { CandidateImprovementDraftArtifact, CandidateImprovementSeed, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
+import { clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getCandidateImprovementDraft, getDraft, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveCandidateImprovementDraft, saveDraft, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 
 
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
@@ -168,6 +169,22 @@ async function loadReplacementIntentDraftForCurrentDraft(draft: WorkingDraft | n
   }
 }
 
+async function loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(
+  draft: WorkingDraft | null,
+  setIntentBoundSeededEtfReplacementRankingDraft: (value: IntentBoundSeededEtfReplacementRankingDraftArtifact | null) => void,
+) {
+  if (!desktopFeatureFlags.intentBoundSeededEtfReplacementRanking || !draft) {
+    setIntentBoundSeededEtfReplacementRankingDraft(null)
+    return
+  }
+  try {
+    const annotation = await getIntentBoundSeededEtfReplacementRankingDraft(draft.id)
+    setIntentBoundSeededEtfReplacementRankingDraft(annotation)
+  } catch {
+    setIntentBoundSeededEtfReplacementRankingDraft(null)
+  }
+}
+
 async function loadHypotheticalReplacementReplayForCurrentDraft(
   draft: WorkingDraft | null,
   replacementIntentDraft: ReplacementIntentDraftArtifact | null,
@@ -226,6 +243,7 @@ export function App() {
   const [restoringPortfolio, setRestoringPortfolio] = useState(true)
   const [restoredSession, setRestoredSession] = useState(false)
   const [candidateImprovementDraft, setCandidateImprovementDraft] = useState<CandidateImprovementDraftArtifact | null>(null)
+  const [intentBoundSeededEtfReplacementRankingDraft, setIntentBoundSeededEtfReplacementRankingDraft] = useState<IntentBoundSeededEtfReplacementRankingDraftArtifact | null>(null)
   const [replacementIntentDraft, setReplacementIntentDraft] = useState<ReplacementIntentDraftArtifact | null>(null)
   const [proposalArtifacts, setProposalArtifacts] = useState<VersionedProposalArtifact[]>([])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -331,6 +349,7 @@ export function App() {
       setWorkingDraft(draft)
       await loadWorkspaceProposalArtifacts(workspace, setProposalArtifacts)
       await loadCandidateImprovementDraftForCurrentDraft(draft, setCandidateImprovementDraft)
+      await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(draft, setIntentBoundSeededEtfReplacementRankingDraft)
       const restoredReplacementIntentDraft = draft ? await getReplacementIntentDraft(draft.id).catch(() => null) : null
       setReplacementIntentDraft(restoredReplacementIntentDraft)
       await loadHypotheticalReplacementReplayForCurrentDraft(draft, restoredReplacementIntentDraft, setHypotheticalReplacementReplay)
@@ -395,6 +414,7 @@ export function App() {
     setImportError(null)
     setRestoredSession(false)
     setCandidateImprovementDraft(null)
+    setIntentBoundSeededEtfReplacementRankingDraft(null)
     setReplacementIntentDraft(null)
     setHypotheticalReplacementReplay(null)
     setProposalArtifacts([])
@@ -418,6 +438,7 @@ export function App() {
     setImportError(null)
     setRestoredSession(false)
     setCandidateImprovementDraft(null)
+    setIntentBoundSeededEtfReplacementRankingDraft(null)
     setReplacementIntentDraft(null)
     setHypotheticalReplacementReplay(null)
     setProposalArtifacts([])
@@ -425,16 +446,26 @@ export function App() {
     await resetLocalPortfolioDatabase()
   }
 
-  function handleSeedCandidateDraft(seed: CandidateImprovementSeed) {
+  function handleSeedCandidateDraft(input: { seed: CandidateImprovementSeed; rankingArtifact: IntentBoundSeededEtfReplacementRankingDraftArtifactInput | null }) {
     if (!activeWorkspace || !workingDraft) return
     const annotation = {
       workspaceId: activeWorkspace.id,
       draftId: workingDraft.id,
       baseNodeId: workingDraft.baseNodeId,
-      seed,
+      seed: input.seed,
     }
     setCandidateImprovementDraft(annotation)
     void saveCandidateImprovementDraft(annotation).catch(() => undefined)
+    if (desktopFeatureFlags.intentBoundSeededEtfReplacementRanking && input.rankingArtifact) {
+      const rankingArtifact: IntentBoundSeededEtfReplacementRankingDraftArtifact = {
+        ...input.rankingArtifact,
+        workspaceId: activeWorkspace.id,
+        draftId: workingDraft.id,
+        baseNodeId: workingDraft.baseNodeId,
+      }
+      setIntentBoundSeededEtfReplacementRankingDraft(rankingArtifact)
+      void saveIntentBoundSeededEtfReplacementRankingDraft(rankingArtifact).catch(() => undefined)
+    }
     setTab('dashboard')
   }
 
@@ -545,6 +576,7 @@ export function App() {
     setWorkspaceNodes(nextNodes)
     setWorkingDraft(nextDraft)
     setCandidateImprovementDraft(null)
+    setIntentBoundSeededEtfReplacementRankingDraft(null)
     setReplacementIntentDraft(null)
     setHypotheticalReplacementReplay(null)
   }
@@ -557,6 +589,7 @@ export function App() {
     setActiveNode(nextNode)
     setWorkingDraft(nextDraft)
     await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
+    await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
     const nextReplacementIntentDraft = nextDraft ? await getReplacementIntentDraft(nextDraft.id).catch(() => null) : null
     setReplacementIntentDraft(nextReplacementIntentDraft)
     await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
@@ -577,6 +610,7 @@ export function App() {
     setActiveNode(nextNode)
     setWorkingDraft(nextDraft)
     await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
+    await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
     const nextReplacementIntentDraft = nextDraft ? await getReplacementIntentDraft(nextDraft.id).catch(() => null) : null
     setReplacementIntentDraft(nextReplacementIntentDraft)
     await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
@@ -664,6 +698,7 @@ export function App() {
         setActiveNode(nextNode ?? savedNode.node)
         setWorkingDraft(nextDraft)
         await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
+        await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
         const nextReplacementIntentDraft = nextDraft ? await getReplacementIntentDraft(nextDraft.id).catch(() => null) : null
         setReplacementIntentDraft(nextReplacementIntentDraft)
         await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
@@ -728,6 +763,7 @@ export function App() {
       setActiveNode(workspaceResult.rootNode)
       setWorkingDraft(normalizedDraft)
       await loadCandidateImprovementDraftForCurrentDraft(normalizedDraft, setCandidateImprovementDraft)
+      await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(normalizedDraft, setIntentBoundSeededEtfReplacementRankingDraft)
       await loadReplacementIntentDraftForCurrentDraft(normalizedDraft, setReplacementIntentDraft)
       setHypotheticalReplacementReplay(null)
       setProposalArtifacts([])
@@ -779,6 +815,7 @@ export function App() {
             activeNodeName={activeNode?.name ?? null}
             draftStatus={workingDraft?.status ?? null}
             candidateImprovementDraft={candidateImprovementDraft}
+            intentBoundSeededEtfReplacementRankingDraft={desktopFeatureFlags.intentBoundSeededEtfReplacementRanking ? intentBoundSeededEtfReplacementRankingDraft : null}
             replacementIntentDraft={replacementIntentDraft}
             importing={importingPortfolio || restoringPortfolio}
             importError={importError}
@@ -792,9 +829,6 @@ export function App() {
             onDraftSnapshotChange={handleDraftSnapshotChange}
             onDiscardDraft={handleDiscardDraft}
             onSaveVariant={handleSaveVariant}
-            onCreateReplacementIntent={handleCreateReplacementIntent}
-            onClearReplacementIntent={handleClearReplacementIntent}
-            onPreviewHypotheticalReplay={handlePreviewHypotheticalReplay}
           />
           <VariantList nodes={workspaceNodes} activeNodeId={activeNode?.id ?? null} onOpenNode={handleOpenNode} />
         </section>
@@ -858,10 +892,14 @@ export function App() {
               onAllocationBacktestResult={setAllocationBacktestRun}
               analysis={baselineAnalysis}
               draftSnapshot={workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null}
+              candidateImprovementDraft={candidateImprovementDraft}
+              intentBoundSeededEtfReplacementRankingDraft={desktopFeatureFlags.intentBoundSeededEtfReplacementRanking ? intentBoundSeededEtfReplacementRankingDraft : null}
               replacementIntentDraft={replacementIntentDraft}
               hypotheticalReplayResult={hypotheticalReplacementReplay}
               savedProposals={proposalArtifacts}
               onSaveProposal={handleSaveProposal}
+              onCreateReplacementIntent={handleCreateReplacementIntent}
+              onClearReplacementIntent={handleClearReplacementIntent}
               onHypotheticalReplayResult={(result) => {
                 setHypotheticalReplacementReplay(result)
                 if (!activeWorkspace || !workingDraft || !replacementIntentDraft) return

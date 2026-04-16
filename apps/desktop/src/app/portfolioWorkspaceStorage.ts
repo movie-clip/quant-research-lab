@@ -1,8 +1,8 @@
-import { appStateStoreName, candidateImprovementDraftStoreName, deletePortfolioDatabase, hypotheticalReplacementReplayDraftStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
+import { appStateStoreName, candidateImprovementDraftStoreName, deletePortfolioDatabase, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
-import type { CandidateImprovementDraftArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { CandidateImprovementDraftArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -189,6 +189,30 @@ export async function deleteCandidateImprovementDraft(draftId: string) {
   })
 }
 
+export async function getIntentBoundSeededEtfReplacementRankingDraft(draftId: string) {
+  return withStore<IntentBoundSeededEtfReplacementRankingDraftArtifact | null>(intentBoundSeededEtfReplacementRankingDraftStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as IntentBoundSeededEtfReplacementRankingDraftArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load intent-bound seeded ETF replacement ranking draft'))
+  })
+}
+
+export async function saveIntentBoundSeededEtfReplacementRankingDraft(annotation: IntentBoundSeededEtfReplacementRankingDraftArtifact) {
+  await withStore<void>(intentBoundSeededEtfReplacementRankingDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save intent-bound seeded ETF replacement ranking draft'))
+  })
+}
+
+export async function deleteIntentBoundSeededEtfReplacementRankingDraft(draftId: string) {
+  await withStore<void>(intentBoundSeededEtfReplacementRankingDraftStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete intent-bound seeded ETF replacement ranking draft'))
+  })
+}
+
 export async function getReplacementIntentDraft(draftId: string) {
   return withStore<ReplacementIntentDraftArtifact | null>(replacementIntentDraftStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(draftId)
@@ -269,6 +293,7 @@ export async function createDraftFromNode(input: { workspaceId: string; baseNode
   }
   await saveDraft(draft)
   await deleteCandidateImprovementDraft(draft.id)
+  await deleteIntentBoundSeededEtfReplacementRankingDraft(draft.id)
   await deleteReplacementIntentDraft(draft.id)
   await deleteHypotheticalReplacementReplayDraft(draft.id)
   return draft
@@ -421,12 +446,13 @@ export async function saveImportedSnapshotNode(input: {
 }
 
 export async function clearPortfolioWorkspaceState() {
-  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, replacementIntentDraftStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName], 'readwrite', (transaction, resolve, reject) => {
+  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, replacementIntentDraftStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName], 'readwrite', (transaction, resolve, reject) => {
     transaction.objectStore(workspaceStoreName).clear()
     transaction.objectStore(portfolioNodeStoreName).clear()
     transaction.objectStore(workingDraftStoreName).clear()
     transaction.objectStore(workspaceStateStoreName).clear()
     transaction.objectStore(candidateImprovementDraftStoreName).clear()
+    transaction.objectStore(intentBoundSeededEtfReplacementRankingDraftStoreName).clear()
     transaction.objectStore(replacementIntentDraftStoreName).clear()
     transaction.objectStore(hypotheticalReplacementReplayDraftStoreName).clear()
     transaction.objectStore(versionedProposalStoreName).clear()

@@ -344,25 +344,79 @@ describe('EtfRankingPanel', () => {
 
     expect(onSeedCandidateDraft).toHaveBeenCalledTimes(1)
     expect(onSeedCandidateDraft.mock.calls[0]?.[0]).toMatchObject({
-      kind: 'etf_replacement_candidate',
-      source: 'etf_ranking',
-      baseSymbol: 'VUAA',
-      candidateSymbol: 'IUFS',
-      candidateRank: 1,
-      peerGroup: 'Sector UCITS ETF',
-      benchmarkSymbol: 'SPY',
-      lookbackMonths: 6,
-      rankingId: 'etf_ranking_engine_v1',
-      methodologyId: 'etf_ranking_methodology_v1',
-      rankingBasisDate: '2026-04-15',
-      confidence: 'medium',
-      holdingsSupport: 'mixed',
-      requestUniverse: ['IUFS', 'IUHC', 'VDST'],
-      evaluatedUniverse: ['IUFS', 'IUHC'],
-      warningCount: 1,
-      excludedSymbolsCount: 1,
+      seed: {
+        kind: 'etf_replacement_candidate',
+        source: 'etf_ranking',
+        baseSymbol: 'VUAA',
+        candidateSymbol: 'IUFS',
+        candidateRank: 1,
+        peerGroup: 'Sector UCITS ETF',
+        benchmarkSymbol: 'SPY',
+        lookbackMonths: 6,
+        rankingId: 'etf_ranking_engine_v1',
+        methodologyId: 'etf_ranking_methodology_v1',
+        rankingBasisDate: '2026-04-15',
+        confidence: 'medium',
+        holdingsSupport: 'mixed',
+        requestUniverse: ['IUFS', 'IUHC', 'VDST'],
+        evaluatedUniverse: ['IUFS', 'IUHC'],
+        warningCount: 1,
+        excludedSymbolsCount: 1,
+      },
+      rankingArtifact: {
+        kind: 'intent_bound_seeded_etf_replacement_ranking',
+        source: 'etf_ranking',
+        baseSymbol: 'VUAA',
+        candidateSymbol: 'IUFS',
+        candidateRank: 1,
+        rankingId: 'etf_ranking_engine_v1',
+        methodologyId: 'etf_ranking_methodology_v1',
+        rankingBasisDate: '2026-04-15',
+        benchmarkSymbol: 'SPY',
+        lookbackMonths: 6,
+        peerGroup: 'Sector UCITS ETF',
+        confidence: 'medium',
+        holdingsSupport: 'mixed',
+      },
     })
     expect(screen.getByText('Candidate draft created. Review it before making any portfolio decision.')).toBeTruthy()
+  })
+
+  it('blocks confirm when incumbent equals selected candidate', async () => {
+    const onSeedCandidateDraft = vi.fn()
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        ranking_id: 'etf_ranking_engine_v1',
+        title: 'ETF Ranking Engine',
+        as_of_date: '2026-04-15',
+        benchmark_symbol: 'SPY',
+        universe: ['IUFS', 'IUHC'],
+        lookback_months: 6,
+        price_basis: 'close',
+        methodology: 'm',
+        effective_peer_group: 'Sector UCITS ETF',
+        effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+        source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+        warnings: { confidence: 'medium', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
+        request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC'], benchmark_symbol: 'SPY', lookback_months: 6 },
+        effective_inputs: { effective_peer_group: 'Sector UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['IUFS', 'IUHC'], evaluated_universe: ['IUFS', 'IUHC'], excluded_symbols: [] },
+        run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
+        ranked_universe: [{ rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }],
+        excluded_symbols: [],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+
+    render(<EtfRankingPanel draftSymbols={['IUFS']} onSeedCandidateDraft={onSeedCandidateDraft} />)
+
+    fireEvent.click(screen.getByText('Run ETF Ranking'))
+    await waitFor(() => expect(screen.getByText('Ranked Universe')).toBeTruthy())
+    fireEvent.click(screen.getByText('Seed Candidate Draft'))
+    fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'IUFS' } })
+
+    expect(screen.getByText('Incumbent and candidate must be different symbols.')).toBeTruthy()
+    expect((screen.getByText('Create Draft') as HTMLButtonElement).disabled).toBe(true)
+    expect(onSeedCandidateDraft).not.toHaveBeenCalled()
   })
 
   it('renders a structured error state when the ranking request fails', async () => {

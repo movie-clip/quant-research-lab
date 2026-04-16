@@ -3,12 +3,13 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingRequest, EtfRankingResponse
+from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingRequest, EtfRankingResponse, IntentBoundEtfReplacementRankingRequest, IntentBoundEtfReplacementRankingResponse
 from app.services.market_data import MarketDataService
+from app.services.replacement_ranking import build_intent_bound_etf_replacement_ranking
 from app.services.strategy_lab import DEFAULT_ETF_ROTATION_BENCHMARK, DEFAULT_ETF_ROTATION_UNIVERSE, build_etf_momentum_strategy_analysis, build_etf_ranking_analysis
 
 
-router = APIRouter(prefix="/strategy-lab", tags=["strategy-lab"])
+router = APIRouter(tags=["strategy-lab"])
 
 
 class EtfMomentumRequest(BaseModel):
@@ -27,7 +28,7 @@ class HoldingsRefreshResponse(BaseModel):
     refreshed: list[dict[str, int | str | None]] = Field(default_factory=list)
 
 
-@router.post("/etf-ranking", response_model=EtfRankingResponse)
+@router.post("/strategy-lab/etf-ranking", response_model=EtfRankingResponse)
 def run_etf_ranking(request: EtfRankingRequest) -> EtfRankingResponse:
     if request.lookback_months < 1:
         raise HTTPException(status_code=400, detail="lookback_months must be at least 1")
@@ -47,7 +48,7 @@ def run_etf_ranking(request: EtfRankingRequest) -> EtfRankingResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/etf-cross-sectional-momentum", response_model=EtfMomentumStrategyResponse)
+@router.post("/strategy-lab/etf-cross-sectional-momentum", response_model=EtfMomentumStrategyResponse)
 def run_etf_cross_sectional_momentum(request: EtfMomentumRequest) -> EtfMomentumStrategyResponse:
     if request.lookback_months < 1:
         raise HTTPException(status_code=400, detail="lookback_months must be at least 1")
@@ -68,7 +69,7 @@ def run_etf_cross_sectional_momentum(request: EtfMomentumRequest) -> EtfMomentum
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/holdings/refresh", response_model=HoldingsRefreshResponse)
+@router.post("/strategy-lab/holdings/refresh", response_model=HoldingsRefreshResponse)
 def refresh_strategy_lab_holdings(request: HoldingsRefreshRequest) -> HoldingsRefreshResponse:
     service = MarketDataService()
     refreshed: list[dict[str, int | str | None]] = []
@@ -83,3 +84,11 @@ def refresh_strategy_lab_holdings(request: HoldingsRefreshRequest) -> HoldingsRe
             }
         )
     return HoldingsRefreshResponse(refreshed=refreshed)
+
+
+@router.post("/ranking/etf-replacements", response_model=IntentBoundEtfReplacementRankingResponse)
+def run_intent_bound_etf_replacement_ranking(request: IntentBoundEtfReplacementRankingRequest) -> IntentBoundEtfReplacementRankingResponse:
+    try:
+        return build_intent_bound_etf_replacement_ranking(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

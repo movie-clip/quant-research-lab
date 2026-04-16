@@ -41,12 +41,71 @@ describe('DashboardPanel', () => {
     const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
 
     render(
-      <DashboardPanel
-        result={ib2026DashboardView}
-        draftSnapshot={draftSnapshot}
-        candidateImprovementDraft={{
-          workspaceId: 'workspace-1',
-          draftId: 'draft-1',
+        <DashboardPanel
+          result={ib2026DashboardView}
+          draftSnapshot={draftSnapshot}
+          intentBoundSeededEtfReplacementRankingDraft={{
+            kind: 'intent_bound_seeded_etf_replacement_ranking',
+            source: 'etf_ranking',
+            workspaceId: 'workspace-1',
+            draftId: 'draft-1',
+            baseNodeId: 'node-1',
+            selectedAt: '2026-04-15T00:00:00Z',
+            baseSymbol: 'VUAA',
+            candidateSymbol: 'IUFS',
+            candidateRank: 1,
+            rankingId: 'etf_ranking_engine_v1',
+            methodologyId: 'etf_ranking_methodology_v1',
+            rankingBasisDate: '2026-04-15',
+            benchmarkSymbol: 'SPY',
+            lookbackMonths: 6,
+            peerGroup: 'Sector UCITS ETF',
+            confidence: 'medium',
+            holdingsSupport: 'mixed',
+            requestUniverse: ['VUAA', 'IUFS', 'IUHC'],
+            evaluatedUniverse: ['IUFS', 'IUHC'],
+            warnings: ['Implementation-fit support is not complete across the ranked universe.'],
+            excludedSymbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+            selectedCandidate: {
+              symbol: 'IUFS',
+              rank: 1,
+              compositeScore: 0.8123,
+              instrument: {
+                name: 'iShares S&P 500 Financials Sector UCITS ETF',
+                assetClass: 'etf',
+                sector: 'Financials',
+                category: 'Sector UCITS ETF',
+                currency: 'USD',
+              },
+            },
+            topCandidate: {
+              symbol: 'IUFS',
+              rank: 1,
+              compositeScore: 0.8123,
+              instrument: {
+                name: 'iShares S&P 500 Financials Sector UCITS ETF',
+                assetClass: 'etf',
+                sector: 'Financials',
+                category: 'Sector UCITS ETF',
+                currency: 'USD',
+              },
+            },
+            runnerUpCandidate: {
+              symbol: 'IUHC',
+              rank: 2,
+              compositeScore: 0.7345,
+              instrument: {
+                name: 'iShares S&P 500 Health Care Sector UCITS ETF',
+                assetClass: 'etf',
+                sector: 'Health Care',
+                category: 'Sector UCITS ETF',
+                currency: 'USD',
+              },
+            },
+          }}
+          candidateImprovementDraft={{
+            workspaceId: 'workspace-1',
+            draftId: 'draft-1',
           baseNodeId: 'node-1',
           seed: {
             kind: 'etf_replacement_candidate',
@@ -72,44 +131,15 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getByText('Seeded from ETF Ranking')).toBeTruthy()
-    expect(screen.getByText('This draft starts from a ranked ETF candidate only. No substitution, weighting, turnover, or construction logic has been applied.')).toBeTruthy()
-    expect(screen.getByText('Use this draft to continue portfolio review. Ranking helps identify a possible same-mandate candidate; it does not decide whether the portfolio should change.')).toBeTruthy()
-    expect(screen.getByText('Base: VUAA · Candidate: IUFS · Rank #1')).toBeTruthy()
-    expect(screen.getByText('Seeded Candidate Review')).toBeTruthy()
-    expect(screen.getByText('Review what the ETF ranking workflow carried into this draft before doing any deeper portfolio analysis.')).toBeTruthy()
-    expect(screen.getByText('Incumbent')).toBeTruthy()
-    expect(screen.getByText('Candidate')).toBeTruthy()
-    expect(screen.getByText('Rank')).toBeTruthy()
-    expect(screen.getByText('Peer Group')).toBeTruthy()
-    expect(screen.getAllByText('Confidence').length).toBeGreaterThan(0)
-    expect(screen.getByText('Holdings Support')).toBeTruthy()
-    expect(screen.getAllByText('Benchmark').length).toBeGreaterThan(0)
-    expect(screen.getByText('Lookback')).toBeTruthy()
-    expect(screen.getByText('Warnings')).toBeTruthy()
-    expect(screen.getByText('Source')).toBeTruthy()
-    expect(screen.getByText('ETF currently selected as the comparison base')).toBeTruthy()
-    expect(screen.getByText('ETF carried forward from the ranking result')).toBeTruthy()
-    expect(screen.getByText('Candidate position inside the ranked eligible universe')).toBeTruthy()
-    expect(screen.getByText('Same-mandate grouping used during ranking')).toBeTruthy()
-    expect(screen.getByText('Ranking trust level carried from the source run')).toBeTruthy()
-    expect(screen.getByText('Implementation-fit support available in the ranking source')).toBeTruthy()
-    expect(screen.getByText('Used for benchmark-relative strength in the source run')).toBeTruthy()
-    expect(screen.getByText('Ranking window from the source run')).toBeTruthy()
-    expect(screen.getByText('Warnings stayed with the seed and still need interpretation')).toBeTruthy()
-    expect(screen.getByText('This draft seed came from the ETF ranking workspace')).toBeTruthy()
-    expect(screen.getByText('What This Seed Means')).toBeTruthy()
-    expect(screen.getByText('This draft now contains a candidate ETF idea with source metadata, not a portfolio decision. No substitution, allocation change, turnover analysis, or construction logic has been applied.')).toBeTruthy()
-    expect(screen.getByText('Use this section to confirm what was carried forward, then continue review in the draft context without assuming the portfolio should change.')).toBeTruthy()
+    expect(screen.queryByText('Ranked Review')).toBeNull()
+    expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy()
+    expect(screen.getByText('Improvement-lane review has moved out of the generic dashboard into the dedicated workflow shell in `Backtest`.')).toBeTruthy()
+    expect(screen.getAllByText('Seed present: VUAA -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Draft Capital Check').length).toBeGreaterThan(0)
   })
 
-  it('renders and clears a replacement intent without affecting the seed review surface', () => {
+  it('demotes replacement intent review to a workspace pointer card on dashboard', () => {
     const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
-    const onCreateReplacementIntent = vi.fn()
-    const onClearReplacementIntent = vi.fn()
-    const onPreviewHypotheticalReplay = vi.fn()
-
     const { rerender } = render(
       <DashboardPanel
         result={ib2026DashboardView}
@@ -139,20 +169,11 @@ describe('DashboardPanel', () => {
             excludedSymbolsCount: 1,
           },
         }}
-        onCreateReplacementIntent={onCreateReplacementIntent}
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Promote to Replacement Intent' })).toBeTruthy()
-    expect(screen.getAllByText('Turn this seeded pair into an explicit proposed replacement without changing holdings or portfolio state.').length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByRole('button', { name: 'Promote to Replacement Intent' }))
-    expect(screen.getByText('Create replacement intent')).toBeTruthy()
-    expect(screen.getByText('This records an explicit incumbent-to-candidate replacement intent inside the draft. It does not apply the change, endorse it, or run any portfolio logic.')).toBeTruthy()
-    expect(screen.getAllByText('From').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('To').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Source').length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByText('Create Intent'))
-    expect(onCreateReplacementIntent).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByText('Portfolio Improvement Workspace').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Seed present: VUAA -> IUFS').length).toBeGreaterThan(0)
 
     rerender(
       <DashboardPanel
@@ -203,25 +224,10 @@ describe('DashboardPanel', () => {
           holdingsSupport: 'mixed',
           warningCount: 1,
         }}
-        onClearReplacementIntent={onClearReplacementIntent}
-        onPreviewHypotheticalReplay={onPreviewHypotheticalReplay}
       />,
     )
 
-    expect(screen.getByText('Replacement Intent')).toBeTruthy()
-    expect(screen.getByText('This draft now carries an explicit proposed replacement pair. It remains a review object only.')).toBeTruthy()
-    expect(screen.getByText('Status')).toBeTruthy()
-    expect(screen.getByText('Draft intent')).toBeTruthy()
-    expect(screen.getByText('Recorded for review only; not applied to holdings')).toBeTruthy()
-    expect(screen.getAllByText('ETF Ranking seed').length).toBeGreaterThan(0)
-    expect(screen.getByText('No holdings have changed. No replay, construction, weighting, turnover, or execution logic has been applied.')).toBeTruthy()
-    expect(screen.getByText('Compare the current portfolio against a draft-only candidate built from this replacement intent.')).toBeTruthy()
-    fireEvent.click(screen.getByText('Preview Hypothetical Replay'))
-    expect(onPreviewHypotheticalReplay).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('Clear Intent')).toBeTruthy()
-    expect(screen.getByText('Remove the explicit replacement intent while leaving the rest of the draft unchanged.')).toBeTruthy()
-    fireEvent.click(screen.getByText('Clear Intent'))
-    expect(onClearReplacementIntent).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Replacement intent present: VUAA -> IUFS')).toBeTruthy()
   })
 
   it('renders n/a for missing seeded review values and hides the section without a seed', () => {
@@ -259,11 +265,11 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Portfolio Improvement Workspace').length).toBeGreaterThan(0)
 
     unmount()
     const cleanView = render(<DashboardPanel result={ib2026DashboardView} draftSnapshot={draftSnapshot} />)
-    expect(within(cleanView.container).queryAllByText('Seeded Candidate Review')).toHaveLength(0)
+    expect(within(cleanView.container).queryAllByText('Portfolio Improvement Workspace')).toHaveLength(0)
   })
 
   it('renders key IB2026 dashboard values from the imported bootstrap and history chain', () => {

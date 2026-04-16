@@ -1,5 +1,5 @@
 const databaseName = 'portfolio-workstation'
-const databaseVersion = 7
+const databaseVersion = 8
 
 export const appStateStoreName = 'app-state'
 export const workspaceStoreName = 'workspaces'
@@ -7,6 +7,7 @@ export const portfolioNodeStoreName = 'portfolio_nodes'
 export const workingDraftStoreName = 'working_drafts'
 export const workspaceStateStoreName = 'workspace_state'
 export const candidateImprovementDraftStoreName = 'candidate_improvement_drafts'
+export const intentBoundSeededEtfReplacementRankingDraftStoreName = 'intent_bound_seeded_etf_replacement_ranking_drafts'
 export const replacementIntentDraftStoreName = 'replacement_intent_drafts'
 export const hypotheticalReplacementReplayDraftStoreName = 'hypothetical_replacement_replay_drafts'
 export const versionedProposalStoreName = 'versioned_proposals'
@@ -43,6 +44,7 @@ export function openPortfolioDatabase() {
             workingDraftStoreName,
             workspaceStateStoreName,
             candidateImprovementDraftStoreName,
+            intentBoundSeededEtfReplacementRankingDraftStoreName,
             replacementIntentDraftStoreName,
             hypotheticalReplacementReplayDraftStoreName,
             versionedProposalStoreName,
@@ -75,6 +77,10 @@ export function openPortfolioDatabase() {
         }
         if (!database.objectStoreNames.contains(candidateImprovementDraftStoreName)) {
           const store = database.createObjectStore(candidateImprovementDraftStoreName, { keyPath: 'draftId' })
+          store.createIndex('workspaceId', 'workspaceId', { unique: false })
+        }
+        if (!database.objectStoreNames.contains(intentBoundSeededEtfReplacementRankingDraftStoreName)) {
+          const store = database.createObjectStore(intentBoundSeededEtfReplacementRankingDraftStoreName, { keyPath: 'draftId' })
           store.createIndex('workspaceId', 'workspaceId', { unique: false })
         }
         if (!database.objectStoreNames.contains(replacementIntentDraftStoreName)) {

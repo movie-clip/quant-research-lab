@@ -141,6 +141,54 @@ export type CandidateImprovementDraftArtifact = {
   seed: CandidateImprovementSeed
 }
 
+export type IntentBoundSeededEtfReplacementRankingCandidateSnapshot = {
+  symbol: string
+  rank: number
+  compositeScore: number
+  instrument: {
+    name: string | null
+    assetClass: string | null
+    sector: string | null
+    category: string | null
+    currency: string | null
+  }
+}
+
+export type IntentBoundSeededEtfReplacementRankingDraftArtifact = {
+  kind: 'intent_bound_seeded_etf_replacement_ranking'
+  source: 'etf_ranking'
+  workspaceId: PortfolioWorkspaceId
+  draftId: PortfolioDraftId
+  baseNodeId: PortfolioNodeId
+  selectedAt: string
+  baseSymbol: string
+  candidateSymbol: string
+  candidateRank: number
+  rankingId: string
+  methodologyId: string
+  rankingBasisDate: string
+  benchmarkSymbol: string
+  lookbackMonths: number
+  peerGroup: string | null
+  confidence: 'high' | 'medium' | 'low'
+  holdingsSupport: 'sample' | 'mixed' | 'unavailable'
+  requestUniverse: string[]
+  evaluatedUniverse: string[]
+  warnings: string[]
+  excludedSymbols: Array<{
+    symbol: string
+    reason: string
+  }>
+  selectedCandidate: IntentBoundSeededEtfReplacementRankingCandidateSnapshot
+  topCandidate: IntentBoundSeededEtfReplacementRankingCandidateSnapshot | null
+  runnerUpCandidate: IntentBoundSeededEtfReplacementRankingCandidateSnapshot | null
+}
+
+export type IntentBoundSeededEtfReplacementRankingDraftArtifactInput = Omit<
+  IntentBoundSeededEtfReplacementRankingDraftArtifact,
+  'workspaceId' | 'draftId' | 'baseNodeId'
+>
+
 export type ReplacementIntentDraftArtifact = {
   kind: 'etf_replacement_intent'
   source: 'candidate_seed'
