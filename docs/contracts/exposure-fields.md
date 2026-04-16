@@ -36,6 +36,17 @@ Important rules:
 - missing benchmark holdings must not render as plausible `0.0` overlap
 - financially meaningful formulas must be documented with both methodology and implementation location
 
+Exposure now exposes explicit backend provenance and run metadata alongside the current-state payload:
+
+- `provenance.snapshot_basis = snapshot_request`
+- `provenance.historical_basis = current_state_only`
+- `provenance.price_basis = not_applicable`
+- `run_metadata.engine_id`
+- `run_metadata.methodology_id`
+- `run_metadata.price_basis`
+- `run_metadata.source_status`
+- `run_metadata.confidence`
+
 ## Truth Classes
 
 - `current-state-truth`
@@ -81,6 +92,15 @@ Implementation:
 
 - `services/quant-engine/app/analytics/risk.py` -> `build_market_overlap_summary(...)`
 - `services/quant-engine/app/services/exposure_engine.py` -> `build_exposure_result(...)`
+
+### Current-state concentration math
+
+- position concentration metrics must be computed over the full current holdings set, not only the displayed top-position subset
+- sector concentration metrics must be computed over the full sector allocation set, not only the displayed top-sector subset
+
+Implementation:
+
+- `services/quant-engine/app/services/exposure_engine.py` -> `_build_current_state_concentration(...)`
 
 ## Field Inventory
 

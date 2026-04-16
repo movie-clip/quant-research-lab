@@ -1,8 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ff2026DashboardGolden } from '../../test/ff2026DashboardGolden'
-import { ib2026DashboardGolden } from '../../test/ib2026DashboardGolden'
+import { ff2026DashboardGolden, ib2026DashboardGolden } from '../../test/dashboardGoldens'
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createFf2026ImportedDashboardFixture, createIb2026ImportedDashboardFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
 import { buildExposureFactorModel, buildImportedDashboardView, composeExposureView } from './portfolioAnalysisAdapter'
@@ -31,28 +30,29 @@ function parsePercentLabel(value: string) {
 }
 
 describe('DashboardPanel', () => {
-  it('renders account summary and monthly returns', () => {
-    render(<DashboardPanel result={mockDashboardView} />)
+  it('renders the constrained dashboard surfaces only', () => {
+    render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
 
     expect(screen.getByText('U8516450')).toBeTruthy()
+    expect(screen.getByText('Project summary')).toBeTruthy()
     expect(screen.getByText('Portfolio vs SPY path for the selected range')).toBeTruthy()
-    expect(screen.getByText('Diversification by Sector')).toBeTruthy()
-    expect(screen.getByText('Account and performance')).toBeTruthy()
-    expect(screen.getByText('Monthly Returns')).toBeTruthy()
+    expect(screen.getByText('Rolling Factor Analysis')).toBeTruthy()
+    expect(screen.getByText('Allocation Overview')).toBeTruthy()
     expect(screen.getByText('Interactive Brokers')).toBeTruthy()
     expect(screen.getAllByText('Live market history').length).toBeGreaterThan(0)
-    expect(screen.getByText('Selected Range Snapshot')).toBeTruthy()
-    expect(screen.getByText('Performance Workspace')).toBeTruthy()
+    expect(screen.queryByText('Monthly Returns')).toBeNull()
+    expect(screen.queryByText('Selected Range Snapshot')).toBeNull()
+    expect(screen.queryByText('Performance Workspace')).toBeNull()
+    expect(screen.queryByText('Portfolio Improvement Workspace')).toBeNull()
   })
 
-  it('renders quant header provenance and selected-range metric strip', () => {
+  it('renders project summary provenance and workspace state', () => {
     render(<DashboardPanel result={mockDashboardView} />)
 
-    expect(screen.getByText('Quant view for current portfolio truth, selected-range performance, explicit provenance, and degraded-state handling.')).toBeTruthy()
+    expect(screen.getByText('Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.')).toBeTruthy()
     expect(screen.getAllByText('Range metrics live').length).toBeGreaterThan(0)
-    expect(screen.getByText('Monthly returns: Live market history')).toBeTruthy()
-    expect(screen.getByText('Current truth')).toBeTruthy()
-    expect(screen.getByText('SPY Excess Return')).toBeTruthy()
+    expect(screen.getByText('Workspace State')).toBeTruthy()
+    expect(screen.getByText('Current imported view and editable draft status.')).toBeTruthy()
   })
 
   it('renders the rolling factor chart on dashboard when exposure context is available', () => {
@@ -76,241 +76,6 @@ describe('DashboardPanel', () => {
     expect(screen.queryByLabelText('Visible factors on rolling factor chart')).toBeNull()
   })
 
-  it('renders a seeded ETF ranking draft banner without mutating the draft snapshot', () => {
-    const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
-
-    render(
-        <DashboardPanel
-          result={ib2026DashboardView}
-          draftSnapshot={draftSnapshot}
-          intentBoundSeededEtfReplacementRankingDraft={{
-            kind: 'intent_bound_seeded_etf_replacement_ranking',
-            source: 'etf_ranking',
-            workspaceId: 'workspace-1',
-            draftId: 'draft-1',
-            baseNodeId: 'node-1',
-            selectedAt: '2026-04-15T00:00:00Z',
-            baseSymbol: 'VUAA',
-            candidateSymbol: 'IUFS',
-            candidateRank: 1,
-            rankingId: 'etf_ranking_engine_v1',
-            methodologyId: 'etf_ranking_methodology_v1',
-            rankingBasisDate: '2026-04-15',
-            benchmarkSymbol: 'SPY',
-            lookbackMonths: 6,
-            peerGroup: 'Sector UCITS ETF',
-            confidence: 'medium',
-            holdingsSupport: 'mixed',
-            requestUniverse: ['VUAA', 'IUFS', 'IUHC'],
-            evaluatedUniverse: ['IUFS', 'IUHC'],
-            warnings: ['Implementation-fit support is not complete across the ranked universe.'],
-            excludedSymbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-            selectedCandidate: {
-              symbol: 'IUFS',
-              rank: 1,
-              compositeScore: 0.8123,
-              instrument: {
-                name: 'iShares S&P 500 Financials Sector UCITS ETF',
-                assetClass: 'etf',
-                sector: 'Financials',
-                category: 'Sector UCITS ETF',
-                currency: 'USD',
-              },
-            },
-            topCandidate: {
-              symbol: 'IUFS',
-              rank: 1,
-              compositeScore: 0.8123,
-              instrument: {
-                name: 'iShares S&P 500 Financials Sector UCITS ETF',
-                assetClass: 'etf',
-                sector: 'Financials',
-                category: 'Sector UCITS ETF',
-                currency: 'USD',
-              },
-            },
-            runnerUpCandidate: {
-              symbol: 'IUHC',
-              rank: 2,
-              compositeScore: 0.7345,
-              instrument: {
-                name: 'iShares S&P 500 Health Care Sector UCITS ETF',
-                assetClass: 'etf',
-                sector: 'Health Care',
-                category: 'Sector UCITS ETF',
-                currency: 'USD',
-              },
-            },
-          }}
-          candidateImprovementDraft={{
-            workspaceId: 'workspace-1',
-            draftId: 'draft-1',
-          baseNodeId: 'node-1',
-          seed: {
-            kind: 'etf_replacement_candidate',
-            source: 'etf_ranking',
-            seededAt: '2026-04-15T00:00:00Z',
-            baseSymbol: 'VUAA',
-            candidateSymbol: 'IUFS',
-            candidateRank: 1,
-            peerGroup: 'Sector UCITS ETF',
-            benchmarkSymbol: 'SPY',
-            lookbackMonths: 6,
-            rankingId: 'etf_ranking_engine_v1',
-            methodologyId: 'etf_ranking_methodology_v1',
-            rankingBasisDate: '2026-04-15',
-            confidence: 'medium',
-            holdingsSupport: 'mixed',
-            requestUniverse: ['VUAA', 'IUFS', 'IUHC'],
-            evaluatedUniverse: ['IUFS', 'IUHC'],
-            warningCount: 1,
-            excludedSymbolsCount: 1,
-          },
-        }}
-      />,
-    )
-
-    expect(screen.queryByText('Ranked Review')).toBeNull()
-    expect(screen.getByText('Portfolio Improvement Workspace')).toBeTruthy()
-    expect(screen.getByText('Improvement-lane review has moved out of the generic dashboard into the dedicated workflow shell in `Research`.')).toBeTruthy()
-    expect(screen.getAllByText('Seed present: VUAA -> IUFS').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Draft Capital Check').length).toBeGreaterThan(0)
-  })
-
-  it('demotes replacement intent review to a workspace pointer card on dashboard', () => {
-    const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
-    const { rerender } = render(
-      <DashboardPanel
-        result={ib2026DashboardView}
-        draftSnapshot={draftSnapshot}
-        candidateImprovementDraft={{
-          workspaceId: 'workspace-1',
-          draftId: 'draft-1',
-          baseNodeId: 'node-1',
-          seed: {
-            kind: 'etf_replacement_candidate',
-            source: 'etf_ranking',
-            seededAt: '2026-04-15T00:00:00Z',
-            baseSymbol: 'VUAA',
-            candidateSymbol: 'IUFS',
-            candidateRank: 1,
-            peerGroup: 'Sector UCITS ETF',
-            benchmarkSymbol: 'SPY',
-            lookbackMonths: 6,
-            rankingId: 'etf_ranking_engine_v1',
-            methodologyId: 'etf_ranking_methodology_v1',
-            rankingBasisDate: '2026-04-15',
-            confidence: 'medium',
-            holdingsSupport: 'mixed',
-            requestUniverse: ['VUAA', 'IUFS', 'IUHC'],
-            evaluatedUniverse: ['IUFS', 'IUHC'],
-            warningCount: 1,
-            excludedSymbolsCount: 1,
-          },
-        }}
-      />,
-    )
-
-    expect(screen.getAllByText('Portfolio Improvement Workspace').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Seed present: VUAA -> IUFS').length).toBeGreaterThan(0)
-
-    rerender(
-      <DashboardPanel
-        result={ib2026DashboardView}
-        draftSnapshot={draftSnapshot}
-        candidateImprovementDraft={{
-          workspaceId: 'workspace-1',
-          draftId: 'draft-1',
-          baseNodeId: 'node-1',
-          seed: {
-            kind: 'etf_replacement_candidate',
-            source: 'etf_ranking',
-            seededAt: '2026-04-15T00:00:00Z',
-            baseSymbol: 'VUAA',
-            candidateSymbol: 'IUFS',
-            candidateRank: 1,
-            peerGroup: 'Sector UCITS ETF',
-            benchmarkSymbol: 'SPY',
-            lookbackMonths: 6,
-            rankingId: 'etf_ranking_engine_v1',
-            methodologyId: 'etf_ranking_methodology_v1',
-            rankingBasisDate: '2026-04-15',
-            confidence: 'medium',
-            holdingsSupport: 'mixed',
-            requestUniverse: ['VUAA', 'IUFS', 'IUHC'],
-            evaluatedUniverse: ['IUFS', 'IUHC'],
-            warningCount: 1,
-            excludedSymbolsCount: 1,
-          },
-        }}
-        replacementIntentDraft={{
-          kind: 'etf_replacement_intent',
-          source: 'candidate_seed',
-          createdAt: '2026-04-15T00:05:00Z',
-          draftId: 'draft-1',
-          workspaceId: 'workspace-1',
-          baseNodeId: 'node-1',
-          baseSymbol: 'VUAA',
-          candidateSymbol: 'IUFS',
-          seededFromDraftId: 'draft-1',
-          seedRankingId: 'etf_ranking_engine_v1',
-          seedMethodologyId: 'etf_ranking_methodology_v1',
-          seedRankingBasisDate: '2026-04-15',
-          peerGroup: 'Sector UCITS ETF',
-          benchmarkSymbol: 'SPY',
-          lookbackMonths: 6,
-          confidence: 'medium',
-          holdingsSupport: 'mixed',
-          warningCount: 1,
-        }}
-      />,
-    )
-
-    expect(screen.getByText('Replacement intent present: VUAA -> IUFS')).toBeTruthy()
-  })
-
-  it('renders n/a for missing seeded review values and hides the section without a seed', () => {
-    const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ib2026Analysis, ['IB2026.pdf'])
-
-    const { unmount } = render(
-      <DashboardPanel
-        result={ib2026DashboardView}
-        draftSnapshot={draftSnapshot}
-        candidateImprovementDraft={{
-          workspaceId: 'workspace-1',
-          draftId: 'draft-1',
-          baseNodeId: 'node-1',
-          seed: {
-            kind: 'etf_replacement_candidate',
-            source: 'etf_ranking',
-            seededAt: '2026-04-15T00:00:00Z',
-            baseSymbol: '',
-            candidateSymbol: 'IUFS',
-            candidateRank: 1,
-            peerGroup: null,
-            benchmarkSymbol: '',
-            lookbackMonths: 6,
-            rankingId: 'etf_ranking_engine_v1',
-            methodologyId: 'etf_ranking_methodology_v1',
-            rankingBasisDate: '2026-04-15',
-            confidence: 'medium',
-            holdingsSupport: 'mixed',
-            requestUniverse: ['VUAA', 'IUFS', 'IUHC'],
-            evaluatedUniverse: ['IUFS', 'IUHC'],
-            warningCount: 1,
-            excludedSymbolsCount: 1,
-          },
-        }}
-      />,
-    )
-
-    expect(screen.getAllByText('Portfolio Improvement Workspace').length).toBeGreaterThan(0)
-
-    unmount()
-    const cleanView = render(<DashboardPanel result={ib2026DashboardView} draftSnapshot={draftSnapshot} />)
-    expect(within(cleanView.container).queryAllByText('Portfolio Improvement Workspace')).toHaveLength(0)
-  })
-
   it('renders key IB2026 dashboard values from the imported bootstrap and history chain', () => {
     expect(ib2026DashboardView.snapshot.statement.statement_period).toBe(ib2026DashboardGolden.statementPeriod)
     expect(ib2026DashboardView.performance_series[ib2026DashboardView.performance_series.length - 1].portfolio_value).toBe(parseCurrencyLabel(ib2026DashboardGolden.portfolioValue))
@@ -325,25 +90,12 @@ describe('DashboardPanel', () => {
     expect(scoped.getAllByText(ib2026DashboardGolden.accountId).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ib2026DashboardGolden.brokerLabel).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ib2026DashboardGolden.sourceLabel).length).toBeGreaterThan(0)
-    expect(scoped.getByText(ib2026DashboardGolden.accountSummary)).toBeTruthy()
+    expect(scoped.getByText('Project summary')).toBeTruthy()
     expect(scoped.getByText((content) => content.includes(ib2026DashboardGolden.statementPeriod))).toBeTruthy()
     expect(scoped.getAllByText(ib2026DashboardGolden.performanceTitle).length).toBeGreaterThan(0)
     expect(scoped.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy()
-    expect(scoped.getAllByText(ib2026DashboardGolden.monthlyStatusLabel).length).toBeGreaterThan(0)
 
-    expect(scoped.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy()
-    expect(scoped.getByText(`Start value: ${ib2026DashboardGolden.startValue}`)).toBeTruthy()
-    expect(scoped.getByText(ib2026DashboardGolden.timeWeightedReturn)).toBeTruthy()
-    expect(scoped.getByText(ib2026DashboardGolden.netContributions)).toBeTruthy()
-    expect(scoped.getByText('Drawdown')).toBeTruthy()
-    expect(scoped.getAllByText(ib2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
-    expect(scoped.getAllByText('Money-Weighted Return').length).toBeGreaterThan(0)
-    expect(scoped.getAllByText(ib2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
-
-    for (const monthly of ib2026DashboardGolden.monthlyReturns) {
-      expect(scoped.getByText(monthly.month)).toBeTruthy()
-      expect(scoped.getByText(monthly.returnPct)).toBeTruthy()
-    }
+    expect(scoped.getByText(`Portfolio value: ${ib2026DashboardGolden.portfolioValue}`)).toBeTruthy()
 
     expect(scoped.getByText('Technology')).toBeTruthy()
     expect(scoped.getByText(ib2026DashboardGolden.sectors.Technology)).toBeTruthy()
@@ -369,14 +121,10 @@ describe('DashboardPanel', () => {
     expect(ib2026DashboardView.range_metrics?.['3M']?.summary.start_value).toBeCloseTo(parseCurrencyLabel(ib2026DashboardGolden.startValue), 2)
     expect(ib2026DashboardView.range_metrics?.['3M']?.max_drawdown_pct).toBeCloseTo(parsePercentLabel(ib2026DashboardGolden.drawdown), 2)
     expect(ib2026DashboardView.range_metrics?.['3M']?.summary.money_weighted_return_pct).toBeCloseTo(parsePercentLabel(ib2026DashboardGolden.moneyWeightedReturn), 2)
-    expect(scoped.getAllByText(`Start value: ${ib2026DashboardGolden.startValue}`).length).toBeGreaterThan(0)
-    expect(scoped.getAllByText(ib2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
-    expect(scoped.getAllByText(ib2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
-
-    for (const monthly of ib2026DashboardGolden.monthlyReturns) {
-      expect(scoped.getByText(monthly.month)).toBeTruthy()
-      expect(scoped.getByText(monthly.returnPct)).toBeTruthy()
-    }
+    expect(scoped.getAllByText('Range metrics live').length).toBeGreaterThan(0)
+    expect(scoped.getByText(`Portfolio value: ${ib2026DashboardGolden.portfolioValue}`)).toBeTruthy()
+    expect(scoped.queryByText('Drawdown')).toBeNull()
+    expect(scoped.queryByText('Money-Weighted Return')).toBeNull()
   })
 
   it('renders Freedom24 FF2026 dashboard values from the imported bootstrap and history chain', () => {
@@ -393,23 +141,12 @@ describe('DashboardPanel', () => {
     expect(scoped.getAllByText(ff2026DashboardGolden.accountId).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ff2026DashboardGolden.brokerLabel).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ff2026DashboardGolden.sourceLabel).length).toBeGreaterThan(0)
-    expect(scoped.getByText(ff2026DashboardGolden.accountSummary)).toBeTruthy()
+    expect(scoped.getByText('Project summary')).toBeTruthy()
     expect(scoped.getByText((content) => content.includes(ff2026DashboardGolden.statementPeriod))).toBeTruthy()
     expect(scoped.getAllByText(ff2026DashboardGolden.performanceTitle).length).toBeGreaterThan(0)
     expect(scoped.getByText(ff2026DashboardGolden.loadedFileLabel)).toBeTruthy()
-    expect(scoped.getAllByText(ff2026DashboardGolden.monthlyStatusLabel).length).toBeGreaterThan(0)
 
-    expect(scoped.getByText(ff2026DashboardGolden.portfolioValue)).toBeTruthy()
-    expect(scoped.getByText(`Start value: ${ff2026DashboardGolden.startValue}`)).toBeTruthy()
-    expect(scoped.getAllByText(ff2026DashboardGolden.timeWeightedReturn).length).toBeGreaterThan(0)
-    expect(scoped.getAllByText(ff2026DashboardGolden.netContributions).length).toBeGreaterThan(0)
-    expect(scoped.getAllByText(ff2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
-    expect(scoped.getAllByText(ff2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
-
-    for (const monthly of ff2026DashboardGolden.monthlyReturns) {
-      expect(scoped.getByText(monthly.month)).toBeTruthy()
-      expect(scoped.getByText(monthly.returnPct)).toBeTruthy()
-    }
+    expect(scoped.getByText(`Portfolio value: ${ff2026DashboardGolden.portfolioValue}`)).toBeTruthy()
 
     expect(scoped.getByText('Broad Market')).toBeTruthy()
     expect(scoped.getByText(ff2026DashboardGolden.sectors['Broad Market'])).toBeTruthy()
@@ -584,7 +321,7 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Draft Capital Check')).toBeTruthy()
   })
 
-  it('renders n/a summary values when range metrics are absent even if history exists', () => {
+  it('keeps the chart surface but drops metric cards when range metrics are absent', () => {
     render(
       <DashboardPanel
         result={buildImportedDashboardView({
@@ -605,10 +342,9 @@ describe('DashboardPanel', () => {
     )
 
     fireEvent.click(screen.getAllByText('All')[0])
-    expect(screen.getAllByText('Start value: n/a').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Portfolio vs SPY path for the selected range').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Range metrics unavailable').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Selected Range Snapshot')).toBeNull()
   })
 
   it('normalizes all-range performance from first non-zero portfolio point', () => {
@@ -659,10 +395,10 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getByText('$61623.07')).toBeTruthy()
+    expect(screen.getByText('Portfolio value: $61623.07')).toBeTruthy()
   })
 
-  it('does not recompute visible summary locally when backend range metrics are absent', () => {
+  it('does not restore removed dashboard metric cards when backend range metrics are absent', () => {
     render(
       <DashboardPanel
         result={buildImportedDashboardView({
@@ -683,12 +419,12 @@ describe('DashboardPanel', () => {
     )
 
     fireEvent.click(screen.getAllByText('All')[0])
-    expect(screen.getAllByText('Time-Weighted Return').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Start value: n/a').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Time-Weighted Return')).toBeNull()
+    expect(screen.queryByText('Money-Weighted Return')).toBeNull()
+    expect(screen.queryByText('Drawdown')).toBeNull()
   })
 
-  it('hides monthly returns when reconstructed history is economically unstable', () => {
+  it('keeps monthly-return-specific dashboard content removed for unstable reconstructed history', () => {
     render(
       <DashboardPanel
         result={buildImportedDashboardView({
@@ -708,9 +444,8 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getAllByText('Monthly returns are suppressed for this imported history.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Sample or reconstructed history').length).toBeGreaterThan(0)
-    expect(screen.queryByText('2025-07')).toBeNull()
+    expect(screen.queryByText('Monthly Returns')).toBeNull()
   })
 
   it('renders unavailable performance copy when history is unavailable', () => {
@@ -730,10 +465,10 @@ describe('DashboardPanel', () => {
     )
 
     expect(screen.getByText('Performance history is unavailable for this import.')).toBeTruthy()
-    expect(screen.getByText('Monthly returns are unavailable for this imported history.')).toBeTruthy()
+    expect(screen.queryByText('Monthly Returns')).toBeNull()
   })
 
-  it('renders n/a for drawdown and money-weighted return when performance history is unavailable', () => {
+  it('keeps removed dashboard metric cards hidden when performance history is unavailable', () => {
     const view = render(
       <DashboardPanel
         result={buildImportedDashboardView({
@@ -751,9 +486,8 @@ describe('DashboardPanel', () => {
     const scoped = within(view.container)
 
     expect(scoped.getByText('Performance history is unavailable for this import.')).toBeTruthy()
-    expect(scoped.getAllByText('Drawdown').length).toBeGreaterThan(0)
-    expect(scoped.getAllByText('Money-Weighted Return').length).toBeGreaterThan(0)
-    expect(scoped.getAllByText('n/a').length).toBeGreaterThan(0)
+    expect(scoped.queryByText('Drawdown')).toBeNull()
+    expect(scoped.queryByText('Money-Weighted Return')).toBeNull()
   })
 
   it('builds a scenario preview for exposure from size-only sector edits', () => {

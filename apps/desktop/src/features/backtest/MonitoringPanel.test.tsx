@@ -99,6 +99,7 @@ describe('MonitoringPanel', () => {
     expect(screen.getAllByText('Volatility / Regime').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Data Quality').length).toBeGreaterThan(0)
     expect(screen.getByText('Monitoring reflects the active hypothetical replay for AAPL -> IUFS.')).toBeTruthy()
+    expect(screen.getByText(/Replay-derived market history/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Data Quality/i }))
 

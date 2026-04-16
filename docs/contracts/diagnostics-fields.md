@@ -25,12 +25,49 @@ Source schema:
 - user-facing explanation of the diagnostics basis
 - must remain explicit about synthetic vs imported history
 
+### `provenance.history_truth_class`
+- `imported_history_equivalent`
+  - the historical diagnostics path is grounded in imported portfolio history replay semantics
+- `synthetic_history_derived`
+  - the historical diagnostics path is built from synthetic snapshot-history states plus market data and must not be read as broker-truth history
+- `unavailable`
+  - no valid historical path was available
+
+### `provenance.price_basis`
+- `close`
+  - diagnostics histories and portfolio path inputs are interpreted on the current close-price basis used by the diagnostics engine
+- `unavailable`
+  - no historically grounded diagnostics basis was available
+
+## Run Metadata
+
+Diagnostics now expose explicit grouped run metadata:
+
+- `run_metadata.diagnostics_id`
+- `run_metadata.methodology_id`
+- `run_metadata.price_basis`
+- `run_metadata.source_status`
+- `run_metadata.confidence`
+
+Contract rule:
+- downstream consumers should treat `run_metadata` plus `provenance` as the authoritative interpretation layer for diagnostics availability and reliability
+
 ## Contract Rules
 
 - `availability.historical_sections_available` answers whether historical diagnostics were successfully computed
+- `availability.status` exposes the canonical availability state directly (`ok` or `unavailable`)
 - `provenance` answers what kind of history basis those diagnostics used
 - availability and provenance are separate dimensions and must not be conflated
 - desktop review flows must not infer broker-truth history from `historical_sections_available = true` alone
+- `historical_basis = market_data_history` must be treated as downgraded synthetic history, not as imported-history equivalence
+
+## Stress Scenario Availability
+
+- unavailable diagnostics must not fabricate stress scenario returns
+- when stress scenario support is unavailable, the diagnostics contract now returns:
+  - `estimated_return_pct = null`
+  - `status = unavailable`
+- desktop should render that state explicitly rather than treating missing support as a true `0.0%` scenario outcome
 
 ## History-Derived Summary Fields
 

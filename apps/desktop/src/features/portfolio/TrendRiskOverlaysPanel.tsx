@@ -4,6 +4,7 @@ import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 
 import type { DiagnosticsEngineResponse } from './types'
+import { formatHistoryTruthClassLabel } from './historyTruth'
 
 type OverlayTone = 'hot' | 'warm' | 'cool' | 'neutral'
 
@@ -174,6 +175,7 @@ export function TrendRiskOverlaysPanel({ result }: { result: DiagnosticsEngineRe
 
   const historyRenderable = recentHistory.length > 1 && (hasSeriesValue(recentHistory, 'realized_vol_20d') || hasSeriesValue(recentHistory, 'drawdown_pct'))
   const hasPartialState = result.model_reliability.status !== 'ok'
+  const historyTruthLabel = formatHistoryTruthClassLabel(result.provenance.history_truth_class)
 
   return (
     <article className="panel">
@@ -186,7 +188,7 @@ export function TrendRiskOverlaysPanel({ result }: { result: DiagnosticsEngineRe
           </div>
           <div className="tab-bar dashboard-meta-row-quant diagnostics-provenance-strip">
             <span className="backtest-source-badge">Status {overlayStatus}</span>
-            <span className="backtest-source-badge">{result.provenance.historical_basis === 'imported_portfolio_history' ? 'Imported history' : 'Synthetic history'}</span>
+            <span className="backtest-source-badge">{historyTruthLabel}</span>
             <span className="backtest-source-badge">Model {result.model_reliability.status}</span>
             <span className="backtest-source-badge">Regime {result.volatility_regime.regime.label}</span>
           </div>

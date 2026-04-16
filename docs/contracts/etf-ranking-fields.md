@@ -7,7 +7,9 @@ The preferred authoritative contract shape is now grouped into:
 - `effective_inputs`
 - `run_metadata`
 
-The legacy top-level ETF ranking fields remain present in slice one for compatibility with the current desktop consumer.
+The grouped contract is now the authoritative shape for new consumers.
+
+Legacy top-level ETF ranking fields remain present only for compatibility with existing consumers and should not be treated as the primary contract going forward.
 
 Contract intent:
 - `request` = normalized request intent

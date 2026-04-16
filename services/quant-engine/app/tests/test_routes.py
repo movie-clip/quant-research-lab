@@ -304,6 +304,9 @@ def test_exposure_engine_route_accepts_portfolio_snapshot_payload() -> None:
     assert payload["overview"]["total_market_value"] == 18000
     assert "lookthrough" in payload
     assert "market_overlap" in payload
+    assert payload["provenance"]["snapshot_basis"] == "snapshot_request"
+    assert payload["provenance"]["price_basis"] == "not_applicable"
+    assert payload["run_metadata"]["engine_id"] == "exposure_engine_v1"
     assert payload["current_state_concentration"]["top_1_position_weight"] == 0.5556
     assert payload["current_state_concentration"]["top_3_position_weight"] == 1.0
     assert payload["current_state_concentration"]["position_hhi"] == 0.5062
@@ -333,6 +336,13 @@ def test_diagnostics_engine_route_marks_snapshot_only_history_as_unavailable() -
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
     assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["status"] == "unavailable"
+    assert payload["provenance"]["history_truth_class"] == "unavailable"
+    assert payload["provenance"]["price_basis"] == "unavailable"
+    assert payload["run_metadata"]["diagnostics_id"] == "diagnostics_engine_v1"
+    assert payload["run_metadata"]["price_basis"] == "unavailable"
+    assert payload["stress_scenarios"][0]["estimated_return_pct"] is None
+    assert payload["stress_scenarios"][0]["status"] == "unavailable"
     assert payload["drawdown_summary"] == {
         "current_drawdown_pct": None,
         "max_drawdown_pct": None,
@@ -383,8 +393,12 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
     assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["status"] == "ok"
     assert payload["provenance"]["snapshot_basis"] == "snapshot_request"
     assert payload["provenance"]["historical_basis"] == "market_data_history"
+    assert payload["provenance"]["history_truth_class"] == "synthetic_history_derived"
+    assert payload["provenance"]["price_basis"] == "close"
+    assert payload["run_metadata"]["confidence"] == "medium"
     assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
     assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
     assert payload["volatility_summary"]["portfolio_volatility_pct"] == payload["risk_summary"]["portfolio_volatility_pct"]
@@ -578,8 +592,12 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is True
     assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["status"] == "ok"
     assert payload["provenance"]["snapshot_basis"] == "imported_snapshot"
     assert payload["provenance"]["historical_basis"] == "imported_portfolio_history"
+    assert payload["provenance"]["history_truth_class"] == "imported_history_equivalent"
+    assert payload["provenance"]["price_basis"] == "close"
+    assert payload["run_metadata"]["confidence"] == "high"
     assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
     assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
     assert payload["volatility_summary"]["portfolio_volatility_pct"] == payload["risk_summary"]["portfolio_volatility_pct"]
@@ -619,8 +637,11 @@ def test_imported_diagnostics_engine_route_marks_missing_imported_history_as_una
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
     assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["status"] == "unavailable"
     assert payload["provenance"]["snapshot_basis"] == "imported_snapshot"
     assert payload["provenance"]["historical_basis"] == "unavailable"
+    assert payload["provenance"]["history_truth_class"] == "unavailable"
+    assert payload["provenance"]["price_basis"] == "unavailable"
     assert payload["drawdown_summary"] == {
         "current_drawdown_pct": None,
         "max_drawdown_pct": None,

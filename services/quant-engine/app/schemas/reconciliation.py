@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.domain.ledger import LedgerRecord
@@ -503,8 +505,9 @@ class StatisticalFactorModel(BaseModel):
     insufficient_history: list[InsufficientHistoryPoint] = []
 class StressScenarioResult(BaseModel):
     name: str
-    estimated_return_pct: float
+    estimated_return_pct: float | None = None
     description: str
+    status: Literal["ok", "unavailable"] = "ok"
 
 
 class PerformancePoint(BaseModel):

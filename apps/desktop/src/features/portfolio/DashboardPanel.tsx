@@ -2,13 +2,10 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse, ImportedStatementImporter } from './types'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
-import type { CandidateImprovementDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact } from './workspaceTypes'
+import type { PortfolioSnapshot } from './workspaceTypes'
 
 type RangeOption = '1M' | '3M' | 'YTD' | '1Y' | 'All'
-type PerformanceView = 'twr' | 'mwr' | 'capital'
 type EditableHolding = { symbol: string; market_value: number; sector?: string | null }
-
-type StatusTone = 'neutral' | 'positive' | 'negative'
 
 function formatPct(value: number | null | undefined) {
   return value == null ? 'n/a' : `${value.toFixed(2)}%`
@@ -39,11 +36,6 @@ function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: s
   return `${statementCount > 1 ? 'Loaded statements' : 'Loaded file'}: ${loadedStatementsLabel}`
 }
 
-function valueToneClass(value: number | null | undefined) {
-  if (value == null || value === 0) return ''
-  return value > 0 ? 'positive-text' : 'negative-text'
-}
-
 function buildPerformanceEmptyState(status: string | null | undefined, range: RangeOption) {
   if (status === 'suppressed') {
     return {
@@ -60,25 +52,6 @@ function buildPerformanceEmptyState(status: string | null | undefined, range: Ra
   return {
     title: 'No performance history available yet.',
     detail: 'Import analysis succeeded, but the dashboard does not have enough daily history to render performance charts for the selected range.',
-  }
-}
-
-function buildMonthlyReturnsEmptyState(status: string | null | undefined) {
-  if (status === 'suppressed') {
-    return {
-      title: 'Monthly returns are suppressed for this imported history.',
-      detail: 'This synthetic multi-statement path includes unstable reconstruction effects, so monthly return cards stay hidden until the history is economically consistent.',
-    }
-  }
-  if (status === 'unavailable') {
-    return {
-      title: 'Monthly returns are unavailable for this imported history.',
-      detail: 'Monthly cards appear only when the import includes a reliable monthly performance chain.',
-    }
-  }
-  return {
-    title: 'Monthly returns are not reliable for this imported history.',
-    detail: 'This synthetic multi-statement path includes unstable reconstruction effects, so monthly return cards are hidden until the history is economically consistent.',
   }
 }
 
@@ -264,9 +237,6 @@ type DashboardPanelProps = {
   draftSnapshot?: PortfolioSnapshot | null
   activeNodeName?: string | null
   draftStatus?: 'clean' | 'dirty' | null
-  candidateImprovementDraft?: CandidateImprovementDraftArtifact | null
-  intentBoundSeededEtfReplacementRankingDraft?: IntentBoundSeededEtfReplacementRankingDraftArtifact | null
-  replacementIntentDraft?: ReplacementIntentDraftArtifact | null
   importing?: boolean
   importError?: string | null
   lastImportedFileNames?: string[]
@@ -299,17 +269,10 @@ function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNa
     .join(', ')
 }
 
-function formatSeedDisplayValue(value: string | number | null | undefined) {
-  if (value == null) return 'n/a'
-  if (typeof value === 'string') return value.trim() ? value : 'n/a'
-  return String(value)
-}
-
-export function DashboardPanel({ result, exposureResult = null, factorModel = null, draftSnapshot = null, activeNodeName = null, draftStatus = null, candidateImprovementDraft = null, intentBoundSeededEtfReplacementRankingDraft = null, replacementIntentDraft = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onPreviewExposure, onDraftSnapshotChange, onDiscardDraft, onSaveVariant }: DashboardPanelProps) {
+export function DashboardPanel({ result, exposureResult = null, factorModel = null, draftSnapshot = null, activeNodeName = null, draftStatus = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onPreviewExposure, onDraftSnapshotChange, onDiscardDraft, onSaveVariant }: DashboardPanelProps) {
   const [selectedRange, setSelectedRange] = useState<RangeOption>('3M')
   const [showPortfolio, setShowPortfolio] = useState(true)
   const [showBenchmark, setShowBenchmark] = useState(true)
-  const [performanceView, setPerformanceView] = useState<PerformanceView>('twr')
   const [hoveredSector, setHoveredSector] = useState<string | null>(null)
   const [lockedSector, setLockedSector] = useState<string | null>(null)
   const [sectorDraft, setSectorDraft] = useState<Record<string, EditableHolding[]>>({})
@@ -372,19 +335,6 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   const normalizedPerf = useMemo(() => normalizePerformanceSeries(perf), [perf])
 
   const hasPerformance = normalizedPerf.length > 0 && visibleStates.length > 0
-  const maxIndex = hasPerformance
-    ? Math.max(...normalizedPerf.map((point) => Math.max(point.portfolio_index ?? 100, point.benchmark_index ?? 100, 100)))
-    : 100
-  const minIndex = hasPerformance
-    ? Math.min(...normalizedPerf.map((point) => Math.min(point.portfolio_index ?? 100, point.benchmark_index ?? 100, 100)))
-    : 100
-  const indexRange = Math.max(maxIndex - minIndex, 1)
-  const maxDrawdown = selectedRangeMetrics?.max_drawdown_pct ?? null
-  const monthlyReturns = useMemo(
-    () => selectedRangeMetrics?.monthly_returns?.map((item) => ({ month: item.month, returnPct: item.return_pct })) ?? [],
-    [selectedRangeMetrics?.monthly_returns],
-  )
-  const monthlyReturnsReliable = selectedRangeMetrics?.monthly_returns_reliable ?? false
   const nextDraftSnapshot = useMemo(() => buildSnapshotFromSectorDraft(draftSnapshot, sectorDraft), [draftSnapshot, sectorDraft])
   const sectorAllocation = useMemo(() => buildSectorAllocationFromSnapshot(nextDraftSnapshot), [nextDraftSnapshot])
   const activeSector = hoveredSector ?? lockedSector
@@ -403,26 +353,6 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
       return { ...item, startAngle, endAngle: cumulative * Math.PI * 2 }
     })
   }, [sectorAllocation])
-  const contributionBaseSeries = visibleStates.map((state, index) => ({
-    date: state.date,
-    contributionBase:
-      resolvedSummary.startValue != null
-        ? resolvedSummary.startValue + visibleStates.slice(1, index + 1).reduce((total, item) => total + item.external_cash_flow, 0)
-        : state.total_portfolio_value,
-    portfolioValue: state.total_portfolio_value,
-  }))
-  const contributionMax = contributionBaseSeries.length
-    ? Math.max(...contributionBaseSeries.map((point) => Math.max(point.contributionBase, point.portfolioValue)))
-    : 0
-  const contributionMin = contributionBaseSeries.length
-    ? Math.min(...contributionBaseSeries.map((point) => Math.min(point.contributionBase, point.portfolioValue)))
-    : 0
-  const contributionRange = Math.max(contributionMax - contributionMin, 1)
-  const capitalChartData = contributionBaseSeries.map((point) => ({
-    date: point.date,
-    portfolioValue: point.portfolioValue,
-    contributionBase: point.contributionBase,
-  }))
   const performancePathData = normalizedPerf.map((point) => ({
     date: point.date,
     portfolioIndex: point.portfolio_index,
@@ -431,38 +361,6 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
     benchmarkReturnPct: point.benchmark_return_pct,
     flow: visibleStates.find((state) => state.date === point.date)?.external_cash_flow ?? 0,
   }))
-
-  const contributionPortfolioLine = contributionBaseSeries
-    .map((point, index) => {
-      const x = contributionBaseSeries.length > 1 ? (index / (contributionBaseSeries.length - 1)) * 1000 : 1000
-      const y = 300 - (((point.portfolioValue - contributionMin) / contributionRange) * 260)
-      return `${x},${y}`
-    })
-    .join(' ')
-
-  const contributionBaseLine = contributionBaseSeries
-    .map((point, index) => {
-      const x = contributionBaseSeries.length > 1 ? (index / (contributionBaseSeries.length - 1)) * 1000 : 1000
-      const y = 300 - (((point.contributionBase - contributionMin) / contributionRange) * 260)
-      return `${x},${y}`
-    })
-    .join(' ')
-
-  const portfolioLine = normalizedPerf
-    .map((point, index) => {
-      const x = normalizedPerf.length > 1 ? (index / (normalizedPerf.length - 1)) * 1000 : 1000
-      const y = 300 - (((point.portfolio_index ?? 100) - minIndex) / indexRange) * 260
-      return `${x},${y}`
-    })
-    .join(' ')
-
-  const benchmarkLine = normalizedPerf
-    .map((point, index) => {
-      const x = normalizedPerf.length > 1 ? (index / (normalizedPerf.length - 1)) * 1000 : 1000
-      const y = 300 - (((point.benchmark_index ?? 100) - minIndex) / indexRange) * 260
-      return `${x},${y}`
-    })
-    .join(' ')
 
   function handleSectorActivate(sector: string) {
     setLockedSector((current) => (current === sector ? null : sector))
@@ -539,63 +437,11 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   }
 
   const performanceHistoryStatus = result.source_status?.performance_history ?? 'unavailable'
-  const monthlyReturnsStatus = result.source_status?.monthly_returns ?? 'unavailable'
   const performanceEmptyState = buildPerformanceEmptyState(performanceHistoryStatus, selectedRange)
-  const monthlyReturnsEmptyState = buildMonthlyReturnsEmptyState(monthlyReturnsStatus)
   const benchmarkLabel = result.performance_series.find((point) => point.benchmark_price != null) ? 'SPY' : 'Benchmark'
   const visibleHistoryWindow = perf.length ? formatHistoryWindowLabel(perf[0]?.date ?? null, perf[perf.length - 1]?.date ?? null) : 'History window unavailable'
   const rangeMetricsStatusLabel = selectedRangeMetrics ? 'Range metrics live' : 'Range metrics unavailable'
   const workspaceStateLabel = draftStatus ? `Working draft ${draftStatus}` : activeNodeName ? `Viewing ${activeNodeName}` : 'Imported snapshot view'
-  const quantMetrics: Array<{ label: string; value: string; helper: string; detail: string; tone: StatusTone; badge: string }> = [
-    {
-      label: 'Portfolio Value',
-      value: formatMoney(displayedPortfolioValue),
-      helper: `Start value: ${formatMoney(resolvedSummary.startValue)}`,
-      detail: 'Current portfolio truth',
-      tone: 'neutral',
-      badge: 'Current truth',
-    },
-    {
-      label: 'Time-Weighted Return',
-      value: formatPct(resolvedSummary.timeWeightedReturnPct),
-      helper: 'Contribution-neutral return for the selected range',
-      detail: formatRangeLabel(selectedRange),
-      tone: resolvedSummary.timeWeightedReturnPct != null && resolvedSummary.timeWeightedReturnPct < 0 ? 'negative' : 'positive',
-      badge: formatRangeLabel(selectedRange),
-    },
-    {
-      label: 'Money-Weighted Return',
-      value: formatPct(resolvedSummary.moneyWeightedReturnPct),
-      helper: 'Modified Dietz style money-weighted return for the selected range.',
-      detail: rangeMetricsStatusLabel,
-      tone: resolvedSummary.moneyWeightedReturnPct != null && resolvedSummary.moneyWeightedReturnPct < 0 ? 'negative' : 'positive',
-      badge: formatRangeLabel(selectedRange),
-    },
-    {
-      label: `${benchmarkLabel} Excess Return`,
-      value: formatPct(resolvedSummary.excessReturnPct),
-      helper: `${benchmarkLabel} return: ${formatPct(resolvedSummary.benchmarkReturnPct)}`,
-      detail: hasPerformance ? visibleHistoryWindow : rangeMetricsStatusLabel,
-      tone: resolvedSummary.excessReturnPct != null && resolvedSummary.excessReturnPct < 0 ? 'negative' : 'positive',
-      badge: dashboardSourceSummary ?? 'Performance source',
-    },
-    {
-      label: 'Net Contributions',
-      value: formatMoney(resolvedSummary.netContributions),
-      helper: 'Deposits minus withdrawals in the selected range',
-      detail: formatRangeLabel(selectedRange),
-      tone: resolvedSummary.netContributions != null && resolvedSummary.netContributions < 0 ? 'negative' : 'neutral',
-      badge: rangeMetricsStatusLabel,
-    },
-    {
-      label: 'Max Drawdown',
-      value: formatPct(maxDrawdown),
-      helper: 'Maximum drawdown from the visible portfolio path.',
-      detail: hasPerformance ? visibleHistoryWindow : dashboardSourceSummary ?? 'Performance source',
-      tone: maxDrawdown != null ? 'negative' : 'neutral',
-      badge: hasPerformance ? 'Visible path' : 'Unavailable',
-    },
-  ]
 
   return (
     <article className="panel dashboard-panel">
@@ -603,13 +449,12 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
         <div className="section-header-inline dashboard-header-actions dashboard-quant-header-row">
           <div className="dashboard-quant-header-copy">
             <p className="panel-label">Dashboard</p>
-            <h2>Account and performance</h2>
-            <p className="lead compact-lead">Quant view for current portfolio truth, selected-range performance, explicit provenance, and degraded-state handling.</p>
+            <h2>Project summary</h2>
+            <p className="lead compact-lead">Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.</p>
             <div className="dashboard-meta-row dashboard-meta-row-quant">
               <span className="broker-badge">{formatBrokerLabel(result.snapshot.statement.importer)}</span>
               <span className="backtest-source-badge">{rangeMetricsStatusLabel}</span>
               {dashboardSourceSummary ? <span className="backtest-source-badge">{dashboardSourceSummary}</span> : null}
-              <span className="backtest-source-badge">Monthly returns: {dashboardSourceLabel(monthlyReturnsStatus)}</span>
               <span className="backtest-source-badge">{workspaceStateLabel}</span>
               {restoredSession ? <span className="backtest-source-badge">Restored on launch</span> : null}
             </div>
@@ -622,115 +467,50 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
             {onResetLocalDatabase ? <button className="secondary-button dashboard-clear-button" onClick={() => void onResetLocalDatabase()} type="button">Reset Local DB</button> : null}
           </div>
         </div>
-        <div className="dashboard-quant-context-grid">
-          <div className="summary-card dashboard-quant-context-card">
-            <p className="stat-label">Account Context</p>
+          <div className="dashboard-quant-context-grid">
+            <div className="summary-card dashboard-quant-context-card">
+              <p className="stat-label">Account Summary</p>
             <p className="summary-value">{result.snapshot.statement.account_id ?? 'Unknown'}</p>
             <p className="helper">{formatBrokerLabel(result.snapshot.statement.importer)} · {result.snapshot.statement.statement_period ?? 'Statement period unavailable'}{statementCount > 1 ? ` · ${statementCount} statements combined` : ''}</p>
           </div>
-          <div className="summary-card dashboard-quant-context-card">
-            <p className="stat-label">Import Provenance</p>
-            <p className="summary-value">{statementCount}</p>
-            <p className="helper">{loadedFilesLabel ?? 'No loaded file metadata'}</p>
-          </div>
-          <div className="summary-card dashboard-quant-context-card">
-            <p className="stat-label">Performance Provenance</p>
-            <p className="summary-value">{dashboardSourceSummary ?? 'Unavailable'}</p>
-            <p className="helper">Visible window: {hasPerformance ? visibleHistoryWindow : 'History window unavailable'}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="dashboard-quant-strip">
-        <div className="section-header-inline sector-list-header dashboard-quant-strip-header">
-          <div>
-            <p className="panel-label">Selected Range Snapshot</p>
-            <p className="helper">Current portfolio truth stays separate from selected-range performance calculations and their provenance.</p>
-          </div>
-          <div className="dashboard-meta-row dashboard-quant-range-badges">
-            <span className="backtest-source-badge">{formatRangeLabel(selectedRange)}</span>
-            <span className="backtest-source-badge">{hasPerformance ? `${visibleStates.length} daily observations` : 'No visible observations'}</span>
-            <span className="backtest-source-badge">Monthly-return status: {dashboardSourceLabel(monthlyReturnsStatus)}</span>
-          </div>
-        </div>
-        <div className="dashboard-summary dashboard-quant-metric-grid">
-          {quantMetrics.map((metric) => (
-            <div className="summary-card dashboard-quant-metric-card" key={metric.label}>
-              <div className="dashboard-quant-metric-topline">
-                <p className="stat-label">{metric.label}</p>
-                <span className="backtest-source-badge dashboard-inline-badge">{metric.badge}</span>
-              </div>
-              <p className={`summary-value ${metric.tone === 'positive' ? 'positive-text' : metric.tone === 'negative' ? 'negative-text' : ''}`}>{metric.value}</p>
-              <p className="helper">{metric.helper}</p>
-              <p className="helper dashboard-quant-detail">{metric.detail}</p>
+            <div className="summary-card dashboard-quant-context-card">
+              <p className="stat-label">Import Provenance</p>
+              <p className="summary-value">{statementCount}</p>
+              <p className="helper">{loadedFilesLabel ?? 'No loaded file metadata'}</p>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {candidateImprovementDraft || intentBoundSeededEtfReplacementRankingDraft || replacementIntentDraft ? (
-        <section className="dashboard-bottom-grid">
-          <div className="summary-card">
-            <p className="panel-label">Portfolio Improvement Workspace</p>
-            <p className="helper">Improvement-lane review has moved out of the generic dashboard into the dedicated workflow shell in `Research`.</p>
-            <p className="helper">Truth classes stay separated there: current portfolio truth, candidate idea metadata, hypothetical replay evidence, diagnostics change, and saved proposal artifacts.</p>
-            {candidateImprovementDraft ? <p className="helper">Seed present: {candidateImprovementDraft.seed.baseSymbol} {'->'} {candidateImprovementDraft.seed.candidateSymbol}</p> : null}
-            {replacementIntentDraft ? <p className="helper">Replacement intent present: {replacementIntentDraft.baseSymbol} {'->'} {replacementIntentDraft.candidateSymbol}</p> : null}
-            {intentBoundSeededEtfReplacementRankingDraft ? <p className="helper">Saved ranked review is available in the workflow shell.</p> : null}
+            <div className="summary-card dashboard-quant-context-card">
+              <p className="stat-label">Workspace State</p>
+              <p className="summary-value">{workspaceStateLabel}</p>
+              <p className="helper">Current imported view and editable draft status.</p>
+            </div>
           </div>
-        </section>
-      ) : null}
+      </section>
 
       <section className="performance-section dashboard-performance-shell">
         <div className="performance-toolbar dashboard-performance-toolbar">
           <div className="section-header-inline performance-header-static dashboard-performance-header">
             <div className="dashboard-performance-copy">
-              <p className="panel-label">Performance Workspace</p>
-              <h3>{performanceView === 'capital' ? 'Portfolio value vs contribution base' : performanceView === 'mwr' ? 'Portfolio growth path for the selected range' : 'Portfolio vs SPY path for the selected range'}</h3>
-              <p className="helper">Use TWR for manager skill, MWR for investor experience, and Capital Path for contributions versus ending capital.</p>
+              <p className="panel-label">Portfolio Path</p>
+              <h3>Portfolio vs SPY path for the selected range</h3>
+              <p className="helper">The chart stays normalized to the first funded point in the visible range.</p>
               <div className="dashboard-meta-row dashboard-performance-badges">
                 <span className="backtest-source-badge">{dashboardSourceSummary ?? 'Performance source unavailable'}</span>
                 <span className="backtest-source-badge">{rangeMetricsStatusLabel}</span>
-                <span className="backtest-source-badge">Monthly-return status: {dashboardSourceLabel(monthlyReturnsStatus)}</span>
                 <span className="backtest-source-badge">Visible window: {hasPerformance ? visibleHistoryWindow : 'Unavailable'}</span>
+                <span className="backtest-source-badge">Portfolio value: {formatMoney(displayedPortfolioValue)}</span>
               </div>
             </div>
             <div className="chart-controls dashboard-performance-controls">
               <div className="toggle-group">
-                <button className={`toggle-chip${performanceView === 'twr' ? ' active' : ''}`} onClick={() => setPerformanceView('twr')} type="button">TWR</button>
-                <button className={`toggle-chip${performanceView === 'mwr' ? ' active' : ''}`} onClick={() => setPerformanceView('mwr')} type="button">MWR</button>
-                <button className={`toggle-chip${performanceView === 'capital' ? ' active' : ''}`} onClick={() => setPerformanceView('capital')} type="button">Capital Path</button>
+                <button className={`toggle-chip${showPortfolio ? ' active' : ''}`} onClick={() => setShowPortfolio((value) => !value)} type="button">Portfolio</button>
+                <button className={`toggle-chip${showBenchmark ? ' active' : ''}`} onClick={() => setShowBenchmark((value) => !value)} type="button">Benchmark</button>
               </div>
-              {performanceView === 'twr' ? (
-                <div className="toggle-group">
-                  <button className={`toggle-chip${showPortfolio ? ' active' : ''}`} onClick={() => setShowPortfolio((value) => !value)} type="button">Portfolio</button>
-                  <button className={`toggle-chip${showBenchmark ? ' active' : ''}`} onClick={() => setShowBenchmark((value) => !value)} type="button">Benchmark</button>
-                </div>
-              ) : null}
               <div className="range-group">
                 {(['1M', '3M', 'YTD', '1Y', 'All'] as RangeOption[]).map((range) => (
                   <button key={range} className={`range-chip${selectedRange === range ? ' active' : ''}`} onClick={() => setSelectedRange(range)} type="button">{range}</button>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-
-        <div className="dashboard-performance-meta-grid">
-          <div className="summary-card dashboard-performance-meta-card">
-            <p className="stat-label">Visible Window</p>
-            <p className="summary-value dashboard-performance-meta-value">{hasPerformance ? visibleHistoryWindow : 'Unavailable'}</p>
-            <p className="helper">{visibleStates.length} daily observations in the selected chart range</p>
-          </div>
-          <div className="summary-card dashboard-performance-meta-card">
-            <p className="stat-label">Investment Gain</p>
-            <p className={`summary-value dashboard-performance-meta-value ${valueToneClass(resolvedSummary.investmentGain)}`}>{formatMoney(resolvedSummary.investmentGain)}</p>
-            <p className="helper">Selected-range gain net of contributions</p>
-          </div>
-          <div className="summary-card dashboard-performance-meta-card">
-            <p className="stat-label">Benchmark Return</p>
-            <p className={`summary-value dashboard-performance-meta-value ${valueToneClass(resolvedSummary.benchmarkReturnPct)}`}>{formatPct(resolvedSummary.benchmarkReturnPct)}</p>
-            <p className="helper">{benchmarkLabel} return over the selected range</p>
           </div>
         </div>
 
@@ -742,23 +522,12 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
         ) : (
           <>
             <Suspense fallback={<div className="line-chart-panel performance-chart-panel" />}>
-              <DashboardPerformanceChart performanceView={performanceView} capitalChartData={capitalChartData} performancePathData={performancePathData} showPortfolio={showPortfolio} showBenchmark={showBenchmark} />
+              <DashboardPerformanceChart performanceView="twr" capitalChartData={[]} performancePathData={performancePathData} showPortfolio={showPortfolio} showBenchmark={showBenchmark} />
             </Suspense>
 
             <div className="chart-legend">
-              {performanceView === 'capital' ? (
-                <>
-                  <span><i className="legend-swatch legend-swatch-portfolio" /> Portfolio Value</span>
-                  <span><i className="legend-swatch legend-swatch-contribution" /> Contribution Base</span>
-                </>
-              ) : performanceView === 'twr' ? (
-                <>
-                  {showPortfolio ? <span><i className="legend-swatch legend-swatch-portfolio" /> Portfolio</span> : null}
-                  {showBenchmark ? <span><i className="legend-swatch legend-swatch-benchmark" /> Benchmark</span> : null}
-                </>
-              ) : (
-                <span><i className="legend-swatch legend-swatch-portfolio" /> Portfolio</span>
-              )}
+              {showPortfolio ? <span><i className="legend-swatch legend-swatch-portfolio" /> Portfolio</span> : null}
+              {showBenchmark ? <span><i className="legend-swatch legend-swatch-benchmark" /> {benchmarkLabel}</span> : null}
             </div>
           </>
         )}
@@ -890,45 +659,6 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
         </div>
       </section>
 
-      <div className="split-grid dashboard-bottom-grid">
-        <section>
-          <p className="panel-label">Drawdown</p>
-          <div className="stat drawdown-card">
-            <p className="summary-value negative-text">{formatPct(maxDrawdown)}</p>
-            <p className="helper">Maximum drawdown from the visible portfolio path.</p>
-          </div>
-        </section>
-
-        <section>
-          <p className="panel-label">Money-Weighted Return</p>
-          <div className="stat drawdown-card">
-              <p className="summary-value">{formatPct(resolvedSummary.moneyWeightedReturnPct)}</p>
-            <p className="helper">Modified Dietz style money-weighted return for the selected range.</p>
-          </div>
-        </section>
-      </div>
-
-      <section className="dashboard-bottom-grid">
-        <p className="panel-label">Monthly Returns</p>
-        {monthlyReturns.length && monthlyReturnsReliable ? (
-          <div className="heatmap-grid">
-            {monthlyReturns.map((item) => {
-              const positive = item.returnPct >= 0
-              return (
-                <div className={`heatmap-cell ${positive ? 'heatmap-positive' : 'heatmap-negative'}`} key={item.month}>
-                  <span>{item.month}</span>
-                  <strong>{item.returnPct.toFixed(2)}%</strong>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="empty-state-panel compact-empty-state">
-            <p className="empty-state-title">{monthlyReturnsEmptyState.title}</p>
-            <p className="helper">{monthlyReturnsEmptyState.detail}</p>
-          </div>
-        )}
-      </section>
     </article>
   )
 }

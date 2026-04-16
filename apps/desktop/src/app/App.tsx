@@ -916,9 +916,6 @@ export function App() {
             draftSnapshot={workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null}
             activeNodeName={activeNode?.name ?? null}
             draftStatus={workingDraft?.status ?? null}
-            candidateImprovementDraft={candidateImprovementDraft}
-            intentBoundSeededEtfReplacementRankingDraft={desktopFeatureFlags.intentBoundSeededEtfReplacementRanking ? intentBoundSeededEtfReplacementRankingDraft : null}
-            replacementIntentDraft={replacementIntentDraft}
             importing={importingPortfolio || restoringPortfolio}
             importError={importError}
             lastImportedFileNames={lastImportedFileNames}

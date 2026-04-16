@@ -23,6 +23,7 @@ describe('DiagnosticsPanel', () => {
     expect(screen.getAllByText('Review provenance and decision-grade signals before drilling into deeper factor and risk detail.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Snapshot request').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Synthetic snapshot-history').length).toBeGreaterThan(0)
+    expect(screen.getByText('History Truth Class')).toBeTruthy()
     expect(screen.getAllByText('Historical sections live').length).toBeGreaterThan(0)
     expect(screen.getByText('History context required')).toBeTruthy()
     expect(screen.getByText('Decision cards stay thin: every value is mapped directly from backend summary outputs.')).toBeTruthy()
@@ -79,6 +80,7 @@ describe('DiagnosticsPanel', () => {
             ...mockDiagnostics.provenance,
             snapshot_basis: 'imported_snapshot',
             historical_basis: 'imported_portfolio_history',
+            history_truth_class: 'imported_history_equivalent',
             note: 'Historical diagnostics are sourced from imported portfolio history.',
           },
         }}
@@ -109,12 +111,15 @@ describe('DiagnosticsPanel', () => {
           provenance: {
             ...mockDiagnostics.provenance,
             historical_basis: 'unavailable',
+            history_truth_class: 'unavailable',
+            price_basis: 'unavailable',
             note: 'Historical diagnostics are unavailable because imported history context is missing.',
           },
           availability: {
             historical_sections_available: false,
             history_context_required: true,
             note: 'Historical diagnostics require imported history context.',
+            status: 'unavailable' as const,
           },
         }}
       />,

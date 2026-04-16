@@ -196,6 +196,7 @@ describe('ExposurePanel', () => {
             historical_sections_available: false,
             history_context_required: true,
             note: 'Historical diagnostics are unavailable from snapshot-only input.',
+            status: 'unavailable' as const,
           },
         }}
         factorModel={mockFactorModel}
@@ -223,7 +224,6 @@ describe('ExposurePanel', () => {
             lookthrough_confidence: 'medium',
             benchmark_overlap_status: 'unavailable',
             benchmark_overlap_confidence: 'low',
-            historical_diagnostics_confidence: 'high',
             note: 'Look-through exposure is partial because some holdings could not be resolved, and benchmark overlap is unavailable because benchmark composition could not be loaded.',
           },
         }}
@@ -231,7 +231,7 @@ describe('ExposurePanel', () => {
       />,
     )
 
-    expect(screen.getByText('Look-through confidence is medium; benchmark overlap confidence is low; historical diagnostics confidence is high.')).toBeTruthy()
+    expect(screen.getByText('Look-through confidence is medium; benchmark overlap confidence is low.')).toBeTruthy()
     expect(screen.getByText('Look-through partial')).toBeTruthy()
     expect(screen.getByText('Overlap unavailable')).toBeTruthy()
     expect(screen.getByText(/benchmark composition could not be loaded/i)).toBeTruthy()

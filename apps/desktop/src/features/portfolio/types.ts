@@ -604,10 +604,32 @@ export type StressScenarioResult = {
   description: string
 }
 
+export type HistoryTruthClass =
+  | 'imported_history_equivalent'
+  | 'synthetic_history_derived'
+  | 'unavailable'
+
+export type DiagnosticsProvenance = {
+  snapshot_basis: 'imported_snapshot' | 'snapshot_request'
+  historical_basis: 'imported_portfolio_history' | 'market_data_history' | 'unavailable'
+  history_truth_class: HistoryTruthClass
+  price_basis: 'close' | 'unavailable'
+  note: string
+}
+
+export type DiagnosticsRunMetadata = {
+  diagnostics_id: string
+  methodology_id: string
+  price_basis: 'close' | 'unavailable'
+  source_status: 'imported_portfolio_history' | 'market_data_history' | 'unavailable'
+  confidence: 'high' | 'medium' | 'low'
+}
+
 export type DiagnosticsAvailability = {
   historical_sections_available: boolean
   history_context_required: boolean
   note: string | null
+  status: 'ok' | 'unavailable'
 }
 
 export type DiagnosticsDrawdownSummary = {
@@ -652,6 +674,7 @@ export type ExposureEnginePayload = {
 export type DiagnosticsPayload = {
   snapshot: ImportedSnapshot
   availability: DiagnosticsAvailability
+  run_metadata: DiagnosticsRunMetadata
   drawdown_summary: DiagnosticsDrawdownSummary
   volatility_summary: DiagnosticsVolatilitySummary
   risk_concentration_summary: DiagnosticsRiskConcentrationSummary
@@ -729,10 +752,6 @@ export type ExposureCurrentStateConcentration = {
   effective_holdings: number | null
 }
 
-export type ComposedExposureAvailability = ExposureAvailability & {
-  historical_diagnostics_confidence: ExposureAvailabilityConfidence
-}
-
 export type ImportedExposureSource = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
@@ -740,9 +759,7 @@ export type ImportedExposureSource = {
   lookthrough_sector_exposure: LookThroughSectorExposure[]
   market_overlap: MarketOverlapSummary
   current_state_concentration: ExposureCurrentStateConcentration
-  exposure_availability?: (ExposureAvailability & {
-    historical_diagnostics_confidence?: ExposureAvailabilityConfidence
-  }) | null
+  exposure_availability?: ExposureAvailability | null
   risk_summary: PortfolioRiskSummary
   rolling_risk: RollingRiskPoint[]
   relative_risk: RelativeRiskSummary
@@ -755,20 +772,14 @@ export type ImportedExposureSource = {
   stress_scenarios: StressScenarioResult[]
   benchmark: BenchmarkSummary | null
   scenario_preview: ScenarioPreview
-  availability?: {
-    historical_sections_available: boolean
-    history_context_required: boolean
-    note: string | null
-  } | null
+  availability?: DiagnosticsAvailability | null
 }
 
 export type ImportedDiagnosticsSource = {
   snapshot: ImportedSnapshot
-  provenance: {
-    snapshot_basis: 'imported_snapshot' | 'snapshot_request'
-    historical_basis: 'imported_portfolio_history' | 'market_data_history' | 'unavailable'
-    note: string
-  }
+  provenance: DiagnosticsProvenance
+  availability: DiagnosticsAvailability
+  run_metadata: DiagnosticsRunMetadata
   drawdown_summary: DiagnosticsDrawdownSummary
   volatility_summary: DiagnosticsVolatilitySummary
   risk_concentration_summary: DiagnosticsRiskConcentrationSummary
@@ -817,13 +828,7 @@ export type PortfolioBaselineView = ImportedBaselineSource
 
 export type ExposureAnalysis = ImportedExposureSource
 
-export type DiagnosticsEngineResponse = ImportedDiagnosticsSource & {
-  availability: {
-    historical_sections_available: boolean
-    history_context_required: boolean
-    note: string | null
-  }
-}
+export type DiagnosticsEngineResponse = ImportedDiagnosticsSource
 
 export type ExposureFactorModelResponse = {
   benchmark_symbol: string
@@ -1253,12 +1258,14 @@ export type AllocationBacktestComparison = {
   total_cost_diff: number | null
 }
 
+export type PortfolioDiagnosticsProvenance = {
+  snapshot_basis: 'synthetic_replay_snapshot'
+  historical_basis: 'market_data_history'
+  note: string
+}
+
 export type PortfolioDiagnosticsSnapshot = {
-  provenance: {
-    snapshot_basis: 'synthetic_replay_snapshot'
-    historical_basis: 'market_data_history'
-    note: string
-  }
+  provenance: PortfolioDiagnosticsProvenance
   factor_snapshot: StatisticalFactorSnapshotItem[]
   volatility_snapshot: VolatilitySnapshot | null
   risk_contribution: RiskContributionBreakdown | null

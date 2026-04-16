@@ -22,6 +22,7 @@ describe('TrendRiskOverlaysPanel', () => {
     expect(screen.getByText('Recent Context')).toBeTruthy()
     expect(screen.getByText('Metadata & Caveats')).toBeTruthy()
     expect(screen.getByText('Status Live')).toBeTruthy()
+    expect(screen.getByText('Synthetic snapshot-history')).toBeTruthy()
     expect(screen.getAllByText('Regime normal').length).toBeGreaterThan(0)
   })
 
@@ -32,6 +33,7 @@ describe('TrendRiskOverlaysPanel', () => {
         historical_sections_available: false,
         history_context_required: true,
         note: 'Overlay analysis requires imported history context.',
+        status: 'unavailable' as const,
       },
     }
 

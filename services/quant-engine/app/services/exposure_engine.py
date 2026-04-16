@@ -9,7 +9,9 @@ from app.schemas.exposure import (
     ExposureConcentrationItem,
     ExposureCurrentStateConcentration,
     ExposureEngineRequest,
+    ExposureProvenance,
     ExposureResult,
+    ExposureRunMetadata,
 )
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest
@@ -33,7 +35,7 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
     _, benchmark_holdings = market_data.get_etf_holdings(benchmark_symbol)
     lookthrough_sector_exposure = build_lookthrough_sector_exposure(lookthrough_constituents)
     market_overlap = build_market_overlap_summary(lookthrough_constituents, benchmark_symbol, benchmark_holdings)
-    current_state_concentration = _build_current_state_concentration(overview)
+    current_state_concentration = _build_current_state_concentration(snapshot, overview)
     availability = _build_exposure_availability(
         total_market_value=total_market_value,
         lookthrough_constituents=lookthrough_constituents,
@@ -43,6 +45,19 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
 
     return ExposureResult(
         snapshot=snapshot,
+        provenance=ExposureProvenance(
+            snapshot_basis="snapshot_request",
+            historical_basis="current_state_only",
+            price_basis="not_applicable",
+            note="Exposure is a current-state engine view built from the submitted snapshot and look-through resolution inputs. Historical diagnostics are separate.",
+        ),
+        run_metadata=ExposureRunMetadata(
+            engine_id="exposure_engine_v1",
+            methodology_id="exposure_current_state_methodology_v1",
+            price_basis="not_applicable",
+            source_status="current_state_only",
+            confidence=_combine_exposure_confidence(availability.lookthrough_confidence, availability.benchmark_overlap_confidence),
+        ),
         overview=overview,
         lookthrough=LookThroughOverview(
             portfolio_market_value=total_market_value,
@@ -111,11 +126,12 @@ def _build_exposure_availability(
     )
 
 
-def _build_current_state_concentration(overview: PortfolioOverview) -> ExposureCurrentStateConcentration:
+def _build_current_state_concentration(snapshot: ImportedPortfolioSnapshot, overview: PortfolioOverview) -> ExposureCurrentStateConcentration:
     top_positions = [_coerce_concentration_item(item, "symbol") for item in overview.top_positions]
     top_sectors = [_coerce_concentration_item(item, "sector") for item in overview.sector_allocation[:8]]
-    position_weights = [item.weight for item in top_positions]
-    sector_weights = [item.weight for item in top_sectors]
+    total_market_value = round(sum(position.market_value for position in snapshot.positions), 2)
+    position_weights = [round(position.market_value / total_market_value, 4) for position in snapshot.positions if total_market_value > 0 and position.market_value >= 0]
+    sector_weights = [float(item.get("weight") or 0.0) for item in overview.sector_allocation]
     position_hhi = _herfindahl_index(position_weights)
     sector_hhi = _herfindahl_index(sector_weights)
 
@@ -151,3 +167,11 @@ def _herfindahl_index(values: list[float]) -> float | None:
     if not values:
         return None
     return round(sum(value * value for value in values), 4)
+
+
+def _combine_exposure_confidence(*values: str) -> str:
+    if "low" in values:
+        return "low"
+    if "medium" in values:
+        return "medium"
+    return "high"

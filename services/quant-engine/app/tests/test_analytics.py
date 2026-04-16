@@ -30,7 +30,7 @@ from app.schemas.imports import (
 )
 from app.schemas.dashboard_history import DashboardHistoryEngineRequest
 from app.schemas.diagnostics import DiagnosticsEngineRequest
-from app.schemas.exposure import ExposureAvailability, ExposureConcentrationItem, ExposureCurrentStateConcentration, ExposureResult
+from app.schemas.exposure import ExposureAvailability, ExposureConcentrationItem, ExposureCurrentStateConcentration, ExposureProvenance, ExposureResult, ExposureRunMetadata
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PortfolioRiskSummary
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
@@ -210,6 +210,19 @@ def _sample_overview(snapshot: ImportedPortfolioSnapshot) -> PortfolioOverview:
 def _sample_exposure_result(snapshot: ImportedPortfolioSnapshot) -> ExposureResult:
     return ExposureResult(
         snapshot=snapshot,
+        provenance=ExposureProvenance(
+            snapshot_basis="snapshot_request",
+            historical_basis="current_state_only",
+            price_basis="not_applicable",
+            note="Exposure is a current-state engine view built from the submitted snapshot and look-through resolution inputs. Historical diagnostics are separate.",
+        ),
+        run_metadata=ExposureRunMetadata(
+            engine_id="exposure_engine_v1",
+            methodology_id="exposure_current_state_methodology_v1",
+            price_basis="not_applicable",
+            source_status="current_state_only",
+            confidence="high",
+        ),
         overview=_sample_overview(snapshot),
         lookthrough=LookThroughOverview(
             portfolio_market_value=sum(position.market_value for position in snapshot.positions),

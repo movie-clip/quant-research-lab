@@ -5,6 +5,7 @@ import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 
 import type { DiagnosticsEngineResponse } from './types'
+import { formatHistoryTruthClassLabel, formatSnapshotBasisLabel, humanizeContractLabel } from './historyTruth'
 
 type BehaviorWindow = 20 | 60 | 252
 
@@ -203,14 +204,11 @@ function DiagnosticsBehaviorChartCard({
 }
 
 function diagnosticsHistoryBasisLabel(result: DiagnosticsEngineResponse) {
-  if (result.provenance.historical_basis === 'imported_portfolio_history') return 'Imported portfolio history'
-  if (result.provenance.historical_basis === 'market_data_history') return 'Synthetic snapshot-history'
-  return 'History unavailable'
+  return formatHistoryTruthClassLabel(result.provenance.history_truth_class)
 }
 
 function diagnosticsSnapshotBasisLabel(result: DiagnosticsEngineResponse) {
-  if (result.provenance.snapshot_basis === 'imported_snapshot') return 'Imported snapshot'
-  return 'Snapshot request'
+  return formatSnapshotBasisLabel(result.provenance.snapshot_basis)
 }
 
 function diagnosticsStatusLabel(result: DiagnosticsEngineResponse) {
@@ -222,8 +220,7 @@ function diagnosticsLead() {
 }
 
 function formatStatusLabel(value: string | null | undefined) {
-  if (!value) return 'n/a'
-  return value.replace(/_/g, ' ')
+  return humanizeContractLabel(value)
 }
 
 function decisionCardToneForDrawdown(value: number | null | undefined): DecisionCardTone {
@@ -311,6 +308,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
 
   const historyBasisLabel = diagnosticsHistoryBasisLabel(result)
   const snapshotBasisLabel = diagnosticsSnapshotBasisLabel(result)
+  const historyTruthClassLabel = formatHistoryTruthClassLabel(result.provenance.history_truth_class)
   const historicalStatusLabel = diagnosticsStatusLabel(result)
   const modelStatusLabel = formatStatusLabel(result.model_reliability.status)
   const selectedBehaviorWindowSummary = getWindowSummary(result, behaviorWindow)
@@ -352,7 +350,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
         </div>
         <div className="tab-bar dashboard-meta-row-quant diagnostics-provenance-strip">
           <span className="backtest-source-badge">{snapshotBasisLabel}</span>
-          <span className="backtest-source-badge">{historyBasisLabel}</span>
+          <span className="backtest-source-badge">{historyTruthClassLabel}</span>
           <span className="backtest-source-badge">{historicalStatusLabel}</span>
           {result.availability.history_context_required ? <span className="backtest-source-badge">History context required</span> : null}
           <span className="backtest-source-badge">Model {modelStatusLabel}</span>
@@ -366,8 +364,8 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
           <p className="diagnostics-context-note">Current diagnostics anchor to the latest portfolio snapshot only.</p>
         </div>
         <div className="summary-card diagnostics-provenance-card">
-          <p className="stat-label">Historical Basis</p>
-          <p className="diagnostics-context-value">{historyBasisLabel}</p>
+          <p className="stat-label">History Truth Class</p>
+          <p className="diagnostics-context-value">{historyTruthClassLabel}</p>
           <p className="diagnostics-context-note">Historical sections are shown only when the backend marked them available.</p>
         </div>
         <div className="summary-card diagnostics-provenance-card">
@@ -501,7 +499,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
           <div>
             <p className="panel-label">Behavior Through Time</p>
           </div>
-          <p className="helper">Temporal behavior stays primary here: {historyBasisLabel} / {historicalStatusLabel} / {behaviorWindowStatusLabel}.</p>
+          <p className="helper">Temporal behavior stays primary here: {historyTruthClassLabel} / {historicalStatusLabel} / {behaviorWindowStatusLabel}.</p>
           {behaviorWindowControls}
         </div>
         <div className="factor-snapshot-meta-row diagnostics-behavior-meta-row">

@@ -27,12 +27,23 @@ class DiagnosticsAvailability(BaseModel):
     historical_sections_available: bool
     history_context_required: bool = True
     note: str | None = None
+    status: Literal["ok", "unavailable"] = "ok"
 
 
 class DiagnosticsProvenance(BaseModel):
     snapshot_basis: Literal["imported_snapshot", "snapshot_request"]
     historical_basis: Literal["imported_portfolio_history", "market_data_history", "unavailable"]
+    history_truth_class: Literal["imported_history_equivalent", "synthetic_history_derived", "unavailable"]
+    price_basis: Literal["close", "unavailable"]
     note: str
+
+
+class DiagnosticsRunMetadata(BaseModel):
+    diagnostics_id: str
+    methodology_id: str
+    price_basis: Literal["close", "unavailable"]
+    source_status: Literal["imported_portfolio_history", "market_data_history", "unavailable"]
+    confidence: Literal["high", "medium", "low"]
 
 
 class DiagnosticsDrawdownSummary(BaseModel):
@@ -60,6 +71,7 @@ class DiagnosticsResult(BaseModel):
     snapshot: ImportedPortfolioSnapshot
     provenance: DiagnosticsProvenance
     availability: DiagnosticsAvailability
+    run_metadata: DiagnosticsRunMetadata
     drawdown_summary: DiagnosticsDrawdownSummary
     volatility_summary: DiagnosticsVolatilitySummary
     risk_concentration_summary: DiagnosticsRiskConcentrationSummary

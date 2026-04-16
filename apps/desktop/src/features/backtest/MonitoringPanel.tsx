@@ -8,6 +8,7 @@ import type {
   PortfolioDiagnosticsSnapshot,
   PortfolioDiagnosticsTopCallout,
 } from '../portfolio/types'
+import { formatReplayHistoricalBasisLabel } from '../portfolio/historyTruth'
 
 type MonitorTone = 'hot' | 'warm' | 'cool' | 'neutral'
 
@@ -213,7 +214,11 @@ function buildMonitors(activeReplay: PortfolioAllocationBacktestResponse, hypoth
   const diagnostics = activeReplay.diagnostics_comparison
   const candidateDiagnostics = activeReplay.candidate_diagnostics ?? null
   const referenceDiagnostics = activeReplay.reference_diagnostics ?? null
-  const provenance = candidateDiagnostics?.provenance.note ?? referenceDiagnostics?.provenance.note ?? 'Replay diagnostics provenance is unavailable for this watch surface.'
+  const historyTruthLabel = formatReplayHistoricalBasisLabel(
+    candidateDiagnostics?.provenance.historical_basis ?? referenceDiagnostics?.provenance.historical_basis ?? null,
+  )
+  const provenanceNote = candidateDiagnostics?.provenance.note ?? referenceDiagnostics?.provenance.note ?? 'Replay diagnostics provenance is unavailable for this watch surface.'
+  const provenance = `${historyTruthLabel}. ${provenanceNote}`
   const diagnosticsReady = Boolean(diagnostics && candidateDiagnostics)
   const diagnosticsConfidence = confidenceFromReplay(activeReplay, diagnosticsReady)
 

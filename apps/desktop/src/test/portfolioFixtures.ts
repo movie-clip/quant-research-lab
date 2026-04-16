@@ -7,8 +7,11 @@ import type {
   ImportedHistoryContext,
   PortfolioRiskSummary,
 } from '../features/portfolio/types'
-import { ff2026ImportedDashboardGoldenFixture } from './ff2026DashboardGolden'
-import { ib2026DashboardGolden, ib2026ImportedDashboardGoldenFixture } from './ib2026DashboardGolden'
+import {
+  ff2026ImportedDashboardGoldenFixture,
+  ib2026DashboardGolden,
+  ib2026ImportedDashboardGoldenFixture,
+} from './dashboardGoldens'
 
 type DashboardGoldenFixture = ImportedDashboardSource & {
   risk_summary: PortfolioRiskSummary
@@ -202,7 +205,7 @@ function createImportedStatisticalFactorModelFixture() {
   }
 }
 
-function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImportedSnapshotFixture>) {
+function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImportedSnapshotFixture>): DiagnosticsEngineResponse {
   const drawdownSummary = {
     current_drawdown_pct: -4.2,
     max_drawdown_pct: -8.9,
@@ -227,12 +230,22 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
     provenance: {
       snapshot_basis: 'snapshot_request' as const,
       historical_basis: 'market_data_history' as const,
+      history_truth_class: 'synthetic_history_derived' as const,
+      price_basis: 'close' as const,
       note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.',
     },
     availability: {
       historical_sections_available: true,
       history_context_required: true,
       note: null,
+      status: 'ok',
+    },
+    run_metadata: {
+      diagnostics_id: 'diagnostics_engine_v1',
+      methodology_id: 'historical_regression_v1',
+      price_basis: 'close',
+      source_status: 'market_data_history',
+      confidence: 'medium',
     },
     drawdown_summary: drawdownSummary,
     volatility_summary: volatilitySummary,
@@ -515,7 +528,14 @@ export function createIb2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
     provenance: {
       snapshot_basis: 'imported_snapshot',
       historical_basis: 'imported_portfolio_history',
+      history_truth_class: 'imported_history_equivalent',
+      price_basis: 'close',
       note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
+    },
+    run_metadata: {
+      ...createDiagnosticsEngineFixture().run_metadata,
+      source_status: 'imported_portfolio_history',
+      confidence: 'high',
     },
     risk_summary: cloneMutable(ib2026MutableDashboardFixture.risk_summary),
   }
@@ -536,7 +556,14 @@ export function createFf2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
     provenance: {
       snapshot_basis: 'imported_snapshot',
       historical_basis: 'imported_portfolio_history',
+      history_truth_class: 'imported_history_equivalent',
+      price_basis: 'close',
       note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
+    },
+    run_metadata: {
+      ...createDiagnosticsEngineFixture().run_metadata,
+      source_status: 'imported_portfolio_history',
+      confidence: 'high',
     },
     risk_summary: cloneMutable(ff2026MutableDashboardFixture.risk_summary),
   }
@@ -563,7 +590,16 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
     provenance: {
       snapshot_basis: 'snapshot_request',
       historical_basis: 'market_data_history',
+      history_truth_class: 'synthetic_history_derived',
+      price_basis: 'close',
       note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.',
+    },
+    run_metadata: {
+      diagnostics_id: 'diagnostics_engine_v1',
+      methodology_id: 'historical_regression_v1',
+      price_basis: 'close',
+      source_status: 'market_data_history',
+      confidence: 'medium',
     },
     drawdown_summary: { current_drawdown_pct: -4.2, max_drawdown_pct: -8.9 },
     volatility_summary: {
@@ -601,6 +637,6 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
     factor_methodology: null,
     statistical_factor_model: { status: 'partial', benchmark_symbol: 'SPY', windows: [], collinearity_diagnostics: [], current_factor_snapshot: [], insufficient_history: [], rolling_loadings_20d: [], rolling_loadings_60d: [], rolling_loadings_252d: [] },
     stress_scenarios: [],
-    availability: { historical_sections_available: true, history_context_required: true, note: null },
+    availability: { historical_sections_available: true, history_context_required: true, note: null, status: 'ok' },
   }
 }

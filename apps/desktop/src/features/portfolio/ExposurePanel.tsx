@@ -694,7 +694,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       ) : null}
       {exposureAvailability?.note ? (
         <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">Look-through confidence is {exposureAvailability.lookthrough_confidence}; benchmark overlap confidence is {exposureAvailability.benchmark_overlap_confidence}; historical diagnostics confidence is {exposureAvailability.historical_diagnostics_confidence ?? 'high'}.</p>
+          <p className="empty-state-title">Look-through confidence is {exposureAvailability.lookthrough_confidence}; benchmark overlap confidence is {exposureAvailability.benchmark_overlap_confidence}.</p>
           <p className="helper">{exposureAvailability.note}</p>
         </div>
       ) : null}

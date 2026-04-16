@@ -28,6 +28,21 @@ class ExposureAvailability(BaseModel):
     note: str | None = None
 
 
+class ExposureProvenance(BaseModel):
+    snapshot_basis: Literal["snapshot_request"]
+    historical_basis: Literal["current_state_only"]
+    price_basis: Literal["not_applicable"]
+    note: str
+
+
+class ExposureRunMetadata(BaseModel):
+    engine_id: str
+    methodology_id: str
+    price_basis: Literal["not_applicable"]
+    source_status: Literal["current_state_only"]
+    confidence: ExposureAvailabilityConfidence
+
+
 class ExposureConcentrationItem(BaseModel):
     name: str
     market_value: float
@@ -49,6 +64,8 @@ class ExposureCurrentStateConcentration(BaseModel):
 
 class ExposureResult(BaseModel):
     snapshot: ImportedPortfolioSnapshot
+    provenance: ExposureProvenance
+    run_metadata: ExposureRunMetadata
     overview: PortfolioOverview
     lookthrough: LookThroughOverview
     lookthrough_sector_exposure: list[LookThroughSectorExposure]

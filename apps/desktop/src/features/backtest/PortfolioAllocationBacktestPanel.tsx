@@ -3,6 +3,7 @@ import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, Respons
 
 import type { CandidateConstructionRuleInput, HypotheticalReplayResponse, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import { formatReplayHistoricalBasisLabel, formatSnapshotBasisLabel } from '../portfolio/historyTruth'
 
 type AllocationWeightRow = {
   symbol: string
@@ -231,6 +232,18 @@ function sectionCardClass(kind: 'baseline' | 'candidate') {
 function formatReplayWindow(startDate: string | null | undefined, endDate: string | null | undefined) {
   if (!startDate || !endDate) return 'n/a'
   return `${startDate} -> ${endDate}`
+}
+
+function replayHistoryTruthLabel(replay: PortfolioAllocationBacktestResponse) {
+  return formatReplayHistoricalBasisLabel(
+    replay.candidate_diagnostics?.provenance.historical_basis ?? replay.reference_diagnostics?.provenance.historical_basis ?? null,
+  )
+}
+
+function replaySnapshotBasisLabel(replay: PortfolioAllocationBacktestResponse) {
+  return formatSnapshotBasisLabel(
+    replay.candidate_diagnostics?.provenance.snapshot_basis ?? replay.reference_diagnostics?.provenance.snapshot_basis ?? null,
+  )
 }
 
 function diagnosticsValueKind(key: string): ComparisonMetricRow['format'] {
@@ -791,12 +804,12 @@ function DiagnosticsDeltaReviewSection({ activeReplay }: { activeReplay: Portfol
         </div>
         <div className="summary-card">
           <p className="stat-label">Snapshot Basis</p>
-          <p className="summary-value">{activeReplay.candidate_diagnostics?.provenance.snapshot_basis ?? 'n/a'}</p>
+          <p className="summary-value">{replaySnapshotBasisLabel(activeReplay)}</p>
           <p className="helper">Baseline diagnostics reflect the current portfolio basis. Candidate diagnostics reflect a hypothetical replacement-intent variant and have not been applied to holdings.</p>
         </div>
         <div className="summary-card">
-          <p className="stat-label">Historical Basis</p>
-          <p className="summary-value">{activeReplay.candidate_diagnostics?.provenance.historical_basis ?? 'n/a'}</p>
+          <p className="stat-label">History Truth Class</p>
+          <p className="summary-value">{replayHistoryTruthLabel(activeReplay)}</p>
           <p className="helper">{activeReplay.candidate_diagnostics?.provenance.note ?? 'Diagnostics compare replay-derived snapshots against historical market-data inputs when available.'}</p>
         </div>
       </div>
@@ -852,7 +865,7 @@ function StandardDiagnosticsComparisonSection({ activeReplay }: { activeReplay: 
 
   return (
     <section className="dashboard-bottom-grid">
-      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Before / After Diagnostics</p></div><p className="helper">{activeReplay.candidate_diagnostics?.provenance.note ?? 'Diagnostics compare synthetic replay snapshots against historical market-data inputs.'}</p></div>
+      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Before / After Diagnostics</p></div><p className="helper">{activeReplay.candidate_diagnostics?.provenance.note ?? 'Diagnostics compare synthetic replay snapshots against historical market-data inputs.'} {replayHistoryTruthLabel(activeReplay)}.</p></div>
       {sections.map((section) => {
         const topCallout = buildDiagnosticsTopCallout(section.topCallout)
 

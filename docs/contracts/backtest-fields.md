@@ -41,6 +41,12 @@ Important rules:
 - financially meaningful formulas must be documented with both methodology and implementation location
 - replacement-intent replay preview derives weights in backend only; desktop must not construct candidate weights for this workflow
 
+Replay and diagnostics provenance should be interpreted together with explicit backend metadata:
+
+- replay assumptions carry the authoritative replay `price_basis`
+- diagnostics provenance carries `snapshot_basis` and `historical_basis`
+- grouped ranking metadata remains authoritative for ranking flows used upstream of replay
+
 ## Truth Classes
 
 - `replay-derived`

@@ -149,7 +149,7 @@ describe('EtfRankingPanel', () => {
     expect(screen.queryByText(/take action/i)).toBeNull()
   })
 
-  it('prefers grouped metadata over legacy top-level metadata when both exist', async () => {
+  it('prefers grouped metadata over request and run metadata paths when both exist', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
         ranking_id: 'etf_ranking_engine_v1',

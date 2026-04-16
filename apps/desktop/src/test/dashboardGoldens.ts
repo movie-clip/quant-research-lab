@@ -42,8 +42,8 @@ export const ib2026DashboardGolden = {
     "Commodities": "16.9%",
     "Defense": "16.4%",
     "Fixed Income": "15.1%",
-    "Technology": "11.4%",
-    "Financials": "7.7%",
+    "Technology": "9.7%",
+    "Financials": "9.4%",
     "Health Care": "6.4%",
     "Consumer Discretionary": "5.2%",
     "Energy": "1.3%",
@@ -55,14 +55,12 @@ export const ib2026DashboardGolden = {
     "SXRV",
     "LQQ",
     "CRM",
-    "FICO",
     "ADBE"
   ],
   "technologyHoldingWeights": {
     "SXRV": "4.29%",
     "LQQ": "2.53%",
     "CRM": "2.06%",
-    "FICO": "1.73%",
     "ADBE": "0.81%"
   },
   "sxrvValue": "2498.8",
@@ -3055,13 +3053,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "sector": "Technology",
-        "market_value": 6647.09,
-        "weight": 0.1142
+        "market_value": 5639.81,
+        "weight": 0.0969
       },
       {
         "sector": "Financials",
-        "market_value": 4477.51,
-        "weight": 0.077
+        "market_value": 5484.79,
+        "weight": 0.0943
       },
       {
         "sector": "Health Care",
@@ -3100,11 +3098,6 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "symbol": "CRM",
           "market_value": 1199.17,
           "weight": 0.0206
-        },
-        {
-          "symbol": "FICO",
-          "market_value": 1007.28,
-          "weight": 0.0173
         },
         {
           "symbol": "ADBE",
@@ -3187,6 +3180,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "symbol": "IUFS",
           "market_value": 3063.0,
           "weight": 0.0526
+        },
+        {
+          "symbol": "FICO",
+          "market_value": 1007.28,
+          "weight": 0.0173
         },
         {
           "symbol": "HOOD",

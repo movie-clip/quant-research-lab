@@ -69,6 +69,18 @@ function rankingExcludedSymbols(result: EtfRankingResponse) {
   return result.effective_inputs.excluded_symbols
 }
 
+function rankingBenchmarkSymbol(result: EtfRankingResponse) {
+  return result.request.benchmark_symbol
+}
+
+function rankingLookbackMonths(result: EtfRankingResponse) {
+  return result.request.lookback_months
+}
+
+function rankingRequestedUniverse(result: EtfRankingResponse) {
+  return result.effective_inputs.requested_universe
+}
+
 function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRankingResponse['ranked_universe'][number], baseSymbol: string): CandidateImprovementSeed {
   return {
     kind: 'etf_replacement_candidate',
@@ -78,14 +90,14 @@ function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRanki
     candidateSymbol: row.symbol,
     candidateRank: row.rank,
     peerGroup: result.effective_inputs.effective_peer_group,
-    benchmarkSymbol: result.request.benchmark_symbol,
-    lookbackMonths: result.request.lookback_months,
+    benchmarkSymbol: rankingBenchmarkSymbol(result),
+    lookbackMonths: rankingLookbackMonths(result),
     rankingId: result.run_metadata.ranking_id,
     methodologyId: result.run_metadata.methodology_id,
     rankingBasisDate: result.run_metadata.ranking_basis_date,
     confidence: result.run_metadata.confidence,
     holdingsSupport: result.run_metadata.source_status.holdings_support,
-    requestUniverse: result.request.universe,
+    requestUniverse: rankingRequestedUniverse(result),
     evaluatedUniverse: result.effective_inputs.evaluated_universe,
     warningCount: result.warnings.warnings.length,
     excludedSymbolsCount: result.effective_inputs.excluded_symbols.length,
@@ -124,12 +136,12 @@ function buildIntentBoundSeededRankingArtifact(
     rankingId: result.run_metadata.ranking_id,
     methodologyId: result.run_metadata.methodology_id,
     rankingBasisDate: result.run_metadata.ranking_basis_date,
-    benchmarkSymbol: result.request.benchmark_symbol,
-    lookbackMonths: result.request.lookback_months,
+    benchmarkSymbol: rankingBenchmarkSymbol(result),
+    lookbackMonths: rankingLookbackMonths(result),
     peerGroup: result.effective_inputs.effective_peer_group,
     confidence: result.run_metadata.confidence,
     holdingsSupport: result.run_metadata.source_status.holdings_support,
-    requestUniverse: result.request.universe,
+    requestUniverse: rankingRequestedUniverse(result),
     evaluatedUniverse: result.effective_inputs.evaluated_universe,
     warnings: result.warnings.warnings,
     excludedSymbols: result.effective_inputs.excluded_symbols,
@@ -323,8 +335,8 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                   <div className="summary-card"><p className="stat-label">Selected ETF</p><p className="summary-value">{seedTarget.symbol}</p></div>
                   <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">ETF Ranking</p></div>
                   <div className="summary-card"><p className="stat-label">Peer Group</p><p className="summary-value">{resolvedPeerGroup ?? 'none'}</p></div>
-                  <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{result.request.benchmark_symbol}</p></div>
-                  <div className="summary-card"><p className="stat-label">Lookback</p><p className="summary-value">{result.request.lookback_months}</p></div>
+                  <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{rankingBenchmarkSymbol(result)}</p></div>
+                  <div className="summary-card"><p className="stat-label">Lookback</p><p className="summary-value">{rankingLookbackMonths(result)}</p></div>
                   <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{resolvedConfidence}</p></div>
                   <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{result.warnings.warnings.length}</p></div>
                   <div className="summary-card"><p className="stat-label">Exclusions</p><p className="summary-value">{resolvedExcludedSymbols.length}</p></div>

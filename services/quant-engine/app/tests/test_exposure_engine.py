@@ -151,6 +151,8 @@ def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
     assert result.current_state_concentration.top_1_position_weight is not None
     assert result.current_state_concentration.position_hhi is not None
     assert result.current_state_concentration.effective_holdings is not None
+    assert result.provenance.price_basis == "not_applicable"
+    assert result.run_metadata.engine_id == "exposure_engine_v1"
     assert result.availability.lookthrough_status in {"live", "partial"}
     assert result.availability.lookthrough_confidence in {"high", "medium"}
     assert result.availability.benchmark_overlap_status in {"live", "partial"}
@@ -221,8 +223,8 @@ def test_exposure_engine_marks_zero_market_value_snapshot_as_unavailable(mocker)
     assert result.lookthrough.coverage_ratio == 0.0
     assert len(result.lookthrough.top_constituents) == 1
     assert result.lookthrough.top_constituents[0].effective_market_value == 0.0
-    assert result.current_state_concentration.top_1_position_weight == 0.0
-    assert result.current_state_concentration.position_hhi == 0.0
+    assert result.current_state_concentration.top_1_position_weight is None
+    assert result.current_state_concentration.position_hhi is None
     assert result.current_state_concentration.effective_holdings is None
     assert result.availability.lookthrough_status == "unavailable"
     assert result.availability.lookthrough_confidence == "low"
