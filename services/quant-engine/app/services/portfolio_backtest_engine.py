@@ -13,7 +13,6 @@ from app.schemas.backtest_engine import (
     AllocationBacktestInstrumentMeta,
     AllocationBacktestResult,
     AllocationBacktestStatus,
-    DraftPortfolioSnapshotInput,
     DistributionPolicy,
     HypotheticalReplayDerivation,
     HypotheticalReplayProposal,
@@ -26,8 +25,10 @@ from app.schemas.backtest_engine import (
     PortfolioImprovementComparison,
     PortfolioAllocationBacktestRequest,
     PortfolioAllocationBacktestResponse,
-    PortfolioWeightInput,
 )
+from app.services.candidate_construction import build_candidate_weights_from_replacement_intent as _shared_build_candidate_weights_from_replacement_intent
+from app.services.candidate_construction import build_snapshot_baseline_weights as _shared_build_snapshot_baseline_weights
+from app.services.candidate_construction import derive_same_weight_substitution_construction
 from app.services.market_data import MarketDataService
 
 
@@ -183,46 +184,15 @@ def _aligned_dates(symbols: list[str], histories: dict[str, list[dict]], benchma
     return ordered
 
 
-def _build_snapshot_baseline_weights(snapshot: DraftPortfolioSnapshotInput) -> list[PortfolioWeightInput]:
-    positions = [position for position in snapshot.positions if position.symbol and position.market_value > 0]
-    if not positions:
-        raise ValueError("snapshot must include at least one positive-weight position")
-
-    total_market_value = sum(position.market_value for position in positions)
-    if total_market_value <= 0:
-        raise ValueError("snapshot positions must sum to a positive market value")
-
-    weights = [PortfolioWeightInput(symbol=position.symbol.upper(), target_weight=round(position.market_value / total_market_value, 8)) for position in positions]
-    total_weight = sum(item.target_weight for item in weights)
-    if abs(total_weight - 1.0) > 0.000001:
-        raise ValueError("snapshot position weights could not be represented deterministically")
-    return weights
+def _build_snapshot_baseline_weights(snapshot):
+    return _shared_build_snapshot_baseline_weights(snapshot)
 
 
-def _build_candidate_weights_from_replacement_intent(baseline_weights: list[PortfolioWeightInput], incumbent_symbol: str, candidate_symbol: str) -> list[PortfolioWeightInput]:
-    incumbent = incumbent_symbol.upper()
-    candidate = candidate_symbol.upper()
-    if candidate == incumbent:
-        raise ValueError("replacement intent candidate must differ from incumbent")
-
-    baseline_by_symbol = {item.symbol: item for item in baseline_weights}
-    incumbent_weight = baseline_by_symbol.get(incumbent)
-    if incumbent_weight is None:
-        raise ValueError(f"replacement intent incumbent not found in draft snapshot: {incumbent}")
-    if incumbent_weight.target_weight <= 0:
-        raise ValueError(f"replacement intent incumbent has non-positive starting weight: {incumbent}")
-    if candidate in baseline_by_symbol:
-        raise ValueError(f"replacement intent candidate is already held in draft snapshot: {candidate}")
-
-    candidate_weights = [PortfolioWeightInput(symbol=item.symbol, target_weight=item.target_weight) for item in baseline_weights if item.symbol != incumbent]
-    candidate_weights.append(PortfolioWeightInput(symbol=candidate, target_weight=incumbent_weight.target_weight))
-    total_weight = sum(item.target_weight for item in candidate_weights)
-    if abs(total_weight - 1.0) > 0.000001:
-        raise ValueError("candidate weights must preserve the baseline total exactly")
-    return candidate_weights
+def _build_candidate_weights_from_replacement_intent(baseline_weights, incumbent_symbol: str, candidate_symbol: str):
+    return _shared_build_candidate_weights_from_replacement_intent(baseline_weights, incumbent_symbol, candidate_symbol)
 
 
-def _build_hypothetical_replay_warnings(snapshot: DraftPortfolioSnapshotInput) -> list[str]:
+def _build_hypothetical_replay_warnings(snapshot) -> list[str]:
     warnings: list[str] = []
     if snapshot.cash_balances:
         warnings.append("Cash balances are not included in the hypothetical replay baseline for this MVP.")
@@ -234,8 +204,7 @@ def build_hypothetical_replacement_replay_preview(request: HypotheticalReplaceme
     if request.replacement_intent is None:
         raise ValueError("replacement_intent is required")
 
-    baseline_weights = _build_snapshot_baseline_weights(request.snapshot)
-    candidate_weights = _build_candidate_weights_from_replacement_intent(baseline_weights, request.replacement_intent.base_symbol, request.replacement_intent.candidate_symbol)
+    baseline_weights, candidate_weights = _resolve_hypothetical_replay_weights(request)
     if request.replacement_intent.benchmark_symbol and request.replacement_intent.benchmark_symbol != request.benchmark_symbol:
         raise ValueError("replacement intent benchmark does not match replay benchmark")
 
@@ -290,6 +259,32 @@ def build_hypothetical_replacement_replay_preview(request: HypotheticalReplaceme
         replay=replay,
         warnings=_build_hypothetical_replay_warnings(request.snapshot),
     )
+
+
+def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayRequest) -> tuple[list, list]:
+    constructed_candidate = request.constructed_candidate
+    if constructed_candidate is None:
+        construction = derive_same_weight_substitution_construction(request.snapshot, request.replacement_intent)
+        return construction.baseline_weights, construction.candidate_weights
+
+    if constructed_candidate.construction.status != "ok":
+        raise ValueError("constructed_candidate must be ok before hypothetical replay can run")
+    if constructed_candidate.construction.rule_id != "same_weight_substitution_v1":
+        raise ValueError("constructed_candidate rule_id is unsupported")
+    if constructed_candidate.proposal.incumbent_symbol != request.replacement_intent.base_symbol:
+        raise ValueError("constructed_candidate incumbent does not match replacement_intent")
+    if constructed_candidate.proposal.candidate_symbol != request.replacement_intent.candidate_symbol:
+        raise ValueError("constructed_candidate candidate does not match replacement_intent")
+    if constructed_candidate.rejection_reason is not None:
+        raise ValueError("constructed_candidate must not include a rejection_reason when status is ok")
+
+    baseline_weights = constructed_candidate.inputs.baseline_weights
+    candidate_weights = constructed_candidate.outputs.candidate_weights
+    if not baseline_weights:
+        raise ValueError("constructed_candidate baseline weights are required")
+    if not candidate_weights:
+        raise ValueError("constructed_candidate candidate weights are required")
+    return baseline_weights, candidate_weights
 
 
 def _compare_results(reference: AllocationBacktestResult, candidate: AllocationBacktestResult) -> AllocationBacktestComparison:

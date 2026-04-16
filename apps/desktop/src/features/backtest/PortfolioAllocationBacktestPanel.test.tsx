@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
-import type { HypotheticalReplacementReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse } from '../portfolio/types'
-import type { ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
+import type { HypotheticalReplacementReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ConstructedCandidateArtifact, FormedCandidateArtifact, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 const mockAnalysis = {
   snapshot: {
@@ -72,6 +72,79 @@ const hypotheticalResponse: HypotheticalReplacementReplayResponse = {
   candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
   replay: mockResponse,
   warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'],
+}
+
+const formedCandidateResponse: SingleReplacementCandidateFormationResponse = {
+  formation: { kind: 'single_replacement_candidate_formation', status: 'ok' },
+  proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution', cash_treatment: 'excluded_from_candidate_formation_basis', position_scope: 'positive_market_value_positions_only' },
+  baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
+  candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
+  formation_summary: { incumbent_start_weight: 0.6, candidate_start_weight: 0.6, unchanged_positions_count: 1, baseline_positions_count: 2, candidate_positions_count: 2, starting_turnover_pct: 0.6 },
+  truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', candidate_truth_class: 'hypothetical_candidate_input_only', formation_truth_class: 'candidate_formation_derived', note: 'Candidate formation is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed.' },
+  warnings: ['Cash balances are excluded from the candidate-formation basis in this MVP.'],
+  rejection_reason: null,
+}
+
+const formedCandidateArtifact: FormedCandidateArtifact = {
+  workspaceId: 'workspace-1',
+  draftId: 'draft-1',
+  baseNodeId: 'node-1',
+  replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+  replacementIntentBaseSymbol: 'AAPL',
+  replacementIntentCandidateSymbol: 'IUFS',
+  formation: formedCandidateResponse,
+}
+
+const constructedCandidateResponse: SingleReplacementCandidateConstructionResponse = {
+  construction: { kind: 'single_replacement_construction', status: 'ok', rule_id: 'same_weight_substitution_v1' },
+  proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+  inputs: { baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }], construction_rule: 'same_weight_substitution_v1', incumbent_start_weight: 0.6 },
+  outputs: { candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }], starting_turnover_pct: 0.6, unchanged_positions_count: 1 },
+  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', construction_basis: 'explicit_single_replacement_rule', cash_treatment: 'excluded_from_construction_basis', position_scope: 'positive_market_value_positions_only' },
+  truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', construction_truth_class: 'candidate_construction_derived', candidate_truth_class: 'hypothetical_candidate_input_only', note: 'Candidate construction is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed and no replay has been run.' },
+  warnings: ['Cash balances are excluded from the construction basis in this MVP.'],
+  rejection_reason: null,
+}
+
+const constructedCandidateArtifact: ConstructedCandidateArtifact = {
+  workspaceId: 'workspace-1',
+  draftId: 'draft-1',
+  baseNodeId: 'node-1',
+  replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+  replacementIntentBaseSymbol: 'AAPL',
+  replacementIntentCandidateSymbol: 'IUFS',
+  constructionRuleId: 'same_weight_substitution_v1',
+  construction: constructedCandidateResponse,
+}
+
+function makeConstructionResponse(ruleId: SingleReplacementConstructionRuleId): SingleReplacementCandidateConstructionResponse {
+  if (ruleId === 'fixed_split_50_50_substitution_v2') {
+    return {
+      construction: { kind: 'single_replacement_construction', status: 'ok', rule_id: 'fixed_split_50_50_substitution_v2' },
+      proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+      inputs: { baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }], construction_rule: 'fixed_split_50_50_substitution_v2', incumbent_start_weight: 0.6, candidate_added_weight: 0.3, incumbent_remaining_weight: 0.3 },
+      outputs: { candidate_weights: [{ symbol: 'AAPL', target_weight: 0.3 }, { symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.3 }], starting_turnover_pct: 0.3, unchanged_positions_count: 1, candidate_added_weight: 0.3, incumbent_remaining_weight: 0.3 },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', construction_basis: 'explicit_single_replacement_rule', cash_treatment: 'excluded_from_construction_basis', position_scope: 'positive_market_value_positions_only' },
+      truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', construction_truth_class: 'candidate_construction_derived', candidate_truth_class: 'hypothetical_candidate_input_only', note: 'Candidate construction is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed and no replay has been run.' },
+      warnings: ['Cash balances are excluded from the construction basis in this MVP.'],
+      rejection_reason: null,
+    }
+  }
+  return constructedCandidateResponse
+}
+
+function makeConstructedCandidateArtifact(ruleId: SingleReplacementConstructionRuleId): ConstructedCandidateArtifact {
+  return {
+    workspaceId: 'workspace-1',
+    draftId: 'draft-1',
+    baseNodeId: 'node-1',
+    replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+    replacementIntentBaseSymbol: 'AAPL',
+    replacementIntentCandidateSymbol: 'IUFS',
+    constructionRuleId: ruleId,
+    construction: makeConstructionResponse(ruleId),
+  }
 }
 
 const mockDraftSnapshot = {
@@ -171,15 +244,15 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => hypotheticalResponse })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
 
     expect(screen.getByText('Hypothetical Replay')).toBeTruthy()
     expect(screen.getByText('Replay Preflight')).toBeTruthy()
     expect(screen.getByText('Ready for backend validation')).toBeTruthy()
-    expect(screen.getByText('AAPL is present in the draft basis at 60.00%.')).toBeTruthy()
-    expect(screen.getByText('IUFS is not already held in the current draft basis.')).toBeTruthy()
+    expect(screen.getByText('The construction artifact supplies 2 candidate weights for review-only replay handoff.')).toBeTruthy()
+    expect(screen.getByText('The construction artifact matches AAPL -> IUFS.')).toBeTruthy()
     expect(screen.getByText('The backend still has to confirm candidate history coverage and sufficient common replay dates before a preview can succeed.')).toBeTruthy()
-    expect(screen.getByText('Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit replacement intent.')).toBeTruthy()
+    expect(screen.getByText('Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit construction output handoff.')).toBeTruthy()
     expect(screen.getByText('No hypothetical replay has been run for this replacement intent yet.')).toBeTruthy()
     fireEvent.click(screen.getByText('Preview Hypothetical Replay'))
     expect(screen.getByText('Preview hypothetical current-vs-candidate replay')).toBeTruthy()
@@ -193,6 +266,11 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const [url, request] = fetchMock.mock.calls[0]
     const payload = JSON.parse(String(request.body))
     expect(String(url)).toContain('/api/backtests/portfolio-allocation/replacement-intent-preview')
+    expect(payload.constructed_candidate.construction.status).toBe('ok')
+    expect(payload.constructed_candidate.outputs.candidate_weights).toEqual([
+      { symbol: 'MSFT', target_weight: 0.4 },
+      { symbol: 'IUFS', target_weight: 0.6 },
+    ])
     expect(payload.replacement_intent.base_symbol).toBe('AAPL')
     expect(payload.replacement_intent.candidate_symbol).toBe('IUFS')
     expect(payload.snapshot.positions).toHaveLength(2)
@@ -200,16 +278,16 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('blocks hypothetical replay preview when the intent candidate is already held in the draft basis', () => {
-    render(<HypotheticalReplaySection result={null} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} formedCandidateArtifact={null} constructedCandidateArtifact={null} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     expect(screen.getByText('Blocked before preview')).toBeTruthy()
-    expect(screen.getByText('IUFS is already held in the current draft basis, so the MVP replay must reject it.')).toBeTruthy()
+    expect(screen.getByText('A constructed candidate review artifact must exist before hypothetical replay can run.')).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Preview Hypothetical Replay' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('renders hypothetical replay provenance and interpretation notes after a preview run', () => {
     const onSaveProposal = vi.fn()
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} hypotheticalReplayResult={hypotheticalResponse} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={hypotheticalResponse} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
 
     const readout = screen.getByText('Replay Decision Readout')
     const summary = screen.getAllByText('Replay Summary').find((element) => element.className === 'panel-label') as HTMLElement
@@ -235,6 +313,72 @@ describe('PortfolioAllocationBacktestPanel', () => {
     fireEvent.click(screen.getByText('Save Proposal v2'))
     expect(onSaveProposal).toHaveBeenCalledTimes(1)
     expect(screen.getByText('Use this surface to review whether the explicit replacement intent produces a meaningfully different hypothetical path under a shared window. It does not recommend the change or prove it should be applied.')).toBeTruthy()
+  })
+
+  it('maps candidate formation status and rejection copy for review display', () => {
+    render(<CandidateFormationSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} onFormedCandidateArtifact={() => {}} />)
+
+    expect(screen.getByText('Formation Status')).toBeTruthy()
+    expect(screen.getByText('Formed')).toBeTruthy()
+  })
+
+  it('renders explicit construction rule review state', () => {
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" onConstructedCandidateArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
+
+    expect(screen.getAllByText('Construction Rule').length).toBeGreaterThan(0)
+    expect(screen.getByText('Constructed')).toBeTruthy()
+    expect(screen.getByText('same_weight_substitution_v1')).toBeTruthy()
+    expect(screen.getByText('candidate_construction_derived')).toBeTruthy()
+  })
+
+  it('reruns construction using the selected fixed split rule', async () => {
+    const onConstructedCandidateArtifact = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => makeConstructionResponse('fixed_split_50_50_substitution_v2') })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={null} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" onConstructedCandidateArtifact={onConstructedCandidateArtifact} onSelectedConstructionRuleChange={() => {}} />)
+
+    expect(screen.getByDisplayValue('Fixed split 50/50 substitution v2')).toBeTruthy()
+    fireEvent.click(screen.getByText('Construct Candidate For Replay'))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(payload.construction_rule.rule_id).toBe('fixed_split_50_50_substitution_v2')
+    expect(onConstructedCandidateArtifact).toHaveBeenCalledWith(expect.objectContaining({
+      construction: expect.objectContaining({ rule_id: 'fixed_split_50_50_substitution_v2' }),
+    }))
+  })
+
+  it('shows stale construction state when the selected rule changes', () => {
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" onConstructedCandidateArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
+
+    expect(screen.getByText('Stale')).toBeTruthy()
+    expect(screen.getByText('The saved construction artifact was built with same_weight_substitution_v1. Rerun construction for fixed_split_50_50_substitution_v2.')).toBeTruthy()
+  })
+
+  it('blocks replay when the constructed artifact does not match the selected rule', () => {
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+
+    expect(screen.getByText('Blocked before preview')).toBeTruthy()
+    expect(screen.getByText('The selected rule is fixed_split_50_50_substitution_v2, but the saved construction artifact was built for same_weight_substitution_v1.')).toBeTruthy()
+  })
+
+  it('shows shortened rejection copy in shell-adjacent formation review', () => {
+    const rejectedArtifact: FormedCandidateArtifact = {
+      ...formedCandidateArtifact,
+      formation: {
+        ...formedCandidateArtifact.formation,
+        formation: { ...formedCandidateArtifact.formation.formation, status: 'rejected' },
+        candidate_weights: [],
+        formation_summary: { ...formedCandidateArtifact.formation.formation_summary, candidate_start_weight: null, unchanged_positions_count: 0, baseline_positions_count: 0, candidate_positions_count: 0, starting_turnover_pct: null },
+        rejection_reason: 'replacement intent candidate is already held in draft snapshot: IUFS',
+      },
+    }
+
+    render(<CandidateFormationSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={rejectedArtifact} onFormedCandidateArtifact={() => {}} />)
+
+    expect(screen.getByText('Rejected')).toBeTruthy()
+    expect(screen.getByText('replacement intent candidate is already held in draft snapshot: IUFS')).toBeTruthy()
   })
 
   it('renders diagnostics change as a separate reusable section', () => {

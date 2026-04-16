@@ -133,6 +133,50 @@ function makeSavedProposal(versionNumber: number, createdAt: string, candidateSy
   } as any
 }
 
+function makeFormedCandidate(status: 'ok' | 'rejected' = 'ok') {
+  return {
+    workspaceId: 'workspace-1',
+    draftId: 'draft-1',
+    baseNodeId: 'node-1',
+    replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+    replacementIntentBaseSymbol: 'AAPL',
+    replacementIntentCandidateSymbol: 'IUFS',
+    formation: {
+      formation: { kind: 'single_replacement_candidate_formation', status },
+      proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution', cash_treatment: 'excluded_from_candidate_formation_basis', position_scope: 'positive_market_value_positions_only' },
+      baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
+      candidate_weights: status === 'ok' ? [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }] : [],
+      formation_summary: { incumbent_start_weight: 0.6, candidate_start_weight: status === 'ok' ? 0.6 : null, unchanged_positions_count: status === 'ok' ? 1 : 0, baseline_positions_count: status === 'ok' ? 2 : 0, candidate_positions_count: status === 'ok' ? 2 : 0, starting_turnover_pct: status === 'ok' ? 0.6 : null },
+      truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', candidate_truth_class: 'hypothetical_candidate_input_only', formation_truth_class: 'candidate_formation_derived', note: 'Candidate formation is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed.' },
+      warnings: [],
+      rejection_reason: status === 'rejected' ? 'replacement intent candidate is already held in draft snapshot: IUFS' : null,
+    },
+  } as any
+}
+
+function makeConstructedCandidate(status: 'ok' | 'rejected' = 'ok') {
+  return {
+    workspaceId: 'workspace-1',
+    draftId: 'draft-1',
+    baseNodeId: 'node-1',
+    replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+    replacementIntentBaseSymbol: 'AAPL',
+    replacementIntentCandidateSymbol: 'IUFS',
+    constructionRuleId: 'same_weight_substitution_v1',
+    construction: {
+      construction: { kind: 'single_replacement_construction', status, rule_id: 'same_weight_substitution_v1' },
+      proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+      inputs: { baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }], construction_rule: 'same_weight_substitution_v1', incumbent_start_weight: 0.6 },
+      outputs: { candidate_weights: status === 'ok' ? [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }] : [], starting_turnover_pct: status === 'ok' ? 0.6 : null, unchanged_positions_count: status === 'ok' ? 1 : 0 },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', construction_basis: 'explicit_single_replacement_rule', cash_treatment: 'excluded_from_construction_basis', position_scope: 'positive_market_value_positions_only' },
+      truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', construction_truth_class: 'candidate_construction_derived', candidate_truth_class: 'hypothetical_candidate_input_only', note: 'Candidate construction is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed and no replay has been run.' },
+      warnings: [],
+      rejection_reason: status === 'rejected' ? 'replacement intent candidate is already held in draft snapshot: IUFS' : null,
+    },
+  } as any
+}
+
 describe('PortfolioImprovementWorkspaceShell', () => {
   it('shows an explicit decision summary when no candidate exists yet', () => {
     render(
@@ -142,17 +186,23 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={null}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
     expect(screen.getByText('Portfolio Improvement Decision Summary')).toBeTruthy()
     expect(screen.getByText('Not selected')).toBeTruthy()
-    expect(screen.getByText('Unavailable')).toBeTruthy()
+    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getAllByText('No artifact').length).toBeGreaterThan(0)
     expect(screen.getByText('Shell-owned decision summary. This synthesizes current workflow review state only; it does not recommend, approve, or apply any portfolio change.')).toBeTruthy()
   })
@@ -165,16 +215,22 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={{ workspaceId: 'workspace-1', draftId: 'draft-1', baseNodeId: 'node-1', seed: { kind: 'etf_replacement_candidate', source: 'etf_ranking', seededAt: '2026-04-15T00:00:00Z', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', candidateRank: 1, peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, rankingId: 'etf_ranking_engine_v1', methodologyId: 'etf_ranking_methodology_v1', rankingBasisDate: '2026-04-15', confidence: 'medium', holdingsSupport: 'mixed', requestUniverse: ['AAPL', 'IUFS'], evaluatedUniverse: ['IUFS'], warningCount: 1, excludedSymbolsCount: 0 } }}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
     expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
-    expect(screen.getByText('Blocked')).toBeTruthy()
+    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getByText('Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.')).toBeTruthy()
   })
 
@@ -186,11 +242,17 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={{ workspaceId: 'workspace-1', draftId: 'draft-1', baseNodeId: 'node-1', seed: { kind: 'etf_replacement_candidate', source: 'etf_ranking', seededAt: '2026-04-15T00:00:00Z', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', candidateRank: 1, peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, rankingId: 'etf_ranking_engine_v1', methodologyId: 'etf_ranking_methodology_v1', rankingBasisDate: '2026-04-15', confidence: 'medium', holdingsSupport: 'mixed', requestUniverse: ['AAPL', 'IUFS'], evaluatedUniverse: ['IUFS'], warningCount: 1, excludedSymbolsCount: 0 } }}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
@@ -199,17 +261,20 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     const currentMatches = screen.getAllByText('Current Portfolio')
     const candidateMatches = screen.getAllByText('Candidate Idea')
+    const constructionMatches = screen.getAllByText('Construction Rule')
     const replayMatches = screen.getAllByText('Hypothetical Replay')
     const diagnosticsMatches = screen.getAllByText('Diagnostics Change')
     const proposalMatches = screen.getAllByText('Saved Proposal')
 
     const current = currentMatches[currentMatches.length - 1] as HTMLElement
     const candidate = candidateMatches[candidateMatches.length - 1] as HTMLElement
+    const construction = constructionMatches[constructionMatches.length - 1] as HTMLElement
     const replay = replayMatches[replayMatches.length - 1] as HTMLElement
     const diagnostics = diagnosticsMatches[diagnosticsMatches.length - 1] as HTMLElement
     const proposal = proposalMatches[proposalMatches.length - 1] as HTMLElement
 
     expect(current.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(candidate.compareDocumentPosition(construction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(candidate.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(replay.compareDocumentPosition(diagnostics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(diagnostics.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -223,11 +288,17 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={null}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
@@ -251,16 +322,89 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={null}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={savedProposal.sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={savedProposal.reviewSnapshot}
         savedProposals={[savedProposal]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
     expect(screen.getAllByText('recorded').length).toBeGreaterThan(0)
     expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
+  })
+
+  it('renders explicit candidate formation state between candidate idea and replay', () => {
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    const candidateMatches = screen.getAllByText('Candidate Idea')
+    const formationMatches = screen.getAllByText('Candidate Formation')
+    const constructionMatches = screen.getAllByText('Construction Rule')
+    const replayMatches = screen.getAllByText('Hypothetical Replay')
+    const candidate = candidateMatches[candidateMatches.length - 1] as HTMLElement
+    const formation = formationMatches[formationMatches.length - 1] as HTMLElement
+    const construction = constructionMatches[constructionMatches.length - 1] as HTMLElement
+    const replay = replayMatches[replayMatches.length - 1] as HTMLElement
+
+    expect(candidate.compareDocumentPosition(formation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(formation.compareDocumentPosition(construction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(formation.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getAllByText('Formed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Constructed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('candidate_formation_derived').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('candidate_construction_derived').length).toBeGreaterThan(0)
+  })
+
+  it('shows explicit candidate formation rejection state', () => {
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate('rejected')}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByText('Rejected').length).toBeGreaterThan(0)
+    expect(screen.getByText('Formation rejected: replacement intent candidate is already held in draft snapshot: IUFS')).toBeTruthy()
+    expect(screen.getAllByText('replacement intent candidate is already held in draft snapshot: IUFS').length).toBeGreaterThan(0)
   })
 
   it('summarizes replay and diagnostics state without presenting a recommendation', () => {
@@ -303,15 +447,21 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={null}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={{ ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').reviewSnapshot, replay: replayWithDiagnostics }}
         savedProposals={[]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
-    expect(screen.getAllByText('ok').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Formed').length).toBeGreaterThan(0)
     expect(screen.getByText('Total return delta +2.50% versus baseline under the shared replay window.')).toBeTruthy()
     expect(screen.getAllByText('Position HHI').length).toBeGreaterThan(0)
     expect(screen.getByText('Concentration shows -0.05. candidate modestly reduces concentration')).toBeTruthy()
@@ -327,11 +477,17 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={null}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={savedProposal.sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={savedProposal.reviewSnapshot}
         savedProposals={[savedProposal]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
@@ -350,11 +506,17 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={null}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[olderProposal, latestProposal]}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
@@ -382,17 +544,50 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         candidateImprovementDraft={{ workspaceId: 'workspace-1', draftId: 'draft-1', baseNodeId: 'node-1', seed: { kind: 'etf_replacement_candidate', source: 'etf_ranking', seededAt: '2026-04-15T00:00:00Z', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', candidateRank: 1, peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, rankingId: 'etf_ranking_engine_v1', methodologyId: 'etf_ranking_methodology_v1', rankingBasisDate: '2026-04-15', confidence: 'medium', holdingsSupport: 'mixed', requestUniverse: ['AAPL', 'IUFS'], evaluatedUniverse: ['IUFS'], warningCount: 1, excludedSymbolsCount: 0 } }}
         intentBoundSeededEtfReplacementRankingDraft={null}
         replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
         onCreateReplacementIntent={onCreateReplacementIntent}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Promote to Replacement Intent' }))
     fireEvent.click(screen.getByRole('button', { name: 'Create Intent' }))
     expect(onCreateReplacementIntent).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks construction stale when the selected rule differs from the saved artifact rule', () => {
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        selectedConstructionRuleId="fixed_split_50_50_substitution_v2"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByText('Stale').length).toBeGreaterThan(0)
+    expect(screen.getByText('The existing construction artifact was built with same_weight_substitution_v1 and must be rerun for fixed_split_50_50_substitution_v2.')).toBeTruthy()
+    expect(screen.getAllByText('fixed_split_50_50_substitution_v2').length).toBeGreaterThan(0)
   })
 })

@@ -266,7 +266,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
         </div>
 
         <div className="dashboard-edit-actions dashboard-edit-actions-compact">
-          <button className="primary-button" type="button" onClick={() => void runRanking()} disabled={loading}>{loading ? 'Running...' : 'Run ETF Ranking'}</button>
+          <button className={`primary-button${loading ? ' button-loading' : ''}`} type="button" onClick={() => void runRanking()} disabled={loading}>{loading ? 'Running...' : 'Run ETF Ranking'}</button>
         </div>
       </div>
 

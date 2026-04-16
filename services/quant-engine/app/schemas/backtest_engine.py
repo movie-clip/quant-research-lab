@@ -186,9 +186,21 @@ class HypotheticalReplayDerivation(BaseModel):
     candidate_construction_rule: Literal["single_symbol_weight_substitution"]
 
 
+class ConstructedCandidateReplayInput(BaseModel):
+    construction: CandidateConstructionState
+    proposal: CandidateFormationProposal
+    inputs: CandidateConstructionInputs
+    outputs: CandidateConstructionOutputs
+    derivation: CandidateConstructionDerivation
+    truth_provenance: CandidateConstructionTruthProvenance
+    warnings: list[str] = Field(default_factory=list)
+    rejection_reason: str | None = None
+
+
 class HypotheticalReplacementReplayRequest(BaseModel):
     snapshot: DraftPortfolioSnapshotInput
     replacement_intent: ReplacementIntentReplayInput | None = None
+    constructed_candidate: ConstructedCandidateReplayInput | None = None
     benchmark_symbol: str = "SPY"
     start_date: date
     end_date: date
@@ -376,3 +388,114 @@ class HypotheticalReplacementReplayResponse(BaseModel):
     candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     replay: PortfolioAllocationBacktestResponse
     warnings: list[str] = Field(default_factory=list)
+
+
+class CandidateFormationState(BaseModel):
+    kind: Literal["single_replacement_candidate_formation"]
+    status: Literal["ok", "rejected"]
+
+
+class CandidateFormationProposal(BaseModel):
+    source: Literal["draft_replacement_intent"]
+    draft_id: str | None = None
+    workspace_id: str | None = None
+    base_node_id: str | None = None
+    incumbent_symbol: str | None = None
+    candidate_symbol: str | None = None
+
+
+class CandidateFormationDerivation(BaseModel):
+    baseline_basis: Literal["draft_snapshot_positions_normalized"]
+    candidate_construction_rule: Literal["single_symbol_weight_substitution"]
+    cash_treatment: Literal["excluded_from_candidate_formation_basis"]
+    position_scope: Literal["positive_market_value_positions_only"]
+
+
+class CandidateFormationSummary(BaseModel):
+    incumbent_start_weight: float | None = None
+    candidate_start_weight: float | None = None
+    unchanged_positions_count: int = 0
+    baseline_positions_count: int = 0
+    candidate_positions_count: int = 0
+    starting_turnover_pct: float | None = None
+
+
+class CandidateFormationTruthProvenance(BaseModel):
+    baseline_truth_class: Literal["draft_snapshot_basis"]
+    candidate_truth_class: Literal["hypothetical_candidate_input_only"]
+    formation_truth_class: Literal["candidate_formation_derived"]
+    note: str
+
+
+class SingleReplacementCandidateFormationRequest(BaseModel):
+    snapshot: DraftPortfolioSnapshotInput | None = None
+    replacement_intent: ReplacementIntentReplayInput | None = None
+
+
+class SingleReplacementCandidateFormationResponse(BaseModel):
+    formation: CandidateFormationState
+    proposal: CandidateFormationProposal
+    derivation: CandidateFormationDerivation
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    formation_summary: CandidateFormationSummary
+    truth_provenance: CandidateFormationTruthProvenance
+    warnings: list[str] = Field(default_factory=list)
+    rejection_reason: str | None = None
+
+
+class CandidateConstructionRuleInput(BaseModel):
+    rule_id: str
+
+
+class CandidateConstructionState(BaseModel):
+    kind: Literal["single_replacement_construction"]
+    status: Literal["ok", "rejected"]
+    rule_id: str | None = None
+
+
+class CandidateConstructionInputs(BaseModel):
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    construction_rule: str | None = None
+    incumbent_start_weight: float | None = None
+    candidate_added_weight: float | None = None
+    incumbent_remaining_weight: float | None = None
+
+
+class CandidateConstructionOutputs(BaseModel):
+    candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    starting_turnover_pct: float | None = None
+    unchanged_positions_count: int = 0
+    candidate_added_weight: float | None = None
+    incumbent_remaining_weight: float | None = None
+
+
+class CandidateConstructionDerivation(BaseModel):
+    baseline_basis: Literal["draft_snapshot_positions_normalized"]
+    construction_basis: Literal["explicit_single_replacement_rule"]
+    cash_treatment: Literal["excluded_from_construction_basis"]
+    position_scope: Literal["positive_market_value_positions_only"]
+
+
+class CandidateConstructionTruthProvenance(BaseModel):
+    baseline_truth_class: Literal["draft_snapshot_basis"]
+    construction_truth_class: Literal["candidate_construction_derived"]
+    candidate_truth_class: Literal["hypothetical_candidate_input_only"]
+    note: str
+
+
+class SingleReplacementCandidateConstructionRequest(BaseModel):
+    snapshot: DraftPortfolioSnapshotInput | None = None
+    replacement_intent: ReplacementIntentReplayInput | None = None
+    construction_rule: CandidateConstructionRuleInput | None = None
+
+
+class SingleReplacementCandidateConstructionResponse(BaseModel):
+    construction: CandidateConstructionState
+    proposal: CandidateFormationProposal
+    inputs: CandidateConstructionInputs
+    outputs: CandidateConstructionOutputs
+    derivation: CandidateConstructionDerivation
+    truth_provenance: CandidateConstructionTruthProvenance
+    warnings: list[str] = Field(default_factory=list)
+    rejection_reason: str | None = None

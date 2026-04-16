@@ -1,11 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ff2026DashboardGolden } from '../../test/ff2026DashboardGolden'
 import { ib2026DashboardGolden } from '../../test/ib2026DashboardGolden'
-import { createFf2026ImportedDashboardFixture, createIb2026ImportedDashboardFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
+import { createDiagnosticsEngineFixture, createExposureEngineFixture, createFf2026ImportedDashboardFixture, createIb2026ImportedDashboardFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
-import { buildImportedDashboardView } from './portfolioAnalysisAdapter'
+import { buildExposureFactorModel, buildImportedDashboardView, composeExposureView } from './portfolioAnalysisAdapter'
 import { buildPortfolioSnapshotFromAnalysis } from './portfolioSnapshot'
 import type { DashboardAnalysis, ImportedDashboardSource } from './types'
 
@@ -15,6 +15,12 @@ const ib2026Analysis: ImportedDashboardSource = createIb2026ImportedDashboardFix
 const ib2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ib2026Analysis)
 const ff2026Analysis: ImportedDashboardSource = createFf2026ImportedDashboardFixture()
 const ff2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ff2026Analysis)
+const dashboardExposureView = composeExposureView(createExposureEngineFixture(), createDiagnosticsEngineFixture())
+const dashboardFactorModel = buildExposureFactorModel(dashboardExposureView)
+
+afterEach(() => {
+  cleanup()
+})
 
 function parseCurrencyLabel(value: string) {
   return Number(value.replace(/[$,]/g, ''))
@@ -34,7 +40,40 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Account and performance')).toBeTruthy()
     expect(screen.getByText('Monthly Returns')).toBeTruthy()
     expect(screen.getByText('Interactive Brokers')).toBeTruthy()
-    expect(screen.getByText('Live market history')).toBeTruthy()
+    expect(screen.getAllByText('Live market history').length).toBeGreaterThan(0)
+    expect(screen.getByText('Selected Range Snapshot')).toBeTruthy()
+    expect(screen.getByText('Performance Workspace')).toBeTruthy()
+  })
+
+  it('renders quant header provenance and selected-range metric strip', () => {
+    render(<DashboardPanel result={mockDashboardView} />)
+
+    expect(screen.getByText('Quant view for current portfolio truth, selected-range performance, explicit provenance, and degraded-state handling.')).toBeTruthy()
+    expect(screen.getAllByText('Range metrics live').length).toBeGreaterThan(0)
+    expect(screen.getByText('Monthly returns: Live market history')).toBeTruthy()
+    expect(screen.getByText('Current truth')).toBeTruthy()
+    expect(screen.getByText('SPY Excess Return')).toBeTruthy()
+  })
+
+  it('renders the rolling factor chart on dashboard when exposure context is available', () => {
+    render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
+
+    expect(screen.getByText('Rolling Factor Analysis')).toBeTruthy()
+    expect(screen.getByLabelText('Visible factors on rolling factor chart')).toBeTruthy()
+    expect(screen.getAllByText('Market').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Growth').length).toBeGreaterThan(0)
+  })
+
+  it('does not render the dashboard rolling factor chart when factor model data is unavailable', () => {
+    render(
+      <DashboardPanel
+        result={mockDashboardView}
+        exposureResult={dashboardExposureView}
+        factorModel={null}
+      />,
+    )
+
+    expect(screen.queryByLabelText('Visible factors on rolling factor chart')).toBeNull()
   })
 
   it('renders a seeded ETF ranking draft banner without mutating the draft snapshot', () => {
@@ -297,9 +336,9 @@ describe('DashboardPanel', () => {
     expect(scoped.getByText(ib2026DashboardGolden.timeWeightedReturn)).toBeTruthy()
     expect(scoped.getByText(ib2026DashboardGolden.netContributions)).toBeTruthy()
     expect(scoped.getByText('Drawdown')).toBeTruthy()
-    expect(scoped.getByText(ib2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(scoped.getAllByText(ib2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
     expect(scoped.getAllByText('Money-Weighted Return').length).toBeGreaterThan(0)
-    expect(scoped.getByText(ib2026DashboardGolden.moneyWeightedReturn)).toBeTruthy()
+    expect(scoped.getAllByText(ib2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
 
     for (const monthly of ib2026DashboardGolden.monthlyReturns) {
       expect(scoped.getByText(monthly.month)).toBeTruthy()
@@ -364,7 +403,7 @@ describe('DashboardPanel', () => {
     expect(scoped.getByText(`Start value: ${ff2026DashboardGolden.startValue}`)).toBeTruthy()
     expect(scoped.getAllByText(ff2026DashboardGolden.timeWeightedReturn).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ff2026DashboardGolden.netContributions).length).toBeGreaterThan(0)
-    expect(scoped.getByText(ff2026DashboardGolden.drawdown)).toBeTruthy()
+    expect(scoped.getAllByText(ff2026DashboardGolden.drawdown).length).toBeGreaterThan(0)
     expect(scoped.getAllByText(ff2026DashboardGolden.moneyWeightedReturn).length).toBeGreaterThan(0)
 
     for (const monthly of ff2026DashboardGolden.monthlyReturns) {
@@ -416,7 +455,7 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getByText(/Loaded statements: .*IB2025\.pdf.*IB2026\.pdf/)).toBeTruthy()
+    expect(screen.getAllByText(/Loaded statements: .*IB2025\.pdf.*IB2026\.pdf/).length).toBeGreaterThan(0)
     expect(screen.getByText(/2 statements combined/)).toBeTruthy()
   })
 
@@ -527,6 +566,24 @@ describe('DashboardPanel', () => {
     expect(screen.getAllByText('Hover or click a sector to inspect its holdings.').length).toBeGreaterThan(0)
   })
 
+  it('clears the locked sector and keeps draft capital check stable when the last holding in a sector is removed', () => {
+    const draftSnapshot = buildPortfolioSnapshotFromAnalysis(ff2026Analysis, ['FF2026.pdf'])
+
+    render(<DashboardPanel result={ff2026DashboardView} draftSnapshot={draftSnapshot} />)
+
+    fireEvent.click(screen.getAllByText('Broad Market')[0])
+    expect(screen.getByText('Locked on Broad Market')).toBeTruthy()
+
+    const removeButtons = screen.getAllByText('Remove')
+    for (const button of [...removeButtons]) {
+      fireEvent.click(button)
+    }
+
+    expect(screen.getByText('No sector locked')).toBeTruthy()
+    expect(screen.getAllByText('Hover or click a sector to inspect its holdings.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Draft Capital Check')).toBeTruthy()
+  })
+
   it('renders n/a summary values when range metrics are absent even if history exists', () => {
     render(
       <DashboardPanel
@@ -550,6 +607,7 @@ describe('DashboardPanel', () => {
     fireEvent.click(screen.getAllByText('All')[0])
     expect(screen.getAllByText('Start value: n/a').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Portfolio vs SPY path for the selected range').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Range metrics unavailable').length).toBeGreaterThan(0)
     expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
   })
 
@@ -650,9 +708,29 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getAllByText('Monthly returns are not reliable for this imported history.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Monthly returns are suppressed for this imported history.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Sample or reconstructed history').length).toBeGreaterThan(0)
     expect(screen.queryByText('2025-07')).toBeNull()
+  })
+
+  it('renders unavailable performance copy when history is unavailable', () => {
+    render(
+      <DashboardPanel
+        result={buildImportedDashboardView({
+          ...mockAnalysis,
+          performance_series: [],
+          daily_states: [],
+          range_metrics: null,
+          source_status: {
+            performance_history: 'unavailable',
+            monthly_returns: 'unavailable',
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Performance history is unavailable for this import.')).toBeTruthy()
+    expect(screen.getByText('Monthly returns are unavailable for this imported history.')).toBeTruthy()
   })
 
   it('renders n/a for drawdown and money-weighted return when performance history is unavailable', () => {
@@ -672,7 +750,7 @@ describe('DashboardPanel', () => {
     )
     const scoped = within(view.container)
 
-    expect(scoped.getByText('No performance history available yet.')).toBeTruthy()
+    expect(scoped.getByText('Performance history is unavailable for this import.')).toBeTruthy()
     expect(scoped.getAllByText('Drawdown').length).toBeGreaterThan(0)
     expect(scoped.getAllByText('Money-Weighted Return').length).toBeGreaterThan(0)
     expect(scoped.getAllByText('n/a').length).toBeGreaterThan(0)

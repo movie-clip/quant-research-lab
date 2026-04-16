@@ -485,6 +485,132 @@ describe('portfolioWorkspaceStorage', () => {
     expect(getSpy).toHaveBeenCalledWith('draft-1')
   })
 
+  it('persists formed candidate artifacts by draft id', async () => {
+    const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveFormedCandidateArtifact').mockResolvedValue()
+    const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getFormedCandidateArtifact').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+      replacementIntentBaseSymbol: 'AAPL',
+      replacementIntentCandidateSymbol: 'IUFS',
+      formation: {
+        formation: { kind: 'single_replacement_candidate_formation', status: 'ok' },
+        proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+        derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution', cash_treatment: 'excluded_from_candidate_formation_basis', position_scope: 'positive_market_value_positions_only' },
+        baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
+        candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
+        formation_summary: { incumbent_start_weight: 1, candidate_start_weight: 1, unchanged_positions_count: 0, baseline_positions_count: 1, candidate_positions_count: 1, starting_turnover_pct: 1 },
+        truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', candidate_truth_class: 'hypothetical_candidate_input_only', formation_truth_class: 'candidate_formation_derived', note: 'Candidate formation is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed.' },
+        warnings: [],
+        rejection_reason: null,
+      },
+    })
+
+    await portfolioWorkspaceStorage.saveFormedCandidateArtifact({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+      replacementIntentBaseSymbol: 'AAPL',
+      replacementIntentCandidateSymbol: 'IUFS',
+      formation: {
+        formation: { kind: 'single_replacement_candidate_formation', status: 'ok' },
+        proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+        derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution', cash_treatment: 'excluded_from_candidate_formation_basis', position_scope: 'positive_market_value_positions_only' },
+        baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
+        candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
+        formation_summary: { incumbent_start_weight: 1, candidate_start_weight: 1, unchanged_positions_count: 0, baseline_positions_count: 1, candidate_positions_count: 1, starting_turnover_pct: 1 },
+        truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', candidate_truth_class: 'hypothetical_candidate_input_only', formation_truth_class: 'candidate_formation_derived', note: 'Candidate formation is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed.' },
+        warnings: [],
+        rejection_reason: null,
+      },
+    })
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(await portfolioWorkspaceStorage.getFormedCandidateArtifact('draft-1')).toMatchObject({
+      draftId: 'draft-1',
+      replacementIntentBaseSymbol: 'AAPL',
+      replacementIntentCandidateSymbol: 'IUFS',
+    })
+    expect(getSpy).toHaveBeenCalledWith('draft-1')
+  })
+
+  it('persists constructed candidate artifacts by draft id', async () => {
+    const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveConstructedCandidateArtifact').mockResolvedValue()
+    const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getConstructedCandidateArtifact').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+      replacementIntentBaseSymbol: 'AAPL',
+      replacementIntentCandidateSymbol: 'IUFS',
+      constructionRuleId: 'same_weight_substitution_v1',
+      construction: {
+        construction: { kind: 'single_replacement_construction', status: 'ok', rule_id: 'same_weight_substitution_v1' },
+        proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+        inputs: { baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], construction_rule: 'same_weight_substitution_v1', incumbent_start_weight: 1 },
+        outputs: { candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }], starting_turnover_pct: 1, unchanged_positions_count: 0 },
+        derivation: { baseline_basis: 'draft_snapshot_positions_normalized', construction_basis: 'explicit_single_replacement_rule', cash_treatment: 'excluded_from_construction_basis', position_scope: 'positive_market_value_positions_only' },
+        truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', construction_truth_class: 'candidate_construction_derived', candidate_truth_class: 'hypothetical_candidate_input_only', note: 'Candidate construction is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed and no replay has been run.' },
+        warnings: [],
+        rejection_reason: null,
+      },
+    })
+
+    await portfolioWorkspaceStorage.saveConstructedCandidateArtifact({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+      replacementIntentBaseSymbol: 'AAPL',
+      replacementIntentCandidateSymbol: 'IUFS',
+      constructionRuleId: 'same_weight_substitution_v1',
+      construction: {
+        construction: { kind: 'single_replacement_construction', status: 'ok', rule_id: 'same_weight_substitution_v1' },
+        proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+        inputs: { baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], construction_rule: 'same_weight_substitution_v1', incumbent_start_weight: 1 },
+        outputs: { candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }], starting_turnover_pct: 1, unchanged_positions_count: 0 },
+        derivation: { baseline_basis: 'draft_snapshot_positions_normalized', construction_basis: 'explicit_single_replacement_rule', cash_treatment: 'excluded_from_construction_basis', position_scope: 'positive_market_value_positions_only' },
+        truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', construction_truth_class: 'candidate_construction_derived', candidate_truth_class: 'hypothetical_candidate_input_only', note: 'Candidate construction is a review-only derived object built from the draft snapshot and explicit replacement intent. No holdings have been changed and no replay has been run.' },
+        warnings: [],
+        rejection_reason: null,
+      },
+    })
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(await portfolioWorkspaceStorage.getConstructedCandidateArtifact('draft-1')).toMatchObject({
+      draftId: 'draft-1',
+      replacementIntentBaseSymbol: 'AAPL',
+      constructionRuleId: 'same_weight_substitution_v1',
+    })
+    expect(getSpy).toHaveBeenCalledWith('draft-1')
+  })
+
+  it('persists selected construction rule by draft id', async () => {
+    const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveSelectedConstructionRule').mockResolvedValue()
+    const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedRuleId: 'fixed_split_50_50_substitution_v2',
+    })
+
+    await portfolioWorkspaceStorage.saveSelectedConstructionRule({
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedRuleId: 'fixed_split_50_50_substitution_v2',
+    })
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(await portfolioWorkspaceStorage.getSelectedConstructionRule('draft-1')).toMatchObject({
+      draftId: 'draft-1',
+      selectedRuleId: 'fixed_split_50_50_substitution_v2',
+    })
+    expect(getSpy).toHaveBeenCalledWith('draft-1')
+  })
+
   it('persists proposal artifacts by workspace id', async () => {
     const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveProposalArtifact').mockResolvedValue()
     const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([

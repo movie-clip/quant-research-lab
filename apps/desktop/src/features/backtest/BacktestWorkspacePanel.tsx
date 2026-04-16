@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 
 import { PortfolioAllocationBacktestPanel } from './PortfolioAllocationBacktestPanel'
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
-import type { BacktestRunResponse, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView } from '../portfolio/types'
-import type { CandidateImprovementDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { BacktestRunResponse, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { CandidateImprovementDraftArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 type Props = {
   backtestResult: BacktestRunResponse | null
@@ -15,10 +15,16 @@ type Props = {
   candidateImprovementDraft: CandidateImprovementDraftArtifact | null
   intentBoundSeededEtfReplacementRankingDraft: IntentBoundSeededEtfReplacementRankingDraftArtifact | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  formedCandidateArtifact: FormedCandidateArtifact | null
+  constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  selectedConstructionRuleId: SingleReplacementConstructionRuleId
   hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
   savedProposals: VersionedProposalArtifact[]
   onSaveProposal: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplacementReplayResponse) => void
+  onFormedCandidateArtifact: (result: SingleReplacementCandidateFormationResponse) => void
+  onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
+  onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
 }
@@ -30,7 +36,7 @@ function parseUniverse(value: string) {
     .filter(Boolean)
 }
 
-export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, hypotheticalReplayResult, savedProposals, onSaveProposal, onHypotheticalReplayResult, onCreateReplacementIntent, onClearReplacementIntent }: Props) {
+export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposals, onSaveProposal, onHypotheticalReplayResult, onFormedCandidateArtifact, onConstructedCandidateArtifact, onSelectedConstructionRuleChange, onCreateReplacementIntent, onClearReplacementIntent }: Props) {
   const apiBase = useMemo(() => '/api', [])
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
   const [strategyId, setStrategyId] = useState('book_trend_breakout')
@@ -112,7 +118,7 @@ export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, alloc
       <h2>Portfolio improvement and strategy backtests</h2>
       <p className="lead compact-lead">Current portfolio vs candidate portfolio is the primary workflow; strategy backtests remain secondary.</p>
 
-      <PortfolioImprovementWorkspaceShell analysis={analysis} draftSnapshot={draftSnapshot} candidateImprovementDraft={candidateImprovementDraft} intentBoundSeededEtfReplacementRankingDraft={intentBoundSeededEtfReplacementRankingDraft} replacementIntentDraft={replacementIntentDraft} allocationBacktestResult={allocationBacktestResult} hypotheticalReplayResult={hypotheticalReplayResult} savedProposals={savedProposals} onCreateReplacementIntent={onCreateReplacementIntent} onClearReplacementIntent={onClearReplacementIntent} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={onHypotheticalReplayResult} />
+      <PortfolioImprovementWorkspaceShell analysis={analysis} draftSnapshot={draftSnapshot} candidateImprovementDraft={candidateImprovementDraft} intentBoundSeededEtfReplacementRankingDraft={intentBoundSeededEtfReplacementRankingDraft} replacementIntentDraft={replacementIntentDraft} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId={selectedConstructionRuleId} allocationBacktestResult={allocationBacktestResult} hypotheticalReplayResult={hypotheticalReplayResult} savedProposals={savedProposals} onCreateReplacementIntent={onCreateReplacementIntent} onClearReplacementIntent={onClearReplacementIntent} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={onHypotheticalReplayResult} onFormedCandidateArtifact={onFormedCandidateArtifact} onConstructedCandidateArtifact={onConstructedCandidateArtifact} onSelectedConstructionRuleChange={onSelectedConstructionRuleChange} />
 
       <PortfolioAllocationBacktestPanel result={allocationBacktestResult} onResult={onAllocationBacktestResult} analysis={analysis} />
 
@@ -154,7 +160,7 @@ export function BacktestWorkspacePanel({ backtestResult, onBacktestResult, alloc
         </label>
 
         <div className="actions">
-          <button className="primary-button" type="button" disabled={backtestLoading} onClick={runBacktest}>
+          <button className={`primary-button${backtestLoading ? ' button-loading' : ''}`} type="button" disabled={backtestLoading} onClick={runBacktest}>
             {backtestLoading ? 'Running Backtest...' : 'Run Backtest'}
           </button>
           <p className="helper">The local API validates dates, symbols, and capital before running the strategy backtest.</p>

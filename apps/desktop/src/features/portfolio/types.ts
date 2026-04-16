@@ -65,9 +65,11 @@ export type ImportedSnapshot = {
     withholding_tax_total: number | null
     interest_total: number | null
     other_fees_total: number | null
+    commissions_total?: number | null
     deposits_total: number | null
     starting_nav: number | null
     ending_nav: number | null
+    time_weighted_return_pct?: number | null
     fx_rates: Record<string, number>
   } | null
   positions: Array<{
@@ -82,18 +84,30 @@ export type ImportedSnapshot = {
   }>
   ledger_entries: Array<unknown>
   instruments: Array<unknown>
-  cash_balances: Array<{ currency: string; ending_cash: number | null }>
+  cash_balances: Array<{
+    currency: string
+    starting_cash?: number | null
+    ending_cash: number | null
+    ending_settled_cash?: number | null
+  }>
 }
 
 export type PortfolioOverview = {
+  account_id?: string | null
+  base_currency?: string | null
+  statement_period?: string | null
   total_market_value: number
+  total_cost_basis?: number
   total_unrealized_pnl: number
   positions_count: number
+  instruments_count?: number
   ledger_entries_count: number
   top_positions: Array<{ symbol: string; market_value: number; weight: number; unrealized_pnl: number }>
   sector_allocation: Array<{ sector: string; market_value: number; weight: number }>
   sector_position_breakdown: Record<string, Array<{ symbol: string; market_value: number; weight: number }>>
   cash_by_currency: Record<string, number>
+  ledger_counts?: Record<string, number>
+  realized_cash_flow?: Record<string, number>
 }
 
 export type BenchmarkSummary = {
@@ -101,6 +115,10 @@ export type BenchmarkSummary = {
   start_price: number | null
   end_price: number | null
   return_pct: number | null
+  points?: Array<{
+    date: string
+    price: number
+  }>
 }
 
 export type PortfolioRiskSummary = {
@@ -668,6 +686,8 @@ export type ImportedPortfolioSnapshotSource = {
 export type ImportedDashboardSource = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
+  risk_summary?: PortfolioRiskSummary
+  benchmark?: BenchmarkSummary | null
   performance_series: PerformanceSeriesPoint[]
   daily_states: DailyPortfolioState[]
   source_status?: SourceStatus | null
@@ -1302,4 +1322,106 @@ export type HypotheticalReplacementReplayResponse = {
   candidate_weights: AllocationBacktestWeight[]
   replay: PortfolioAllocationBacktestResponse
   warnings: string[]
+}
+
+export type CandidateFormationState = {
+  kind: 'single_replacement_candidate_formation'
+  status: 'ok' | 'rejected'
+}
+
+export type CandidateFormationProposal = {
+  source: 'draft_replacement_intent'
+  draft_id: string | null
+  workspace_id: string | null
+  base_node_id: string | null
+  incumbent_symbol: string | null
+  candidate_symbol: string | null
+}
+
+export type CandidateFormationDerivation = {
+  baseline_basis: 'draft_snapshot_positions_normalized'
+  candidate_construction_rule: 'single_symbol_weight_substitution'
+  cash_treatment: 'excluded_from_candidate_formation_basis'
+  position_scope: 'positive_market_value_positions_only'
+}
+
+export type CandidateFormationSummary = {
+  incumbent_start_weight: number | null
+  candidate_start_weight: number | null
+  unchanged_positions_count: number
+  baseline_positions_count: number
+  candidate_positions_count: number
+  starting_turnover_pct: number | null
+}
+
+export type CandidateFormationTruthProvenance = {
+  baseline_truth_class: 'draft_snapshot_basis'
+  candidate_truth_class: 'hypothetical_candidate_input_only'
+  formation_truth_class: 'candidate_formation_derived'
+  note: string
+}
+
+export type SingleReplacementCandidateFormationResponse = {
+  formation: CandidateFormationState
+  proposal: CandidateFormationProposal
+  derivation: CandidateFormationDerivation
+  baseline_weights: AllocationBacktestWeight[]
+  candidate_weights: AllocationBacktestWeight[]
+  formation_summary: CandidateFormationSummary
+  truth_provenance: CandidateFormationTruthProvenance
+  warnings: string[]
+  rejection_reason: string | null
+}
+
+export type SingleReplacementConstructionRuleId = 'same_weight_substitution_v1' | 'fixed_split_50_50_substitution_v2'
+
+export type CandidateConstructionRuleInput = {
+  rule_id: SingleReplacementConstructionRuleId
+}
+
+export type CandidateConstructionState = {
+  kind: 'single_replacement_construction'
+  status: 'ok' | 'rejected'
+  rule_id: SingleReplacementConstructionRuleId | null
+}
+
+export type CandidateConstructionInputs = {
+  baseline_weights: AllocationBacktestWeight[]
+  construction_rule: SingleReplacementConstructionRuleId | null
+  incumbent_start_weight: number | null
+  candidate_added_weight?: number | null
+  incumbent_remaining_weight?: number | null
+}
+
+export type CandidateConstructionOutputs = {
+  candidate_weights: AllocationBacktestWeight[]
+  starting_turnover_pct: number | null
+  unchanged_positions_count: number
+  candidate_added_weight?: number | null
+  incumbent_remaining_weight?: number | null
+}
+
+export type CandidateConstructionDerivation = {
+  baseline_basis: 'draft_snapshot_positions_normalized'
+  construction_basis: 'explicit_single_replacement_rule'
+  cash_treatment: 'excluded_from_construction_basis'
+  position_scope: 'positive_market_value_positions_only'
+}
+
+export type CandidateConstructionTruthProvenance = {
+  baseline_truth_class: 'draft_snapshot_basis'
+  construction_truth_class: 'candidate_construction_derived'
+  candidate_truth_class: 'hypothetical_candidate_input_only'
+  note: string
+}
+
+export type SingleReplacementCandidateConstructionResponse = {
+  construction: CandidateConstructionState
+  proposal: CandidateFormationProposal
+  inputs: CandidateConstructionInputs
+  outputs: CandidateConstructionOutputs
+  derivation: CandidateConstructionDerivation
+  truth_provenance: CandidateConstructionTruthProvenance
+  warnings: string[]
+  rejection_reason: string | null
 }

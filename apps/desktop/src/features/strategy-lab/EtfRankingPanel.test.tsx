@@ -337,6 +337,7 @@ describe('EtfRankingPanel', () => {
 
     const createDraftButton = screen.getByText('Create Draft') as HTMLButtonElement
     expect(createDraftButton.disabled).toBe(true)
+    expect(createDraftButton.className.includes('button-loading')).toBe(false)
 
     fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'VUAA' } })
     expect(createDraftButton.disabled).toBe(false)
@@ -417,6 +418,47 @@ describe('EtfRankingPanel', () => {
     expect(screen.getByText('Incumbent and candidate must be different symbols.')).toBeTruthy()
     expect((screen.getByText('Create Draft') as HTMLButtonElement).disabled).toBe(true)
     expect(onSeedCandidateDraft).not.toHaveBeenCalled()
+  })
+
+  it('marks Run ETF Ranking as loading-only while Create Draft stays validation-disabled', async () => {
+    let resolveFetch!: (value: Response | PromiseLike<Response>) => void
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise<Response>((resolve) => {
+      resolveFetch = resolve
+    }))
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
+
+    const runButton = screen.getByText('Run ETF Ranking') as HTMLButtonElement
+    fireEvent.click(runButton)
+
+    await waitFor(() => expect((screen.getByText('Running...') as HTMLButtonElement).className.includes('button-loading')).toBe(true))
+
+    resolveFetch(new Response(JSON.stringify({
+      ranking_id: 'etf_ranking_engine_v1',
+      title: 'ETF Ranking Engine',
+      as_of_date: '2026-04-15',
+      benchmark_symbol: 'SPY',
+      universe: ['IUFS', 'IUHC'],
+      lookback_months: 6,
+      price_basis: 'close',
+      methodology: 'm',
+      effective_peer_group: 'Sector UCITS ETF',
+      effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+      source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+      warnings: { confidence: 'medium', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
+      request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC'], benchmark_symbol: 'SPY', lookback_months: 6 },
+      effective_inputs: { effective_peer_group: 'Sector UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['IUFS', 'IUHC'], evaluated_universe: ['IUFS', 'IUHC'], excluded_symbols: [] },
+      run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
+      ranked_universe: [{ rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }],
+      excluded_symbols: [],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    await waitFor(() => expect(screen.getByText('Ranked Universe')).toBeTruthy())
+    fireEvent.click(screen.getByText('Seed Candidate Draft'))
+
+    const createDraftButton = screen.getByText('Create Draft') as HTMLButtonElement
+    expect(createDraftButton.disabled).toBe(true)
+    expect(createDraftButton.className.includes('button-loading')).toBe(false)
   })
 
   it('renders a structured error state when the ranking request fails', async () => {

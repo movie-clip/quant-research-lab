@@ -404,7 +404,7 @@ export function StrategyLabPanel() {
           </label>
         </div>
         <div className="actions">
-          <button className="primary-button" type="button" disabled={loading} onClick={runStrategy}>{loading ? 'Running Strategy...' : 'Run ETF Rotation Prototype'}</button>
+          <button className={`primary-button${loading ? ' button-loading' : ''}`} type="button" disabled={loading} onClick={runStrategy}>{loading ? 'Running Strategy...' : 'Run ETF Rotation Prototype'}</button>
           <button className="secondary-button" type="button" disabled={refreshingHoldings || loading} onClick={refreshHoldingsSnapshots}>{refreshingHoldings ? 'Refreshing snapshots...' : 'Refresh holdings snapshots'}</button>
         </div>
         {error ? <p className="error">{error}</p> : null}

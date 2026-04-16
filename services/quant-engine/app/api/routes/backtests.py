@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse
+from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse
 from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, StrategyDefinition
 from app.services.backtest_engine_service import BacktestAnalysisResult, build_backtest_analysis
+from app.services.candidate_construction import build_single_replacement_candidate_construction
+from app.services.candidate_formation import build_single_replacement_candidate_formation
 from app.services.portfolio_backtest_engine import build_hypothetical_replacement_replay_preview, build_portfolio_allocation_backtest_analysis
 
 
@@ -73,6 +75,16 @@ def run_hypothetical_replacement_preview(request: HypotheticalReplacementReplayR
         return build_hypothetical_replacement_replay_preview(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/candidate-formation/replacement-intent", response_model=SingleReplacementCandidateFormationResponse)
+def run_single_replacement_candidate_formation(request: SingleReplacementCandidateFormationRequest) -> SingleReplacementCandidateFormationResponse:
+    return build_single_replacement_candidate_formation(request)
+
+
+@router.post("/candidate-construction/replacement-intent", response_model=SingleReplacementCandidateConstructionResponse)
+def run_single_replacement_candidate_construction(request: SingleReplacementCandidateConstructionRequest) -> SingleReplacementCandidateConstructionResponse:
+    return build_single_replacement_candidate_construction(request)
 
 
 def _validate_weights(weights, field_name: str) -> None:

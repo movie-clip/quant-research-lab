@@ -366,6 +366,13 @@ select.path-input option {
 
 .primary-button:disabled {
   opacity: 0.68;
+  cursor: not-allowed;
+}
+
+.primary-button.button-loading,
+.primary-button.button-loading:disabled,
+.secondary-button.button-loading,
+.secondary-button.button-loading:disabled {
   cursor: wait;
 }
 
@@ -524,6 +531,108 @@ select.path-input option {
   min-height: 100%;
 }
 
+.dashboard-quant-header-shell,
+.dashboard-quant-strip,
+.dashboard-performance-shell {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 27, 36, 0.96) 0%, rgba(16, 21, 29, 1) 100%);
+}
+
+.dashboard-quant-header-shell {
+  margin-top: 0;
+  background:
+    radial-gradient(circle at top right, rgba(108, 136, 166, 0.16), transparent 32%),
+    linear-gradient(180deg, rgba(21, 29, 39, 0.98) 0%, rgba(16, 21, 29, 1) 100%);
+}
+
+.dashboard-quant-header-row {
+  margin-bottom: 12px;
+}
+
+.dashboard-quant-header-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-meta-row-quant,
+.dashboard-performance-badges,
+.dashboard-quant-range-badges {
+  gap: 8px;
+}
+
+.dashboard-quant-context-grid,
+.dashboard-performance-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-quant-context-card,
+.dashboard-performance-meta-card,
+.dashboard-quant-metric-card {
+  border-radius: 12px;
+}
+
+.dashboard-quant-strip-header,
+.dashboard-performance-header {
+  align-items: flex-start;
+}
+
+.dashboard-quant-strip-header {
+  margin-bottom: 12px;
+}
+
+.dashboard-quant-metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.dashboard-quant-metric-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dashboard-inline-badge {
+  min-height: 24px;
+  padding: 0 9px;
+  font-size: 0.7rem;
+}
+
+.dashboard-quant-detail {
+  margin-top: 8px;
+}
+
+.dashboard-performance-toolbar {
+  min-height: 0;
+}
+
+.dashboard-performance-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-performance-controls {
+  justify-content: flex-end;
+}
+
+.dashboard-performance-meta-grid {
+  margin: 0 0 12px;
+}
+
+.dashboard-performance-meta-value {
+  font-size: 1.02rem;
+}
+
+.dashboard-performance-empty-state {
+  min-height: 180px;
+}
+
 .dashboard-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -536,6 +645,113 @@ select.path-input option {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
+}
+
+.diagnostics-quant-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.diagnostics-provenance-strip {
+  justify-content: flex-start;
+}
+
+.diagnostics-provenance-grid,
+.diagnostics-support-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.diagnostics-provenance-card,
+.diagnostics-support-card {
+  display: grid;
+  gap: 10px;
+}
+
+.diagnostics-context-value {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.diagnostics-context-note {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.diagnostics-note-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.diagnostics-note-stack .helper {
+  margin: 0;
+}
+
+.diagnostics-decision-strip {
+  margin-top: 0;
+}
+
+.diagnostics-strip-header {
+  margin-bottom: 0;
+}
+
+.diagnostics-decision-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.diagnostics-support-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnostics-support-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(52, 65, 80, 0.45);
+  color: var(--text-soft);
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagnostics-support-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.diagnostics-support-row span:last-child {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.diagnostics-unavailable-state {
+  margin-top: 0;
+}
+
+.diagnostics-behavior-section {
+  display: grid;
+  gap: 14px;
+}
+
+.diagnostics-behavior-meta-row {
+  margin-bottom: 0;
+}
+
+.diagnostics-behavior-chart-grid {
+  margin-top: 0;
+}
+
+.diagnostics-factor-behavior-chart {
+  height: 420px;
+}
+
+.diagnostics-behavior-inline-note {
+  margin: 0;
 }
 
 .metric-card {
@@ -2316,6 +2532,7 @@ select.path-input option {
   margin-top: 10px;
   color: var(--text-dim);
   font-size: 0.84rem;
+  flex-wrap: wrap;
 }
 
 .legend-swatch {
@@ -2440,6 +2657,18 @@ select.path-input option {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .dashboard-quant-context-grid,
+  .dashboard-performance-meta-grid,
+  .dashboard-quant-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnostics-provenance-grid,
+  .diagnostics-support-grid,
+  .diagnostics-decision-grid {
+    grid-template-columns: 1fr;
+  }
+
   .allocation-weight-row {
     grid-template-columns: 1fr 1fr;
   }
@@ -2519,6 +2748,15 @@ select.path-input option {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-performance-controls {
+    justify-content: flex-start;
+  }
+
+  .dashboard-quant-metric-topline {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .market-risk-grid,
   .volatility-summary-grid {
     grid-template-columns: 1fr;
@@ -2595,6 +2833,12 @@ select.path-input option {
 
   .compact-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .diagnostics-support-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .chart-controls {

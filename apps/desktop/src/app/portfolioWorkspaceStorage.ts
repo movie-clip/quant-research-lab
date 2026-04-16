@@ -1,8 +1,8 @@
-import { appStateStoreName, candidateImprovementDraftStoreName, deletePortfolioDatabase, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
+import { appStateStoreName, candidateImprovementDraftStoreName, constructedCandidateStoreName, deletePortfolioDatabase, formedCandidateStoreName, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, selectedConstructionRuleStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
-import type { CandidateImprovementDraftArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { CandidateImprovementDraftArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -221,6 +221,78 @@ export async function getReplacementIntentDraft(draftId: string) {
   })
 }
 
+export async function getFormedCandidateArtifact(draftId: string) {
+  return withStore<FormedCandidateArtifact | null>(formedCandidateStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as FormedCandidateArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load formed candidate artifact'))
+  })
+}
+
+export async function saveFormedCandidateArtifact(annotation: FormedCandidateArtifact) {
+  await withStore<void>(formedCandidateStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save formed candidate artifact'))
+  })
+}
+
+export async function deleteFormedCandidateArtifact(draftId: string) {
+  await withStore<void>(formedCandidateStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete formed candidate artifact'))
+  })
+}
+
+export async function getConstructedCandidateArtifact(draftId: string) {
+  return withStore<ConstructedCandidateArtifact | null>(constructedCandidateStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as ConstructedCandidateArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load constructed candidate artifact'))
+  })
+}
+
+export async function saveConstructedCandidateArtifact(annotation: ConstructedCandidateArtifact) {
+  await withStore<void>(constructedCandidateStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save constructed candidate artifact'))
+  })
+}
+
+export async function deleteConstructedCandidateArtifact(draftId: string) {
+  await withStore<void>(constructedCandidateStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete constructed candidate artifact'))
+  })
+}
+
+export async function getSelectedConstructionRule(draftId: string) {
+  return withStore<SelectedConstructionRuleArtifact | null>(selectedConstructionRuleStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as SelectedConstructionRuleArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load selected construction rule'))
+  })
+}
+
+export async function saveSelectedConstructionRule(annotation: SelectedConstructionRuleArtifact) {
+  await withStore<void>(selectedConstructionRuleStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save selected construction rule'))
+  })
+}
+
+export async function deleteSelectedConstructionRule(draftId: string) {
+  await withStore<void>(selectedConstructionRuleStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete selected construction rule'))
+  })
+}
+
 export async function saveReplacementIntentDraft(annotation: ReplacementIntentDraftArtifact) {
   await withStore<void>(replacementIntentDraftStoreName, 'readwrite', (store, resolve, reject) => {
     const request = store.put(annotation)
@@ -295,6 +367,9 @@ export async function createDraftFromNode(input: { workspaceId: string; baseNode
   await deleteCandidateImprovementDraft(draft.id)
   await deleteIntentBoundSeededEtfReplacementRankingDraft(draft.id)
   await deleteReplacementIntentDraft(draft.id)
+  await deleteFormedCandidateArtifact(draft.id)
+  await deleteConstructedCandidateArtifact(draft.id)
+  await deleteSelectedConstructionRule(draft.id)
   await deleteHypotheticalReplacementReplayDraft(draft.id)
   return draft
 }
@@ -446,7 +521,7 @@ export async function saveImportedSnapshotNode(input: {
 }
 
 export async function clearPortfolioWorkspaceState() {
-  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, replacementIntentDraftStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName], 'readwrite', (transaction, resolve, reject) => {
+  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, replacementIntentDraftStoreName, formedCandidateStoreName, constructedCandidateStoreName, selectedConstructionRuleStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName], 'readwrite', (transaction, resolve, reject) => {
     transaction.objectStore(workspaceStoreName).clear()
     transaction.objectStore(portfolioNodeStoreName).clear()
     transaction.objectStore(workingDraftStoreName).clear()
@@ -454,6 +529,9 @@ export async function clearPortfolioWorkspaceState() {
     transaction.objectStore(candidateImprovementDraftStoreName).clear()
     transaction.objectStore(intentBoundSeededEtfReplacementRankingDraftStoreName).clear()
     transaction.objectStore(replacementIntentDraftStoreName).clear()
+    transaction.objectStore(formedCandidateStoreName).clear()
+    transaction.objectStore(constructedCandidateStoreName).clear()
+    transaction.objectStore(selectedConstructionRuleStoreName).clear()
     transaction.objectStore(hypotheticalReplacementReplayDraftStoreName).clear()
     transaction.objectStore(versionedProposalStoreName).clear()
     const request = transaction.objectStore(appStateStoreName).delete(activeWorkspacePointerKey)

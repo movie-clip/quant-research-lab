@@ -11,37 +11,45 @@ afterEach(() => {
 })
 
 describe('DiagnosticsPanel', () => {
-  it('renders professional diagnostics sections in updated order', () => {
+  it('renders the diagnostics quant shell and behavior-through-time section only', () => {
     render(<DiagnosticsPanel result={mockDiagnostics} />)
 
-    const labels = screen.getAllByText(/Decision Readout|Risk Concentration|Model Reliability|Historical Summary|Risk Contribution|Factor Contributions|Position Contributions|Factor Change Monitor/).map((item) => item.textContent)
-    expect(labels).toEqual(['Decision Readout', 'Risk Concentration', 'Model Reliability', 'Historical Summary', 'Risk Contribution', 'Factor Contributions', 'Position Contributions', 'Factor Change Monitor'])
+    const labels = screen.getAllByText(/Decision Readout|Behavior Through Time/).map((item) => item.textContent)
+    expect(labels).toEqual(['Decision Readout', 'Behavior Through Time'])
+    expect(screen.getByTestId('diagnostics-shell')).toBeTruthy()
+    expect(screen.getByTestId('diagnostics-behavior-through-time')).toBeTruthy()
+    expect(screen.getByText('Provenance first, then decision signals')).toBeTruthy()
     expect(screen.getAllByText(mockDiagnostics.provenance.note).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Review provenance and decision-grade signals before drilling into deeper factor and risk detail.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Snapshot request').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Synthetic snapshot-history').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Historical sections live').length).toBeGreaterThan(0)
-    expect(screen.getByText('Top-line diagnostics surfaced directly from authoritative backend provenance and summary outputs.')).toBeTruthy()
-    expect(screen.getByText('History-derived summary only; current-state holdings concentration is tracked separately.')).toBeTruthy()
+    expect(screen.getByText('History context required')).toBeTruthy()
+    expect(screen.getByText('Decision cards stay thin: every value is mapped directly from backend summary outputs.')).toBeTruthy()
+    expect(screen.getByText('Backend truth stays explicit while the top shell surfaces the first diagnostics to review.')).toBeTruthy()
+    expect(screen.getByText(/Temporal behavior stays primary here:/)).toBeTruthy()
+    expect(screen.getByText('Risk Path')).toBeTruthy()
+    expect(screen.getByText('Benchmark-Relative Behavior')).toBeTruthy()
+    expect(screen.getByText('Factor Behavior')).toBeTruthy()
     expect(screen.getAllByText('Current Drawdown').length).toBeGreaterThan(0)
     expect(screen.getAllByText('-4.20%').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Factor HHI').length).toBeGreaterThan(0)
-    expect(screen.getByText('Factor Total Variance')).toBeTruthy()
-    expect(screen.getByText('R-Squared')).toBeTruthy()
-    expect(screen.queryByText('Largest Positive Shifts 20d')).toBeNull()
-    expect(screen.queryByText('Largest Absolute Shifts 60d')).toBeNull()
+    expect(screen.queryByText('Risk Concentration')).toBeNull()
+    expect(screen.queryByText('Model Reliability')).toBeNull()
+    expect(screen.queryByText('Historical Summary')).toBeNull()
+    expect(screen.queryByText('Risk Contribution')).toBeNull()
+    expect(screen.queryByText('Factor Contributions')).toBeNull()
+    expect(screen.queryByText('Position Contributions')).toBeNull()
+    expect(screen.queryByText('Factor Change Monitor')).toBeNull()
   })
 
-  it('supports diagnostics filtering and risk table sorting controls', () => {
+  it('switches behavior-through-time windows and shows honest unavailable messaging for unsupported 252d paths', () => {
     render(<DiagnosticsPanel result={mockDiagnostics} />)
 
-    fireEvent.click(screen.getAllByText('Flagged only')[0])
-    expect(screen.getAllByText('Market').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: '252d unavailable' }))
 
-    fireEvent.click(screen.getAllByText('Variance')[0])
-    fireEvent.click(screen.getAllByText('Component')[0])
-
-    expect(screen.getAllByText('Risk Share').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('AAPL').length).toBeGreaterThan(0)
+    expect(screen.getByText('Behavior-through-time charts are unavailable for 252d.')).toBeTruthy()
+    expect(screen.getByText(/The backend marked this window as unavailable/)).toBeTruthy()
+    expect(screen.queryByText('Risk Contribution')).toBeNull()
   })
 
   it('renders a six-card decision readout from existing backend values only', () => {
@@ -51,13 +59,14 @@ describe('DiagnosticsPanel', () => {
     expect(decisionReadout).toBeTruthy()
     const section = within(decisionReadout)
 
-    expect(section.getByText('History Basis')).toBeTruthy()
-    expect(section.getByText('Historical Status')).toBeTruthy()
-    expect(section.getByText('Model Confidence')).toBeTruthy()
     expect(section.getByText('Current Drawdown')).toBeTruthy()
+    expect(section.getByText('Max Drawdown')).toBeTruthy()
+    expect(section.getByText('Model Confidence')).toBeTruthy()
+    expect(section.getByText('Tracking Error')).toBeTruthy()
     expect(section.getByText('Top 3 Factor Risk Share')).toBeTruthy()
     expect(section.getByText('Top 5 Position Risk Share')).toBeTruthy()
     expect(section.queryByText('Top 1 Factor Risk Share')).toBeNull()
+    expect(section.getByText('Benchmark SPY')).toBeTruthy()
     expect(decisionReadout.querySelectorAll('.summary-card')).toHaveLength(6)
   })
 
@@ -68,6 +77,7 @@ describe('DiagnosticsPanel', () => {
           ...mockDiagnostics,
           provenance: {
             ...mockDiagnostics.provenance,
+            snapshot_basis: 'imported_snapshot',
             historical_basis: 'imported_portfolio_history',
             note: 'Historical diagnostics are sourced from imported portfolio history.',
           },
@@ -75,6 +85,7 @@ describe('DiagnosticsPanel', () => {
       />,
     )
 
+    expect(screen.getAllByText('Imported snapshot').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Imported portfolio history').length).toBeGreaterThan(0)
     expect(screen.queryByText('Synthetic snapshot-history')).toBeNull()
 
@@ -109,11 +120,14 @@ describe('DiagnosticsPanel', () => {
       />,
     )
 
+    expect(screen.getByTestId('diagnostics-shell')).toBeTruthy()
     expect(screen.getByText('Historical diagnostics unavailable for this snapshot.')).toBeTruthy()
-    expect(screen.getByText('History unavailable')).toBeTruthy()
-    expect(screen.getByText('Historical sections unavailable')).toBeTruthy()
+    expect(screen.getAllByText('History unavailable').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Historical sections unavailable').length).toBeGreaterThan(0)
     expect(screen.getByText('Historical diagnostics are unavailable because imported history context is missing.')).toBeTruthy()
-    expect(screen.getByText('Historical diagnostics require imported history context.')).toBeTruthy()
+    expect(screen.getAllByText('Historical diagnostics require imported history context.').length).toBeGreaterThan(0)
     expect(screen.getByText('Historical diagnostics are not approximated when history context is missing.')).toBeTruthy()
+    expect(screen.queryByTestId('diagnostics-decision-readout')).toBeNull()
+    expect(screen.queryByTestId('diagnostics-behavior-through-time')).toBeNull()
   })
 })

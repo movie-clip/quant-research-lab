@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-import type { HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout } from '../portfolio/types'
-import type { PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { CandidateConstructionRuleInput, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 type AllocationWeightRow = {
   symbol: string
@@ -19,6 +19,9 @@ type HypotheticalReplaySectionProps = {
   result: PortfolioAllocationBacktestResponse | null
   draftSnapshot: PortfolioSnapshot | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  formedCandidateArtifact: FormedCandidateArtifact | null
+  constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  selectedConstructionRuleId: SingleReplacementConstructionRuleId
   hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
   savedProposalCount: number
   onSaveProposal: () => void | Promise<void>
@@ -56,6 +59,48 @@ type HypotheticalReplayPreflight = {
   }>
 }
 
+type CandidateFormationSectionProps = {
+  draftSnapshot: PortfolioSnapshot | null
+  replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  formedCandidateArtifact: FormedCandidateArtifact | null
+  onFormedCandidateArtifact: (result: SingleReplacementCandidateFormationResponse) => void
+}
+
+type ConstructionRuleSectionProps = {
+  draftSnapshot: PortfolioSnapshot | null
+  replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  formedCandidateArtifact: FormedCandidateArtifact | null
+  constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  selectedConstructionRuleId: SingleReplacementConstructionRuleId
+  onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
+  onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
+}
+
+const constructionRuleOptions: Array<{ id: SingleReplacementConstructionRuleId; label: string; helper: string }> = [
+  {
+    id: 'same_weight_substitution_v1',
+    label: 'Same weight substitution v1',
+    helper: 'Backend constructs a single replacement using the incumbent starting weight.',
+  },
+  {
+    id: 'fixed_split_50_50_substitution_v2',
+    label: 'Fixed split 50/50 substitution v2',
+    helper: 'Backend constructs a review-only split between the incumbent and the candidate.',
+  },
+]
+
+function formatCandidateFormationStatus(status: 'ok' | 'rejected' | null | undefined) {
+  if (status === 'ok') return 'Formed'
+  if (status === 'rejected') return 'Rejected'
+  return 'Not formed'
+}
+
+function formatConstructionStatus(status: 'ok' | 'rejected' | null | undefined) {
+  if (status === 'ok') return 'Constructed'
+  if (status === 'rejected') return 'Rejected'
+  return 'Not constructed'
+}
+
 type DiagnosticsSectionConfig = {
   key: string
   title: string
@@ -90,6 +135,10 @@ function formatDateLabel(value: string | number | null | undefined) {
   const [year, month, day] = value.split('-')
   if (!year || !month || !day) return value
   return `${month}/${day}/${year.slice(2)}`
+}
+
+function formatWeightPct(value: number | null | undefined) {
+  return value == null ? 'n/a' : `${(value * 100).toFixed(2)}%`
 }
 
 function formatTooltipLabel(label: unknown) {
@@ -280,7 +329,7 @@ function deriveBaselineRows(analysis: PortfolioBaselineView | null): AllocationW
     .map(({ symbol, target_weight }) => ({ symbol, target_weight }))
 }
 
-function buildHypotheticalReplayPreflight(draftSnapshot: PortfolioSnapshot | null, replacementIntentDraft: ReplacementIntentDraftArtifact | null): HypotheticalReplayPreflight {
+function buildHypotheticalReplayPreflight(replacementIntentDraft: ReplacementIntentDraftArtifact | null, constructedCandidateArtifact: ConstructedCandidateArtifact | null, selectedConstructionRuleId: SingleReplacementConstructionRuleId): HypotheticalReplayPreflight {
   if (!replacementIntentDraft) {
     return {
       overallStatus: 'blocked',
@@ -295,53 +344,52 @@ function buildHypotheticalReplayPreflight(draftSnapshot: PortfolioSnapshot | nul
     }
   }
 
-  if (!draftSnapshot) {
+  if (!constructedCandidateArtifact) {
     return {
       overallStatus: 'blocked',
       incumbentWeight: null,
       checks: [
         {
-          label: 'Draft Snapshot',
+          label: 'Construction Rule',
           status: 'blocked',
-          detail: 'A current draft snapshot is required so the backend can derive the replay basis.',
+          detail: 'A constructed candidate review artifact must exist before hypothetical replay can run.',
         },
       ],
     }
   }
 
-  const positivePositions = draftSnapshot.positions.filter((position) => position.marketValue > 0)
-  const totalPositiveMarketValue = positivePositions.reduce((sum, position) => sum + position.marketValue, 0)
-  const incumbentPosition = positivePositions.find((position) => position.symbol === replacementIntentDraft.baseSymbol)
-  const candidateAlreadyHeld = positivePositions.some((position) => position.symbol === replacementIntentDraft.candidateSymbol)
-  const sameSymbol = replacementIntentDraft.baseSymbol === replacementIntentDraft.candidateSymbol
-  const incumbentWeight = incumbentPosition && totalPositiveMarketValue > 0 ? incumbentPosition.marketValue / totalPositiveMarketValue : null
+  const matchesIntent = constructedCandidateArtifact.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+    && constructedCandidateArtifact.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+    && constructedCandidateArtifact.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol
+  const matchesRule = constructedCandidateArtifact.constructionRuleId === selectedConstructionRuleId
+    && constructedCandidateArtifact.construction.construction.rule_id === selectedConstructionRuleId
+  const construction = constructedCandidateArtifact.construction
+  const incumbentWeight = construction.inputs.incumbent_start_weight
 
   const checks: HypotheticalReplayPreflight['checks'] = [
     {
-      label: 'Replay Basis',
-      status: positivePositions.length > 0 && totalPositiveMarketValue > 0 ? 'ready' : 'blocked',
-      detail: positivePositions.length > 0 && totalPositiveMarketValue > 0
-        ? `The draft snapshot contains ${positivePositions.length} positive-weight holdings that can seed the hypothetical replay basis.`
-        : 'The draft snapshot does not contain positive-weight holdings, so the replay basis cannot be derived.',
+      label: 'Construction Artifact',
+      status: construction.construction.status === 'ok' ? 'ready' : 'blocked',
+      detail: construction.construction.status === 'ok'
+        ? `The construction artifact supplies ${construction.outputs.candidate_weights.length} candidate weights for review-only replay handoff.`
+        : `Construction rule was rejected: ${construction.rejection_reason ?? 'unknown rejection reason'}.`,
     },
     {
-      label: 'Incumbent Holding',
-      status: incumbentPosition ? 'ready' : 'blocked',
-      detail: incumbentPosition
-        ? `${replacementIntentDraft.baseSymbol} is present in the draft basis at ${formatPct((incumbentWeight ?? 0) * 100)}.`
-        : `${replacementIntentDraft.baseSymbol} is not available as a positive-weight holding in the current draft basis.`,
+      label: 'Intent Match',
+      status: matchesIntent ? 'ready' : 'blocked',
+      detail: matchesIntent
+        ? `The construction artifact matches ${replacementIntentDraft.baseSymbol} -> ${replacementIntentDraft.candidateSymbol}.`
+        : 'The construction artifact is stale and no longer matches the active replacement intent.',
     },
     {
-      label: 'Candidate Conflict',
-      status: sameSymbol || candidateAlreadyHeld ? 'blocked' : 'ready',
-      detail: sameSymbol
-        ? 'The candidate symbol must differ from the incumbent symbol.'
-        : candidateAlreadyHeld
-          ? `${replacementIntentDraft.candidateSymbol} is already held in the current draft basis, so the MVP replay must reject it.`
-          : `${replacementIntentDraft.candidateSymbol} is not already held in the current draft basis.`,
+      label: 'Selected Rule',
+      status: matchesRule ? 'ready' : 'blocked',
+      detail: matchesRule
+        ? `The construction artifact matches the selected rule ${selectedConstructionRuleId}.`
+        : `The selected rule is ${selectedConstructionRuleId}, but the saved construction artifact was built for ${constructedCandidateArtifact.constructionRuleId}.`,
     },
     {
-      label: 'Backend Validation',
+      label: 'Replay Validation',
       status: 'pending',
       detail: 'The backend still has to confirm candidate history coverage and sufficient common replay dates before a preview can succeed.',
     },
@@ -352,6 +400,264 @@ function buildHypotheticalReplayPreflight(draftSnapshot: PortfolioSnapshot | nul
     incumbentWeight,
     checks,
   }
+}
+
+export function CandidateFormationSection({ draftSnapshot, replacementIntentDraft, formedCandidateArtifact, onFormedCandidateArtifact }: CandidateFormationSectionProps) {
+  const apiBase = useMemo(() => '/api', [])
+  const [formationLoading, setFormationLoading] = useState(false)
+  const [formationError, setFormationError] = useState<string | null>(null)
+
+  const formationMatchesIntent = Boolean(
+    replacementIntentDraft
+    && formedCandidateArtifact
+    && formedCandidateArtifact.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+    && formedCandidateArtifact.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+    && formedCandidateArtifact.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol,
+  )
+
+  const activeFormation = formationMatchesIntent ? formedCandidateArtifact?.formation ?? null : null
+  const staleFormation = Boolean(formedCandidateArtifact && !formationMatchesIntent)
+
+  async function runCandidateFormation() {
+    if (!draftSnapshot || !replacementIntentDraft) return
+
+    setFormationLoading(true)
+    setFormationError(null)
+
+    try {
+      const response = await fetch(`${apiBase}/backtests/candidate-formation/replacement-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          snapshot: {
+            snapshot_version: draftSnapshot.snapshotVersion,
+            base_currency: draftSnapshot.baseCurrency,
+            imported_meta: {
+              importer: draftSnapshot.importedMeta.importer,
+              statement_period: draftSnapshot.importedMeta.statementPeriod,
+              imported_at: draftSnapshot.importedMeta.importedAt,
+              source_file_names: draftSnapshot.importedMeta.sourceFileNames,
+            },
+            positions: draftSnapshot.positions.map((position) => ({
+              symbol: position.symbol,
+              market_value: position.marketValue,
+              quantity: position.quantity ?? null,
+              currency: position.currency ?? null,
+              sector: position.sector ?? null,
+              name: position.name ?? null,
+              source_type: position.sourceType ?? null,
+            })),
+            cash_balances: draftSnapshot.cashBalances.map((balance) => ({ currency: balance.currency, amount: balance.amount })),
+          },
+          replacement_intent: {
+            kind: replacementIntentDraft.kind,
+            source: replacementIntentDraft.source,
+            created_at: replacementIntentDraft.createdAt,
+            draft_id: replacementIntentDraft.draftId,
+            workspace_id: replacementIntentDraft.workspaceId,
+            base_node_id: replacementIntentDraft.baseNodeId,
+            base_symbol: replacementIntentDraft.baseSymbol,
+            candidate_symbol: replacementIntentDraft.candidateSymbol,
+            seeded_from_draft_id: replacementIntentDraft.seededFromDraftId,
+            seed_ranking_id: replacementIntentDraft.seedRankingId,
+            seed_methodology_id: replacementIntentDraft.seedMethodologyId,
+            seed_ranking_basis_date: replacementIntentDraft.seedRankingBasisDate,
+            peer_group: replacementIntentDraft.peerGroup,
+            benchmark_symbol: replacementIntentDraft.benchmarkSymbol,
+            lookback_months: replacementIntentDraft.lookbackMonths,
+            confidence: replacementIntentDraft.confidence,
+            holdings_support: replacementIntentDraft.holdingsSupport,
+            warning_count: replacementIntentDraft.warningCount,
+          },
+        }),
+      })
+      if (!response.ok) {
+        const payload = (await response.json()) as { detail?: string }
+        throw new Error(payload.detail ?? 'Candidate formation failed')
+      }
+      onFormedCandidateArtifact((await response.json()) as SingleReplacementCandidateFormationResponse)
+    } catch (caughtError) {
+      setFormationError(caughtError instanceof Error ? caughtError.message : 'Candidate formation failed')
+    } finally {
+      setFormationLoading(false)
+    }
+  }
+
+  return (
+    <section className="dashboard-bottom-grid">
+      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Formation</p></div><p className="helper">Truth class: candidate-formation-derived review input only. This step forms a single-replacement hypothetical candidate before replay and does not apply holdings.</p></div>
+      {!replacementIntentDraft ? (
+        <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">No explicit replacement intent is available for candidate formation yet.</p><p className="helper">Create a replacement intent first. Candidate formation remains review-only and does not imply an applied portfolio change.</p></div>
+      ) : (
+        <>
+          <div className="dashboard-summary compact-summary-grid">
+            <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{replacementIntentDraft.baseSymbol} -&gt; {replacementIntentDraft.candidateSymbol}</p><p className="helper">Formation uses the active replacement intent only.</p></div>
+            <div className="summary-card"><p className="stat-label">Formation Status</p><p className={`summary-value ${staleFormation ? 'negative-text' : activeFormation?.formation.status === 'ok' ? 'positive-text' : activeFormation?.formation.status === 'rejected' ? 'negative-text' : 'neutral-text'}`}>{staleFormation ? 'stale' : formatCandidateFormationStatus(activeFormation?.formation.status)}</p><p className="helper">{staleFormation ? 'A previous formed candidate no longer matches the active replacement intent.' : activeFormation?.rejection_reason ?? 'No formed candidate artifact exists yet for this intent.'}</p></div>
+            <div className="summary-card"><p className="stat-label">Truth Provenance</p><p className="summary-value">{activeFormation?.truth_provenance.formation_truth_class ?? 'n/a'}</p><p className="helper">{activeFormation?.truth_provenance.note ?? 'Formed candidate output remains a review-only derived object.'}</p></div>
+            <div className="summary-card"><p className="stat-label">Starting Turnover</p><p className="summary-value">{formatWeightPct(activeFormation?.formation_summary.starting_turnover_pct ?? null)}</p><p className="helper">Candidate formation reports the incumbent weight handed into the hypothetical replacement.</p></div>
+          </div>
+          {activeFormation ? (
+            <div className="summary-card">
+              <p className="panel-label">Formation Provenance</p>
+              <p className="helper">Source: {activeFormation.proposal.source} · Draft: {activeFormation.proposal.draft_id ?? 'n/a'} · Base node: {activeFormation.proposal.base_node_id ?? 'n/a'}</p>
+              <p className="helper">Derivation: {activeFormation.derivation.baseline_basis} · {activeFormation.derivation.candidate_construction_rule} · {activeFormation.derivation.position_scope}</p>
+              <p className="helper">Cash treatment: {activeFormation.derivation.cash_treatment}</p>
+            </div>
+          ) : null}
+          {activeFormation?.warnings.length ? <div className="summary-card"><p className="panel-label">Formation Warnings</p>{activeFormation.warnings.map((warning) => <p className="helper" key={warning}>{warning}</p>)}</div> : null}
+          {activeFormation ? <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Formation Baseline</p></div></div><div className="list-table">{activeFormation.baseline_weights.map((row) => <div className="list-row" key={`formation-baseline-${row.symbol}`}><span>{row.symbol}</span><span>{formatWeightPct(row.target_weight)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Formed Candidate</p></div></div><div className="list-table">{activeFormation.candidate_weights.map((row) => <div className="list-row" key={`formation-candidate-${row.symbol}`}><span>{row.symbol}</span><span>{formatWeightPct(row.target_weight)}</span></div>)}</div></section></div> : null}
+          <div className="actions backtest-actions"><button className="secondary-button" type="button" disabled={formationLoading} onClick={() => void runCandidateFormation()}>{formationLoading ? 'Forming Candidate...' : activeFormation ? 'Rebuild Candidate Formation' : 'Form Candidate For Replay'}</button><p className="helper">Form a review-only hypothetical candidate from the explicit replacement intent before replay.</p></div>
+          {formationError ? <p className="error">{formationError}</p> : null}
+        </>
+      )}
+    </section>
+  )
+}
+
+export function ConstructionRuleSection({ draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, selectedConstructionRuleId, onConstructedCandidateArtifact, onSelectedConstructionRuleChange }: ConstructionRuleSectionProps) {
+  const apiBase = useMemo(() => '/api', [])
+  const [constructionLoading, setConstructionLoading] = useState(false)
+  const [constructionError, setConstructionError] = useState<string | null>(null)
+
+  const formationMatchesIntent = Boolean(
+    replacementIntentDraft
+    && formedCandidateArtifact
+    && formedCandidateArtifact.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+    && formedCandidateArtifact.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+    && formedCandidateArtifact.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol,
+  )
+  const activeFormation = formationMatchesIntent ? formedCandidateArtifact?.formation ?? null : null
+  const validFormation = Boolean(activeFormation && activeFormation.formation.status === 'ok')
+
+  const constructionMatchesIntent = Boolean(
+    replacementIntentDraft
+    && constructedCandidateArtifact
+    && constructedCandidateArtifact.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+    && constructedCandidateArtifact.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+    && constructedCandidateArtifact.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol,
+  )
+  const activeConstruction = constructionMatchesIntent ? constructedCandidateArtifact?.construction ?? null : null
+  const staleConstruction = Boolean(constructedCandidateArtifact && !constructionMatchesIntent)
+  const constructionMatchesRule = Boolean(
+    constructedCandidateArtifact
+    && constructedCandidateArtifact.constructionRuleId === selectedConstructionRuleId
+    && constructedCandidateArtifact.construction.construction.rule_id === selectedConstructionRuleId,
+  )
+  const activeConstructionForSelection = constructionMatchesIntent && constructionMatchesRule ? constructedCandidateArtifact?.construction ?? null : null
+  const staleConstructionForSelectedRule = Boolean(constructedCandidateArtifact && constructionMatchesIntent && !constructionMatchesRule)
+  const constructionRule: CandidateConstructionRuleInput = { rule_id: selectedConstructionRuleId }
+  const selectedRuleOption = constructionRuleOptions.find((option) => option.id === selectedConstructionRuleId) ?? constructionRuleOptions[0]
+
+  async function runConstructionRule() {
+    if (!draftSnapshot || !replacementIntentDraft || !validFormation) return
+
+    setConstructionLoading(true)
+    setConstructionError(null)
+
+    try {
+      const response = await fetch(`${apiBase}/backtests/candidate-construction/replacement-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          snapshot: {
+            snapshot_version: draftSnapshot.snapshotVersion,
+            base_currency: draftSnapshot.baseCurrency,
+            imported_meta: {
+              importer: draftSnapshot.importedMeta.importer,
+              statement_period: draftSnapshot.importedMeta.statementPeriod,
+              imported_at: draftSnapshot.importedMeta.importedAt,
+              source_file_names: draftSnapshot.importedMeta.sourceFileNames,
+            },
+            positions: draftSnapshot.positions.map((position) => ({
+              symbol: position.symbol,
+              market_value: position.marketValue,
+              quantity: position.quantity ?? null,
+              currency: position.currency ?? null,
+              sector: position.sector ?? null,
+              name: position.name ?? null,
+              source_type: position.sourceType ?? null,
+            })),
+            cash_balances: draftSnapshot.cashBalances.map((balance) => ({ currency: balance.currency, amount: balance.amount })),
+          },
+          replacement_intent: {
+            kind: replacementIntentDraft.kind,
+            source: replacementIntentDraft.source,
+            created_at: replacementIntentDraft.createdAt,
+            draft_id: replacementIntentDraft.draftId,
+            workspace_id: replacementIntentDraft.workspaceId,
+            base_node_id: replacementIntentDraft.baseNodeId,
+            base_symbol: replacementIntentDraft.baseSymbol,
+            candidate_symbol: replacementIntentDraft.candidateSymbol,
+            seeded_from_draft_id: replacementIntentDraft.seededFromDraftId,
+            seed_ranking_id: replacementIntentDraft.seedRankingId,
+            seed_methodology_id: replacementIntentDraft.seedMethodologyId,
+            seed_ranking_basis_date: replacementIntentDraft.seedRankingBasisDate,
+            peer_group: replacementIntentDraft.peerGroup,
+            benchmark_symbol: replacementIntentDraft.benchmarkSymbol,
+            lookback_months: replacementIntentDraft.lookbackMonths,
+            confidence: replacementIntentDraft.confidence,
+            holdings_support: replacementIntentDraft.holdingsSupport,
+            warning_count: replacementIntentDraft.warningCount,
+          },
+          construction_rule: constructionRule,
+        }),
+      })
+      if (!response.ok) {
+        const payload = (await response.json()) as { detail?: string }
+        throw new Error(payload.detail ?? 'Candidate construction failed')
+      }
+      onConstructedCandidateArtifact((await response.json()) as SingleReplacementCandidateConstructionResponse)
+    } catch (caughtError) {
+      setConstructionError(caughtError instanceof Error ? caughtError.message : 'Candidate construction failed')
+    } finally {
+      setConstructionLoading(false)
+    }
+  }
+
+  return (
+    <section className="dashboard-bottom-grid">
+      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Construction Rule</p></div><p className="helper">Truth class: candidate-construction-derived review input only. This step applies one explicit construction rule before replay and does not apply holdings.</p></div>
+      {!replacementIntentDraft ? (
+        <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">No explicit replacement intent is available for construction yet.</p><p className="helper">Create a replacement intent first. Construction remains review-only and separate from portfolio truth.</p></div>
+      ) : !validFormation ? (
+        <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">A valid formed candidate is required before construction can run.</p><p className="helper">Candidate formation must produce a current review-only artifact before the construction rule can build replay input.</p></div>
+      ) : (
+        <>
+          <div className="dashboard-summary compact-summary-grid">
+            <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{replacementIntentDraft.baseSymbol} -&gt; {replacementIntentDraft.candidateSymbol}</p><p className="helper">Construction uses the active replacement intent only.</p></div>
+            <div className="summary-card"><p className="stat-label">Selected Rule</p><p className="summary-value">{selectedConstructionRuleId}</p><p className="helper">{selectedRuleOption.helper}</p></div>
+            <div className="summary-card"><p className="stat-label">Construction Status</p><p className={`summary-value ${staleConstruction || staleConstructionForSelectedRule ? 'negative-text' : activeConstructionForSelection?.construction.status === 'ok' ? 'positive-text' : activeConstructionForSelection?.construction.status === 'rejected' ? 'negative-text' : 'neutral-text'}`}>{staleConstruction || staleConstructionForSelectedRule ? 'Stale' : formatConstructionStatus(activeConstructionForSelection?.construction.status)}</p><p className="helper">{staleConstruction ? 'A previous construction artifact no longer matches the active replacement intent.' : staleConstructionForSelectedRule ? `The saved construction artifact was built with ${constructedCandidateArtifact?.constructionRuleId ?? 'another rule'}. Rerun construction for ${selectedConstructionRuleId}.` : activeConstructionForSelection?.rejection_reason ?? 'No construction artifact exists yet for this selected rule.'}</p></div>
+            <div className="summary-card"><p className="stat-label">Truth Provenance</p><p className="summary-value">{activeConstructionForSelection?.truth_provenance.construction_truth_class ?? 'n/a'}</p><p className="helper">{activeConstructionForSelection?.truth_provenance.note ?? 'Construction output remains a review-only derived object.'}</p></div>
+          </div>
+          <div className="summary-card">
+            <p className="panel-label">Rule Selection</p>
+            <div className="split-grid compact-split-grid">
+              <label className="field-group">
+                <span className="field-label">Construction Rule</span>
+                <select className="path-input" value={selectedConstructionRuleId} onChange={(event) => onSelectedConstructionRuleChange(event.target.value as SingleReplacementConstructionRuleId)}>
+                  {constructionRuleOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <p className="helper">Choose one locked backend-authored rule for review-only construction. Changing the rule makes earlier construction output stale until rerun.</p>
+          </div>
+          {activeConstructionForSelection ? (
+            <div className="summary-card">
+              <p className="panel-label">Construction Provenance</p>
+              <p className="helper">Source: {activeConstructionForSelection.proposal.source} · Draft: {activeConstructionForSelection.proposal.draft_id ?? 'n/a'} · Base node: {activeConstructionForSelection.proposal.base_node_id ?? 'n/a'}</p>
+              <p className="helper">Rule: {activeConstructionForSelection.inputs.construction_rule} · Basis: {activeConstructionForSelection.derivation.baseline_basis} · {activeConstructionForSelection.derivation.construction_basis}</p>
+              <p className="helper">Cash treatment: {activeConstructionForSelection.derivation.cash_treatment} · Position scope: {activeConstructionForSelection.derivation.position_scope}</p>
+              {activeConstructionForSelection.outputs.candidate_added_weight != null || activeConstructionForSelection.outputs.incumbent_remaining_weight != null ? <p className="helper">Candidate added weight: {formatWeightPct(activeConstructionForSelection.outputs.candidate_added_weight)} · Incumbent remaining weight: {formatWeightPct(activeConstructionForSelection.outputs.incumbent_remaining_weight)}</p> : null}
+            </div>
+          ) : null}
+          {activeConstructionForSelection?.warnings.length ? <div className="summary-card"><p className="panel-label">Construction Warnings</p>{activeConstructionForSelection.warnings.map((warning) => <p className="helper" key={warning}>{warning}</p>)}</div> : null}
+          {activeConstructionForSelection ? <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Construction Baseline</p></div></div><div className="list-table">{activeConstructionForSelection.inputs.baseline_weights.map((row) => <div className="list-row" key={`construction-baseline-${row.symbol}`}><span>{row.symbol}</span><span>{formatWeightPct(row.target_weight)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Constructed Candidate</p></div></div><div className="list-table">{activeConstructionForSelection.outputs.candidate_weights.map((row) => <div className="list-row" key={`construction-candidate-${row.symbol}`}><span>{row.symbol}</span><span>{formatWeightPct(row.target_weight)}</span></div>)}</div></section></div> : null}
+          <div className="actions backtest-actions"><button className="secondary-button" type="button" disabled={constructionLoading} onClick={() => void runConstructionRule()}>{constructionLoading ? 'Constructing Candidate...' : activeConstructionForSelection ? 'Rebuild Construction Rule' : 'Construct Candidate For Replay'}</button><p className="helper">Build a review-only constructed candidate from one explicit rule before replay.</p></div>
+          {constructionError ? <p className="error">{constructionError}</p> : null}
+        </>
+      )}
+    </section>
+  )
 }
 
 function BacktestCurve({ result }: { result: PortfolioAllocationBacktestResponse }) {
@@ -662,7 +968,7 @@ export function DiagnosticsChangeSection({ result, hypotheticalReplayResult }: {
   )
 }
 
-export function HypotheticalReplaySection({ result, draftSnapshot, replacementIntentDraft, hypotheticalReplayResult, savedProposalCount, onSaveProposal, onHypotheticalReplayResult }: HypotheticalReplaySectionProps) {
+export function HypotheticalReplaySection({ result, draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposalCount, onSaveProposal, onHypotheticalReplayResult }: HypotheticalReplaySectionProps) {
   const apiBase = useMemo(() => '/api', [])
   const [startDate, setStartDate] = useState('2024-01-01')
   const [endDate, setEndDate] = useState('2024-12-31')
@@ -674,13 +980,13 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
   const [hypotheticalLoading, setHypotheticalLoading] = useState(false)
   const [hypotheticalError, setHypotheticalError] = useState<string | null>(null)
   const [showHypotheticalReplayConfirmation, setShowHypotheticalReplayConfirmation] = useState(false)
-  const hypotheticalPreflight = useMemo(() => buildHypotheticalReplayPreflight(draftSnapshot, replacementIntentDraft), [draftSnapshot, replacementIntentDraft])
+  const hypotheticalPreflight = useMemo(() => buildHypotheticalReplayPreflight(replacementIntentDraft, constructedCandidateArtifact, selectedConstructionRuleId), [replacementIntentDraft, constructedCandidateArtifact, selectedConstructionRuleId])
   const activeReplay = hypotheticalReplayResult?.replay ?? result
   const summaryRows = buildSummaryRows(activeReplay)
   const replayDeltaCallouts = useMemo(() => buildReplayDeltaCallouts(summaryRows), [summaryRows])
 
   async function runHypotheticalReplayPreview() {
-    if (!draftSnapshot || !replacementIntentDraft) return
+    if (!draftSnapshot || !replacementIntentDraft || !constructedCandidateArtifact) return
 
     setHypotheticalLoading(true)
     setHypotheticalError(null)
@@ -730,6 +1036,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
             holdings_support: replacementIntentDraft.holdingsSupport,
             warning_count: replacementIntentDraft.warningCount,
           },
+          constructed_candidate: constructedCandidateArtifact.construction,
           benchmark_symbol: replacementIntentDraft.benchmarkSymbol,
           start_date: startDate,
           end_date: endDate,
@@ -759,12 +1066,12 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
 
   return (
     <section className="dashboard-bottom-grid">
-      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Hypothetical Replay</p></div><p className="helper">Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit replacement intent.</p></div>
+      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Hypothetical Replay</p></div><p className="helper">Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit construction output handoff.</p></div>
       {replacementIntentDraft ? (
         <>
           <div className="summary-card">
             <p className="panel-label">Replay Preflight</p>
-            <p className="helper">Check the draft basis first so obvious rejection cases are visible before backend preview.</p>
+            <p className="helper">Check the construction output handoff first so replay only runs from explicit review input.</p>
             <div className="dashboard-summary compact-summary-grid">
               <div className="summary-card"><p className="stat-label">Preflight Status</p><p className={`summary-value ${preflightToneClass(hypotheticalPreflight.overallStatus)}`}>{hypotheticalPreflight.overallStatus === 'ready' ? 'Ready for backend validation' : 'Blocked before preview'}</p></div>
               <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{replacementIntentDraft.baseSymbol} -&gt; {replacementIntentDraft.candidateSymbol}</p></div>
@@ -774,17 +1081,17 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
           </div>
           {!hypotheticalReplayResult ? <p className="helper">No hypothetical replay has been run for this replacement intent yet.</p> : null}
           {!showHypotheticalReplayConfirmation ? (
-            <div className="actions backtest-actions"><button className="secondary-button" disabled={hypotheticalPreflight.overallStatus === 'blocked'} type="button" onClick={() => setShowHypotheticalReplayConfirmation(true)}>Preview Hypothetical Replay</button><p className="helper">Use replay to validate the explicit candidate choice under a shared portfolio basis.</p></div>
+            <div className="actions backtest-actions"><button className="secondary-button" disabled={hypotheticalPreflight.overallStatus === 'blocked'} type="button" onClick={() => setShowHypotheticalReplayConfirmation(true)}>Preview Hypothetical Replay</button><p className="helper">Use replay to validate the explicit construction output under a shared portfolio basis.</p></div>
           ) : (
             <div className="summary-card">
               <p className="panel-label">Preview hypothetical current-vs-candidate replay</p>
-              <p className="helper">This creates a draft-only candidate portfolio by carrying the replacement intent into a hypothetical replay. It does not apply the replacement, endorse it, or run portfolio construction logic.</p>
-              <div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Baseline</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Hypothetical Candidate</p><p className="summary-value">Single incumbent-to-candidate replacement from the active replacement intent</p></div><div className="summary-card"><p className="stat-label">Intent Source</p><p className="summary-value">Replacement Intent from ETF Ranking seed</p></div><div className="summary-card"><p className="stat-label">Replay Basis</p><p className="summary-value">Hypothetical current-vs-candidate comparison</p></div></div>
+              <p className="helper">This creates a draft-only replay from the explicit construction artifact. It does not apply the replacement, endorse it, or run broader construction logic.</p>
+              <div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Baseline</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Hypothetical Candidate</p><p className="summary-value">Single constructed candidate from one explicit rule</p></div><div className="summary-card"><p className="stat-label">Intent Source</p><p className="summary-value">Replacement intent with explicit construction output</p></div><div className="summary-card"><p className="stat-label">Replay Basis</p><p className="summary-value">Hypothetical current-vs-candidate comparison</p></div></div>
               <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Start Date</span><input className="path-input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label className="field-group"><span className="field-label">End Date</span><input className="path-input" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label></div>
               <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Initial Capital</span><input className="path-input" inputMode="decimal" value={initialCapital} onChange={(event) => setInitialCapital(event.target.value)} /></label><label className="field-group"><span className="field-label">Rebalance Frequency</span><select className="path-input" value={rebalanceFrequency} onChange={(event) => setRebalanceFrequency(event.target.value as 'none' | 'monthly' | 'quarterly')}><option value="none">None</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option></select></label></div>
               <div className="split-grid compact-split-grid"><label className="field-group"><span className="field-label">Commission Bps</span><input className="path-input" inputMode="decimal" value={commissionBps} onChange={(event) => setCommissionBps(event.target.value)} /></label><label className="field-group"><span className="field-label">Slippage Bps</span><input className="path-input" inputMode="decimal" value={slippageBps} onChange={(event) => setSlippageBps(event.target.value)} /></label></div>
               <label className="field-group"><span className="field-label">Drift Tolerance Pct</span><input className="path-input" inputMode="decimal" value={driftTolerancePct} onChange={(event) => setDriftTolerancePct(event.target.value)} placeholder="Optional" /></label>
-              <div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className="primary-button" type="button" disabled={hypotheticalLoading} onClick={() => void runHypotheticalReplayPreview()}>{hypotheticalLoading ? 'Running Preview...' : 'Run Preview'}</button><button className="secondary-button" type="button" onClick={() => setShowHypotheticalReplayConfirmation(false)}>Cancel</button></div>
+              <div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className={`primary-button${hypotheticalLoading ? ' button-loading' : ''}`} type="button" disabled={hypotheticalLoading} onClick={() => void runHypotheticalReplayPreview()}>{hypotheticalLoading ? 'Running Preview...' : 'Run Preview'}</button><button className="secondary-button" type="button" onClick={() => setShowHypotheticalReplayConfirmation(false)}>Cancel</button></div>
             </div>
           )}
           {hypotheticalError ? <p className="error">{hypotheticalError}</p> : null}
@@ -1048,7 +1355,7 @@ export function PortfolioAllocationBacktestPanel({ result, onResult, analysis }:
         </div>
 
         <div className="actions backtest-actions">
-          <button className="primary-button" disabled={loading} type="submit">{loading ? 'Running Portfolio Improvement Replay...' : 'Run Portfolio Improvement Replay'}</button>
+          <button className={`primary-button${loading ? ' button-loading' : ''}`} disabled={loading} type="submit">{loading ? 'Running Portfolio Improvement Replay...' : 'Run Portfolio Improvement Replay'}</button>
           <p className="helper">Baseline and candidate weights should each sum to 1.00 when comparison is enabled.</p>
         </div>
         {error ? <p className="error">{error}</p> : null}

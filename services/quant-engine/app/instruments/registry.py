@@ -51,7 +51,7 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "ACN": _instrument("equity-acn", "ACN", "Accenture", "equity", "Technology", "Equity", "USD"),
     "CRM": _instrument("equity-crm", "CRM", "Salesforce", "equity", "Technology", "Equity", "USD"),
     "DOCN": _instrument("equity-docn", "DOCN", "DigitalOcean", "equity", "Technology", "Equity", "USD"),
-    "FICO": _instrument("equity-fico", "FICO", "Fair Isaac", "equity", "Technology", "Equity", "USD"),
+    "FICO": _instrument("equity-fico", "FICO", "Fair Isaac", "equity", "Financials", "Equity", "USD"),
     "NICE": _instrument("equity-nice", "NICE", "NICE", "equity", "Technology", "Equity", "USD"),
     "ZM": _instrument("equity-zm", "ZM", "Zoom", "equity", "Technology", "Equity", "USD"),
     "MSFT": _instrument("equity-msft", "MSFT", "Microsoft", "equity", "Technology", "Equity", "USD"),

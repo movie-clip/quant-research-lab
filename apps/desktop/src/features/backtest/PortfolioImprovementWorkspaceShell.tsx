@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
-import type { PortfolioBaselineView, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout } from '../portfolio/types'
-import type { CandidateImprovementDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
-import { DiagnosticsChangeSection, HypotheticalReplaySection, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
+import type { PortfolioBaselineView, HypotheticalReplacementReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { CandidateImprovementDraftArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 
 function formatValue(value: string | number | null | undefined) {
   if (value == null) return 'n/a'
@@ -39,6 +39,18 @@ function formatSignedPct(value: number | null | undefined) {
 function formatSignedNumber(value: number | null | undefined) {
   if (value == null) return 'n/a'
   return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
+}
+
+function formatCandidateFormationStatus(status: 'ok' | 'rejected' | null | undefined) {
+  if (status === 'ok') return 'Formed'
+  if (status === 'rejected') return 'Rejected'
+  return 'Not yet formed'
+}
+
+function formatConstructionStatus(status: 'ok' | 'rejected' | null | undefined) {
+  if (status === 'ok') return 'Constructed'
+  if (status === 'rejected') return 'Rejected'
+  return 'Not yet constructed'
 }
 
 function diagnosticsValueLabel(row: PortfolioDiagnosticsTopCallout) {
@@ -114,6 +126,27 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
   const baselinePositions = props.draftSnapshot?.positions.length ?? props.analysis?.snapshot.positions.length ?? null
   const baselineBenchmark = props.draftSnapshot?.metadata.benchmarkSymbol ?? null
   const activeCandidatePair = getActiveCandidatePair(props)
+  const activeFormation = props.formedCandidateArtifact?.formation ?? null
+  const activeConstruction = props.constructedCandidateArtifact?.construction ?? null
+  const formationMatchesIntent = Boolean(
+    props.replacementIntentDraft
+    && props.formedCandidateArtifact
+    && props.formedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+    && props.formedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+    && props.formedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol,
+  )
+  const constructionMatchesIntent = Boolean(
+    props.replacementIntentDraft
+    && props.constructedCandidateArtifact
+    && props.constructedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+      && props.constructedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+      && props.constructedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol,
+  )
+  const constructionMatchesRule = Boolean(
+    props.constructedCandidateArtifact
+    && props.constructedCandidateArtifact.constructionRuleId === props.selectedConstructionRuleId
+    && props.constructedCandidateArtifact.construction.construction.rule_id === props.selectedConstructionRuleId,
+  )
   const activeReplay = getActiveReplay(props)
   const diagnosticsTakeaway = getTopDiagnosticsTakeaway(activeReplay)
   const latestProposal = getLatestProposal(props.savedProposals)
@@ -142,23 +175,79 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
           : 'No active candidate or replacement intent exists yet for this workflow.',
     },
     {
+      key: 'formation',
+      title: 'Candidate Formation',
+      value: !props.replacementIntentDraft
+        ? 'Blocked'
+        : !props.formedCandidateArtifact
+          ? formatCandidateFormationStatus(null)
+          : !formationMatchesIntent
+            ? 'Stale'
+            : formatCandidateFormationStatus(activeFormation?.formation.status),
+      detail: !props.replacementIntentDraft
+        ? 'Candidate formation remains unavailable until an explicit replacement intent exists.'
+        : !props.formedCandidateArtifact
+          ? 'An explicit replacement intent exists, but no formed candidate review artifact has been created yet.'
+        : !formationMatchesIntent
+          ? 'The existing formed candidate artifact no longer matches the active replacement intent and cannot be used for replay.'
+          : activeFormation?.rejection_reason
+              ? `Formation rejected: ${activeFormation.rejection_reason}`
+              : 'A formed candidate artifact is available as review-only replay input.',
+    },
+    {
+      key: 'construction',
+      title: 'Construction Rule',
+      value: !props.replacementIntentDraft
+        ? 'Blocked'
+        : !formationMatchesIntent || activeFormation?.formation.status !== 'ok'
+          ? 'Blocked'
+          : !props.constructedCandidateArtifact
+            ? `${props.selectedConstructionRuleId} selected`
+            : !constructionMatchesIntent || !constructionMatchesRule
+              ? 'Stale'
+            : formatConstructionStatus(activeConstruction?.construction.status),
+      detail: !props.replacementIntentDraft
+        ? 'Construction remains blocked until an explicit replacement intent exists.'
+        : !formationMatchesIntent || activeFormation?.formation.status !== 'ok'
+          ? 'Construction requires a valid formed candidate artifact first.'
+        : !props.constructedCandidateArtifact
+            ? `Selected rule ${props.selectedConstructionRuleId} is ready to construct, but no construction review artifact has been created yet.`
+            : !constructionMatchesIntent
+              ? 'The existing construction artifact no longer matches the active replacement intent and cannot be used for replay.'
+              : !constructionMatchesRule
+                ? `The existing construction artifact was built with ${props.constructedCandidateArtifact.constructionRuleId} and must be rerun for ${props.selectedConstructionRuleId}.`
+              : activeConstruction?.rejection_reason
+                ? `Construction rejected: ${activeConstruction.rejection_reason}`
+                : `A construction artifact is available as review-only replay input for ${props.selectedConstructionRuleId}.`,
+    },
+    {
+      key: 'selected-rule',
+      title: 'Selected Rule',
+      value: props.selectedConstructionRuleId,
+      detail: props.constructedCandidateArtifact && constructionMatchesIntent && constructionMatchesRule
+        ? 'The saved construction artifact matches the active selected rule.'
+        : 'Rule selection is shell state only until construction is rerun and a matching review artifact is saved.',
+    },
+    {
       key: 'replay',
       title: 'Replay Status',
       value: props.hypotheticalReplayResult
         ? activeReplay?.candidate_result.status ?? 'n/a'
-        : props.replacementIntentDraft
+        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok'
           ? 'Not yet run'
-          : activeCandidatePair
+          : props.replacementIntentDraft || activeCandidatePair
             ? 'Blocked'
             : 'Unavailable',
       detail: props.hypotheticalReplayResult && activeReplay
         ? activeReplay.comparison?.total_return_diff_pct != null
           ? `Total return delta ${formatSignedPct(activeReplay.comparison.total_return_diff_pct)} versus baseline under the shared replay window.`
           : `Candidate total return ${formatPct(activeReplay.candidate_result.metrics.total_return_pct)} under the shared replay window.`
-        : props.replacementIntentDraft
-          ? 'An explicit replacement intent exists, but no hypothetical replay review has been run yet.'
-          : activeCandidatePair
-            ? 'Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.'
+        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok'
+          ? 'A construction artifact exists, but no hypothetical replay review has been run yet.'
+          : props.replacementIntentDraft
+            ? 'Hypothetical replay cannot run until construction produces a valid constructed candidate review artifact.'
+            : activeCandidatePair
+              ? 'Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.'
             : 'No replay state exists yet for this workflow.',
     },
     {
@@ -198,6 +287,9 @@ type Props = {
   candidateImprovementDraft: CandidateImprovementDraftArtifact | null
   intentBoundSeededEtfReplacementRankingDraft: IntentBoundSeededEtfReplacementRankingDraftArtifact | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  formedCandidateArtifact: FormedCandidateArtifact | null
+  constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  selectedConstructionRuleId: SingleReplacementConstructionRuleId
   allocationBacktestResult: PortfolioAllocationBacktestResponse | null
   hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null
   savedProposals: VersionedProposalArtifact[]
@@ -205,6 +297,9 @@ type Props = {
   onClearReplacementIntent?: () => void | Promise<void>
   onSaveProposal: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplacementReplayResponse) => void
+  onFormedCandidateArtifact: (result: SingleReplacementCandidateFormationResponse) => void
+  onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
+  onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
 }
 
 type WorkflowSectionStatus = 'ready' | 'in_progress' | 'blocked' | 'recorded'
@@ -237,6 +332,50 @@ function buildWorkflowStatuses(props: Props): WorkflowStatusCard[] {
   const hasCurrentPortfolio = Boolean(props.analysis || props.draftSnapshot)
   const hasCandidateSeed = Boolean(props.candidateImprovementDraft || props.intentBoundSeededEtfReplacementRankingDraft)
   const hasReplacementIntent = Boolean(props.replacementIntentDraft)
+  const hasFormedCandidate = Boolean(
+    props.replacementIntentDraft
+    && props.formedCandidateArtifact
+    && props.formedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+    && props.formedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+    && props.formedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol
+    && props.formedCandidateArtifact.formation.formation.status === 'ok',
+  )
+  const hasRejectedFormation = Boolean(
+    props.replacementIntentDraft
+    && props.formedCandidateArtifact
+    && props.formedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+    && props.formedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+    && props.formedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol
+    && props.formedCandidateArtifact.formation.formation.status === 'rejected',
+  )
+  const hasConstructedCandidate = Boolean(
+    props.replacementIntentDraft
+    && props.constructedCandidateArtifact
+    && props.constructedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+    && props.constructedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+    && props.constructedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol
+    && props.constructedCandidateArtifact.constructionRuleId === props.selectedConstructionRuleId
+    && props.constructedCandidateArtifact.construction.construction.status === 'ok',
+  )
+  const hasRejectedConstruction = Boolean(
+    props.replacementIntentDraft
+    && props.constructedCandidateArtifact
+    && props.constructedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+    && props.constructedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+    && props.constructedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol
+    && props.constructedCandidateArtifact.constructionRuleId === props.selectedConstructionRuleId
+    && props.constructedCandidateArtifact.construction.construction.status === 'rejected',
+  )
+  const hasStaleConstruction = Boolean(
+    props.replacementIntentDraft
+    && props.constructedCandidateArtifact
+    && (
+      props.constructedCandidateArtifact.replacementIntentCreatedAt !== props.replacementIntentDraft.createdAt
+      || props.constructedCandidateArtifact.replacementIntentBaseSymbol !== props.replacementIntentDraft.baseSymbol
+      || props.constructedCandidateArtifact.replacementIntentCandidateSymbol !== props.replacementIntentDraft.candidateSymbol
+      || props.constructedCandidateArtifact.constructionRuleId !== props.selectedConstructionRuleId
+    ),
+  )
   const activeReplay = props.hypotheticalReplayResult?.replay ?? props.allocationBacktestResult
   const hasReplay = Boolean(activeReplay)
   const hasDiagnostics = Boolean(activeReplay?.diagnostics_comparison)
@@ -262,14 +401,40 @@ function buildWorkflowStatuses(props: Props): WorkflowStatusCard[] {
           : 'No seeded candidate is attached yet; use ETF Ranking to choose one.',
     },
     {
+      key: 'candidate-formation',
+      title: 'Candidate Formation',
+      status: hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked',
+      detail: hasFormedCandidate
+        ? 'A formed candidate artifact is available for review-only replay handoff.'
+        : hasRejectedFormation
+          ? 'Candidate formation rejected the active replacement intent.'
+          : hasReplacementIntent
+            ? 'The workflow can form a review-only candidate next.'
+            : 'Create a replacement intent before candidate formation can run.',
+    },
+    {
+      key: 'construction-rule',
+      title: 'Construction Rule',
+        status: hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked',
+        detail: hasConstructedCandidate
+        ? `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`
+        : hasRejectedConstruction
+          ? 'Construction rule rejected the active replacement intent.'
+          : hasStaleConstruction
+            ? `The selected construction rule is ${props.selectedConstructionRuleId}; rerun construction because the saved artifact is stale.`
+          : hasFormedCandidate
+            ? `The workflow can build review-only construction output next with ${props.selectedConstructionRuleId}.`
+            : 'Form a valid candidate before the construction rule can run.',
+    },
+    {
       key: 'hypothetical-replay',
       title: 'Hypothetical Replay',
-      status: props.hypotheticalReplayResult ? 'ready' : hasReplacementIntent ? 'in_progress' : 'blocked',
+      status: props.hypotheticalReplayResult ? 'ready' : hasConstructedCandidate ? 'in_progress' : 'blocked',
       detail: props.hypotheticalReplayResult
         ? 'A draft-only hypothetical replay is available for review.'
-        : hasReplacementIntent
-          ? 'The workflow can run a hypothetical replay next.'
-          : 'Create a replacement intent before hypothetical replay can run.',
+        : hasConstructedCandidate
+          ? 'The workflow can run a hypothetical replay next from the construction artifact.'
+          : 'Construct a valid review-only candidate before hypothetical replay can run.',
     },
     {
       key: 'diagnostics-change',
@@ -591,10 +756,28 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
         onCreateReplacementIntent={props.onCreateReplacementIntent}
         onClearReplacementIntent={props.onClearReplacementIntent}
       />
+      <CandidateFormationSection
+        draftSnapshot={props.draftSnapshot}
+        replacementIntentDraft={props.replacementIntentDraft}
+        formedCandidateArtifact={props.formedCandidateArtifact}
+        onFormedCandidateArtifact={props.onFormedCandidateArtifact}
+      />
+      <ConstructionRuleSection
+        draftSnapshot={props.draftSnapshot}
+        replacementIntentDraft={props.replacementIntentDraft}
+        formedCandidateArtifact={props.formedCandidateArtifact}
+        constructedCandidateArtifact={props.constructedCandidateArtifact}
+        selectedConstructionRuleId={props.selectedConstructionRuleId}
+        onConstructedCandidateArtifact={props.onConstructedCandidateArtifact}
+        onSelectedConstructionRuleChange={props.onSelectedConstructionRuleChange}
+      />
       <HypotheticalReplaySection
         result={props.allocationBacktestResult}
         draftSnapshot={props.draftSnapshot}
         replacementIntentDraft={props.replacementIntentDraft}
+        formedCandidateArtifact={props.formedCandidateArtifact}
+        constructedCandidateArtifact={props.constructedCandidateArtifact}
+        selectedConstructionRuleId={props.selectedConstructionRuleId}
         hypotheticalReplayResult={props.hypotheticalReplayResult}
         savedProposalCount={props.savedProposals.length}
         onSaveProposal={props.onSaveProposal}

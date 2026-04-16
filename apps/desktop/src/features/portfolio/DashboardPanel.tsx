@@ -1,11 +1,14 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import type { DashboardAnalysis, ImportedStatementImporter } from './types'
+import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse, ImportedStatementImporter } from './types'
+import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
 import type { CandidateImprovementDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact } from './workspaceTypes'
 
 type RangeOption = '1M' | '3M' | 'YTD' | '1Y' | 'All'
 type PerformanceView = 'twr' | 'mwr' | 'capital'
 type EditableHolding = { symbol: string; market_value: number; sector?: string | null }
+
+type StatusTone = 'neutral' | 'positive' | 'negative'
 
 function formatPct(value: number | null | undefined) {
   return value == null ? 'n/a' : `${value.toFixed(2)}%`
@@ -17,6 +20,66 @@ function formatMoney(value: number | null | undefined) {
 
 function formatNumber(value: number | null | undefined, digits = 2) {
   return value == null ? 'n/a' : value.toFixed(digits)
+}
+
+function formatRangeLabel(range: RangeOption) {
+  if (range === '1M') return '1M range'
+  if (range === '3M') return '3M range'
+  if (range === '1Y') return '1Y range'
+  return range === 'All' ? 'Full history' : 'YTD range'
+}
+
+function formatHistoryWindowLabel(startDate: string | null | undefined, endDate: string | null | undefined) {
+  if (!startDate || !endDate) return 'History window unavailable'
+  return `${startDate} to ${endDate}`
+}
+
+function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: string | null) {
+  if (!loadedStatementsLabel) return null
+  return `${statementCount > 1 ? 'Loaded statements' : 'Loaded file'}: ${loadedStatementsLabel}`
+}
+
+function valueToneClass(value: number | null | undefined) {
+  if (value == null || value === 0) return ''
+  return value > 0 ? 'positive-text' : 'negative-text'
+}
+
+function buildPerformanceEmptyState(status: string | null | undefined, range: RangeOption) {
+  if (status === 'suppressed') {
+    return {
+      title: 'Performance history is suppressed for this import.',
+      detail: `The ${formatRangeLabel(range)} chart stays hidden because the reconstructed series is unstable and should not be shown as a reliable path.`,
+    }
+  }
+  if (status === 'unavailable') {
+    return {
+      title: 'Performance history is unavailable for this import.',
+      detail: `The ${formatRangeLabel(range)} chart cannot render until daily portfolio history is available.`,
+    }
+  }
+  return {
+    title: 'No performance history available yet.',
+    detail: 'Import analysis succeeded, but the dashboard does not have enough daily history to render performance charts for the selected range.',
+  }
+}
+
+function buildMonthlyReturnsEmptyState(status: string | null | undefined) {
+  if (status === 'suppressed') {
+    return {
+      title: 'Monthly returns are suppressed for this imported history.',
+      detail: 'This synthetic multi-statement path includes unstable reconstruction effects, so monthly return cards stay hidden until the history is economically consistent.',
+    }
+  }
+  if (status === 'unavailable') {
+    return {
+      title: 'Monthly returns are unavailable for this imported history.',
+      detail: 'Monthly cards appear only when the import includes a reliable monthly performance chain.',
+    }
+  }
+  return {
+    title: 'Monthly returns are not reliable for this imported history.',
+    detail: 'This synthetic multi-statement path includes unstable reconstruction effects, so monthly return cards are hidden until the history is economically consistent.',
+  }
 }
 
 function formatBrokerLabel(importer: ImportedStatementImporter) {
@@ -165,6 +228,17 @@ function buildSnapshotFromSectorDraft(snapshot: PortfolioSnapshot | null, draft:
   return next
 }
 
+function normalizeSectorDraft(draft: Record<string, EditableHolding[]>) {
+  return Object.fromEntries(
+    Object.entries(draft)
+      .map(([sector, positions]) => [
+        sector,
+        positions.filter((position) => position.symbol || position.market_value !== 0),
+      ])
+      .filter(([, positions]) => Array.isArray(positions) && positions.length > 0),
+  ) as Record<string, EditableHolding[]>
+}
+
 function polarToCartesian(cx: number, cy: number, radius: number, angle: number) {
   return {
     x: cx + (radius * Math.cos(angle)),
@@ -185,6 +259,8 @@ function describePieSlice(startAngle: number, endAngle: number) {
 
 type DashboardPanelProps = {
   result: DashboardAnalysis | null
+  exposureResult?: ExposureAnalysis | null
+  factorModel?: ExposureFactorModelResponse | null
   draftSnapshot?: PortfolioSnapshot | null
   activeNodeName?: string | null
   draftStatus?: 'clean' | 'dirty' | null
@@ -229,7 +305,7 @@ function formatSeedDisplayValue(value: string | number | null | undefined) {
   return String(value)
 }
 
-export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = null, draftStatus = null, candidateImprovementDraft = null, intentBoundSeededEtfReplacementRankingDraft = null, replacementIntentDraft = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onPreviewExposure, onDraftSnapshotChange, onDiscardDraft, onSaveVariant }: DashboardPanelProps) {
+export function DashboardPanel({ result, exposureResult = null, factorModel = null, draftSnapshot = null, activeNodeName = null, draftStatus = null, candidateImprovementDraft = null, intentBoundSeededEtfReplacementRankingDraft = null, replacementIntentDraft = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onPreviewExposure, onDraftSnapshotChange, onDiscardDraft, onSaveVariant }: DashboardPanelProps) {
   const [selectedRange, setSelectedRange] = useState<RangeOption>('3M')
   const [showPortfolio, setShowPortfolio] = useState(true)
   const [showBenchmark, setShowBenchmark] = useState(true)
@@ -410,11 +486,15 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
 
   function removeSelectedSectorHolding(index: number) {
     if (!selectedSector) return
-    const nextDraft = {
+    const nextDraft = normalizeSectorDraft({
       ...sectorDraft,
       [selectedSector]: (sectorDraft[selectedSector] ?? []).filter((_, positionIndex) => positionIndex !== index),
-    }
+    })
     setSectorDraft(nextDraft)
+    if (!nextDraft[selectedSector]) {
+      setLockedSector(null)
+      setHoveredSector(null)
+    }
     const nextSnapshot = buildSnapshotFromSectorDraft(draftSnapshot, nextDraft)
     if (nextSnapshot) void onDraftSnapshotChange?.(nextSnapshot)
   }
@@ -432,6 +512,7 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
 
   const loadedStatementsLabel = formatLoadedStatements(result, lastImportedFileNames)
   const statementCount = result?.snapshot.statements?.length ?? lastImportedFileNames.length
+  const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
   const dashboardSourceSummary = result?.source_status?.performance_history ? dashboardSourceLabel(result.source_status.performance_history) : null
 
   if (!result || !hasRichDashboardData(result)) {
@@ -457,50 +538,135 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
     )
   }
 
+  const performanceHistoryStatus = result.source_status?.performance_history ?? 'unavailable'
+  const monthlyReturnsStatus = result.source_status?.monthly_returns ?? 'unavailable'
+  const performanceEmptyState = buildPerformanceEmptyState(performanceHistoryStatus, selectedRange)
+  const monthlyReturnsEmptyState = buildMonthlyReturnsEmptyState(monthlyReturnsStatus)
+  const benchmarkLabel = result.performance_series.find((point) => point.benchmark_price != null) ? 'SPY' : 'Benchmark'
+  const visibleHistoryWindow = perf.length ? formatHistoryWindowLabel(perf[0]?.date ?? null, perf[perf.length - 1]?.date ?? null) : 'History window unavailable'
+  const rangeMetricsStatusLabel = selectedRangeMetrics ? 'Range metrics live' : 'Range metrics unavailable'
+  const workspaceStateLabel = draftStatus ? `Working draft ${draftStatus}` : activeNodeName ? `Viewing ${activeNodeName}` : 'Imported snapshot view'
+  const quantMetrics: Array<{ label: string; value: string; helper: string; detail: string; tone: StatusTone; badge: string }> = [
+    {
+      label: 'Portfolio Value',
+      value: formatMoney(displayedPortfolioValue),
+      helper: `Start value: ${formatMoney(resolvedSummary.startValue)}`,
+      detail: 'Current portfolio truth',
+      tone: 'neutral',
+      badge: 'Current truth',
+    },
+    {
+      label: 'Time-Weighted Return',
+      value: formatPct(resolvedSummary.timeWeightedReturnPct),
+      helper: 'Contribution-neutral return for the selected range',
+      detail: formatRangeLabel(selectedRange),
+      tone: resolvedSummary.timeWeightedReturnPct != null && resolvedSummary.timeWeightedReturnPct < 0 ? 'negative' : 'positive',
+      badge: formatRangeLabel(selectedRange),
+    },
+    {
+      label: 'Money-Weighted Return',
+      value: formatPct(resolvedSummary.moneyWeightedReturnPct),
+      helper: 'Modified Dietz style money-weighted return for the selected range.',
+      detail: rangeMetricsStatusLabel,
+      tone: resolvedSummary.moneyWeightedReturnPct != null && resolvedSummary.moneyWeightedReturnPct < 0 ? 'negative' : 'positive',
+      badge: formatRangeLabel(selectedRange),
+    },
+    {
+      label: `${benchmarkLabel} Excess Return`,
+      value: formatPct(resolvedSummary.excessReturnPct),
+      helper: `${benchmarkLabel} return: ${formatPct(resolvedSummary.benchmarkReturnPct)}`,
+      detail: hasPerformance ? visibleHistoryWindow : rangeMetricsStatusLabel,
+      tone: resolvedSummary.excessReturnPct != null && resolvedSummary.excessReturnPct < 0 ? 'negative' : 'positive',
+      badge: dashboardSourceSummary ?? 'Performance source',
+    },
+    {
+      label: 'Net Contributions',
+      value: formatMoney(resolvedSummary.netContributions),
+      helper: 'Deposits minus withdrawals in the selected range',
+      detail: formatRangeLabel(selectedRange),
+      tone: resolvedSummary.netContributions != null && resolvedSummary.netContributions < 0 ? 'negative' : 'neutral',
+      badge: rangeMetricsStatusLabel,
+    },
+    {
+      label: 'Max Drawdown',
+      value: formatPct(maxDrawdown),
+      helper: 'Maximum drawdown from the visible portfolio path.',
+      detail: hasPerformance ? visibleHistoryWindow : dashboardSourceSummary ?? 'Performance source',
+      tone: maxDrawdown != null ? 'negative' : 'neutral',
+      badge: hasPerformance ? 'Visible path' : 'Unavailable',
+    },
+  ]
+
   return (
     <article className="panel dashboard-panel">
-      <div className="section-header-inline dashboard-header-actions">
-        <div>
-          <p className="panel-label">Dashboard</p>
-          <h2>Account and performance</h2>
-          <div className="dashboard-meta-row">
-            <span className="broker-badge">{formatBrokerLabel(result.snapshot.statement.importer)}</span>
-            {dashboardSourceSummary ? <span className="backtest-source-badge">{dashboardSourceSummary}</span> : null}
-            {loadedStatementsLabel ? <p className="helper">Loaded {statementCount > 1 ? 'statements' : 'file'}: {loadedStatementsLabel}</p> : null}
-            {restoredSession ? <p className="helper">Restored on launch</p> : null}
+      <section className="dashboard-quant-header-shell">
+        <div className="section-header-inline dashboard-header-actions dashboard-quant-header-row">
+          <div className="dashboard-quant-header-copy">
+            <p className="panel-label">Dashboard</p>
+            <h2>Account and performance</h2>
+            <p className="lead compact-lead">Quant view for current portfolio truth, selected-range performance, explicit provenance, and degraded-state handling.</p>
+            <div className="dashboard-meta-row dashboard-meta-row-quant">
+              <span className="broker-badge">{formatBrokerLabel(result.snapshot.statement.importer)}</span>
+              <span className="backtest-source-badge">{rangeMetricsStatusLabel}</span>
+              {dashboardSourceSummary ? <span className="backtest-source-badge">{dashboardSourceSummary}</span> : null}
+              <span className="backtest-source-badge">Monthly returns: {dashboardSourceLabel(monthlyReturnsStatus)}</span>
+              <span className="backtest-source-badge">{workspaceStateLabel}</span>
+              {restoredSession ? <span className="backtest-source-badge">Restored on launch</span> : null}
+            </div>
+            {importError ? <p className="error">{importError}</p> : null}
           </div>
-          {importError ? <p className="error">{importError}</p> : null}
+          <div className="dashboard-action-row">
+            {onImportPortfolio ? <button className="secondary-button" onClick={onImportPortfolio} type="button">{importing ? 'Importing...' : 'Replace Import'}</button> : null}
+            {onAppendStatement ? <button className="secondary-button dashboard-append-button" onClick={onAppendStatement} type="button">{importing ? 'Importing...' : 'Add Statement'}</button> : null}
+            {onClearImportedSession ? <button className="secondary-button dashboard-clear-button" onClick={onClearImportedSession} type="button">Clear Imported Session</button> : null}
+            {onResetLocalDatabase ? <button className="secondary-button dashboard-clear-button" onClick={() => void onResetLocalDatabase()} type="button">Reset Local DB</button> : null}
+          </div>
         </div>
-        <div className="dashboard-action-row">
-          {onImportPortfolio ? <button className="secondary-button" onClick={onImportPortfolio} type="button">{importing ? 'Importing...' : 'Replace Import'}</button> : null}
-          {onAppendStatement ? <button className="secondary-button dashboard-append-button" onClick={onAppendStatement} type="button">{importing ? 'Importing...' : 'Add Statement'}</button> : null}
-          {onClearImportedSession ? <button className="secondary-button dashboard-clear-button" onClick={onClearImportedSession} type="button">Clear Imported Session</button> : null}
-          {onResetLocalDatabase ? <button className="secondary-button dashboard-clear-button" onClick={() => void onResetLocalDatabase()} type="button">Reset Local DB</button> : null}
-        </div>
-      </div>
-
-      <div className="dashboard-summary">
-          <div className="summary-card">
-            <p className="stat-label">Account</p>
+        <div className="dashboard-quant-context-grid">
+          <div className="summary-card dashboard-quant-context-card">
+            <p className="stat-label">Account Context</p>
             <p className="summary-value">{result.snapshot.statement.account_id ?? 'Unknown'}</p>
             <p className="helper">{formatBrokerLabel(result.snapshot.statement.importer)} · {result.snapshot.statement.statement_period ?? 'Statement period unavailable'}{statementCount > 1 ? ` · ${statementCount} statements combined` : ''}</p>
           </div>
-        <div className="summary-card">
-          <p className="stat-label">Portfolio Value</p>
-          <p className="summary-value">{formatMoney(displayedPortfolioValue)}</p>
-          <p className="helper">Start value: {formatMoney(resolvedSummary.startValue)}</p>
+          <div className="summary-card dashboard-quant-context-card">
+            <p className="stat-label">Import Provenance</p>
+            <p className="summary-value">{statementCount}</p>
+            <p className="helper">{loadedFilesLabel ?? 'No loaded file metadata'}</p>
+          </div>
+          <div className="summary-card dashboard-quant-context-card">
+            <p className="stat-label">Performance Provenance</p>
+            <p className="summary-value">{dashboardSourceSummary ?? 'Unavailable'}</p>
+            <p className="helper">Visible window: {hasPerformance ? visibleHistoryWindow : 'History window unavailable'}</p>
+          </div>
         </div>
-        <div className="summary-card">
-          <p className="stat-label">Time-Weighted Return</p>
-          <p className="summary-value positive-text">{formatPct(resolvedSummary.timeWeightedReturnPct)}</p>
-          <p className="helper">Contribution-neutral return for the selected range</p>
+      </section>
+
+      <section className="dashboard-quant-strip">
+        <div className="section-header-inline sector-list-header dashboard-quant-strip-header">
+          <div>
+            <p className="panel-label">Selected Range Snapshot</p>
+            <p className="helper">Current portfolio truth stays separate from selected-range performance calculations and their provenance.</p>
+          </div>
+          <div className="dashboard-meta-row dashboard-quant-range-badges">
+            <span className="backtest-source-badge">{formatRangeLabel(selectedRange)}</span>
+            <span className="backtest-source-badge">{hasPerformance ? `${visibleStates.length} daily observations` : 'No visible observations'}</span>
+            <span className="backtest-source-badge">Monthly-return status: {dashboardSourceLabel(monthlyReturnsStatus)}</span>
+          </div>
         </div>
-        <div className="summary-card">
-          <p className="stat-label">Net Contributions</p>
-          <p className="summary-value">{formatMoney(resolvedSummary.netContributions)}</p>
-          <p className="helper">Deposits minus withdrawals in the selected range</p>
+        <div className="dashboard-summary dashboard-quant-metric-grid">
+          {quantMetrics.map((metric) => (
+            <div className="summary-card dashboard-quant-metric-card" key={metric.label}>
+              <div className="dashboard-quant-metric-topline">
+                <p className="stat-label">{metric.label}</p>
+                <span className="backtest-source-badge dashboard-inline-badge">{metric.badge}</span>
+              </div>
+              <p className={`summary-value ${metric.tone === 'positive' ? 'positive-text' : metric.tone === 'negative' ? 'negative-text' : ''}`}>{metric.value}</p>
+              <p className="helper">{metric.helper}</p>
+              <p className="helper dashboard-quant-detail">{metric.detail}</p>
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
 
       {candidateImprovementDraft || intentBoundSeededEtfReplacementRankingDraft || replacementIntentDraft ? (
         <section className="dashboard-bottom-grid">
@@ -515,16 +681,21 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
         </section>
       ) : null}
 
-      <section className="performance-section">
-        <div className="performance-toolbar">
-          <div className="section-header-inline performance-header-static">
-              <div>
-                <p className="panel-label">Performance</p>
-                <h3>{performanceView === 'capital' ? 'Portfolio value vs contribution base' : performanceView === 'mwr' ? 'Portfolio growth path for the selected range' : 'Portfolio vs SPY path for the selected range'}</h3>
-            <p className="helper">Use TWR for manager skill, MWR for investor experience, and Capital Path for contributions versus ending capital.</p>
-            {result.source_status?.monthly_returns ? <p className="helper">Monthly-return status: {dashboardSourceLabel(result.source_status.monthly_returns)}</p> : null}
+      <section className="performance-section dashboard-performance-shell">
+        <div className="performance-toolbar dashboard-performance-toolbar">
+          <div className="section-header-inline performance-header-static dashboard-performance-header">
+            <div className="dashboard-performance-copy">
+              <p className="panel-label">Performance Workspace</p>
+              <h3>{performanceView === 'capital' ? 'Portfolio value vs contribution base' : performanceView === 'mwr' ? 'Portfolio growth path for the selected range' : 'Portfolio vs SPY path for the selected range'}</h3>
+              <p className="helper">Use TWR for manager skill, MWR for investor experience, and Capital Path for contributions versus ending capital.</p>
+              <div className="dashboard-meta-row dashboard-performance-badges">
+                <span className="backtest-source-badge">{dashboardSourceSummary ?? 'Performance source unavailable'}</span>
+                <span className="backtest-source-badge">{rangeMetricsStatusLabel}</span>
+                <span className="backtest-source-badge">Monthly-return status: {dashboardSourceLabel(monthlyReturnsStatus)}</span>
+                <span className="backtest-source-badge">Visible window: {hasPerformance ? visibleHistoryWindow : 'Unavailable'}</span>
               </div>
-            <div className="chart-controls">
+            </div>
+            <div className="chart-controls dashboard-performance-controls">
               <div className="toggle-group">
                 <button className={`toggle-chip${performanceView === 'twr' ? ' active' : ''}`} onClick={() => setPerformanceView('twr')} type="button">TWR</button>
                 <button className={`toggle-chip${performanceView === 'mwr' ? ' active' : ''}`} onClick={() => setPerformanceView('mwr')} type="button">MWR</button>
@@ -545,10 +716,28 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
           </div>
         </div>
 
+        <div className="dashboard-performance-meta-grid">
+          <div className="summary-card dashboard-performance-meta-card">
+            <p className="stat-label">Visible Window</p>
+            <p className="summary-value dashboard-performance-meta-value">{hasPerformance ? visibleHistoryWindow : 'Unavailable'}</p>
+            <p className="helper">{visibleStates.length} daily observations in the selected chart range</p>
+          </div>
+          <div className="summary-card dashboard-performance-meta-card">
+            <p className="stat-label">Investment Gain</p>
+            <p className={`summary-value dashboard-performance-meta-value ${valueToneClass(resolvedSummary.investmentGain)}`}>{formatMoney(resolvedSummary.investmentGain)}</p>
+            <p className="helper">Selected-range gain net of contributions</p>
+          </div>
+          <div className="summary-card dashboard-performance-meta-card">
+            <p className="stat-label">Benchmark Return</p>
+            <p className={`summary-value dashboard-performance-meta-value ${valueToneClass(resolvedSummary.benchmarkReturnPct)}`}>{formatPct(resolvedSummary.benchmarkReturnPct)}</p>
+            <p className="helper">{benchmarkLabel} return over the selected range</p>
+          </div>
+        </div>
+
         {!hasPerformance ? (
-          <div className="empty-state-panel">
-            <p className="empty-state-title">No performance history available yet.</p>
-            <p className="helper">Import analysis succeeded, but the dashboard does not have enough daily history to render performance charts for the selected range.</p>
+          <div className="empty-state-panel dashboard-performance-empty-state">
+            <p className="empty-state-title">{performanceEmptyState.title}</p>
+            <p className="helper">{performanceEmptyState.detail}</p>
           </div>
         ) : (
           <>
@@ -574,6 +763,8 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
           </>
         )}
       </section>
+
+      <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
 
       <section className="dashboard-bottom-grid unified-sector-section">
         <div className="section-header-inline sector-list-header dashboard-edit-toolbar">
@@ -733,8 +924,8 @@ export function DashboardPanel({ result, draftSnapshot = null, activeNodeName = 
           </div>
         ) : (
           <div className="empty-state-panel compact-empty-state">
-            <p className="empty-state-title">Monthly returns are not reliable for this imported history.</p>
-            <p className="helper">This synthetic multi-statement path includes unstable reconstruction effects, so monthly return cards are hidden until the history is economically consistent.</p>
+            <p className="empty-state-title">{monthlyReturnsEmptyState.title}</p>
+            <p className="helper">{monthlyReturnsEmptyState.detail}</p>
           </div>
         )}
       </section>

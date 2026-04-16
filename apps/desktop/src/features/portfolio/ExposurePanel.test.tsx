@@ -90,6 +90,8 @@ describe('ExposurePanel', () => {
     render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
 
     expect(screen.getByText('Current Factor Snapshot')).toBeTruthy()
+    expect(screen.getByText(/Current snapshot loadings stay here, while the rolling chart now lives on the Dashboard/)).toBeTruthy()
+    expect(screen.queryByLabelText('Visible factors on rolling factor chart')).toBeNull()
     expect(screen.getByText('EU Execution Mapping')).toBeTruthy()
     expect(screen.getByText('Current Snapshot Loading')).toBeTruthy()
     expect(screen.getByText('Historical 60d Loading')).toBeTruthy()
@@ -155,26 +157,11 @@ describe('ExposurePanel', () => {
     expect(screen.getAllByText('Utilities Tilt').length).toBeGreaterThan(0)
   })
 
-  it('shows the expanded sector factor set when filtering to sectors', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Sectors' })[0])
-
-    expect(screen.getAllByText(/Technology/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Financials/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Health Care/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Energy/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Industrials/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Consumer Staples/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Utilities/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Consumer Discretionary/).length).toBeGreaterThan(0)
-  })
-
   it('renders reliability and collinearity diagnostics', () => {
     render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
 
     expect(screen.getByText('Model Confidence')).toBeTruthy()
-    expect(screen.getByText(/Historical rolling-factor diagnostics across the selected window/)).toBeTruthy()
+    expect(screen.getByText(/Current snapshot loadings stay here, while the rolling chart now lives on the Dashboard/)).toBeTruthy()
     expect(screen.getByText('Current Snapshot Loading')).toBeTruthy()
     expect(screen.getByText('Collinearity Warning')).toBeTruthy()
     expect(screen.getAllByText('No major collinearity warnings').length).toBeGreaterThan(0)
@@ -287,18 +274,9 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Scenario Preview')).toBeTruthy()
     expect(screen.getByText(/Scenario-only current-state approximation/)).toBeTruthy()
     expect(screen.getByText(/historical sections remain baseline and are not recomputed from scenario trades/i)).toBeTruthy()
-    expect(screen.getByText(/Scenario edits do not rerun these rolling historical loadings/)).toBeTruthy()
-    expect(screen.getByText(/current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical/i)).toBeTruthy()
+    expect(screen.getByText(/Current snapshot loadings stay here, while the rolling chart now lives on the Dashboard/)).toBeTruthy()
+    expect(screen.getAllByText(/current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Scenario edits do not rerun this historical regime path/)).toBeTruthy()
-  })
-
-  it('renders insufficient history rows when present', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    fireEvent.click(screen.getAllByRole('button', { name: '252d' })[1])
-
-    expect(screen.getByText('Not enough history for 252d rolling factor loadings.')).toBeTruthy()
-    expect(screen.getByText(/Available observations: 60/)).toBeTruthy()
   })
 
   it('renders factor registry categories and UCITS ideas', () => {
