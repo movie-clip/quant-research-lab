@@ -11,6 +11,33 @@ The project is being steered toward a `quant-research-lab` model:
 The target product is not a black-box predictor.
 It is a transparent systematic investing and portfolio-construction workbench.
 
+## Consolidation Guidance
+
+Keep this file future-looking.
+
+Retain in this file:
+- `## Product Thesis`
+- `## Core Product Principles`
+- `## What the Project Should Become`
+- `## Quant Methods the Product Should Prioritize`
+- `## Required Financial Accuracy Work`
+- `## Architecture Direction`
+- `## Execution Plan`
+- `## Immediate Priorities`
+- `## Naming Direction`
+- `## Documentation Rules`
+
+Trim or move into `docs/product/current-product-state.md` on the next pass:
+- `## Current Project Strengths to Build On`
+- `## Current Product Gaps`
+- under `### Stage 4. Portfolio Improvement Workspace`
+  - `Current implemented Stage 4 slice`
+  - `Current implemented pre-stage boundary`
+
+Working rule:
+- keep stage goals, tasks, and exit criteria here
+- move shipped-scope snapshots and narrow implemented-slice detail into the canonical current-state doc
+
 ## Product Thesis
 
 The project should evolve into a professional-grade workflow for:
@@ -202,7 +229,7 @@ The main gaps blocking a real quant-research-lab direction are:
 1. no unified instrument / ETF ranking engine
 2. no true portfolio-construction rule engine
 3. no robust optimization layer with constraints
-4. no integrated portfolio-improvement workspace as the primary workflow
+4. the integrated portfolio-improvement workspace is now shipped in a narrow Research-owned form, but it is not yet the fully generalized primary product workflow
 5. insufficiently production-grade factor math and reliability framing
 6. diagnostics panels still partly optimized for debug-style outputs rather than PM decision flow
 7. strategy research workflows are narrower than portfolio construction workflows
@@ -348,8 +375,11 @@ Tasks:
 
 Current implemented Stage 4 slice:
 - ETF ranking can seed a draft-scoped candidate review workflow
+- Research now owns an explicit shell-first workflow order: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> saved proposal
 - explicit replacement intent can drive a hypothetical one-for-one replay preview
 - replay review now includes PM-first diagnostics delta review
+- replay-scoped Monitoring now lives inside Research as a narrow review surface, not as a broad continuous monitoring system
+- Monitoring can hand off back into Research workflow sections through an explicit user-initiated continuity path
 - diagnostics groups expose backend-ranked top callouts with visible selection-rule provenance and backend-provided rationale
 - reviewed hypothetical replay results can now be recorded as immutable local versioned proposal artifacts
 - saved proposals can now be inspected in a dedicated review/readout surface that uses persisted artifact data only rather than active draft state
@@ -362,6 +392,7 @@ Current implemented pre-stage boundary:
 - ETF ranking can seed a draft-scoped candidate review artifact
 - that seed can persist locally and be restored deterministically
 - a draft-scoped replacement intent can be recorded explicitly
+- draft-scoped formed candidate, constructed candidate, selected-rule, and hypothetical replay artifacts also persist locally and are reset with draft lineage changes where appropriate
 - these artifacts remain review metadata only and do not mutate `PortfolioSnapshot`
 
 ### Stage 5. Overlay and Monitoring System
@@ -374,6 +405,10 @@ Tasks:
 - volatility / regime state monitoring
 - drift alerts for exposures and concentration
 - benchmark-relative drift monitoring
+
+Current shipped boundary before Stage 5:
+- a narrow overlay-aware hypothetical replay path exists for the benchmark-trend candidate-side review flow
+- Monitoring exists today only as a replay-scoped Research surface and should not be described as a continuous alerting system yet
 
 Exit criteria:
 - the project can monitor and maintain a systematic portfolio, not just analyze it once

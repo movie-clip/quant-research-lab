@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { HypotheticalReplayResponse, PortfolioAllocationBacktestResponse } from '../portfolio/types'
 import { MonitoringPanel } from './MonitoringPanel'
@@ -84,12 +84,16 @@ const hypotheticalReplay: HypotheticalReplayResponse = {
   warnings: [],
 }
 
+afterEach(() => {
+  cleanup()
+})
+
 describe('MonitoringPanel', () => {
   it('renders top callouts, grouped monitors, and detail drilldown', () => {
     render(<MonitoringPanel result={baseReplay} hypotheticalReplayResult={hypotheticalReplay} />)
 
     expect(screen.getByText('Monitoring')).toBeTruthy()
-    expect(screen.getByText('Research watch surface')).toBeTruthy()
+    expect(screen.getByText('Watch surface')).toBeTruthy()
     expect(screen.getByText('Top Factor Callout')).toBeTruthy()
     expect(screen.getByText('Top Concentration Callout')).toBeTruthy()
     expect(screen.getByText('Watch Groups')).toBeTruthy()
@@ -111,7 +115,7 @@ describe('MonitoringPanel', () => {
     render(<MonitoringPanel result={null} hypotheticalReplayResult={null} />)
 
     expect(screen.getByText('Monitoring is waiting for replay evidence.')).toBeTruthy()
-    expect(screen.getByText('Run a portfolio improvement replay or restore a saved replay review to populate the first monitoring surface.')).toBeTruthy()
+    expect(screen.getByText('Run or reopen a replay to populate this view.')).toBeTruthy()
   })
 
   it('handles unavailable diagnostics rows honestly', () => {
@@ -130,5 +134,27 @@ describe('MonitoringPanel', () => {
 
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
     expect(screen.getByText('No factor-drift callout is available for the current replay state.')).toBeTruthy()
+  })
+
+  it('offers explicit Review In Workspace only for supported monitoring items', () => {
+    const onReviewInResearch = vi.fn()
+
+    render(<MonitoringPanel result={baseReplay} hypotheticalReplayResult={hypotheticalReplay} onReviewInResearch={onReviewInResearch} />)
+
+    expect(screen.getByRole('button', { name: 'Review In Workspace' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review In Workspace' }))
+
+    expect(onReviewInResearch).toHaveBeenCalledWith(expect.objectContaining({
+      version: 1,
+      source: 'monitoring',
+      monitorKey: 'factor-drift',
+      monitorTitle: 'Factor Drift',
+      researchTarget: 'diagnostics_change',
+      replayContext: 'AAPL -> IUFS',
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: /Data Quality/i }))
+    expect(screen.queryByRole('button', { name: 'Review In Workspace' })).toBeNull()
   })
 })

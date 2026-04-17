@@ -2,6 +2,8 @@
 
 Local-first quant research and portfolio construction platform for imported real portfolios, ETF and factor research, allocation replay, and systematic portfolio improvement.
 
+For the canonical shipped-scope status, see `docs/product/current-product-state.md`.
+
 This project is designed to become a practical `quant-research-lab` for personal investing and research workflows:
 - import broker statements and reconstruct portfolio truth
 - analyze exposures, factors, overlap, and risk
@@ -44,6 +46,8 @@ quant-research-lab/
     quant-engine/           # Python engine for imports, factors, analytics, ranking, and replay
   docs/
     product/
+      current-product-state.md
+      docs-execution-checklist.md
       roadmap.md
       technical-roadmap.md
     finance/
@@ -63,10 +67,14 @@ quant-research-lab/
 The docs folder should stay small and high-signal.
 
 Core docs:
+- `docs/product/current-product-state.md`
+  - canonical source for what is shipped today, what is narrow, and what is still future
 - `docs/product/roadmap.md`
   - product direction and execution order
 - `docs/product/technical-roadmap.md`
   - technical implementation roadmap for the quant-lab pivot
+- `docs/product/docs-execution-checklist.md`
+  - ownership and next steps for the docs accuracy / consolidation pass
 - `docs/finance/financial-methodology.md`
   - source of truth for financial formulas, assumptions, and implemented methods
 - `docs/architecture/system-architecture.md`
@@ -79,6 +87,7 @@ Core docs:
   - backtest and replay field traceability
 
 Rule:
+- keep current shipped-scope summary in `docs/product/current-product-state.md`
 - if a financially meaningful formula changes, update methodology text and the relevant field inventory at the same time
 
 ## Financial Accuracy Rules

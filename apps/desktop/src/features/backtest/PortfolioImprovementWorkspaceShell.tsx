@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
-import type { PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { CandidateImprovementDraftArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
-import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
+import type { MonitoringResearchHandoff, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
+import { MonitoringPanel } from './MonitoringPanel'
+import { MONITORING_RESEARCH_TARGET_IDS, monitoringResearchTargetLabel } from './monitoringResearchHandoff'
 
 function formatValue(value: string | number | null | undefined) {
   if (value == null) return 'n/a'
@@ -25,6 +27,10 @@ function formatProposalTimestamp(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function getProposalLabel(proposal: VersionedProposalArtifact) {
+  return `v${proposal.versionNumber} · ${proposal.sourceIntent.baseSymbol} -> ${proposal.sourceIntent.candidateSymbol}`
 }
 
 function formatPct(value: number | null | undefined) {
@@ -123,6 +129,197 @@ function getTopDiagnosticsTakeaway(activeReplay: PortfolioAllocationBacktestResp
   return candidates[0] ?? null
 }
 
+function getProposalReplayType(proposal: VersionedProposalArtifact) {
+  return 'replay' in proposal.reviewSnapshot ? 'Standard replay' : 'Overlay-aware replay'
+}
+
+function getProposalActiveReplay(proposal: VersionedProposalArtifact) {
+  return 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay
+}
+
+function formatComparisonDelta(value: number | null | undefined, kind: 'pct' | 'number' | 'money' = 'pct') {
+  if (value == null) return 'n/a'
+  if (kind === 'money') return `${value > 0 ? '+' : ''}${formatMoney(value)}`
+  if (kind === 'number') return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
+}
+
+function formatReplayStatusLabel(status: string | null | undefined) {
+  if (!status) return 'n/a'
+  if (status === 'ok') return 'Pass'
+  return status
+}
+
+type ProposalComparisonMetric = {
+  key: string
+  label: string
+  leftValue: string
+  rightValue: string
+  delta: string
+}
+
+function buildProposalComparisonMetrics(left: VersionedProposalArtifact, right: VersionedProposalArtifact): ProposalComparisonMetric[] {
+  const leftReplay = getProposalActiveReplay(left)
+  const rightReplay = getProposalActiveReplay(right)
+
+  return [
+    {
+      key: 'total-return',
+      label: 'Candidate total return',
+      leftValue: formatPct(leftReplay.candidate_result.metrics.total_return_pct),
+      rightValue: formatPct(rightReplay.candidate_result.metrics.total_return_pct),
+      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.total_return_pct ?? 0) - (leftReplay.candidate_result.metrics.total_return_pct ?? 0)),
+    },
+    {
+      key: 'volatility',
+      label: 'Annualized volatility',
+      leftValue: formatPct(leftReplay.candidate_result.metrics.annualized_volatility_pct),
+      rightValue: formatPct(rightReplay.candidate_result.metrics.annualized_volatility_pct),
+      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.annualized_volatility_pct ?? 0) - (leftReplay.candidate_result.metrics.annualized_volatility_pct ?? 0)),
+    },
+    {
+      key: 'drawdown',
+      label: 'Max drawdown',
+      leftValue: formatPct(leftReplay.candidate_result.metrics.max_drawdown_pct),
+      rightValue: formatPct(rightReplay.candidate_result.metrics.max_drawdown_pct),
+      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.max_drawdown_pct ?? 0) - (leftReplay.candidate_result.metrics.max_drawdown_pct ?? 0)),
+    },
+    {
+      key: 'sharpe',
+      label: 'Sharpe ratio',
+      leftValue: formatValue(leftReplay.candidate_result.metrics.sharpe_ratio),
+      rightValue: formatValue(rightReplay.candidate_result.metrics.sharpe_ratio),
+      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.sharpe_ratio ?? 0) - (leftReplay.candidate_result.metrics.sharpe_ratio ?? 0), 'number'),
+    },
+  ]
+}
+
+function SavedProposalComparisonView({
+  leftProposal,
+  rightProposal,
+  onSwapSides,
+  onOpenProposal,
+  onClearComparison,
+}: {
+  leftProposal: VersionedProposalArtifact
+  rightProposal: VersionedProposalArtifact
+  onSwapSides: () => void
+  onOpenProposal: (proposalId: string) => void
+  onClearComparison: () => void
+}) {
+  const leftReplay = getProposalActiveReplay(leftProposal)
+  const rightReplay = getProposalActiveReplay(rightProposal)
+  const leftTakeaway = getTopDiagnosticsTakeaway(leftReplay)
+  const rightTakeaway = getTopDiagnosticsTakeaway(rightReplay)
+  const comparisonMetrics = buildProposalComparisonMetrics(leftProposal, rightProposal)
+  const sameReplayType = getProposalReplayType(leftProposal) === getProposalReplayType(rightProposal)
+  const sameReplayWindow = leftProposal.replayBasis.startDate === rightProposal.replayBasis.startDate
+    && leftProposal.replayBasis.endDate === rightProposal.replayBasis.endDate
+  const sameIntentPair = leftProposal.sourceIntent.baseSymbol === rightProposal.sourceIntent.baseSymbol
+    && leftProposal.sourceIntent.candidateSymbol === rightProposal.sourceIntent.candidateSymbol
+  const diagnosticsAvailable = Boolean(leftTakeaway || rightTakeaway)
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="saved-proposal-comparison-view">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Saved Proposal Comparison</p></div>
+        <p className="helper">Read-only comparison for exactly two immutable saved proposal artifacts. This view uses only saved artifact data and does not mutate proposal, draft, or portfolio state.</p>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Left proposal</p>
+          <p className="summary-value">v{leftProposal.versionNumber} · {leftProposal.sourceIntent.baseSymbol} -&gt; {leftProposal.sourceIntent.candidateSymbol}</p>
+          <p className="helper">{getProposalReplayType(leftProposal)} · {formatProposalTimestamp(leftProposal.createdAt)}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Right proposal</p>
+          <p className="summary-value">v{rightProposal.versionNumber} · {rightProposal.sourceIntent.baseSymbol} -&gt; {rightProposal.sourceIntent.candidateSymbol}</p>
+          <p className="helper">{getProposalReplayType(rightProposal)} · {formatProposalTimestamp(rightProposal.createdAt)}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Compatibility</p>
+          <p className="summary-value">{sameReplayType && sameReplayWindow ? 'Aligned' : 'Review carefully'}</p>
+          <p className="helper">Replay type {sameReplayType ? 'matches' : 'differs'} · window {sameReplayWindow ? 'matches' : 'differs'} · intent pair {sameIntentPair ? 'matches' : 'differs'}.</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Comparison state</p>
+          <p className="summary-value">2 of 2 selected</p>
+          <p className="helper">Use swap to reverse sides or open either artifact in the full saved-proposal view.</p>
+        </div>
+      </div>
+      <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+        <button className="secondary-button" onClick={onSwapSides} type="button">Swap sides</button>
+        <button className="secondary-button" onClick={() => onOpenProposal(leftProposal.id)} type="button">Open full proposal v{leftProposal.versionNumber}</button>
+        <button className="secondary-button" onClick={() => onOpenProposal(rightProposal.id)} type="button">Open full proposal v{rightProposal.versionNumber}</button>
+        <button className="secondary-button" onClick={onClearComparison} type="button">Clear comparison</button>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Key Differences</p>
+        <div className="list-table">
+          <div className="list-row list-row-wide">
+            <span>Metric</span>
+            <span>Left</span>
+            <span>Right</span>
+            <span>Right - left</span>
+          </div>
+          {comparisonMetrics.map((metric) => (
+            <div className="list-row list-row-wide" key={metric.key}>
+              <span>{metric.label}</span>
+              <span>{metric.leftValue}</span>
+              <span>{metric.rightValue}</span>
+              <span>{metric.delta}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Left replay status</p>
+          <p className="summary-value">{formatReplayStatusLabel(leftReplay.candidate_result.status)}</p>
+          <p className="helper">Window {leftProposal.replayBasis.startDate} - {leftProposal.replayBasis.endDate}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Right replay status</p>
+          <p className="summary-value">{formatReplayStatusLabel(rightReplay.candidate_result.status)}</p>
+          <p className="helper">Window {rightProposal.replayBasis.startDate} - {rightProposal.replayBasis.endDate}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Left diagnostics takeaway</p>
+          <p className="summary-value">{leftTakeaway?.callout.label ?? 'Unavailable'}</p>
+          <p className="helper">{leftTakeaway ? `${leftTakeaway.group} · ${diagnosticsValueLabel(leftTakeaway.callout)}` : 'No saved diagnostics takeaway is available for this artifact.'}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Right diagnostics takeaway</p>
+          <p className="summary-value">{rightTakeaway?.callout.label ?? 'Unavailable'}</p>
+          <p className="helper">{rightTakeaway ? `${rightTakeaway.group} · ${diagnosticsValueLabel(rightTakeaway.callout)}` : 'No saved diagnostics takeaway is available for this artifact.'}</p>
+        </div>
+      </div>
+      {!diagnosticsAvailable ? (
+        <div className="empty-state-panel compact-empty-state">
+          <p className="empty-state-title">Saved diagnostics takeaway is unavailable for both proposals.</p>
+          <p className="helper">Comparison still shows shared replay metrics and saved proposal lineage from the immutable artifacts.</p>
+        </div>
+      ) : null}
+      <div className="split-grid dashboard-bottom-grid">
+        <section>
+          <div className="summary-card">
+            <p className="panel-label">Left proposal details</p>
+            <p className="helper">Immutable artifact detail reopened in comparison mode only.</p>
+          </div>
+          <SavedProposalReadoutSection proposal={leftProposal} />
+        </section>
+        <section>
+          <div className="summary-card">
+            <p className="panel-label">Right proposal details</p>
+            <p className="helper">Immutable artifact detail reopened in comparison mode only.</p>
+          </div>
+          <SavedProposalReadoutSection proposal={rightProposal} />
+        </section>
+      </div>
+    </section>
+  )
+}
+
 function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
   const baselinePositions = props.draftSnapshot?.positions.length ?? props.analysis?.snapshot.positions.length ?? null
   const baselineBenchmark = props.draftSnapshot?.metadata.benchmarkSymbol ?? null
@@ -147,6 +344,33 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
     props.constructedCandidateArtifact
     && props.constructedCandidateArtifact.constructionRuleId === props.selectedConstructionRuleId
     && props.constructedCandidateArtifact.construction.construction.rule_id === props.selectedConstructionRuleId,
+  )
+  const activeConstraintValidation = props.constructionConstraintValidationArtifact?.validation ?? null
+  const constraintValidationMatchesIntent = Boolean(
+    props.replacementIntentDraft
+    && props.constructionConstraintValidationArtifact
+    && props.constructionConstraintValidationArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+    && props.constructionConstraintValidationArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+    && props.constructionConstraintValidationArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol,
+  )
+  const constraintValidationMatchesRule = Boolean(
+    props.constructionConstraintValidationArtifact
+    && props.constructionConstraintValidationArtifact.constructionRuleId === props.selectedConstructionRuleId,
+  )
+  const hasPassingConstraintValidation = Boolean(
+    constraintValidationMatchesIntent
+    && constraintValidationMatchesRule
+    && activeConstraintValidation?.validation.status === 'ok',
+  )
+  const hasBlockedConstraintValidation = Boolean(
+    constraintValidationMatchesIntent
+    && constraintValidationMatchesRule
+    && activeConstraintValidation?.validation.status === 'blocked',
+  )
+  const hasRejectedConstraintValidation = Boolean(
+    constraintValidationMatchesIntent
+    && constraintValidationMatchesRule
+    && activeConstraintValidation?.validation.status === 'rejected',
   )
   const activeReplay = getActiveReplay(props)
   const diagnosticsTakeaway = getTopDiagnosticsTakeaway(activeReplay)
@@ -222,6 +446,36 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
                 : `A construction artifact is available as review-only replay input for ${props.selectedConstructionRuleId}.`,
     },
     {
+      key: 'constraints',
+      title: 'Construction Constraints',
+      value: !props.replacementIntentDraft
+        ? 'Blocked'
+        : !constructionMatchesIntent || !constructionMatchesRule || activeConstruction?.construction.status !== 'ok'
+          ? 'Blocked'
+          : !activeConstraintValidation
+            ? 'Not yet validated'
+            : !constraintValidationMatchesIntent || !constraintValidationMatchesRule
+              ? 'Stale'
+              : activeConstraintValidation.validation.status === 'ok'
+                ? 'Pass'
+                : activeConstraintValidation.validation.status === 'blocked'
+                  ? 'Blocked'
+                  : 'Rejected',
+      detail: !props.replacementIntentDraft
+        ? 'Constraint validation remains unavailable until an explicit replacement intent exists.'
+        : !constructionMatchesIntent || !constructionMatchesRule || activeConstruction?.construction.status !== 'ok'
+          ? 'Constraint validation requires a current accepted construction artifact first.'
+          : !activeConstraintValidation
+            ? 'The constructed candidate is ready for backend constraint validation before replay.'
+            : !constraintValidationMatchesIntent || !constraintValidationMatchesRule
+              ? 'The saved constraint validation no longer matches the active replacement intent or selected rule.'
+              : activeConstraintValidation.validation.status === 'ok'
+                ? 'The constructed candidate passed the locked backend constraint set and can be handed into replay review.'
+                : activeConstraintValidation.validation.status === 'blocked'
+                  ? `Constraint validation blocked replay with ${activeConstraintValidation.blocking_constraint_ids.length} hard-block result${activeConstraintValidation.blocking_constraint_ids.length === 1 ? '' : 's'}.`
+                  : `Constraint validation rejected replay input: ${activeConstraintValidation.rejection_reason ?? 'constructed candidate could not be evaluated safely'}`,
+    },
+    {
       key: 'selected-rule',
       title: 'Selected Rule',
       value: props.selectedConstructionRuleId,
@@ -234,7 +488,7 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
       title: 'Replay Status',
       value: props.hypotheticalReplayResult
         ? activeReplay?.candidate_result.status ?? 'n/a'
-        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok'
+        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok' && hasPassingConstraintValidation
           ? 'Not yet run'
           : props.replacementIntentDraft || activeCandidatePair
             ? 'Blocked'
@@ -243,10 +497,14 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
         ? activeReplay.comparison?.total_return_diff_pct != null
           ? `Total return delta ${formatSignedPct(activeReplay.comparison.total_return_diff_pct)} versus baseline under the shared replay window.`
           : `Candidate total return ${formatPct(activeReplay.candidate_result.metrics.total_return_pct)} under the shared replay window.`
-        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok'
-          ? 'A construction artifact exists, but no hypothetical replay review has been run yet.'
+        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok' && hasPassingConstraintValidation
+          ? 'A validated construction artifact exists, but no hypothetical replay review has been run yet.'
+          : hasBlockedConstraintValidation
+            ? 'Hypothetical replay remains unavailable until the current constructed candidate passes construction constraints.'
+            : hasRejectedConstraintValidation
+              ? 'Hypothetical replay remains unavailable because the current constructed candidate could not be evaluated safely by construction constraints.'
           : props.replacementIntentDraft
-            ? 'Hypothetical replay cannot run until construction produces a valid constructed candidate review artifact.'
+            ? 'Hypothetical replay cannot run until construction and constraint validation produce a valid replay handoff.'
             : activeCandidatePair
               ? 'Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.'
             : 'No replay state exists yet for this workflow.',
@@ -290,17 +548,162 @@ type Props = {
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
   formedCandidateArtifact: FormedCandidateArtifact | null
   constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  constructionConstraintValidationArtifact: ConstructionConstraintValidationArtifact | null
   selectedConstructionRuleId: SingleReplacementConstructionRuleId
   allocationBacktestResult: PortfolioAllocationBacktestResponse | null
+  onAllocationBacktestResult?: (result: PortfolioAllocationBacktestResponse) => void
   hypotheticalReplayResult: HypotheticalReplayResponse | null
   savedProposals: VersionedProposalArtifact[]
+  activeThesis: ActiveThesisArtifact | null
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
   onSaveProposal: () => void | Promise<void>
+  onPromoteProposalToThesis: (proposalId: string) => void | Promise<void>
+  onClearActiveThesis: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplayResponse) => void
   onFormedCandidateArtifact: (result: SingleReplacementCandidateFormationResponse) => void
   onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
+  onConstructionConstraintValidationArtifact: (result: SingleReplacementConstructionConstraintValidationResponse) => void
   onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
+  monitoringResearchHandoff?: MonitoringResearchHandoff | null
+  monitoringResearchHandoffDismissed?: boolean
+  onDismissMonitoringResearchHandoff?: () => void
+  onReviewInResearch?: (handoff: MonitoringResearchHandoff) => void
+}
+
+function formatOverviewSource(analysis: PortfolioBaselineView | null, draftSnapshot: PortfolioSnapshot | null) {
+  return draftSnapshot?.importedMeta.importer ?? analysis?.snapshot.statement.importer ?? null
+}
+
+function formatOverviewPeriod(analysis: PortfolioBaselineView | null, draftSnapshot: PortfolioSnapshot | null) {
+  return draftSnapshot?.importedMeta.statementPeriod ?? analysis?.snapshot.statement.statement_period ?? null
+}
+
+function OverviewSection(props: Props) {
+  const positionsCount = props.draftSnapshot?.positions.length ?? props.analysis?.snapshot.positions.length ?? null
+  const benchmarkSymbol = props.draftSnapshot?.metadata.benchmarkSymbol ?? 'SPY'
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="workspace-section-overview">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Overview</p></div>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Portfolio Value</p>
+          <p className="summary-value">{formatMoney(props.analysis?.overview.total_market_value ?? null)}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Positions</p>
+          <p className="summary-value">{formatValue(positionsCount)}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Benchmark</p>
+          <p className="summary-value">{formatValue(benchmarkSymbol)}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Imported Basis</p>
+          <p className="summary-value">{formatValue(formatOverviewSource(props.analysis, props.draftSnapshot))}</p>
+          <p className="helper">{formatValue(formatOverviewPeriod(props.analysis, props.draftSnapshot))}</p>
+        </div>
+      </div>
+      <MonitoringPanel result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} onReviewInResearch={props.onReviewInResearch} />
+      <PortfolioImprovementDecisionSummary props={props} />
+    </section>
+  )
+}
+
+function CandidateWorkspaceSection(props: Props) {
+  return (
+    <section className="dashboard-bottom-grid" data-testid="workspace-section-candidate">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Candidate</p></div>
+      </div>
+      <CandidateIdeaSection
+        candidateImprovementDraft={props.candidateImprovementDraft}
+        intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
+        replacementIntentDraft={props.replacementIntentDraft}
+        onCreateReplacementIntent={props.onCreateReplacementIntent}
+        onClearReplacementIntent={props.onClearReplacementIntent}
+      />
+      <div id={WORKFLOW_SECTION_IDS.candidateFormation}>
+        <CandidateFormationSection
+          draftSnapshot={props.draftSnapshot}
+          replacementIntentDraft={props.replacementIntentDraft}
+          formedCandidateArtifact={props.formedCandidateArtifact}
+          onFormedCandidateArtifact={props.onFormedCandidateArtifact}
+        />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.constructionRule}>
+        <ConstructionRuleSection
+          draftSnapshot={props.draftSnapshot}
+          replacementIntentDraft={props.replacementIntentDraft}
+          formedCandidateArtifact={props.formedCandidateArtifact}
+          constructedCandidateArtifact={props.constructedCandidateArtifact}
+          constructionConstraintValidationArtifact={props.constructionConstraintValidationArtifact}
+          selectedConstructionRuleId={props.selectedConstructionRuleId}
+          onConstructedCandidateArtifact={props.onConstructedCandidateArtifact}
+          onConstructionConstraintValidationArtifact={props.onConstructionConstraintValidationArtifact}
+          onSelectedConstructionRuleChange={props.onSelectedConstructionRuleChange}
+        />
+      </div>
+    </section>
+  )
+}
+
+function CompareWorkspaceSection(props: Props) {
+  const handleAllocationBacktestResult = props.onAllocationBacktestResult ?? (() => undefined)
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="workspace-section-compare">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Compare</p></div>
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.hypotheticalReplay}>
+        <HypotheticalReplaySection
+          result={props.allocationBacktestResult}
+          draftSnapshot={props.draftSnapshot}
+          replacementIntentDraft={props.replacementIntentDraft}
+          formedCandidateArtifact={props.formedCandidateArtifact}
+          constructedCandidateArtifact={props.constructedCandidateArtifact}
+          constructionConstraintValidationArtifact={props.constructionConstraintValidationArtifact}
+          selectedConstructionRuleId={props.selectedConstructionRuleId}
+          hypotheticalReplayResult={props.hypotheticalReplayResult}
+          savedProposalCount={props.savedProposals.length}
+          onSaveProposal={props.onSaveProposal}
+          onHypotheticalReplayResult={props.onHypotheticalReplayResult}
+        />
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.diagnosticsChange}>
+        <section className="dashboard-bottom-grid">
+          <div className="section-header-inline sector-list-header">
+            <div><p className="panel-label">Diagnostics Change</p></div>
+            <p className="helper">Replay-derived diagnostics only.</p>
+          </div>
+        </section>
+        <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Legacy Replay Builder</p>
+        <p className="helper">Temporary bridge while replay work finishes moving into the workspace.</p>
+      </div>
+      <PortfolioAllocationBacktestPanel result={props.allocationBacktestResult} onResult={handleAllocationBacktestResult} analysis={props.analysis} />
+    </section>
+  )
+}
+
+function ProposalWorkspaceSection(props: Props) {
+  return (
+    <section className="dashboard-bottom-grid" data-testid="workspace-section-proposal">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Proposal</p></div>
+        <p className="helper">Saved proposals stay review-only.</p>
+      </div>
+      <div id={WORKFLOW_SECTION_IDS.savedProposal}>
+        <SavedProposalSection proposals={props.savedProposals} activeThesis={props.activeThesis} onPromoteProposalToThesis={props.onPromoteProposalToThesis} onClearActiveThesis={props.onClearActiveThesis} />
+      </div>
+    </section>
+  )
 }
 
 const WORKFLOW_SECTION_IDS = {
@@ -308,20 +711,13 @@ const WORKFLOW_SECTION_IDS = {
   candidateIdea: 'workflow-section-candidate-idea',
   candidateFormation: 'workflow-section-candidate-formation',
   constructionRule: 'workflow-section-construction-rule',
+  constructionConstraints: 'workflow-section-construction-constraints',
   hypotheticalReplay: 'workflow-section-hypothetical-replay',
   diagnosticsChange: 'workflow-section-diagnostics-change',
   savedProposal: 'workflow-section-saved-proposal',
 } as const
 
 type WorkflowSectionStatus = 'ready' | 'in_progress' | 'blocked' | 'recorded'
-
-type WorkflowGuideItem = {
-  key: string
-  title: string
-  status: WorkflowSectionStatus
-  guidance: string
-  targetId: (typeof WORKFLOW_SECTION_IDS)[keyof typeof WORKFLOW_SECTION_IDS]
-}
 
 function workflowStatusLabel(status: WorkflowSectionStatus) {
   if (status === 'in_progress') return 'In progress'
@@ -342,7 +738,7 @@ function workflowStatusCardClass(status: WorkflowSectionStatus) {
   return 'metric-card-neutral'
 }
 
-function buildWorkflowGuideItems(props: Props): WorkflowGuideItem[] {
+function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
   const hasCurrentPortfolio = Boolean(props.analysis || props.draftSnapshot)
   const hasCandidateSeed = Boolean(props.candidateImprovementDraft || props.intentBoundSeededEtfReplacementRankingDraft)
   const hasReplacementIntent = Boolean(props.replacementIntentDraft)
@@ -371,6 +767,17 @@ function buildWorkflowGuideItems(props: Props): WorkflowGuideItem[] {
     && props.constructedCandidateArtifact.constructionRuleId === props.selectedConstructionRuleId
     && props.constructedCandidateArtifact.construction.construction.status === 'ok',
   )
+  const hasConstraintValidation = Boolean(
+    props.replacementIntentDraft
+    && props.constructionConstraintValidationArtifact
+    && props.constructionConstraintValidationArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
+    && props.constructionConstraintValidationArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
+    && props.constructionConstraintValidationArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol
+    && props.constructionConstraintValidationArtifact.constructionRuleId === props.selectedConstructionRuleId,
+  )
+  const hasPassingConstraintValidation = Boolean(hasConstraintValidation && props.constructionConstraintValidationArtifact?.validation.validation.status === 'ok')
+  const hasBlockedConstraintValidation = Boolean(hasConstraintValidation && props.constructionConstraintValidationArtifact?.validation.validation.status === 'blocked')
+  const hasRejectedConstraintValidation = Boolean(hasConstraintValidation && props.constructionConstraintValidationArtifact?.validation.validation.status === 'rejected')
   const hasRejectedConstruction = Boolean(
     props.replacementIntentDraft
     && props.constructedCandidateArtifact
@@ -397,43 +804,40 @@ function buildWorkflowGuideItems(props: Props): WorkflowGuideItem[] {
 
   return [
     {
-      key: 'current-portfolio',
+      key: 'current-portfolio-status',
       title: 'Current Portfolio',
-      status: hasCurrentPortfolio ? 'ready' : 'blocked',
-      guidance: hasCurrentPortfolio
-        ? 'Portfolio basis is available for workflow review.'
-        : 'Import or restore a portfolio basis before starting the workflow.',
-      targetId: WORKFLOW_SECTION_IDS.currentPortfolio,
+      value: workflowStatusLabel(hasCurrentPortfolio ? 'ready' : 'blocked'),
+      detail: hasCurrentPortfolio
+        ? 'Portfolio basis is available.'
+        : 'Import or restore a portfolio basis.',
     },
     {
-      key: 'candidate-idea',
+      key: 'candidate-idea-status',
       title: 'Candidate Idea',
-      status: hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked',
-      guidance: hasReplacementIntent
+      value: workflowStatusLabel(hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked'),
+      detail: hasReplacementIntent
         ? 'A replacement intent is attached and ready for replay.'
         : hasCandidateSeed
           ? 'A candidate seed exists; promote it into an explicit replacement intent next.'
           : 'No seeded candidate is attached yet; use ETF Ranking to choose one.',
-      targetId: WORKFLOW_SECTION_IDS.candidateIdea,
     },
     {
-      key: 'candidate-formation',
+      key: 'candidate-formation-status',
       title: 'Candidate Formation',
-      status: hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked',
-      guidance: hasFormedCandidate
+      value: workflowStatusLabel(hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked'),
+      detail: hasFormedCandidate
         ? 'A formed candidate artifact is available for review-only replay handoff.'
         : hasRejectedFormation
           ? 'Candidate formation rejected the active replacement intent.'
           : hasReplacementIntent
             ? 'The workflow can form a review-only candidate next.'
             : 'Create a replacement intent before candidate formation can run.',
-      targetId: WORKFLOW_SECTION_IDS.candidateFormation,
     },
     {
-      key: 'construction-rule',
+      key: 'construction-rule-status',
       title: 'Construction Rule',
-      status: hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked',
-      guidance: hasConstructedCandidate
+      value: workflowStatusLabel(hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked'),
+      detail: hasConstructedCandidate
         ? `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`
         : hasRejectedConstruction
           ? 'Construction rule rejected the active replacement intent.'
@@ -442,106 +846,62 @@ function buildWorkflowGuideItems(props: Props): WorkflowGuideItem[] {
           : hasFormedCandidate
             ? `The workflow can build review-only construction output next with ${props.selectedConstructionRuleId}.`
             : 'Form a valid candidate before the construction rule can run.',
-      targetId: WORKFLOW_SECTION_IDS.constructionRule,
+      },
+    {
+      key: 'construction-constraints-status',
+      title: 'Construction Constraints',
+      value: workflowStatusLabel(hasPassingConstraintValidation ? 'ready' : hasBlockedConstraintValidation || hasRejectedConstraintValidation ? 'blocked' : hasConstructedCandidate ? 'in_progress' : 'blocked'),
+      detail: hasPassingConstraintValidation
+        ? 'Constraint validation passed for the current constructed candidate and replay can use that handoff.'
+        : hasBlockedConstraintValidation
+          ? 'Constraint validation blocked the current constructed candidate, so replay remains unavailable.'
+          : hasRejectedConstraintValidation
+            ? 'Constraint validation rejected the current constructed candidate and replay remains unavailable.'
+            : hasConstructedCandidate
+              ? 'Run construction constraints next to validate the current constructed candidate before replay.'
+              : 'Build a valid constructed candidate before construction constraints can run.',
     },
     {
-      key: 'hypothetical-replay',
+      key: 'hypothetical-replay-status',
       title: 'Hypothetical Replay',
-      status: props.hypotheticalReplayResult ? 'ready' : hasConstructedCandidate ? 'in_progress' : 'blocked',
-      guidance: props.hypotheticalReplayResult
+      value: workflowStatusLabel(props.hypotheticalReplayResult ? 'ready' : hasPassingConstraintValidation ? 'in_progress' : 'blocked'),
+      detail: props.hypotheticalReplayResult
         ? 'A draft-only hypothetical replay is available for review.'
-        : hasConstructedCandidate
-          ? 'The workflow can run a hypothetical replay next from the construction artifact.'
-          : 'Construct a valid review-only candidate before hypothetical replay can run.',
-      targetId: WORKFLOW_SECTION_IDS.hypotheticalReplay,
+        : hasPassingConstraintValidation
+          ? 'The workflow can run a hypothetical replay next from the validated construction handoff.'
+          : 'Construction constraints must pass before hypothetical replay can run.',
     },
     {
-      key: 'diagnostics-change',
+      key: 'diagnostics-change-status',
       title: 'Diagnostics Change',
-      status: hasDiagnostics ? 'ready' : hasReplay ? 'in_progress' : 'blocked',
-      guidance: hasDiagnostics
+      value: workflowStatusLabel(hasDiagnostics ? 'ready' : hasReplay ? 'in_progress' : 'blocked'),
+      detail: hasDiagnostics
         ? 'Diagnostics delta review is available from the active replay.'
         : hasReplay
           ? 'Replay exists, but diagnostics comparison is not available yet.'
           : 'Run a replay before diagnostics change can be reviewed.',
-      targetId: WORKFLOW_SECTION_IDS.diagnosticsChange,
     },
     {
-      key: 'saved-proposal',
+      key: 'saved-proposal-status',
       title: 'Saved Proposal',
-      status: hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked',
-      guidance: hasSavedProposal
+      value: workflowStatusLabel(hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked'),
+      detail: hasSavedProposal
         ? 'An immutable proposal artifact has been recorded for this workflow.'
         : props.hypotheticalReplayResult
           ? 'A replay review is available; save it to record a proposal artifact.'
           : 'No saved proposal exists yet; review a hypothetical replay first.',
-      targetId: WORKFLOW_SECTION_IDS.savedProposal,
     },
   ]
 }
 
-function WorkflowAnalysisGuide({ items }: { items: WorkflowGuideItem[] }) {
-  const blockedCount = items.filter((item) => item.status === 'blocked').length
-  const readyCount = items.filter((item) => item.status === 'ready' || item.status === 'recorded').length
-
-  const jumpToSection = (targetId: string) => {
-    const target = document.getElementById(targetId)
-    if (!target) return
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  return (
-    <section className="dashboard-bottom-grid">
-      <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Workflow / Analysis Guide</p></div>
-        <p className="helper">Shell-owned orientation for the current workspace state. Use it to see what is blocked, what is ready now, and where to review next.</p>
-      </div>
-      <div className="dashboard-summary compact-summary-grid">
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card">
-          <p className="stat-label">Guide Status</p>
-          <p className="summary-value">{readyCount}/{items.length}</p>
-          <p className="helper">Blocked sections: {blockedCount}</p>
-        </div>
-        {items.map((item) => (
-          <div className={`summary-card metric-card backtest-summary-card ${workflowStatusCardClass(item.status)}`} key={item.key}>
-            <p className="stat-label">{item.title}</p>
-            <p className={`summary-value ${workflowStatusTextClass(item.status)}`}>{workflowStatusLabel(item.status)}</p>
-            <p className="helper">{item.guidance}</p>
-          </div>
-        ))}
-      </div>
-      <div className="list-table">
-        <div className="list-row list-row-wide">
-          <span>Section</span>
-          <span>Status</span>
-          <span>Guidance</span>
-          <span>Jump</span>
-        </div>
-        {items.map((item) => (
-          <div className="list-row list-row-wide" key={`guide-${item.key}`}>
-            <span>{item.title}</span>
-            <span className={workflowStatusTextClass(item.status)}>{workflowStatusLabel(item.status)}</span>
-            <span>{item.guidance}</span>
-            <span>
-              <button className="secondary-button" onClick={() => jumpToSection(item.targetId)} type="button">
-                Jump to section
-              </button>
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function PortfolioImprovementDecisionSummary({ props }: { props: Props }) {
-  const decisionSummaryCards = buildDecisionSummaryCards(props)
+  const decisionSummaryCards = [...buildDecisionSummaryCards(props), ...buildWorkflowStatusCards(props)]
 
   return (
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Portfolio Improvement Decision Summary</p></div>
-        <p className="helper">Shell-owned decision summary. This synthesizes current workflow review state only; it does not recommend, approve, or apply any portfolio change.</p>
+        <p className="helper">Current review state only.</p>
       </div>
       <div className="dashboard-summary compact-summary-grid">
         {decisionSummaryCards.map((card) => (
@@ -557,17 +917,19 @@ function PortfolioImprovementDecisionSummary({ props }: { props: Props }) {
 }
 
 function CurrentPortfolioSection({ analysis, draftSnapshot }: { analysis: PortfolioBaselineView | null; draftSnapshot: PortfolioSnapshot | null }) {
+  const basisLabel = draftSnapshot ? 'Draft snapshot' : analysis ? 'Imported snapshot' : null
+
   return (
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Current Portfolio</p></div>
-        <p className="helper">Truth class: current draft or imported portfolio truth. This section describes the before-state used for workflow review.</p>
+        <p className="helper">Current portfolio truth.</p>
       </div>
       <div className="dashboard-summary compact-summary-grid">
-        <div className="summary-card"><p className="stat-label">Portfolio Value</p><p className="summary-value">{formatMoney(analysis?.overview.total_market_value ?? null)}</p><p className="helper">Current portfolio truth from the imported or draft basis</p></div>
-        <div className="summary-card"><p className="stat-label">Positions</p><p className="summary-value">{formatValue(draftSnapshot?.positions.length ?? analysis?.snapshot.positions.length ?? null)}</p><p className="helper">Positive holdings available in the current basis</p></div>
-        <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{formatValue(draftSnapshot?.metadata.benchmarkSymbol ?? null)}</p><p className="helper">Reference benchmark carried with the current portfolio basis</p></div>
-        <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">{formatValue(draftSnapshot?.importedMeta.importer ?? analysis?.snapshot.statement.importer ?? null)}</p><p className="helper">Importer or draft lineage for the current portfolio truth</p></div>
+        <div className="summary-card"><p className="stat-label">Basis</p><p className="summary-value">{formatValue(basisLabel)}</p></div>
+        <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">{formatValue(draftSnapshot?.importedMeta.importer ?? analysis?.snapshot.statement.importer ?? null)}</p></div>
+        <div className="summary-card"><p className="stat-label">Period</p><p className="summary-value">{formatValue(draftSnapshot?.importedMeta.statementPeriod ?? analysis?.snapshot.statement.statement_period ?? null)}</p></div>
+        <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{formatValue(draftSnapshot?.metadata.benchmarkSymbol ?? null)}</p></div>
       </div>
     </section>
   )
@@ -593,11 +955,11 @@ function CandidateIdeaSection({
       <section className="dashboard-bottom-grid">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Candidate Idea</p></div>
-          <p className="helper">Truth class: ranking-derived review metadata only. Seed a candidate from ETF Ranking before replay can validate anything.</p>
+          <p className="helper">Ranking-derived review metadata only.</p>
         </div>
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">No candidate idea is attached to this draft yet.</p>
-          <p className="helper">Use ETF Ranking to choose a candidate explicitly, then return here to continue the improvement workflow.</p>
+          <p className="helper">Seed a candidate from ETF Ranking to continue.</p>
         </div>
       </section>
     )
@@ -607,16 +969,15 @@ function CandidateIdeaSection({
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Candidate Idea</p></div>
-        <p className="helper">Truth class: ranking-derived review metadata only. This section captures the explicit user choice before hypothetical replay validates it.</p>
+        <p className="helper">Ranking-derived review metadata only.</p>
       </div>
       {intentBoundSeededEtfReplacementRankingDraft ? <ReplacementRankingReview artifact={intentBoundSeededEtfReplacementRankingDraft} /> : null}
       {candidateImprovementDraft ? (
         <section className="dashboard-bottom-grid">
           <div className="summary-card">
             <p className="panel-label">Seeded Candidate Review</p>
-            <p className="helper">This seed carries forward the explicit incumbent/candidate pair and source metadata only. It does not imply a holdings change.</p>
             <p className="helper">Base: {candidateImprovementDraft.seed.baseSymbol} · Candidate: {candidateImprovementDraft.seed.candidateSymbol} · Rank #{candidateImprovementDraft.seed.candidateRank}</p>
-            {!replacementIntentDraft ? <p className="helper">Turn this seeded pair into an explicit replacement intent before replay. No candidate is adopted automatically.</p> : null}
+            {!replacementIntentDraft ? <p className="helper">Promote it to a replacement intent before replay.</p> : null}
             {!replacementIntentDraft && onCreateReplacementIntent ? (
               <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
                 <button className="secondary-button" onClick={() => setShowReplacementIntentConfirmation(true)} type="button">Promote to Replacement Intent</button>
@@ -624,10 +985,10 @@ function CandidateIdeaSection({
             ) : null}
           </div>
           <div className="dashboard-summary compact-summary-grid">
-            <div className="summary-card"><p className="stat-label">Incumbent</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.baseSymbol)}</p><p className="helper">ETF currently selected as the review base</p></div>
-            <div className="summary-card"><p className="stat-label">Candidate</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.candidateSymbol)}</p><p className="helper">ETF carried forward from deterministic ranking</p></div>
-            <div className="summary-card"><p className="stat-label">Peer Group</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.peerGroup)}</p><p className="helper">Same-mandate group used during ranking</p></div>
-            <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.confidence)}</p><p className="helper">Trust level carried from the ranking source</p></div>
+            <div className="summary-card"><p className="stat-label">Incumbent</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.baseSymbol)}</p></div>
+            <div className="summary-card"><p className="stat-label">Candidate</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.candidateSymbol)}</p></div>
+            <div className="summary-card"><p className="stat-label">Peer Group</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.peerGroup)}</p></div>
+            <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.confidence)}</p></div>
           </div>
         </section>
       ) : null}
@@ -635,11 +996,11 @@ function CandidateIdeaSection({
         <section className="dashboard-bottom-grid">
           <div className="summary-card">
             <p className="panel-label">Create replacement intent</p>
-            <p className="helper">This records an explicit incumbent-to-candidate replacement intent inside the draft. It does not apply the change, endorse it, or run replay by itself.</p>
+            <p className="helper">Draft intent only. No holdings change is applied here.</p>
             <div className="dashboard-summary compact-summary-grid">
               <div className="summary-card"><p className="stat-label">From</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.baseSymbol)}</p></div>
               <div className="summary-card"><p className="stat-label">To</p><p className="summary-value">{formatValue(candidateImprovementDraft.seed.candidateSymbol)}</p></div>
-              <div className="summary-card"><p className="stat-label">Truth Class</p><p className="summary-value">Draft intent</p><p className="helper">Review object only; not applied holdings</p></div>
+              <div className="summary-card"><p className="stat-label">Truth Class</p><p className="summary-value">Draft intent</p></div>
             </div>
             <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
               {onCreateReplacementIntent ? <button className="primary-button" onClick={() => { void onCreateReplacementIntent(); setShowReplacementIntentConfirmation(false) }} type="button">Create Intent</button> : null}
@@ -652,12 +1013,12 @@ function CandidateIdeaSection({
         <section className="dashboard-bottom-grid">
           <div className="summary-card">
             <p className="panel-label">Replacement Intent</p>
-            <p className="helper">Truth class: draft intent only. This explicit user-chosen pair is the handoff into hypothetical replay; it does not change holdings.</p>
+            <p className="helper">Draft intent only. This handoff does not change holdings.</p>
             <div className="dashboard-summary compact-summary-grid">
               <div className="summary-card"><p className="stat-label">From</p><p className="summary-value">{formatValue(replacementIntentDraft.baseSymbol)}</p></div>
               <div className="summary-card"><p className="stat-label">To</p><p className="summary-value">{formatValue(replacementIntentDraft.candidateSymbol)}</p></div>
-              <div className="summary-card"><p className="stat-label">Status</p><p className="summary-value">Draft intent</p><p className="helper">Recorded for review only; not applied to holdings</p></div>
-              <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">ETF Ranking seed</p><p className="helper">Replacement intent remains draft-scoped until replayed and reviewed</p></div>
+              <div className="summary-card"><p className="stat-label">Status</p><p className="summary-value">Draft intent</p></div>
+              <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">ETF Ranking seed</p></div>
             </div>
             {onClearReplacementIntent ? (
               <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
@@ -671,7 +1032,17 @@ function CandidateIdeaSection({
   )
 }
 
-function SavedProposalSection({ proposals }: { proposals: VersionedProposalArtifact[] }) {
+function SavedProposalSection({
+  proposals,
+  activeThesis,
+  onPromoteProposalToThesis,
+  onClearActiveThesis,
+}: {
+  proposals: VersionedProposalArtifact[]
+  activeThesis: ActiveThesisArtifact | null
+  onPromoteProposalToThesis: (proposalId: string) => void | Promise<void>
+  onClearActiveThesis: () => void | Promise<void>
+}) {
   const sortedProposals = useMemo(
     () => [...proposals].sort((left, right) => {
       if (left.versionNumber !== right.versionNumber) return right.versionNumber - left.versionNumber
@@ -680,6 +1051,7 @@ function SavedProposalSection({ proposals }: { proposals: VersionedProposalArtif
     [proposals],
   )
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(sortedProposals[0]?.id ?? null)
+  const [comparisonSelection, setComparisonSelection] = useState<string[]>([])
 
   useEffect(() => {
     if (!sortedProposals.length) {
@@ -690,19 +1062,54 @@ function SavedProposalSection({ proposals }: { proposals: VersionedProposalArtif
     setSelectedProposalId((current) => sortedProposals.some((proposal) => proposal.id === current) ? current : sortedProposals[0].id)
   }, [sortedProposals])
 
+  useEffect(() => {
+    setComparisonSelection((current) => current.filter((proposalId) => sortedProposals.some((proposal) => proposal.id === proposalId)).slice(0, 2))
+  }, [sortedProposals])
+
   const selectedProposal = sortedProposals.find((proposal) => proposal.id === selectedProposalId) ?? sortedProposals[0] ?? null
   const latestProposal = sortedProposals[0] ?? null
+  const activeThesisProposalId = activeThesis?.sourceProposalId ?? null
+  const activeThesisProposal = activeThesis?.thesisProposal ?? null
+  const comparisonProposals = comparisonSelection
+    .map((proposalId) => sortedProposals.find((proposal) => proposal.id === proposalId) ?? null)
+    .filter((proposal): proposal is VersionedProposalArtifact => proposal != null)
+  const comparisonReady = comparisonProposals.length === 2
+
+  function toggleComparisonSelection(proposalId: string) {
+    setComparisonSelection((current) => {
+      if (current.includes(proposalId)) {
+        return current.filter((item) => item !== proposalId)
+      }
+      if (current.length >= 2) {
+        return [current[1], proposalId]
+      }
+      return [...current, proposalId]
+    })
+  }
+
+  function clearComparisonSelection() {
+    setComparisonSelection([])
+  }
+
+  function swapComparisonSides() {
+    setComparisonSelection((current) => current.length === 2 ? [current[1], current[0]] : current)
+  }
+
+  function openProposalFromComparison(proposalId: string) {
+    setSelectedProposalId(proposalId)
+    setComparisonSelection([])
+  }
 
   if (!sortedProposals.length) {
     return (
       <section className="dashboard-bottom-grid">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Saved Proposal</p></div>
-          <p className="helper">Truth class: saved review artifacts only. Saved proposals are immutable review records and do not change applied portfolio truth.</p>
+          <p className="helper">Saved review artifacts only.</p>
         </div>
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">No saved proposal artifact yet.</p>
-          <p className="helper">Save a reviewed hypothetical replay to create an immutable artifact that can be reopened in review-only mode later.</p>
+          <p className="helper">Save a reviewed replay to reopen it later.</p>
         </div>
       </section>
     )
@@ -712,15 +1119,32 @@ function SavedProposalSection({ proposals }: { proposals: VersionedProposalArtif
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Saved Proposal</p></div>
-        <p className="helper">Truth class: saved review artifacts only. Reopening a saved proposal restores immutable review context inside the workspace shell and does not mutate applied portfolio truth.</p>
+        <p className="helper">Saved review artifacts only.</p>
       </div>
       {latestProposal ? (
         <div className="summary-card">
           <p className="stat-label">Latest Saved Artifact</p>
           <p className="summary-value">v{latestProposal.versionNumber} · {latestProposal.sourceIntent.baseSymbol} -&gt; {latestProposal.sourceIntent.candidateSymbol}</p>
-          <p className="helper">Recorded {formatProposalTimestamp(latestProposal.createdAt)}. This remains a review artifact only, not an applied holdings change.</p>
+          <p className="helper">Recorded {formatProposalTimestamp(latestProposal.createdAt)}</p>
         </div>
       ) : null}
+      <div className="summary-card" data-testid="active-thesis-status">
+        <p className="panel-label">Active Thesis</p>
+        {!activeThesisProposal ? (
+          <>
+            <p className="summary-value">Not promoted</p>
+            <p className="helper">Promote a saved proposal into an active thesis snapshot.</p>
+          </>
+        ) : (
+          <>
+            <p className="summary-value">{getProposalLabel(activeThesisProposal)}</p>
+            <p className="helper">Promoted {formatProposalTimestamp(activeThesis?.promotedAt ?? activeThesisProposal.createdAt)} from {activeThesisProposal.id}</p>
+            <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+              <button className="secondary-button" data-testid="clear-active-thesis" type="button" onClick={() => void onClearActiveThesis()}>Clear active thesis</button>
+            </div>
+          </>
+        )}
+      </div>
       <div className="list-table">
         <div className="list-row list-row-wide">
           <span>Artifact</span>
@@ -729,103 +1153,95 @@ function SavedProposalSection({ proposals }: { proposals: VersionedProposalArtif
         </div>
         {sortedProposals.map((proposal, index) => {
           const isSelected = proposal.id === selectedProposal?.id
+          const isMarkedForComparison = comparisonSelection.includes(proposal.id)
+          const isActiveThesis = proposal.id === activeThesisProposalId
           return (
-            <div className="list-row list-row-wide" key={proposal.id}>
+            <div className="list-row list-row-wide" data-testid={`saved-proposal-row-${proposal.id}`} key={proposal.id}>
               <span>
                 v{proposal.versionNumber} · {proposal.sourceIntent.baseSymbol} -&gt; {proposal.sourceIntent.candidateSymbol}
                 <br />
                 {index === 0 ? 'Latest' : 'Saved artifact'} · {formatProposalTimestamp(proposal.createdAt)}
+                {isActiveThesis ? <><br />Active thesis</> : null}
               </span>
-              <span className={workflowStatusTextClass('recorded')}>{isSelected ? 'reviewing' : 'recorded'}</span>
+              <span className={workflowStatusTextClass('recorded')} data-testid={`saved-proposal-status-${proposal.id}`}>{isActiveThesis ? 'active thesis' : isMarkedForComparison ? `compare ${comparisonSelection.indexOf(proposal.id) + 1}` : isSelected ? 'reviewing' : 'recorded'}</span>
               <span>
                 {proposal.replayBasis.derivationBasis} · {proposal.replayBasis.rebalanceFrequency}
                 <br />
                 <button className={isSelected ? 'primary-button' : 'secondary-button'} type="button" onClick={() => setSelectedProposalId(proposal.id)}>
                   {isSelected ? 'Viewing For Review' : 'Reopen In Workspace'}
                 </button>
+                <button className="secondary-button" data-testid={`saved-proposal-compare-${proposal.id}`} type="button" onClick={() => toggleComparisonSelection(proposal.id)}>
+                  {isMarkedForComparison ? 'Remove From Compare' : 'Compare'}
+                </button>
+                <button className="secondary-button" data-testid={`saved-proposal-promote-${proposal.id}`} type="button" onClick={() => void onPromoteProposalToThesis(proposal.id)}>
+                  {isActiveThesis ? 'Replace Active Thesis' : activeThesisProposal ? 'Replace Active Thesis' : 'Promote To Active Thesis'}
+                </button>
               </span>
             </div>
           )
         })}
       </div>
-      {selectedProposal ? (
-        <>
-          <div className="summary-card">
-            <p className="panel-label">Review-only proposal view</p>
-            <p className="helper">You are reopening an immutable saved artifact for review inside the workspace shell. This does not apply, edit, approve, or otherwise mutate portfolio truth.</p>
-          </div>
-          <SavedProposalReadoutSection proposal={selectedProposal} />
-        </>
+      <div className="summary-card" data-testid="saved-proposal-comparison-status">
+        <p className="panel-label">Saved proposal comparison</p>
+        <p className="helper">Selected: {comparisonSelection.length}/2</p>
+        {sortedProposals.length < 2 ? <p className="helper">Comparison is unavailable until at least two saved proposal artifacts exist.</p> : null}
+        {sortedProposals.length >= 2 && !comparisonReady ? <p className="helper">Choose one more saved proposal to open the comparison surface.</p> : null}
+      </div>
+      {comparisonReady ? (
+        <SavedProposalComparisonView
+          leftProposal={comparisonProposals[0]}
+          rightProposal={comparisonProposals[1]}
+          onSwapSides={swapComparisonSides}
+          onOpenProposal={openProposalFromComparison}
+          onClearComparison={clearComparisonSelection}
+        />
       ) : null}
+      {selectedProposal ? <SavedProposalReadoutSection proposal={selectedProposal} /> : null}
     </section>
   )
 }
 
 export function PortfolioImprovementWorkspaceShell(props: Props) {
-  const workflowGuideItems = buildWorkflowGuideItems(props)
+  useEffect(() => {
+    if (!props.monitoringResearchHandoff || props.monitoringResearchHandoffDismissed) return
+    const targetId = MONITORING_RESEARCH_TARGET_IDS[props.monitoringResearchHandoff.researchTarget]
+    const timer = globalThis.setTimeout(() => {
+      const target = document.getElementById(targetId)
+      if (target && 'scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 0)
+    return () => globalThis.clearTimeout(timer)
+  }, [props.monitoringResearchHandoff, props.monitoringResearchHandoffDismissed])
 
   return (
     <section className="workspace-section">
-      <p className="panel-label">Portfolio Improvement Workspace</p>
-      <WorkflowAnalysisGuide items={workflowGuideItems} />
-      <PortfolioImprovementDecisionSummary props={props} />
-      <div id={WORKFLOW_SECTION_IDS.currentPortfolio}>
+      <h2>Portfolio Research Workspace</h2>
+      {props.monitoringResearchHandoff && !props.monitoringResearchHandoffDismissed ? (
+        <section className="dashboard-bottom-grid" data-testid="monitoring-research-handoff-banner">
+          <div className="summary-card">
+            <p className="panel-label">Monitoring context</p>
+            <p className="helper">
+              {props.monitoringResearchHandoff.monitorTitle} · {monitoringResearchTargetLabel(props.monitoringResearchHandoff.researchTarget)}
+              {props.monitoringResearchHandoff.replayContext ? ` for ${props.monitoringResearchHandoff.replayContext}` : ''}.
+            </p>
+            <p className="helper">Context: {props.monitoringResearchHandoff.contextLabel}</p>
+            <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+              {props.onDismissMonitoringResearchHandoff ? <button className="secondary-button" onClick={props.onDismissMonitoringResearchHandoff} type="button">Dismiss</button> : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+      <OverviewSection {...props} />
+      <div id={WORKFLOW_SECTION_IDS.currentPortfolio} data-testid="workspace-section-current-portfolio">
         <CurrentPortfolioSection analysis={props.analysis} draftSnapshot={props.draftSnapshot} />
       </div>
       <div id={WORKFLOW_SECTION_IDS.candidateIdea}>
-        <CandidateIdeaSection
-          candidateImprovementDraft={props.candidateImprovementDraft}
-          intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
-          replacementIntentDraft={props.replacementIntentDraft}
-          onCreateReplacementIntent={props.onCreateReplacementIntent}
-          onClearReplacementIntent={props.onClearReplacementIntent}
-        />
+        <CandidateWorkspaceSection {...props} />
       </div>
-      <div id={WORKFLOW_SECTION_IDS.candidateFormation}>
-        <CandidateFormationSection
-          draftSnapshot={props.draftSnapshot}
-          replacementIntentDraft={props.replacementIntentDraft}
-          formedCandidateArtifact={props.formedCandidateArtifact}
-          onFormedCandidateArtifact={props.onFormedCandidateArtifact}
-        />
-      </div>
-      <div id={WORKFLOW_SECTION_IDS.constructionRule}>
-        <ConstructionRuleSection
-          draftSnapshot={props.draftSnapshot}
-          replacementIntentDraft={props.replacementIntentDraft}
-          formedCandidateArtifact={props.formedCandidateArtifact}
-          constructedCandidateArtifact={props.constructedCandidateArtifact}
-          selectedConstructionRuleId={props.selectedConstructionRuleId}
-          onConstructedCandidateArtifact={props.onConstructedCandidateArtifact}
-          onSelectedConstructionRuleChange={props.onSelectedConstructionRuleChange}
-        />
-      </div>
-      <div id={WORKFLOW_SECTION_IDS.hypotheticalReplay}>
-        <HypotheticalReplaySection
-          result={props.allocationBacktestResult}
-          draftSnapshot={props.draftSnapshot}
-          replacementIntentDraft={props.replacementIntentDraft}
-          formedCandidateArtifact={props.formedCandidateArtifact}
-          constructedCandidateArtifact={props.constructedCandidateArtifact}
-          selectedConstructionRuleId={props.selectedConstructionRuleId}
-          hypotheticalReplayResult={props.hypotheticalReplayResult}
-          savedProposalCount={props.savedProposals.length}
-          onSaveProposal={props.onSaveProposal}
-          onHypotheticalReplayResult={props.onHypotheticalReplayResult}
-        />
-      </div>
-      <div id={WORKFLOW_SECTION_IDS.diagnosticsChange}>
-        <section className="dashboard-bottom-grid">
-          <div className="section-header-inline sector-list-header">
-            <div><p className="panel-label">Diagnostics Change</p></div>
-            <p className="helper">Truth class: replay-derived hypothetical diagnostics only. This section isolates the before/after diagnostics change view from replay and saved proposal review.</p>
-          </div>
-        </section>
-        <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
-      </div>
-      <div id={WORKFLOW_SECTION_IDS.savedProposal}>
-        <SavedProposalSection proposals={props.savedProposals} />
-      </div>
+      <div id={WORKFLOW_SECTION_IDS.constructionConstraints} />
+      <CompareWorkspaceSection {...props} />
+      <ProposalWorkspaceSection {...props} />
     </section>
   )
 }

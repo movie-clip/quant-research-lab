@@ -1,5 +1,5 @@
 const databaseName = 'portfolio-workstation'
-const databaseVersion = 11
+const databaseVersion = 13
 
 export const appStateStoreName = 'app-state'
 export const workspaceStoreName = 'workspaces'
@@ -11,9 +11,11 @@ export const intentBoundSeededEtfReplacementRankingDraftStoreName = 'intent_boun
 export const replacementIntentDraftStoreName = 'replacement_intent_drafts'
 export const formedCandidateStoreName = 'formed_candidate_drafts'
 export const constructedCandidateStoreName = 'constructed_candidate_drafts'
+export const constructionConstraintValidationStoreName = 'construction_constraint_validation_drafts'
 export const selectedConstructionRuleStoreName = 'selected_construction_rule_drafts'
 export const hypotheticalReplacementReplayDraftStoreName = 'hypothetical_replacement_replay_drafts'
 export const versionedProposalStoreName = 'versioned_proposals'
+export const activeThesisStoreName = 'active_thesis'
 
 let databasePromise: Promise<IDBDatabase> | null = null
 let openDatabaseHandle: IDBDatabase | null = null
@@ -51,9 +53,11 @@ export function openPortfolioDatabase() {
             replacementIntentDraftStoreName,
             formedCandidateStoreName,
             constructedCandidateStoreName,
+            constructionConstraintValidationStoreName,
             selectedConstructionRuleStoreName,
             hypotheticalReplacementReplayDraftStoreName,
             versionedProposalStoreName,
+            activeThesisStoreName,
           ]
 
           for (const storeName of storeNames) {
@@ -101,6 +105,10 @@ export function openPortfolioDatabase() {
           const store = database.createObjectStore(constructedCandidateStoreName, { keyPath: 'draftId' })
           store.createIndex('workspaceId', 'workspaceId', { unique: false })
         }
+        if (!database.objectStoreNames.contains(constructionConstraintValidationStoreName)) {
+          const store = database.createObjectStore(constructionConstraintValidationStoreName, { keyPath: 'draftId' })
+          store.createIndex('workspaceId', 'workspaceId', { unique: false })
+        }
         if (!database.objectStoreNames.contains(selectedConstructionRuleStoreName)) {
           const store = database.createObjectStore(selectedConstructionRuleStoreName, { keyPath: 'draftId' })
           store.createIndex('workspaceId', 'workspaceId', { unique: false })
@@ -112,6 +120,9 @@ export function openPortfolioDatabase() {
         if (!database.objectStoreNames.contains(versionedProposalStoreName)) {
           const store = database.createObjectStore(versionedProposalStoreName, { keyPath: 'id' })
           store.createIndex('workspaceId', 'workspaceId', { unique: false })
+        }
+        if (!database.objectStoreNames.contains(activeThesisStoreName)) {
+          database.createObjectStore(activeThesisStoreName, { keyPath: 'workspaceId' })
         }
       }
 

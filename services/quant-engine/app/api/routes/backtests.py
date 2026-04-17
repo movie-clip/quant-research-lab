@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse
+from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
 from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, StrategyDefinition
 from app.services.backtest_engine_service import BacktestAnalysisResult, build_backtest_analysis
+from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import build_single_replacement_candidate_construction
 from app.services.candidate_formation import build_single_replacement_candidate_formation
 from app.services.portfolio_backtest_engine import build_hypothetical_replacement_replay_preview, build_overlay_aware_hypothetical_replay_preview, build_portfolio_allocation_backtest_analysis
@@ -100,6 +101,19 @@ def run_single_replacement_candidate_formation(request: SingleReplacementCandida
 @router.post("/candidate-construction/replacement-intent", response_model=SingleReplacementCandidateConstructionResponse)
 def run_single_replacement_candidate_construction(request: SingleReplacementCandidateConstructionRequest) -> SingleReplacementCandidateConstructionResponse:
     return build_single_replacement_candidate_construction(request)
+
+
+@router.post("/candidate-construction/replacement-intent/constraints", response_model=SingleReplacementConstructionConstraintValidationResponse)
+def run_single_replacement_candidate_construction_constraints(
+    request: SingleReplacementConstructionConstraintValidationRequest,
+) -> SingleReplacementConstructionConstraintValidationResponse:
+    if request.constructed_candidate is None:
+        raise HTTPException(status_code=400, detail="constructed_candidate is required")
+    if request.constraint_set is None:
+        raise HTTPException(status_code=400, detail="constraint_set is required")
+    if request.constraint_set.constraint_set_id != CONSTRAINT_SET_ID:
+        raise HTTPException(status_code=400, detail=f"unsupported constraint_set_id: {request.constraint_set.constraint_set_id}")
+    return validate_single_replacement_candidate_construction_constraints(request)
 
 
 def _validate_weights(weights, field_name: str) -> None:

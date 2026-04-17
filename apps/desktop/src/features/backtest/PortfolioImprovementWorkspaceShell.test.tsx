@@ -1,7 +1,39 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
+
+const noOp = () => {}
+
+function textContentOf(testId: string) {
+  const matches = screen.getAllByTestId(testId)
+  return matches[matches.length - 1]?.textContent ?? ''
+}
+
+function clickCompareFor(proposalId: string) {
+  const matches = screen.getAllByTestId(`saved-proposal-compare-${proposalId}`)
+  fireEvent.click(matches[matches.length - 1])
+}
+
+function latestByTestId(testId: string) {
+  const matches = screen.getAllByTestId(testId)
+  return matches[matches.length - 1]
+}
+
+function textContentOfIn(root: HTMLElement, testId: string) {
+  const matches = within(root).getAllByTestId(testId)
+  return matches[matches.length - 1]?.textContent ?? ''
+}
+
+function clickCompareForIn(root: HTMLElement, proposalId: string) {
+  const matches = within(root).getAllByTestId(`saved-proposal-compare-${proposalId}`)
+  fireEvent.click(matches[matches.length - 1])
+}
+
+function latestByTestIdIn(root: HTMLElement, testId: string) {
+  const matches = within(root).getAllByTestId(testId)
+  return matches[matches.length - 1]
+}
 
 const analysis = {
   snapshot: { statement: { importer: 'interactive_brokers', account_id: 'U1', base_currency: 'USD', statement_period: '2025', page_count: 1 }, positions: [{ symbol: 'AAPL', market_value: 60000 }, { symbol: 'MSFT', market_value: 40000 }] },
@@ -177,9 +209,77 @@ function makeConstructedCandidate(status: 'ok' | 'rejected' = 'ok') {
   } as any
 }
 
+function makeConstraintValidation(status: 'ok' | 'blocked' | 'rejected' = 'ok') {
+  return {
+    workspaceId: 'workspace-1',
+    draftId: 'draft-1',
+    baseNodeId: 'node-1',
+    replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+    replacementIntentBaseSymbol: 'AAPL',
+    replacementIntentCandidateSymbol: 'IUFS',
+    constructionRuleId: 'same_weight_substitution_v1',
+    validation: {
+      validation: {
+        kind: 'single_replacement_construction_constraint_validation',
+        status,
+        constraint_set_id: 'single_replacement_construction_constraints_v1',
+      },
+      proposal: { source: 'draft_replacement_intent', draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS' },
+      construction: { kind: 'single_replacement_construction', status: 'ok', rule_id: 'same_weight_substitution_v1' },
+      derivation: { validation_timing: 'post_construction_pre_replay', validation_basis: 'explicit_constraint_set', candidate_input_source: 'constructed_candidate_payload', constraint_set_id: 'single_replacement_construction_constraints_v1' },
+      truth_provenance: { baseline_truth_class: 'draft_snapshot_basis', construction_truth_class: 'candidate_construction_derived', candidate_truth_class: 'hypothetical_candidate_input_only', constraint_validation_truth_class: 'constraint_validation_derived', note: 'Constraint validation remains review-only.' },
+      evaluations: [
+        { constraint_id: 'weight_sum_matches_rule', severity: 'hard_block', status: status === 'blocked' ? 'fail' : 'pass', message: status === 'blocked' ? 'Constraint failed.' : 'Constraint passed.', rationale: null, actual_value: status === 'blocked' ? 0.97 : 1, expected_value: 1, operator: '==' },
+      ],
+      blocking_constraint_ids: status === 'blocked' ? ['weight_sum_matches_rule'] : [],
+      warnings: [],
+      rejection_reason: status === 'rejected' ? 'constructed candidate could not be evaluated safely' : null,
+    },
+  } as any
+}
+
+function makeActiveThesis(versionNumber = 1, candidateSymbol = 'IUFS') {
+  const thesisProposal = makeSavedProposal(versionNumber, '2026-04-17T00:00:00Z', candidateSymbol)
+  return {
+    workspaceId: 'workspace-1',
+    promotedAt: '2026-04-17T12:00:00Z',
+    sourceProposalId: thesisProposal.id,
+    thesisProposal,
+  } as any
+}
+
+function renderShell(overrides: Record<string, any> = {}) {
+  return render(
+    <PortfolioImprovementWorkspaceShell
+      analysis={analysis}
+      draftSnapshot={draftSnapshot}
+      candidateImprovementDraft={null}
+      intentBoundSeededEtfReplacementRankingDraft={null}
+      replacementIntentDraft={null}
+      formedCandidateArtifact={null}
+      constructedCandidateArtifact={null}
+      constructionConstraintValidationArtifact={null}
+      selectedConstructionRuleId="same_weight_substitution_v1"
+      allocationBacktestResult={null}
+      hypotheticalReplayResult={null}
+      savedProposals={[]}
+      activeThesis={null}
+      onPromoteProposalToThesis={noOp}
+      onClearActiveThesis={noOp}
+      onSaveProposal={noOp}
+      onHypotheticalReplayResult={noOp}
+      onFormedCandidateArtifact={noOp}
+      onConstructedCandidateArtifact={noOp}
+      onConstructionConstraintValidationArtifact={noOp}
+      onSelectedConstructionRuleChange={noOp}
+      {...overrides}
+    />,
+  )
+}
+
 describe('PortfolioImprovementWorkspaceShell', () => {
   it('shows an explicit decision summary when no candidate exists yet', () => {
-    render(
+    const { container } = render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
         draftSnapshot={draftSnapshot}
@@ -188,14 +288,19 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={null}
         formedCandidateArtifact={null}
         constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -204,11 +309,11 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getByText('Not selected')).toBeTruthy()
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getAllByText('No artifact').length).toBeGreaterThan(0)
-    expect(screen.getByText('Shell-owned decision summary. This synthesizes current workflow review state only; it does not recommend, approve, or apply any portfolio change.')).toBeTruthy()
+    expect(screen.getByText('Current review state only.')).toBeTruthy()
   })
 
   it('shows partial decision summary state when candidate exists but replay has not run', () => {
-    render(
+    const { container } = render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
         draftSnapshot={draftSnapshot}
@@ -217,14 +322,19 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={null}
         formedCandidateArtifact={null}
         constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -234,8 +344,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getByText('Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.')).toBeTruthy()
   })
 
-  it('renders workflow sections in the approved order', () => {
-    render(
+  it('renders workspace sections in the approved order', () => {
+    const { container } = render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
         draftSnapshot={draftSnapshot}
@@ -244,41 +354,46 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={null}
         formedCandidateArtifact={null}
         constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
+        onAllocationBacktestResult={noOp}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
-    expect(screen.getAllByText('Workflow / Analysis Guide').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Overview').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Portfolio Research Workspace').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Workflow / Analysis Guide')).toBeNull()
     expect(screen.queryByText('Workflow Readiness')).toBeNull()
     expect(screen.queryByText('Section Status Guidance')).toBeNull()
 
+    const overviewMatches = screen.getAllByText('Overview')
     const currentMatches = screen.getAllByText('Current Portfolio')
-    const candidateMatches = screen.getAllByText('Candidate Idea')
-    const constructionMatches = screen.getAllByText('Construction Rule')
-    const replayMatches = screen.getAllByText('Hypothetical Replay')
-    const diagnosticsMatches = screen.getAllByText('Diagnostics Change')
-    const proposalMatches = screen.getAllByText('Saved Proposal')
+    const candidateMatches = screen.getAllByText('Candidate')
+    const compareMatches = screen.getAllByText('Compare')
+    const proposalMatches = screen.getAllByText('Proposal')
 
+    const overview = overviewMatches[overviewMatches.length - 1] as HTMLElement
     const current = currentMatches[currentMatches.length - 1] as HTMLElement
     const candidate = candidateMatches[candidateMatches.length - 1] as HTMLElement
-    const construction = constructionMatches[constructionMatches.length - 1] as HTMLElement
-    const replay = replayMatches[replayMatches.length - 1] as HTMLElement
-    const diagnostics = diagnosticsMatches[diagnosticsMatches.length - 1] as HTMLElement
+    const compare = compareMatches[compareMatches.length - 1] as HTMLElement
     const proposal = proposalMatches[proposalMatches.length - 1] as HTMLElement
 
+    expect(overview.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(current.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(candidate.compareDocumentPosition(construction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(candidate.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(replay.compareDocumentPosition(diagnostics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(diagnostics.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(candidate.compareDocumentPosition(compare) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(compare.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('owns the shell-level replay, diagnostics, and proposal framing', () => {
@@ -291,14 +406,20 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={null}
         formedCandidateArtifact={null}
         constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
+        onAllocationBacktestResult={noOp}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -307,9 +428,6 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('Diagnostics Change').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Saved Proposal').length).toBeGreaterThan(0)
     expect(screen.getAllByText('No saved proposal artifact yet.').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Shell-owned orientation for the current workspace state. Use it to see what is blocked, what is ready now, and where to review next.').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Guide Status').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Jump to section').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
   })
 
@@ -325,50 +443,27 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={savedProposal.sourceIntent}
         formedCandidateArtifact={makeFormedCandidate()}
         constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation()}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
+        onAllocationBacktestResult={noOp}
         hypotheticalReplayResult={savedProposal.reviewSnapshot}
         savedProposals={[savedProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
     expect(screen.getAllByText('Recorded').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
     expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
-  })
-
-  it('jumps from the workflow guide to the requested section', () => {
-    const scrollIntoView = vi.fn()
-    Element.prototype.scrollIntoView = scrollIntoView
-
-    render(
-      <PortfolioImprovementWorkspaceShell
-        analysis={analysis}
-        draftSnapshot={draftSnapshot}
-        candidateImprovementDraft={null}
-        intentBoundSeededEtfReplacementRankingDraft={null}
-        replacementIntentDraft={null}
-        formedCandidateArtifact={null}
-        constructedCandidateArtifact={null}
-        selectedConstructionRuleId="same_weight_substitution_v1"
-        allocationBacktestResult={null}
-        hypotheticalReplayResult={null}
-        savedProposals={[]}
-        onSaveProposal={() => {}}
-        onHypotheticalReplayResult={() => {}}
-        onFormedCandidateArtifact={() => {}}
-        onConstructedCandidateArtifact={() => {}}
-        onSelectedConstructionRuleChange={() => {}}
-      />,
-    )
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Jump to section' })[0] as HTMLButtonElement)
-
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
   })
 
   it('renders explicit candidate formation state between candidate idea and replay', () => {
@@ -381,19 +476,25 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
         formedCandidateArtifact={makeFormedCandidate()}
         constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation()}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
+        onAllocationBacktestResult={noOp}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
-    const candidateMatches = screen.getAllByText('Candidate Idea')
+    const candidateMatches = screen.getAllByText('Candidate')
     const formationMatches = screen.getAllByText('Candidate Formation')
     const constructionMatches = screen.getAllByText('Construction Rule')
     const replayMatches = screen.getAllByText('Hypothetical Replay')
@@ -404,11 +505,13 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(candidate.compareDocumentPosition(formation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(formation.compareDocumentPosition(construction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(formation.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(construction.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getAllByText('Formed').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Constructed').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Pass').length).toBeGreaterThan(0)
     expect(screen.getAllByText('candidate_formation_derived').length).toBeGreaterThan(0)
     expect(screen.getAllByText('candidate_construction_derived').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Truth provenance: .*constraint_validation_derived/).length).toBeGreaterThan(0)
   })
 
   it('shows explicit candidate formation rejection state', () => {
@@ -421,14 +524,20 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
         formedCandidateArtifact={makeFormedCandidate('rejected')}
         constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
+        onAllocationBacktestResult={noOp}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
         onSaveProposal={() => {}}
+        onPromoteProposalToThesis={() => {}}
+        onClearActiveThesis={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -480,14 +589,19 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
         formedCandidateArtifact={makeFormedCandidate()}
         constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation()}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={{ ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').reviewSnapshot, replay: replayWithDiagnostics }}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -510,20 +624,25 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={savedProposal.sourceIntent}
         formedCandidateArtifact={makeFormedCandidate()}
         constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation()}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={savedProposal.reviewSnapshot}
         savedProposals={[savedProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
 
     expect(screen.getAllByText('Recorded v1').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Latest immutable artifact captures AAPL -> IUFS for review only.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Recorded Apr/).length).toBeGreaterThan(0)
   })
 
   it('shows newest-first saved proposal index and reopens an older artifact for review only', () => {
@@ -539,14 +658,19 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={null}
         formedCandidateArtifact={null}
         constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[olderProposal, latestProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -555,14 +679,135 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText(/v2 .* AAPL/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Latest .* Apr/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Saved artifact .* Apr/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Review-only proposal view').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('You are reopening an immutable saved artifact for review inside the workspace shell. This does not apply, edit, approve, or otherwise mutate portfolio truth.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('AAPL -> IUIT').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: 'Reopen In Workspace' }))
 
     expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
+  })
+
+  it('opens a read-only saved proposal comparison for exactly two selected artifacts', () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[olderProposal, latestProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    const ui = within(container)
+
+    clickCompareForIn(container, 'proposal-2')
+    expect(textContentOfIn(container, 'saved-proposal-comparison-status')).toContain('Choose one more saved proposal to open the comparison surface.')
+    clickCompareForIn(container, 'proposal-1')
+
+    expect(latestByTestIdIn(container, 'saved-proposal-comparison-view')).toBeTruthy()
+    expect(ui.getByText('2 of 2 selected')).toBeTruthy()
+    expect(ui.getByText('Key Differences')).toBeTruthy()
+    expect(ui.getByRole('button', { name: 'Swap sides' })).toBeTruthy()
+    expect(ui.getByRole('button', { name: 'Open full proposal v2' })).toBeTruthy()
+    expect(ui.getByRole('button', { name: 'Open full proposal v1' })).toBeTruthy()
+  })
+
+  it('shows comparison ineligible state when fewer than two saved proposals exist', () => {
+    const savedProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={savedProposal.sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={savedProposal.reviewSnapshot}
+        savedProposals={[savedProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    expect(textContentOfIn(container, 'saved-proposal-comparison-status')).toContain('Comparison is unavailable until at least two saved proposal artifacts exist.')
+    expect(within(container).queryByTestId('saved-proposal-comparison-view')).toBeNull()
+  })
+
+  it('swaps sides and opens a full proposal from comparison mode', () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[olderProposal, latestProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    const ui = within(container)
+
+    clickCompareForIn(container, 'proposal-2')
+    clickCompareForIn(container, 'proposal-1')
+    const comparisonView = latestByTestIdIn(container, 'saved-proposal-comparison-view')
+    expect(comparisonView).toBeTruthy()
+    expect(within(comparisonView).getAllByText('v2 · AAPL -> IUIT').length).toBeGreaterThan(0)
+
+    fireEvent.click(ui.getByRole('button', { name: 'Swap sides' }))
+    expect(within(latestByTestIdIn(container, 'saved-proposal-comparison-view')).getAllByText('v1 · AAPL -> IUFS').length).toBeGreaterThan(0)
+
+    fireEvent.click(ui.getByRole('button', { name: 'Open full proposal v2' }))
+    expect(ui.getAllByText('AAPL -> IUIT').length).toBeGreaterThan(0)
+    expect(ui.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
   })
 
   it('keeps candidate idea actions inside the shell and promotes to replacement intent', () => {
@@ -577,15 +822,20 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={null}
         formedCandidateArtifact={null}
         constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="same_weight_substitution_v1"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onCreateReplacementIntent={onCreateReplacementIntent}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -605,14 +855,19 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
         formedCandidateArtifact={makeFormedCandidate()}
         constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={null}
         selectedConstructionRuleId="fixed_split_50_50_substitution_v2"
         allocationBacktestResult={null}
         hypotheticalReplayResult={null}
         savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
         onHypotheticalReplayResult={() => {}}
         onFormedCandidateArtifact={() => {}}
         onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
       />,
     )
@@ -620,5 +875,107 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('Stale').length).toBeGreaterThan(0)
     expect(screen.getByText('The existing construction artifact was built with same_weight_substitution_v1 and must be rerun for fixed_split_50_50_substitution_v2.')).toBeTruthy()
     expect(screen.getAllByText('fixed_split_50_50_substitution_v2').length).toBeGreaterThan(0)
+  })
+
+  it('shows blocked construction constraints before replay can run', () => {
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation('blocked')}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(screen.getByText('Constraint validation blocked replay with 1 hard-block result.')).toBeTruthy()
+    expect(screen.getByText('Hypothetical replay remains unavailable until the current constructed candidate passes construction constraints.')).toBeTruthy()
+  })
+
+  it('shortens rejected constraint copy in the decision summary', () => {
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation('rejected')}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('Constraint validation rejected replay input: constructed candidate could not be evaluated safely')).toBeTruthy()
+  })
+
+  it('shows active thesis state and marks the promoted proposal row', () => {
+    const savedProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+
+    const { container } = renderShell({
+      savedProposals: [savedProposal],
+      activeThesis: makeActiveThesis(1, 'IUFS'),
+    })
+
+    const ui = within(container)
+
+    expect(ui.getAllByText('Active Thesis').length).toBeGreaterThan(0)
+    expect(ui.getAllByText('v1 · AAPL -> IUFS').length).toBeGreaterThan(0)
+    expect(ui.getByTestId('saved-proposal-status-proposal-1').textContent).toContain('active thesis')
+    expect(ui.getByTestId('saved-proposal-status-proposal-1').textContent).toContain('active thesis')
+  })
+
+  it('promotes and clears the active thesis from saved proposal actions', () => {
+    const savedProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    const onPromoteProposalToThesis = vi.fn()
+    const onClearActiveThesis = vi.fn()
+
+    const { container } = renderShell({
+      savedProposals: [savedProposal],
+      onPromoteProposalToThesis,
+      onClearActiveThesis,
+      activeThesis: makeActiveThesis(1, 'IUFS'),
+    })
+
+    const ui = within(container)
+
+    const promoteButtons = ui.getAllByTestId('saved-proposal-promote-proposal-1')
+
+    fireEvent.click(promoteButtons[promoteButtons.length - 1] as HTMLElement)
+    expect(onPromoteProposalToThesis).toHaveBeenCalledWith('proposal-1')
+
+    fireEvent.click(ui.getByTestId('clear-active-thesis'))
+    expect(onClearActiveThesis).toHaveBeenCalledTimes(1)
   })
 })

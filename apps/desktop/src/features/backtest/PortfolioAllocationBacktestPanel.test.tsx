@@ -2,8 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
-import type { HypotheticalReplayResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { ConstructedCandidateArtifact, FormedCandidateArtifact, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { HypotheticalReplayResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 const mockAnalysis = {
   snapshot: {
@@ -138,6 +138,88 @@ const constructedCandidateArtifact: ConstructedCandidateArtifact = {
   construction: constructedCandidateResponse,
 }
 
+const constructionConstraintValidationResponse: SingleReplacementConstructionConstraintValidationResponse = {
+  validation: {
+    kind: 'single_replacement_construction_constraint_validation',
+    status: 'ok',
+    constraint_set_id: 'single_replacement_construction_constraints_v1',
+  },
+  proposal: constructedCandidateResponse.proposal,
+  construction: constructedCandidateResponse.construction,
+  derivation: {
+    validation_timing: 'post_construction_pre_replay',
+    validation_basis: 'explicit_constraint_set',
+    candidate_input_source: 'constructed_candidate_payload',
+    constraint_set_id: 'single_replacement_construction_constraints_v1',
+  },
+  truth_provenance: {
+    baseline_truth_class: 'draft_snapshot_basis',
+    construction_truth_class: 'candidate_construction_derived',
+    candidate_truth_class: 'hypothetical_candidate_input_only',
+    constraint_validation_truth_class: 'constraint_validation_derived',
+    note: 'Constraint validation is a review-only derived object built from the constructed candidate payload.',
+  },
+  evaluations: [
+    {
+      constraint_id: 'weight_sum_matches_rule',
+      severity: 'hard_block',
+      status: 'pass',
+      message: 'Candidate weights sum to the rule target.',
+      rationale: 'Construction output totals 1.0.',
+      actual_value: 1,
+      expected_value: 1,
+      operator: '==',
+    },
+    {
+      constraint_id: 'single_replacement_pair_consistent',
+      severity: 'warning',
+      status: 'pass',
+      message: 'Replacement pair is consistent with intent.',
+      rationale: 'Constructed output preserves the intended pair.',
+      actual_value: 'AAPL->IUFS',
+      expected_value: 'AAPL->IUFS',
+      operator: '==',
+    },
+  ],
+  blocking_constraint_ids: [],
+  warnings: ['Constraint validation warnings remain review-only context.'],
+  rejection_reason: null,
+}
+
+function makeConstructionConstraintValidationArtifact(
+  status: 'ok' | 'blocked' | 'rejected' = 'ok',
+): ConstructionConstraintValidationArtifact {
+  return {
+    workspaceId: 'workspace-1',
+    draftId: 'draft-1',
+    baseNodeId: 'node-1',
+    replacementIntentCreatedAt: '2026-04-15T00:05:00Z',
+    replacementIntentBaseSymbol: 'AAPL',
+    replacementIntentCandidateSymbol: 'IUFS',
+    constructionRuleId: 'same_weight_substitution_v1',
+    validation: {
+      ...constructionConstraintValidationResponse,
+      validation: {
+        ...constructionConstraintValidationResponse.validation,
+        status,
+      },
+      blocking_constraint_ids: status === 'blocked' ? ['weight_sum_matches_rule'] : [],
+      rejection_reason: status === 'rejected' ? 'constructed candidate could not be evaluated safely' : null,
+      evaluations: status === 'blocked'
+        ? [
+            {
+              ...constructionConstraintValidationResponse.evaluations[0],
+              status: 'fail',
+              message: 'Candidate weights do not satisfy the locked rule.',
+              actual_value: 0.97,
+            },
+            constructionConstraintValidationResponse.evaluations[1],
+          ]
+        : constructionConstraintValidationResponse.evaluations,
+    },
+  }
+}
+
 function makeConstructionResponse(ruleId: SingleReplacementConstructionRuleId): SingleReplacementCandidateConstructionResponse {
   if (ruleId === 'fixed_split_50_50_substitution_v2') {
     return {
@@ -264,7 +346,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => hypotheticalResponse })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
 
     expect(screen.getByText('Hypothetical Replay')).toBeTruthy()
     expect(screen.getByText('Replay Preflight')).toBeTruthy()
@@ -302,7 +384,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => overlayAwareHypotheticalResponse })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
 
     fireEvent.click(screen.getByText('Preview Hypothetical Replay'))
     fireEvent.click(screen.getByRole('radio', { name: /Overlay-aware replay/i }))
@@ -327,7 +409,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('blocks hypothetical replay preview when the intent candidate is already held in the draft basis', () => {
-    render(<HypotheticalReplaySection result={null} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} formedCandidateArtifact={null} constructedCandidateArtifact={null} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={{ ...mockDraftSnapshot, positions: [{ symbol: 'AAPL', marketValue: 60000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }, { symbol: 'IUFS', marketValue: 40000, quantity: 1, currency: 'USD', sector: 'Technology', sourceType: 'etf' }] }} replacementIntentDraft={replacementIntent} formedCandidateArtifact={null} constructedCandidateArtifact={null} constructionConstraintValidationArtifact={null} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     expect(screen.getByText('Blocked before preview')).toBeTruthy()
     expect(screen.getByText('A constructed candidate review artifact must exist before hypothetical replay can run.')).toBeTruthy()
@@ -336,7 +418,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
 
   it('renders hypothetical replay provenance and interpretation notes after a preview run', () => {
     const onSaveProposal = vi.fn()
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={hypotheticalResponse} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={hypotheticalResponse} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
 
     const readout = screen.getByText('Replay Decision Readout')
     const summary = screen.getAllByText('Replay Summary').find((element) => element.className === 'panel-label') as HTMLElement
@@ -365,7 +447,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('renders overlay-aware replay framing, overlay basis, and cash residual after preview', () => {
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={overlayAwareHypotheticalResponse} savedProposalCount={1} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={overlayAwareHypotheticalResponse} savedProposalCount={1} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     expect(screen.getByText('Overlay-aware hypothetical replay')).toBeTruthy()
     expect(screen.getByText('Single replacement-intent variant with overlay-aware candidate scaling')).toBeTruthy()
@@ -384,7 +466,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('renders explicit construction rule review state', () => {
-    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="same_weight_substitution_v1" onConstructedCandidateArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" onConstructedCandidateArtifact={() => {}} onConstructionConstraintValidationArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
 
     expect(screen.getAllByText('Construction Rule').length).toBeGreaterThan(0)
     expect(screen.getByText('Constructed')).toBeTruthy()
@@ -397,7 +479,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => makeConstructionResponse('fixed_split_50_50_substitution_v2') })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={null} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" onConstructedCandidateArtifact={onConstructedCandidateArtifact} onSelectedConstructionRuleChange={() => {}} />)
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={null} constructionConstraintValidationArtifact={null} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" onConstructedCandidateArtifact={onConstructedCandidateArtifact} onConstructionConstraintValidationArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
 
     expect(screen.getByDisplayValue('Fixed split 50/50 substitution v2')).toBeTruthy()
     fireEvent.click(screen.getByText('Construct Candidate For Replay'))
@@ -411,17 +493,71 @@ describe('PortfolioAllocationBacktestPanel', () => {
   })
 
   it('shows stale construction state when the selected rule changes', () => {
-    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" onConstructedCandidateArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={null} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" onConstructedCandidateArtifact={() => {}} onConstructionConstraintValidationArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
 
     expect(screen.getByText('Stale')).toBeTruthy()
     expect(screen.getByText('The saved construction artifact was built with same_weight_substitution_v1. Rerun construction for fixed_split_50_50_substitution_v2.')).toBeTruthy()
   })
 
+  it('runs construction constraints and renders the validation summary', async () => {
+    const onConstructionConstraintValidationArtifact = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => constructionConstraintValidationResponse })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={null} selectedConstructionRuleId="same_weight_substitution_v1" onConstructedCandidateArtifact={() => {}} onConstructionConstraintValidationArtifact={onConstructionConstraintValidationArtifact} onSelectedConstructionRuleChange={() => {}} />)
+
+    fireEvent.click(screen.getByText('Validate Construction Constraints'))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const [url, request] = fetchMock.mock.calls[0]
+    const payload = JSON.parse(String(request.body))
+    expect(String(url)).toContain('/api/backtests/candidate-construction/replacement-intent/constraints')
+    expect(payload.constraint_set).toEqual({ constraint_set_id: 'single_replacement_construction_constraints_v1' })
+    expect(payload.constructed_candidate.construction.rule_id).toBe('same_weight_substitution_v1')
+    expect(onConstructionConstraintValidationArtifact).toHaveBeenCalledWith(constructionConstraintValidationResponse)
+  })
+
+  it('renders construction constraint details and warnings', () => {
+    render(<ConstructionRuleSection draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" onConstructedCandidateArtifact={() => {}} onConstructionConstraintValidationArtifact={() => {}} onSelectedConstructionRuleChange={() => {}} />)
+
+    expect(screen.getByText('Construction Constraints')).toBeTruthy()
+    expect(screen.getByText('Pass')).toBeTruthy()
+    expect(screen.getByText('single_replacement_construction_constraints_v1')).toBeTruthy()
+    expect(screen.getByText(/Truth provenance: .*constraint_validation_derived/)).toBeTruthy()
+    expect(screen.getByText('weight_sum_matches_rule')).toBeTruthy()
+    expect(screen.getByText('Warning')).toBeTruthy()
+    expect(screen.getByText('Hard block')).toBeTruthy()
+    expect(screen.getByText('Constraint validation warnings remain review-only context.')).toBeTruthy()
+  })
+
   it('blocks replay when the constructed artifact does not match the selected rule', () => {
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="fixed_split_50_50_substitution_v2" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
 
     expect(screen.getByText('Blocked before preview')).toBeTruthy()
     expect(screen.getByText('The selected rule is fixed_split_50_50_substitution_v2, but the saved construction artifact was built for same_weight_substitution_v1.')).toBeTruthy()
+  })
+
+  it('blocks replay until construction constraints pass', () => {
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={null} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+
+    expect(screen.getByText('Run construction constraints before replay.')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Preview Hypothetical Replay' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows blocked construction constraints in replay preflight', () => {
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact('blocked')} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+
+    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(screen.getByText('Constraint validation did not pass, so replay remains unavailable.')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Preview Hypothetical Replay' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows rejected construction constraints in replay preflight', () => {
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact('rejected')} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={() => {}} />)
+
+    expect(screen.getByText('Rejected')).toBeTruthy()
+    expect(screen.getByText('constructed candidate could not be evaluated safely')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Preview Hypothetical Replay' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('shows shortened rejection copy in shell-adjacent formation review', () => {

@@ -11,9 +11,9 @@ import { DiagnosticsPanel } from '../features/portfolio/DiagnosticsPanel'
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { desktopFeatureFlags } from './featureFlags'
-import type { HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
-import type { CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getCandidateImprovementDraft, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveCandidateImprovementDraft, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import type { HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
+import { clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 
 
@@ -230,7 +230,7 @@ async function loadFormedCandidateArtifactForCurrentDraft(
     const sameIntent = annotation.replacementIntentCreatedAt === replacementIntentDraft.createdAt
       && annotation.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
       && annotation.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol
-    setFormedCandidateArtifact(sameIntent ? annotation : annotation)
+    setFormedCandidateArtifact(sameIntent ? annotation : null)
   } catch {
     setFormedCandidateArtifact(null)
   }
@@ -251,9 +251,38 @@ async function loadConstructedCandidateArtifactForCurrentDraft(
       setConstructedCandidateArtifact(null)
       return
     }
-    setConstructedCandidateArtifact(annotation)
+    const sameIntent = annotation.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+      && annotation.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+      && annotation.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol
+    setConstructedCandidateArtifact(sameIntent ? annotation : null)
   } catch {
     setConstructedCandidateArtifact(null)
+  }
+}
+
+async function loadConstructionConstraintValidationArtifactForCurrentDraft(
+  draft: WorkingDraft | null,
+  replacementIntentDraft: ReplacementIntentDraftArtifact | null,
+  selectedConstructionRuleId: SingleReplacementConstructionRuleId,
+  setConstructionConstraintValidationArtifact: (value: ConstructionConstraintValidationArtifact | null) => void,
+) {
+  if (!draft || !replacementIntentDraft) {
+    setConstructionConstraintValidationArtifact(null)
+    return
+  }
+  try {
+    const annotation = await getConstructionConstraintValidationArtifact(draft.id)
+    if (!annotation) {
+      setConstructionConstraintValidationArtifact(null)
+      return
+    }
+    const sameIntent = annotation.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+      && annotation.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+      && annotation.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol
+    const sameRule = annotation.constructionRuleId === selectedConstructionRuleId
+    setConstructionConstraintValidationArtifact(sameIntent && sameRule ? annotation : null)
+  } catch {
+    setConstructionConstraintValidationArtifact(null)
   }
 }
 
@@ -263,13 +292,16 @@ async function loadSelectedConstructionRuleForCurrentDraft(
 ) {
   if (!draft) {
     setSelectedConstructionRuleId(defaultConstructionRuleId)
-    return
+    return defaultConstructionRuleId
   }
   try {
     const annotation = await getSelectedConstructionRule(draft.id)
-    setSelectedConstructionRuleId(annotation?.selectedRuleId ?? defaultConstructionRuleId)
+    const resolvedRule = annotation?.selectedRuleId ?? defaultConstructionRuleId
+    setSelectedConstructionRuleId(resolvedRule)
+    return resolvedRule
   } catch {
     setSelectedConstructionRuleId(defaultConstructionRuleId)
+    return defaultConstructionRuleId
   }
 }
 
@@ -285,8 +317,20 @@ async function loadWorkspaceProposalArtifacts(workspace: PortfolioWorkspace | nu
   }
 }
 
+async function loadActiveThesisForWorkspace(workspace: PortfolioWorkspace | null, setActiveThesis: (value: ActiveThesisArtifact | null) => void) {
+  if (!workspace) {
+    setActiveThesis(null)
+    return
+  }
+  try {
+    setActiveThesis(await getActiveThesis(workspace.id))
+  } catch {
+    setActiveThesis(null)
+  }
+}
+
 export function App() {
-  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'research' | 'backtest' | 'strategy_lab' | 'etf_ranking'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'workspace' | 'backtest' | 'strategy_lab' | 'etf_ranking'>('workspace')
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null)
   const [baselineAnalysis, setBaselineAnalysis] = useState<PortfolioBaselineView | null>(null)
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
@@ -311,8 +355,12 @@ export function App() {
   const [replacementIntentDraft, setReplacementIntentDraft] = useState<ReplacementIntentDraftArtifact | null>(null)
   const [formedCandidateArtifact, setFormedCandidateArtifact] = useState<FormedCandidateArtifact | null>(null)
   const [constructedCandidateArtifact, setConstructedCandidateArtifact] = useState<ConstructedCandidateArtifact | null>(null)
+  const [constructionConstraintValidationArtifact, setConstructionConstraintValidationArtifact] = useState<ConstructionConstraintValidationArtifact | null>(null)
   const [selectedConstructionRuleId, setSelectedConstructionRuleId] = useState<SingleReplacementConstructionRuleId>(defaultConstructionRuleId)
   const [proposalArtifacts, setProposalArtifacts] = useState<VersionedProposalArtifact[]>([])
+  const [activeThesis, setActiveThesis] = useState<ActiveThesisArtifact | null>(null)
+  const [monitoringResearchHandoff, setMonitoringResearchHandoff] = useState<MonitoringResearchHandoff | null>(null)
+  const [monitoringResearchHandoffDismissed, setMonitoringResearchHandoffDismissed] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const importModeRef = useRef<ImportMode>('replace')
   const workflowState = activeWorkspace && backtestRun ? 'Portfolio + Backtest Loaded' : activeWorkspace ? 'Portfolio Loaded' : backtestRun ? 'Backtest Loaded' : 'Workspace Empty'
@@ -415,13 +463,15 @@ export function App() {
       setActiveNode(node)
       setWorkingDraft(draft)
       await loadWorkspaceProposalArtifacts(workspace, setProposalArtifacts)
+      await loadActiveThesisForWorkspace(workspace, setActiveThesis)
       await loadCandidateImprovementDraftForCurrentDraft(draft, setCandidateImprovementDraft)
       await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(draft, setIntentBoundSeededEtfReplacementRankingDraft)
-      await loadSelectedConstructionRuleForCurrentDraft(draft, setSelectedConstructionRuleId)
+      const restoredSelectedConstructionRuleId = await loadSelectedConstructionRuleForCurrentDraft(draft, setSelectedConstructionRuleId)
       const restoredReplacementIntentDraft = draft ? await getReplacementIntentDraft(draft.id).catch(() => null) : null
       setReplacementIntentDraft(restoredReplacementIntentDraft)
       await loadFormedCandidateArtifactForCurrentDraft(draft, restoredReplacementIntentDraft, setFormedCandidateArtifact)
       await loadConstructedCandidateArtifactForCurrentDraft(draft, restoredReplacementIntentDraft, setConstructedCandidateArtifact)
+      await loadConstructionConstraintValidationArtifactForCurrentDraft(draft, restoredReplacementIntentDraft, restoredSelectedConstructionRuleId, setConstructionConstraintValidationArtifact)
       await loadHypotheticalReplacementReplayForCurrentDraft(draft, restoredReplacementIntentDraft, setHypotheticalReplacementReplay)
       setWorkspaceNodes(nodes)
       setLastImportedFileNames(getNodeImportSource(node, workspace)?.importedFileNames ?? workspace.source.importedFileNames)
@@ -488,9 +538,13 @@ export function App() {
     setReplacementIntentDraft(null)
     setFormedCandidateArtifact(null)
     setConstructedCandidateArtifact(null)
+    setConstructionConstraintValidationArtifact(null)
     setSelectedConstructionRuleId(defaultConstructionRuleId)
     setHypotheticalReplacementReplay(null)
     setProposalArtifacts([])
+    setActiveThesis(null)
+    setMonitoringResearchHandoff(null)
+    setMonitoringResearchHandoffDismissed(false)
     setTab('dashboard')
     void clearPortfolioWorkspaceState()
   }
@@ -515,9 +569,13 @@ export function App() {
     setReplacementIntentDraft(null)
     setFormedCandidateArtifact(null)
     setConstructedCandidateArtifact(null)
+    setConstructionConstraintValidationArtifact(null)
     setSelectedConstructionRuleId(defaultConstructionRuleId)
     setHypotheticalReplacementReplay(null)
     setProposalArtifacts([])
+    setActiveThesis(null)
+    setMonitoringResearchHandoff(null)
+    setMonitoringResearchHandoffDismissed(false)
     setTab('dashboard')
     await resetLocalPortfolioDatabase()
   }
@@ -542,7 +600,7 @@ export function App() {
       setIntentBoundSeededEtfReplacementRankingDraft(rankingArtifact)
       void saveIntentBoundSeededEtfReplacementRankingDraft(rankingArtifact).catch(() => undefined)
     }
-    setTab('dashboard')
+    setTab('workspace')
   }
 
   function handleCreateReplacementIntent() {
@@ -570,10 +628,12 @@ export function App() {
     setReplacementIntentDraft(intent)
     setFormedCandidateArtifact(null)
     setConstructedCandidateArtifact(null)
+    setConstructionConstraintValidationArtifact(null)
     setHypotheticalReplacementReplay(null)
     void saveReplacementIntentDraft(intent).catch(() => undefined)
     void deleteFormedCandidateArtifact(workingDraft.id).catch(() => undefined)
     void deleteConstructedCandidateArtifact(workingDraft.id).catch(() => undefined)
+    void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
     if (workingDraft) {
       void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
     }
@@ -584,15 +644,27 @@ export function App() {
     setReplacementIntentDraft(null)
     setFormedCandidateArtifact(null)
     setConstructedCandidateArtifact(null)
+    setConstructionConstraintValidationArtifact(null)
     setHypotheticalReplacementReplay(null)
     void deleteReplacementIntentDraft(workingDraft.id).catch(() => undefined)
     void deleteFormedCandidateArtifact(workingDraft.id).catch(() => undefined)
     void deleteConstructedCandidateArtifact(workingDraft.id).catch(() => undefined)
+    void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
     void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
   }
 
   function handlePreviewHypotheticalReplay() {
-    setTab('research')
+    setTab('workspace')
+  }
+
+  function handleReviewMonitoringInResearch(handoff: MonitoringResearchHandoff) {
+    setMonitoringResearchHandoff(handoff)
+    setMonitoringResearchHandoffDismissed(false)
+    setTab('workspace')
+  }
+
+  function handleDismissMonitoringResearchHandoff() {
+    setMonitoringResearchHandoffDismissed(true)
   }
 
   async function handleSaveProposal() {
@@ -625,6 +697,26 @@ export function App() {
     }
     await saveProposalArtifact(proposal)
     setProposalArtifacts([proposal, ...existingProposals])
+  }
+
+  async function handlePromoteProposalToThesis(proposalId: string) {
+    if (!activeWorkspace) return
+    const proposal = proposalArtifacts.find((item) => item.id === proposalId)
+    if (!proposal) return
+    const thesis: ActiveThesisArtifact = {
+      workspaceId: activeWorkspace.id,
+      promotedAt: new Date().toISOString(),
+      sourceProposalId: proposal.id,
+      thesisProposal: proposal,
+    }
+    setActiveThesis(thesis)
+    await saveActiveThesis(thesis).catch(() => undefined)
+  }
+
+  async function handleClearActiveThesis() {
+    if (!activeWorkspace) return
+    setActiveThesis(null)
+    await deleteActiveThesis(activeWorkspace.id).catch(() => undefined)
   }
 
   async function handlePreviewExposure(snapshot: WorkingDraft['portfolioSnapshot']) {
@@ -664,8 +756,10 @@ export function App() {
     setReplacementIntentDraft(null)
     setFormedCandidateArtifact(null)
     setConstructedCandidateArtifact(null)
+    setConstructionConstraintValidationArtifact(null)
     setSelectedConstructionRuleId(defaultConstructionRuleId)
     setHypotheticalReplacementReplay(null)
+    await loadActiveThesisForWorkspace(nextWorkspace, setActiveThesis)
   }
 
   async function handleSaveVariant(variantName: string) {
@@ -675,13 +769,15 @@ export function App() {
     setActiveWorkspace(saved.workspace)
     setActiveNode(nextNode)
     setWorkingDraft(nextDraft)
+    await loadActiveThesisForWorkspace(saved.workspace, setActiveThesis)
     await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
     await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
-    await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
+    const nextSelectedConstructionRuleId = await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
     const nextReplacementIntentDraft = nextDraft ? await getReplacementIntentDraft(nextDraft.id).catch(() => null) : null
     setReplacementIntentDraft(nextReplacementIntentDraft)
     await loadFormedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setFormedCandidateArtifact)
     await loadConstructedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setConstructedCandidateArtifact)
+    await loadConstructionConstraintValidationArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, nextSelectedConstructionRuleId, setConstructionConstraintValidationArtifact)
     await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
     setWorkspaceNodes(await getWorkspaceNodes(activeWorkspace.id))
     if (nextDraft) {
@@ -699,13 +795,15 @@ export function App() {
     setWorkspaceNodes(nextNodes)
     setActiveNode(nextNode)
     setWorkingDraft(nextDraft)
+    await loadActiveThesisForWorkspace(nextWorkspace ?? activeWorkspace, setActiveThesis)
     await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
     await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
-    await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
+    const nextSelectedConstructionRuleId = await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
     const nextReplacementIntentDraft = nextDraft ? await getReplacementIntentDraft(nextDraft.id).catch(() => null) : null
     setReplacementIntentDraft(nextReplacementIntentDraft)
     await loadFormedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setFormedCandidateArtifact)
     await loadConstructedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setConstructedCandidateArtifact)
+    await loadConstructionConstraintValidationArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, nextSelectedConstructionRuleId, setConstructionConstraintValidationArtifact)
     await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
     setLastImportedFileNames(getEffectiveNodeImportSource(nextNode, nextNodes, nextWorkspace ?? activeWorkspace)?.importedFileNames ?? activeWorkspace.source.importedFileNames)
     const dashboardSnapshot = nextDraft?.portfolioSnapshot ?? nextNode?.portfolioSnapshot ?? null
@@ -792,13 +890,15 @@ export function App() {
         setWorkingDraft(nextDraft)
         await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
         await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
-        await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
+        const nextSelectedConstructionRuleId = await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
         const nextReplacementIntentDraft = nextDraft ? await getReplacementIntentDraft(nextDraft.id).catch(() => null) : null
         setReplacementIntentDraft(nextReplacementIntentDraft)
         await loadFormedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setFormedCandidateArtifact)
         await loadConstructedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setConstructedCandidateArtifact)
+        await loadConstructionConstraintValidationArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, nextSelectedConstructionRuleId, setConstructionConstraintValidationArtifact)
         await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
         await loadWorkspaceProposalArtifacts(savedNode.workspace, setProposalArtifacts)
+        await loadActiveThesisForWorkspace(savedNode.workspace, setActiveThesis)
         setWorkspaceNodes(nextNodes)
         setRestoredSession(false)
         const dashboardNode = nextNode ?? savedNode.node
@@ -864,9 +964,11 @@ export function App() {
       await loadReplacementIntentDraftForCurrentDraft(normalizedDraft, setReplacementIntentDraft)
       setFormedCandidateArtifact(null)
       setConstructedCandidateArtifact(null)
-      setHypotheticalReplacementReplay(null)
-      setProposalArtifacts([])
-      setWorkspaceNodes([workspaceResult.rootNode])
+      setConstructionConstraintValidationArtifact(null)
+        setHypotheticalReplacementReplay(null)
+        setProposalArtifacts([])
+        setActiveThesis(null)
+        setWorkspaceNodes([workspaceResult.rootNode])
       setSelectedExposureSnapshotId('draft')
       setRestoredSession(false)
       try {
@@ -891,10 +993,10 @@ export function App() {
           <p className="helper workflow-status-text">{workflowState}</p>
         </div>
         <nav className="tab-bar header-tab-bar" aria-label="Main workspace tabs">
+          <button className={`tab-button${tab === 'workspace' ? ' active' : ''}`} onClick={() => setTab('workspace')}>Workspace</button>
           <button className={`tab-button${tab === 'dashboard' ? ' active' : ''}`} onClick={() => setTab('dashboard')}>Dashboard</button>
           <button className={`tab-button${tab === 'exposure' ? ' active' : ''}`} onClick={() => setTab('exposure')}>Exposure</button>
           <button className={`tab-button${tab === 'diagnostics' ? ' active' : ''}`} onClick={() => setTab('diagnostics')}>Diagnostics</button>
-          <button className={`tab-button${tab === 'research' ? ' active' : ''}`} onClick={() => setTab('research')}>Research</button>
           <button className={`tab-button${tab === 'backtest' ? ' active' : ''}`} onClick={() => setTab('backtest')}>Backtest</button>
           <button className={`tab-button${tab === 'strategy_lab' ? ' active' : ''}`} onClick={() => setTab('strategy_lab')}>Strategy Lab</button>
           <button className={`tab-button${tab === 'etf_ranking' ? ' active' : ''}`} onClick={() => setTab('etf_ranking')}>ETF Ranking</button>
@@ -982,9 +1084,9 @@ export function App() {
           </section>
         ) : null}
 
-      {tab === 'research' ? (
+      {tab === 'workspace' ? (
         <section className="grid grid-single">
-          <Suspense fallback={<section className="panel"><p className="panel-label">Research</p><p className="helper">Loading research workspace...</p></section>}>
+          <Suspense fallback={<section className="panel"><p className="panel-label">Workspace</p><p className="helper">Loading portfolio research workspace...</p></section>}>
             <BacktestWorkspacePanel
               allocationBacktestResult={allocationBacktestRun}
               onAllocationBacktestResult={setAllocationBacktestRun}
@@ -995,10 +1097,18 @@ export function App() {
               replacementIntentDraft={replacementIntentDraft}
               formedCandidateArtifact={formedCandidateArtifact}
               constructedCandidateArtifact={constructedCandidateArtifact}
+              constructionConstraintValidationArtifact={constructionConstraintValidationArtifact}
               selectedConstructionRuleId={selectedConstructionRuleId}
               hypotheticalReplayResult={hypotheticalReplacementReplay}
               savedProposals={proposalArtifacts}
+              activeThesis={activeThesis}
+              monitoringResearchHandoff={monitoringResearchHandoff}
+              monitoringResearchHandoffDismissed={monitoringResearchHandoffDismissed}
+              onDismissMonitoringResearchHandoff={handleDismissMonitoringResearchHandoff}
+              onReviewInResearch={handleReviewMonitoringInResearch}
               onSaveProposal={handleSaveProposal}
+              onPromoteProposalToThesis={handlePromoteProposalToThesis}
+              onClearActiveThesis={handleClearActiveThesis}
               onCreateReplacementIntent={handleCreateReplacementIntent}
               onClearReplacementIntent={handleClearReplacementIntent}
               onFormedCandidateArtifact={(result) => {
@@ -1014,9 +1124,11 @@ export function App() {
                 }
                 setFormedCandidateArtifact(artifact)
                 setConstructedCandidateArtifact(null)
+                setConstructionConstraintValidationArtifact(null)
                 setHypotheticalReplacementReplay(null)
                 void saveFormedCandidateArtifact(artifact).catch(() => undefined)
                 void deleteConstructedCandidateArtifact(workingDraft.id).catch(() => undefined)
+                void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
                 void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
               }}
               onConstructedCandidateArtifact={(result) => {
@@ -1032,8 +1144,27 @@ export function App() {
                   construction: result,
                 }
                 setConstructedCandidateArtifact(artifact)
+                setConstructionConstraintValidationArtifact(null)
                 setHypotheticalReplacementReplay(null)
                 void saveConstructedCandidateArtifact(artifact).catch(() => undefined)
+                void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
+                void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
+              }}
+              onConstructionConstraintValidationArtifact={(result) => {
+                if (!activeWorkspace || !workingDraft || !replacementIntentDraft) return
+                const artifact: ConstructionConstraintValidationArtifact = {
+                  workspaceId: activeWorkspace.id,
+                  draftId: workingDraft.id,
+                  baseNodeId: workingDraft.baseNodeId,
+                  replacementIntentCreatedAt: replacementIntentDraft.createdAt,
+                  replacementIntentBaseSymbol: replacementIntentDraft.baseSymbol,
+                  replacementIntentCandidateSymbol: replacementIntentDraft.candidateSymbol,
+                  constructionRuleId: selectedConstructionRuleId,
+                  validation: result,
+                }
+                setConstructionConstraintValidationArtifact(artifact)
+                setHypotheticalReplacementReplay(null)
+                void saveConstructionConstraintValidationArtifact(artifact).catch(() => undefined)
                 void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
               }}
               onSelectedConstructionRuleChange={(ruleId) => {
@@ -1042,6 +1173,7 @@ export function App() {
                   return
                 }
                 setSelectedConstructionRuleId(ruleId)
+                setConstructionConstraintValidationArtifact(null)
                 setHypotheticalReplacementReplay(null)
                 const annotation: SelectedConstructionRuleArtifact = {
                   workspaceId: activeWorkspace.id,
@@ -1050,6 +1182,7 @@ export function App() {
                   selectedRuleId: ruleId,
                 }
                 void saveSelectedConstructionRule(annotation).catch(() => undefined)
+                void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
                 void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
               }}
               onHypotheticalReplayResult={(result) => {

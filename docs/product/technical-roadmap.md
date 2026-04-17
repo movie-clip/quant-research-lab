@@ -17,6 +17,48 @@ The target product is a deterministic research and decision platform for:
 
 The product should optimize for disciplined portfolio decisions, not black-box prediction.
 
+## Consolidation Guidance
+
+Keep this file technical and future-looking.
+
+Retain in this file:
+- `## Goal`
+- `## Product Principles`
+- `## Target Architecture`
+- `## Canonical Data Model`
+- `## Ranking System Roadmap`
+- `## Portfolio Construction Roadmap`
+- `## Portfolio Improvement Workflow`
+- `## Overlay Roadmap`
+- `## Monitoring Roadmap`
+- `## Optimization Roadmap`
+- `## Financial Accuracy Requirements`
+- `## Delivery Plan`
+- `## Immediate Priorities`
+- `## Definition of Done for the Pivot`
+
+Trim or move into `docs/product/current-product-state.md` on the next pass:
+- `## Current State`
+- under `## Ranking System Roadmap`
+  - `Current implemented slice`
+- under `## Portfolio Construction Roadmap`
+  - `Current implemented slice`
+- under `## Portfolio Improvement Workflow`
+  - step 2 bullet `current implemented state`
+  - `Current implemented progress inside this flow`
+  - `Current boundary before replay/construction`
+- under `## Overlay Roadmap`
+  - `Current implemented slice`
+- under `## Delivery Plan`
+  - Stage 2 `Current partial state`
+  - Stage 3 `Current partial state`
+  - Stage 4 `Current partial state`
+  - Stage 5 `Current partial state`
+
+Working rule:
+- keep target engine families, target contracts, and staged delivery here
+- move shipped-route inventories, narrow implemented slices, and current-boundary notes into the canonical current-state doc
+
 ## Current State
 
 The project already has strong foundations in:
@@ -24,14 +66,19 @@ The project already has strong foundations in:
 - broker import and portfolio snapshot workflows
 - factor, exposure, overlap, and risk diagnostics
 - allocation replay / candidate-vs-baseline backtests
+- ETF ranking contracts, including intent-bound seeded replacement ranking
+- explicit single-replacement candidate formation and candidate construction flows
+- hypothetical replacement replay and overlay-aware hypothetical replay
+- PM-first replay review plus local proposal artifact persistence/readout
 - DuckDB / Parquet-friendly data direction
 - methodology documentation and truth-class awareness
 
 The main gap is not missing infrastructure. The main gap is product unification:
 - engines exist, but are not yet organized around a complete quant-research workflow
-- ranking is not yet a first-class engine
-- portfolio construction is not yet a first-class engine
+- ranking exists today, but only in narrow ETF-oriented slices rather than as a generalized first-class engine family
+- portfolio construction exists today, but only in narrow single-replacement rule-based slices rather than as a generalized first-class engine family
 - improvement, overlay, monitoring, and optimization need explicit boundaries
+- replay/construction provenance needs tighter end-to-end contract consistency
 - financial-accuracy rules need to be elevated from good practice to hard platform requirements
 
 ## Product Principles
@@ -160,6 +207,11 @@ Own ongoing portfolio discipline.
 
 Make ranking a first-class engine, not a side effect of backtests.
 
+Current implemented slice:
+- generic ETF ranking exists at `POST /strategy-lab/etf-ranking`
+- intent-bound seeded ETF replacement ranking exists at `POST /ranking/etf-replacements`
+- current ranking scope is deterministic and auditable, but still ETF-specific and not yet modeled as a generalized ranking-run platform across universes
+
 ### Ranking engine responsibilities
 - define investable universes
 - apply eligibility filters
@@ -190,6 +242,14 @@ Make ranking a first-class engine, not a side effect of backtests.
 ## Portfolio Construction Roadmap
 
 Portfolio construction should become its own engine family with explicit rules.
+
+Current implemented slice:
+- candidate formation exists for review-only same-weight single replacement
+- candidate construction exists for explicit single-replacement rules at `POST /backtests/candidate-construction/replacement-intent`
+- currently supported rules are:
+  - `same_weight_substitution_v1`
+  - `fixed_split_50_50_substitution_v2`
+- current construction outputs are hypothetical candidate inputs only; they do not mutate portfolio truth or create optimizer-style allocations
 
 ### Rule-based construction modes
 - equal weight
@@ -230,19 +290,27 @@ Make current-vs-candidate the core product workflow.
    - current implemented state: ETF ranking can seed draft-scoped candidate review metadata without mutating `PortfolioSnapshot`
    - seed metadata persists locally per draft and has explicit no-propagation lifecycle rules
    - replacement intent can now be recorded explicitly as a separate draft-scoped review object
-3. edit construction rules and constraints
-4. run historical allocation replay
-5. compare baseline, candidate, and delta
-6. inspect diagnostics changes
-7. save candidate as a versioned proposal
+3. form candidate review artifact from the replacement intent
+4. select and run construction rule for a constructed candidate review artifact
+5. run historical allocation replay
+6. compare baseline, candidate, and delta
+7. inspect diagnostics changes
+8. save candidate as a versioned proposal
 
 Current implemented progress inside this flow:
+- replacement intent can now feed explicit candidate formation and candidate construction backend routes before replay
+- construction is backend-owned and deterministic; the desktop does not author finance logic for candidate weights
+- Research now owns an explicit shell-first workflow order: current portfolio, candidate idea, candidate formation, construction rule, hypothetical replay, diagnostics change, and saved proposal
 - hypothetical replacement replay now has a PM-first diagnostics delta review surface
+- hypothetical replay can consume either direct same-weight derivation or an accepted constructed candidate payload
 - diagnostics groups currently read in decision order: concentration, factor exposure, volatility/drawdown, risk contribution, stress/scenario
 - each diagnostics group can surface a backend-ranked top callout with explicit selection-rule provenance and rationale
 - desktop renders backend-ranked diagnostics callouts directly and does not infer salience from array order
 - a reviewed hypothetical replay can now be saved locally as an immutable versioned proposal artifact within the workspace
 - the latest saved proposal can now be reviewed in a proposal-specific readout that is rendered from saved artifact data only, without depending on active draft or live replay state
+- overlay-aware hypothetical replay now exists as a narrow backend slice for `benchmark_trend_overlay_v1` applied to the hypothetical candidate only
+- replay-scoped Monitoring now lives inside `Research`, after the shell and before the lower-level builder, and it is not a separate continuous monitoring system yet
+- Monitoring-to-Research continuity is currently a narrow explicit handoff into shell sections, not a persistent alert/review-history workflow
 
 ### Required comparison surfaces
 - total and annualized return
@@ -266,10 +334,21 @@ No candidate portfolio should be shown without:
 Current boundary before replay/construction:
 - seeded candidates and replacement intents are metadata-only review objects
 - they must not be treated as candidate portfolio truth, replay output, or applied portfolio change
+- formed candidates, constructed candidates, and draft-scoped hypothetical replays are also review artifacts only until explicitly saved as immutable proposal artifacts
 
 ## Overlay Roadmap
 
 Overlays should be treated as explicit, testable sleeves applied to a base portfolio.
+
+Current implemented slice:
+- overlay-aware hypothetical replay exists at `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
+- current overlay scope is intentionally narrow:
+  - only `benchmark_trend_overlay_v1`
+  - only one overlay at a time
+  - only replay integration, not execution or scheduling
+  - only candidate-side application, not baseline mutation
+  - `risk_reduced` scales risky candidate weights by `0.35` and sends residual weight to synthetic replay cash `__CASH__`
+- a legacy generic overlay preview path still exists separately and should not be treated as the canonical forward path without further cleanup
 
 ### Initial overlay types
 - trend filter overlay
@@ -377,12 +456,16 @@ Exit: current analytics are decision-grade or explicitly degraded.
 - implement reproducible ranking runs
 - expose ranked universes and score breakdowns
 
+Current partial state: ETF ranking and intent-bound replacement ranking already exist; remaining work is generalization, persisted run identity, and broader universe support.
+
 Exit: rankings are first-class inputs to construction workflows.
 
 ### Stage 3: Construction Engine
 - implement rule-based weight builders
 - add explicit constraint and turnover models
 - produce candidate portfolios from ranking outputs
+
+Current partial state: single-replacement formation/construction already exist; remaining work is broader construction modes, richer constraints, and consistent replay provenance for constructed candidates.
 
 Exit: candidate portfolios can be built systematically and audited.
 
@@ -392,12 +475,16 @@ Exit: candidate portfolios can be built systematically and audited.
 - optimize UI around PM decisions rather than debug surfaces
 - add proposal-specific saved-artifact review/readout so recorded proposals remain inspectable after reload and outside active draft context
 
+Current partial state: replacement-intent replay, PM-first diagnostics review, proposal persistence/readout, and overlay-aware replay already exist in narrow form.
+
 Exit: users can decide whether a change improves the portfolio.
 
 ### Stage 5: Overlay and Monitoring
 - implement transparent overlay specs
 - add drift, regime, and risk monitors
 - persist alerts and review history
+
+Current partial state: one transparent overlay-aware replay path exists; monitoring remains the larger unfinished slice.
 
 Exit: the platform supports ongoing portfolio discipline.
 
@@ -418,10 +505,10 @@ Exit: the platform operates as a true personal quant research lab.
 ## Immediate Priorities
 
 1. turn financial-accuracy requirements into enforced engine contracts
-2. build the ranking engine as the main missing product primitive
-3. build rule-based portfolio construction on top of ranking
-4. make portfolio improvement the central workflow
-5. add overlays and monitoring only after baseline construction is strong
+2. tighten canonical docs and replay/construction provenance so implemented slices are accurately described
+3. generalize the ranking engine beyond the current ETF-focused slices
+4. generalize rule-based portfolio construction beyond current single-replacement flows
+5. add broader overlays and monitoring only after baseline construction/replay contracts are clean
 
 ## Definition of Done for the Pivot
 

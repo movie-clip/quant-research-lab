@@ -1,8 +1,8 @@
 import { PortfolioAllocationBacktestPanel } from './PortfolioAllocationBacktestPanel'
 import { MonitoringPanel } from './MonitoringPanel'
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
-import type { HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { CandidateImprovementDraftArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { HypotheticalReplayResponse, MonitoringResearchHandoff, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 type Props = {
   allocationBacktestResult: PortfolioAllocationBacktestResponse | null
@@ -14,30 +14,31 @@ type Props = {
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
   formedCandidateArtifact: FormedCandidateArtifact | null
   constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  constructionConstraintValidationArtifact: ConstructionConstraintValidationArtifact | null
   selectedConstructionRuleId: SingleReplacementConstructionRuleId
   hypotheticalReplayResult: HypotheticalReplayResponse | null
   savedProposals: VersionedProposalArtifact[]
+  activeThesis: ActiveThesisArtifact | null
   onSaveProposal: () => void | Promise<void>
+  onPromoteProposalToThesis: (proposalId: string) => void | Promise<void>
+  onClearActiveThesis: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplayResponse) => void
   onFormedCandidateArtifact: (result: SingleReplacementCandidateFormationResponse) => void
   onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
+  onConstructionConstraintValidationArtifact: (result: SingleReplacementConstructionConstraintValidationResponse) => void
   onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
+  monitoringResearchHandoff?: MonitoringResearchHandoff | null
+  monitoringResearchHandoffDismissed?: boolean
+  onDismissMonitoringResearchHandoff?: () => void
+  onReviewInResearch?: (handoff: MonitoringResearchHandoff) => void
 }
 
-export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposals, onSaveProposal, onHypotheticalReplayResult, onFormedCandidateArtifact, onConstructedCandidateArtifact, onSelectedConstructionRuleChange, onCreateReplacementIntent, onClearReplacementIntent }: Props) {
+export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposals, activeThesis, onSaveProposal, onPromoteProposalToThesis, onClearActiveThesis, onHypotheticalReplayResult, onFormedCandidateArtifact, onConstructedCandidateArtifact, onConstructionConstraintValidationArtifact, onSelectedConstructionRuleChange, onCreateReplacementIntent, onClearReplacementIntent, monitoringResearchHandoff, monitoringResearchHandoffDismissed, onDismissMonitoringResearchHandoff, onReviewInResearch }: Props) {
   return (
     <article className="panel">
-      <p className="panel-label">Research</p>
-      <h2>Portfolio improvement research</h2>
-      <p className="lead compact-lead">Use Research for workflow orientation, improvement review, replay diagnostics, overlays, and monitoring.</p>
-
-      <PortfolioImprovementWorkspaceShell analysis={analysis} draftSnapshot={draftSnapshot} candidateImprovementDraft={candidateImprovementDraft} intentBoundSeededEtfReplacementRankingDraft={intentBoundSeededEtfReplacementRankingDraft} replacementIntentDraft={replacementIntentDraft} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} selectedConstructionRuleId={selectedConstructionRuleId} allocationBacktestResult={allocationBacktestResult} hypotheticalReplayResult={hypotheticalReplayResult} savedProposals={savedProposals} onCreateReplacementIntent={onCreateReplacementIntent} onClearReplacementIntent={onClearReplacementIntent} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={onHypotheticalReplayResult} onFormedCandidateArtifact={onFormedCandidateArtifact} onConstructedCandidateArtifact={onConstructedCandidateArtifact} onSelectedConstructionRuleChange={onSelectedConstructionRuleChange} />
-
-      <MonitoringPanel result={allocationBacktestResult} hypotheticalReplayResult={hypotheticalReplayResult} />
-
-      <PortfolioAllocationBacktestPanel result={allocationBacktestResult} onResult={onAllocationBacktestResult} analysis={analysis} />
+      <PortfolioImprovementWorkspaceShell analysis={analysis} draftSnapshot={draftSnapshot} candidateImprovementDraft={candidateImprovementDraft} intentBoundSeededEtfReplacementRankingDraft={intentBoundSeededEtfReplacementRankingDraft} replacementIntentDraft={replacementIntentDraft} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={constructionConstraintValidationArtifact} selectedConstructionRuleId={selectedConstructionRuleId} allocationBacktestResult={allocationBacktestResult} onAllocationBacktestResult={onAllocationBacktestResult} hypotheticalReplayResult={hypotheticalReplayResult} savedProposals={savedProposals} activeThesis={activeThesis} onCreateReplacementIntent={onCreateReplacementIntent} onClearReplacementIntent={onClearReplacementIntent} onSaveProposal={onSaveProposal} onPromoteProposalToThesis={onPromoteProposalToThesis} onClearActiveThesis={onClearActiveThesis} onHypotheticalReplayResult={onHypotheticalReplayResult} onFormedCandidateArtifact={onFormedCandidateArtifact} onConstructedCandidateArtifact={onConstructedCandidateArtifact} onConstructionConstraintValidationArtifact={onConstructionConstraintValidationArtifact} onSelectedConstructionRuleChange={onSelectedConstructionRuleChange} monitoringResearchHandoff={monitoringResearchHandoff} monitoringResearchHandoffDismissed={monitoringResearchHandoffDismissed} onDismissMonitoringResearchHandoff={onDismissMonitoringResearchHandoff} onReviewInResearch={onReviewInResearch} />
     </article>
   )
 }

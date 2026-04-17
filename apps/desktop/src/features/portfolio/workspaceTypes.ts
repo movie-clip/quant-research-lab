@@ -1,4 +1,4 @@
-import type { HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from './types'
+import type { HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -241,6 +241,17 @@ export type ConstructedCandidateArtifact = {
   construction: SingleReplacementCandidateConstructionResponse
 }
 
+export type ConstructionConstraintValidationArtifact = {
+  workspaceId: PortfolioWorkspaceId
+  draftId: PortfolioDraftId
+  baseNodeId: PortfolioNodeId
+  replacementIntentCreatedAt: string
+  replacementIntentBaseSymbol: string
+  replacementIntentCandidateSymbol: string
+  constructionRuleId: SingleReplacementConstructionRuleId
+  validation: SingleReplacementConstructionConstraintValidationResponse
+}
+
 export type SelectedConstructionRuleArtifact = {
   workspaceId: PortfolioWorkspaceId
   draftId: PortfolioDraftId
@@ -272,6 +283,13 @@ export type VersionedProposalArtifact = {
     candidateConstructionRule: HypotheticalReplayResponse['derivation']['candidate_construction_rule']
   }
   reviewSnapshot: HypotheticalReplayResponse
+}
+
+export type ActiveThesisArtifact = {
+  workspaceId: PortfolioWorkspaceId
+  promotedAt: string
+  sourceProposalId: VersionedProposalArtifact['id']
+  thesisProposal: VersionedProposalArtifact
 }
 
 export type WorkspaceState = {

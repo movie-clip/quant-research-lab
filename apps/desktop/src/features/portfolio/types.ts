@@ -1367,6 +1367,18 @@ export type OverlayAwareHypotheticalReplayResponse = {
 
 export type HypotheticalReplayResponse = HypotheticalReplacementReplayResponse | OverlayAwareHypotheticalReplayResponse
 
+export type MonitoringResearchHandoffTarget = 'hypothetical_replay' | 'diagnostics_change'
+
+export type MonitoringResearchHandoff = {
+  version: 1
+  source: 'monitoring'
+  monitorKey: string
+  monitorTitle: string
+  researchTarget: MonitoringResearchHandoffTarget
+  contextLabel: string
+  replayContext: string | null
+}
+
 export type CandidateFormationState = {
   kind: 'single_replacement_candidate_formation'
   status: 'ok' | 'rejected'
@@ -1465,6 +1477,56 @@ export type SingleReplacementCandidateConstructionResponse = {
   outputs: CandidateConstructionOutputs
   derivation: CandidateConstructionDerivation
   truth_provenance: CandidateConstructionTruthProvenance
+  warnings: string[]
+  rejection_reason: string | null
+}
+
+export type SingleReplacementConstructionConstraintSetId = 'single_replacement_construction_constraints_v1'
+
+export type SingleReplacementConstructionConstraintSetInput = {
+  constraint_set_id: SingleReplacementConstructionConstraintSetId
+}
+
+export type SingleReplacementConstraintValidationState = {
+  kind: 'single_replacement_construction_constraint_validation'
+  status: 'ok' | 'blocked' | 'rejected'
+  constraint_set_id: SingleReplacementConstructionConstraintSetId
+}
+
+export type SingleReplacementConstraintEvaluation = {
+  constraint_id: string
+  severity: 'hard_block' | 'warning'
+  status: 'pass' | 'fail' | 'not_applicable'
+  message: string
+  rationale: string | null
+  actual_value: number | string | null
+  expected_value: number | string | null
+  operator: '<=' | '>=' | '==' | '!=' | 'in' | null
+}
+
+export type SingleReplacementConstraintValidationDerivation = {
+  validation_timing: 'post_construction_pre_replay'
+  validation_basis: 'explicit_constraint_set'
+  candidate_input_source: 'constructed_candidate_payload'
+  constraint_set_id: SingleReplacementConstructionConstraintSetId
+}
+
+export type SingleReplacementConstraintValidationTruthProvenance = {
+  baseline_truth_class: 'draft_snapshot_basis'
+  construction_truth_class: 'candidate_construction_derived'
+  candidate_truth_class: 'hypothetical_candidate_input_only'
+  constraint_validation_truth_class: 'constraint_validation_derived'
+  note: string
+}
+
+export type SingleReplacementConstructionConstraintValidationResponse = {
+  validation: SingleReplacementConstraintValidationState
+  proposal: CandidateFormationProposal
+  construction: CandidateConstructionState
+  derivation: SingleReplacementConstraintValidationDerivation
+  truth_provenance: SingleReplacementConstraintValidationTruthProvenance
+  evaluations: SingleReplacementConstraintEvaluation[]
+  blocking_constraint_ids: string[]
   warnings: string[]
   rejection_reason: string | null
 }

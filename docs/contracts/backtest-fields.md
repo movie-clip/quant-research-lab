@@ -1,8 +1,10 @@
 # Backtest Field Inventory
 
-This document inventories financially meaningful fields shown in the desktop portfolio-allocation backtest workspace and traces where they come from today.
+This document inventories financially meaningful fields shown in the desktop portfolio-allocation backtest workspace and the adjacent backend replay-preview contracts that feed it today.
 
-It is the working contract for backtest replay accuracy work.
+It is the working contract for portfolio-allocation replay accuracy work.
+
+For shipped-scope workflow boundaries, use `docs/product/current-product-state.md`.
 
 ## Purpose
 
@@ -17,7 +19,7 @@ For each visible backtest value, we want a traceable chain:
 
 ## Current Root Sources
 
-The portfolio-allocation backtest UI currently renders from two root inputs:
+The portfolio-allocation backtest UI and backend preview workflows currently render from these root inputs:
 
 1. `analysis: PortfolioBaselineView | null`
    - produced in `apps/desktop/src/app/App.tsx`
@@ -30,16 +32,27 @@ The portfolio-allocation backtest UI currently renders from two root inputs:
    - contains replay curves, summary metrics, diagnostics snapshots, diagnostics comparison, and implementation details
 
 3. `hypotheticalReplayResult: HypotheticalReplacementReplayResponse | null`
-   - returned by `POST /backtests/portfolio-allocation/replacement-intent-preview`
+    - returned by `POST /backtests/portfolio-allocation/replacement-intent-preview`
+    - built in `services/quant-engine/app/services/portfolio_backtest_engine.py`
+    - wraps a standard replay payload plus proposal/derivation metadata, derived baseline/candidate weights, and warnings
+
+4. `overlayAwareReplayResult: OverlayAwareHypotheticalReplayResponse | null`
+   - returned by `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
    - built in `services/quant-engine/app/services/portfolio_backtest_engine.py`
-   - wraps a standard replay payload plus proposal/derivation metadata, derived baseline/candidate weights, and warnings
+   - wraps pre-overlay and post-overlay candidate weights, overlay application metadata, base replay, overlay replay, and warnings
+
+5. `constructedCandidate: SingleReplacementCandidateConstructionResponse | null`
+   - returned by `POST /backtests/candidate-construction/replacement-intent`
+   - built in `services/quant-engine/app/services/candidate_construction.py`
+   - can be supplied back into hypothetical replay routes as an explicit candidate input when `construction.status = ok`
 
 Important rules:
 
 - imported holdings seed the workspace, but the replay result is hypothetical and must never be confused with imported broker-truth history
 - backtest diagnostics are synthetic replay diagnostics with explicit provenance, not imported portfolio diagnostics
 - financially meaningful formulas must be documented with both methodology and implementation location
-- replacement-intent replay preview derives weights in backend only; desktop must not construct candidate weights for this workflow
+- replacement-intent replay preview derives weights in backend only unless an explicit backend-constructed candidate is supplied; desktop must not construct candidate weights for this workflow
+- overlay-aware replay remains a hypothetical replay artifact, not imported portfolio truth
 
 Replay and diagnostics provenance should be interpreted together with explicit backend metadata:
 
@@ -127,10 +140,42 @@ Implementation:
 | Hypothetical Replay header/helper | `PortfolioAllocationBacktestPanel.tsx` static copy | none | explanatory only | always render when backtest workspace renders | frames the replacement-intent replay as draft-only |
 | Baseline / Hypothetical Candidate / Intent Source / Replay Basis | static summary cards in `PortfolioAllocationBacktestPanel.tsx` | replacement-intent replay workflow | explanatory only | if no replacement intent, render explicit unavailable helper | not financial outputs |
 | Proposal metadata | `hypotheticalReplayResult.proposal` | replacement-intent replay response | review metadata + replay input provenance | if no preview run, hidden | traces replay back to explicit replacement intent |
-| Derivation metadata | `hypotheticalReplayResult.derivation` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | current rule is `draft_snapshot_positions_normalized` plus `single_symbol_weight_substitution` |
+| Derivation metadata | `hypotheticalReplayResult.derivation` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | current response contract still reports `draft_snapshot_positions_normalized` plus `single_symbol_weight_substitution`; this is accurate for intent-only replay, but it does not yet distinguish constructed-candidate replay using `fixed_split_50_50_substitution_v2` |
 | Baseline weights | `hypotheticalReplayResult.baseline_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | derived on backend from draft snapshot position market values |
-| Candidate weights | `hypotheticalReplayResult.candidate_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | backend-only one-for-one incumbent-to-candidate substitution |
+| Candidate weights | `hypotheticalReplayResult.candidate_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | backend-only candidate weights; may come from direct same-weight intent derivation or an accepted constructed candidate payload |
 | Warnings | `hypotheticalReplayResult.warnings` | replacement-intent replay response | explanatory provenance | if none, hidden | may include cash-exclusion or hypothetical-only notes |
+
+Current backend replay input rule:
+
+- `POST /backtests/portfolio-allocation/replacement-intent-preview` can run from:
+  - `replacement_intent` only, which derives `same_weight_substitution_v1` behavior inside the backend
+  - `replacement_intent` plus `constructed_candidate`, where the constructed candidate currently may come from either:
+    - `same_weight_substitution_v1`
+    - `fixed_split_50_50_substitution_v2`
+
+Current contract limitation:
+
+- the replay response derivation payload does not yet expose which constructed-candidate rule was actually consumed when `constructed_candidate` is supplied
+- treat `hypotheticalReplayResult.derivation.candidate_construction_rule` as a known partial contract, not a complete replay-input provenance record
+
+### Overlay-aware hypothetical replay section
+
+| UI/API field | Current provider source | App/API state source | Truth class | Unavailable rule | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Overlay application | `overlayAwareReplayResult.overlay_application` | overlay-aware replay response | replay-input provenance | if overlay replay not run, hidden | authoritative backend summary of overlay id, status, risky-weight scale, and cash residual |
+| Pre-overlay candidate weights | `overlayAwareReplayResult.candidate_weights_pre_overlay` | overlay-aware replay response | replay-input derived | if overlay replay not run, hidden | hypothetical candidate before overlay is applied |
+| Post-overlay candidate weights | `overlayAwareReplayResult.candidate_weights_post_overlay` | overlay-aware replay response | replay-input derived | if overlay replay not run, hidden | candidate after overlay scaling and any synthetic cash insertion |
+| Base replay | `overlayAwareReplayResult.base_replay` | overlay-aware replay response | `replay-derived` | if overlay replay not run, hidden | baseline-vs-candidate replay before overlay |
+| Overlay replay | `overlayAwareReplayResult.overlay_replay` | overlay-aware replay response | `replay-derived` | if overlay replay not run, hidden | baseline-vs-overlay-adjusted candidate replay |
+| Overlay warnings | `overlayAwareReplayResult.warnings` | overlay-aware replay response | explanatory provenance | if none, hidden | includes overlay-only and synthetic-cash warnings when applicable |
+
+Current overlay rule:
+
+- only `benchmark_trend_overlay_v1` is accepted
+- only `risk_on` and `risk_reduced` are replayable states
+- `risk_reduced` scales all non-cash candidate weights by `0.35`
+- residual weight is assigned to synthetic cash symbol `__CASH__`
+- overlay is applied to the hypothetical candidate only, not to baseline/reference weights
 
 ### Replay summary section
 
@@ -237,9 +282,9 @@ Important semantics:
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Starting Weights | `candidate_result.starting_weights` | replay result | `replay-derived` | if absent, render empty state | replay starting allocation |
-| Ending Weights | `candidate_result.ending_weights` | replay result | `replay-derived` | if absent, render empty state | replay ending allocation |
-| Instrument Metadata | `candidate_result.instrument_metadata` | replay result | `replay-derived` | if missing, render `n/a` fields | descriptive replay metadata |
+| Starting Weights | `candidate_result.starting_weights` | replay result | `replay-derived` | if absent, render empty state | replay starting allocation; overlay-aware replay may include synthetic cash symbol `__CASH__` |
+| Ending Weights | `candidate_result.ending_weights` | replay result | `replay-derived` | if absent, render empty state | replay ending allocation; overlay-aware replay may include synthetic cash symbol `__CASH__` |
+| Instrument Metadata | `candidate_result.instrument_metadata` | replay result | `replay-derived` | if missing, render `n/a` fields | descriptive replay metadata; synthetic cash uses replay-internal placeholder handling rather than imported instrument truth |
 | Rebalance Events | `candidate_result.rebalance_events` | replay result | `replay-derived` | if none, show `No rebalances` | implementation event log |
 | Trade Log | `candidate_result.trades.slice(0, 12)` | replay result | `replay-derived` | if none, render empty list | candidate replay trade log |
 
@@ -251,9 +296,11 @@ Important semantics:
 4. If candidate/reference/benchmark date windows do not share enough common dates, the route must fail explicitly rather than compare incompatible replays.
 5. If a financially meaningful backtest formula or assumption changes, methodology text and this inventory should be updated together.
 6. Replacement-intent replay preview must reject invalid substitution cases rather than invent renormalization or portfolio-construction behavior.
+7. Constructed-candidate replay may consume `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`, but the replay derivation payload does not yet fully expose that distinction.
+8. Overlay-aware replay may inject synthetic cash `__CASH__`; this is a replay artifact only and must not be presented as imported cash truth.
 
 ## Current Coverage Status
 
-- backend route coverage verifies weight validation, execution-lag validation, proxy-history fallbacks, typed diagnostics provenance, insufficient common-date rejection, and replacement-intent replay validation/derivation rules
+- backend route coverage verifies weight validation, execution-lag validation, proxy-history fallbacks, typed diagnostics provenance, insufficient common-date rejection, replacement-intent replay validation/derivation rules, candidate formation/construction contracts, and overlay-aware replay behavior including synthetic cash injection
 - backend service coverage verifies synthetic snapshot creation and explicit diagnostics input assembly
 - desktop coverage verifies workspace rendering, imported baseline seeding, manual replay submission payloads, replacement-intent replay preview payloads, and diagnostics provenance messaging

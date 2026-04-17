@@ -3,12 +3,14 @@ import { useMemo, useState } from 'react'
 import type {
   AllocationBacktestComparison,
   HypotheticalReplayResponse,
+  MonitoringResearchHandoff,
   PortfolioAllocationBacktestResponse,
   PortfolioDiagnosticsComparisonRow,
   PortfolioDiagnosticsSnapshot,
   PortfolioDiagnosticsTopCallout,
 } from '../portfolio/types'
 import { formatReplayHistoricalBasisLabel } from '../portfolio/historyTruth'
+import { MONITORING_RESEARCH_HANDOFF_VERSION } from './monitoringResearchHandoff'
 
 type MonitorTone = 'hot' | 'warm' | 'cool' | 'neutral'
 
@@ -22,6 +24,7 @@ type MonitorItem = {
   provenance: string
   tone: MonitorTone
   detail: string[]
+  researchTarget: 'hypothetical_replay' | 'diagnostics_change' | null
 }
 
 type MonitorCallout = {
@@ -108,10 +111,11 @@ function monitorFromCallout(
       recentChange: 'n/a',
       severity: 'Low',
       confidence: 'Low',
-      provenance,
-      tone: 'neutral',
-      detail: [unavailableGuidance],
-    }
+        provenance,
+        tone: 'neutral',
+        detail: [unavailableGuidance],
+        researchTarget: null,
+      }
   }
 
   const tone = toneFromMagnitude(row.delta_value, 0.2, 0.08)
@@ -129,6 +133,7 @@ function monitorFromCallout(
       `Selection rule: ${selectionRuleLabel(row.selection_rule)}.`,
       row.rationale,
     ],
+    researchTarget: 'diagnostics_change',
   }
 }
 
@@ -156,6 +161,7 @@ function dataQualityMonitor(
       `Reference replay status: ${activeReplay.reference_result?.status ?? 'not provided'}.`,
       comparisonReady ? 'Diagnostics comparison is available for monitoring review.' : 'Diagnostics comparison is unavailable for this replay state.',
     ],
+    researchTarget: null,
   }
 }
 
@@ -181,6 +187,7 @@ function benchmarkRelativeMonitor(
       `Active return: ${formatSignedPct(activeReplay.candidate_result.metrics.excess_return_pct)}.`,
       'Benchmark-relative watch uses shared replay metrics rather than frontend-derived scoring.',
     ],
+    researchTarget: 'hypothetical_replay',
   }
 }
 
@@ -207,6 +214,7 @@ function volatilityMonitor(
       `Downside volatility: ${formatPct(snapshot?.downside_vol_252d)}.`,
       row?.rationale ?? 'Replay diagnostics expose volatility and drawdown directly; a separate replay regime label is not available in v1.',
     ],
+    researchTarget: 'diagnostics_change',
   }
 }
 
@@ -263,7 +271,7 @@ function buildMonitors(activeReplay: PortfolioAllocationBacktestResponse, hypoth
 
   const contextNote = hypotheticalReplayResult
     ? `Monitoring reflects the active hypothetical replay for ${hypotheticalReplayResult.proposal.incumbent_symbol} -> ${hypotheticalReplayResult.proposal.candidate_symbol}.`
-    : 'Monitoring reflects the latest shared replay evidence available in Research.'
+    : 'Monitoring reflects the latest shared replay evidence available in the workspace.'
 
   return {
     monitors,
@@ -274,12 +282,30 @@ function buildMonitors(activeReplay: PortfolioAllocationBacktestResponse, hypoth
   }
 }
 
+function buildResearchHandoffPayload(selectedMonitor: MonitorItem, hypotheticalReplayResult: HypotheticalReplayResponse | null): MonitoringResearchHandoff {
+  const replayContext = hypotheticalReplayResult
+    ? `${hypotheticalReplayResult.proposal.incumbent_symbol} -> ${hypotheticalReplayResult.proposal.candidate_symbol}`
+    : null
+
+  return {
+    version: MONITORING_RESEARCH_HANDOFF_VERSION,
+    source: 'monitoring',
+    monitorKey: selectedMonitor.key,
+    monitorTitle: selectedMonitor.title,
+    researchTarget: selectedMonitor.researchTarget ?? 'diagnostics_change',
+    contextLabel: selectedMonitor.currentStatus,
+    replayContext,
+  }
+}
+
 export function MonitoringPanel({
   result,
   hypotheticalReplayResult,
+  onReviewInResearch,
 }: {
   result: PortfolioAllocationBacktestResponse | null
   hypotheticalReplayResult: HypotheticalReplayResponse | null
+  onReviewInResearch?: (handoff: MonitoringResearchHandoff) => void
 }) {
   const activeReplay = hypotheticalReplayResult ? ('replay' in hypotheticalReplayResult ? hypotheticalReplayResult.replay : hypotheticalReplayResult.overlay_replay) : result
   const monitoringState = useMemo(() => activeReplay ? buildMonitors(activeReplay, hypotheticalReplayResult) : null, [activeReplay, hypotheticalReplayResult])
@@ -292,11 +318,10 @@ export function MonitoringPanel({
       <section className="dashboard-bottom-grid">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Monitoring</p></div>
-          <p className="helper">Compact watch surface for replay-state changes, severity, confidence, and provenance.</p>
         </div>
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">Monitoring is waiting for replay evidence.</p>
-          <p className="helper">Run a portfolio improvement replay or restore a saved replay review to populate the first monitoring surface.</p>
+          <p className="helper">Run or reopen a replay to populate this view.</p>
         </div>
       </section>
     )
@@ -307,9 +332,8 @@ export function MonitoringPanel({
       <div className="section-header-inline sector-list-header">
         <div>
           <p className="panel-label">Monitoring</p>
-          <h3>Research watch surface</h3>
+          <h3>Watch surface</h3>
         </div>
-        <p className="helper">Review and watch the most important replay changes first. This surface stays analytical and does not trigger notifications or actions.</p>
       </div>
 
       <div className="summary-card monitoring-context-card">
@@ -336,7 +360,6 @@ export function MonitoringPanel({
         <section className="monitoring-list-card">
           <div className="section-header-inline sector-list-header">
             <div><p className="panel-label">Watch Groups</p></div>
-            <p className="helper">Current status, recent change, severity, confidence, and provenance stay explicit.</p>
           </div>
           <div className="list-table">
             <div className="list-row list-row-wide">
@@ -361,15 +384,24 @@ export function MonitoringPanel({
         <section className="monitoring-detail-card">
           <div className="section-header-inline sector-list-header">
             <div><p className="panel-label">Detail</p></div>
-            <p className="helper">Drill into one watch group at a time without broadening into a feed or recommendation layer.</p>
           </div>
           {selectedMonitor ? (
             <div className={cardClass(selectedMonitor.tone)}>
               <p className="stat-label">{selectedMonitor.title}</p>
               <p className="summary-value">{selectedMonitor.currentStatus}</p>
-              <p className="helper">Recent change: {selectedMonitor.recentChange}</p>
-              <p className="helper">Severity {selectedMonitor.severity} · Confidence {selectedMonitor.confidence}</p>
-              <p className="helper">Provenance: {selectedMonitor.provenance}</p>
+              <p className="helper">{selectedMonitor.recentChange} · {selectedMonitor.severity} severity · {selectedMonitor.confidence} confidence</p>
+              <p className="helper">{selectedMonitor.provenance}</p>
+              {selectedMonitor.researchTarget && onReviewInResearch ? (
+                <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+                  <button
+                    className="secondary-button"
+                    onClick={() => onReviewInResearch(buildResearchHandoffPayload(selectedMonitor, hypotheticalReplayResult))}
+                    type="button"
+                  >
+                    Review In Workspace
+                  </button>
+                </div>
+              ) : null}
               <div className="monitoring-detail-list">
                 {selectedMonitor.detail.map((item) => (
                   <p className="helper monitoring-detail-item" key={item}>{item}</p>

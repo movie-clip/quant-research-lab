@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-import type { CandidateConstructionRuleInput, HypotheticalReplayResponse, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { CandidateConstructionRuleInput, HypotheticalReplayResponse, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { formatReplayHistoricalBasisLabel, formatSnapshotBasisLabel } from '../portfolio/historyTruth'
 
 type AllocationWeightRow = {
@@ -22,6 +22,7 @@ type HypotheticalReplaySectionProps = {
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
   formedCandidateArtifact: FormedCandidateArtifact | null
   constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  constructionConstraintValidationArtifact: ConstructionConstraintValidationArtifact | null
   selectedConstructionRuleId: SingleReplacementConstructionRuleId
   hypotheticalReplayResult: HypotheticalReplayResponse | null
   savedProposalCount: number
@@ -52,6 +53,12 @@ type DeltaTone = 'positive' | 'negative' | 'neutral'
 
 type PreflightStatus = 'ready' | 'blocked' | 'pending'
 
+type ConstraintReviewStatus = 'pass' | 'blocked' | 'rejected' | 'pending'
+
+const constructionConstraintSet: SingleReplacementConstructionConstraintSetInput = {
+  constraint_set_id: 'single_replacement_construction_constraints_v1',
+}
+
 type HypotheticalReplayPreflight = {
   overallStatus: PreflightStatus
   incumbentWeight: number | null
@@ -74,8 +81,10 @@ type ConstructionRuleSectionProps = {
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
   formedCandidateArtifact: FormedCandidateArtifact | null
   constructedCandidateArtifact: ConstructedCandidateArtifact | null
+  constructionConstraintValidationArtifact: ConstructionConstraintValidationArtifact | null
   selectedConstructionRuleId: SingleReplacementConstructionRuleId
   onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
+  onConstructionConstraintValidationArtifact: (result: SingleReplacementConstructionConstraintValidationResponse) => void
   onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
 }
 
@@ -443,6 +452,73 @@ function buildHypotheticalReplayPreflight(replacementIntentDraft: ReplacementInt
   }
 }
 
+function formatConstraintStatusLabel(status: ConstraintReviewStatus) {
+  if (status === 'pass') return 'Pass'
+  if (status === 'blocked') return 'Blocked'
+  if (status === 'rejected') return 'Rejected'
+  return 'Pending'
+}
+
+function constraintStatusToneClass(status: ConstraintReviewStatus) {
+  if (status === 'pass') return 'positive-text'
+  if (status === 'blocked' || status === 'rejected') return 'negative-text'
+  return 'neutral-text'
+}
+
+function formatConstraintSeverityLabel(severity: 'hard_block' | 'warning') {
+  return severity === 'warning' ? 'Warning' : 'Hard block'
+}
+
+function constraintSeverityToneClass(severity: 'hard_block' | 'warning', status: 'pass' | 'fail' | 'not_applicable') {
+  if (severity === 'warning') return 'neutral-text'
+  if (status === 'fail') return 'negative-text'
+  return 'neutral-text'
+}
+
+function formatConstraintValue(value: number | string | null | undefined) {
+  if (value == null) return 'n/a'
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(4)
+  return value
+}
+
+function summarizeConstraintValidation(validation: SingleReplacementConstructionConstraintValidationResponse | null): {
+  reviewStatus: ConstraintReviewStatus
+  hardBlockCount: number
+  warningCount: number
+  passCount: number
+  constraintCount: number
+  statusDetail: string
+} {
+  if (!validation) {
+    return {
+      reviewStatus: 'pending',
+      hardBlockCount: 0,
+      warningCount: 0,
+      passCount: 0,
+      constraintCount: 0,
+      statusDetail: 'Constraint validation has not been run for the current construction output yet.',
+    }
+  }
+
+  const hardBlockCount = validation.blocking_constraint_ids.length
+  const warningCount = validation.evaluations.filter((item) => item.severity === 'warning').length
+  const passCount = validation.evaluations.filter((item) => item.status === 'pass').length
+  const constraintCount = validation.evaluations.length
+  const reviewStatus: ConstraintReviewStatus = validation.validation.status === 'ok'
+    ? 'pass'
+    : validation.validation.status === 'blocked'
+      ? 'blocked'
+      : 'rejected'
+
+  const statusDetail = validation.validation.status === 'ok'
+    ? 'The constructed candidate passed the locked backend constraint set and can be handed into replay review.'
+    : validation.validation.status === 'blocked'
+      ? `The constructed candidate failed ${hardBlockCount} hard-block constraint${hardBlockCount === 1 ? '' : 's'} and replay remains unavailable.`
+      : validation.rejection_reason ?? 'The constructed candidate could not be evaluated safely, so replay remains unavailable.'
+
+  return { reviewStatus, hardBlockCount, warningCount, passCount, constraintCount, statusDetail }
+}
+
 export function CandidateFormationSection({ draftSnapshot, replacementIntentDraft, formedCandidateArtifact, onFormedCandidateArtifact }: CandidateFormationSectionProps) {
   const apiBase = useMemo(() => '/api', [])
   const [formationLoading, setFormationLoading] = useState(false)
@@ -555,10 +631,12 @@ export function CandidateFormationSection({ draftSnapshot, replacementIntentDraf
   )
 }
 
-export function ConstructionRuleSection({ draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, selectedConstructionRuleId, onConstructedCandidateArtifact, onSelectedConstructionRuleChange }: ConstructionRuleSectionProps) {
+export function ConstructionRuleSection({ draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, onConstructedCandidateArtifact, onConstructionConstraintValidationArtifact, onSelectedConstructionRuleChange }: ConstructionRuleSectionProps) {
   const apiBase = useMemo(() => '/api', [])
   const [constructionLoading, setConstructionLoading] = useState(false)
+  const [constraintValidationLoading, setConstraintValidationLoading] = useState(false)
   const [constructionError, setConstructionError] = useState<string | null>(null)
+  const [constraintValidationError, setConstraintValidationError] = useState<string | null>(null)
 
   const formationMatchesIntent = Boolean(
     replacementIntentDraft
@@ -586,6 +664,25 @@ export function ConstructionRuleSection({ draftSnapshot, replacementIntentDraft,
   )
   const activeConstructionForSelection = constructionMatchesIntent && constructionMatchesRule ? constructedCandidateArtifact?.construction ?? null : null
   const staleConstructionForSelectedRule = Boolean(constructedCandidateArtifact && constructionMatchesIntent && !constructionMatchesRule)
+  const constraintValidationMatchesIntent = Boolean(
+    replacementIntentDraft
+    && constructionConstraintValidationArtifact
+    && constructionConstraintValidationArtifact.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+    && constructionConstraintValidationArtifact.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+    && constructionConstraintValidationArtifact.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol,
+  )
+  const constraintValidationMatchesRule = Boolean(
+    constructionConstraintValidationArtifact
+    && constructionConstraintValidationArtifact.constructionRuleId === selectedConstructionRuleId,
+  )
+  const activeConstraintValidation = constraintValidationMatchesIntent && constraintValidationMatchesRule
+    ? constructionConstraintValidationArtifact?.validation ?? null
+    : null
+  const staleConstraintValidation = Boolean(
+    constructionConstraintValidationArtifact
+    && (!constraintValidationMatchesIntent || !constraintValidationMatchesRule),
+  )
+  const constraintSummary = summarizeConstraintValidation(activeConstraintValidation)
   const constructionRule: CandidateConstructionRuleInput = { rule_id: selectedConstructionRuleId }
   const selectedRuleOption = constructionRuleOptions.find((option) => option.id === selectedConstructionRuleId) ?? constructionRuleOptions[0]
 
@@ -655,6 +752,33 @@ export function ConstructionRuleSection({ draftSnapshot, replacementIntentDraft,
     }
   }
 
+  async function runConstructionConstraintValidation() {
+    if (!activeConstructionForSelection) return
+
+    setConstraintValidationLoading(true)
+    setConstraintValidationError(null)
+
+    try {
+      const response = await fetch(`${apiBase}/backtests/candidate-construction/replacement-intent/constraints`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          constructed_candidate: activeConstructionForSelection,
+          constraint_set: constructionConstraintSet,
+        }),
+      })
+      if (!response.ok) {
+        const payload = (await response.json()) as { detail?: string }
+        throw new Error(payload.detail ?? 'Construction constraint validation failed')
+      }
+      onConstructionConstraintValidationArtifact((await response.json()) as SingleReplacementConstructionConstraintValidationResponse)
+    } catch (caughtError) {
+      setConstraintValidationError(caughtError instanceof Error ? caughtError.message : 'Construction constraint validation failed')
+    } finally {
+      setConstraintValidationLoading(false)
+    }
+  }
+
   return (
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header"><div><p className="panel-label">Construction Rule</p></div><p className="helper">Truth class: candidate-construction-derived review input only. This step applies one explicit construction rule before replay and does not apply holdings.</p></div>
@@ -691,6 +815,56 @@ export function ConstructionRuleSection({ draftSnapshot, replacementIntentDraft,
               {activeConstructionForSelection.outputs.candidate_added_weight != null || activeConstructionForSelection.outputs.incumbent_remaining_weight != null ? <p className="helper">Candidate added weight: {formatWeightPct(activeConstructionForSelection.outputs.candidate_added_weight)} · Incumbent remaining weight: {formatWeightPct(activeConstructionForSelection.outputs.incumbent_remaining_weight)}</p> : null}
             </div>
           ) : null}
+          <section className="dashboard-bottom-grid">
+            <div className="section-header-inline sector-list-header"><div><p className="panel-label">Construction Constraints</p></div><p className="helper">Truth class: constraint-validation-derived review state only. This step validates the constructed candidate after construction and before replay.</p></div>
+            {!activeConstructionForSelection ? (
+              <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">A current constructed candidate is required before constraint validation can run.</p><p className="helper">Construction constraints evaluate the explicit constructed candidate only and do not create a replay or mutate holdings.</p></div>
+            ) : (
+              <>
+                <div className="dashboard-summary compact-summary-grid">
+                  <div className="summary-card"><p className="stat-label">Validation Status</p><p className={`summary-value ${staleConstraintValidation ? 'negative-text' : constraintStatusToneClass(constraintSummary.reviewStatus)}`}>{staleConstraintValidation ? 'Stale' : formatConstraintStatusLabel(constraintSummary.reviewStatus)}</p><p className="helper">{staleConstraintValidation ? 'The saved constraint validation no longer matches the active construction output or selected rule.' : constraintSummary.statusDetail}</p></div>
+                  <div className="summary-card"><p className="stat-label">Constraint Set</p><p className="summary-value">single_replacement_construction_constraints_v1</p><p className="helper">Backend-authored locked constraint set for this workflow step.</p></div>
+                  <div className="summary-card"><p className="stat-label">Hard Blocks</p><p className="summary-value">{activeConstraintValidation ? String(constraintSummary.hardBlockCount) : 'n/a'}</p><p className="helper">Blocking failures keep replay unavailable.</p></div>
+                  <div className="summary-card"><p className="stat-label">Constraint Results</p><p className="summary-value">{activeConstraintValidation ? `${constraintSummary.passCount}/${constraintSummary.constraintCount}` : 'n/a'}</p><p className="helper">Passing checks out of total evaluated constraints.</p></div>
+                </div>
+                {activeConstraintValidation ? (
+                  <div className="summary-card">
+                    <p className="panel-label">Validation Summary</p>
+                    <p className="helper">Validation timing: {activeConstraintValidation.derivation.validation_timing} · Basis: {activeConstraintValidation.derivation.validation_basis}</p>
+                    <p className="helper">Candidate input source: {activeConstraintValidation.derivation.candidate_input_source} · Truth provenance: {activeConstraintValidation.truth_provenance.constraint_validation_truth_class}</p>
+                    <p className="helper">{activeConstraintValidation.truth_provenance.note}</p>
+                    {activeConstraintValidation.rejection_reason ? <p className="helper">Rejection reason: {activeConstraintValidation.rejection_reason}</p> : null}
+                    {activeConstraintValidation.blocking_constraint_ids.length ? <p className="helper">Blocking constraint ids: {activeConstraintValidation.blocking_constraint_ids.join(', ')}</p> : null}
+                  </div>
+                ) : null}
+                {activeConstraintValidation?.warnings.length ? <div className="summary-card"><p className="panel-label">Validation Warnings</p>{activeConstraintValidation.warnings.map((warning) => <p className="helper" key={warning}>{warning}</p>)}</div> : null}
+                {activeConstraintValidation ? (
+                  <div className="list-table">
+                    <div className="list-row list-row-wide">
+                      <span>Constraint</span>
+                      <span>Status</span>
+                      <span>Severity</span>
+                      <span>Result</span>
+                    </div>
+                    {activeConstraintValidation.evaluations.map((evaluation) => (
+                      <div className="list-row list-row-wide" key={evaluation.constraint_id}>
+                        <span>{evaluation.constraint_id}</span>
+                        <span className={evaluation.status === 'pass' ? 'positive-text' : evaluation.status === 'fail' ? 'negative-text' : 'neutral-text'}>{evaluation.status}</span>
+                        <span className={constraintSeverityToneClass(evaluation.severity, evaluation.status)}>{formatConstraintSeverityLabel(evaluation.severity)}</span>
+                        <span>
+                          {evaluation.message}
+                          <br />
+                          actual {formatConstraintValue(evaluation.actual_value)} · expected {formatConstraintValue(evaluation.expected_value)}{evaluation.operator ? ` · ${evaluation.operator}` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="actions backtest-actions"><button className="secondary-button" type="button" disabled={constraintValidationLoading} onClick={() => void runConstructionConstraintValidation()}>{constraintValidationLoading ? 'Validating Constraints...' : activeConstraintValidation ? 'Re-run Construction Constraints' : 'Validate Construction Constraints'}</button><p className="helper">Run locked backend validation for the current constructed candidate before replay.</p></div>
+                {constraintValidationError ? <p className="error">{constraintValidationError}</p> : null}
+              </>
+            )}
+          </section>
           {activeConstructionForSelection?.warnings.length ? <div className="summary-card"><p className="panel-label">Construction Warnings</p>{activeConstructionForSelection.warnings.map((warning) => <p className="helper" key={warning}>{warning}</p>)}</div> : null}
           {activeConstructionForSelection ? <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Construction Baseline</p></div></div><div className="list-table">{activeConstructionForSelection.inputs.baseline_weights.map((row) => <div className="list-row" key={`construction-baseline-${row.symbol}`}><span>{row.symbol}</span><span>{formatWeightPct(row.target_weight)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Constructed Candidate</p></div></div><div className="list-table">{activeConstructionForSelection.outputs.candidate_weights.map((row) => <div className="list-row" key={`construction-candidate-${row.symbol}`}><span>{row.symbol}</span><span>{formatWeightPct(row.target_weight)}</span></div>)}</div></section></div> : null}
           <div className="actions backtest-actions"><button className="secondary-button" type="button" disabled={constructionLoading} onClick={() => void runConstructionRule()}>{constructionLoading ? 'Constructing Candidate...' : activeConstructionForSelection ? 'Rebuild Construction Rule' : 'Construct Candidate For Replay'}</button><p className="helper">Build a review-only constructed candidate from one explicit rule before replay.</p></div>
@@ -1011,7 +1185,7 @@ export function DiagnosticsChangeSection({ result, hypotheticalReplayResult }: {
   )
 }
 
-export function HypotheticalReplaySection({ result, draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposalCount, onSaveProposal, onHypotheticalReplayResult }: HypotheticalReplaySectionProps) {
+export function HypotheticalReplaySection({ result, draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposalCount, onSaveProposal, onHypotheticalReplayResult }: HypotheticalReplaySectionProps) {
   const apiBase = useMemo(() => '/api', [])
   const [startDate, setStartDate] = useState('2024-01-01')
   const [endDate, setEndDate] = useState('2024-12-31')
@@ -1029,6 +1203,22 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
   const [hypotheticalError, setHypotheticalError] = useState<string | null>(null)
   const [showHypotheticalReplayConfirmation, setShowHypotheticalReplayConfirmation] = useState(false)
   const hypotheticalPreflight = useMemo(() => buildHypotheticalReplayPreflight(replacementIntentDraft, constructedCandidateArtifact, selectedConstructionRuleId), [replacementIntentDraft, constructedCandidateArtifact, selectedConstructionRuleId])
+  const constraintValidationMatchesIntent = Boolean(
+    replacementIntentDraft
+    && constructionConstraintValidationArtifact
+    && constructionConstraintValidationArtifact.replacementIntentCreatedAt === replacementIntentDraft.createdAt
+    && constructionConstraintValidationArtifact.replacementIntentBaseSymbol === replacementIntentDraft.baseSymbol
+    && constructionConstraintValidationArtifact.replacementIntentCandidateSymbol === replacementIntentDraft.candidateSymbol,
+  )
+  const constraintValidationMatchesRule = Boolean(
+    constructionConstraintValidationArtifact
+    && constructionConstraintValidationArtifact.constructionRuleId === selectedConstructionRuleId,
+  )
+  const activeConstraintValidation = constraintValidationMatchesIntent && constraintValidationMatchesRule
+    ? constructionConstraintValidationArtifact?.validation ?? null
+    : null
+  const replayConstraintStatus = activeConstraintValidation?.validation.status ?? 'blocked'
+  const replayConstraintReady = replayConstraintStatus === 'ok'
   const activeReplay = activeReplayFromHypothetical(hypotheticalReplayResult) ?? result
   const baselineReplay = standardReplayFromHypothetical(hypotheticalReplayResult)
   const summaryRows = buildSummaryRows(activeReplay)
@@ -1045,7 +1235,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
   }, [overlayAsOfMonthEnd, overlayConfirmationCount, overlayRuleVersion, overlayStatus, replayBasisMode, replacementIntentDraft])
 
   async function runHypotheticalReplayPreview() {
-    if (!draftSnapshot || !replacementIntentDraft || !constructedCandidateArtifact) return
+    if (!draftSnapshot || !replacementIntentDraft || !constructedCandidateArtifact || !activeConstraintValidation || activeConstraintValidation.validation.status !== 'ok') return
 
     setHypotheticalLoading(true)
     setHypotheticalError(null)
@@ -1130,19 +1320,20 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
       <div className="section-header-inline sector-list-header"><div><p className="panel-label">Hypothetical Replay</p></div><p className="helper">Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit construction output handoff.</p></div>
       {replacementIntentDraft ? (
         <>
-          <div className="summary-card">
-            <p className="panel-label">Replay Preflight</p>
-            <p className="helper">Check the construction output handoff first so replay only runs from explicit review input.</p>
-            <div className="dashboard-summary compact-summary-grid">
-              <div className="summary-card"><p className="stat-label">Preflight Status</p><p className={`summary-value ${preflightToneClass(hypotheticalPreflight.overallStatus)}`}>{hypotheticalPreflight.overallStatus === 'ready' ? 'Ready for backend validation' : 'Blocked before preview'}</p></div>
-              <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{replacementIntentDraft.baseSymbol} -&gt; {replacementIntentDraft.candidateSymbol}</p></div>
-              <div className="summary-card"><p className="stat-label">Incumbent Starting Weight</p><p className="summary-value">{hypotheticalPreflight.incumbentWeight == null ? 'n/a' : formatPct(hypotheticalPreflight.incumbentWeight * 100)}</p></div>
+            <div className="summary-card">
+              <p className="panel-label">Replay Preflight</p>
+              <p className="helper">Check the construction output handoff first so replay only runs from explicit review input.</p>
+              <div className="dashboard-summary compact-summary-grid">
+                <div className="summary-card"><p className="stat-label">Preflight Status</p><p className={`summary-value ${preflightToneClass(hypotheticalPreflight.overallStatus)}`}>{hypotheticalPreflight.overallStatus === 'ready' ? 'Ready for backend validation' : 'Blocked before preview'}</p></div>
+                <div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{replacementIntentDraft.baseSymbol} -&gt; {replacementIntentDraft.candidateSymbol}</p></div>
+                <div className="summary-card"><p className="stat-label">Incumbent Starting Weight</p><p className="summary-value">{hypotheticalPreflight.incumbentWeight == null ? 'n/a' : formatPct(hypotheticalPreflight.incumbentWeight * 100)}</p></div>
+                <div className="summary-card"><p className="stat-label">Construction Constraints</p><p className={`summary-value ${replayConstraintReady ? 'positive-text' : 'negative-text'}`}>{replayConstraintReady ? 'Pass' : activeConstraintValidation?.validation.status === 'rejected' ? 'Rejected' : 'Blocked'}</p><p className="helper">{!activeConstraintValidation ? 'Run construction constraints before replay.' : activeConstraintValidation.validation.status === 'ok' ? 'Constraint validation passed for the current construction output.' : activeConstraintValidation.rejection_reason ?? 'Constraint validation did not pass, so replay remains unavailable.'}</p></div>
+              </div>
+              <div className="list-table">{hypotheticalPreflight.checks.map((check) => <div className="list-row list-row-wide" key={check.label}><span>{check.label}</span><span className={preflightToneClass(check.status)}>{check.status === 'ready' ? 'Ready' : check.status === 'blocked' ? 'Blocked' : 'Pending backend'}</span><span>{check.detail}</span></div>)}</div>
             </div>
-            <div className="list-table">{hypotheticalPreflight.checks.map((check) => <div className="list-row list-row-wide" key={check.label}><span>{check.label}</span><span className={preflightToneClass(check.status)}>{check.status === 'ready' ? 'Ready' : check.status === 'blocked' ? 'Blocked' : 'Pending backend'}</span><span>{check.detail}</span></div>)}</div>
-          </div>
           {!hypotheticalReplayResult ? <p className="helper">No hypothetical replay has been run for this replacement intent yet.</p> : null}
           {!showHypotheticalReplayConfirmation ? (
-            <div className="actions backtest-actions"><button className="secondary-button" disabled={hypotheticalPreflight.overallStatus === 'blocked'} type="button" onClick={() => setShowHypotheticalReplayConfirmation(true)}>Preview Hypothetical Replay</button><p className="helper">Use replay to validate the explicit construction output under a shared portfolio basis.</p></div>
+            <div className="actions backtest-actions"><button className="secondary-button" disabled={hypotheticalPreflight.overallStatus === 'blocked' || !replayConstraintReady} type="button" onClick={() => setShowHypotheticalReplayConfirmation(true)}>Preview Hypothetical Replay</button><p className="helper">Use replay to validate the explicit construction output under a shared portfolio basis. Replay stays unavailable until construction constraints pass.</p></div>
           ) : (
             <div className="summary-card">
               <p className="panel-label">Preview hypothetical current-vs-candidate replay</p>

@@ -1,5 +1,9 @@
 # Quant Research Lab Architecture
 
+This document explains the current architectural seams and the future normalized direction.
+
+For the canonical shipped-scope inventory, use `docs/product/current-product-state.md`.
+
 ## System Boundaries
 
 The project is split into a desktop application and a local quant engine.
@@ -28,6 +32,41 @@ The system should prioritize:
 - truth-class clarity
 - financial auditability
 
+## Current Implemented Backend Seams
+
+The backend already exposes several concrete engine seams that matter more than the older aspirational route sketch.
+
+Documentation rule:
+- treat this section as the current architectural seam map
+- treat `docs/product/current-product-state.md` as the canonical shipped-state boundary
+- keep future normalized API sketches clearly separate from current route reality
+
+Current portfolio-improvement and replay seams:
+- `POST /backtests/portfolio-allocation`
+  - canonical allocation replay route for candidate-vs-reference comparison
+- `POST /backtests/portfolio-allocation/replacement-intent-preview`
+  - hypothetical replacement replay from draft snapshot plus replacement intent
+- `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
+  - overlay-aware hypothetical replay for the narrow benchmark-trend overlay path
+- `POST /backtests/candidate-formation/replacement-intent`
+  - review-only same-weight single-replacement candidate formation
+- `POST /backtests/candidate-construction/replacement-intent`
+  - review-only single-replacement candidate construction with explicit rule selection
+
+Current ranking seams:
+- `POST /strategy-lab/etf-ranking`
+  - generic ETF ranking
+- `POST /ranking/etf-replacements`
+  - intent-bound seeded ETF replacement ranking
+
+Current diagnostics and exposure seams remain separately authoritative for current-state portfolio understanding.
+
+Important implementation reality:
+- `services/quant-engine/app/services/portfolio_backtest_engine.py` currently owns several related responsibilities: generic replay, hypothetical replay, overlay-aware replay, synthetic cash injection, and diagnostics comparison assembly
+- this file is a real current seam, not just an implementation detail, and it should be documented as such until responsibilities are split more cleanly
+- a legacy generic overlay preview path still exists in `services/quant-engine/app/services/backtest_engine_service.py` and `services/quant-engine/app/overlay/`; treat it as older infrastructure, not the canonical forward product seam
+- candidate formation remains a narrow review-oriented seam layered on top of current single-replacement construction semantics, not a generalized construction platform boundary
+
 ## API Boundary
 
 The frontend should not calculate portfolio state from raw transactions on its own. It should request normalized results from the quant engine.
@@ -38,8 +77,17 @@ Current direction:
 - engine outputs are derived runtime artifacts
 - the frontend may persist `PortfolioSnapshot` and workspace metadata locally, but it should not persist derived financial analytics as truth
 - historical diagnostics must come from engine responses with appropriate history context, not from frontend approximation
+- formed candidates, constructed candidates, hypothetical replays, overlay-aware replays, and saved proposals are review artifacts only and must not be treated as portfolio truth
 
-Suggested API groups:
+Current implemented API groups:
+
+- health and market-data sync/query routes
+- import, reconciliation, and portfolio state routes
+- exposure and diagnostics routes for current-state analytics
+- backtest/replay routes for portfolio-improvement workflows
+- strategy-lab and ranking routes for ETF research workflows
+
+Future normalized API groups:
 
 - `GET /health`
 - `POST /market-data/sync/fmp`
@@ -53,6 +101,11 @@ Suggested API groups:
 - `GET /backtests/{backtest_id}`
 - `POST /assistant/portfolio-review`
 - `POST /strategy-lab/etf-ranking`
+
+Architecture rule:
+
+- docs should distinguish between current implemented route groups and future normalized route groups
+- a future API sketch should not hide already-shipping seams like candidate construction, intent-bound replacement ranking, or overlay-aware replay
 
 ## Broker Import and Source-of-Truth Files
 
@@ -165,6 +218,15 @@ These must remain visibly distinct in both payloads and UI.
 6. replay candidate vs baseline
 7. emit before/after diagnostics
 
+Current narrow implemented path:
+
+1. record draft-scoped replacement intent
+2. optionally rank ETF replacements within the explicit peer group / seed context
+3. derive candidate formation or candidate construction in the backend
+4. replay baseline vs hypothetical candidate
+5. optionally apply the narrow benchmark-trend overlay to the candidate only
+6. emit replay metrics plus synthetic replay diagnostics comparison
+
 ## Backtest Diagnostics Provenance
 
 Portfolio-allocation backtests now expose diagnostics provenance explicitly.
@@ -189,6 +251,20 @@ Implementation locations:
 UI rule:
 
 - backtest diagnostics should present this provenance explicitly so users do not confuse synthetic replay diagnostics with imported history-backed portfolio diagnostics
+
+Known contract limitation:
+
+- hypothetical replay can consume candidate construction outputs built with either `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`
+- the replay response derivation payload still reports the older generic `single_symbol_weight_substitution` value rather than the exact construction rule consumed
+- treat candidate construction as the current authoritative source for exact single-replacement derivation semantics until replay provenance is tightened
+
+Overlay-specific current-state rule:
+
+- the current shipped overlay-aware replay path is intentionally narrow
+- it supports only `benchmark_trend_overlay_v1`
+- it applies only to the hypothetical candidate side
+- in `risk_reduced` state it scales risky candidate weights by `0.35` and allocates the residual to synthetic replay cash `__CASH__`
+- this synthetic cash sleeve is a replay artifact, not imported cash truth
 
 ## Exposure Coverage Methodology
 
@@ -280,6 +356,33 @@ Persisted imported-history metadata now writes a single `historySource` shape in
 
 The current steady state is a clean `historySource`-only runtime and persistence model. Old local caches are invalidated by the database version/reset path rather than carried forward inside runtime code.
 
+### Current desktop panel ownership
+
+Use `docs/product/current-product-state.md` as the canonical shipped-state source when this ownership map changes.
+
+Current top-level ownership in the desktop app:
+
+- `Dashboard`
+  - import/session controls, current workspace summary, and variant access
+- `Exposure`
+  - current-state exposure review with snapshot selection across draft and saved nodes
+- `Diagnostics`
+  - current-state overlays plus current-state diagnostics review
+- `Research`
+  - portfolio-improvement workflow shell, replay diagnostics review, replay-scoped Monitoring, and the lower-level allocation replay builder
+- `Backtest`
+  - generic strategy backtests only
+- `Strategy Lab`
+  - separate prototype strategy-research surface
+- `ETF Ranking`
+  - shipped candidate-seeding entry point into Research
+
+Important current ownership rule:
+
+- current-state diagnostics and replay-diagnostics review are no longer the same product surface
+- `Diagnostics` owns current-state portfolio diagnostics
+- `Research` owns portfolio-improvement review, replay-derived diagnostics deltas, and replay-scoped Monitoring
+
 ## Documentation Rule
 
 If a financially meaningful formula, methodology, or truth-class assumption changes, update:
@@ -294,10 +397,14 @@ If a financially meaningful formula, methodology, or truth-class assumption chan
 - LLM owns explanation and suggestion only
 - deterministic code validates any LLM-generated allocation ideas before use
 
-## Rapid Development Rule
+## Development-State Note
 
-During early development, imported portfolio analysis should remain in memory.
+Older docs described imported portfolio analysis as primarily in-memory during early development. That is no longer an accurate description of the shipped desktop workflow.
 
-- API endpoints may parse, normalize, reconcile, and derive portfolio views on demand
-- schema and service boundaries should anticipate future storage integration
-- avoid coupling importer logic to a concrete database until the domain model stabilizes
+Current desktop reality:
+
+- local workspace state restores on launch when persisted state exists
+- IndexedDB-backed workspace persistence is part of normal product behavior, not just a temporary prototype aid
+- imported portfolio truth, workspace lineage, and review artifacts have an active local persistence model even though derived analytics remain non-truth runtime views
+
+Future refactors may still normalize storage boundaries further, but docs should not describe the shipped desktop app as an in-memory-only workflow anymore.

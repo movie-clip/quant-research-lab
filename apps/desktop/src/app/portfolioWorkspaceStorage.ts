@@ -1,8 +1,8 @@
-import { appStateStoreName, candidateImprovementDraftStoreName, constructedCandidateStoreName, deletePortfolioDatabase, formedCandidateStoreName, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, selectedConstructionRuleStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
+import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStoreName, constructedCandidateStoreName, constructionConstraintValidationStoreName, deletePortfolioDatabase, formedCandidateStoreName, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, selectedConstructionRuleStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
-import type { CandidateImprovementDraftArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -261,6 +261,30 @@ export async function saveConstructedCandidateArtifact(annotation: ConstructedCa
   })
 }
 
+export async function getConstructionConstraintValidationArtifact(draftId: string) {
+  return withStore<ConstructionConstraintValidationArtifact | null>(constructionConstraintValidationStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(draftId)
+    request.onsuccess = () => resolve((request.result as ConstructionConstraintValidationArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load construction constraint validation artifact'))
+  })
+}
+
+export async function saveConstructionConstraintValidationArtifact(annotation: ConstructionConstraintValidationArtifact) {
+  await withStore<void>(constructionConstraintValidationStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(annotation)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save construction constraint validation artifact'))
+  })
+}
+
+export async function deleteConstructionConstraintValidationArtifact(draftId: string) {
+  await withStore<void>(constructionConstraintValidationStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(draftId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete construction constraint validation artifact'))
+  })
+}
+
 export async function deleteConstructedCandidateArtifact(draftId: string) {
   await withStore<void>(constructedCandidateStoreName, 'readwrite', (store, resolve, reject) => {
     const request = store.delete(draftId)
@@ -350,6 +374,30 @@ export async function saveProposalArtifact(proposal: VersionedProposalArtifact) 
   })
 }
 
+export async function getActiveThesis(workspaceId: string) {
+  return withStore<ActiveThesisArtifact | null>(activeThesisStoreName, 'readonly', (store, resolve, reject) => {
+    const request = store.get(workspaceId)
+    request.onsuccess = () => resolve((request.result as ActiveThesisArtifact | undefined) ?? null)
+    request.onerror = () => reject(request.error ?? new Error('Failed to load active thesis'))
+  })
+}
+
+export async function saveActiveThesis(thesis: ActiveThesisArtifact) {
+  await withStore<void>(activeThesisStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(thesis)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save active thesis'))
+  })
+}
+
+export async function deleteActiveThesis(workspaceId: string) {
+  await withStore<void>(activeThesisStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.delete(workspaceId)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to delete active thesis'))
+  })
+}
+
 export async function createDraftFromNode(input: { workspaceId: string; baseNodeId: string; name?: string }) {
   const node = await getNode(input.baseNodeId)
   if (!node) throw new Error('Base node not found')
@@ -369,6 +417,7 @@ export async function createDraftFromNode(input: { workspaceId: string; baseNode
   await deleteReplacementIntentDraft(draft.id)
   await deleteFormedCandidateArtifact(draft.id)
   await deleteConstructedCandidateArtifact(draft.id)
+  await deleteConstructionConstraintValidationArtifact(draft.id)
   await deleteSelectedConstructionRule(draft.id)
   await deleteHypotheticalReplacementReplayDraft(draft.id)
   return draft
@@ -521,7 +570,7 @@ export async function saveImportedSnapshotNode(input: {
 }
 
 export async function clearPortfolioWorkspaceState() {
-  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, replacementIntentDraftStoreName, formedCandidateStoreName, constructedCandidateStoreName, selectedConstructionRuleStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName], 'readwrite', (transaction, resolve, reject) => {
+  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, replacementIntentDraftStoreName, formedCandidateStoreName, constructedCandidateStoreName, constructionConstraintValidationStoreName, selectedConstructionRuleStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName, activeThesisStoreName], 'readwrite', (transaction, resolve, reject) => {
     transaction.objectStore(workspaceStoreName).clear()
     transaction.objectStore(portfolioNodeStoreName).clear()
     transaction.objectStore(workingDraftStoreName).clear()
@@ -531,9 +580,11 @@ export async function clearPortfolioWorkspaceState() {
     transaction.objectStore(replacementIntentDraftStoreName).clear()
     transaction.objectStore(formedCandidateStoreName).clear()
     transaction.objectStore(constructedCandidateStoreName).clear()
+    transaction.objectStore(constructionConstraintValidationStoreName).clear()
     transaction.objectStore(selectedConstructionRuleStoreName).clear()
     transaction.objectStore(hypotheticalReplacementReplayDraftStoreName).clear()
     transaction.objectStore(versionedProposalStoreName).clear()
+    transaction.objectStore(activeThesisStoreName).clear()
     const request = transaction.objectStore(appStateStoreName).delete(activeWorkspacePointerKey)
     request.onsuccess = () => resolve(undefined)
     request.onerror = () => reject(request.error ?? new Error('Failed to clear workspace state'))

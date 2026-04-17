@@ -13,6 +13,10 @@ This file should be updated whenever financially meaningful formulas, assumption
 
 This document is the core finance-methodology reference for the `Quant Research Lab` direction of the project.
 
+For the canonical shipped-scope boundary of what is actually live today, use `docs/product/current-product-state.md`.
+
+This document should explain implemented financial methodology without overstating transitional or future-only capabilities.
+
 ## Terminology
 
 The project uses the term `factor` rather than `quant`.
@@ -44,6 +48,8 @@ The project distinguishes between different financial truth classes.
   - based on current holdings only
 - `synthetic snapshot-history diagnostics`
   - approximate historical diagnostics built from current holdings plus external market data
+- `replay-derived hypothetical outputs`
+  - hypothetical allocation replay, candidate comparison, and overlay-aware replay artifacts built from explicit candidate/reference weights and market data
 
 This distinction matters because some panels can be financially exact for imported history, while variant/snapshot workflows may be approximate.
 
@@ -52,6 +58,7 @@ Relevant implementation:
 
 Diagnostics contract rule:
 - diagnostics responses must carry explicit provenance for snapshot basis and historical basis so imported portfolio history and synthetic snapshot-history analytics are not conflated
+- diagnostics responses must also carry `history_truth_class` and `price_basis` so consumers can distinguish imported-history-equivalent, synthetic-history-derived, and unavailable states
 - diagnostics summary fields must only expose history-derived diagnostics values and must not mix in current-state holdings concentration
 
 ## Market Data Basis
@@ -66,6 +73,10 @@ Important financial rule:
 
 Current risk note:
 - some model paths rely on the incoming `price` field being total-return-aware; this should be treated as a financial assumption until explicitly hardened in code and metadata
+
+Current diagnostics note:
+- diagnostics engine run metadata currently reports `price_basis = close` when history-aware diagnostics are available
+- unavailable diagnostics report `price_basis = unavailable`
 
 ## Portfolio Return Methodology
 
@@ -494,6 +505,10 @@ Economic meaning:
 Limitation:
 - this is an exposure-based approximation, not a full market replay
 
+Contract rule:
+- unavailable stress scenario support must not fabricate `0.0%` returns
+- when unavailable, diagnostics should return `estimated_return_pct = null` with `status = unavailable`
+
 ## Market Overlap and Look-Through
 
 The project includes benchmark overlap and ETF look-through logic.
@@ -550,13 +565,67 @@ Historical allocation replay using adjusted prices, aligned valuation dates, nex
 
 Relevant implementation:
 - `services/quant-engine/app/backtests/portfolio_engine.py`
-- `services/quant-engine/app/services/portfolio_backtest_analysis.py`
+- `services/quant-engine/app/services/portfolio_backtest_engine.py`
 
 Key ideas:
 - weighted portfolio replay
 - scheduled rebalancing
 - turnover and transaction costs
 - reference vs candidate portfolio comparison
+
+Current request assumptions:
+- replay request contract currently uses `price_basis = adjusted_close`
+- execution uses `execution_price_field = close`
+- execution lag is explicit and must be at least one day
+- candidate/reference comparisons fail explicitly when there are not enough common aligned dates
+
+Current shipped replay surfaces:
+- canonical allocation replay at `POST /backtests/portfolio-allocation`
+- hypothetical replacement replay at `POST /backtests/portfolio-allocation/replacement-intent-preview`
+- overlay-aware hypothetical replay at `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
+
+Current replay provenance limitation:
+- hypothetical replay can consume a backend-constructed candidate built from either `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`
+- the replay response derivation payload still reports the older generic `single_symbol_weight_substitution` value rather than the exact construction rule consumed
+- treat candidate construction as the more exact current source for single-replacement construction semantics until replay provenance is tightened
+
+### Single-Replacement Candidate Construction
+
+The current shipped construction logic is narrow and review-oriented rather than a generalized portfolio construction engine.
+
+Current implemented rules:
+- `same_weight_substitution_v1`
+  - fully remove the incumbent weight and assign that full starting weight to the candidate symbol
+- `fixed_split_50_50_substitution_v2`
+  - retain half of the incumbent starting weight and assign the other half to the candidate symbol
+
+Construction basis rules:
+- baseline weights are derived from positive-market-value draft snapshot positions only
+- draft cash balances are excluded from the current construction basis
+- constructed candidates are hypothetical candidate inputs only and do not mutate `PortfolioSnapshot`
+
+Relevant implementation:
+- `services/quant-engine/app/services/candidate_construction.py`
+- `services/quant-engine/app/services/candidate_formation.py`
+
+### Overlay-Aware Hypothetical Replay
+
+The current shipped overlay-aware replay is a narrow methodology layer on top of hypothetical replay, not a general overlay engine.
+
+Current overlay behavior:
+- supported overlay id: `benchmark_trend_overlay_v1`
+- supported replayable overlay states: `risk_on`, `risk_reduced`
+- `risk_on` leaves candidate weights unchanged
+- `risk_reduced` scales non-cash candidate weights by `0.35`
+- residual weight is assigned to synthetic replay cash symbol `__CASH__`
+- overlay is applied to the hypothetical candidate only, not to baseline/reference weights
+
+Methodology rule:
+- synthetic replay cash `__CASH__` is an internal replay artifact used to preserve candidate total weight under overlay risk reduction
+- it must not be interpreted as imported broker cash truth
+
+Relevant implementation:
+- `services/quant-engine/app/services/portfolio_backtest_engine.py`
 
 ## Financial Accuracy Rules
 
@@ -577,6 +646,9 @@ At the time of writing, the main finance-related limitations are:
 - orthogonalized factor interpretation depends on factor ordering
 - factor-model reliability diagnostics are present but still need production-grade hardening
 - synthetic snapshot-history diagnostics are useful but not equivalent to broker-truth historical replay
+- overlay support is currently a narrow hypothetical replay path, not a generalized overlay methodology family
+- candidate construction is currently narrow single-replacement review logic, not generalized portfolio construction
+- replay provenance is still partial when a replay consumes a constructed candidate
 - some diagnostics panels are more monitoring-oriented than portfolio-manager-decision-oriented
 
 ## Recommended Maintenance Rule

@@ -769,11 +769,11 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       </section>
 
       <section className="dashboard-bottom-grid exposure-primary-section exposure-priority-grid">
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Broad Market Risk</p></div><p className="helper">Current-state overlap is shown separately from historical benchmark-risk diagnostics.{scenarioPreview ? ' Historical diagnostics remain baseline.' : ''}</p></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Alignment</p></div><p className="helper">Current overlap snapshot is shown separately from historical benchmark diagnostics.{scenarioPreview ? ' Historical diagnostics remain baseline.' : ''}</p></div>
         <div className="market-risk-layout">
           <div className="dashboard-summary market-risk-grid market-risk-grid-dense">
           <div className="summary-card metric-card metric-card-neutral">
-            <p className="stat-label">Current-State Overlap</p>
+            <p className="stat-label">Current Overlap Snapshot</p>
             <p className="helper">Look-through overlap versus benchmark constituents using current holdings only</p>
           </div>
           <div className={metricCardClass(overlapTone)}>
@@ -787,7 +787,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
             <p className="helper">Lower reads closer to benchmark construction when benchmark holdings are available</p>
           </div>
           <div className="summary-card metric-card metric-card-neutral">
-            <p className="stat-label">Historical Benchmark Risk</p>
+            <p className="stat-label">Historical Benchmark Diagnostics</p>
             <p className="helper">History-aware benchmark-relative diagnostics from persisted import history</p>
           </div>
           <div className={metricCardClass(trackingErrorTone)}>
@@ -1083,7 +1083,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
 
       <div className="split-grid dashboard-bottom-grid">
         <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Current-State Concentration</p></div><p className="helper">Snapshot holdings concentration only; separate from history-derived diagnostics risk concentration.</p></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Current Concentration Snapshot</p></div><p className="helper">Snapshot holdings concentration only; separate from history-derived diagnostics concentration measures.</p></div>
           <div className="dashboard-summary compact-summary-grid">
             <div className="summary-card"><p className="stat-label">Top 1 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_1_position_weight != null ? result.current_state_concentration.top_1_position_weight * 100 : null)}</p></div>
             <div className="summary-card"><p className="stat-label">Top 3 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_3_position_weight != null ? result.current_state_concentration.top_3_position_weight * 100 : null)}</p></div>

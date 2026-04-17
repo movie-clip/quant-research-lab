@@ -94,7 +94,7 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
     <article className="panel">
       <p className="panel-label">Backtest</p>
       <h2>Generic strategy backtests</h2>
-      <p className="lead compact-lead">Run generic strategy backtests here. Portfolio-improvement workflow, replay diagnostics, overlays, and monitoring stay in Research.</p>
+      <p className="lead compact-lead">Run generic strategy backtests here. Portfolio-improvement workflow, replay diagnostics, overlays, and monitoring stay in the Workspace.</p>
 
       <div className="backtest-builder">
         <p className="panel-label">Strategy Backtest</p>

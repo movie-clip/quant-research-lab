@@ -340,6 +340,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   const activeSector = hoveredSector ?? lockedSector
   const selectedSector = activeSector ?? sectorAllocation[0]?.sector ?? null
   const selectedSectorPositions = selectedSector ? sectorDraft[selectedSector] ?? [] : []
+  const selectedSectorAllocation = selectedSector ? sectorAllocation.find((item) => item.sector === selectedSector) ?? null : null
   const baseCapital = draftSnapshot?.positions.reduce((total, position) => total + position.marketValue, 0) ?? result?.overview.total_market_value ?? 0
   const editedNetCapital = nextDraftSnapshot?.positions.reduce((total, position) => total + position.marketValue, 0) ?? 0
   const grossExposure = Object.values(sectorDraft).flat().reduce((total, position) => total + Math.abs(position.market_value), 0)
@@ -501,14 +502,20 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
               </div>
             </div>
             <div className="chart-controls dashboard-performance-controls">
-              <div className="toggle-group">
-                <button className={`toggle-chip${showPortfolio ? ' active' : ''}`} onClick={() => setShowPortfolio((value) => !value)} type="button">Portfolio</button>
-                <button className={`toggle-chip${showBenchmark ? ' active' : ''}`} onClick={() => setShowBenchmark((value) => !value)} type="button">Benchmark</button>
+              <div className="dashboard-control-stack">
+                <span className="dashboard-control-label">Series</span>
+                <div className="toggle-group">
+                  <button className={`toggle-chip${showPortfolio ? ' active' : ''}`} onClick={() => setShowPortfolio((value) => !value)} type="button">Portfolio</button>
+                  <button className={`toggle-chip${showBenchmark ? ' active' : ''}`} onClick={() => setShowBenchmark((value) => !value)} type="button">Benchmark</button>
+                </div>
               </div>
-              <div className="range-group">
-                {(['1M', '3M', 'YTD', '1Y', 'All'] as RangeOption[]).map((range) => (
-                  <button key={range} className={`range-chip${selectedRange === range ? ' active' : ''}`} onClick={() => setSelectedRange(range)} type="button">{range}</button>
-                ))}
+              <div className="dashboard-control-stack">
+                <span className="dashboard-control-label">Range</span>
+                <div className="range-group">
+                  {(['1M', '3M', 'YTD', '1Y', 'All'] as RangeOption[]).map((range) => (
+                    <button key={range} className={`range-chip${selectedRange === range ? ' active' : ''}`} onClick={() => setSelectedRange(range)} type="button">{range}</button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -537,11 +544,16 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
 
       <section className="dashboard-bottom-grid unified-sector-section">
         <div className="section-header-inline sector-list-header dashboard-edit-toolbar">
-          <div>
+          <div className="dashboard-section-copy dashboard-allocation-copy">
             <p className="panel-label">Allocation Overview</p>
+            <h3>Allocation editor</h3>
+            <p className="helper">Review sector mix, lock a bucket, then size holdings before previewing Exposure.</p>
           </div>
-          <div className="actions dashboard-edit-actions dashboard-edit-actions-global dashboard-edit-actions-compact">
-            <input className="path-input dashboard-variant-input" value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="Variant name" />
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-global dashboard-edit-actions-compact dashboard-allocation-toolbar">
+            <label className="dashboard-inline-field">
+              <span className="field-label">Variant</span>
+              <input className="path-input dashboard-variant-input" value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="Variant name" aria-label="Variant name" />
+            </label>
             <button className="secondary-button" type="button" onClick={() => { setSectorDraft(buildEditableSectorDraftFromSnapshot(draftSnapshot)); void onDiscardDraft?.() }}>Discard draft</button>
             <button className="secondary-button" type="button" onClick={() => { if (variantName.trim()) void onSaveVariant?.(variantName.trim()) }} disabled={!variantName.trim()}>Save Variant</button>
             <button className="primary-button" type="button" onClick={() => nextDraftSnapshot && onPreviewExposure?.(nextDraftSnapshot)}>Preview in Exposure</button>
@@ -549,7 +561,14 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
         </div>
 
         <div className="sector-overview-grid unified-sector-grid">
-          <div className="sector-pie-wrap sector-pie-panel">
+          <div className="summary-card dashboard-allocation-panel sector-pie-wrap sector-pie-panel">
+            <div className="section-header-inline sector-list-header dashboard-subpanel-header">
+              <div className="dashboard-section-copy">
+                <p className="panel-label">Sector Mix</p>
+                <h3>Edited allocation map</h3>
+                <p className="helper">Hover to preview and click to lock a sector.</p>
+              </div>
+            </div>
             {sectorAllocation.length ? (
               <svg className="sector-pie" viewBox="0 0 220 220" role="img" aria-label="Sector allocation pie chart">
                 {pieSegments.map((segment) => {
@@ -591,10 +610,12 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
             )}
           </div>
 
-          <div>
-            <div className="section-header-inline sector-list-header">
-              <div>
+          <div className="summary-card dashboard-allocation-panel dashboard-legend-panel">
+            <div className="section-header-inline sector-list-header dashboard-subpanel-header">
+              <div className="dashboard-section-copy">
                 <p className="panel-label">Diversification by Sector</p>
+                <h3>Weights by bucket</h3>
+                <p className="helper">Edited capital {formatMoney(editedNetCapital)} across {sectorAllocation.length || 0} sectors.</p>
               </div>
             </div>
             {sectorAllocation.length ? (
@@ -622,12 +643,16 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
             ) : null}
           </div>
 
-          <div>
-            <div className="section-header-inline sector-list-header">
-              <div>
+          <div className="summary-card dashboard-allocation-panel dashboard-holdings-panel">
+            <div className="section-header-inline sector-list-header dashboard-subpanel-header">
+              <div className="dashboard-section-copy dashboard-subpanel-header-copy">
                 <p className="panel-label">{selectedSector ? `${selectedSector} Holdings` : 'Sector Holdings'}</p>
+                <h3>{selectedSector ? 'Holdings editor' : 'Choose a sector to edit'}</h3>
+                <p className="helper">{selectedSectorAllocation ? `${formatPct(selectedSectorAllocation.weight * 100)} of edited capital` : 'Select a sector from the pie or legend to inspect holdings.'}</p>
               </div>
-              {lockedSector ? <p className="helper">Locked on {lockedSector}</p> : <p className="helper">No sector locked</p>}
+              <div className="dashboard-subpanel-meta">
+                {lockedSector ? <p className="helper">Locked on {lockedSector}</p> : <p className="helper">No sector locked</p>}
+              </div>
             </div>
             <div className="summary-card strategy-summary-card dashboard-edit-summary-card">
               <p className="stat-label">Draft Capital Check</p>
@@ -635,12 +660,18 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
               <p className="helper">Remaining capital after edits · Leverage {formatNumber(leverageRatio, 2)}x</p>
             </div>
             {selectedSectorPositions.length ? (
-              <div className="list-table">
+              <div className="list-table dashboard-editor-table">
+                <div className="list-row dashboard-edit-row dashboard-edit-row-head" aria-hidden="true">
+                  <span>Ticker</span>
+                  <span>Market value</span>
+                  <span>Weight</span>
+                  <span>Action</span>
+                </div>
                 {selectedSectorPositions.map((position, index) => (
                   <div className="list-row dashboard-edit-row" key={`${selectedSector}-${position.symbol}-${index}`}>
-                    <input className="path-input dashboard-edit-symbol" value={String(position.symbol)} onChange={(event) => updateSelectedSectorHolding(index, 'symbol', event.target.value)} placeholder="Ticker" />
-                    <input className="path-input dashboard-edit-value" inputMode="decimal" value={String(position.market_value)} onChange={(event) => updateSelectedSectorHolding(index, 'market_value', event.target.value)} placeholder="Market value" />
-                    <span>{formatPct(editedNetCapital > 0 ? (Number(position.market_value) / editedNetCapital) * 100 : 0)}</span>
+                    <input className="path-input dashboard-edit-symbol" value={String(position.symbol)} onChange={(event) => updateSelectedSectorHolding(index, 'symbol', event.target.value)} placeholder="Ticker" aria-label={`${selectedSector} holding ticker ${index + 1}`} />
+                    <input className="path-input dashboard-edit-value" inputMode="decimal" value={String(position.market_value)} onChange={(event) => updateSelectedSectorHolding(index, 'market_value', event.target.value)} placeholder="Market value" aria-label={`${selectedSector} holding market value ${index + 1}`} />
+                    <span className="dashboard-edit-cell-muted">{formatPct(editedNetCapital > 0 ? (Number(position.market_value) / editedNetCapital) * 100 : 0)}</span>
                     <button className="secondary-button" type="button" onClick={() => removeSelectedSectorHolding(index)}>Remove</button>
                   </div>
                 ))}

@@ -551,3 +551,56 @@ class SingleReplacementCandidateConstructionResponse(BaseModel):
     truth_provenance: CandidateConstructionTruthProvenance
     warnings: list[str] = Field(default_factory=list)
     rejection_reason: str | None = None
+
+
+class SingleReplacementConstructionConstraintSetInput(BaseModel):
+    constraint_set_id: str
+
+
+class SingleReplacementConstraintValidationState(BaseModel):
+    kind: Literal["single_replacement_construction_constraint_validation"]
+    status: Literal["ok", "blocked", "rejected"]
+    constraint_set_id: Literal["single_replacement_construction_constraints_v1"]
+
+
+class SingleReplacementConstraintEvaluation(BaseModel):
+    constraint_id: str
+    severity: Literal["hard_block", "warning"]
+    status: Literal["pass", "fail", "not_applicable"]
+    message: str
+    rationale: str | None = None
+    actual_value: float | str | None = None
+    expected_value: float | str | None = None
+    operator: Literal["<=", ">=", "==", "!=", "in"] | None = None
+
+
+class SingleReplacementConstraintValidationDerivation(BaseModel):
+    validation_timing: Literal["post_construction_pre_replay"]
+    validation_basis: Literal["explicit_constraint_set"]
+    candidate_input_source: Literal["constructed_candidate_payload"]
+    constraint_set_id: Literal["single_replacement_construction_constraints_v1"]
+
+
+class SingleReplacementConstraintValidationTruthProvenance(BaseModel):
+    baseline_truth_class: Literal["draft_snapshot_basis"]
+    construction_truth_class: Literal["candidate_construction_derived"]
+    candidate_truth_class: Literal["hypothetical_candidate_input_only"]
+    constraint_validation_truth_class: Literal["constraint_validation_derived"]
+    note: str
+
+
+class SingleReplacementConstructionConstraintValidationRequest(BaseModel):
+    constructed_candidate: ConstructedCandidateReplayInput | None = None
+    constraint_set: SingleReplacementConstructionConstraintSetInput | None = None
+
+
+class SingleReplacementConstructionConstraintValidationResponse(BaseModel):
+    validation: SingleReplacementConstraintValidationState
+    proposal: CandidateFormationProposal
+    construction: CandidateConstructionState
+    derivation: SingleReplacementConstraintValidationDerivation
+    truth_provenance: SingleReplacementConstraintValidationTruthProvenance
+    evaluations: list[SingleReplacementConstraintEvaluation] = Field(default_factory=list)
+    blocking_constraint_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    rejection_reason: str | None = None

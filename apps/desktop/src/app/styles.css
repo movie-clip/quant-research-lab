@@ -619,6 +619,20 @@ select.path-input option {
 
 .dashboard-performance-controls {
   justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.dashboard-control-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-control-label {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .dashboard-performance-meta-grid {
@@ -1690,6 +1704,16 @@ select.path-input option {
   justify-content: flex-end;
 }
 
+.dashboard-section-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-section-copy > h3,
+.dashboard-section-copy > .helper {
+  margin: 0;
+}
+
 .dashboard-append-button {
   border-style: dashed;
 }
@@ -2367,6 +2391,47 @@ select.path-input option {
   background: linear-gradient(180deg, rgba(18, 24, 33, 0.96) 0%, rgba(16, 21, 29, 1) 100%);
 }
 
+.dashboard-allocation-copy {
+  max-width: 520px;
+}
+
+.dashboard-allocation-toolbar {
+  align-items: flex-end;
+}
+
+.dashboard-inline-field {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-allocation-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 100%;
+}
+
+.dashboard-subpanel-header {
+  margin-bottom: 0;
+}
+
+.dashboard-subpanel-header-copy {
+  max-width: 360px;
+}
+
+.dashboard-subpanel-meta {
+  justify-self: end;
+}
+
+.dashboard-subpanel-meta .helper {
+  margin: 0;
+}
+
+.dashboard-legend-panel,
+.dashboard-holdings-panel {
+  min-width: 0;
+}
+
 .unified-sector-grid {
   margin-top: 10px;
 }
@@ -2455,6 +2520,11 @@ select.path-input option {
   display: grid;
   gap: 10px;
   align-content: start;
+}
+
+.dashboard-editor-table {
+  display: grid;
+  gap: 6px;
 }
 
 .sector-row {
@@ -2669,6 +2739,23 @@ select.path-input option {
   align-items: center;
 }
 
+.dashboard-edit-row-head {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: none;
+}
+
+.dashboard-edit-cell-muted {
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
 .dashboard-edit-row .secondary-button {
   min-height: 34px;
   padding: 0 10px;
@@ -2804,6 +2891,10 @@ select.path-input option {
 
   .dashboard-performance-controls {
     justify-content: flex-start;
+  }
+
+  .dashboard-subpanel-meta {
+    justify-self: start;
   }
 
   .dashboard-quant-metric-topline {

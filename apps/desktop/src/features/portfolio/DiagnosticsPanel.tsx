@@ -344,9 +344,9 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
     <section className="dashboard-quant-header-shell diagnostics-quant-shell" data-testid="diagnostics-shell">
       <div className="section-header-inline dashboard-quant-header-row">
         <div className="dashboard-quant-header-copy">
-          <p className="panel-label">Decision-grade shell</p>
-          <h3>Provenance first, then decision signals</h3>
-          <p className="helper">Backend truth stays explicit while the top shell surfaces the first diagnostics to review.</p>
+          <p className="panel-label">Diagnostics Shell</p>
+          <h3>Provenance and decision signals</h3>
+          <p className="helper">Start with source truth and availability, then scan the compact readout before moving into the deeper diagnostics.</p>
         </div>
         <div className="tab-bar dashboard-meta-row-quant diagnostics-provenance-strip">
           <span className="backtest-source-badge">{snapshotBasisLabel}</span>
@@ -389,7 +389,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
               <div>
                 <p className="panel-label">Decision Readout</p>
               </div>
-              <p className="helper">Decision cards stay thin: every value is mapped directly from backend summary outputs.</p>
+              <p className="helper">Decision cards stay compact: every value is mapped directly from backend summary outputs.</p>
             </div>
             <div className="dashboard-summary compact-summary-grid diagnostics-decision-grid">
               <div className={metricCardClassName(drawdownTone)}>
@@ -488,10 +488,10 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
   }
 
   return (
-      <article className="panel">
-        <p className="panel-label">Diagnostics</p>
-        <h2>Factor and risk diagnostics</h2>
-        <p className="lead compact-lead">{diagnosticsLead()}</p>
+    <article className="panel">
+      <p className="panel-label">Diagnostics</p>
+      <h2>Factor and risk diagnostics</h2>
+      <p className="lead compact-lead">{diagnosticsLead()}</p>
       {diagnosticsShell}
 
       <section className="dashboard-bottom-grid exposure-primary-section diagnostics-behavior-section" data-testid="diagnostics-behavior-through-time">
@@ -499,13 +499,13 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
           <div>
             <p className="panel-label">Behavior Through Time</p>
           </div>
-          <p className="helper">Temporal behavior stays primary here: {historyTruthClassLabel} / {historicalStatusLabel} / {behaviorWindowStatusLabel}.</p>
+          <p className="helper">Use the selected window to review risk path, benchmark-relative behavior, and factor loadings without inventing unsupported history.</p>
           {behaviorWindowControls}
         </div>
         <div className="factor-snapshot-meta-row diagnostics-behavior-meta-row">
           <p className="helper">Provenance: {result.provenance.note}</p>
           <p className="helper">Availability: {result.availability.note ?? 'Historical diagnostics remain live for the supported windows shown here.'}</p>
-          <p className="helper">252d paths appear only when the engine reports real support; missing windows are not interpolated.</p>
+          <p className="helper">Status: {historyTruthClassLabel} / {historicalStatusLabel} / {behaviorWindowStatusLabel}. Unsupported windows stay hidden instead of interpolated.</p>
         </div>
 
         {!behaviorWindowAvailable ? (
