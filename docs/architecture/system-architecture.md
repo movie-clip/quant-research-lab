@@ -368,7 +368,7 @@ Current top-level ownership in the desktop app:
   - current-state exposure review with snapshot selection across draft and saved nodes
 - `Diagnostics`
   - current-state overlays plus current-state diagnostics review
-- `Research`
+- `Workspace`
   - portfolio-improvement workflow shell, replay diagnostics review, replay-scoped Monitoring, and the lower-level allocation replay builder
 - `Backtest`
   - generic strategy backtests only
@@ -381,7 +381,7 @@ Important current ownership rule:
 
 - current-state diagnostics and replay-diagnostics review are no longer the same product surface
 - `Diagnostics` owns current-state portfolio diagnostics
-- `Research` owns portfolio-improvement review, replay-derived diagnostics deltas, and replay-scoped Monitoring
+- `Workspace` owns portfolio-improvement review, replay-derived diagnostics deltas, and replay-scoped Monitoring
 
 ## Documentation Rule
 

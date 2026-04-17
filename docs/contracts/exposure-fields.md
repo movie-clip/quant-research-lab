@@ -44,8 +44,31 @@ Exposure now exposes explicit backend provenance and run metadata alongside the 
 - `run_metadata.engine_id`
 - `run_metadata.methodology_id`
 - `run_metadata.price_basis`
-- `run_metadata.source_status`
+- `run_metadata.source_status.lookthrough_resolution`
+- `run_metadata.source_status.benchmark_holdings`
 - `run_metadata.confidence`
+- `run_metadata.reproducibility.input_imported_at`
+- `run_metadata.reproducibility.snapshot_as_of_date`
+- `run_metadata.reproducibility.benchmark_symbol`
+- `run_metadata.reproducibility.dataset_version`
+
+Current exposure run-metadata semantics:
+
+- `run_metadata.source_status.lookthrough_resolution`
+  - `live`: current snapshot positions resolved into usable look-through constituents with no unresolved holdings
+  - `partial`: some holdings remain unresolved, but at least part of the current snapshot resolved into constituents
+  - `unavailable`: no resolvable holdings were produced for the current snapshot
+- `run_metadata.source_status.benchmark_holdings`
+  - `live`: benchmark holdings loaded successfully for the requested benchmark symbol
+  - `unavailable`: benchmark holdings could not be loaded; overlap metrics should remain unavailable rather than implying zero overlap
+- `run_metadata.reproducibility.input_imported_at`
+  - normalized snapshot import timestamp used by the current exposure run
+- `run_metadata.reproducibility.snapshot_as_of_date`
+  - latest position `as_of_date` present in the submitted/imported snapshot
+- `run_metadata.reproducibility.benchmark_symbol`
+  - benchmark symbol actually requested for overlap calculations
+- `run_metadata.reproducibility.dataset_version`
+  - version tag for the market-data-backed resolution path used by the exposure engine today
 
 ## Truth Classes
 

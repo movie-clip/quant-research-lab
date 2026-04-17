@@ -1,13 +1,11 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
-import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 import { buildExposureFactorModelResponse } from '../features/portfolio/exposureFactorModel'
 import { canUseImportedReplay, collapseToHistoryContextSource, resolveEffectiveHistorySource } from '../features/portfolio/historySource'
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
 import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
-import { DiagnosticsPanel } from '../features/portfolio/DiagnosticsPanel'
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { desktopFeatureFlags } from './featureFlags'
@@ -18,6 +16,8 @@ import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysP
 
 
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
+const DashboardPanel = lazy(async () => ({ default: (await import('../features/portfolio/DashboardPanel')).DashboardPanel }))
+const DiagnosticsPanel = lazy(async () => ({ default: (await import('../features/portfolio/DiagnosticsPanel')).DiagnosticsPanel }))
 const BacktestWorkspacePanel = lazy(async () => ({ default: (await import('../features/backtest/BacktestWorkspacePanel')).BacktestWorkspacePanel }))
 const StrategyBacktestPanel = lazy(async () => ({ default: (await import('../features/backtest/StrategyBacktestPanel')).StrategyBacktestPanel }))
 const StrategyLabPanel = lazy(async () => ({ default: (await import('../features/strategy-lab/StrategyLabPanel')).StrategyLabPanel }))
@@ -1011,26 +1011,28 @@ export function App() {
 
       {tab === 'dashboard' ? (
         <section className="grid grid-single">
-          <DashboardPanel
-            result={analysis}
-            exposureResult={exposureAnalysis}
-            factorModel={exposureFactorModel}
-            draftSnapshot={workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null}
-            activeNodeName={activeNode?.name ?? null}
-            draftStatus={workingDraft?.status ?? null}
-            importing={importingPortfolio || restoringPortfolio}
-            importError={importError}
-            lastImportedFileNames={lastImportedFileNames}
-            restoredSession={restoredSession}
-            onImportPortfolio={() => openImportPicker('replace')}
-            onAppendStatement={analysis && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
-            onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
-            onResetLocalDatabase={handleResetLocalDatabase}
-            onPreviewExposure={handlePreviewExposure}
-            onDraftSnapshotChange={handleDraftSnapshotChange}
-            onDiscardDraft={handleDiscardDraft}
-            onSaveVariant={handleSaveVariant}
-          />
+          <Suspense fallback={<section className="panel"><p className="panel-label">Dashboard</p><p className="helper">Loading dashboard...</p></section>}>
+            <DashboardPanel
+              result={analysis}
+              exposureResult={exposureAnalysis}
+              factorModel={exposureFactorModel}
+              draftSnapshot={workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null}
+              activeNodeName={activeNode?.name ?? null}
+              draftStatus={workingDraft?.status ?? null}
+              importing={importingPortfolio || restoringPortfolio}
+              importError={importError}
+              lastImportedFileNames={lastImportedFileNames}
+              restoredSession={restoredSession}
+              onImportPortfolio={() => openImportPicker('replace')}
+              onAppendStatement={analysis && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
+              onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
+              onResetLocalDatabase={handleResetLocalDatabase}
+              onPreviewExposure={handlePreviewExposure}
+              onDraftSnapshotChange={handleDraftSnapshotChange}
+              onDiscardDraft={handleDiscardDraft}
+              onSaveVariant={handleSaveVariant}
+            />
+          </Suspense>
           <VariantList nodes={workspaceNodes} activeNodeId={activeNode?.id ?? null} onOpenNode={handleOpenNode} />
         </section>
       ) : null}
@@ -1080,7 +1082,9 @@ export function App() {
         {tab === 'diagnostics' ? (
           <section className="grid grid-single">
             <TrendRiskOverlaysPanel result={diagnosticsAnalysis} />
-            <DiagnosticsPanel result={diagnosticsAnalysis} />
+            <Suspense fallback={<section className="panel"><p className="panel-label">Diagnostics</p><p className="helper">Loading diagnostics...</p></section>}>
+              <DiagnosticsPanel result={diagnosticsAnalysis} />
+            </Suspense>
           </section>
         ) : null}
 

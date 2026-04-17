@@ -300,7 +300,7 @@ Make current-vs-candidate the core product workflow.
 Current implemented progress inside this flow:
 - replacement intent can now feed explicit candidate formation and candidate construction backend routes before replay
 - construction is backend-owned and deterministic; the desktop does not author finance logic for candidate weights
-- Research now owns an explicit shell-first workflow order: current portfolio, candidate idea, candidate formation, construction rule, hypothetical replay, diagnostics change, and saved proposal
+- Workspace now owns an explicit shell-first workflow order: current portfolio, candidate idea, candidate formation, construction rule, hypothetical replay, diagnostics change, and saved proposal
 - hypothetical replacement replay now has a PM-first diagnostics delta review surface
 - hypothetical replay can consume either direct same-weight derivation or an accepted constructed candidate payload
 - diagnostics groups currently read in decision order: concentration, factor exposure, volatility/drawdown, risk contribution, stress/scenario
@@ -309,8 +309,8 @@ Current implemented progress inside this flow:
 - a reviewed hypothetical replay can now be saved locally as an immutable versioned proposal artifact within the workspace
 - the latest saved proposal can now be reviewed in a proposal-specific readout that is rendered from saved artifact data only, without depending on active draft or live replay state
 - overlay-aware hypothetical replay now exists as a narrow backend slice for `benchmark_trend_overlay_v1` applied to the hypothetical candidate only
-- replay-scoped Monitoring now lives inside `Research`, after the shell and before the lower-level builder, and it is not a separate continuous monitoring system yet
-- Monitoring-to-Research continuity is currently a narrow explicit handoff into shell sections, not a persistent alert/review-history workflow
+- replay-scoped Monitoring now lives inside `Workspace`, after the shell and before the lower-level builder, and it is not a separate continuous monitoring system yet
+- Monitoring-to-Workspace continuity is currently a narrow explicit handoff into shell sections, not a persistent alert/review-history workflow
 
 ### Required comparison surfaces
 - total and annualized return

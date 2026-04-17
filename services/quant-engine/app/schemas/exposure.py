@@ -35,12 +35,25 @@ class ExposureProvenance(BaseModel):
     note: str
 
 
+class ExposureRunSourceStatus(BaseModel):
+    lookthrough_resolution: ExposureAvailabilityStatus
+    benchmark_holdings: Literal["live", "unavailable"]
+
+
+class ExposureRunReproducibilityMetadata(BaseModel):
+    input_imported_at: str | None = None
+    snapshot_as_of_date: str | None = None
+    benchmark_symbol: str
+    dataset_version: str
+
+
 class ExposureRunMetadata(BaseModel):
     engine_id: str
     methodology_id: str
     price_basis: Literal["not_applicable"]
-    source_status: Literal["current_state_only"]
+    source_status: ExposureRunSourceStatus
     confidence: ExposureAvailabilityConfidence
+    reproducibility: ExposureRunReproducibilityMetadata
 
 
 class ExposureConcentrationItem(BaseModel):

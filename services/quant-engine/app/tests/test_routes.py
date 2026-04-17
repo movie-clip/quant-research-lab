@@ -307,6 +307,16 @@ def test_exposure_engine_route_accepts_portfolio_snapshot_payload() -> None:
     assert payload["provenance"]["snapshot_basis"] == "snapshot_request"
     assert payload["provenance"]["price_basis"] == "not_applicable"
     assert payload["run_metadata"]["engine_id"] == "exposure_engine_v1"
+    assert payload["run_metadata"]["source_status"] == {
+        "lookthrough_resolution": "live",
+        "benchmark_holdings": "live",
+    }
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-10T00:00:00+00:00",
+        "snapshot_as_of_date": "2026-04-10",
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
     assert payload["current_state_concentration"]["top_1_position_weight"] == 0.5556
     assert payload["current_state_concentration"]["top_3_position_weight"] == 1.0
     assert payload["current_state_concentration"]["position_hhi"] == 0.5062
@@ -337,10 +347,32 @@ def test_diagnostics_engine_route_marks_snapshot_only_history_as_unavailable() -
     assert payload["availability"]["historical_sections_available"] is False
     assert payload["availability"]["history_context_required"] is True
     assert payload["availability"]["status"] == "unavailable"
+    assert payload["availability"]["note"] == "Historical diagnostics are unavailable from snapshot-only input. Attach PortfolioHistoryContext to run rolling diagnostics accurately."
+    assert payload["provenance"]["note"] == "Historical diagnostics are unavailable because snapshot-style input did not include the history context needed to build a valid historical portfolio path."
     assert payload["provenance"]["history_truth_class"] == "unavailable"
     assert payload["provenance"]["price_basis"] == "unavailable"
     assert payload["run_metadata"]["diagnostics_id"] == "diagnostics_engine_v1"
     assert payload["run_metadata"]["price_basis"] == "unavailable"
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-10T00:00:00+00:00",
+        "snapshot_as_of_date": "2026-04-10",
+        "history_start_date": None,
+        "history_end_date": None,
+        "dataset_version": "market_data_service_v1",
+    }
+    assert payload["run_metadata"]["factor_model_parameters"] == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert payload["run_metadata"]["source_status"] == {
+        "portfolio_history": "unavailable",
+        "benchmark_history": "unavailable",
+        "factor_history": "unavailable",
+    }
     assert payload["stress_scenarios"][0]["estimated_return_pct"] is None
     assert payload["stress_scenarios"][0]["status"] == "unavailable"
     assert payload["drawdown_summary"] == {
@@ -398,6 +430,26 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     assert payload["provenance"]["historical_basis"] == "market_data_history"
     assert payload["provenance"]["history_truth_class"] == "synthetic_history_derived"
     assert payload["provenance"]["price_basis"] == "close"
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-23T00:00:00+00:00",
+        "snapshot_as_of_date": "2026-04-23",
+        "history_start_date": "2026-04-10",
+        "history_end_date": "2026-04-17",
+        "dataset_version": "market_data_service_v1",
+    }
+    assert payload["run_metadata"]["factor_model_parameters"] == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert payload["run_metadata"]["source_status"] == {
+        "portfolio_history": "synthetic_snapshot_history",
+        "benchmark_history": "live_market_data",
+        "factor_history": "live_market_data",
+    }
     assert payload["run_metadata"]["confidence"] == "medium"
     assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
     assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
@@ -442,6 +494,19 @@ def test_dashboard_history_engine_route_accepts_snapshot_with_history_context() 
     assert "performance_series" in payload
     assert "source_status" in payload
     assert payload["source_status"]["performance_history"] == "unavailable"
+    assert payload["run_metadata"]["source_status"] == {
+        "performance_history": "unavailable",
+        "monthly_returns": "unavailable",
+        "benchmark_history": "unavailable",
+    }
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-10T00:00:00+00:00",
+        "snapshot_as_of_date": "2026-04-10",
+        "history_start_date": "2026-04-10",
+        "history_end_date": "2026-04-10",
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
     assert "range_metrics" in payload
     assert payload["range_metrics"]["3M"]["summary"]["start_value"] is None
 
@@ -499,6 +564,19 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
     assert "daily_states" in payload
     assert "performance_series" in payload
     assert "range_metrics" in payload
+    assert payload["run_metadata"]["source_status"] == {
+        "performance_history": "live",
+        "monthly_returns": "live",
+        "benchmark_history": "live_market_data",
+    }
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-10T00:00:00+00:00",
+        "snapshot_as_of_date": "2026-04-11",
+        "history_start_date": "2026-04-10",
+        "history_end_date": "2026-04-11",
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
 
 
 def test_imported_dashboard_history_engine_route_marks_missing_imported_history_as_unavailable() -> None:
@@ -530,6 +608,19 @@ def test_imported_dashboard_history_engine_route_marks_missing_imported_history_
     payload = response.json()
     assert payload["source_status"]["performance_history"] == "unavailable"
     assert payload["source_status"]["monthly_returns"] == "unavailable"
+    assert payload["run_metadata"]["source_status"] == {
+        "performance_history": "unavailable",
+        "monthly_returns": "unavailable",
+        "benchmark_history": "unavailable",
+    }
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-10T00:00:00+00:00",
+        "snapshot_as_of_date": None,
+        "history_start_date": None,
+        "history_end_date": None,
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
     assert payload["daily_states"] == []
     assert payload["performance_series"] == []
     assert payload["range_metrics"]["3M"]["summary"]["start_value"] is None
@@ -597,6 +688,26 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
     assert payload["provenance"]["historical_basis"] == "imported_portfolio_history"
     assert payload["provenance"]["history_truth_class"] == "imported_history_equivalent"
     assert payload["provenance"]["price_basis"] == "close"
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-10T00:00:00+00:00",
+        "snapshot_as_of_date": "2026-04-11",
+        "history_start_date": "2026-04-10",
+        "history_end_date": "2026-04-10",
+        "dataset_version": "market_data_service_v1",
+    }
+    assert payload["run_metadata"]["factor_model_parameters"] == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert payload["run_metadata"]["source_status"] == {
+        "portfolio_history": "imported_replay",
+        "benchmark_history": "live_market_data",
+        "factor_history": "live_market_data",
+    }
     assert payload["run_metadata"]["confidence"] == "high"
     assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
     assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
@@ -636,12 +747,34 @@ def test_imported_diagnostics_engine_route_marks_missing_imported_history_as_una
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
-    assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["history_context_required"] is False
     assert payload["availability"]["status"] == "unavailable"
+    assert payload["availability"]["note"] == "Historical diagnostics are unavailable because this imported snapshot does not contain enough broker history to reconstruct a historical portfolio path."
     assert payload["provenance"]["snapshot_basis"] == "imported_snapshot"
     assert payload["provenance"]["historical_basis"] == "unavailable"
     assert payload["provenance"]["history_truth_class"] == "unavailable"
     assert payload["provenance"]["price_basis"] == "unavailable"
+    assert payload["provenance"]["note"] == "Historical diagnostics are unavailable because imported broker history could not be reconstructed from this snapshot."
+    assert payload["run_metadata"]["reproducibility"] == {
+        "input_imported_at": "2026-04-10T00:00:00+00:00",
+        "snapshot_as_of_date": None,
+        "history_start_date": None,
+        "history_end_date": None,
+        "dataset_version": "market_data_service_v1",
+    }
+    assert payload["run_metadata"]["factor_model_parameters"] == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert payload["run_metadata"]["source_status"] == {
+        "portfolio_history": "unavailable",
+        "benchmark_history": "unavailable",
+        "factor_history": "unavailable",
+    }
     assert payload["drawdown_summary"] == {
         "current_drawdown_pct": None,
         "max_drawdown_pct": None,

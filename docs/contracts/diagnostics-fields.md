@@ -48,9 +48,57 @@ Diagnostics now expose explicit grouped run metadata:
 - `run_metadata.price_basis`
 - `run_metadata.source_status`
 - `run_metadata.confidence`
+- `run_metadata.factor_model_parameters`
+- `run_metadata.reproducibility`
+
+### `run_metadata.source_status`
+
+- grouped source-health context for the diagnostics run
+- current fields:
+  - `portfolio_history`
+    - `imported_replay`
+      - historical diagnostics are based on imported portfolio replay semantics
+    - `synthetic_snapshot_history`
+      - historical diagnostics are based on synthetic snapshot-history construction
+    - `unavailable`
+      - no valid portfolio-history path was available
+  - `benchmark_history`
+    - `live_market_data`
+    - `unavailable`
+  - `factor_history`
+    - `live_market_data`
+    - `unavailable`
 
 Contract rule:
 - downstream consumers should treat `run_metadata` plus `provenance` as the authoritative interpretation layer for diagnostics availability and reliability
+- `run_metadata.source_status` must not simply mirror `provenance.historical_basis`; it should describe actual source-health dimensions known at runtime
+
+### `run_metadata.factor_model_parameters`
+
+- grouped audit fields for the diagnostics factor-model configuration already known at runtime
+- current fields:
+  - `rolling_windows_days`
+  - `current_reliability_window_days`
+  - `minimum_window_observations`
+  - `collinearity_warning_threshold`
+  - `orthogonalization_basis`
+  - `ridge_lambda`
+
+Contract rule:
+- these fields are the canonical diagnostics-side audit surface for factor-model windowing and regularization assumptions that would otherwise be buried in implementation details
+
+### `run_metadata.reproducibility`
+
+- grouped audit fields for reconstructing the effective input time basis of the diagnostics run
+- current fields:
+  - `input_imported_at`
+  - `snapshot_as_of_date`
+  - `history_start_date`
+  - `history_end_date`
+  - `dataset_version`
+
+Contract rule:
+- these fields are the current diagnostics-side reproducibility minimum for time-basis and dataset lineage; later contracts can add richer request hashes or dataset timestamps without reinterpreting this grouped shape
 
 ## Contract Rules
 
@@ -60,6 +108,13 @@ Contract rule:
 - availability and provenance are separate dimensions and must not be conflated
 - desktop review flows must not infer broker-truth history from `historical_sections_available = true` alone
 - `historical_basis = market_data_history` must be treated as downgraded synthetic history, not as imported-history equivalence
+
+## Unavailable-Path Messaging Rules
+
+- snapshot-request diagnostics with no usable `PortfolioHistoryContext` must say that history context is missing and keep `history_context_required = true`
+- imported-snapshot diagnostics with no reconstructable broker history must say imported history is insufficient and set `history_context_required = false`
+- any diagnostics run that fails because benchmark or symbol market data cannot be loaded must describe that as a market-data availability problem and set `history_context_required = false`
+- unavailable provenance and stress-scenario notes must match the actual failure reason rather than reusing the snapshot-request `PortfolioHistoryContext` wording for all paths
 
 ## Stress Scenario Availability
 

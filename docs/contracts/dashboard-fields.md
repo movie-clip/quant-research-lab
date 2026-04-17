@@ -48,6 +48,37 @@ Important rule:
 - Dashboard must not inherit imported broker-truth history for a changed snapshot if that would make numbers look plausible but wrong
 - imported engine routes must also degrade to unavailable when broker-truth replay cannot be supported by benchmark history or usable symbol price history
 
+## Dashboard-History Run Metadata
+
+Dashboard-history now exposes an explicit run-metadata slice alongside the lighter history payload:
+
+- `run_metadata.history_id`
+- `run_metadata.methodology_id`
+- `run_metadata.source_status.performance_history`
+- `run_metadata.source_status.monthly_returns`
+- `run_metadata.source_status.benchmark_history`
+- `run_metadata.reproducibility.input_imported_at`
+- `run_metadata.reproducibility.snapshot_as_of_date`
+- `run_metadata.reproducibility.history_start_date`
+- `run_metadata.reproducibility.history_end_date`
+- `run_metadata.reproducibility.benchmark_symbol`
+- `run_metadata.reproducibility.dataset_version`
+
+Current dashboard-history run-metadata semantics:
+
+- `run_metadata.source_status.performance_history`
+  - `live`: daily portfolio states and performance series were successfully built
+  - `unavailable`: history could not be built and the dashboard must stay unavailable rather than imply a usable path
+- `run_metadata.source_status.monthly_returns`
+  - `live`: monthly returns are usable from the current reconstructed path
+  - `suppressed`: daily history exists, but monthly-return display should be hidden because the reconstructed series is unstable
+  - `unavailable`: history is unavailable, so monthly returns are unavailable too
+- `run_metadata.source_status.benchmark_history`
+  - `live_market_data`: benchmark rows loaded successfully from market data and were used in the run
+  - `unavailable`: no benchmark history was available for a valid dashboard-history run
+- `run_metadata.reproducibility.*`
+  - records the import timestamp, latest snapshot as-of date, effective history window, requested benchmark symbol, and current market-data dataset version used by the dashboard-history engine
+
 ## Truth Classes
 
 - `broker-truth`

@@ -32,8 +32,8 @@ Already in place:
 
 Current desktop consumption context that matters for this plan:
 - current-state diagnostics are primarily consumed in the `Diagnostics` tab for current portfolio review
-- replay-derived diagnostics deltas are consumed in `Research`, inside the portfolio-improvement workflow shell and adjacent replay review surfaces
-- Monitoring is also currently a `Research` surface, but it is replay-scoped and review-oriented rather than a broad current-state monitoring system
+- replay-derived diagnostics deltas are consumed in `Workspace`, inside the portfolio-improvement workflow shell and adjacent replay review surfaces
+- Monitoring is also currently a `Workspace` surface, but it is replay-scoped and review-oriented rather than a broad current-state monitoring system
 - docs should not describe diagnostics ownership as one monolithic panel anymore; current-state diagnostics and replay-diagnostics review now have different panel ownership in the desktop app
 
 Main gap:
@@ -192,8 +192,8 @@ Why third:
 ## Desktop workflow accuracy guardrails
 
 - keep current-state diagnostics docs aligned with `Diagnostics` tab ownership, not `Research`
-- keep replay diagnostics delta docs aligned with `Research` workflow ownership, not the current-state diagnostics tab
-- keep current Monitoring references narrow and honest: it is a replay-scoped Research review surface with explicit handoff into workflow sections, not a general alerting layer
+- keep replay diagnostics delta docs aligned with `Workspace` workflow ownership, not the current-state diagnostics tab
+- keep current Monitoring references narrow and honest: it is a replay-scoped Workspace review surface with explicit handoff into workflow sections, not a general alerting layer
 - when documenting diagnostics reuse for construction/replay flows, be explicit that draft-scoped review artifacts do not mutate `PortfolioSnapshot`
 
 ## Testing Plan
@@ -218,7 +218,7 @@ Add or extend tests for:
 - truth-class rendering and degraded-state labels
 - summary cards reading engine outputs directly
 - no leakage of broker-truth diagnostics into variants/drafts
-- current-state diagnostics remaining owned by current-state desktop surfaces while replay-diagnostics review remains owned by `Research`
+- current-state diagnostics remaining owned by current-state desktop surfaces while replay-diagnostics review remains owned by `Workspace`
 
 Likely files:
 - `apps/desktop/src/features/portfolio/ExposurePanel.test.tsx`

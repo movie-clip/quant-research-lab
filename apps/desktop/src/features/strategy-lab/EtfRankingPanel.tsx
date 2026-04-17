@@ -220,7 +220,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
       seed: buildCandidateImprovementSeed(result, seedTarget, selectedBaseSymbol),
       rankingArtifact: buildIntentBoundSeededRankingArtifact(result, seedTarget, selectedBaseSymbol),
     })
-    setSeedSuccess('Candidate draft created. Review it before making any portfolio decision.')
+    setSeedSuccess('Candidate draft created for review.')
     setSeedTarget(null)
     setSelectedBaseSymbol('')
   }
@@ -229,36 +229,13 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
     <article className="panel strategy-lab-panel">
       <p className="panel-label">ETF Ranking</p>
       <h2>ETF ranking workspace</h2>
-      <p className="lead compact-lead">Compare a current ETF against same-mandate substitutes, rank the eligible options on momentum, path risk, liquidity, and implementation fit, and review whether a stronger replacement candidate exists without turning the tool into a hype screener.</p>
-
-      <section className="dashboard-bottom-grid">
-        <div className="split-grid compact-split-grid">
-          <div className="summary-card">
-            <p className="panel-label">What This Tool Does</p>
-            <p className="helper">Use this workspace to rank a shortlist of same-mandate ETFs so you can evaluate whether your current holding has a stronger substitute.</p>
-          </div>
-          <div className="summary-card">
-            <p className="panel-label">How To Read It</p>
-            <p className="helper">1. Include the ETF you hold now plus realistic alternatives. 2. Confirm the peer group. 3. Check confidence and exclusions. 4. Compare #1 vs #2 before treating the result as actionable.</p>
-          </div>
-        </div>
-      </section>
+      <p className="lead compact-lead">Rank same-mandate ETF substitutes and review whether the current holding has a stronger replacement candidate.</p>
 
       <div className="backtest-builder strategy-lab-builder">
-        <section className="dashboard-bottom-grid">
-          <div className="split-grid compact-split-grid">
-            <div className="summary-card">
-              <p className="panel-label">Before You Run</p>
-              <p className="helper">This is not an idea screener. Start with a curated comparison set inside one mandate, and include the incumbent ETF you already own if you are evaluating a substitution.</p>
-            </div>
-          </div>
-        </section>
-
         <div className="split-grid compact-split-grid strategy-lab-config-grid">
           <label className="field-group">
             <span className="field-label">ETF Universe</span>
             <input className="path-input" value={universe} onChange={(event) => setUniverse(event.target.value)} />
-            <span className="helper">Include the incumbent ETF you currently hold, plus realistic replacement candidates.</span>
           </label>
           <label className="field-group">
             <span className="field-label">Benchmark</span>
@@ -273,7 +250,6 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
             <select className="path-input" value={peerGroup} onChange={(event) => setPeerGroup(event.target.value)}>
               {PEER_GROUP_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
-            <span className="helper">Compare only ETFs inside the same mandate. Peer-group filtering uses instrument category metadata.</span>
           </label>
         </div>
 
@@ -292,7 +268,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
       {!loading && !result && !error ? (
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">Run a ranking pass to review ETF peer-group results.</p>
-          <p className="helper">This workspace is read-only. It helps you compare same-mandate substitutes before making a separate portfolio decision elsewhere.</p>
+          <p className="helper">Compare same-mandate substitutes before carrying one into a draft review.</p>
         </div>
       ) : null}
 
@@ -322,7 +298,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
             <section className="dashboard-bottom-grid">
               <div className="summary-card">
                 <p className="panel-label">Create candidate improvement draft</p>
-                <p className="helper">This carries the selected ETF and its ranking context into a draft review. It does not recommend a switch, change allocations, or execute anything.</p>
+                <p className="helper">Carry the selected ETF and ranking context into a draft review.</p>
                 <label className="field-group">
                   <span className="field-label">Incumbent ETF</span>
                   <select className="path-input" value={selectedBaseSymbol} onChange={(event) => setSelectedBaseSymbol(event.target.value)}>
@@ -388,8 +364,8 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
 
           <section className="dashboard-bottom-grid">
             <div className="summary-card">
-              <p className="panel-label">How This Can Improve The Portfolio</p>
-              <p className="helper">This tool can improve the portfolio by improving the ETF vehicle inside the same mandate. It helps you check whether the current ETF could be replaced by a stronger implementation of the same job, without changing exposure or allocation.</p>
+              <p className="panel-label">Portfolio Fit</p>
+              <p className="helper">Use ranking to check whether the same mandate has a stronger ETF implementation.</p>
             </div>
           </section>
 
@@ -448,7 +424,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
               {result.ranked_universe.map((item) => (
                 <div className={`risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide ${item.rank === 1 ? 'strategy-ranking-row-top' : ''}`} key={item.symbol}>
                   <span>{item.rank}</span>
-                  <span className="strategy-ranking-symbol-cell"><strong>{item.symbol}</strong><small>{item.instrument.sector ?? 'Unknown sector'}</small><button className="secondary-button" type="button" onClick={() => openSeedDraftConfirmation(item)} disabled={!incumbentOptions.length}>Seed Candidate Draft</button><small>Carry this ETF into a draft portfolio-improvement review without implying a switch.</small></span>
+                  <span className="strategy-ranking-symbol-cell"><strong>{item.symbol}</strong><small>{item.instrument.sector ?? 'Unknown sector'}</small><button className="secondary-button" type="button" onClick={() => openSeedDraftConfirmation(item)} disabled={!incumbentOptions.length}>Seed Candidate Draft</button><small>Carry into draft review.</small></span>
                   <span className="strategy-ranking-category-cell">{item.instrument.category ?? 'n/a'}</span>
                   <span className="strategy-ranking-metric-cell"><strong>{formatNumber(item.composite_score, 4)}</strong><small>Composite</small></span>
                   <span className={`strategy-ranking-metric-cell ${metricTone(item.component_scores.momentum?.raw_value, runnerUp?.component_scores.momentum?.raw_value, true)}`}><strong>{formatNumber(item.component_scores.momentum?.raw_value, 2)}</strong><small>Blended</small></span>
@@ -472,7 +448,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
           <section className="dashboard-bottom-grid">
             <div className="summary-card">
               <p className="panel-label">Portfolio Use Note</p>
-              <p className="helper">Use this ranking to improve implementation within an existing exposure. It does not change allocations or execute a switch; it helps identify whether a stronger ETF candidate exists inside the same mandate.</p>
+              <p className="helper">Ranking stays review-only until you carry a candidate into a draft.</p>
             </div>
           </section>
         </>

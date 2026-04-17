@@ -568,7 +568,7 @@ def test_imported_diagnostics_route_marks_missing_symbol_price_history_as_unavai
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
-    assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["history_context_required"] is False
     assert payload["risk_summary"]["observations"] == 0
 
 
@@ -607,7 +607,7 @@ def test_imported_diagnostics_route_marks_missing_benchmark_history_as_unavailab
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
-    assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["history_context_required"] is False
     assert payload["risk_summary"]["observations"] == 0
 
 
@@ -756,7 +756,7 @@ def test_diagnostics_route_marks_missing_symbol_price_history_as_unavailable(moc
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
-    assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["history_context_required"] is False
     assert payload["risk_summary"]["observations"] == 0
 
 
@@ -796,5 +796,5 @@ def test_diagnostics_route_marks_missing_benchmark_history_as_unavailable(mocker
     assert response.status_code == 200
     payload = response.json()
     assert payload["availability"]["historical_sections_available"] is False
-    assert payload["availability"]["history_context_required"] is True
+    assert payload["availability"]["history_context_required"] is False
     assert payload["risk_summary"]["observations"] == 0

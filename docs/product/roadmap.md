@@ -229,7 +229,7 @@ The main gaps blocking a real quant-research-lab direction are:
 1. no unified instrument / ETF ranking engine
 2. no true portfolio-construction rule engine
 3. no robust optimization layer with constraints
-4. the integrated portfolio-improvement workspace is now shipped in a narrow Research-owned form, but it is not yet the fully generalized primary product workflow
+4. the integrated portfolio-improvement workspace is now shipped in a narrow Workspace-owned form, but it is not yet the fully generalized primary product workflow
 5. insufficiently production-grade factor math and reliability framing
 6. diagnostics panels still partly optimized for debug-style outputs rather than PM decision flow
 7. strategy research workflows are narrower than portfolio construction workflows
@@ -375,11 +375,11 @@ Tasks:
 
 Current implemented Stage 4 slice:
 - ETF ranking can seed a draft-scoped candidate review workflow
-- Research now owns an explicit shell-first workflow order: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> saved proposal
+- Workspace now owns an explicit shell-first workflow order: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> saved proposal
 - explicit replacement intent can drive a hypothetical one-for-one replay preview
 - replay review now includes PM-first diagnostics delta review
-- replay-scoped Monitoring now lives inside Research as a narrow review surface, not as a broad continuous monitoring system
-- Monitoring can hand off back into Research workflow sections through an explicit user-initiated continuity path
+- replay-scoped Monitoring now lives inside Workspace as a narrow review surface, not as a broad continuous monitoring system
+- Monitoring can hand off back into Workspace workflow sections through an explicit user-initiated continuity path
 - diagnostics groups expose backend-ranked top callouts with visible selection-rule provenance and backend-provided rationale
 - reviewed hypothetical replay results can now be recorded as immutable local versioned proposal artifacts
 - saved proposals can now be inspected in a dedicated review/readout surface that uses persisted artifact data only rather than active draft state
@@ -408,7 +408,7 @@ Tasks:
 
 Current shipped boundary before Stage 5:
 - a narrow overlay-aware hypothetical replay path exists for the benchmark-trend candidate-side review flow
-- Monitoring exists today only as a replay-scoped Research surface and should not be described as a continuous alerting system yet
+- Monitoring exists today only as a replay-scoped Workspace surface and should not be described as a continuous alerting system yet
 
 Exit criteria:
 - the project can monitor and maintain a systematic portfolio, not just analyze it once

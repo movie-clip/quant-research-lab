@@ -31,6 +31,13 @@ function formatHistoryWindowLabel(startDate: string | null | undefined, endDate:
   return `${startDate} to ${endDate}`
 }
 
+function formatDateLabel(value: string | null | undefined) {
+  if (!value) return null
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return value
+  return `${month}/${day}/${year.slice(2)}`
+}
+
 function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: string | null) {
   if (!loadedStatementsLabel) return null
   return `${statementCount > 1 ? 'Loaded statements' : 'Loaded file'}: ${loadedStatementsLabel}`
@@ -64,6 +71,18 @@ function dashboardSourceLabel(status: string | undefined) {
   if (status === 'live') return 'Live market history'
   if (status === 'suppressed') return 'Suppressed unstable series'
   return 'Sample or reconstructed history'
+}
+
+function formatDashboardAuditLine(result: DashboardAnalysis | null) {
+  const runMetadata = result?.run_metadata
+  if (!runMetadata) return null
+
+  const reproducibility = runMetadata.reproducibility
+  const effectiveWindow = reproducibility.history_start_date && reproducibility.history_end_date
+    ? `${formatDateLabel(reproducibility.history_start_date)} to ${formatDateLabel(reproducibility.history_end_date)}`
+    : 'History window unavailable'
+
+  return `Audit: ${reproducibility.benchmark_symbol} · ${runMetadata.source_status.benchmark_history} · ${effectiveWindow} · dataset ${reproducibility.dataset_version}`
 }
 
 function hasRichDashboardData(result: DashboardAnalysis | null) {
@@ -413,6 +432,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   const statementCount = result?.snapshot.statements?.length ?? lastImportedFileNames.length
   const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
   const dashboardSourceSummary = result?.source_status?.performance_history ? dashboardSourceLabel(result.source_status.performance_history) : null
+  const dashboardAuditLine = formatDashboardAuditLine(result)
 
   if (!result || !hasRichDashboardData(result)) {
     return (
@@ -500,6 +520,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
                 <span className="backtest-source-badge">Visible window: {hasPerformance ? visibleHistoryWindow : 'Unavailable'}</span>
                 <span className="backtest-source-badge">Portfolio value: {formatMoney(displayedPortfolioValue)}</span>
               </div>
+              {dashboardAuditLine ? <p className="helper">{dashboardAuditLine}</p> : null}
             </div>
             <div className="chart-controls dashboard-performance-controls">
               <div className="dashboard-control-stack">

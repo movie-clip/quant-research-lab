@@ -94,7 +94,7 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
     <article className="panel">
       <p className="panel-label">Backtest</p>
       <h2>Generic strategy backtests</h2>
-      <p className="lead compact-lead">Run generic strategy backtests here. Portfolio-improvement workflow, replay diagnostics, overlays, and monitoring stay in the Workspace.</p>
+      <p className="lead compact-lead">Run generic strategy backtests here. Portfolio-improvement work stays in the Workspace.</p>
 
       <div className="backtest-builder">
         <p className="panel-label">Strategy Backtest</p>
@@ -137,7 +137,6 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
           <button className={`primary-button${backtestLoading ? ' button-loading' : ''}`} type="button" disabled={backtestLoading} onClick={runBacktest}>
             {backtestLoading ? 'Running Backtest...' : 'Run Backtest'}
           </button>
-          <p className="helper">The local API validates dates, symbols, and capital before running the strategy backtest.</p>
         </div>
         {backtestError ? <p className="error">{backtestError}</p> : null}
       </div>
@@ -169,12 +168,12 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
             </div>
           </div>
           <div className="factor-snapshot-table-wrap">
-            <div className="section-header-inline sector-list-header strategy-detail-subheader">
-              <div>
-                <p className="panel-label">Dataset Sources</p>
-                <p className="helper">Live FMP history is used first for spot symbols. Futures roots shown here are proxy or approximation paths only, not true continuous futures contracts.</p>
-              </div>
-            </div>
+                    <div className="section-header-inline sector-list-header strategy-detail-subheader">
+                      <div>
+                        <p className="panel-label">Dataset Sources</p>
+                        <p className="helper">Spot symbols prefer live FMP history; futures roots remain proxy or approximation paths.</p>
+                      </div>
+                    </div>
             <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-history-grid">
               <span>Symbol</span>
               <span>Timeframe</span>

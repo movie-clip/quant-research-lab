@@ -485,7 +485,7 @@ describe('App', () => {
 
     fireEvent.change(input, { target: { files: [file2025] } })
     await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
 
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [file2026] } })
@@ -527,7 +527,7 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getAllByText('Overlay analysis').length).toBeGreaterThan(0))
     expect(screen.getByText('Trend / Risk Overlays')).toBeTruthy()
-    expect(screen.getByText('Factor and risk diagnostics')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Factor and risk diagnostics')).toBeTruthy())
   })
 
   it('refreshes dashboard allocation and cards after adding a statement snapshot', async () => {
@@ -1844,7 +1844,7 @@ describe('App', () => {
     expect(screen.getByText(/^base · active$/)).toBeTruthy()
 
     fireEvent.click(screen.getByText('Exposure'))
-    await waitFor(() => expect(screen.getByText('Broad Market Risk')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Risk Path')).toBeTruthy())
     expect(screen.getByText('Actual Exposure')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Dashboard'))

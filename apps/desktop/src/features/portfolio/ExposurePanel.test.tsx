@@ -71,6 +71,7 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Historical diagnostics live')).toBeTruthy()
     expect(screen.getByText('Look-through live')).toBeTruthy()
     expect(screen.getByText('Overlap live')).toBeTruthy()
+    expect(screen.getByText(/Audit: snapshot .*SPY.*look-through live.*benchmark holdings live.*dataset market_data_service_v1/)).toBeTruthy()
     expect(screen.getByText('Volatility')).toBeTruthy()
     expect(screen.getByText('Drawdown')).toBeTruthy()
     expect(screen.getByText('Benchmark Sensitivity')).toBeTruthy()
@@ -90,7 +91,7 @@ describe('ExposurePanel', () => {
     render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
 
     expect(screen.getByText('Current Factor Snapshot')).toBeTruthy()
-    expect(screen.getByText(/Current snapshot loadings stay here, while the rolling chart now lives on the Dashboard/)).toBeTruthy()
+    expect(screen.getByText(/Current loadings stay here; historical 60d values remain in the table/)).toBeTruthy()
     expect(screen.queryByLabelText('Visible factors on rolling factor chart')).toBeNull()
     expect(screen.getByText('EU Execution Mapping')).toBeTruthy()
     expect(screen.getByText('Current Snapshot Loading')).toBeTruthy()
@@ -135,7 +136,7 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('24.00%')).toBeTruthy()
     expect(screen.getByText('Current Overlap Snapshot')).toBeTruthy()
     expect(screen.getByText('Historical Benchmark Diagnostics')).toBeTruthy()
-    expect(screen.getByText(/Historical benchmark-relative diagnostics path for sensitivity, active risk, realized volatility, and current regime/)).toBeTruthy()
+    expect(screen.getByText(/Historical benchmark-relative path for sensitivity, active risk, realized volatility, and regime/)).toBeTruthy()
     expect(screen.getByText(/Historical broad-market sensitivity aligned with the drawdown horizon/)).toBeTruthy()
     expect(screen.getByText('Actual Exposure')).toBeTruthy()
     expect(screen.getByText('Look-Through Sectors')).toBeTruthy()
@@ -161,7 +162,7 @@ describe('ExposurePanel', () => {
     render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
 
     expect(screen.getByText('Model Confidence')).toBeTruthy()
-    expect(screen.getByText(/Current snapshot loadings stay here, while the rolling chart now lives on the Dashboard/)).toBeTruthy()
+    expect(screen.getByText(/Current loadings stay here; historical 60d values remain in the table/)).toBeTruthy()
     expect(screen.getByText('Current Snapshot Loading')).toBeTruthy()
     expect(screen.getByText('Collinearity Warning')).toBeTruthy()
     expect(screen.getAllByText('No major collinearity warnings').length).toBeGreaterThan(0)
@@ -207,7 +208,7 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Historical diagnostics unavailable')).toBeTruthy()
     expect(screen.getByText('Actual Exposure')).toBeTruthy()
     expect(screen.getByText(/Historical broad-market beta versus SPY\. Currently unavailable because historical diagnostics are unavailable for this snapshot\./)).toBeTruthy()
-    expect(screen.getByText(/Historical benchmark-relative diagnostics path for sensitivity, active risk, realized volatility, and current regime/)).toBeTruthy()
+    expect(screen.getByText(/Historical benchmark-relative path for sensitivity, active risk, realized volatility, and regime/)).toBeTruthy()
   })
 
   it('explains partial look-through and unavailable benchmark overlap states', () => {
@@ -215,6 +216,13 @@ describe('ExposurePanel', () => {
       <ExposurePanel
         result={{
           ...mockExposureView,
+          run_metadata: {
+            ...mockExposureView.run_metadata!,
+            source_status: {
+              lookthrough_resolution: 'partial',
+              benchmark_holdings: 'unavailable',
+            },
+          },
           lookthrough: {
             ...mockExposureView.lookthrough,
             coverage_ratio: 0.1,
@@ -232,11 +240,12 @@ describe('ExposurePanel', () => {
     )
 
     expect(screen.getByText('Look-through confidence is medium; benchmark overlap confidence is low.')).toBeTruthy()
+    expect(screen.getByText(/Audit: snapshot .*SPY.*look-through partial.*benchmark holdings unavailable.*dataset market_data_service_v1/)).toBeTruthy()
     expect(screen.getByText('Look-through partial')).toBeTruthy()
     expect(screen.getByText('Overlap unavailable')).toBeTruthy()
     expect(screen.getByText(/benchmark composition could not be loaded/i)).toBeTruthy()
     expect(screen.getByText(/partial ETF resolution/i)).toBeTruthy()
-    expect(screen.getByText(/Current overlap snapshot is shown separately from historical benchmark diagnostics/)).toBeTruthy()
+    expect(screen.getByText(/Current overlap stays separate from historical benchmark diagnostics/)).toBeTruthy()
     expect(screen.getByText(/Constituent Coverage 10.00%/)).toBeTruthy()
     expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
     expect(screen.getByText(/SPY constituents when benchmark holdings are available\. Currently unavailable because benchmark holdings could not be loaded\./)).toBeTruthy()
@@ -274,7 +283,7 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Scenario Preview')).toBeTruthy()
     expect(screen.getByText(/Scenario-only current-state approximation/)).toBeTruthy()
     expect(screen.getByText(/historical sections remain baseline and are not recomputed from scenario trades/i)).toBeTruthy()
-    expect(screen.getByText(/Current snapshot loadings stay here, while the rolling chart now lives on the Dashboard/)).toBeTruthy()
+    expect(screen.getByText(/Current loadings stay here; historical 60d values remain in the table/)).toBeTruthy()
     expect(screen.getAllByText(/current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Scenario edits do not rerun this historical regime path/)).toBeTruthy()
   })

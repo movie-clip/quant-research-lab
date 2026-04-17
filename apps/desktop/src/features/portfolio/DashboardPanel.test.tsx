@@ -51,6 +51,7 @@ describe('DashboardPanel', () => {
 
     expect(screen.getByText('Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.')).toBeTruthy()
     expect(screen.getAllByText('Range metrics live').length).toBeGreaterThan(0)
+    expect(screen.getByText(/Audit: SPY · live_market_data · 01\/02\/25 to 03\/03\/25 · dataset market_data_service_v1/)).toBeTruthy()
     expect(screen.getByText('Workspace State')).toBeTruthy()
     expect(screen.getByText('Current imported view and editable draft status.')).toBeTruthy()
   })
@@ -460,11 +461,29 @@ describe('DashboardPanel', () => {
             performance_history: 'unavailable',
             monthly_returns: 'unavailable',
           },
+          run_metadata: {
+            history_id: 'dashboard_history_engine_v1',
+            methodology_id: 'dashboard_history_methodology_v1',
+            source_status: {
+              performance_history: 'unavailable',
+              monthly_returns: 'unavailable',
+              benchmark_history: 'unavailable',
+            },
+            reproducibility: {
+              input_imported_at: '2026-04-10T00:00:00Z',
+              snapshot_as_of_date: null,
+              history_start_date: null,
+              history_end_date: null,
+              benchmark_symbol: 'SPY',
+              dataset_version: 'market_data_service_v1',
+            },
+          },
         })}
       />,
     )
 
     expect(screen.getByText('Performance history is unavailable for this import.')).toBeTruthy()
+    expect(screen.getByText(/Audit: SPY · unavailable · History window unavailable · dataset market_data_service_v1/)).toBeTruthy()
     expect(screen.queryByText('Monthly Returns')).toBeNull()
   })
 

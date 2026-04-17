@@ -156,6 +156,8 @@ export async function runImportedDashboardHistory(snapshot: ImportedDashboardSou
 export function composeExposureView(exposure: ExposureEngineResponse, diagnostics: DiagnosticsEngineResponse): ExposureAnalysis {
   return {
     snapshot: exposure.snapshot,
+    provenance: exposure.provenance,
+    run_metadata: exposure.run_metadata,
     overview: exposure.overview,
     lookthrough: exposure.lookthrough,
     lookthrough_sector_exposure: exposure.lookthrough_sector_exposure,
@@ -183,6 +185,7 @@ export function composeDashboardAnalysisFromEngines(exposure: ExposureEngineResp
     snapshot: exposure.snapshot,
     overview: exposure.overview,
     source_status: null,
+    run_metadata: null,
     daily_states: [],
     performance_series: [],
     range_metrics: null,
@@ -197,6 +200,7 @@ export function composeDashboardAnalysisWithHistory(
     snapshot: exposure.snapshot,
     overview: exposure.overview,
     source_status: history.source_status ?? null,
+    run_metadata: history.run_metadata,
     daily_states: history.daily_states,
     performance_series: history.performance_series,
     range_metrics: history.range_metrics ?? null,
@@ -215,6 +219,8 @@ export function buildExposureFactorModel(result: Pick<ExposureAnalysis, 'benchma
 export function buildImportedExposureView(analysis: ImportedExposureSource): ExposureAnalysis {
   return {
     snapshot: analysis.snapshot,
+    provenance: analysis.provenance ?? null,
+    run_metadata: analysis.run_metadata ?? null,
     overview: analysis.overview,
     lookthrough: analysis.lookthrough,
     lookthrough_sector_exposure: analysis.lookthrough_sector_exposure,
@@ -244,6 +250,7 @@ export function buildImportedDashboardView(analysis: ImportedDashboardSource): D
     performance_series: analysis.performance_series,
     daily_states: analysis.daily_states,
     source_status: analysis.source_status ?? null,
+    run_metadata: analysis.run_metadata ?? null,
     range_metrics: analysis.range_metrics ?? null,
   }
 }

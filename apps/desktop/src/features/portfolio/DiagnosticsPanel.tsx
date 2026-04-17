@@ -223,6 +223,20 @@ function formatStatusLabel(value: string | null | undefined) {
   return humanizeContractLabel(value)
 }
 
+function diagnosticsSourceSummary(result: DiagnosticsEngineResponse) {
+  const sourceStatus = result.run_metadata.source_status
+  return `Sources: portfolio ${formatStatusLabel(sourceStatus.portfolio_history)} · benchmark ${formatStatusLabel(sourceStatus.benchmark_history)} · factors ${formatStatusLabel(sourceStatus.factor_history)}`
+}
+
+function diagnosticsAuditSummary(result: DiagnosticsEngineResponse) {
+  const parameters = result.run_metadata.factor_model_parameters
+  const reproducibility = result.run_metadata.reproducibility
+  const effectiveHistory = reproducibility.history_start_date && reproducibility.history_end_date
+    ? `${formatDateLabel(reproducibility.history_start_date)} to ${formatDateLabel(reproducibility.history_end_date)}`
+    : 'No historical range'
+  return `Audit: ${parameters.current_reliability_window_days}d reliability · ridge ${parameters.ridge_lambda} · dataset ${reproducibility.dataset_version} · ${effectiveHistory}`
+}
+
 function decisionCardToneForDrawdown(value: number | null | undefined): DecisionCardTone {
   if (value == null) return 'neutral'
   if (value <= -8) return 'hot'
@@ -301,7 +315,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
         <p className="panel-label">Diagnostics</p>
         <h2>Factor and risk diagnostics</h2>
         <p className="lead compact-lead">{diagnosticsLead()}</p>
-        <p className="lead compact-lead">Import a portfolio from the Dashboard to inspect current risk diagnostics.</p>
+        <p className="lead compact-lead">Import a portfolio from the Dashboard to review current diagnostics.</p>
       </article>
     )
   }
@@ -346,7 +360,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
         <div className="dashboard-quant-header-copy">
           <p className="panel-label">Diagnostics Shell</p>
           <h3>Provenance and decision signals</h3>
-          <p className="helper">Start with source truth and availability, then scan the compact readout before moving into the deeper diagnostics.</p>
+          <p className="helper">Check source truth and availability before reading the compact diagnostics summary.</p>
         </div>
         <div className="tab-bar dashboard-meta-row-quant diagnostics-provenance-strip">
           <span className="backtest-source-badge">{snapshotBasisLabel}</span>
@@ -361,18 +375,18 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
         <div className="summary-card diagnostics-provenance-card">
           <p className="stat-label">Snapshot Basis</p>
           <p className="diagnostics-context-value">{snapshotBasisLabel}</p>
-          <p className="diagnostics-context-note">Current diagnostics anchor to the latest portfolio snapshot only.</p>
+          <p className="diagnostics-context-note">Current diagnostics anchor to the latest portfolio snapshot.</p>
         </div>
         <div className="summary-card diagnostics-provenance-card">
           <p className="stat-label">History Truth Class</p>
           <p className="diagnostics-context-value">{historyTruthClassLabel}</p>
-          <p className="diagnostics-context-note">Historical sections are shown only when the backend marked them available.</p>
+          <p className="diagnostics-context-note">Historical sections appear only when the backend marks them available.</p>
         </div>
         <div className="summary-card diagnostics-provenance-card">
           <p className="stat-label">Availability</p>
           <p className="diagnostics-context-value">{historicalStatusLabel}</p>
           <p className="diagnostics-context-note">
-            {result.availability.history_context_required ? 'Imported history context is required for live historical diagnostics.' : 'Historical context is available for this diagnostics window.'}
+            {result.availability.history_context_required ? 'Imported history context is required for historical diagnostics.' : 'Historical context is available for this diagnostics window.'}
           </p>
         </div>
       </div>
@@ -389,7 +403,6 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
               <div>
                 <p className="panel-label">Decision Readout</p>
               </div>
-              <p className="helper">Decision cards stay compact: every value is mapped directly from backend summary outputs.</p>
             </div>
             <div className="dashboard-summary compact-summary-grid diagnostics-decision-grid">
               <div className={metricCardClassName(drawdownTone)}>
@@ -405,12 +418,12 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
               <div className={metricCardClassName(modelConfidenceTone)}>
                 <p className="stat-label">Model Confidence</p>
                 <p className="summary-value">{result.model_reliability.confidence}</p>
-                <p className="helper">{modelStatusLabel} / R-squared {formatNumber(result.model_reliability.r_squared, 4)}</p>
+                <p className="helper">{modelStatusLabel} · R-squared {formatNumber(result.model_reliability.r_squared, 4)}</p>
               </div>
               <div className={metricCardClassName(trackingErrorTone)}>
                 <p className="stat-label">Tracking Error</p>
                 <p className="summary-value">{formatPct(result.volatility_summary.tracking_error_pct)}</p>
-                <p className="helper">Benchmark {result.relative_risk.benchmark_symbol}</p>
+                <p className="helper">vs {result.relative_risk.benchmark_symbol}</p>
               </div>
               <div className={metricCardClassName(factorShareTone)}>
                 <p className="stat-label">Top 3 Factor Risk Share</p>
@@ -429,11 +442,11 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
             <section className="summary-card diagnostics-support-card">
               <div>
                 <p className="panel-label">Historical Context</p>
-                <p className="helper">Drawdown and volatility context from the live historical diagnostics window.</p>
+                <p className="helper">Drawdown and volatility from the active historical window.</p>
               </div>
-              <div className="diagnostics-support-rows">
-                <div className="diagnostics-support-row"><span>Portfolio Volatility</span><span>{formatPct(result.volatility_summary.portfolio_volatility_pct)}</span></div>
-                <div className="diagnostics-support-row"><span>Benchmark Volatility</span><span>{formatPct(result.volatility_summary.benchmark_volatility_pct)}</span></div>
+                <div className="diagnostics-support-rows">
+                  <div className="diagnostics-support-row"><span>Portfolio Volatility</span><span>{formatPct(result.volatility_summary.portfolio_volatility_pct)}</span></div>
+                  <div className="diagnostics-support-row"><span>Benchmark Volatility</span><span>{formatPct(result.volatility_summary.benchmark_volatility_pct)}</span></div>
                 <div className="diagnostics-support-row"><span>Downside Volatility</span><span>{formatPct(result.volatility_summary.downside_volatility_pct)}</span></div>
                 <div className="diagnostics-support-row"><span>Tracking Error</span><span>{formatPct(result.volatility_summary.tracking_error_pct)}</span></div>
               </div>
@@ -442,7 +455,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
             <section className="summary-card diagnostics-support-card">
               <div>
                 <p className="panel-label">Model Readiness</p>
-                <p className="helper">Fit, stability, and coverage stay explicit before the deeper factor tables.</p>
+                <p className="helper">Fit, stability, and coverage stay explicit before deeper factor tables.</p>
               </div>
               <div className="diagnostics-support-rows">
                 <div className="diagnostics-support-row"><span>Status</span><span>{modelStatusLabel}</span></div>
@@ -455,7 +468,7 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
             <section className="summary-card diagnostics-support-card">
               <div>
                 <p className="panel-label">Concentration Watch</p>
-                <p className="helper">Concentration risk stays compact here and detailed breakdowns remain below.</p>
+                <p className="helper">Concentration stays compact here; detailed breakdowns remain below.</p>
               </div>
               <div className="diagnostics-support-rows">
                 <div className="diagnostics-support-row"><span>Top 1 Factor Risk Share</span><span>{formatPct(result.risk_concentration_summary.top_1_factor_risk_share != null ? result.risk_concentration_summary.top_1_factor_risk_share * 100 : null)}</span></div>
@@ -469,8 +482,8 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
       ) : (
         <div className="empty-state-panel diagnostics-unavailable-state">
           <p className="empty-state-title">Historical diagnostics unavailable for this snapshot.</p>
-          <p className="helper">{result.availability.note ?? 'This view requires imported portfolio history context and is not approximated from a snapshot alone.'}</p>
-          <p className="helper">Historical diagnostics are not approximated when history context is missing.</p>
+          <p className="helper">{result.availability.note ?? 'Historical diagnostics require imported portfolio history and are not inferred from a snapshot alone.'}</p>
+          <p className="helper">This panel does not approximate missing history.</p>
         </div>
       )}
     </section>
@@ -499,19 +512,21 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
           <div>
             <p className="panel-label">Behavior Through Time</p>
           </div>
-          <p className="helper">Use the selected window to review risk path, benchmark-relative behavior, and factor loadings without inventing unsupported history.</p>
+          <p className="helper">Use the selected window to review risk path, benchmark-relative behavior, and factor loadings without inventing missing history.</p>
           {behaviorWindowControls}
         </div>
         <div className="factor-snapshot-meta-row diagnostics-behavior-meta-row">
-          <p className="helper">Provenance: {result.provenance.note}</p>
+          <p className="helper">Source: {result.provenance.note}</p>
           <p className="helper">Availability: {result.availability.note ?? 'Historical diagnostics remain live for the supported windows shown here.'}</p>
-          <p className="helper">Status: {historyTruthClassLabel} / {historicalStatusLabel} / {behaviorWindowStatusLabel}. Unsupported windows stay hidden instead of interpolated.</p>
+          <p className="helper">{diagnosticsSourceSummary(result)}</p>
+          <p className="helper">{diagnosticsAuditSummary(result)}</p>
+          <p className="helper">Status: {historyTruthClassLabel} / {historicalStatusLabel} / {behaviorWindowStatusLabel}. Unsupported windows stay hidden rather than interpolated.</p>
         </div>
 
         {!behaviorWindowAvailable ? (
           <div className="empty-state-panel compact-empty-state">
-            <p className="empty-state-title">Behavior-through-time charts are unavailable for {behaviorWindow}d.</p>
-            <p className="helper">The backend marked this window as {formatStatusLabel(selectedBehaviorWindowSummary?.status ?? 'unavailable')}. The panel does not invent continuity across unsupported periods.</p>
+            <p className="empty-state-title">Behavior-through-time charts are unavailable for the {behaviorWindow}d window.</p>
+            <p className="helper">The backend marked this window as {formatStatusLabel(selectedBehaviorWindowSummary?.status ?? 'unavailable')}. The panel does not infer continuity across unsupported periods.</p>
           </div>
         ) : (
           <>
@@ -549,12 +564,12 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
               />
             </div>
 
-            <DiagnosticsBehaviorChartCard
-              title="Factor Behavior"
-              helper={`Bounded rolling loading paths from the existing factor model payload. ${formatCoverageLabel(factorBehaviorCoverage)}`}
-              helperRight={`${supportedFactorKeys.length || 0} factors shown`}
-              controls={<p className="helper diagnostics-behavior-inline-note">Top supported rolling factors only; unsupported windows stay hidden.</p>}
-              chartClassName="factor-loading-chart-panel diagnostics-factor-behavior-chart"
+              <DiagnosticsBehaviorChartCard
+                title="Factor Behavior"
+                helper={`Bounded rolling loading paths from the existing factor model payload. ${formatCoverageLabel(factorBehaviorCoverage)}`}
+                helperRight={`${supportedFactorKeys.length || 0} factors shown`}
+                controls={<p className="helper diagnostics-behavior-inline-note">Top supported rolling factors only.</p>}
+                chartClassName="factor-loading-chart-panel diagnostics-factor-behavior-chart"
               data={factorBehaviorSeries as Array<Record<string, number | string | null | undefined>>}
               yAxisFormatter={formatAxisRatio}
               showZeroReference

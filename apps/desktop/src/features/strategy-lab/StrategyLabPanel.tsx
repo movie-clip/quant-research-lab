@@ -470,7 +470,7 @@ export function StrategyLabPanel() {
           </section>
 
           <section className="workspace-section">
-            <div className="section-header-inline sector-list-header"><div><p className="panel-label">Leadership Heatmap</p></div><p className="helper">Rank order by {lookbackUnit === 'quarters' ? 'quarterly checkpoints' : 'rebalance date'} for the current ETF universe</p></div>
+            <div className="section-header-inline sector-list-header"><div><p className="panel-label">Leadership Heatmap</p></div><p className="helper">Rank order across the visible checkpoints.</p></div>
               <div className="strategy-heatmap" data-testid="strategy-heatmap">
                 <div className="strategy-heatmap-row strategy-heatmap-header">
                   <span>ETF</span>
@@ -537,7 +537,7 @@ export function StrategyLabPanel() {
             <div className="section-header-inline sector-list-header">
               <div><p className="panel-label">Leader Relative Heatmap</p></div>
               <div className="strategy-inline-actions">
-                <p className="helper">Trailing-return spread versus the checkpoint leader across the active ETF universe</p>
+                <p className="helper">Trailing-return spread versus the checkpoint leader.</p>
               </div>
             </div>
             <div className="strategy-heatmap" data-testid="strategy-leader-heatmap">
@@ -579,7 +579,7 @@ export function StrategyLabPanel() {
           <section className="workspace-section">
             <div className="section-header-inline sector-list-header">
               <div><p className="panel-label">Leader Internals</p></div>
-              <p className="helper">Hover or click a quarter above to lock that checkpoint</p>
+              <p className="helper">Hover or click a checkpoint above to lock it.</p>
             </div>
             {currentLeaderInternals && currentLeaderInternals.constituents.length ? (
                 <div className="factor-snapshot-table-wrap">
@@ -587,7 +587,7 @@ export function StrategyLabPanel() {
                     <div>
                       <p className="panel-label">Constituent Mini Heatmap</p>
                       <p className="helper">Selected ETF history: {selectedLeaderObservation?.leader ?? currentLeaderInternals.leader_symbol ?? 'n/a'}</p>
-                      <p className="helper">{constituentHeatmapMetric === 'contribution' ? 'Weighted contribution points' : 'Backward-looking trailing return percent'} for the selected ETF across all visible checkpoints{currentLeaderInternals.snapshot_date ? ` · selected snapshot ${currentLeaderInternals.snapshot_date}` : ''}</p>
+                      <p className="helper">{constituentHeatmapMetric === 'contribution' ? 'Weighted contribution points' : 'Trailing return percent'} across the visible checkpoints{currentLeaderInternals.snapshot_date ? ` · snapshot ${currentLeaderInternals.snapshot_date}` : ''}</p>
                     </div>
                     <div className="strategy-inline-actions">
                       <div className="strategy-mode-toggle" role="group" aria-label="Constituent History Mode">
@@ -640,7 +640,7 @@ export function StrategyLabPanel() {
             <div className="section-header-inline sector-list-header">
               <div>
                 <p className="panel-label">Detail Tables</p>
-                <p className="helper">{lookbackUnit === 'quarters' ? 'Quarterly checkpoints, leader contributors, and current sleeves' : 'Monthly checkpoints, leader contributors, and current sleeves'}</p>
+                <p className="helper">Checkpoint details, contributors, and current sleeves.</p>
               </div>
               <button className="secondary-button" type="button" onClick={() => setDetailsOpen((value) => !value)}>
                 {detailsOpen ? 'Hide details' : 'Show details'}

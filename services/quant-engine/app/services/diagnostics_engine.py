@@ -1,7 +1,11 @@
 from typing import Literal
 
 from app.analytics.risk import (
+    COLLINEARITY_WARNING_THRESHOLD,
     FACTOR_PROXY_MAP,
+    RISK_CONTRIBUTION_WINDOW_DAYS,
+    ROLLING_WINDOWS,
+    WINDOW_MIN_OBSERVATIONS,
     build_factor_exposures,
     build_factor_registry,
     build_factor_shift_diagnostics,
@@ -24,6 +28,7 @@ from app.schemas.diagnostics import (
     DiagnosticsProvenance,
     DiagnosticsResult,
     DiagnosticsRunMetadata,
+    DiagnosticsSourceStatus,
     DiagnosticsRiskConcentrationSummary,
     DiagnosticsVolatilitySummary,
 )
@@ -52,6 +57,113 @@ from app.services.market_data import MarketDataService
 DIAGNOSTICS_ID = "diagnostics_engine_v1"
 DIAGNOSTICS_METHODOLOGY_ID = "diagnostics_history_methodology_v1"
 DIAGNOSTICS_PRICE_BASIS = "close"
+DIAGNOSTICS_ORTHOGONALIZATION_BASIS = "factor_proxy_definition_order"
+DIAGNOSTICS_RIDGE_LAMBDA = 1e-5
+DIAGNOSTICS_DATASET_VERSION = "market_data_service_v1"
+
+
+DiagnosticsUnavailableReason = Literal[
+    "missing_request_history_context",
+    "missing_imported_history_path",
+    "missing_market_data",
+]
+
+
+def _build_diagnostics_source_status(
+    historical_basis: Literal["imported_portfolio_history", "market_data_history", "unavailable"],
+) -> DiagnosticsSourceStatus:
+    if historical_basis == "imported_portfolio_history":
+        return DiagnosticsSourceStatus(
+            portfolio_history="imported_replay",
+            benchmark_history="live_market_data",
+            factor_history="live_market_data",
+        )
+    if historical_basis == "market_data_history":
+        return DiagnosticsSourceStatus(
+            portfolio_history="synthetic_snapshot_history",
+            benchmark_history="live_market_data",
+            factor_history="live_market_data",
+        )
+    return DiagnosticsSourceStatus(
+        portfolio_history="unavailable",
+        benchmark_history="unavailable",
+        factor_history="unavailable",
+    )
+
+
+def _build_factor_model_parameters() -> DiagnosticsRunMetadata.FactorModelParameters:
+    return DiagnosticsRunMetadata.FactorModelParameters(
+        rolling_windows_days=list(ROLLING_WINDOWS),
+        current_reliability_window_days=RISK_CONTRIBUTION_WINDOW_DAYS,
+        minimum_window_observations={str(window): required for window, required in WINDOW_MIN_OBSERVATIONS.items()},
+        collinearity_warning_threshold=COLLINEARITY_WARNING_THRESHOLD,
+        orthogonalization_basis=DIAGNOSTICS_ORTHOGONALIZATION_BASIS,
+        ridge_lambda=DIAGNOSTICS_RIDGE_LAMBDA,
+    )
+
+
+def _build_reproducibility_metadata(
+    snapshot: ImportedPortfolioSnapshot,
+    history_start_date: str | None,
+    history_end_date: str | None,
+) -> DiagnosticsRunMetadata.ReproducibilityMetadata:
+    snapshot_as_of_date = max((position.as_of_date.isoformat() for position in snapshot.positions if position.as_of_date is not None), default=None)
+    return DiagnosticsRunMetadata.ReproducibilityMetadata(
+        input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
+        snapshot_as_of_date=snapshot_as_of_date,
+        history_start_date=history_start_date,
+        history_end_date=history_end_date,
+        dataset_version=DIAGNOSTICS_DATASET_VERSION,
+    )
+
+
+def _build_unavailable_provenance_note(reason: DiagnosticsUnavailableReason) -> str:
+    if reason == "missing_request_history_context":
+        return "Historical diagnostics are unavailable because snapshot-style input did not include the history context needed to build a valid historical portfolio path."
+    if reason == "missing_imported_history_path":
+        return "Historical diagnostics are unavailable because imported broker history could not be reconstructed from this snapshot."
+    return "Historical diagnostics are unavailable because the required benchmark or symbol market data could not be loaded for the requested history window."
+
+
+def _build_unavailable_availability(reason: DiagnosticsUnavailableReason) -> DiagnosticsAvailability:
+    if reason == "missing_request_history_context":
+        return DiagnosticsAvailability(
+            historical_sections_available=False,
+            history_context_required=True,
+            note="Historical diagnostics are unavailable from snapshot-only input. Attach PortfolioHistoryContext to run rolling diagnostics accurately.",
+            status="unavailable",
+        )
+    if reason == "missing_imported_history_path":
+        return DiagnosticsAvailability(
+            historical_sections_available=False,
+            history_context_required=False,
+            note="Historical diagnostics are unavailable because this imported snapshot does not contain enough broker history to reconstruct a historical portfolio path.",
+            status="unavailable",
+        )
+    return DiagnosticsAvailability(
+        historical_sections_available=False,
+        history_context_required=False,
+        note="Historical diagnostics are unavailable because the required benchmark or symbol market data could not be loaded for the requested history window.",
+        status="unavailable",
+    )
+
+
+def _build_unavailable_stress_scenarios(reason: DiagnosticsUnavailableReason) -> list[StressScenarioResult]:
+    if reason == "missing_request_history_context":
+        description = "Attach PortfolioHistoryContext to run historically grounded diagnostics and stress scenarios."
+    elif reason == "missing_imported_history_path":
+        description = "Imported broker history is not sufficient to reconstruct historically grounded diagnostics and stress scenarios for this snapshot."
+    else:
+        description = "Required benchmark or symbol market data could not be loaded for historically grounded diagnostics and stress scenarios."
+
+    return [
+        StressScenarioResult(
+            name='Unavailable historical diagnostics',
+            estimated_return_pct=None,
+            description=description,
+            status='unavailable',
+        ),
+    ]
 
 
 def build_historical_diagnostics_result(
@@ -99,8 +211,14 @@ def build_historical_diagnostics_result(
             diagnostics_id=DIAGNOSTICS_ID,
             methodology_id=DIAGNOSTICS_METHODOLOGY_ID,
             price_basis=DIAGNOSTICS_PRICE_BASIS,
-            source_status=provenance.historical_basis,
+            source_status=_build_diagnostics_source_status(provenance.historical_basis),
             confidence=confidence,
+            factor_model_parameters=_build_factor_model_parameters(),
+            reproducibility=_build_reproducibility_metadata(
+                snapshot,
+                history_start_date=daily_states[0].date if daily_states else None,
+                history_end_date=daily_states[-1].date if daily_states else None,
+            ),
         ),
         drawdown_summary=DiagnosticsDrawdownSummary(
             current_drawdown_pct=volatility_regime.snapshot.current_drawdown_pct,
@@ -135,7 +253,12 @@ def build_historical_diagnostics_result(
     )
 
 
-def build_unavailable_diagnostics_result(snapshot, benchmark_symbol: str, snapshot_basis: Literal["imported_snapshot", "snapshot_request"] = "snapshot_request") -> DiagnosticsResult:
+def build_unavailable_diagnostics_result(
+    snapshot,
+    benchmark_symbol: str,
+    snapshot_basis: Literal["imported_snapshot", "snapshot_request"] = "snapshot_request",
+    reason: DiagnosticsUnavailableReason = "missing_request_history_context",
+) -> DiagnosticsResult:
     factor_registry = build_factor_registry()
 
     return DiagnosticsResult(
@@ -145,20 +268,17 @@ def build_unavailable_diagnostics_result(snapshot, benchmark_symbol: str, snapsh
             historical_basis="unavailable",
             history_truth_class="unavailable",
             price_basis="unavailable",
-            note="Historical diagnostics are unavailable because no valid historical portfolio path was available for this input.",
+            note=_build_unavailable_provenance_note(reason),
         ),
-        availability=DiagnosticsAvailability(
-            historical_sections_available=False,
-            history_context_required=True,
-            note='Historical diagnostics are unavailable from snapshot-only input. Attach PortfolioHistoryContext to run rolling diagnostics accurately.',
-            status="unavailable",
-        ),
+        availability=_build_unavailable_availability(reason),
         run_metadata=DiagnosticsRunMetadata(
             diagnostics_id=DIAGNOSTICS_ID,
             methodology_id=DIAGNOSTICS_METHODOLOGY_ID,
             price_basis="unavailable",
-            source_status="unavailable",
+            source_status=_build_diagnostics_source_status("unavailable"),
             confidence="low",
+            factor_model_parameters=_build_factor_model_parameters(),
+            reproducibility=_build_reproducibility_metadata(snapshot, history_start_date=None, history_end_date=None),
         ),
         drawdown_summary=DiagnosticsDrawdownSummary(),
         volatility_summary=DiagnosticsVolatilitySummary(),
@@ -240,14 +360,7 @@ def build_unavailable_diagnostics_result(snapshot, benchmark_symbol: str, snapsh
             collinearity_diagnostics=[],
             insufficient_history=[],
         ),
-        stress_scenarios=[
-            StressScenarioResult(
-                name='Unavailable without history context',
-                estimated_return_pct=None,
-                description='Attach PortfolioHistoryContext to run historically grounded diagnostics and stress scenarios.',
-                status='unavailable',
-            ),
-        ],
+        stress_scenarios=_build_unavailable_stress_scenarios(reason),
     )
 
 
@@ -255,7 +368,12 @@ def run_diagnostics_engine(request: DiagnosticsEngineRequest) -> DiagnosticsResu
     snapshot = build_snapshot_from_exposure_request(request)
     history_context = request.history_context
     if history_context is None or not history_context.history_start_date or not history_context.history_end_date:
-        return build_unavailable_diagnostics_result(snapshot, request.benchmark_symbol, snapshot_basis="snapshot_request")
+        return build_unavailable_diagnostics_result(
+            snapshot,
+            request.benchmark_symbol,
+            snapshot_basis="snapshot_request",
+            reason="missing_request_history_context",
+        )
 
     return _run_diagnostics_with_history(
         snapshot=snapshot,
@@ -292,7 +410,12 @@ def _run_diagnostics_with_history(
     )
     factor_histories[benchmark_symbol] = benchmark_rows
     if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
-        return build_unavailable_diagnostics_result(snapshot, benchmark_symbol, snapshot_basis=snapshot_basis)
+        return build_unavailable_diagnostics_result(
+            snapshot,
+            benchmark_symbol,
+            snapshot_basis=snapshot_basis,
+            reason="missing_market_data",
+        )
 
     valuation_dates = sorted({row['date'] for row in benchmark_rows})
     if historical_basis == "imported_portfolio_history":
@@ -411,7 +534,12 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
     history_dates = [entry.trade_date.isoformat() for entry in snapshot.ledger_entries if entry.trade_date is not None]
     history_dates.extend(position.as_of_date.isoformat() for position in snapshot.positions if position.as_of_date is not None)
     if not history_dates:
-        return build_unavailable_diagnostics_result(snapshot, benchmark_symbol or 'SPY', snapshot_basis="imported_snapshot")
+        return build_unavailable_diagnostics_result(
+            snapshot,
+            benchmark_symbol or 'SPY',
+            snapshot_basis="imported_snapshot",
+            reason="missing_imported_history_path",
+        )
 
     history_start_date = min(history_dates)
     history_end_date = max(history_dates)

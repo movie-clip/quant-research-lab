@@ -31,11 +31,13 @@ from app.schemas.imports import (
 from app.schemas.dashboard_history import DashboardHistoryEngineRequest
 from app.schemas.diagnostics import DiagnosticsEngineRequest
 from app.schemas.exposure import ExposureAvailability, ExposureConcentrationItem, ExposureCurrentStateConcentration, ExposureProvenance, ExposureResult, ExposureRunMetadata
+from app.schemas.exposure import ExposureRunReproducibilityMetadata, ExposureRunSourceStatus
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PortfolioRiskSummary
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import run_dashboard_history_engine, run_imported_dashboard_history
 from app.services.diagnostics_engine import run_diagnostics_engine, run_imported_diagnostics_engine
+from app.services.exposure_engine import build_exposure_result
 from app.services.import_engine import build_import_bootstrap_from_snapshot
 from app.services.statement_importer import import_statements
 
@@ -220,8 +222,17 @@ def _sample_exposure_result(snapshot: ImportedPortfolioSnapshot) -> ExposureResu
             engine_id="exposure_engine_v1",
             methodology_id="exposure_current_state_methodology_v1",
             price_basis="not_applicable",
-            source_status="current_state_only",
+            source_status=ExposureRunSourceStatus(
+                lookthrough_resolution="live",
+                benchmark_holdings="live",
+            ),
             confidence="high",
+            reproducibility=ExposureRunReproducibilityMetadata(
+                input_imported_at="2026-01-01T00:00:00",
+                snapshot_as_of_date="2025-12-31",
+                benchmark_symbol="SPY",
+                dataset_version="market_data_service_v1",
+            ),
         ),
         overview=_sample_overview(snapshot),
         lookthrough=LookThroughOverview(
@@ -271,6 +282,92 @@ def test_build_portfolio_overview_returns_expected_totals() -> None:
     assert overview.cash_by_currency["USD"] == 200.0
 
 
+def test_build_exposure_result_populates_structured_run_metadata(mocker) -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="sample.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[],
+        positions=[
+            ImportedPosition(as_of_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=100.0, market_value=1000.0, unrealized_pnl=0.0, currency="USD"),
+            ImportedPosition(as_of_date=date(2026, 4, 10), symbol="VUAA", quantity=2.0, cost_basis=200.0, close_price=100.0, market_value=200.0, unrealized_pnl=0.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+
+    market_data = mocker.patch("app.services.exposure_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_etf_holdings.side_effect = [
+        ("SPY", [{"asset": "AAPL", "name": "APPLE INC", "weightPercentage": 100.0}]),
+        ("SPY", [{"asset": "AAPL", "name": "APPLE INC", "weightPercentage": 100.0}]),
+    ]
+    service.get_company_profile.return_value = None
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.run_metadata.source_status.model_dump() == {
+        "lookthrough_resolution": "live",
+        "benchmark_holdings": "live",
+    }
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-10",
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
+
+
+def test_build_exposure_result_marks_partial_lookthrough_and_unavailable_benchmark_holdings(mocker) -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="sample.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[],
+        positions=[
+            ImportedPosition(as_of_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=100.0, market_value=1000.0, unrealized_pnl=0.0, currency="USD"),
+            ImportedPosition(as_of_date=date(2026, 4, 10), symbol="VUAA", quantity=2.0, cost_basis=200.0, close_price=100.0, market_value=200.0, unrealized_pnl=0.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+
+    market_data = mocker.patch("app.services.exposure_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_etf_holdings.side_effect = [
+        (None, []),
+        (None, []),
+    ]
+    service.get_company_profile.return_value = None
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.run_metadata.source_status.model_dump() == {
+        "lookthrough_resolution": "partial",
+        "benchmark_holdings": "unavailable",
+    }
+    assert result.availability.lookthrough_status == "partial"
+    assert result.availability.benchmark_overlap_status == "unavailable"
+
+
 def test_build_portfolio_overview_classifies_2026_ucits_and_thematic_holdings() -> None:
     if not STATEMENT_2026_PATH.exists():
         return
@@ -278,7 +375,7 @@ def test_build_portfolio_overview_classifies_2026_ucits_and_thematic_holdings() 
 
     overview = build_portfolio_overview(snapshot)
 
-    assert any(item["symbol"] == "HOOD" for item in overview.sector_position_breakdown["Financials"])
+    assert any(item["symbol"] == "FICO" for item in overview.sector_position_breakdown["Financials"])
     assert any(item["symbol"] == "IUFS" for item in overview.sector_position_breakdown["Financials"])
     assert any(item["symbol"] == "IUHC" for item in overview.sector_position_breakdown["Health Care"])
     assert any(item["symbol"] == "DFND" for item in overview.sector_position_breakdown["Defense"])
@@ -466,6 +563,19 @@ def test_run_dashboard_history_engine_returns_unavailable_without_complete_histo
     assert result.daily_states == []
     assert result.performance_series == []
     assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.run_metadata.source_status.model_dump() == {
+        "performance_history": "unavailable",
+        "monthly_returns": "unavailable",
+        "benchmark_history": "unavailable",
+    }
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-10",
+        "history_start_date": "2025-01-01",
+        "history_end_date": None,
+        "benchmark_symbol": "QQQ",
+        "dataset_version": "market_data_service_v1",
+    }
     assert result.benchmark is None
     assert result.range_metrics is not None
     assert result.range_metrics["3M"].summary.start_value is None
@@ -496,6 +606,19 @@ def test_run_dashboard_history_engine_returns_unavailable_for_snapshot_only_requ
     result = run_dashboard_history_engine(request)
 
     assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.run_metadata.source_status.model_dump() == {
+        "performance_history": "unavailable",
+        "monthly_returns": "unavailable",
+        "benchmark_history": "unavailable",
+    }
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-10",
+        "history_start_date": "2026-04-10",
+        "history_end_date": "2026-04-11",
+        "benchmark_symbol": "QQQ",
+        "dataset_version": "market_data_service_v1",
+    }
     assert result.benchmark is None
     assert result.daily_states == []
     assert result.performance_series == []
@@ -660,9 +783,31 @@ def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_hi
     result = run_imported_diagnostics_engine(snapshot, "SPY")
 
     assert result.availability.historical_sections_available is False
-    assert result.availability.history_context_required is True
+    assert result.availability.history_context_required is False
+    assert result.availability.note == "Historical diagnostics are unavailable because this imported snapshot does not contain enough broker history to reconstruct a historical portfolio path."
     assert result.provenance.snapshot_basis == "imported_snapshot"
     assert result.provenance.historical_basis == "unavailable"
+    assert result.provenance.note == "Historical diagnostics are unavailable because imported broker history could not be reconstructed from this snapshot."
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": None,
+        "history_start_date": None,
+        "history_end_date": None,
+        "dataset_version": "market_data_service_v1",
+    }
+    assert result.run_metadata.factor_model_parameters.model_dump() == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert result.run_metadata.source_status.model_dump() == {
+        "portfolio_history": "unavailable",
+        "benchmark_history": "unavailable",
+        "factor_history": "unavailable",
+    }
     assert result.drawdown_summary.current_drawdown_pct is None
     assert result.drawdown_summary.max_drawdown_pct is None
     assert result.volatility_summary.portfolio_volatility_pct is None
@@ -746,6 +891,26 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
     assert result.availability.historical_sections_available is True
     assert result.provenance.snapshot_basis == "imported_snapshot"
     assert result.provenance.historical_basis == "imported_portfolio_history"
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-23T00:00:00",
+        "snapshot_as_of_date": "2026-04-23",
+        "history_start_date": "2026-04-10",
+        "history_end_date": "2026-04-23",
+        "dataset_version": "market_data_service_v1",
+    }
+    assert result.run_metadata.factor_model_parameters.model_dump() == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert result.run_metadata.source_status.model_dump() == {
+        "portfolio_history": "imported_replay",
+        "benchmark_history": "live_market_data",
+        "factor_history": "live_market_data",
+    }
     assert result.drawdown_summary.current_drawdown_pct == result.volatility_regime.snapshot.current_drawdown_pct
     assert result.drawdown_summary.max_drawdown_pct == result.volatility_regime.snapshot.max_drawdown_pct
     assert result.volatility_summary.portfolio_volatility_pct == result.risk_summary.portfolio_volatility_pct
@@ -784,6 +949,19 @@ def test_run_imported_dashboard_history_returns_unavailable_without_imported_his
     result = run_imported_dashboard_history(snapshot, "SPY")
 
     assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.run_metadata.source_status.model_dump() == {
+        "performance_history": "unavailable",
+        "monthly_returns": "unavailable",
+        "benchmark_history": "unavailable",
+    }
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": None,
+        "history_start_date": None,
+        "history_end_date": None,
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
     assert result.benchmark is None
     assert result.daily_states == []
     assert result.performance_series == []
@@ -831,6 +1009,19 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
 
     service.get_historical_prices.assert_called_once_with("SPY", "2026-04-10", "2026-04-11")
     assert result.source_status == {"performance_history": "live", "monthly_returns": "live"}
+    assert result.run_metadata.source_status.model_dump() == {
+        "performance_history": "live",
+        "monthly_returns": "live",
+        "benchmark_history": "live_market_data",
+    }
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-11",
+        "history_start_date": "2026-04-10",
+        "history_end_date": "2026-04-11",
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
     assert result.benchmark is not None
     assert result.benchmark.symbol == "SPY"
     assert len(result.daily_states) == 2
@@ -872,9 +1063,31 @@ def test_run_imported_diagnostics_engine_returns_unavailable_when_symbol_history
     result = run_imported_diagnostics_engine(snapshot, "SPY")
 
     assert result.availability.historical_sections_available is False
-    assert result.availability.history_context_required is True
+    assert result.availability.history_context_required is False
+    assert result.availability.note == "Historical diagnostics are unavailable because the required benchmark or symbol market data could not be loaded for the requested history window."
     assert result.provenance.snapshot_basis == "imported_snapshot"
     assert result.provenance.historical_basis == "unavailable"
+    assert result.provenance.note == "Historical diagnostics are unavailable because the required benchmark or symbol market data could not be loaded for the requested history window."
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-11",
+        "history_start_date": None,
+        "history_end_date": None,
+        "dataset_version": "market_data_service_v1",
+    }
+    assert result.run_metadata.factor_model_parameters.model_dump() == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert result.run_metadata.source_status.model_dump() == {
+        "portfolio_history": "unavailable",
+        "benchmark_history": "unavailable",
+        "factor_history": "unavailable",
+    }
     assert result.risk_summary.benchmark_symbol == "SPY"
     assert result.risk_summary.observations == 0
     assert result.rolling_risk == []
@@ -911,9 +1124,31 @@ def test_run_imported_diagnostics_engine_returns_unavailable_when_benchmark_hist
     result = run_imported_diagnostics_engine(snapshot, "SPY")
 
     assert result.availability.historical_sections_available is False
-    assert result.availability.history_context_required is True
+    assert result.availability.history_context_required is False
+    assert result.availability.note == "Historical diagnostics are unavailable because the required benchmark or symbol market data could not be loaded for the requested history window."
     assert result.provenance.snapshot_basis == "imported_snapshot"
     assert result.provenance.historical_basis == "unavailable"
+    assert result.provenance.note == "Historical diagnostics are unavailable because the required benchmark or symbol market data could not be loaded for the requested history window."
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-11",
+        "history_start_date": None,
+        "history_end_date": None,
+        "dataset_version": "market_data_service_v1",
+    }
+    assert result.run_metadata.factor_model_parameters.model_dump() == {
+        "rolling_windows_days": [20, 60, 252],
+        "current_reliability_window_days": 60,
+        "minimum_window_observations": {"20": 25, "60": 75, "252": 275},
+        "collinearity_warning_threshold": 0.85,
+        "orthogonalization_basis": "factor_proxy_definition_order",
+        "ridge_lambda": 1e-05,
+    }
+    assert result.run_metadata.source_status.model_dump() == {
+        "portfolio_history": "unavailable",
+        "benchmark_history": "unavailable",
+        "factor_history": "unavailable",
+    }
     assert result.risk_summary.benchmark_symbol == "SPY"
     assert result.risk_summary.observations == 0
     assert result.rolling_risk == []
@@ -950,6 +1185,19 @@ def test_run_imported_dashboard_history_returns_unavailable_when_symbol_history_
     result = run_imported_dashboard_history(snapshot, "SPY")
 
     assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.run_metadata.source_status.model_dump() == {
+        "performance_history": "unavailable",
+        "monthly_returns": "unavailable",
+        "benchmark_history": "unavailable",
+    }
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-11",
+        "history_start_date": None,
+        "history_end_date": None,
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
     assert result.benchmark is None
     assert result.daily_states == []
     assert result.performance_series == []
@@ -991,6 +1239,19 @@ def test_run_imported_dashboard_history_returns_unavailable_when_benchmark_histo
     result = run_imported_dashboard_history(snapshot, "SPY")
 
     assert result.source_status == {"performance_history": "unavailable", "monthly_returns": "unavailable"}
+    assert result.run_metadata.source_status.model_dump() == {
+        "performance_history": "unavailable",
+        "monthly_returns": "unavailable",
+        "benchmark_history": "unavailable",
+    }
+    assert result.run_metadata.reproducibility.model_dump() == {
+        "input_imported_at": "2026-04-10T00:00:00",
+        "snapshot_as_of_date": "2026-04-11",
+        "history_start_date": None,
+        "history_end_date": None,
+        "benchmark_symbol": "SPY",
+        "dataset_version": "market_data_service_v1",
+    }
     assert result.benchmark is None
     assert result.daily_states == []
     assert result.performance_series == []

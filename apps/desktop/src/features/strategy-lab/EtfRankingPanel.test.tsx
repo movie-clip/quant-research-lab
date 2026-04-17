@@ -12,16 +12,15 @@ describe('EtfRankingPanel', () => {
   it('renders a stable pre-run empty state', () => {
     render(<EtfRankingPanel />)
 
-    expect(screen.getByText('Compare a current ETF against same-mandate substitutes, rank the eligible options on momentum, path risk, liquidity, and implementation fit, and review whether a stronger replacement candidate exists without turning the tool into a hype screener.')).toBeTruthy()
+    expect(screen.getByText('Rank same-mandate ETF substitutes and review whether the current holding has a stronger replacement candidate.')).toBeTruthy()
     expect(screen.getByText('Run a ranking pass to review ETF peer-group results.')).toBeTruthy()
-    expect(screen.getByText('This workspace is read-only. It helps you compare same-mandate substitutes before making a separate portfolio decision elsewhere.')).toBeTruthy()
-    expect(screen.getByText('What This Tool Does')).toBeTruthy()
-    expect(screen.getByText('How To Read It')).toBeTruthy()
-    expect(screen.getByText('Before You Run')).toBeTruthy()
+    expect(screen.getByText('Compare same-mandate substitutes before carrying one into a draft review.')).toBeTruthy()
     expect(screen.getByText('Benchmark')).toBeTruthy()
     expect(screen.getByText('Lookback (months)')).toBeTruthy()
-    expect(screen.getByText('Include the incumbent ETF you currently hold, plus realistic replacement candidates.')).toBeTruthy()
-    expect(screen.queryByText('How This Can Improve The Portfolio')).toBeNull()
+    expect(screen.queryByText('What This Tool Does')).toBeNull()
+    expect(screen.queryByText('How To Read It')).toBeNull()
+    expect(screen.queryByText('Before You Run')).toBeNull()
+    expect(screen.queryByText('Portfolio Fit')).toBeNull()
   })
 
   it('renders ranking results with peer-group, warnings, and exclusions', async () => {
@@ -110,7 +109,7 @@ describe('EtfRankingPanel', () => {
     expect(payload.peer_group).toBe('Sector UCITS ETF')
     const headings = [
       'Replacement Decision',
-      'How This Can Improve The Portfolio',
+      'Portfolio Fit',
       'Trust Checks',
       'Why #1 Beats #2',
       'Ranked Universe',
@@ -125,8 +124,8 @@ describe('EtfRankingPanel', () => {
     expect(screen.getByText('Top Pick')).toBeTruthy()
     expect(screen.getByText('Runner-Up')).toBeTruthy()
     expect(screen.getByText('Start here to see whether the top-ranked ETF looks like a credible substitute, not an automatic switch.')).toBeTruthy()
-    expect(screen.getByText('How This Can Improve The Portfolio')).toBeTruthy()
-    expect(screen.getByText('This tool can improve the portfolio by improving the ETF vehicle inside the same mandate. It helps you check whether the current ETF could be replaced by a stronger implementation of the same job, without changing exposure or allocation.')).toBeTruthy()
+    expect(screen.getByText('Portfolio Fit')).toBeTruthy()
+    expect(screen.getByText('Use ranking to check whether the same mandate has a stronger ETF implementation.')).toBeTruthy()
     expect(screen.getByText('Review confidence, metadata gaps, and warnings before treating the ranking as decision-grade.')).toBeTruthy()
     expect(screen.getByText('Highest-ranked eligible substitute in this run')).toBeTruthy()
     expect(screen.getByText('Second choice to compare before acting')).toBeTruthy()
@@ -139,13 +138,14 @@ describe('EtfRankingPanel', () => {
     expect(screen.getAllByText('IUHC').length).toBeGreaterThan(0)
     expect(screen.getAllByText('0.8123').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Seed Candidate Draft').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Carry this ETF into a draft portfolio-improvement review without implying a switch.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Carry into draft review.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blended').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Lower better').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Implementation').length).toBeGreaterThan(0)
     expect(screen.getByText('Implementation-fit support is not complete across the ranked universe.')).toBeTruthy()
     expect(screen.getByText('VDST')).toBeTruthy()
     expect(screen.getByText('Portfolio Use Note')).toBeTruthy()
+    expect(screen.getByText('Ranking stays review-only until you carry a candidate into a draft.')).toBeTruthy()
     expect(screen.queryByText(/take action/i)).toBeNull()
   })
 
@@ -325,7 +325,7 @@ describe('EtfRankingPanel', () => {
     fireEvent.click(screen.getAllByText('Seed Candidate Draft')[0])
 
     expect(screen.getByText('Create candidate improvement draft')).toBeTruthy()
-    expect(screen.getByText('This carries the selected ETF and its ranking context into a draft review. It does not recommend a switch, change allocations, or execute anything.')).toBeTruthy()
+    expect(screen.getByText('Carry the selected ETF and ranking context into a draft review.')).toBeTruthy()
     expect(screen.getAllByText('Selected ETF').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Source').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Peer Group').length).toBeGreaterThan(0)
@@ -380,7 +380,7 @@ describe('EtfRankingPanel', () => {
         holdingsSupport: 'mixed',
       },
     })
-    expect(screen.getByText('Candidate draft created. Review it before making any portfolio decision.')).toBeTruthy()
+    expect(screen.getByText('Candidate draft created for review.')).toBeTruthy()
   })
 
   it('blocks confirm when incumbent equals selected candidate', async () => {

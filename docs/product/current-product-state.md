@@ -14,13 +14,13 @@ Use this file when updating `README.md`, roadmap docs, architecture docs, and co
 
 ### Desktop app ownership and navigation
 
-- top-level desktop tabs are `Dashboard`, `Exposure`, `Diagnostics`, `Research`, `Backtest`, `Strategy Lab`, and `ETF Ranking`
+- top-level desktop tabs are `Dashboard`, `Exposure`, `Diagnostics`, `Workspace`, `Backtest`, `Strategy Lab`, and `ETF Ranking`
 - `Dashboard` owns import/session controls, current workspace summary, and variant access
 - `Exposure` owns current-state exposure review with snapshot selection across draft and saved nodes
 - `Diagnostics` owns current-state overlays plus current-state diagnostics review
-- `Research` owns the portfolio-improvement workflow shell, replay diagnostics review, replay-scoped monitoring, and the allocation replay builder for portfolio-improvement flows
-- `Backtest` owns generic strategy backtests and is separate from the portfolio-improvement Research workflow
-- `ETF Ranking` owns the current shipped candidate-seeding entry point into Research
+- `Workspace` owns the portfolio-improvement workflow shell, replay diagnostics review, replay-scoped monitoring, and the allocation replay builder for portfolio-improvement flows
+- `Backtest` owns generic strategy backtests and is separate from the portfolio-improvement Workspace workflow
+- `ETF Ranking` owns the current shipped candidate-seeding entry point into Workspace
 
 ### Portfolio truth and current-state analysis
 
@@ -28,6 +28,10 @@ Use this file when updating `README.md`, roadmap docs, architecture docs, and co
 - broker import and portfolio snapshot workflows exist as part of the current desktop-plus-engine architecture
 - current-state exposure and diagnostics flows exist for portfolio understanding, including look-through, overlap, factor/risk, and related diagnostics surfaces
 - financial outputs are expected to stay traceable to engine responses rather than frontend-created finance logic
+- exposure contracts now carry explicit grouped run metadata for structured source-status and reproducibility fields
+- diagnostics contracts now carry explicit grouped run metadata for source-status, factor-model assumptions, and reproducibility time-basis fields
+- diagnostics unavailable paths are now reason-specific: snapshot-request history-context gaps, imported-history reconstruction failures, and market-data failures no longer share the same note/flag wording
+- dashboard-history contracts now carry explicit grouped run metadata for structured source-status and reproducibility fields
 
 ### Replay and portfolio-improvement workflow
 
@@ -37,7 +41,7 @@ Use this file when updating `README.md`, roadmap docs, architecture docs, and co
 - replacement-intent candidate construction exists at `POST /backtests/candidate-construction/replacement-intent`
 - desktop supports explicit replacement-intent review, replay review, diagnostics delta review, and immutable local proposal artifact persistence/readout
 
-Current Research workflow order is explicit and shell-owned:
+Current Workspace workflow order is explicit and shell-owned:
 1. current portfolio
 2. candidate idea
 3. candidate formation
@@ -46,11 +50,11 @@ Current Research workflow order is explicit and shell-owned:
 6. diagnostics change
 7. saved proposal
 
-Current Research composition is also explicit:
+Current Workspace composition is also explicit:
 - the workflow shell appears first
 - replay-scoped Monitoring appears after the shell
 - the lower-level allocation replay builder appears after Monitoring
-- Monitoring can hand off back into the shell with a narrow `Review In Research` action and a session-scoped banner
+- Monitoring can hand off back into the shell with a narrow `Review In Workspace` action and a session-scoped banner
 
 ### Ranking and research workflow
 
@@ -70,8 +74,8 @@ Current Research composition is also explicit:
 - current construction rules are limited to `same_weight_substitution_v1` and `fixed_split_50_50_substitution_v2`
 - formed candidates, constructed candidates, hypothetical replays, and saved proposals are review artifacts only; they do not mutate `PortfolioSnapshot` or apply a holdings change
 - overlay support is limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only
-- monitoring is currently a replay-scoped Research surface only; it is not yet a broad continuous monitoring and alerting system
-- current Monitoring-to-Research continuity is narrow: explicit user-initiated handoff, versioned handoff payload, session-scoped dismiss state, and no persistent alert/review history
+- monitoring is currently a replay-scoped Workspace surface only; it is not yet a broad continuous monitoring and alerting system
+- current Monitoring-to-Workspace continuity is narrow: explicit user-initiated handoff, versioned handoff payload, session-scoped dismiss state, and no persistent alert/review history
 - optimization is not yet a shipped product capability
 - some replay provenance remains partial when replay consumes a constructed candidate; current docs should not overclaim exact end-to-end derivation fidelity beyond the documented contract
 

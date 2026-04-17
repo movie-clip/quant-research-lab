@@ -38,12 +38,35 @@ class DiagnosticsProvenance(BaseModel):
     note: str
 
 
+class DiagnosticsSourceStatus(BaseModel):
+    portfolio_history: Literal["imported_replay", "synthetic_snapshot_history", "unavailable"]
+    benchmark_history: Literal["live_market_data", "unavailable"]
+    factor_history: Literal["live_market_data", "unavailable"]
+
+
 class DiagnosticsRunMetadata(BaseModel):
+    class FactorModelParameters(BaseModel):
+        rolling_windows_days: list[int]
+        current_reliability_window_days: int
+        minimum_window_observations: dict[str, int]
+        collinearity_warning_threshold: float
+        orthogonalization_basis: str
+        ridge_lambda: float
+
+    class ReproducibilityMetadata(BaseModel):
+        input_imported_at: str | None = None
+        snapshot_as_of_date: str | None = None
+        history_start_date: str | None = None
+        history_end_date: str | None = None
+        dataset_version: str
+
     diagnostics_id: str
     methodology_id: str
     price_basis: Literal["close", "unavailable"]
-    source_status: Literal["imported_portfolio_history", "market_data_history", "unavailable"]
+    source_status: DiagnosticsSourceStatus
     confidence: Literal["high", "medium", "low"]
+    factor_model_parameters: FactorModelParameters
+    reproducibility: ReproducibilityMetadata
 
 
 class DiagnosticsDrawdownSummary(BaseModel):

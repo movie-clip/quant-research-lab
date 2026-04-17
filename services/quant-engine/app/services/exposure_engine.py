@@ -6,18 +6,24 @@ from app.analytics.risk import (
 )
 from app.schemas.exposure import (
     ExposureAvailability,
+    ExposureAvailabilityConfidence,
     ExposureConcentrationItem,
     ExposureCurrentStateConcentration,
     ExposureEngineRequest,
     ExposureProvenance,
     ExposureResult,
     ExposureRunMetadata,
+    ExposureRunReproducibilityMetadata,
+    ExposureRunSourceStatus,
 )
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest
 from app.schemas.reconciliation import LookThroughOverview, PortfolioOverview
 from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
+
+
+EXPOSURE_DATASET_VERSION = "market_data_service_v1"
 
 
 def build_snapshot_from_exposure_request(request: PortfolioEngineRequest) -> ImportedPortfolioSnapshot:
@@ -55,8 +61,14 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
             engine_id="exposure_engine_v1",
             methodology_id="exposure_current_state_methodology_v1",
             price_basis="not_applicable",
-            source_status="current_state_only",
+            source_status=_build_exposure_source_status(
+                total_market_value=total_market_value,
+                lookthrough_constituents=lookthrough_constituents,
+                uncovered_positions=uncovered_positions,
+                benchmark_holdings=benchmark_holdings,
+            ),
             confidence=_combine_exposure_confidence(availability.lookthrough_confidence, availability.benchmark_overlap_confidence),
+            reproducibility=_build_exposure_reproducibility(snapshot, benchmark_symbol),
         ),
         overview=overview,
         lookthrough=LookThroughOverview(
@@ -77,6 +89,39 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
 def run_exposure_engine(request: ExposureEngineRequest) -> ExposureResult:
     snapshot = build_snapshot_from_exposure_request(request)
     return build_exposure_result(snapshot, request.benchmark_symbol)
+
+
+def _build_exposure_source_status(
+    total_market_value: float,
+    lookthrough_constituents,
+    uncovered_positions: list[str],
+    benchmark_holdings: list[dict],
+) -> ExposureRunSourceStatus:
+    lookthrough_resolution: str
+    if total_market_value <= 0 or not lookthrough_constituents:
+        lookthrough_resolution = "unavailable"
+    elif uncovered_positions:
+        lookthrough_resolution = "partial"
+    else:
+        lookthrough_resolution = "live"
+
+    return ExposureRunSourceStatus(
+        lookthrough_resolution=lookthrough_resolution,
+        benchmark_holdings="live" if benchmark_holdings else "unavailable",
+    )
+
+
+def _build_exposure_reproducibility(
+    snapshot: ImportedPortfolioSnapshot,
+    benchmark_symbol: str,
+) -> ExposureRunReproducibilityMetadata:
+    snapshot_as_of_date = max((position.as_of_date.isoformat() for position in snapshot.positions if position.as_of_date is not None), default=None)
+    return ExposureRunReproducibilityMetadata(
+        input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
+        snapshot_as_of_date=snapshot_as_of_date,
+        benchmark_symbol=benchmark_symbol,
+        dataset_version=EXPOSURE_DATASET_VERSION,
+    )
 
 
 def _build_exposure_availability(
@@ -169,9 +214,12 @@ def _herfindahl_index(values: list[float]) -> float | None:
     return round(sum(value * value for value in values), 4)
 
 
-def _combine_exposure_confidence(*values: str) -> str:
+def _combine_exposure_confidence(*values: str) -> ExposureAvailabilityConfidence:
     if "low" in values:
-        return "low"
+        confidence: ExposureAvailabilityConfidence = "low"
+        return confidence
     if "medium" in values:
-        return "medium"
-    return "high"
+        confidence = "medium"
+        return confidence
+    confidence = "high"
+    return confidence

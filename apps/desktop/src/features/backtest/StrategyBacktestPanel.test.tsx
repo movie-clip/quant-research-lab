@@ -53,6 +53,7 @@ describe('StrategyBacktestPanel', () => {
 
     expect(screen.getByText('Backtest')).toBeTruthy()
     expect(screen.getByText('Generic strategy backtests')).toBeTruthy()
+    expect(screen.getByText('Run generic strategy backtests here. Portfolio-improvement work stays in the Workspace.')).toBeTruthy()
     expect(screen.getByText('Strategy Backtest')).toBeTruthy()
     expect(screen.getByText('Latest Strategy Run')).toBeTruthy()
     expect(screen.queryByText('Portfolio Improvement Workspace')).toBeNull()

@@ -373,6 +373,17 @@ function overlapBadge(result: ExposureAnalysis) {
   return 'Overlap live'
 }
 
+function formatExposureAuditLine(result: ExposureAnalysis) {
+  const runMetadata = result.run_metadata
+  if (!runMetadata) return null
+
+  const reproducibility = runMetadata.reproducibility
+  const snapshotDate = reproducibility.snapshot_as_of_date ? formatDateLabel(reproducibility.snapshot_as_of_date) : 'Snapshot date n/a'
+  const benchmarkStatus = runMetadata.source_status.benchmark_holdings === 'live' ? 'benchmark holdings live' : 'benchmark holdings unavailable'
+
+  return `Audit: snapshot ${snapshotDate} · ${reproducibility.benchmark_symbol} · look-through ${runMetadata.source_status.lookthrough_resolution} · ${benchmarkStatus} · dataset ${reproducibility.dataset_version}`
+}
+
 
 function NumericChartTooltip({ active, payload, label }: TooltipContentProps<ValueType, NameType>) {
   if (!active || !payload?.length) return null
@@ -637,6 +648,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   const exposureAvailability = result.exposure_availability ?? null
   const lookthroughDegraded = exposureAvailability?.lookthrough_status === 'partial'
   const overlapUnavailable = exposureAvailability?.benchmark_overlap_status === 'unavailable'
+  const exposureAuditLine = formatExposureAuditLine(result)
 
   const topRiskPath = [
     {
@@ -698,6 +710,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
           <p className="helper">{exposureAvailability.note}</p>
         </div>
       ) : null}
+      {exposureAuditLine ? <p className="helper">{exposureAuditLine}</p> : null}
       {scenarioPreview ? (
         <div className="summary-card strategy-summary-card dashboard-edit-summary-card">
           <p className="stat-label">Scenario Preview</p>
@@ -755,7 +768,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       <section className="dashboard-bottom-grid exposure-primary-section exposure-top-path-section">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Risk Path</p></div>
-          <p className="helper">Historical benchmark-relative diagnostics path for sensitivity, active risk, realized volatility, and current regime.{scenarioPreview ? ' Historical baseline from the imported portfolio history.' : ''}</p>
+          <p className="helper">Historical benchmark-relative path for sensitivity, active risk, realized volatility, and regime.{scenarioPreview ? ' Historical baseline only.' : ''}</p>
         </div>
         <div className="risk-path-grid">
           {topRiskPath.map((item) => (
@@ -769,31 +782,31 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       </section>
 
       <section className="dashboard-bottom-grid exposure-primary-section exposure-priority-grid">
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Alignment</p></div><p className="helper">Current overlap snapshot is shown separately from historical benchmark diagnostics.{scenarioPreview ? ' Historical diagnostics remain baseline.' : ''}</p></div>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Alignment</p></div><p className="helper">Current overlap stays separate from historical benchmark diagnostics.{scenarioPreview ? ' Historical diagnostics remain baseline.' : ''}</p></div>
         <div className="market-risk-layout">
           <div className="dashboard-summary market-risk-grid market-risk-grid-dense">
           <div className="summary-card metric-card metric-card-neutral">
             <p className="stat-label">Current Overlap Snapshot</p>
-            <p className="helper">Look-through overlap versus benchmark constituents using current holdings only</p>
+            <p className="helper">Current holdings only.</p>
           </div>
           <div className={metricCardClass(overlapTone)}>
             <p className="stat-label">Portfolio in {result.market_overlap.benchmark_symbol} Names</p>
             <p className={`summary-value ${signalToneClass(overlapTone)}`}>{formatPct(result.market_overlap.portfolio_in_benchmark_weight != null ? result.market_overlap.portfolio_in_benchmark_weight * 100 : null)}</p>
-            <p className="helper">Look-through overlap inside benchmark constituents when benchmark holdings are available</p>
+            <p className="helper">Overlap inside benchmark constituents.</p>
           </div>
           <div className={metricCardClass(activeShareTone)}>
             <p className="stat-label">Active Share vs {result.market_overlap.benchmark_symbol}</p>
             <p className={`summary-value ${signalToneClass(activeShareTone)}`}>{formatPct(result.market_overlap.active_share != null ? result.market_overlap.active_share * 100 : null)}</p>
-            <p className="helper">Lower reads closer to benchmark construction when benchmark holdings are available</p>
+            <p className="helper">Lower reads closer to benchmark construction.</p>
           </div>
           <div className="summary-card metric-card metric-card-neutral">
             <p className="stat-label">Historical Benchmark Diagnostics</p>
-            <p className="helper">History-aware benchmark-relative diagnostics from persisted import history</p>
+            <p className="helper">Persisted import history.</p>
           </div>
           <div className={metricCardClass(trackingErrorTone)}>
             <p className="stat-label">Tracking Error</p>
             <p className={`summary-value ${signalToneClass(trackingErrorTone)}`}>{formatPct(result.relative_risk.tracking_error_pct)}</p>
-            <p className="helper">Benchmark-relative daily active-risk estimate</p>
+            <p className="helper">Daily active-risk estimate.</p>
           </div>
           <div className={metricCardClass(informationRatioTone)}>
             <p className="stat-label">Information Ratio</p>
@@ -857,7 +870,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       <section className="dashboard-bottom-grid factor-master-detail-section">
         <div className="section-header-inline sector-list-header">
           <div><p className="panel-label">Current Factor Snapshot</p></div>
-          <p className="helper">Current snapshot loadings stay here, while the rolling chart now lives on the Dashboard. Historical {rollingWindow}d values remain available in this table.{scenarioPreview ? ' Current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical.' : ''}</p>
+          <p className="helper">Current loadings stay here; historical {rollingWindow}d values remain in the table.{scenarioPreview ? ' Current values are scenario-aware; rolling-window values stay baseline historical.' : ''}</p>
         </div>
         <div className="dashboard-summary compact-summary-grid">
           <div className={metricCardClass(modelReliabilityTone)}>
@@ -903,7 +916,6 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
                   <p className="helper">Methodology: {resolvedFactorModel?.methodology ?? result.factor_methodology ?? DEFAULT_FACTOR_MODEL_METHODOLOGY}</p>
                   <p className="helper">Window status: {selectedWindowSummary?.status ?? resolvedFactorModel?.statistical_factor_model.status ?? 'n/a'}</p>
                   <p className="helper">Observations: {selectedWindowSummary?.observations ?? 0}</p>
-                  <p className="helper">Table separates current snapshot loadings from historical {rollingWindow}d rolling-window loadings.</p>
                   <p className="helper">Benchmark: {resolvedFactorModel?.statistical_factor_model.benchmark_symbol ?? result.benchmark?.symbol ?? 'SPY'}</p>
                   <p className="helper">Reliability: {result.model_reliability.confidence} confidence{scenarioPreview ? ' · current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical' : ''}</p>
                 </div>

@@ -244,8 +244,27 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
       diagnostics_id: 'diagnostics_engine_v1',
       methodology_id: 'historical_regression_v1',
       price_basis: 'close',
-      source_status: 'market_data_history',
+      source_status: {
+        portfolio_history: 'synthetic_snapshot_history',
+        benchmark_history: 'live_market_data',
+        factor_history: 'live_market_data',
+      },
       confidence: 'medium',
+      factor_model_parameters: {
+        rolling_windows_days: [20, 60, 252],
+        current_reliability_window_days: 60,
+        minimum_window_observations: { '20': 25, '60': 75, '252': 275 },
+        collinearity_warning_threshold: 0.85,
+        orthogonalization_basis: 'factor_proxy_definition_order',
+        ridge_lambda: 1e-5,
+      },
+      reproducibility: {
+        input_imported_at: '2026-04-10T00:00:00Z',
+        snapshot_as_of_date: null,
+        history_start_date: null,
+        history_end_date: null,
+        dataset_version: 'market_data_service_v1',
+      },
     },
     drawdown_summary: drawdownSummary,
     volatility_summary: volatilitySummary,
@@ -310,6 +329,28 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
 function createImportedExposureFixture(snapshot: ReturnType<typeof createImportedSnapshotFixture>, overview: ReturnType<typeof createImportedOverviewFixture>): ExposureEngineResponse {
   return {
     snapshot,
+    provenance: {
+      snapshot_basis: 'snapshot_request',
+      historical_basis: 'current_state_only',
+      price_basis: 'not_applicable',
+      note: 'Exposure is a current-state engine view built from the submitted snapshot and look-through resolution inputs. Historical diagnostics are separate.',
+    },
+    run_metadata: {
+      engine_id: 'exposure_engine_v1',
+      methodology_id: 'exposure_current_state_methodology_v1',
+      price_basis: 'not_applicable',
+      source_status: {
+        lookthrough_resolution: 'live',
+        benchmark_holdings: 'live',
+      },
+      confidence: 'high',
+      reproducibility: {
+        input_imported_at: '2026-04-10T00:00:00Z',
+        snapshot_as_of_date: null,
+        benchmark_symbol: 'SPY',
+        dataset_version: 'market_data_service_v1',
+      },
+    },
     overview,
     lookthrough: {
       portfolio_market_value: 50000,
@@ -450,6 +491,7 @@ export function createImportedDashboardHistoryFixture() {
     performance_series: fixture.performance_series,
     daily_states: fixture.daily_states,
     source_status: fixture.source_status,
+    run_metadata: fixture.run_metadata,
     benchmark: { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: 5 },
   }
 }
@@ -470,6 +512,23 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
       { date: '2025-03-03', total_market_value: 11000, total_portfolio_value: 12000, external_cash_flow: 0, cash: { USD: 1000 }, positions: [] },
     ],
     source_status: { performance_history: 'live', monthly_returns: 'live' },
+    run_metadata: {
+      history_id: 'dashboard_history_engine_v1',
+      methodology_id: 'dashboard_history_methodology_v1',
+      source_status: {
+        performance_history: 'live',
+        monthly_returns: 'live',
+        benchmark_history: 'live_market_data',
+      },
+      reproducibility: {
+        input_imported_at: '2026-04-10T00:00:00Z',
+        snapshot_as_of_date: null,
+        history_start_date: '2025-01-02',
+        history_end_date: '2025-03-03',
+        benchmark_symbol: 'SPY',
+        dataset_version: 'market_data_service_v1',
+      },
+    },
     range_metrics: {
       '1M': {
         summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
@@ -534,7 +593,11 @@ export function createIb2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
     },
     run_metadata: {
       ...createDiagnosticsEngineFixture().run_metadata,
-      source_status: 'imported_portfolio_history',
+      source_status: {
+        portfolio_history: 'imported_replay',
+        benchmark_history: 'live_market_data',
+        factor_history: 'live_market_data',
+      },
       confidence: 'high',
     },
     risk_summary: cloneMutable(ib2026MutableDashboardFixture.risk_summary),
@@ -562,7 +625,11 @@ export function createFf2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
     },
     run_metadata: {
       ...createDiagnosticsEngineFixture().run_metadata,
-      source_status: 'imported_portfolio_history',
+      source_status: {
+        portfolio_history: 'imported_replay',
+        benchmark_history: 'live_market_data',
+        factor_history: 'live_market_data',
+      },
       confidence: 'high',
     },
     risk_summary: cloneMutable(ff2026MutableDashboardFixture.risk_summary),
@@ -598,8 +665,27 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
       diagnostics_id: 'diagnostics_engine_v1',
       methodology_id: 'historical_regression_v1',
       price_basis: 'close',
-      source_status: 'market_data_history',
+      source_status: {
+        portfolio_history: 'synthetic_snapshot_history',
+        benchmark_history: 'live_market_data',
+        factor_history: 'live_market_data',
+      },
       confidence: 'medium',
+      factor_model_parameters: {
+        rolling_windows_days: [20, 60, 252],
+        current_reliability_window_days: 60,
+        minimum_window_observations: { '20': 25, '60': 75, '252': 275 },
+        collinearity_warning_threshold: 0.85,
+        orthogonalization_basis: 'factor_proxy_definition_order',
+        ridge_lambda: 1e-5,
+      },
+      reproducibility: {
+        input_imported_at: '2026-04-10T00:00:00Z',
+        snapshot_as_of_date: null,
+        history_start_date: null,
+        history_end_date: null,
+        dataset_version: 'market_data_service_v1',
+      },
     },
     drawdown_summary: { current_drawdown_pct: -4.2, max_drawdown_pct: -8.9 },
     volatility_summary: {

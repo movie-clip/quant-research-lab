@@ -269,6 +269,24 @@ export type SourceStatus = {
   monthly_returns: string
 }
 
+export type DashboardHistoryRunMetadata = {
+  history_id: string
+  methodology_id: string
+  source_status: {
+    performance_history: string
+    monthly_returns: string
+    benchmark_history: 'live_market_data' | 'unavailable'
+  }
+  reproducibility: {
+    input_imported_at: string | null
+    snapshot_as_of_date: string | null
+    history_start_date: string | null
+    history_end_date: string | null
+    benchmark_symbol: string
+    dataset_version: string
+  }
+}
+
 export type DashboardRangeMetrics = {
   summary: {
     start_value: number | null
@@ -600,8 +618,9 @@ export type RiskContributionBreakdown = {
 
 export type StressScenarioResult = {
   name: string
-  estimated_return_pct: number
+  estimated_return_pct: number | null
   description: string
+  status?: 'ok' | 'unavailable'
 }
 
 export type HistoryTruthClass =
@@ -618,10 +637,29 @@ export type DiagnosticsProvenance = {
 }
 
 export type DiagnosticsRunMetadata = {
+  source_status: {
+    portfolio_history: 'imported_replay' | 'synthetic_snapshot_history' | 'unavailable'
+    benchmark_history: 'live_market_data' | 'unavailable'
+    factor_history: 'live_market_data' | 'unavailable'
+  }
+  factor_model_parameters: {
+    rolling_windows_days: number[]
+    current_reliability_window_days: number
+    minimum_window_observations: Record<string, number>
+    collinearity_warning_threshold: number
+    orthogonalization_basis: string
+    ridge_lambda: number
+  }
+  reproducibility: {
+    input_imported_at: string | null
+    snapshot_as_of_date: string | null
+    history_start_date: string | null
+    history_end_date: string | null
+    dataset_version: string
+  }
   diagnostics_id: string
   methodology_id: string
   price_basis: 'close' | 'unavailable'
-  source_status: 'imported_portfolio_history' | 'market_data_history' | 'unavailable'
   confidence: 'high' | 'medium' | 'low'
 }
 
@@ -714,6 +752,7 @@ export type ImportedDashboardSource = {
   performance_series: PerformanceSeriesPoint[]
   daily_states: DailyPortfolioState[]
   source_status?: SourceStatus | null
+  run_metadata?: DashboardHistoryRunMetadata | null
   range_metrics?: Record<string, DashboardRangeMetrics> | null
 }
 
@@ -752,8 +791,34 @@ export type ExposureCurrentStateConcentration = {
   effective_holdings: number | null
 }
 
+export type ExposureProvenance = {
+  snapshot_basis: 'snapshot_request'
+  historical_basis: 'current_state_only'
+  price_basis: 'not_applicable'
+  note: string
+}
+
+export type ExposureRunMetadata = {
+  engine_id: string
+  methodology_id: string
+  price_basis: 'not_applicable'
+  source_status: {
+    lookthrough_resolution: ExposureAvailabilityStatus
+    benchmark_holdings: 'live' | 'unavailable'
+  }
+  confidence: ExposureAvailabilityConfidence
+  reproducibility: {
+    input_imported_at: string | null
+    snapshot_as_of_date: string | null
+    benchmark_symbol: string
+    dataset_version: string
+  }
+}
+
 export type ImportedExposureSource = {
   snapshot: ImportedSnapshot
+  provenance?: ExposureProvenance | null
+  run_metadata?: ExposureRunMetadata | null
   overview: PortfolioOverview
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
@@ -806,6 +871,8 @@ export type ImportedExposureFactorModelSource = {
 
 export type ExposureEngineResponse = {
   snapshot: ImportedSnapshot
+  provenance: ExposureProvenance
+  run_metadata: ExposureRunMetadata
   overview: PortfolioOverview
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
@@ -818,6 +885,7 @@ export type DashboardHistoryEngineResponse = {
   daily_states: DailyPortfolioState[]
   performance_series: PerformanceSeriesPoint[]
   source_status?: SourceStatus | null
+  run_metadata: DashboardHistoryRunMetadata
   benchmark: BenchmarkSummary | null
   range_metrics?: Record<string, DashboardRangeMetrics> | null
 }

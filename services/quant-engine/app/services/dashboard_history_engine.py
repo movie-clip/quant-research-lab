@@ -2,10 +2,15 @@ from typing import TypedDict
 
 from app.analytics.performance import build_daily_portfolio_states, build_true_performance_series
 from app.schemas.imports import ImportedPortfolioSnapshot
-from app.schemas.dashboard_history import DashboardHistoryEngineRequest, DashboardHistoryResult, DashboardMonthlyReturn, DashboardRangeMetrics
+from app.schemas.dashboard_history import DashboardHistoryEngineRequest, DashboardHistoryResult, DashboardHistoryRunMetadata, DashboardHistoryRunReproducibility, DashboardHistoryRunSourceStatus, DashboardMonthlyReturn, DashboardRangeMetrics
 from app.schemas.reconciliation import PerformanceSummary
 from app.services.benchmark_service import build_benchmark_comparison
 from app.services.market_data import MarketDataService
+
+
+DASHBOARD_HISTORY_ID = "dashboard_history_engine_v1"
+DASHBOARD_HISTORY_METHODOLOGY_ID = "dashboard_history_methodology_v1"
+DASHBOARD_HISTORY_DATASET_VERSION = "market_data_service_v1"
 
 
 RANGE_WINDOWS: dict[str, int | None] = {
@@ -24,19 +29,38 @@ class MonthlyReturnPoint(TypedDict):
 
 def run_dashboard_history_engine(request: DashboardHistoryEngineRequest) -> DashboardHistoryResult:
     history_context = request.history_context
+    benchmark_symbol = request.benchmark_symbol or "SPY"
 
     if history_context is None or not history_context.history_start_date or not history_context.history_end_date:
-        return _build_unavailable_dashboard_history_result()
+        return _build_unavailable_dashboard_history_result(
+            input_imported_at=request.imported_at.isoformat() if request.imported_at is not None else None,
+            snapshot_as_of_date=request.imported_at.date().isoformat() if request.imported_at is not None else None,
+            history_start_date=history_context.history_start_date if history_context is not None else None,
+            history_end_date=history_context.history_end_date if history_context is not None else None,
+            benchmark_symbol=benchmark_symbol,
+        )
 
-    return _build_unavailable_dashboard_history_result()
+    return _build_unavailable_dashboard_history_result(
+        input_imported_at=request.imported_at.isoformat() if request.imported_at is not None else None,
+        snapshot_as_of_date=request.imported_at.date().isoformat() if request.imported_at is not None else None,
+        history_start_date=history_context.history_start_date,
+        history_end_date=history_context.history_end_date,
+        benchmark_symbol=benchmark_symbol,
+    )
 
 
 def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmark_symbol: str | None = None) -> DashboardHistoryResult:
     history_start_date, history_end_date = _derive_imported_history_window(snapshot)
-    if not history_start_date or not history_end_date:
-        return _build_unavailable_dashboard_history_result()
-
     resolved_benchmark_symbol = benchmark_symbol or "SPY"
+    if not history_start_date or not history_end_date:
+        return _build_unavailable_dashboard_history_result(
+            input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
+            snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
+            history_start_date=None,
+            history_end_date=None,
+            benchmark_symbol=resolved_benchmark_symbol,
+        )
+
     market_data = MarketDataService()
     benchmark_rows = market_data.get_historical_prices(
         resolved_benchmark_symbol,
@@ -50,7 +74,13 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
     )
 
     if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
-        return _build_unavailable_dashboard_history_result()
+        return _build_unavailable_dashboard_history_result(
+            input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
+            snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
+            history_start_date=None,
+            history_end_date=None,
+            benchmark_symbol=resolved_benchmark_symbol,
+        )
 
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
     daily_states = build_daily_portfolio_states(
@@ -68,16 +98,57 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
             "performance_history": "live",
             "monthly_returns": "suppressed" if any(state.total_portfolio_value < 0 for state in daily_states) else "live",
         },
+        run_metadata=DashboardHistoryRunMetadata(
+            history_id=DASHBOARD_HISTORY_ID,
+            methodology_id=DASHBOARD_HISTORY_METHODOLOGY_ID,
+            source_status=DashboardHistoryRunSourceStatus(
+                performance_history="live",
+                monthly_returns="suppressed" if any(state.total_portfolio_value < 0 for state in daily_states) else "live",
+                benchmark_history="live_market_data",
+            ),
+            reproducibility=DashboardHistoryRunReproducibility(
+                input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
+                snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
+                history_start_date=history_start_date,
+                history_end_date=history_end_date,
+                benchmark_symbol=resolved_benchmark_symbol,
+                dataset_version=DASHBOARD_HISTORY_DATASET_VERSION,
+            ),
+        ),
         benchmark=build_benchmark_comparison(resolved_benchmark_symbol, benchmark_rows),
         range_metrics=_build_range_metrics(daily_states, performance_series),
     )
 
 
-def _build_unavailable_dashboard_history_result() -> DashboardHistoryResult:
+def _build_unavailable_dashboard_history_result(
+    *,
+    input_imported_at: str | None,
+    snapshot_as_of_date: str | None,
+    history_start_date: str | None,
+    history_end_date: str | None,
+    benchmark_symbol: str,
+) -> DashboardHistoryResult:
     return DashboardHistoryResult(
         daily_states=[],
         performance_series=[],
         source_status={"performance_history": "unavailable", "monthly_returns": "unavailable"},
+        run_metadata=DashboardHistoryRunMetadata(
+            history_id=DASHBOARD_HISTORY_ID,
+            methodology_id=DASHBOARD_HISTORY_METHODOLOGY_ID,
+            source_status=DashboardHistoryRunSourceStatus(
+                performance_history="unavailable",
+                monthly_returns="unavailable",
+                benchmark_history="unavailable",
+            ),
+            reproducibility=DashboardHistoryRunReproducibility(
+                input_imported_at=input_imported_at,
+                snapshot_as_of_date=snapshot_as_of_date,
+                history_start_date=history_start_date,
+                history_end_date=history_end_date,
+                benchmark_symbol=benchmark_symbol,
+                dataset_version=DASHBOARD_HISTORY_DATASET_VERSION,
+            ),
+        ),
         benchmark=None,
         range_metrics=_build_range_metrics([], []),
     )
@@ -89,6 +160,10 @@ def _derive_imported_history_window(snapshot: ImportedPortfolioSnapshot) -> tupl
     if not dates:
         return None, None
     return min(dates), max(dates)
+
+
+def _derive_snapshot_as_of_date(snapshot: ImportedPortfolioSnapshot) -> str | None:
+    return max((position.as_of_date.isoformat() for position in snapshot.positions if position.as_of_date is not None), default=None)
 
 
 def _has_any_symbol_price_history(symbol_price_histories: dict[str, list[dict]]) -> bool:
