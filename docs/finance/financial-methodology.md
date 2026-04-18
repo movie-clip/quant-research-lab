@@ -590,6 +590,7 @@ Current replay provenance state:
 - the replay response now explicitly preserves the actual construction rule consumed by the hypothetical replay
 - the replay response also carries upstream draft/workspace/base-node lineage and ranking seed lineage for the current single-replacement replay slice
 - when constraint validation is supplied to replay routes, the replay response also echoes validation-supplied status, validation result, and constraint-set lineage
+- replay now rejects provable lineage mismatches between supplied validation artifacts and constructed-candidate artifacts
 
 ### Single-Replacement Candidate Construction
 
@@ -650,7 +651,7 @@ At the time of writing, the main finance-related limitations are:
 - synthetic snapshot-history diagnostics are useful but not equivalent to broker-truth historical replay
 - overlay support is currently a narrow hypothetical replay path, not a generalized overlay methodology family
 - candidate construction is currently narrow single-replacement review logic, not generalized portfolio construction
-- replay provenance is now explicit for constructed-candidate consumption and echoed constraint-validation lineage, but replay still does not enforce validation status in the current contract
+- replay provenance is now explicit for constructed-candidate consumption and echoed constraint-validation lineage, and replay rejects provable artifact mismatches, but replay still does not enforce validation status in the current contract
 - some diagnostics panels are more monitoring-oriented than portfolio-manager-decision-oriented
 
 ## Recommended Maintenance Rule

@@ -1,8 +1,11 @@
 from datetime import datetime
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest
+from types import SimpleNamespace
+from typing import Literal, cast
+
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
-from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights
+from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, build_hypothetical_replacement_replay_preview
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -53,6 +56,30 @@ def _replacement_intent(base_symbol: str = "VUAA", candidate_symbol: str = "IUFS
         holdings_support="mixed",
         warning_count=1,
     )
+
+
+def _constructed_candidate_and_constraint_validation() -> tuple[ConstructedCandidateReplayInput, SingleReplacementConstructionConstraintValidationResponse]:
+    constructed_candidate = build_single_replacement_candidate_construction(
+        SingleReplacementCandidateConstructionRequest(
+            snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+            replacement_intent=_replacement_intent(),
+            construction_rule=CandidateConstructionRuleInput(rule_id=RULE_ID_FIXED_SPLIT),
+        )
+    )
+    constructed_candidate_input = ConstructedCandidateReplayInput.model_validate(constructed_candidate.model_dump(mode="json"))
+    constraint_validation = validate_single_replacement_candidate_construction_constraints(
+        SingleReplacementConstructionConstraintValidationRequest(
+            constructed_candidate=constructed_candidate_input,
+            constraint_set=SingleReplacementConstructionConstraintSetInput(constraint_set_id=CONSTRAINT_SET_ID),
+        )
+    )
+    return constructed_candidate_input, constraint_validation
+
+
+def _clone_constraint_validation(
+    constraint_validation: SingleReplacementConstructionConstraintValidationResponse,
+) -> SingleReplacementConstructionConstraintValidationResponse:
+    return SingleReplacementConstructionConstraintValidationResponse.model_validate(constraint_validation.model_dump(mode="json"))
 
 
 def test_build_synthetic_snapshot_from_weights_returns_explicit_imported_snapshot() -> None:
@@ -1213,3 +1240,157 @@ def test_hypothetical_replacement_preview_route_echoes_constraint_validation_lin
         "validation_status": "blocked",
         "constraint_set_id": "single_replacement_construction_constraints_v1",
     }
+
+
+def test_hypothetical_replacement_preview_rejects_constraint_validation_without_constructed_candidate() -> None:
+    constructed_candidate_input, constraint_validation = _constructed_candidate_and_constraint_validation()
+
+    try:
+        build_hypothetical_replacement_replay_preview(
+            HypotheticalReplacementReplayRequest(
+                snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+                replacement_intent=_replacement_intent(),
+                constraint_validation=constraint_validation,
+                benchmark_symbol="SPY",
+                start_date=datetime(2024, 1, 1).date(),
+                end_date=datetime(2024, 12, 31).date(),
+                initial_capital=100000,
+                rebalance_frequency="monthly",
+                execution_lag_days=1,
+            )
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert str(exc) == "constraint_validation requires constructed_candidate"
+
+
+def test_hypothetical_replacement_preview_rejects_constraint_validation_proposal_incumbent_mismatch() -> None:
+    constructed_candidate_input, constraint_validation = _constructed_candidate_and_constraint_validation()
+    mismatched_validation = _clone_constraint_validation(constraint_validation)
+    mismatched_validation.proposal.incumbent_symbol = "QQQ"
+
+    try:
+        build_hypothetical_replacement_replay_preview(
+            HypotheticalReplacementReplayRequest(
+                snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+                replacement_intent=_replacement_intent(),
+                constructed_candidate=constructed_candidate_input,
+                constraint_validation=mismatched_validation,
+                benchmark_symbol="SPY",
+                start_date=datetime(2024, 1, 1).date(),
+                end_date=datetime(2024, 12, 31).date(),
+                initial_capital=100000,
+                rebalance_frequency="monthly",
+                execution_lag_days=1,
+            )
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert str(exc) == "constraint_validation incumbent does not match constructed_candidate proposal"
+
+
+def test_hypothetical_replacement_preview_rejects_constraint_validation_proposal_candidate_mismatch() -> None:
+    constructed_candidate_input, constraint_validation = _constructed_candidate_and_constraint_validation()
+    mismatched_validation = _clone_constraint_validation(constraint_validation)
+    mismatched_validation.proposal.candidate_symbol = "IUIT"
+
+    try:
+        build_hypothetical_replacement_replay_preview(
+            HypotheticalReplacementReplayRequest(
+                snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+                replacement_intent=_replacement_intent(),
+                constructed_candidate=constructed_candidate_input,
+                constraint_validation=mismatched_validation,
+                benchmark_symbol="SPY",
+                start_date=datetime(2024, 1, 1).date(),
+                end_date=datetime(2024, 12, 31).date(),
+                initial_capital=100000,
+                rebalance_frequency="monthly",
+                execution_lag_days=1,
+            )
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert str(exc) == "constraint_validation candidate does not match constructed_candidate proposal"
+
+
+def test_hypothetical_replacement_preview_rejects_constraint_validation_rule_mismatch() -> None:
+    constructed_candidate_input, constraint_validation = _constructed_candidate_and_constraint_validation()
+    mismatched_validation = _clone_constraint_validation(constraint_validation)
+    mismatched_validation.construction.rule_id = "same_weight_substitution_v1"
+
+    try:
+        build_hypothetical_replacement_replay_preview(
+            HypotheticalReplacementReplayRequest(
+                snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+                replacement_intent=_replacement_intent(),
+                constructed_candidate=constructed_candidate_input,
+                constraint_validation=mismatched_validation,
+                benchmark_symbol="SPY",
+                start_date=datetime(2024, 1, 1).date(),
+                end_date=datetime(2024, 12, 31).date(),
+                initial_capital=100000,
+                rebalance_frequency="monthly",
+                execution_lag_days=1,
+            )
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert str(exc) == "constraint_validation rule_id does not match constructed_candidate"
+
+
+def test_hypothetical_replacement_preview_rejects_constraint_validation_status_mismatch() -> None:
+    constructed_candidate_input, constraint_validation = _constructed_candidate_and_constraint_validation()
+    mismatched_validation = _clone_constraint_validation(constraint_validation)
+    mismatched_validation.construction.status = "rejected"
+
+    try:
+        build_hypothetical_replacement_replay_preview(
+            HypotheticalReplacementReplayRequest(
+                snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+                replacement_intent=_replacement_intent(),
+                constructed_candidate=constructed_candidate_input,
+                constraint_validation=mismatched_validation,
+                benchmark_symbol="SPY",
+                start_date=datetime(2024, 1, 1).date(),
+                end_date=datetime(2024, 12, 31).date(),
+                initial_capital=100000,
+                rebalance_frequency="monthly",
+                execution_lag_days=1,
+            )
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert str(exc) == "constraint_validation construction status does not match constructed_candidate"
+
+
+def test_hypothetical_replacement_preview_rejects_constraint_validation_constraint_set_mismatch() -> None:
+    constructed_candidate_input, constraint_validation = _constructed_candidate_and_constraint_validation()
+    mismatched_validation = _clone_constraint_validation(constraint_validation)
+    mismatched_validation.validation = cast(
+        SingleReplacementConstraintValidationState,
+        SimpleNamespace(
+        kind=mismatched_validation.validation.kind,
+        status=mismatched_validation.validation.status,
+        constraint_set_id="unsupported_constraint_set_v0",
+        ),
+    )
+
+    try:
+        build_hypothetical_replacement_replay_preview(
+            HypotheticalReplacementReplayRequest(
+                snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+                replacement_intent=_replacement_intent(),
+                constructed_candidate=constructed_candidate_input,
+                constraint_validation=mismatched_validation,
+                benchmark_symbol="SPY",
+                start_date=datetime(2024, 1, 1).date(),
+                end_date=datetime(2024, 12, 31).date(),
+                initial_capital=100000,
+                rebalance_frequency="monthly",
+                execution_lag_days=1,
+            )
+        )
+        raise AssertionError("expected ValueError")
+    except ValueError as exc:
+        assert str(exc) == "constraint_validation constraint_set_id is unsupported: unsupported_constraint_set_v0"

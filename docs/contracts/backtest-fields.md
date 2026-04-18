@@ -159,7 +159,8 @@ Current replay provenance rule:
 - the replay response derivation payload now exposes the actual construction rule consumed when `constructed_candidate` is supplied
 - `hypotheticalReplayResult.replay_provenance` is the authoritative replay lineage block for direct preview vs constructed-candidate replay under the current hypothetical replay contract
 - when `constraint_validation` is supplied to replay routes, replay provenance now echoes whether validation was supplied, its status, and the applied constraint-set id
-- replay still does not gate execution based on validation status in the current contract; validation lineage is descriptive, not enforced
+- replay now rejects provable lineage mismatches between `constraint_validation` and `constructed_candidate`
+- replay still does not gate execution based on validation status in the current contract; validation lineage is descriptive, not approval-enforced
 
 ### Overlay-aware hypothetical replay section
 

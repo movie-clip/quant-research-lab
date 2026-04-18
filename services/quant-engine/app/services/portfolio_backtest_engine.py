@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from typing import Literal
 
 from app.analytics.risk import build_factor_registry, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload
 from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
@@ -373,6 +374,7 @@ def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypothe
 
 
 def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayRequest) -> tuple[list, list]:
+    _validate_constraint_validation_lineage(request)
     constructed_candidate = request.constructed_candidate
     if constructed_candidate is None:
         if request.replacement_intent is None:
@@ -402,14 +404,44 @@ def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayR
     return baseline_weights, candidate_weights
 
 
+def _validate_constraint_validation_lineage(request: HypotheticalReplacementReplayRequest) -> None:
+    constraint_validation = request.constraint_validation
+    if constraint_validation is None:
+        return
+
+    constructed_candidate = request.constructed_candidate
+    if constructed_candidate is None:
+        raise ValueError("constraint_validation requires constructed_candidate")
+    if constraint_validation.validation.constraint_set_id != "single_replacement_construction_constraints_v1":
+        raise ValueError(f"constraint_validation constraint_set_id is unsupported: {constraint_validation.validation.constraint_set_id}")
+    if constraint_validation.proposal.incumbent_symbol != constructed_candidate.proposal.incumbent_symbol:
+        raise ValueError("constraint_validation incumbent does not match constructed_candidate proposal")
+    if constraint_validation.proposal.candidate_symbol != constructed_candidate.proposal.candidate_symbol:
+        raise ValueError("constraint_validation candidate does not match constructed_candidate proposal")
+    if constraint_validation.construction.rule_id != constructed_candidate.construction.rule_id:
+        raise ValueError("constraint_validation rule_id does not match constructed_candidate")
+    if constraint_validation.construction.status != constructed_candidate.construction.status:
+        raise ValueError("constraint_validation construction status does not match constructed_candidate")
+
+
+def _resolve_supported_replay_construction_rule_id(constructed_candidate) -> Literal["same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"]:
+    if constructed_candidate is None:
+        return "same_weight_substitution_v1"
+    if constructed_candidate.construction.rule_id == "same_weight_substitution_v1":
+        return "same_weight_substitution_v1"
+    if constructed_candidate.construction.rule_id == "fixed_split_50_50_substitution_v2":
+        return "fixed_split_50_50_substitution_v2"
+    raise ValueError("constructed_candidate rule_id is unsupported")
+
+
 def _build_hypothetical_replay_provenance(request: HypotheticalReplacementReplayRequest) -> HypotheticalReplayProvenance:
     if request.replacement_intent is None:
         raise ValueError("replacement_intent is required")
 
+    _validate_constraint_validation_lineage(request)
+
     constructed_candidate = request.constructed_candidate
-    construction_rule_id = constructed_candidate.construction.rule_id if constructed_candidate is not None else "same_weight_substitution_v1"
-    if construction_rule_id not in {"same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"}:
-        raise ValueError("constructed_candidate rule_id is unsupported")
+    construction_rule_id = _resolve_supported_replay_construction_rule_id(constructed_candidate)
 
     return HypotheticalReplayProvenance(
         candidate_input_source="constructed_candidate_payload" if constructed_candidate is not None else "replacement_intent_preview",
