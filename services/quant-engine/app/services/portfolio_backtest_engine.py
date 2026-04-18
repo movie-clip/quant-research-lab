@@ -15,7 +15,9 @@ from app.schemas.backtest_engine import (
     AllocationBacktestStatus,
     DistributionPolicy,
     HypotheticalReplayDerivation,
+    HypotheticalReplayProvenance,
     HypotheticalReplayProposal,
+    HypotheticalReplayUpstreamIds,
     OverlayApplicationSummary,
     OverlayAwareHypotheticalReplayRequest,
     OverlayAwareHypotheticalReplayResponse,
@@ -210,6 +212,7 @@ def build_hypothetical_replacement_replay_preview(request: HypotheticalReplaceme
     if request.replacement_intent is None:
         raise ValueError("replacement_intent is required")
 
+    replay_provenance = _build_hypothetical_replay_provenance(request)
     baseline_weights, candidate_weights = _resolve_hypothetical_replay_weights(request)
     if request.replacement_intent.benchmark_symbol and request.replacement_intent.benchmark_symbol != request.benchmark_symbol:
         raise ValueError("replacement intent benchmark does not match replay benchmark")
@@ -258,8 +261,9 @@ def build_hypothetical_replacement_replay_preview(request: HypotheticalReplaceme
         ),
         derivation=HypotheticalReplayDerivation(
             baseline_basis="draft_snapshot_positions_normalized",
-            candidate_construction_rule="single_symbol_weight_substitution",
+            candidate_construction_rule=replay_provenance.construction_rule_id,
         ),
+        replay_provenance=replay_provenance,
         baseline_weights=baseline_weights,
         candidate_weights=candidate_weights,
         replay=replay,
@@ -299,6 +303,7 @@ def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypothe
         execution_lag_days=request.execution_lag_days,
         symbol_overrides=request.symbol_overrides,
     )
+    replay_provenance = _build_hypothetical_replay_provenance(base_request)
     baseline_weights, candidate_weights_pre_overlay = _resolve_hypothetical_replay_weights(base_request)
     candidate_weights_post_overlay, overlay_application = _apply_overlay_to_candidate_weights(candidate_weights_pre_overlay, request.overlay_state)
 
@@ -353,8 +358,9 @@ def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypothe
         ),
         derivation=HypotheticalReplayDerivation(
             baseline_basis="draft_snapshot_positions_normalized",
-            candidate_construction_rule="single_symbol_weight_substitution",
+            candidate_construction_rule=replay_provenance.construction_rule_id,
         ),
+        replay_provenance=replay_provenance,
         overlay_application=overlay_application,
         baseline_weights=baseline_weights,
         candidate_weights_pre_overlay=candidate_weights_pre_overlay,
@@ -393,6 +399,28 @@ def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayR
     if not candidate_weights:
         raise ValueError("constructed_candidate candidate weights are required")
     return baseline_weights, candidate_weights
+
+
+def _build_hypothetical_replay_provenance(request: HypotheticalReplacementReplayRequest) -> HypotheticalReplayProvenance:
+    if request.replacement_intent is None:
+        raise ValueError("replacement_intent is required")
+
+    constructed_candidate = request.constructed_candidate
+    construction_rule_id = constructed_candidate.construction.rule_id if constructed_candidate is not None else "same_weight_substitution_v1"
+    if construction_rule_id not in {"same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"}:
+        raise ValueError("constructed_candidate rule_id is unsupported")
+
+    return HypotheticalReplayProvenance(
+        candidate_input_source="constructed_candidate_payload" if constructed_candidate is not None else "replacement_intent_preview",
+        construction_rule_id=construction_rule_id,
+        upstream_ids=HypotheticalReplayUpstreamIds(
+            draft_id=request.replacement_intent.draft_id,
+            workspace_id=request.replacement_intent.workspace_id,
+            base_node_id=request.replacement_intent.base_node_id,
+        ),
+        seed_ranking_id=request.replacement_intent.seed_ranking_id,
+        seed_methodology_id=request.replacement_intent.seed_methodology_id,
+    )
 
 
 def _apply_overlay_to_candidate_weights(candidate_weights: list, overlay_state) -> tuple[list, OverlayApplicationSummary]:

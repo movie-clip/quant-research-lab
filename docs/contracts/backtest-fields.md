@@ -140,7 +140,8 @@ Implementation:
 | Hypothetical Replay header/helper | `PortfolioAllocationBacktestPanel.tsx` static copy | none | explanatory only | always render when backtest workspace renders | frames the replacement-intent replay as draft-only |
 | Baseline / Hypothetical Candidate / Intent Source / Replay Basis | static summary cards in `PortfolioAllocationBacktestPanel.tsx` | replacement-intent replay workflow | explanatory only | if no replacement intent, render explicit unavailable helper | not financial outputs |
 | Proposal metadata | `hypotheticalReplayResult.proposal` | replacement-intent replay response | review metadata + replay input provenance | if no preview run, hidden | traces replay back to explicit replacement intent |
-| Derivation metadata | `hypotheticalReplayResult.derivation` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | current response contract still reports `draft_snapshot_positions_normalized` plus `single_symbol_weight_substitution`; this is accurate for intent-only replay, but it does not yet distinguish constructed-candidate replay using `fixed_split_50_50_substitution_v2` |
+| Derivation metadata | `hypotheticalReplayResult.derivation` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | response now reports `draft_snapshot_positions_normalized` plus the actual construction rule used by replay (`same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`) |
+| Replay provenance metadata | `hypotheticalReplayResult.replay_provenance` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | explicit lineage for direct preview vs constructed-candidate replay, actual construction rule used, upstream draft/workspace/base-node lineage, and ranking seed lineage |
 | Baseline weights | `hypotheticalReplayResult.baseline_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | derived on backend from draft snapshot position market values |
 | Candidate weights | `hypotheticalReplayResult.candidate_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | backend-only candidate weights; may come from direct same-weight intent derivation or an accepted constructed candidate payload |
 | Warnings | `hypotheticalReplayResult.warnings` | replacement-intent replay response | explanatory provenance | if none, hidden | may include cash-exclusion or hypothetical-only notes |
@@ -153,10 +154,10 @@ Current backend replay input rule:
     - `same_weight_substitution_v1`
     - `fixed_split_50_50_substitution_v2`
 
-Current contract limitation:
+Current replay provenance rule:
 
-- the replay response derivation payload does not yet expose which constructed-candidate rule was actually consumed when `constructed_candidate` is supplied
-- treat `hypotheticalReplayResult.derivation.candidate_construction_rule` as a known partial contract, not a complete replay-input provenance record
+- the replay response derivation payload now exposes the actual construction rule consumed when `constructed_candidate` is supplied
+- `hypotheticalReplayResult.replay_provenance` is the authoritative replay lineage block for direct preview vs constructed-candidate replay under the current hypothetical replay contract
 
 ### Overlay-aware hypothetical replay section
 
@@ -296,7 +297,7 @@ Important semantics:
 4. If candidate/reference/benchmark date windows do not share enough common dates, the route must fail explicitly rather than compare incompatible replays.
 5. If a financially meaningful backtest formula or assumption changes, methodology text and this inventory should be updated together.
 6. Replacement-intent replay preview must reject invalid substitution cases rather than invent renormalization or portfolio-construction behavior.
-7. Constructed-candidate replay may consume `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`, but the replay derivation payload does not yet fully expose that distinction.
+7. Constructed-candidate replay may consume `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`, and the replay contract now exposes that distinction explicitly through both `derivation` and `replay_provenance`.
 8. Overlay-aware replay may inject synthetic cash `__CASH__`; this is a replay artifact only and must not be presented as imported cash truth.
 
 ## Current Coverage Status

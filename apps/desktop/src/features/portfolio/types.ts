@@ -1383,7 +1383,19 @@ export type PortfolioAllocationBacktestResponse = {
 
 export type HypotheticalReplayDerivation = {
   baseline_basis: 'draft_snapshot_positions_normalized'
-  candidate_construction_rule: 'single_symbol_weight_substitution'
+  candidate_construction_rule: 'same_weight_substitution_v1' | 'fixed_split_50_50_substitution_v2'
+}
+
+export type HypotheticalReplayProvenance = {
+  candidate_input_source: 'replacement_intent_preview' | 'constructed_candidate_payload'
+  construction_rule_id: 'same_weight_substitution_v1' | 'fixed_split_50_50_substitution_v2'
+  upstream_ids: {
+    draft_id: string
+    workspace_id: string
+    base_node_id: string
+  }
+  seed_ranking_id: string
+  seed_methodology_id: string
 }
 
 export type HypotheticalReplacementReplayResponse = {
@@ -1395,6 +1407,7 @@ export type HypotheticalReplacementReplayResponse = {
     base_node_id: string
   }
   derivation: HypotheticalReplayDerivation
+  replay_provenance: HypotheticalReplayProvenance
   baseline_weights: AllocationBacktestWeight[]
   candidate_weights: AllocationBacktestWeight[]
   replay: PortfolioAllocationBacktestResponse
@@ -1424,6 +1437,7 @@ export type OverlayApplicationSummary = {
 export type OverlayAwareHypotheticalReplayResponse = {
   proposal: HypotheticalReplacementReplayResponse['proposal']
   derivation: HypotheticalReplayDerivation
+  replay_provenance: HypotheticalReplayProvenance
   overlay_application: OverlayApplicationSummary
   baseline_weights: AllocationBacktestWeight[]
   candidate_weights_pre_overlay: AllocationBacktestWeight[]

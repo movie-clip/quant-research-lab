@@ -584,10 +584,11 @@ Current shipped replay surfaces:
 - hypothetical replacement replay at `POST /backtests/portfolio-allocation/replacement-intent-preview`
 - overlay-aware hypothetical replay at `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
 
-Current replay provenance limitation:
+Current replay provenance state:
 - hypothetical replay can consume a backend-constructed candidate built from either `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`
-- the replay response derivation payload still reports the older generic `single_symbol_weight_substitution` value rather than the exact construction rule consumed
-- treat candidate construction as the more exact current source for single-replacement construction semantics until replay provenance is tightened
+- the replay response now explicitly preserves whether the replay used direct preview derivation or a supplied constructed candidate
+- the replay response now explicitly preserves the actual construction rule consumed by the hypothetical replay
+- the replay response also carries upstream draft/workspace/base-node lineage and ranking seed lineage for the current single-replacement replay slice
 
 ### Single-Replacement Candidate Construction
 
@@ -648,7 +649,7 @@ At the time of writing, the main finance-related limitations are:
 - synthetic snapshot-history diagnostics are useful but not equivalent to broker-truth historical replay
 - overlay support is currently a narrow hypothetical replay path, not a generalized overlay methodology family
 - candidate construction is currently narrow single-replacement review logic, not generalized portfolio construction
-- replay provenance is still partial when a replay consumes a constructed candidate
+- replay provenance is now explicit for constructed-candidate consumption, but replay still does not encode constraint-validation lineage in the current contract
 - some diagnostics panels are more monitoring-oriented than portfolio-manager-decision-oriented
 
 ## Recommended Maintenance Rule

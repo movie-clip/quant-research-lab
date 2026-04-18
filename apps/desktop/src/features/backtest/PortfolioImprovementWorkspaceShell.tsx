@@ -150,6 +150,19 @@ function formatReplayStatusLabel(status: string | null | undefined) {
   return status
 }
 
+function formatReplayCandidateInputSourceLabel(value: HypotheticalReplayResponse['replay_provenance']['candidate_input_source']) {
+  return value === 'constructed_candidate_payload' ? 'constructed candidate replay' : 'direct preview replay'
+}
+
+function formatReplayConstructionRuleLabel(value: HypotheticalReplayResponse['replay_provenance']['construction_rule_id']) {
+  return value === 'fixed_split_50_50_substitution_v2' ? 'fixed split 50/50' : 'same-weight substitution'
+}
+
+function formatReplayLineageHelper(result: HypotheticalReplayResponse | null) {
+  if (!result) return null
+  return `Replay lineage: ${formatReplayCandidateInputSourceLabel(result.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(result.replay_provenance.construction_rule_id)}`
+}
+
 type ProposalComparisonMetric = {
   key: string
   label: string
@@ -653,6 +666,7 @@ function CandidateWorkspaceSection(props: Props) {
 
 function CompareWorkspaceSection(props: Props) {
   const handleAllocationBacktestResult = props.onAllocationBacktestResult ?? (() => undefined)
+  const replayLineageHelper = formatReplayLineageHelper(props.hypotheticalReplayResult)
 
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-compare">
@@ -680,6 +694,7 @@ function CompareWorkspaceSection(props: Props) {
             <div><p className="panel-label">Diagnostics Change</p></div>
             <p className="helper">Replay-derived diagnostics only.</p>
           </div>
+          {replayLineageHelper ? <p className="helper">{replayLineageHelper}</p> : null}
         </section>
         <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
       </div>

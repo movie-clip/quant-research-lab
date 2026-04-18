@@ -152,11 +152,18 @@ function makeSavedProposal(versionNumber: number, createdAt: string, candidateSy
       commissionBps: 0,
       slippageBps: 0,
       derivationBasis: 'draft_snapshot_positions_normalized',
-      candidateConstructionRule: 'single_symbol_weight_substitution',
+      candidateConstructionRule: 'same_weight_substitution_v1',
     },
     reviewSnapshot: {
       proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: candidateSymbol, draft_id: 'draft-1', base_node_id: 'node-1' },
-      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
+      replay_provenance: {
+        candidate_input_source: 'replacement_intent_preview',
+        construction_rule_id: 'same_weight_substitution_v1',
+        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+      },
       baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
       candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: candidateSymbol, target_weight: 0.6 }],
       replay: makeReplay(),
@@ -464,6 +471,54 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('Recorded').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
     expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Replay lineage: direct preview replay · same-weight substitution')).toBeTruthy()
+  })
+
+  it('shows constructed candidate replay lineage with the actual construction rule', () => {
+    const savedProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    const constructedReplay = {
+      ...savedProposal.reviewSnapshot,
+      derivation: {
+        baseline_basis: 'draft_snapshot_positions_normalized',
+        candidate_construction_rule: 'fixed_split_50_50_substitution_v2',
+      },
+      replay_provenance: {
+        candidate_input_source: 'constructed_candidate_payload',
+        construction_rule_id: 'fixed_split_50_50_substitution_v2',
+        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+      },
+    }
+
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={savedProposal.sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={{ ...makeConstructedCandidate(), constructionRuleId: 'fixed_split_50_50_substitution_v2' }}
+        constructionConstraintValidationArtifact={makeConstraintValidation()}
+        selectedConstructionRuleId="fixed_split_50_50_substitution_v2"
+        allocationBacktestResult={null}
+        onAllocationBacktestResult={noOp}
+        hypotheticalReplayResult={constructedReplay}
+        savedProposals={[savedProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('Replay lineage: constructed candidate replay · fixed split 50/50')).toBeTruthy()
   })
 
   it('renders explicit candidate formation state between candidate idea and replay', () => {

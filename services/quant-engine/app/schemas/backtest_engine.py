@@ -183,7 +183,21 @@ class HypotheticalReplayProposal(BaseModel):
 
 class HypotheticalReplayDerivation(BaseModel):
     baseline_basis: Literal["draft_snapshot_positions_normalized"]
-    candidate_construction_rule: Literal["single_symbol_weight_substitution"]
+    candidate_construction_rule: Literal["same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"]
+
+
+class HypotheticalReplayUpstreamIds(BaseModel):
+    draft_id: str
+    workspace_id: str
+    base_node_id: str
+
+
+class HypotheticalReplayProvenance(BaseModel):
+    candidate_input_source: Literal["replacement_intent_preview", "constructed_candidate_payload"]
+    construction_rule_id: Literal["same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"]
+    upstream_ids: HypotheticalReplayUpstreamIds
+    seed_ranking_id: str
+    seed_methodology_id: str
 
 
 class ConstructedCandidateReplayInput(BaseModel):
@@ -384,6 +398,7 @@ class PortfolioAllocationBacktestResponse(BaseModel):
 class HypotheticalReplacementReplayResponse(BaseModel):
     proposal: HypotheticalReplayProposal
     derivation: HypotheticalReplayDerivation
+    replay_provenance: HypotheticalReplayProvenance
     baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     replay: PortfolioAllocationBacktestResponse
@@ -433,6 +448,7 @@ class OverlayAwareHypotheticalReplayRequest(BaseModel):
 class OverlayAwareHypotheticalReplayResponse(BaseModel):
     proposal: HypotheticalReplayProposal
     derivation: HypotheticalReplayDerivation
+    replay_provenance: HypotheticalReplayProvenance
     overlay_application: OverlayApplicationSummary
     baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     candidate_weights_pre_overlay: list[PortfolioWeightInput] = Field(default_factory=list)

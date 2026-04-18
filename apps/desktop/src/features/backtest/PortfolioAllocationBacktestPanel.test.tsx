@@ -67,7 +67,7 @@ const replacementIntent: ReplacementIntentDraftArtifact = {
 
 const hypotheticalResponse: HypotheticalReplayResponse = {
   proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
-  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' },
+  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1' },
   baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
   candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
   replay: mockResponse,
@@ -76,7 +76,7 @@ const hypotheticalResponse: HypotheticalReplayResponse = {
 
 const overlayAwareHypotheticalResponse: OverlayAwareHypotheticalReplayResponse = {
   proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
-  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'single_symbol_weight_substitution' },
+  derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1' },
   overlay_application: { overlay_id: 'benchmark_trend_overlay_v1', overlay_status: 'risk_reduced', as_of_month_end: '2024-12-31', benchmark_symbol: 'SPY', risky_weight_scale: 0.35, cash_residual_weight: 0.65, applied_to_candidate_only: true },
   baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
   candidate_weights_pre_overlay: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
@@ -282,7 +282,7 @@ const savedProposal: VersionedProposalArtifact = {
     commissionBps: 0,
     slippageBps: 0,
     derivationBasis: 'draft_snapshot_positions_normalized',
-    candidateConstructionRule: 'single_symbol_weight_substitution',
+    candidateConstructionRule: 'same_weight_substitution_v1',
   },
   reviewSnapshot: hypotheticalResponse,
 }

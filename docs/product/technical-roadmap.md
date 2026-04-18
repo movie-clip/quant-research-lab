@@ -465,7 +465,7 @@ Exit: rankings are first-class inputs to construction workflows.
 - add explicit constraint and turnover models
 - produce candidate portfolios from ranking outputs
 
-Current partial state: single-replacement formation/construction already exist; remaining work is broader construction modes, richer constraints, and consistent replay provenance for constructed candidates.
+Current partial state: single-replacement formation/construction already exist; replay provenance for constructed candidates is now explicit in the hypothetical replay contract; remaining work is broader construction modes, richer constraints, and stronger constraint-validation lineage into replay outputs.
 
 Exit: candidate portfolios can be built systematically and audited.
 
