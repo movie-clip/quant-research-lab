@@ -141,7 +141,7 @@ Implementation:
 | Baseline / Hypothetical Candidate / Intent Source / Replay Basis | static summary cards in `PortfolioAllocationBacktestPanel.tsx` | replacement-intent replay workflow | explanatory only | if no replacement intent, render explicit unavailable helper | not financial outputs |
 | Proposal metadata | `hypotheticalReplayResult.proposal` | replacement-intent replay response | review metadata + replay input provenance | if no preview run, hidden | traces replay back to explicit replacement intent |
 | Derivation metadata | `hypotheticalReplayResult.derivation` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | response now reports `draft_snapshot_positions_normalized` plus the actual construction rule used by replay (`same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`) |
-| Replay provenance metadata | `hypotheticalReplayResult.replay_provenance` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | explicit lineage for direct preview vs constructed-candidate replay, actual construction rule used, upstream draft/workspace/base-node lineage, and ranking seed lineage |
+| Replay provenance metadata | `hypotheticalReplayResult.replay_provenance` | replacement-intent replay response | replay-input provenance | if no preview run, hidden | explicit lineage for direct preview vs constructed-candidate replay, actual construction rule used, upstream draft/workspace/base-node lineage, ranking seed lineage, and echoed constraint-validation lineage |
 | Baseline weights | `hypotheticalReplayResult.baseline_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | derived on backend from draft snapshot position market values |
 | Candidate weights | `hypotheticalReplayResult.candidate_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | backend-only candidate weights; may come from direct same-weight intent derivation or an accepted constructed candidate payload |
 | Warnings | `hypotheticalReplayResult.warnings` | replacement-intent replay response | explanatory provenance | if none, hidden | may include cash-exclusion or hypothetical-only notes |
@@ -158,6 +158,8 @@ Current replay provenance rule:
 
 - the replay response derivation payload now exposes the actual construction rule consumed when `constructed_candidate` is supplied
 - `hypotheticalReplayResult.replay_provenance` is the authoritative replay lineage block for direct preview vs constructed-candidate replay under the current hypothetical replay contract
+- when `constraint_validation` is supplied to replay routes, replay provenance now echoes whether validation was supplied, its status, and the applied constraint-set id
+- replay still does not gate execution based on validation status in the current contract; validation lineage is descriptive, not enforced
 
 ### Overlay-aware hypothetical replay section
 

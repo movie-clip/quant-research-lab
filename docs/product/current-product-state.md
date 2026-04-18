@@ -32,7 +32,7 @@ Use this file when updating `README.md`, roadmap docs, architecture docs, and co
 - diagnostics contracts now carry explicit grouped run metadata for source-status, factor-model assumptions, and reproducibility time-basis fields
 - diagnostics unavailable paths are now reason-specific: snapshot-request history-context gaps, imported-history reconstruction failures, and market-data failures no longer share the same note/flag wording
 - dashboard-history contracts now carry explicit grouped run metadata for structured source-status and reproducibility fields
-- hypothetical replay outputs now carry explicit replay provenance for direct preview vs constructed-candidate replay lineage, actual construction rule used, and upstream draft/workspace/base-node lineage
+- hypothetical replay outputs now carry explicit replay provenance for direct preview vs constructed-candidate replay lineage, actual construction rule used, upstream draft/workspace/base-node lineage, and echoed constraint-validation lineage
 
 ### Replay and portfolio-improvement workflow
 
@@ -78,7 +78,7 @@ Current Workspace composition is also explicit:
 - monitoring is currently a replay-scoped Workspace surface only; it is not yet a broad continuous monitoring and alerting system
 - current Monitoring-to-Workspace continuity is narrow: explicit user-initiated handoff, versioned handoff payload, session-scoped dismiss state, and no persistent alert/review history
 - optimization is not yet a shipped product capability
-- replay provenance is now explicit for the current hypothetical replay slice, but constraint-validation lineage is still not enforced into replay outputs
+- replay provenance is now explicit for the current hypothetical replay slice, including echoed constraint-validation lineage; replay still does not enforce validation status in-engine
 
 ## Local workspace and artifact behavior that matters to product docs
 

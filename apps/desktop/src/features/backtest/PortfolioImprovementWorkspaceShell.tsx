@@ -158,9 +158,16 @@ function formatReplayConstructionRuleLabel(value: HypotheticalReplayResponse['re
   return value === 'fixed_split_50_50_substitution_v2' ? 'fixed split 50/50' : 'same-weight substitution'
 }
 
+function formatReplayConstraintValidationLabel(value: HypotheticalReplayResponse['replay_provenance']['constraint_validation']) {
+  if (!value.supplied) return 'validation not supplied'
+  if (value.validation_status === 'blocked') return 'validated blocked'
+  if (value.validation_status === 'rejected') return 'validated rejected'
+  return 'validated ok'
+}
+
 function formatReplayLineageHelper(result: HypotheticalReplayResponse | null) {
   if (!result) return null
-  return `Replay lineage: ${formatReplayCandidateInputSourceLabel(result.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(result.replay_provenance.construction_rule_id)}`
+  return `Replay lineage: ${formatReplayCandidateInputSourceLabel(result.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(result.replay_provenance.construction_rule_id)} · ${formatReplayConstraintValidationLabel(result.replay_provenance.constraint_validation)}`
 }
 
 type ProposalComparisonMetric = {

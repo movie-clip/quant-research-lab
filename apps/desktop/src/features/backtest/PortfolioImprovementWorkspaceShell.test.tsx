@@ -162,7 +162,7 @@ function makeSavedProposal(versionNumber: number, createdAt: string, candidateSy
         construction_rule_id: 'same_weight_substitution_v1',
         upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
         seed_ranking_id: 'etf_ranking_engine_v1',
-        seed_methodology_id: 'etf_ranking_methodology_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
       },
       baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
       candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: candidateSymbol, target_weight: 0.6 }],
@@ -471,7 +471,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('Recorded').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
     expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
-    expect(screen.getByText('Replay lineage: direct preview replay · same-weight substitution')).toBeTruthy()
+    expect(screen.getByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied')).toBeTruthy()
   })
 
   it('shows constructed candidate replay lineage with the actual construction rule', () => {
@@ -488,6 +488,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
         seed_ranking_id: 'etf_ranking_engine_v1',
         seed_methodology_id: 'etf_ranking_methodology_v1',
+        constraint_validation: { supplied: true, validation_status: 'blocked', constraint_set_id: 'single_replacement_construction_constraints_v1' },
       },
     }
 
@@ -518,7 +519,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getByText('Replay lineage: constructed candidate replay · fixed split 50/50')).toBeTruthy()
+    expect(screen.getByText('Replay lineage: constructed candidate replay · fixed split 50/50 · validated blocked')).toBeTruthy()
   })
 
   it('renders explicit candidate formation state between candidate idea and replay', () => {

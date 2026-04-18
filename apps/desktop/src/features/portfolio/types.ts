@@ -1396,6 +1396,11 @@ export type HypotheticalReplayProvenance = {
   }
   seed_ranking_id: string
   seed_methodology_id: string
+  constraint_validation: {
+    supplied: boolean
+    validation_status: 'ok' | 'blocked' | 'rejected' | null
+    constraint_set_id: 'single_replacement_construction_constraints_v1' | null
+  }
 }
 
 export type HypotheticalReplacementReplayResponse = {

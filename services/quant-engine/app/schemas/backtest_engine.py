@@ -193,11 +193,17 @@ class HypotheticalReplayUpstreamIds(BaseModel):
 
 
 class HypotheticalReplayProvenance(BaseModel):
+    class ConstraintValidationLineage(BaseModel):
+        supplied: bool
+        validation_status: Literal["ok", "blocked", "rejected"] | None = None
+        constraint_set_id: Literal["single_replacement_construction_constraints_v1"] | None = None
+
     candidate_input_source: Literal["replacement_intent_preview", "constructed_candidate_payload"]
     construction_rule_id: Literal["same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"]
     upstream_ids: HypotheticalReplayUpstreamIds
     seed_ranking_id: str
     seed_methodology_id: str
+    constraint_validation: ConstraintValidationLineage
 
 
 class ConstructedCandidateReplayInput(BaseModel):
@@ -215,6 +221,7 @@ class HypotheticalReplacementReplayRequest(BaseModel):
     snapshot: DraftPortfolioSnapshotInput
     replacement_intent: ReplacementIntentReplayInput | None = None
     constructed_candidate: ConstructedCandidateReplayInput | None = None
+    constraint_validation: SingleReplacementConstructionConstraintValidationResponse | None = None
     benchmark_symbol: str = "SPY"
     start_date: date
     end_date: date
@@ -429,6 +436,7 @@ class OverlayAwareHypotheticalReplayRequest(BaseModel):
     snapshot: DraftPortfolioSnapshotInput
     replacement_intent: ReplacementIntentReplayInput | None = None
     constructed_candidate: ConstructedCandidateReplayInput | None = None
+    constraint_validation: SingleReplacementConstructionConstraintValidationResponse | None = None
     overlay_state: OverlayStateInput | None = None
     benchmark_symbol: str = "SPY"
     start_date: date

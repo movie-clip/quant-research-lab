@@ -289,6 +289,7 @@ def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypothe
         snapshot=request.snapshot,
         replacement_intent=request.replacement_intent,
         constructed_candidate=request.constructed_candidate,
+        constraint_validation=request.constraint_validation,
         benchmark_symbol=request.benchmark_symbol,
         start_date=request.start_date,
         end_date=request.end_date,
@@ -420,6 +421,11 @@ def _build_hypothetical_replay_provenance(request: HypotheticalReplacementReplay
         ),
         seed_ranking_id=request.replacement_intent.seed_ranking_id,
         seed_methodology_id=request.replacement_intent.seed_methodology_id,
+        constraint_validation=HypotheticalReplayProvenance.ConstraintValidationLineage(
+            supplied=request.constraint_validation is not None,
+            validation_status=request.constraint_validation.validation.status if request.constraint_validation is not None else None,
+            constraint_set_id=request.constraint_validation.validation.constraint_set_id if request.constraint_validation is not None else None,
+        ),
     )
 
 

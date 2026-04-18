@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights
+from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
 
@@ -665,6 +666,11 @@ def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_
         },
         "seed_ranking_id": "etf_ranking_engine_v1",
         "seed_methodology_id": "etf_ranking_methodology_v1",
+        "constraint_validation": {
+            "supplied": False,
+            "validation_status": None,
+            "constraint_set_id": None,
+        },
     }
     assert payload["baseline_weights"] == [
         {"symbol": "VUAA", "target_weight": 0.6},
@@ -1021,6 +1027,11 @@ def test_overlay_aware_hypothetical_replacement_preview_route_returns_base_and_o
         },
         "seed_ranking_id": "etf_ranking_engine_v1",
         "seed_methodology_id": "etf_ranking_methodology_v1",
+        "constraint_validation": {
+            "supplied": False,
+            "validation_status": None,
+            "constraint_set_id": None,
+        },
     }
     assert payload["candidate_weights_pre_overlay"] == [
         {"symbol": "IB01", "target_weight": 0.4},
@@ -1129,9 +1140,76 @@ def test_hypothetical_replacement_preview_route_uses_constructed_candidate_rule_
         },
         "seed_ranking_id": "etf_ranking_engine_v1",
         "seed_methodology_id": "etf_ranking_methodology_v1",
+        "constraint_validation": {
+            "supplied": False,
+            "validation_status": None,
+            "constraint_set_id": None,
+        },
     }
     assert payload["candidate_weights"] == [
         {"symbol": "VUAA", "target_weight": 0.3},
         {"symbol": "IB01", "target_weight": 0.4},
         {"symbol": "IUFS", "target_weight": 0.3},
     ]
+
+
+def test_hypothetical_replacement_preview_route_echoes_constraint_validation_lineage_without_enforcement(mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "VUAA": _history(100.0, 102.0, 102.2, 103.1, 107.5),
+        "IUFS": _history(100.0, 103.0, 103.5, 105.0, 109.0),
+        "IB01": _history(100.0, 101.0, 101.3, 102.0, 103.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    constructed_candidate = build_single_replacement_candidate_construction(
+        SingleReplacementCandidateConstructionRequest(
+            snapshot=_draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)),
+            replacement_intent=_replacement_intent(),
+            construction_rule=CandidateConstructionRuleInput(rule_id=RULE_ID_FIXED_SPLIT),
+        )
+    )
+    constructed_candidate_input = ConstructedCandidateReplayInput.model_validate(constructed_candidate.model_dump(mode="json"))
+    constraint_validation = validate_single_replacement_candidate_construction_constraints(
+        SingleReplacementConstructionConstraintValidationRequest(
+            constructed_candidate=constructed_candidate_input,
+            constraint_set=SingleReplacementConstructionConstraintSetInput(constraint_set_id=CONSTRAINT_SET_ID),
+        )
+    )
+    constraint_validation.validation.status = "blocked"
+
+    client = TestClient(app)
+    response = client.post(
+        "/backtests/portfolio-allocation/replacement-intent-preview",
+        json={
+            "snapshot": _draft_snapshot(("VUAA", 60000.0), ("IB01", 40000.0)).model_dump(mode="json"),
+            "replacement_intent": _replacement_intent().model_dump(mode="json"),
+            "constructed_candidate": constructed_candidate_input.model_dump(mode="json"),
+            "constraint_validation": constraint_validation.model_dump(mode="json"),
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "rebalance_frequency": "monthly",
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["replay_provenance"]["constraint_validation"] == {
+        "supplied": True,
+        "validation_status": "blocked",
+        "constraint_set_id": "single_replacement_construction_constraints_v1",
+    }
