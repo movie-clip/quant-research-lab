@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.services.market_data import MarketDataService
+from app.services.market_data import MarketDataService, detect_histories_return_basis, detect_history_return_basis
 from app.services.holdings_history import HoldingsHistoryStore
 from app.core.symbols import canonicalize_symbol, resolve_symbol_candidates
 
@@ -141,3 +141,28 @@ def test_refresh_etf_holdings_snapshot_reloads_symbol(mocker, tmp_path) -> None:
     assert resolved_symbol == "XLK"
     assert rows[0]["asset"] == "MSFT"
     assert service.holdings_history.list_snapshot_dates("XLK") == ["2026-04-12"]
+
+
+def test_detect_history_return_basis_returns_unavailable_for_empty_rows() -> None:
+    assert detect_history_return_basis([]) == "unavailable"
+
+
+def test_detect_history_return_basis_returns_verified_only_when_all_rows_have_adjusted_fields() -> None:
+    assert detect_history_return_basis([
+        {"date": "2024-01-02", "price": 100.0, "adjClose": 99.5},
+        {"date": "2024-01-03", "price": 101.0, "adjusted_close": 100.4},
+    ]) == "verified_adjusted_close"
+
+
+def test_detect_history_return_basis_returns_unverified_when_adjusted_fields_are_missing() -> None:
+    assert detect_history_return_basis([
+        {"date": "2024-01-02", "price": 100.0},
+        {"date": "2024-01-03", "price": 101.0, "adjClose": 100.2},
+    ]) == "unverified_close_only"
+
+
+def test_detect_histories_return_basis_requires_all_populated_histories_to_be_verified() -> None:
+    assert detect_histories_return_basis({
+        "SPY": [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}],
+        "QQQ": [{"date": "2024-01-02", "price": 200.0}],
+    }) == "unverified_close_only"

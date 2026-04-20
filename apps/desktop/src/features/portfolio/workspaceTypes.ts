@@ -281,6 +281,7 @@ export type VersionedProposalArtifact = {
     slippageBps: number
     derivationBasis: HypotheticalReplayResponse['derivation']['baseline_basis']
     candidateConstructionRule: HypotheticalReplayResponse['derivation']['candidate_construction_rule']
+    replayProvenance: HypotheticalReplayResponse['replay_provenance']
   }
   reviewSnapshot: HypotheticalReplayResponse
 }

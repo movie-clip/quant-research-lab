@@ -175,6 +175,11 @@ Saved proposal review/readout rules:
 - the readout should emphasize artifact identity, lineage, replay basis, compact replay summary, diagnostics delta summary, and explicit non-applied status
 - the readout remains review support only and must not imply approval, recommendation, or applied portfolio truth
 
+Integrity rules:
+- saved proposal artifacts must fail on provable internal contradictions between `replayBasis` lineage and `reviewSnapshot` replay lineage
+- active thesis artifacts must not bypass those saved-proposal integrity checks when promoted, persisted, or restored
+- contradictory immutable artifacts must fail deterministically rather than being auto-repaired or silently normalized
+
 Explicit rejection conditions for MVP:
 - no replacement intent
 - incumbent not present in draft snapshot positions

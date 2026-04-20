@@ -40,11 +40,16 @@ class DiagnosticsProvenance(BaseModel):
 
 class DiagnosticsSourceStatus(BaseModel):
     portfolio_history: Literal["imported_replay", "synthetic_snapshot_history", "unavailable"]
-    benchmark_history: Literal["live_market_data", "unavailable"]
-    factor_history: Literal["live_market_data", "unavailable"]
+    benchmark_history: Literal["live_market_data_verified_adjusted_close", "live_market_data_unverified_return_basis", "unavailable"]
+    factor_history: Literal["live_market_data_verified_adjusted_close", "live_market_data_unverified_return_basis", "unavailable"]
 
 
 class DiagnosticsRunMetadata(BaseModel):
+    class SectionTrust(BaseModel):
+        benchmark_relative_path: Literal["verified_adjusted_close", "degraded_unverified_return_basis", "unavailable"]
+        factor_model_path: Literal["verified_adjusted_close", "degraded_unverified_return_basis", "unavailable"]
+        risk_contribution_path: Literal["verified_adjusted_close", "degraded_unverified_return_basis", "unavailable"]
+
     class FactorModelParameters(BaseModel):
         rolling_windows_days: list[int]
         current_reliability_window_days: int
@@ -64,6 +69,7 @@ class DiagnosticsRunMetadata(BaseModel):
     methodology_id: str
     price_basis: Literal["close", "unavailable"]
     source_status: DiagnosticsSourceStatus
+    section_trust: SectionTrust
     confidence: Literal["high", "medium", "low"]
     factor_model_parameters: FactorModelParameters
     reproducibility: ReproducibilityMetadata

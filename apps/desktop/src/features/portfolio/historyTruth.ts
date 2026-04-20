@@ -1,5 +1,7 @@
 export function humanizeContractLabel(value: string | null | undefined) {
   if (!value) return 'n/a'
+  if (value === 'live_market_data_verified_adjusted_close') return 'live market data (adjusted-close verified)'
+  if (value === 'live_market_data_unverified_return_basis') return 'live market data (return basis unverified)'
   return value.replace(/_/g, ' ')
 }
 

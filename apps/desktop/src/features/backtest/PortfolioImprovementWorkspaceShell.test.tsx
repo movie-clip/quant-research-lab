@@ -471,7 +471,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('Recorded').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
     expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
-    expect(screen.getByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied')).toBeTruthy()
+    expect(screen.getAllByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied').length).toBeGreaterThan(0)
   })
 
   it('shows constructed candidate replay lineage with the actual construction rule', () => {
@@ -609,6 +609,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       comparison: {
         total_return_diff_pct: 2.5,
         annualized_return_diff_pct: 1.5,
+        benchmark_return_diff_pct: null,
         annualized_volatility_diff_pct: -0.5,
         downside_volatility_diff_pct: -0.4,
         max_drawdown_diff_pct: 0.3,
@@ -741,6 +742,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied').length).toBeGreaterThan(0)
   })
 
   it('opens a read-only saved proposal comparison for exactly two selected artifacts', () => {

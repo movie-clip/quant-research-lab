@@ -1,10 +1,66 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Literal
 
 from app.core.symbols import canonicalize_symbol, resolve_etf_holdings_candidates, resolve_symbol_candidates
 from app.clients.fmp import FmpClient
 from app.services.holdings_history import HoldingsHistoryStore
+
+
+HistoricalReturnBasisStatus = Literal[
+    "verified_adjusted_close",
+    "unverified_close_only",
+    "unavailable",
+]
+
+HistoryReturnBasisContract = Literal[
+    "verified_total_return",
+    "price_return_only",
+    "unverified_adjusted_proxy",
+    "unavailable",
+]
+
+
+def _row_has_adjusted_close(row: dict) -> bool:
+    return row.get("adjClose") is not None or row.get("adjusted_close") is not None
+
+
+def detect_history_return_basis(rows: list[dict]) -> HistoricalReturnBasisStatus:
+    if not rows:
+        return "unavailable"
+    if all(_row_has_adjusted_close(row) for row in rows):
+        return "verified_adjusted_close"
+    return "unverified_close_only"
+
+
+def detect_histories_return_basis(histories: dict[str, list[dict]]) -> HistoricalReturnBasisStatus:
+    populated_histories = [rows for rows in histories.values() if rows]
+    if not populated_histories:
+        return "unavailable"
+    if all(detect_history_return_basis(rows) == "verified_adjusted_close" for rows in populated_histories):
+        return "verified_adjusted_close"
+    return "unverified_close_only"
+
+
+def classify_history_return_basis_contract(rows: list[dict]) -> HistoryReturnBasisContract:
+    basis = detect_history_return_basis(rows)
+    if basis == "verified_adjusted_close":
+        return "unverified_adjusted_proxy"
+    if basis == "unverified_close_only":
+        return "price_return_only"
+    return "unavailable"
+
+
+def classify_histories_return_basis_contract(histories: dict[str, list[dict]]) -> HistoryReturnBasisContract:
+    populated_histories = [rows for rows in histories.values() if rows]
+    if not populated_histories:
+        return "unavailable"
+    contracts = {classify_history_return_basis_contract(rows) for rows in populated_histories}
+    if contracts == {"unverified_adjusted_proxy"}:
+        return "unverified_adjusted_proxy"
+    if contracts <= {"unverified_adjusted_proxy", "price_return_only"}:
+        return "price_return_only"
+    return "unavailable"
 
 
 class MarketDataService:

@@ -41,6 +41,8 @@ Use this file when updating `README.md`, roadmap docs, architecture docs, and co
 - replacement-intent candidate formation exists at `POST /backtests/candidate-formation/replacement-intent`
 - replacement-intent candidate construction exists at `POST /backtests/candidate-construction/replacement-intent`
 - desktop supports explicit replacement-intent review, replay review, diagnostics delta review, and immutable local proposal artifact persistence/readout
+- Workspace replay preview now surfaces artifact-specific backend replay failures directly in the existing replay error line, rather than collapsing lineage-integrity failures into generic copy
+- immutable saved proposal artifacts now fail on provable internal lineage contradictions between saved replay-basis provenance and saved review-snapshot provenance
 
 Current Workspace workflow order is explicit and shell-owned:
 1. current portfolio
@@ -87,6 +89,7 @@ Current Workspace composition is also explicit:
 - saved nodes are immutable portfolio truth snapshots; review artifacts are separate from those snapshots
 - seeded candidate metadata, replacement intent, formed candidate artifact, constructed candidate artifact, selected construction rule, hypothetical replay draft, and saved proposal artifacts all persist locally
 - review artifacts are draft-scoped unless explicitly saved as immutable workspace-scoped proposal artifacts
+- active thesis restore now uses the same saved-proposal integrity checks and fails closed on contradictory embedded proposal lineage
 - recreating a draft from a node clears dependent draft-scoped review artifacts so stale review state does not silently carry across lineage changes
 
 ## What is future, not current

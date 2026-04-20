@@ -1,3 +1,4 @@
+from app.analytics.risk import selected_history_price_map
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, RebalancePoint, SimulatedTrade
 
 
@@ -50,7 +51,7 @@ def build_rebalance_preview(
     target_equity_weight: float = 0.9,
     tolerance: float = 0.05,
 ) -> list[RebalancePoint]:
-    benchmark_by_date = {row["date"]: float(row["price"]) for row in benchmark_rows}
+    benchmark_by_date, _ = selected_history_price_map(benchmark_rows)
     preview: list[RebalancePoint] = []
 
     for state in daily_states:

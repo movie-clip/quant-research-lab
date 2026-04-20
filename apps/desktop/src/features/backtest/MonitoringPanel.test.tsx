@@ -46,7 +46,7 @@ const baseReplay: PortfolioAllocationBacktestResponse = {
     rebalance_events: [],
     trades: [],
   },
-  comparison: { total_return_diff_pct: 2, annualized_return_diff_pct: 2, annualized_volatility_diff_pct: -1, downside_volatility_diff_pct: -1, max_drawdown_diff_pct: 1, sharpe_diff: 0.3, sortino_diff: 0.3, excess_return_diff_pct: 2, tracking_error_diff_pct: 1, information_ratio_diff: 0.2, beta_diff: -0.2, correlation_diff: -0.05, total_turnover_diff_pct: 12, total_cost_diff: 45 },
+  comparison: { total_return_diff_pct: 2, annualized_return_diff_pct: 2, benchmark_return_diff_pct: 0, annualized_volatility_diff_pct: -1, downside_volatility_diff_pct: -1, max_drawdown_diff_pct: 1, sharpe_diff: 0.3, sortino_diff: 0.3, excess_return_diff_pct: 2, tracking_error_diff_pct: 1, information_ratio_diff: 0.2, beta_diff: -0.2, correlation_diff: -0.05, total_turnover_diff_pct: 12, total_cost_diff: 45 },
   reference_diagnostics: {
     provenance: { snapshot_basis: 'synthetic_replay_snapshot', historical_basis: 'market_data_history', note: 'Backtest diagnostics combine a synthetic replay snapshot with replay-derived daily states and external historical market data.' },
     factor_snapshot: [{ key: 'market', label: 'Market', category: 'market', us_proxy: 'SPY', latest_loading: 1, target_exposure: null, primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'high', description: 'broad market' }],
@@ -65,7 +65,7 @@ const baseReplay: PortfolioAllocationBacktestResponse = {
     factor_exposure_changes: [{ key: 'market', label: 'Market', baseline_value: 1, candidate_value: 0.8, delta_value: -0.2 }],
     top_factor_exposure_change: { key: 'market', label: 'Market', baseline_value: 1, candidate_value: 0.8, delta_value: -0.2, selection_rule: 'largest_absolute_delta', rationale: 'Largest valid factor exposure delta in this group (candidate - baseline).' },
     volatility_changes: [{ key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1 }],
-    top_volatility_change: { key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1, selection_rule: 'fixed_priority', rationale: 'Selected by fixed priority order: max drawdown, then annualized volatility, then downside volatility.' },
+    top_volatility_change: { key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1, selection_rule: 'fixed_priority', rationale: 'When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states. Selected by fixed priority order across allowed replay risk-shape metrics: annualized volatility, then downside volatility, then tracking error.' },
     risk_contribution_changes: [],
     top_risk_contribution_change: null,
     concentration_changes: [{ key: 'factor_hhi', label: 'Factor HHI', baseline_value: 0.36, candidate_value: 0.2, delta_value: -0.16 }],
@@ -96,11 +96,12 @@ describe('MonitoringPanel', () => {
     expect(screen.getByText('Watch surface')).toBeTruthy()
     expect(screen.getByText('Top Factor Callout')).toBeTruthy()
     expect(screen.getByText('Top Concentration Callout')).toBeTruthy()
+    expect(screen.queryByText('Top Volatility Callout')).toBeNull()
     expect(screen.getByText('Watch Groups')).toBeTruthy()
     expect(screen.getAllByText('Factor Drift').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Concentration Drift').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Benchmark-Relative Drift').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Volatility / Regime').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Volatility Shape').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Data Quality').length).toBeGreaterThan(0)
     expect(screen.getByText('Monitoring reflects the active hypothetical replay for AAPL -> IUFS.')).toBeTruthy()
     expect(screen.getByText(/Replay-derived market history/)).toBeTruthy()
@@ -109,6 +110,13 @@ describe('MonitoringPanel', () => {
 
     expect(screen.getAllByText('Degraded').length).toBeGreaterThan(0)
     expect(screen.getByText('Candidate replay status: degraded.')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Benchmark-Relative Drift/i }))
+    expect(screen.getByText('Active return is intentionally withheld because replay total-return equivalence is unverified.')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Volatility Shape/i }))
+    expect(screen.getByText('Drawdown surfaces are intentionally withheld because replay investor total-return equivalence is unverified.')).toBeTruthy()
+    expect(screen.queryByText(/Max drawdown snapshot:/)).toBeNull()
   })
 
   it('shows explicit waiting state when no replay evidence exists', () => {
@@ -134,6 +142,7 @@ describe('MonitoringPanel', () => {
 
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
     expect(screen.getByText('No factor-drift callout is available for the current replay state.')).toBeTruthy()
+    expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
   })
 
   it('offers explicit Review In Workspace only for supported monitoring items', () => {

@@ -5,12 +5,75 @@ from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.dashboard_history import DashboardHistoryEngineRequest, DashboardHistoryResult, DashboardHistoryRunMetadata, DashboardHistoryRunReproducibility, DashboardHistoryRunSourceStatus, DashboardMonthlyReturn, DashboardRangeMetrics
 from app.schemas.reconciliation import PerformanceSummary
 from app.services.benchmark_service import build_benchmark_comparison
-from app.services.market_data import MarketDataService
+from app.services.market_data import MarketDataService, classify_histories_return_basis_contract, classify_history_return_basis_contract, detect_history_return_basis
 
 
 DASHBOARD_HISTORY_ID = "dashboard_history_engine_v1"
 DASHBOARD_HISTORY_METHODOLOGY_ID = "dashboard_history_methodology_v1"
 DASHBOARD_HISTORY_DATASET_VERSION = "market_data_service_v1"
+
+
+def _build_dashboard_benchmark_history_status(benchmark_rows: list[dict]) -> str:
+    basis = detect_history_return_basis(benchmark_rows)
+    if basis == "verified_adjusted_close":
+        return "live_market_data_verified_adjusted_close"
+    if basis == "unverified_close_only":
+        return "live_market_data_unverified_return_basis"
+    return "unavailable"
+
+
+def _build_dashboard_section_trust(
+    *,
+    benchmark_rows: list[dict],
+    daily_states: list,
+    monthly_returns_suppressed: bool,
+) -> DashboardHistoryRunMetadata.SectionTrust:
+    benchmark_basis = detect_history_return_basis(benchmark_rows)
+    benchmark_path = (
+        "verified_adjusted_close"
+        if benchmark_basis == "verified_adjusted_close"
+        else "degraded_unverified_return_basis"
+        if benchmark_basis == "unverified_close_only"
+        else "unavailable"
+    )
+    portfolio_path = "imported_replay" if daily_states else "unavailable"
+    monthly_returns_path = (
+        "suppressed_unstable_path"
+        if monthly_returns_suppressed
+        else "imported_replay"
+        if daily_states
+        else "unavailable"
+    )
+    return DashboardHistoryRunMetadata.SectionTrust(
+        portfolio_path=portfolio_path,
+        benchmark_path=benchmark_path,
+        monthly_returns_path=monthly_returns_path,
+    )
+
+
+def _build_dashboard_return_basis_contract(benchmark_rows: list[dict]) -> DashboardHistoryRunMetadata.ReturnBasisContract:
+    benchmark_contract = classify_history_return_basis_contract(benchmark_rows)
+    return DashboardHistoryRunMetadata.ReturnBasisContract(
+        portfolio_path="unavailable",
+        benchmark_path=benchmark_contract,
+    )
+
+
+def _allow_dashboard_compounded_return_outputs(return_basis_contract: DashboardHistoryRunMetadata.ReturnBasisContract) -> bool:
+    return (
+        return_basis_contract.portfolio_path == "verified_total_return"
+        and return_basis_contract.benchmark_path == "verified_total_return"
+    )
+
+
+def _allow_dashboard_drawdown_outputs(
+    *,
+    benchmark_rows: list[dict],
+    symbol_price_histories: dict[str, list[dict]],
+) -> bool:
+    benchmark_contract = classify_history_return_basis_contract(benchmark_rows)
+    position_contract = classify_histories_return_basis_contract(symbol_price_histories)
+    return benchmark_contract == "verified_total_return" and position_contract == "verified_total_return"
 
 
 RANGE_WINDOWS: dict[str, int | None] = {
@@ -89,23 +152,41 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
         valuation_dates=valuation_dates,
         fx_history={},
     )
-    performance_series = build_true_performance_series(daily_states, benchmark_rows)
+    return_basis_contract = _build_dashboard_return_basis_contract(benchmark_rows)
+    performance_series = build_true_performance_series(
+        daily_states,
+        benchmark_rows,
+        portfolio_return_basis_contract=return_basis_contract.portfolio_path,
+        benchmark_return_basis_contract=return_basis_contract.benchmark_path,
+    )
+    benchmark_history_status = _build_dashboard_benchmark_history_status(benchmark_rows)
+    monthly_returns_suppressed = any(state.total_portfolio_value < 0 for state in daily_states)
+    allow_drawdown_outputs = _allow_dashboard_drawdown_outputs(
+        benchmark_rows=benchmark_rows,
+        symbol_price_histories=symbol_price_histories,
+    )
 
     return DashboardHistoryResult(
         daily_states=daily_states,
         performance_series=performance_series,
         source_status={
             "performance_history": "live",
-            "monthly_returns": "suppressed" if any(state.total_portfolio_value < 0 for state in daily_states) else "live",
+            "monthly_returns": "suppressed" if monthly_returns_suppressed else "live",
         },
         run_metadata=DashboardHistoryRunMetadata(
             history_id=DASHBOARD_HISTORY_ID,
             methodology_id=DASHBOARD_HISTORY_METHODOLOGY_ID,
             source_status=DashboardHistoryRunSourceStatus(
                 performance_history="live",
-                monthly_returns="suppressed" if any(state.total_portfolio_value < 0 for state in daily_states) else "live",
-                benchmark_history="live_market_data",
+                monthly_returns="suppressed" if monthly_returns_suppressed else "live",
+                benchmark_history=benchmark_history_status,
             ),
+            section_trust=_build_dashboard_section_trust(
+                benchmark_rows=benchmark_rows,
+                daily_states=daily_states,
+                monthly_returns_suppressed=monthly_returns_suppressed,
+            ),
+            return_basis_contract=return_basis_contract,
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
                 snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
@@ -116,7 +197,12 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
             ),
         ),
         benchmark=build_benchmark_comparison(resolved_benchmark_symbol, benchmark_rows),
-        range_metrics=_build_range_metrics(daily_states, performance_series),
+        range_metrics=_build_range_metrics(
+            daily_states,
+            performance_series,
+            allow_drawdown_outputs=allow_drawdown_outputs,
+            allow_compounded_return_outputs=_allow_dashboard_compounded_return_outputs(return_basis_contract),
+        ),
     )
 
 
@@ -140,6 +226,15 @@ def _build_unavailable_dashboard_history_result(
                 monthly_returns="unavailable",
                 benchmark_history="unavailable",
             ),
+            section_trust=DashboardHistoryRunMetadata.SectionTrust(
+                portfolio_path="unavailable",
+                benchmark_path="unavailable",
+                monthly_returns_path="unavailable",
+            ),
+            return_basis_contract=DashboardHistoryRunMetadata.ReturnBasisContract(
+                portfolio_path="unavailable",
+                benchmark_path="unavailable",
+            ),
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=input_imported_at,
                 snapshot_as_of_date=snapshot_as_of_date,
@@ -150,7 +245,7 @@ def _build_unavailable_dashboard_history_result(
             ),
         ),
         benchmark=None,
-        range_metrics=_build_range_metrics([], []),
+        range_metrics=_build_range_metrics([], [], allow_drawdown_outputs=False, allow_compounded_return_outputs=False),
     )
 
 
@@ -170,7 +265,7 @@ def _has_any_symbol_price_history(symbol_price_histories: dict[str, list[dict]])
     return any(rows for rows in symbol_price_histories.values())
 
 
-def _build_range_metrics(daily_states, performance_series) -> dict[str, DashboardRangeMetrics]:
+def _build_range_metrics(daily_states, performance_series, *, allow_drawdown_outputs: bool, allow_compounded_return_outputs: bool) -> dict[str, DashboardRangeMetrics]:
     if not performance_series:
         return {
             range_name: DashboardRangeMetrics(
@@ -199,8 +294,8 @@ def _build_range_metrics(daily_states, performance_series) -> dict[str, Dashboar
         states = [state for state in daily_states if state.date in visible_dates]
         monthly_returns = _compute_contribution_adjusted_monthly_returns(states)
         metrics[range_name] = DashboardRangeMetrics(
-            summary=_compute_visible_summary(states, perf),
-            max_drawdown_pct=_compute_max_drawdown(perf),
+                summary=_compute_visible_summary(states, perf, allow_compounded_return_outputs=allow_compounded_return_outputs),
+                max_drawdown_pct=_compute_max_drawdown(perf) if allow_drawdown_outputs else None,
             monthly_returns=[DashboardMonthlyReturn(month=item["month"], return_pct=item["return_pct"]) for item in monthly_returns],
             monthly_returns_reliable=_monthly_returns_are_reliable(monthly_returns, states),
         )
@@ -250,7 +345,7 @@ def _compute_money_weighted_return(states) -> float | None:
     return ((end_value - start_value - total_flows) / denominator) * 100
 
 
-def _compute_visible_summary(daily_states, performance_series) -> PerformanceSummary:
+def _compute_visible_summary(daily_states, performance_series, *, allow_compounded_return_outputs: bool) -> PerformanceSummary:
     if not daily_states:
         return PerformanceSummary(
             start_value=None,
@@ -271,8 +366,8 @@ def _compute_visible_summary(daily_states, performance_series) -> PerformanceSum
     end_value = daily_states[-1].total_portfolio_value
     net_contributions = sum(state.external_cash_flow for state in anchored_states[1:]) if anchored_states else 0.0
     investment_gain = (end_value - start_value - net_contributions) if start_value is not None else None
-    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf else None
-    benchmark_return_pct = anchored_perf[-1].benchmark_return_pct if anchored_perf else None
+    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf and allow_compounded_return_outputs else None
+    benchmark_return_pct = anchored_perf[-1].benchmark_return_pct if anchored_perf and allow_compounded_return_outputs else None
     money_weighted_return_pct = _compute_money_weighted_return(anchored_states)
     excess_return_pct = None
     if time_weighted_return_pct is not None and benchmark_return_pct is not None:

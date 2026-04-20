@@ -11,7 +11,7 @@ import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../
 import { desktopFeatureFlags } from './featureFlags'
 import type { HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import { buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 
 
@@ -341,6 +341,7 @@ export function App() {
   const [hypotheticalReplacementReplay, setHypotheticalReplacementReplay] = useState<HypotheticalReplayResponse | null>(null)
   const [importingPortfolio, setImportingPortfolio] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null)
   const [loadedStatementFiles, setLoadedStatementFiles] = useState<File[]>([])
   const [lastImportedFileNames, setLastImportedFileNames] = useState<string[]>([])
   const [activeWorkspace, setActiveWorkspace] = useState<PortfolioWorkspace | null>(null)
@@ -669,34 +670,25 @@ export function App() {
 
   async function handleSaveProposal() {
     if (!activeWorkspace || !workingDraft || !replacementIntentDraft || !hypotheticalReplacementReplay) return
+    setWorkspaceError(null)
     const existingProposals = await getWorkspaceProposalArtifacts(activeWorkspace.id).catch(() => proposalArtifacts)
-    const proposal: VersionedProposalArtifact = {
-      id: `proposal_${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
-      kind: 'single_replacement_hypothetical_replay_proposal',
-      schemaVersion: 1,
-      createdAt: new Date().toISOString(),
-      workspaceId: activeWorkspace.id,
-      sourceDraftId: workingDraft.id,
-      sourceBaseNodeId: workingDraft.baseNodeId,
-      proposalFamilyId: `${replacementIntentDraft.kind}:${replacementIntentDraft.baseSymbol}:${replacementIntentDraft.candidateSymbol}:${replacementIntentDraft.createdAt}`,
-      versionNumber: existingProposals.length + 1,
-      savedFrom: 'desktop_hypothetical_replay_review',
-      reviewStatus: 'recorded',
-      sourceIntent: replacementIntentDraft,
-      replayBasis: {
-        benchmarkSymbol: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.benchmark_symbol ?? replacementIntentDraft.benchmarkSymbol,
-        startDate: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.start_date,
-        endDate: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.end_date,
-        rebalanceFrequency: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.rebalance_frequency,
-        commissionBps: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.commission_bps,
-        slippageBps: ('replay' in hypotheticalReplacementReplay ? hypotheticalReplacementReplay.replay : hypotheticalReplacementReplay.overlay_replay).candidate_result.slippage_bps,
-        derivationBasis: hypotheticalReplacementReplay.derivation.baseline_basis,
-        candidateConstructionRule: hypotheticalReplacementReplay.derivation.candidate_construction_rule,
-      },
-      reviewSnapshot: hypotheticalReplacementReplay,
+    try {
+      const proposal = buildSavedProposalArtifact({
+        id: `proposal_${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
+        createdAt: new Date().toISOString(),
+        workspaceId: activeWorkspace.id,
+        sourceDraftId: workingDraft.id,
+        sourceBaseNodeId: workingDraft.baseNodeId,
+        proposalFamilyId: `${replacementIntentDraft.kind}:${replacementIntentDraft.baseSymbol}:${replacementIntentDraft.candidateSymbol}:${replacementIntentDraft.createdAt}`,
+        versionNumber: existingProposals.length + 1,
+        sourceIntent: replacementIntentDraft,
+        hypotheticalReplay: hypotheticalReplacementReplay,
+      })
+      await saveProposalArtifact(proposal)
+      setProposalArtifacts([proposal, ...existingProposals])
+    } catch (caughtError) {
+      setWorkspaceError(caughtError instanceof Error ? caughtError.message : 'Failed to save proposal artifact')
     }
-    await saveProposalArtifact(proposal)
-    setProposalArtifacts([proposal, ...existingProposals])
   }
 
   async function handlePromoteProposalToThesis(proposalId: string) {
@@ -710,7 +702,9 @@ export function App() {
       thesisProposal: proposal,
     }
     setActiveThesis(thesis)
-    await saveActiveThesis(thesis).catch(() => undefined)
+    await saveActiveThesis(thesis).catch(() => {
+      setActiveThesis(null)
+    })
   }
 
   async function handleClearActiveThesis() {
@@ -1090,6 +1084,7 @@ export function App() {
 
       {tab === 'workspace' ? (
         <section className="grid grid-single">
+          {workspaceError ? <p className="error">{workspaceError}</p> : null}
           <Suspense fallback={<section className="panel"><p className="panel-label">Workspace</p><p className="helper">Loading portfolio research workspace...</p></section>}>
             <BacktestWorkspacePanel
               allocationBacktestResult={allocationBacktestRun}

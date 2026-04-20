@@ -41,6 +41,7 @@ from app.services.market_data import MarketDataService
 
 METHODOLOGY = "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions."
 CASH_SYMBOL = "__CASH__"
+REPLAY_REFUSAL_POLICY_RATIONALE = "When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states."
 
 
 @dataclass(frozen=True)
@@ -512,6 +513,7 @@ def _compare_results(reference: AllocationBacktestResult, candidate: AllocationB
     return AllocationBacktestComparison(
         total_return_diff_pct=_diff(reference.metrics.total_return_pct, candidate.metrics.total_return_pct),
         annualized_return_diff_pct=_diff(reference.metrics.annualized_return_pct, candidate.metrics.annualized_return_pct),
+        benchmark_return_diff_pct=_diff(reference.metrics.benchmark_return_pct, candidate.metrics.benchmark_return_pct),
         annualized_volatility_diff_pct=_diff(reference.metrics.annualized_volatility_pct, candidate.metrics.annualized_volatility_pct),
         downside_volatility_diff_pct=_diff(reference.metrics.downside_volatility_pct, candidate.metrics.downside_volatility_pct),
         max_drawdown_diff_pct=_diff(reference.metrics.max_drawdown_pct, candidate.metrics.max_drawdown_pct),
@@ -693,7 +695,7 @@ def _build_diagnostics_comparison(
         factor_exposure_changes=factor_rows,
         top_factor_exposure_change=_top_largest_absolute_delta_callout(factor_rows, rationale="Largest valid factor exposure delta in this group (candidate - baseline)."),
         volatility_changes=volatility_rows,
-        top_volatility_change=_top_priority_callout(volatility_rows, ["max_drawdown", "annualized_volatility", "downside_volatility"], selection_rule="fixed_priority", rationale="Selected by fixed priority order: max drawdown, then annualized volatility, then downside volatility."),
+        top_volatility_change=_top_priority_callout(volatility_rows, ["annualized_volatility", "downside_volatility", "tracking_error"], selection_rule="fixed_priority", rationale=f"{REPLAY_REFUSAL_POLICY_RATIONALE} Selected by fixed priority order across allowed replay risk-shape metrics: annualized volatility, then downside volatility, then tracking error."),
         risk_contribution_changes=risk_rows,
         top_risk_contribution_change=_top_largest_absolute_delta_callout(risk_rows, rationale="Largest valid factor risk-contribution delta in this group (candidate - baseline)."),
         concentration_changes=concentration_rows,
@@ -734,7 +736,6 @@ def _volatility_change_rows(baseline: PortfolioDiagnosticsSnapshot, candidate: P
     rows = [
         ("annualized_volatility", "Annualized Volatility", baseline.volatility_snapshot.realized_vol_252d if baseline.volatility_snapshot else None, candidate.volatility_snapshot.realized_vol_252d if candidate.volatility_snapshot else None),
         ("downside_volatility", "Downside Volatility", baseline.volatility_snapshot.downside_vol_252d if baseline.volatility_snapshot else None, candidate.volatility_snapshot.downside_vol_252d if candidate.volatility_snapshot else None),
-        ("max_drawdown", "Max Drawdown", baseline.volatility_snapshot.max_drawdown_pct if baseline.volatility_snapshot else None, candidate.volatility_snapshot.max_drawdown_pct if candidate.volatility_snapshot else None),
         ("tracking_error", "Tracking Error", baseline.volatility_snapshot.tracking_error_252d if baseline.volatility_snapshot else None, candidate.volatility_snapshot.tracking_error_252d if candidate.volatility_snapshot else None),
     ]
     return [PortfolioDiagnosticsComparisonRow(key=key, label=label, baseline_value=left, candidate_value=right, delta_value=_diff(left, right)) for key, label, left, right in rows]

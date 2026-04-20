@@ -145,6 +145,8 @@ Implementation:
 | Baseline weights | `hypotheticalReplayResult.baseline_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | derived on backend from draft snapshot position market values |
 | Candidate weights | `hypotheticalReplayResult.candidate_weights` | replacement-intent replay response | replay-input derived | if preview fails, hidden | backend-only candidate weights; may come from direct same-weight intent derivation or an accepted constructed candidate payload |
 | Warnings | `hypotheticalReplayResult.warnings` | replacement-intent replay response | explanatory provenance | if none, hidden | may include cash-exclusion or hypothetical-only notes |
+| Replay preview error line | existing `hypotheticalError` line in `PortfolioAllocationBacktestPanel.tsx` | replay preview request/response path | backend failure explanation | hidden when no replay error exists | Workspace now prefixes the exact backend failure with `Replay preview failed:` and preserves artifact-specific lineage mismatch details |
+| Saved proposal replay lineage | `proposal.replayBasis.replayProvenance` + `proposal.reviewSnapshot.replay_provenance` | immutable saved proposal artifact | immutable replay-input provenance | if saved artifact is internally contradictory, artifact load/save now fails | saved proposal artifacts no longer silently trust contradictory internal replay lineage |
 
 Current backend replay input rule:
 

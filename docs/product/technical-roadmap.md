@@ -303,6 +303,7 @@ Current implemented progress inside this flow:
 - Workspace now owns an explicit shell-first workflow order: current portfolio, candidate idea, candidate formation, construction rule, hypothetical replay, diagnostics change, and saved proposal
 - hypothetical replacement replay now has a PM-first diagnostics delta review surface
 - hypothetical replay can consume either direct same-weight derivation or an accepted constructed candidate payload
+- Workspace replay preview now preserves artifact-specific backend replay failures in the active error surface, so lineage-integrity rejections remain reviewable without adding new UI chrome
 - diagnostics groups currently read in decision order: concentration, factor exposure, volatility/drawdown, risk contribution, stress/scenario
 - each diagnostics group can surface a backend-ranked top callout with explicit selection-rule provenance and rationale
 - desktop renders backend-ranked diagnostics callouts directly and does not infer salience from array order
@@ -449,6 +450,24 @@ This is a gating layer, not a polish task.
 - add reliability fields to diagnostics and factor outputs
 - update methodology docs and tests together
 
+Current partial state: provenance, reproducibility, and artifact-integrity contracts have been materially strengthened across diagnostics, exposure, dashboard-history, replay, saved proposals, and active thesis. The main unfinished Stage 1 risk is still factor-math correctness, return-input quality, and degradation semantics rather than contract shape alone.
+
+Latest Stage 1 slice completed:
+- diagnostics contracts now explicitly degrade benchmark/factor source semantics to `live_market_data_unverified_return_basis` when history-aware diagnostics depend on market histories whose adjusted-close / total-return trust is not yet proven in code
+- this hardens truthfulness immediately without pretending current factor/benchmark return inputs are already decision-grade
+- diagnostics run-level confidence now also degrades to `low` under that unverified return-basis state, so the contract no longer mixes degraded source truth with stronger top-line trust language
+- diagnostics now also have a narrow return-basis detection utility: only histories whose loaded rows all include explicit adjusted-close fields are marked `live_market_data_verified_adjusted_close`; everything else remains unverified or unavailable
+- diagnostics factor-model and risk-contribution statuses now degrade to `degraded_unverified_return_basis` when those verified adjusted-close conditions are not met
+- the explicit return-series selector in `risk.py` now also feeds benchmark-relative summaries, rolling volatility benchmark returns, and statistical factor-model return inputs for a narrow but meaningful migration beyond position-risk contributions
+- deeper covariance/contribution helper return builders in the risk-contribution stack now use the same selector as well, making the migration more internally consistent without pretending the system is fully decision-grade
+- the next residual migration slice now covers dashboard-history benchmark-return construction and benchmark comparison readouts, which removes another contract-visible raw-price path outside `risk.py`
+- a centralized return-basis selector policy helper now exists and is shared across risk, dashboard-history, benchmark comparison, and rebalance preview entry points to reduce future trust drift
+- diagnostics contracts now carry grouped subsection trust for benchmark-relative, factor-model, and risk-contribution paths so degraded sections are explicit without a broad schema rewrite
+- dashboard-history contracts now carry grouped subsection trust for portfolio, benchmark, and monthly-return paths, keeping historical readouts compact while exposing mixed trust more honestly
+- the first strict return-basis-contract slice now refuses dashboard benchmark investor-return outputs unless total-return verification exists; this is intentionally narrower than a full engine-wide refusal pass
+- dashboard-history drawdown-loss outputs now follow the same conservative rule in range metrics, refusing rather than emitting investor-loss depth from unverified return-basis paths
+- dashboard-history now also refuses its first compounded investor-return family slice in range summaries when total-return verification is absent, keeping canonical investor-performance outputs from silently compounding untrusted paths
+
 Exit: current analytics are decision-grade or explicitly degraded.
 
 ### Stage 2: Ranking Engine
@@ -465,7 +484,7 @@ Exit: rankings are first-class inputs to construction workflows.
 - add explicit constraint and turnover models
 - produce candidate portfolios from ranking outputs
 
-Current partial state: single-replacement formation/construction already exist; replay provenance for constructed candidates is now explicit in the hypothetical replay contract; remaining work is broader construction modes, richer constraints, and stronger constraint-validation lineage into replay outputs.
+Current partial state: single-replacement formation/construction already exist; replay provenance for constructed candidates is now explicit, constraint-validation lineage is echoed, and basic lineage-integrity enforcement is in place for replay inputs. Remaining work is broader construction modes, richer constraints, and deeper enforcement/generalization beyond the current narrow single-replacement slice.
 
 Exit: candidate portfolios can be built systematically and audited.
 
@@ -475,7 +494,7 @@ Exit: candidate portfolios can be built systematically and audited.
 - optimize UI around PM decisions rather than debug surfaces
 - add proposal-specific saved-artifact review/readout so recorded proposals remain inspectable after reload and outside active draft context
 
-Current partial state: replacement-intent replay, PM-first diagnostics review, proposal persistence/readout, and overlay-aware replay already exist in narrow form.
+Current partial state: replacement-intent replay, PM-first diagnostics review, proposal persistence/readout, overlay-aware replay, artifact-specific replay error surfacing, immutable saved-proposal integrity enforcement, and active-thesis integrity enforcement already exist in narrow form.
 
 Exit: users can decide whether a change improves the portfolio.
 
@@ -504,11 +523,11 @@ Exit: the platform operates as a true personal quant research lab.
 
 ## Immediate Priorities
 
-1. turn financial-accuracy requirements into enforced engine contracts
-2. tighten canonical docs and replay/construction provenance so implemented slices are accurately described
-3. generalize the ranking engine beyond the current ETF-focused slices
-4. generalize rule-based portfolio construction beyond current single-replacement flows
-5. add broader overlays and monitoring only after baseline construction/replay contracts are clean
+1. finish production-grade factor-math hardening and degradation semantics
+2. generalize rule-based construction and constraint models beyond current single-replacement flows
+3. continue integrity enforcement across replay handoffs and persisted review artifacts where contradictions are still possible
+4. generalize the ranking engine beyond the current ETF-focused slices
+5. add broader overlays and monitoring only after financial-core and construction correctness are stronger
 
 ## Definition of Done for the Pivot
 

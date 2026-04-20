@@ -1,6 +1,8 @@
 from app.engine.portfolio_state import PortfolioStateEngine
+from app.analytics.risk import selected_history_price_map
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, EnrichedPosition, PerformancePoint, PerformanceSummary
+from app.services.market_data import HistoryReturnBasisContract, classify_history_return_basis_contract
 
 
 def _coerce_float(value: object) -> float | None:
@@ -51,11 +53,18 @@ def build_daily_portfolio_states(
     return engine.build_daily_states(price_histories=price_histories, valuation_dates=valuation_dates)
 
 
-def build_true_performance_series(daily_states: list[DailyPortfolioState], benchmark_rows: list[dict]) -> list[PerformancePoint]:
+def build_true_performance_series(
+    daily_states: list[DailyPortfolioState],
+    benchmark_rows: list[dict],
+    *,
+    portfolio_return_basis_contract: HistoryReturnBasisContract = "verified_total_return",
+    benchmark_return_basis_contract: HistoryReturnBasisContract | None = None,
+) -> list[PerformancePoint]:
     if not daily_states or not benchmark_rows:
         return []
 
-    benchmark_by_date = {row["date"]: float(row["price"]) for row in benchmark_rows}
+    benchmark_by_date, _ = selected_history_price_map(benchmark_rows)
+    resolved_benchmark_return_basis_contract = benchmark_return_basis_contract or classify_history_return_basis_contract(benchmark_rows)
     first_portfolio_value = next((state.total_portfolio_value for state in daily_states if state.total_portfolio_value > 0), None)
     benchmark_dates = sorted(benchmark_by_date)
     first_benchmark_price = benchmark_by_date[benchmark_dates[0]] if benchmark_dates else None
@@ -71,10 +80,14 @@ def build_true_performance_series(daily_states: list[DailyPortfolioState], bench
         portfolio_return_pct = 0.0
         if previous_state is not None:
             daily_return = _time_weighted_daily_return(previous_state, state)
-            if daily_return is not None:
+            if daily_return is not None and portfolio_return_basis_contract == "verified_total_return":
                 cumulative_growth *= 1 + daily_return
                 portfolio_return_pct = round((cumulative_growth - 1) * 100, 2)
-        benchmark_return_pct = round(((benchmark_price / benchmark_start_price) - 1) * 100, 2) if benchmark_price is not None and benchmark_start_price != 0 else None
+        benchmark_return_pct = (
+            round(((benchmark_price / benchmark_start_price) - 1) * 100, 2)
+            if benchmark_price is not None and benchmark_start_price != 0 and resolved_benchmark_return_basis_contract == "verified_total_return"
+            else None
+        )
         points.append(
             PerformancePoint(
                 date=state.date,

@@ -447,12 +447,27 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     }
     assert payload["run_metadata"]["source_status"] == {
         "portfolio_history": "synthetic_snapshot_history",
-        "benchmark_history": "live_market_data",
-        "factor_history": "live_market_data",
+        "benchmark_history": "live_market_data_unverified_return_basis",
+        "factor_history": "live_market_data_unverified_return_basis",
     }
-    assert payload["run_metadata"]["confidence"] == "medium"
-    assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
-    assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
+    assert payload["run_metadata"]["section_trust"] == {
+        "benchmark_relative_path": "degraded_unverified_return_basis",
+        "factor_model_path": "degraded_unverified_return_basis",
+        "risk_contribution_path": "degraded_unverified_return_basis",
+    }
+    assert payload["provenance"]["note"].endswith(
+        "Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
+    )
+    assert payload["run_metadata"]["confidence"] == "low"
+    assert payload["statistical_factor_model"]["status"] == "insufficient_history"
+    assert payload["model_reliability"]["status"] == "insufficient_history"
+    assert payload["risk_contribution_breakdown"]["status"] == "insufficient_history"
+    assert payload["drawdown_summary"]["current_drawdown_pct"] is None
+    assert payload["drawdown_summary"]["max_drawdown_pct"] is None
+    assert payload["volatility_regime"]["snapshot"]["current_drawdown_pct"] is None
+    assert payload["volatility_regime"]["snapshot"]["max_drawdown_pct"] is None
+    assert payload["relative_risk"]["active_return_pct"] is None
+    assert payload["relative_risk"]["information_ratio"] is None
     assert payload["volatility_summary"]["portfolio_volatility_pct"] == payload["risk_summary"]["portfolio_volatility_pct"]
     assert payload["volatility_summary"]["benchmark_volatility_pct"] == payload["risk_summary"]["benchmark_volatility_pct"]
     assert payload["volatility_summary"]["downside_volatility_pct"] == payload["volatility_regime"]["snapshot"]["downside_vol_60d"]
@@ -567,7 +582,16 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
     assert payload["run_metadata"]["source_status"] == {
         "performance_history": "live",
         "monthly_returns": "live",
-        "benchmark_history": "live_market_data",
+        "benchmark_history": "live_market_data_unverified_return_basis",
+    }
+    assert payload["run_metadata"]["section_trust"] == {
+        "portfolio_path": "imported_replay",
+        "benchmark_path": "degraded_unverified_return_basis",
+        "monthly_returns_path": "imported_replay",
+    }
+    assert payload["run_metadata"]["return_basis_contract"] == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "price_return_only",
     }
     assert payload["run_metadata"]["reproducibility"] == {
         "input_imported_at": "2026-04-10T00:00:00+00:00",
@@ -705,12 +729,27 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
     }
     assert payload["run_metadata"]["source_status"] == {
         "portfolio_history": "imported_replay",
-        "benchmark_history": "live_market_data",
-        "factor_history": "live_market_data",
+        "benchmark_history": "live_market_data_unverified_return_basis",
+        "factor_history": "live_market_data_unverified_return_basis",
     }
-    assert payload["run_metadata"]["confidence"] == "high"
-    assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
-    assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
+    assert payload["run_metadata"]["section_trust"] == {
+        "benchmark_relative_path": "degraded_unverified_return_basis",
+        "factor_model_path": "degraded_unverified_return_basis",
+        "risk_contribution_path": "degraded_unverified_return_basis",
+    }
+    assert payload["provenance"]["note"].endswith(
+        "Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
+    )
+    assert payload["run_metadata"]["confidence"] == "low"
+    assert payload["statistical_factor_model"]["status"] == "insufficient_history"
+    assert payload["model_reliability"]["status"] == "insufficient_history"
+    assert payload["risk_contribution_breakdown"]["status"] == "insufficient_history"
+    assert payload["drawdown_summary"]["current_drawdown_pct"] is None
+    assert payload["drawdown_summary"]["max_drawdown_pct"] is None
+    assert payload["volatility_regime"]["snapshot"]["current_drawdown_pct"] is None
+    assert payload["volatility_regime"]["snapshot"]["max_drawdown_pct"] is None
+    assert payload["relative_risk"]["active_return_pct"] is None
+    assert payload["relative_risk"]["information_ratio"] is None
     assert payload["volatility_summary"]["portfolio_volatility_pct"] == payload["risk_summary"]["portfolio_volatility_pct"]
     assert payload["volatility_summary"]["benchmark_volatility_pct"] == payload["risk_summary"]["benchmark_volatility_pct"]
     assert payload["volatility_summary"]["tracking_error_pct"] == payload["relative_risk"]["tracking_error_pct"]

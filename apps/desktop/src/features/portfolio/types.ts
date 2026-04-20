@@ -115,6 +115,7 @@ export type BenchmarkSummary = {
   start_price: number | null
   end_price: number | null
   return_pct: number | null
+  return_basis_contract?: 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
   points?: Array<{
     date: string
     price: number
@@ -275,7 +276,16 @@ export type DashboardHistoryRunMetadata = {
   source_status: {
     performance_history: string
     monthly_returns: string
-    benchmark_history: 'live_market_data' | 'unavailable'
+    benchmark_history: 'live_market_data_verified_adjusted_close' | 'live_market_data_unverified_return_basis' | 'unavailable'
+  }
+  section_trust: {
+    portfolio_path: 'imported_replay' | 'unavailable'
+    benchmark_path: 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
+    monthly_returns_path: 'imported_replay' | 'suppressed_unstable_path' | 'unavailable'
+  }
+  return_basis_contract: {
+    portfolio_path: 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
+    benchmark_path: 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
   }
   reproducibility: {
     input_imported_at: string | null
@@ -639,8 +649,13 @@ export type DiagnosticsProvenance = {
 export type DiagnosticsRunMetadata = {
   source_status: {
     portfolio_history: 'imported_replay' | 'synthetic_snapshot_history' | 'unavailable'
-    benchmark_history: 'live_market_data' | 'unavailable'
-    factor_history: 'live_market_data' | 'unavailable'
+    benchmark_history: 'live_market_data_verified_adjusted_close' | 'live_market_data_unverified_return_basis' | 'unavailable'
+    factor_history: 'live_market_data_verified_adjusted_close' | 'live_market_data_unverified_return_basis' | 'unavailable'
+  }
+  section_trust: {
+    benchmark_relative_path: 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
+    factor_model_path: 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
+    risk_contribution_path: 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
   }
   factor_model_parameters: {
     rolling_windows_days: number[]
@@ -1102,8 +1117,8 @@ export type EtfMomentumStrategyResponse = {
   }
   equity_curve: Array<{
     date: string
-    strategy_equity: number
-    benchmark_equity: number
+    strategy_equity: number | null
+    benchmark_equity: number | null
     strategy_drawdown_pct: number | null
     benchmark_drawdown_pct: number | null
   }>
@@ -1312,6 +1327,7 @@ export type AllocationBacktestResult = {
 export type AllocationBacktestComparison = {
   total_return_diff_pct: number | null
   annualized_return_diff_pct: number | null
+  benchmark_return_diff_pct: number | null
   annualized_volatility_diff_pct: number | null
   downside_volatility_diff_pct: number | null
   max_drawdown_diff_pct: number | null

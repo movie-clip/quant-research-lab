@@ -67,6 +67,7 @@ class BenchmarkComparison(BaseModel):
     start_price: float | None
     end_price: float | None
     return_pct: float | None
+    return_basis_contract: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"] = "unavailable"
     points: list[BenchmarkPoint]
 
 

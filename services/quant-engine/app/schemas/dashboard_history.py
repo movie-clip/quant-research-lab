@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.schemas.portfolio_engine import PortfolioEngineRequest, PortfolioHistoryContext
@@ -36,9 +38,20 @@ class DashboardHistoryRunReproducibility(BaseModel):
 
 
 class DashboardHistoryRunMetadata(BaseModel):
+    class SectionTrust(BaseModel):
+        portfolio_path: str
+        benchmark_path: str
+        monthly_returns_path: str
+
+    class ReturnBasisContract(BaseModel):
+        portfolio_path: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"]
+        benchmark_path: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"]
+
     history_id: str
     methodology_id: str
     source_status: DashboardHistoryRunSourceStatus
+    section_trust: SectionTrust
+    return_basis_contract: ReturnBasisContract
     reproducibility: DashboardHistoryRunReproducibility
 
 

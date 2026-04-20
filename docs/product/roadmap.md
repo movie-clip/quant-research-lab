@@ -230,7 +230,7 @@ The main gaps blocking a real quant-research-lab direction are:
 2. no true portfolio-construction rule engine
 3. no robust optimization layer with constraints
 4. the integrated portfolio-improvement workspace is now shipped in a narrow Workspace-owned form, but it is not yet the fully generalized primary product workflow
-5. insufficiently production-grade factor math and reliability framing
+5. insufficiently production-grade factor math, return-input guarantees, and reliability framing
 6. diagnostics panels still partly optimized for debug-style outputs rather than PM decision flow
 7. strategy research workflows are narrower than portfolio construction workflows
 
@@ -256,6 +256,23 @@ Required work:
   - current-window reliability status
 - make synthetic snapshot-history factor outputs visibly distinct from broker-truth historical diagnostics
 - expand tests around proxy overlap, missing adjusted-price histories, and degradation semantics
+
+Current status:
+- provenance, run-metadata, and replay/artifact integrity contracts have been materially hardened across diagnostics, exposure, dashboard-history, replay, saved proposals, and active thesis artifacts
+- these improvements reduce trust drift and artifact inconsistency, but they do not replace the remaining need for production-grade factor-math hardening
+- the first explicit degradation slice is now in place for diagnostics benchmark/factor histories: history-aware diagnostics no longer label those inputs as plain `live_market_data` when return-basis trust is unverified
+- diagnostics top-line run confidence now also degrades to `low` in that state, so metadata degradation and user-facing trust signals remain aligned
+- a narrow adjusted-close detection utility now exists for diagnostics inputs, but it only verifies the presence of explicit adjusted-close fields on loaded rows; broader total-return assurance is still not complete
+- diagnostics status semantics now reflect that limitation directly: factor-model, model-reliability, and risk-contribution outputs degrade explicitly when adjusted-close support is incomplete
+- the explicit series-selector helper now covers several benchmark/factor risk paths as well, reducing silent raw-close usage in diagnostics math without claiming full decision-grade total-return correctness
+- the deeper risk-contribution covariance helpers now use that selector too, which materially reduces implicit raw-price reads inside the factor-risk stack
+- dashboard-history benchmark return and benchmark comparison paths now use the same selector pattern too, shrinking residual raw-price dependence outside the diagnostics stack
+- a small centralized selector-policy helper now backs those entry points, so future raw-price return construction is easier to spot and harder to reintroduce accidentally
+- diagnostics now surface subsection trust explicitly, reducing reliance on only top-line confidence when some historical paths are verified and others remain degraded
+- dashboard-history now does the same in a compact form, so portfolio-path, benchmark-path, and monthly-return trust no longer collapse into one benchmark-history label
+- benchmark investor-return outputs in dashboard-history now refuse when the return basis is only price-return or an unverified adjusted proxy, preventing misleading benchmark/excess-return readouts
+- dashboard drawdown-loss outputs now refuse under the same unproven return-basis states, preventing misleading trough-depth readouts from non-total-return paths
+- dashboard compounded investor-return summaries now refuse under those same states too, preventing misleading cumulative/excess-return readouts from unverified compounding paths
 
 ### Production-Grade Diagnostics Prioritization
 
@@ -378,11 +395,15 @@ Current implemented Stage 4 slice:
 - Workspace now owns an explicit shell-first workflow order: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> saved proposal
 - explicit replacement intent can drive a hypothetical one-for-one replay preview
 - replay review now includes PM-first diagnostics delta review
+- hypothetical replay now preserves direct-preview vs constructed-candidate lineage, actual construction rule used, and echoed constraint-validation lineage
+- replay now rejects provable lineage mismatches between supplied review artifacts while still avoiding approval gating on validation status
 - replay-scoped Monitoring now lives inside Workspace as a narrow review surface, not as a broad continuous monitoring system
 - Monitoring can hand off back into Workspace workflow sections through an explicit user-initiated continuity path
 - diagnostics groups expose backend-ranked top callouts with visible selection-rule provenance and backend-provided rationale
 - reviewed hypothetical replay results can now be recorded as immutable local versioned proposal artifacts
 - saved proposals can now be inspected in a dedicated review/readout surface that uses persisted artifact data only rather than active draft state
+- immutable saved proposal artifacts and active thesis restore now fail on provable internal lineage contradictions rather than silently trusting inconsistent review artifacts
+- Workspace replay preview now surfaces artifact-specific backend replay failures directly in the existing error line
 - these callouts remain review support only and do not imply recommendation or applied portfolio change
 
 Exit criteria:
@@ -442,11 +463,11 @@ Exit criteria:
 
 ## Immediate Priorities
 
-1. finish production-grade factor math hardening
-2. turn diagnostics into a PM-first panel
-3. build the ETF / instrument ranking engine
-4. build portfolio construction rules on top of ranking
-5. make the portfolio improvement workspace the main backtest workflow
+1. finish production-grade factor math hardening and reliability semantics
+2. generalize construction and constraints beyond current single-replacement flows
+3. continue integrity enforcement across persisted review artifacts and replay handoffs
+4. generalize the ranking engine beyond the current ETF-focused slices
+5. broaden overlays and monitoring only after financial-core and construction correctness are stronger
 
 ## Naming Direction
 

@@ -36,20 +36,20 @@ type MonitorCallout = {
 }
 
 function formatPct(value: number | null | undefined) {
-  return value == null ? 'n/a' : `${value.toFixed(2)}%`
+  return value == null ? 'N/A' : `${value.toFixed(2)}%`
 }
 
 function formatSignedPct(value: number | null | undefined) {
-  if (value == null) return 'n/a'
+  if (value == null) return 'N/A'
   return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
 function formatNumber(value: number | null | undefined, digits = 2) {
-  return value == null ? 'n/a' : value.toFixed(digits)
+  return value == null ? 'N/A' : value.toFixed(digits)
 }
 
 function formatSignedNumber(value: number | null | undefined, digits = 2) {
-  if (value == null) return 'n/a'
+  if (value == null) return 'N/A'
   return `${value > 0 ? '+' : ''}${value.toFixed(digits)}`
 }
 
@@ -108,7 +108,7 @@ function monitorFromCallout(
       key,
       title,
       currentStatus: 'Unavailable',
-      recentChange: 'n/a',
+      recentChange: 'N/A',
       severity: 'Low',
       confidence: 'Low',
         provenance,
@@ -184,8 +184,8 @@ function benchmarkRelativeMonitor(
     tone,
     detail: [
       `Candidate correlation vs benchmark: ${formatNumber(activeReplay.candidate_result.metrics.correlation_vs_benchmark)}.`,
-      `Active return: ${formatSignedPct(activeReplay.candidate_result.metrics.excess_return_pct)}.`,
-      'Benchmark-relative watch uses shared replay metrics rather than frontend-derived scoring.',
+      'Active return is intentionally withheld because replay total-return equivalence is unverified.',
+      'Benchmark-relative watch keeps tracking error, beta, and correlation as replay-basis risk-shape metrics rather than verified investor-return measures.',
     ],
     researchTarget: 'hypothetical_replay',
   }
@@ -202,17 +202,17 @@ function volatilityMonitor(
 
   return {
     key: 'volatility',
-    title: 'Volatility / Regime',
-    currentStatus: `Vol ${formatPct(snapshot?.realized_vol_252d)} / Drawdown ${formatPct(snapshot?.current_drawdown_pct)}`,
+    title: 'Volatility Shape',
+    currentStatus: `Vol ${formatPct(snapshot?.realized_vol_252d)} / TE ${formatPct(snapshot?.tracking_error_252d)}`,
     recentChange: row ? `${row.label} ${comparisonValue(row)}` : `Tracking error 252d ${formatPct(snapshot?.tracking_error_252d)}`,
     severity: tone === 'hot' ? 'High' : tone === 'warm' ? 'Medium' : 'Low',
     confidence: diagnosticsConfidence,
     provenance,
     tone,
     detail: [
-      `Max drawdown snapshot: ${formatPct(snapshot?.max_drawdown_pct)}.`,
       `Downside volatility: ${formatPct(snapshot?.downside_vol_252d)}.`,
-      row?.rationale ?? 'Replay diagnostics expose volatility and drawdown directly; a separate replay regime label is not available in v1.',
+      'Drawdown surfaces are intentionally withheld because replay investor total-return equivalence is unverified.',
+      row?.rationale ?? 'Replay monitoring keeps allowed volatility-shape metrics only and does not expose drawdown-derived regime text.',
     ],
     researchTarget: 'diagnostics_change',
   }
@@ -253,18 +253,11 @@ function buildMonitors(activeReplay: PortfolioAllocationBacktestResponse, hypoth
       helper: diagnostics.top_concentration_change.rationale,
       tone: toneFromMagnitude(diagnostics.top_concentration_change.delta_value, 0.2, 0.08),
     } : null,
-    diagnostics?.top_volatility_change ? {
-      key: 'top-volatility-callout',
-      label: 'Top Volatility Callout',
-      value: `${diagnostics.top_volatility_change.label} ${comparisonValue(diagnostics.top_volatility_change)}`,
-      helper: diagnostics.top_volatility_change.rationale,
-      tone: toneFromMagnitude(diagnostics.top_volatility_change.delta_value, 3, 1),
-    } : null,
     {
       key: 'data-quality-callout',
       label: 'Data Quality',
-      value: monitors.find((item) => item.key === 'data-quality')?.currentStatus ?? 'n/a',
-      helper: monitors.find((item) => item.key === 'data-quality')?.recentChange ?? 'n/a',
+      value: monitors.find((item) => item.key === 'data-quality')?.currentStatus ?? 'N/A',
+      helper: monitors.find((item) => item.key === 'data-quality')?.recentChange ?? 'N/A',
       tone: monitors.find((item) => item.key === 'data-quality')?.tone ?? 'neutral',
     },
   ].filter((item): item is MonitorCallout => item != null)

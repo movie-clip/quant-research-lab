@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from math import sqrt
-from typing import Protocol
+from typing import Literal, Protocol
 
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import ImportedPortfolioSnapshot
@@ -46,6 +46,7 @@ from app.schemas.reconciliation import (
     VolatilitySnapshot,
     WindowSummary,
 )
+from app.services.market_data import detect_histories_return_basis, detect_history_return_basis
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,22 @@ class UcitsCandidateMapping:
     mapping_quality: str
     notes: str | None = None
     isin: str | None = None
+
+
+@dataclass(frozen=True)
+class SelectedHistoryPriceSeries:
+    points: list[tuple[str, float]]
+    return_basis_status: Literal["verified_adjusted_close", "unverified_close_only", "unavailable"]
+    selected_field: Literal["adjusted_close", "price", "unavailable"]
+
+
+def is_history_series_verified_adjusted(rows: list[dict]) -> bool:
+    return select_history_price_series(rows).return_basis_status == "verified_adjusted_close"
+
+
+def selected_history_price_map(rows: list[dict]) -> tuple[dict[str, float], Literal["verified_adjusted_close", "unverified_close_only", "unavailable"]]:
+    series = select_history_price_series(rows)
+    return dict(series.points), series.return_basis_status
 
 
 @dataclass(frozen=True)
@@ -497,12 +514,12 @@ def build_rolling_risk_series(daily_states: list, benchmark_rows: list[dict]) ->
 
 def build_position_risk_contributions(snapshot: ImportedPortfolioSnapshot, price_histories: dict[str, list[dict]], benchmark_rows: list[dict]) -> list[PortfolioRiskContribution]:
     total_market_value = sum(position.market_value for position in snapshot.positions)
-    benchmark_returns = _series_to_returns([(row["date"], float(row["price"])) for row in benchmark_rows if row.get("date") is not None and row.get("price") is not None])
+    benchmark_returns = _selected_history_return_series(benchmark_rows)
 
     contributions: list[PortfolioRiskContribution] = []
     for position in snapshot.positions:
         price_rows = price_histories.get(position.symbol, [])
-        symbol_returns = _series_to_returns([(row["date"], float(row["price"])) for row in price_rows if row.get("date") is not None and row.get("price") is not None])
+        symbol_returns = _selected_history_return_series(price_rows)
         paired = [(symbol_returns[date], benchmark_returns[date]) for date in sorted(set(symbol_returns) & set(benchmark_returns))]
         symbol_samples = [item[0] for item in paired]
         benchmark_samples = [item[1] for item in paired]
@@ -719,6 +736,49 @@ def build_relative_risk_summary(daily_states: list, benchmark_rows: list[dict], 
     )
 
 
+def _degrade_status_for_unverified_return_basis(status: str, return_basis_status: str) -> str:
+    if return_basis_status != "verified_adjusted_close" and status in {"ok", "partial"}:
+        return "degraded_unverified_return_basis"
+    return status
+
+
+def select_history_price_series(rows: list[dict]) -> SelectedHistoryPriceSeries:
+    if not rows:
+        return SelectedHistoryPriceSeries(points=[], return_basis_status="unavailable", selected_field="unavailable")
+
+    dated_rows = [row for row in rows if row.get("date") is not None]
+    adjusted_points = [
+        (str(row["date"]), float(row["adjClose"] if row.get("adjClose") is not None else row["adjusted_close"]))
+        for row in dated_rows
+        if row.get("adjClose") is not None or row.get("adjusted_close") is not None
+    ]
+    if adjusted_points and len(adjusted_points) == len(dated_rows):
+        return SelectedHistoryPriceSeries(
+            points=adjusted_points,
+            return_basis_status="verified_adjusted_close",
+            selected_field="adjusted_close",
+        )
+
+    price_points = [
+        (str(row["date"]), float(row["price"]))
+        for row in dated_rows
+        if row.get("price") is not None
+    ]
+    if price_points:
+        return SelectedHistoryPriceSeries(
+            points=price_points,
+            return_basis_status="unverified_close_only",
+            selected_field="price",
+        )
+
+    return SelectedHistoryPriceSeries(points=[], return_basis_status="unavailable", selected_field="unavailable")
+
+
+def _selected_history_return_series(rows: list[dict]) -> dict[str, float]:
+    series = select_history_price_series(rows)
+    return _series_to_returns(series.points)
+
+
 def build_volatility_regime_payload(daily_states: list, benchmark_rows: list[dict]) -> VolatilityRegimePayload:
     rolling_series = _build_rolling_volatility_series(daily_states, benchmark_rows)
     snapshot = _build_volatility_snapshot(rolling_series)
@@ -767,6 +827,7 @@ def build_risk_contribution_breakdown(
     factor_registry: list[FactorProxyDefinition],
     model: StatisticalFactorModel,
 ) -> RiskContributionBreakdownPayload:
+    factor_return_basis_status = detect_histories_return_basis(factor_histories)
     factor_contributions, factor_total_variance, factor_observation_count = _build_factor_risk_contributions(factor_registry, factor_histories, model)
     position_contributions, _, position_observation_count = _build_position_risk_contributions(snapshot, price_histories)
     reliability = build_model_reliability_snapshot(model)
@@ -798,7 +859,7 @@ def build_risk_contribution_breakdown(
         methodology="Estimated factor and position risk contributions using latest valid 60-day loadings, aligned return covariance, and residual variance.",
         window_days=RISK_CONTRIBUTION_WINDOW_DAYS,
         observation_count=min(count for count in [factor_observation_count, position_observation_count] if count > 0) if any(count > 0 for count in [factor_observation_count, position_observation_count]) else 0,
-        status=reliability.status,
+        status=_degrade_status_for_unverified_return_basis(reliability.status, factor_return_basis_status),
         factor_contributions=factor_contributions,
         factor_total_variance=round(factor_total_variance, 8) if factor_total_variance > 0 else None,
         specific_variance=specific_variance,
@@ -843,6 +904,38 @@ def build_model_reliability_snapshot(model: StatisticalFactorModel) -> ModelReli
         confidence=confidence,
         stability_score=stability_score,
     )
+
+
+def apply_return_basis_status_to_model_reliability(
+    reliability: ModelReliabilitySnapshot,
+    *,
+    benchmark_rows: list[dict],
+    factor_histories: dict[str, list[dict]],
+) -> ModelReliabilitySnapshot:
+    benchmark_return_basis_status = detect_history_return_basis(benchmark_rows)
+    factor_return_basis_status = detect_histories_return_basis(factor_histories)
+    if benchmark_return_basis_status == "verified_adjusted_close" and factor_return_basis_status == "verified_adjusted_close":
+        return reliability
+    degraded_status = _degrade_status_for_unverified_return_basis(reliability.status, "unverified_close_only")
+    return reliability.model_copy(update={"status": degraded_status, "confidence": "low"})
+
+
+def apply_return_basis_status_to_factor_model(
+    model: StatisticalFactorModel,
+    *,
+    benchmark_rows: list[dict],
+    factor_histories: dict[str, list[dict]],
+) -> StatisticalFactorModel:
+    benchmark_return_basis_status = detect_history_return_basis(benchmark_rows)
+    factor_return_basis_status = detect_histories_return_basis(factor_histories)
+    if benchmark_return_basis_status == "verified_adjusted_close" and factor_return_basis_status == "verified_adjusted_close":
+        return model
+    degraded_status = _degrade_status_for_unverified_return_basis(model.status, "unverified_close_only")
+    degraded_windows = [
+        item.model_copy(update={"status": _degrade_status_for_unverified_return_basis(item.status, "unverified_close_only")})
+        for item in model.windows
+    ]
+    return model.model_copy(update={"status": degraded_status, "windows": degraded_windows})
 
 
 def build_lookthrough_sector_exposure(lookthrough_constituents: list[LookThroughConstituent]) -> list[LookThroughSectorExposure]:
@@ -1181,7 +1274,7 @@ def _max_abs_rolling_correlation(left: list[float], right: list[float], window: 
 def build_statistical_factor_model(daily_states: list, factor_histories: dict[str, list[dict]], benchmark_symbol: str) -> StatisticalFactorModel:
     portfolio_returns = dict((date, value) for date, value in [(item[0], item[1]) for item in _paired_portfolio_and_benchmark_returns(daily_states, factor_histories.get(benchmark_symbol, []))])
     factor_returns = {
-        factor: _series_to_returns([(row["date"], float(row["price"])) for row in rows if row.get("date") is not None and row.get("price") is not None])
+        factor: _selected_history_return_series(rows)
         for factor, rows in factor_histories.items()
     }
     common_dates = sorted(set(portfolio_returns).intersection(*[set(values) for values in factor_returns.values() if values]))
@@ -1327,7 +1420,7 @@ def _portfolio_time_weighted_return_series(daily_states: list) -> list[tuple[str
 
 
 def _benchmark_return_series(benchmark_rows: list[dict]) -> dict[str, float]:
-    return _series_to_returns([(row["date"], float(row["price"])) for row in benchmark_rows if row.get("date") is not None and row.get("price") is not None])
+    return _selected_history_return_series(benchmark_rows)
 
 
 def _aligned_active_return_series(portfolio_returns: list[tuple[str, float]], benchmark_returns: dict[str, float]) -> list[tuple[str, float, float, float]]:
@@ -1649,7 +1742,7 @@ def _build_factor_risk_contributions(
     latest_loadings = _latest_valid_60d_loadings(model)
     eligible_definitions = [definition for definition in factor_registry if latest_loadings.get(definition.key) is not None]
     factor_returns = {
-        definition.key: _series_to_returns([(row["date"], float(row["price"])) for row in factor_histories.get(definition.us_proxy, []) if row.get("date") is not None and row.get("price") is not None])
+        definition.key: _selected_history_return_series(factor_histories.get(definition.us_proxy, []))
         for definition in eligible_definitions
     }
     common_dates = sorted(set.intersection(*[set(values.keys()) for values in factor_returns.values() if values])) if any(factor_returns.values()) else []
@@ -1696,7 +1789,7 @@ def _build_position_risk_contributions(
 ) -> tuple[list[PositionRiskContributionItem], float, int]:
     total_market_value = sum(position.market_value for position in snapshot.positions)
     position_returns = {
-        position.symbol: _series_to_returns([(row["date"], float(row["price"])) for row in price_histories.get(position.symbol, []) if row.get("date") is not None and row.get("price") is not None])
+        position.symbol: _selected_history_return_series(price_histories.get(position.symbol, []))
         for position in snapshot.positions
     }
     common_dates = sorted(set.intersection(*[set(values.keys()) for values in position_returns.values() if values])) if any(position_returns.values()) else []

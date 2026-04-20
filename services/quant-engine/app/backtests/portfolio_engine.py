@@ -79,6 +79,10 @@ def _annualized_return(start_value: float, end_value: float, start_date: str, en
     return (end_value / start_value) ** (365.25 / elapsed_days) - 1
 
 
+def _allow_allocation_backtest_investor_economics_outputs() -> bool:
+    return False
+
+
 def _row_price(row: dict) -> float:
     if row.get("adjClose") is not None:
         return float(row["adjClose"])
@@ -408,6 +412,7 @@ def _compute_metrics(
     start_date: str,
     end_date: str,
 ) -> AllocationBacktestMetrics:
+    allow_investor_economics_outputs = _allow_allocation_backtest_investor_economics_outputs()
     start_equity = initial_capital
     end_equity = equity_curve[-1].equity if equity_curve else 0.0
     total_return = ((end_equity / start_equity) - 1) if start_equity else None
@@ -445,17 +450,17 @@ def _compute_metrics(
     excess_return = (total_return - benchmark_return) if total_return is not None and benchmark_return is not None else None
 
     return AllocationBacktestMetrics(
-        total_return_pct=round(total_return * 100, 2) if total_return is not None else None,
-        annualized_return_pct=round(annualized_return * 100, 2) if annualized_return is not None else None,
+        total_return_pct=round(total_return * 100, 2) if total_return is not None and allow_investor_economics_outputs else None,
+        annualized_return_pct=round(annualized_return * 100, 2) if annualized_return is not None and allow_investor_economics_outputs else None,
         annualized_volatility_pct=round(annualized_volatility * 100, 2) if annualized_volatility is not None else None,
         downside_volatility_pct=round(downside_volatility * 100, 2) if downside_volatility is not None else None,
-        max_drawdown_pct=round(max_drawdown, 2) if max_drawdown is not None else None,
-        sharpe_ratio=round(sharpe, 4) if sharpe is not None else None,
-        sortino_ratio=round(sortino, 4) if sortino is not None else None,
-        benchmark_return_pct=round(benchmark_return * 100, 2) if benchmark_return is not None else None,
-        excess_return_pct=round(excess_return * 100, 2) if excess_return is not None else None,
+        max_drawdown_pct=round(max_drawdown, 2) if max_drawdown is not None and allow_investor_economics_outputs else None,
+        sharpe_ratio=round(sharpe, 4) if sharpe is not None and allow_investor_economics_outputs else None,
+        sortino_ratio=round(sortino, 4) if sortino is not None and allow_investor_economics_outputs else None,
+        benchmark_return_pct=round(benchmark_return * 100, 2) if benchmark_return is not None and allow_investor_economics_outputs else None,
+        excess_return_pct=round(excess_return * 100, 2) if excess_return is not None and allow_investor_economics_outputs else None,
         tracking_error_pct=round(tracking_error * 100, 2) if tracking_error is not None else None,
-        information_ratio=round(information_ratio, 4) if information_ratio is not None else None,
+        information_ratio=round(information_ratio, 4) if information_ratio is not None and allow_investor_economics_outputs else None,
         beta_vs_benchmark=round(beta, 4) if beta is not None else None,
         correlation_vs_benchmark=round(correlation, 4) if correlation is not None else None,
         total_turnover_pct=round(total_turnover_pct, 2),

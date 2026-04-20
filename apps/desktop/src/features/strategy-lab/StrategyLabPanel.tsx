@@ -1,7 +1,5 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
-import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-
 import type { EtfMomentumStrategyResponse as EtfMomentumResponse } from '../portfolio/types'
 
 const UNIVERSE_PRESETS = {
@@ -29,11 +27,11 @@ type ConstituentHeatmapMetric = 'contribution' | 'return'
 type ConstituentHistoryMode = 'selected_etf' | 'leaders_only'
 
 function formatPct(value: number | null | undefined) {
-  return value == null ? 'n/a' : `${value.toFixed(2)}%`
+  return value == null ? 'N/A' : `${value.toFixed(2)}%`
 }
 
 function formatNumber(value: number | null | undefined, digits = 2) {
-  return value == null ? 'n/a' : value.toFixed(digits)
+  return value == null ? 'N/A' : value.toFixed(digits)
 }
 
 function formatDateLabel(value: string | number | null | undefined) {
@@ -157,12 +155,6 @@ function visibleEtfInternalsSeries(
   return visibleDates.map((date) => byDate.get(date)).filter((item): item is NonNullable<typeof item> => Boolean(item))
 }
 
-function filterEquityCurveForVisibleRange(equityCurve: EtfMomentumResponse['equity_curve'], visibleDates: string[]) {
-  if (!visibleDates.length) return equityCurve
-  const visibleDateSet = new Set(visibleDates)
-  return equityCurve.filter((point) => visibleDateSet.has(point.date))
-}
-
 function sourceStatusLabel(status: string) {
   if (status === 'live') return 'Live FMP'
   if (status === 'live-dated') return 'Dated FMP snapshots'
@@ -248,10 +240,6 @@ export function StrategyLabPanel() {
         : visibleEtfInternalsSeries(result, selectedLeaderObservation?.leader, visibleObservations.map((item) => item.date)).map(asLeaderInternalsEntry)
     ),
     [constituentHistoryMode, result?.leader_internals, result, selectedLeaderObservation?.leader, visibleObservations],
-  )
-  const visibleEquityCurve = useMemo(
-    () => filterEquityCurveForVisibleRange(result?.equity_curve ?? [], visibleObservations.map((item) => item.date)),
-    [result?.equity_curve, visibleObservations],
   )
   const visibleConstituentMetricValues = useMemo(
     () => visibleLeaderInternalsSeries.flatMap((item) => item.constituents.map((constituent) => constituentMetricValue(constituent, constituentHeatmapMetric))).filter((value): value is number => value != null),
@@ -414,34 +402,29 @@ export function StrategyLabPanel() {
         <>
           <section className="workspace-section strategy-lab-summary-grid">
             <div className="summary-card strategy-summary-card strategy-summary-card-primary">
-              <p className="stat-label">Total Return</p>
-              <p className="summary-value positive-text">{formatPct(result.metrics.total_return_pct)}</p>
-              <p className="helper">Top {result.top_n} rotation sleeves</p>
+              <p className="stat-label">Investor Economics</p>
+              <p className="summary-value">N/A</p>
+              <p className="helper">Withheld until Strategy Lab has verified investor total-return equivalence.</p>
+            </div>
+            <div className="summary-card strategy-summary-card">
+              <p className="stat-label">Turnover</p>
+              <p className="summary-value">{formatPct(result.metrics.average_turnover_pct)}</p>
+              <p className="helper">Average rebalance turnover</p>
+            </div>
+            <div className="summary-card strategy-summary-card">
+              <p className="stat-label">Volume Participation</p>
+              <p className="summary-value">{formatNumber(result.metrics.average_volume_participation_ratio)}</p>
+              <p className="helper">Selected sleeves vs universe average volume</p>
             </div>
             <div className="summary-card strategy-summary-card">
               <p className="stat-label">Benchmark</p>
-              <p className="summary-value">{formatPct(result.metrics.benchmark_return_pct)}</p>
-              <p className="helper">{result.benchmark_symbol}</p>
+              <p className="summary-value">{result.benchmark_symbol}</p>
+              <p className="helper">Used for ranking context only; return comparisons are withheld.</p>
             </div>
             <div className="summary-card strategy-summary-card">
-              <p className="stat-label">Excess Return</p>
-              <p className={`summary-value ${(result.metrics.excess_return_pct ?? 0) >= 0 ? 'positive-text' : 'negative-text'}`}>{formatPct(result.metrics.excess_return_pct)}</p>
-              <p className="helper">vs benchmark</p>
-            </div>
-            <div className="summary-card strategy-summary-card">
-              <p className="stat-label">Annualized</p>
-              <p className="summary-value">{formatPct(result.metrics.annualized_return_pct)}</p>
-              <p className="helper">Compounded</p>
-            </div>
-            <div className="summary-card strategy-summary-card strategy-summary-card-risk">
-              <p className="stat-label">Max Drawdown</p>
-              <p className="summary-value negative-text">{formatPct(result.metrics.max_drawdown_pct)}</p>
-              <p className="helper">Peak to trough</p>
-            </div>
-            <div className="summary-card strategy-summary-card">
-              <p className="stat-label">Win Rate</p>
-              <p className="summary-value">{formatPct(result.metrics.win_rate_pct)}</p>
-              <p className="helper">Positive months</p>
+              <p className="stat-label">Withheld Metrics</p>
+              <p className="summary-value">N/A</p>
+              <p className="helper">Total return, benchmark return, excess return, annualized return, max drawdown, and win rate are intentionally suppressed.</p>
             </div>
           </section>
 
@@ -493,51 +476,19 @@ export function StrategyLabPanel() {
             </div>
           </section>
 
-          <div className="split-grid dashboard-bottom-grid">
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Rotation Equity</p></div></div>
-              <div className="line-chart-panel compact-chart-panel">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                  <AreaChart data={visibleEquityCurve} margin={{ top: 18, right: 16, left: 8, bottom: 8 }}>
-                    <defs>
-                      <linearGradient id="strategyLabEquityFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#d85a51" stopOpacity={0.24} />
-                        <stop offset="100%" stopColor="#d85a51" stopOpacity={0.03} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="rgba(70, 82, 98, 0.16)" strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fill: '#748295', fontSize: 10 }} minTickGap={28} interval="preserveStartEnd" tickFormatter={(value) => formatStrategyCheckpointLabel(value, lookbackUnit)} />
-                    <YAxis tick={{ fill: '#748295', fontSize: 10 }} width={48} />
-                    <Tooltip formatter={(value) => formatNumber(typeof value === 'number' ? value : null, 2)} labelFormatter={(label) => formatStrategyCheckpointLabel(typeof label === 'string' ? label : '', lookbackUnit)} />
-                    <Line type="monotone" dataKey="benchmark_equity" name={result.benchmark_symbol} stroke="#6c88a6" strokeWidth={1.8} dot={false} isAnimationActive={false} />
-                    <Area type="monotone" dataKey="strategy_equity" name="ETF Rotation" stroke="#d85a51" fill="url(#strategyLabEquityFill)" strokeWidth={2.1} dot={false} isAnimationActive={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Rotation Drawdown</p></div></div>
-              <div className="line-chart-panel compact-chart-panel">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-                  <LineChart data={visibleEquityCurve} margin={{ top: 18, right: 16, left: 8, bottom: 8 }}>
-                    <CartesianGrid stroke="rgba(70, 82, 98, 0.16)" strokeDasharray="3 3" />
-                    <ReferenceLine y={0} stroke="rgba(156, 169, 184, 0.34)" strokeDasharray="5 5" />
-                    <XAxis dataKey="date" tick={{ fill: '#748295', fontSize: 10 }} minTickGap={28} interval="preserveStartEnd" tickFormatter={(value) => formatStrategyCheckpointLabel(value, lookbackUnit)} />
-                    <YAxis tick={{ fill: '#748295', fontSize: 10 }} width={48} />
-                    <Tooltip formatter={(value) => formatPct(typeof value === 'number' ? value : null)} labelFormatter={(label) => formatStrategyCheckpointLabel(typeof label === 'string' ? label : '', lookbackUnit)} />
-                    <Line type="monotone" dataKey="benchmark_drawdown_pct" name={`${result.benchmark_symbol} Drawdown`} stroke="#6c88a6" strokeWidth={1.8} dot={false} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="strategy_drawdown_pct" name="Strategy Drawdown" stroke="#d85a51" strokeWidth={2.0} dot={false} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-          </div>
+          <section className="workspace-section">
+            <div className="summary-card strategy-summary-card">
+              <p className="stat-label">Performance Charts</p>
+              <p className="summary-value">N/A</p>
+              <p className="helper">Strategy equity, benchmark equity, and drawdown charts are intentionally withheld until investor-performance equivalence is verified.</p>
+            </div>
+          </section>
 
           <section className="workspace-section">
             <div className="section-header-inline sector-list-header">
               <div><p className="panel-label">Leader Relative Heatmap</p></div>
               <div className="strategy-inline-actions">
-                <p className="helper">Trailing-return spread versus the checkpoint leader.</p>
+                <p className="helper">Lookback price-change spread versus the checkpoint leader.</p>
               </div>
             </div>
             <div className="strategy-heatmap" data-testid="strategy-leader-heatmap">
@@ -587,7 +538,7 @@ export function StrategyLabPanel() {
                     <div>
                       <p className="panel-label">Constituent Mini Heatmap</p>
                       <p className="helper">Selected ETF history: {selectedLeaderObservation?.leader ?? currentLeaderInternals.leader_symbol ?? 'n/a'}</p>
-                      <p className="helper">{constituentHeatmapMetric === 'contribution' ? 'Weighted contribution points' : 'Trailing return percent'} across the visible checkpoints{currentLeaderInternals.snapshot_date ? ` · snapshot ${currentLeaderInternals.snapshot_date}` : ''}</p>
+                      <p className="helper">{constituentHeatmapMetric === 'contribution' ? 'Weighted contribution points' : 'Lookback price change percent'} across the visible checkpoints{currentLeaderInternals.snapshot_date ? ` · snapshot ${currentLeaderInternals.snapshot_date}` : ''}</p>
                     </div>
                     <div className="strategy-inline-actions">
                       <div className="strategy-mode-toggle" role="group" aria-label="Constituent History Mode">
@@ -596,7 +547,7 @@ export function StrategyLabPanel() {
                       </div>
                       <div className="strategy-mode-toggle" role="group" aria-label="Constituent Heatmap Metric">
                       <button type="button" className={`toggle-chip${constituentHeatmapMetric === 'contribution' ? ' active' : ''}`} onClick={() => setConstituentHeatmapMetric('contribution')}>Contribution</button>
-                      <button type="button" className={`toggle-chip${constituentHeatmapMetric === 'return' ? ' active' : ''}`} onClick={() => setConstituentHeatmapMetric('return')}>Trailing Return</button>
+                      <button type="button" className={`toggle-chip${constituentHeatmapMetric === 'return' ? ' active' : ''}`} onClick={() => setConstituentHeatmapMetric('return')}>Lookback Price Change</button>
                       </div>
                     </div>
                   </div>
@@ -621,7 +572,7 @@ export function StrategyLabPanel() {
                               className={`strategy-heatmap-cell${metricValue == null ? ' strategy-leader-miss' : ''}`}
                               style={constituentCellStyle(metricValue, visibleConstituentMetricValues)}
                               key={`constituent-cell-${constituent.symbol}-${item.date}`}
-                              title={`${constituent.symbol} ${constituentHeatmapMetric === 'contribution' ? 'contribution' : 'return'}: ${metricValue == null ? 'n/a' : `${metricValue.toFixed(2)}${constituentHeatmapMetric === 'contribution' ? ' pts' : '%'}`}`}
+                              title={`${constituent.symbol} ${constituentHeatmapMetric === 'contribution' ? 'contribution' : 'lookback price change'}: ${metricValue == null ? 'n/a' : `${metricValue.toFixed(2)}${constituentHeatmapMetric === 'contribution' ? ' pts' : '%'}`}`}
                             >
                               {metricValue == null ? '-' : metricValue.toFixed(1)}
                             </span>
@@ -663,7 +614,7 @@ export function StrategyLabPanel() {
                           <span>Symbol</span>
                           <span>Name</span>
                           <span>Weight</span>
-                          <span>Trailing Return</span>
+                          <span>Lookback Price Change</span>
                           <span>Contribution</span>
                         </div>
                         {currentLeaderInternals.constituents.slice(0, 4).map((item) => (
@@ -682,7 +633,7 @@ export function StrategyLabPanel() {
                           <span>Symbol</span>
                           <span>Name</span>
                           <span>Weight</span>
-                          <span>Trailing Return</span>
+                          <span>Lookback Price Change</span>
                           <span>Contribution</span>
                         </div>
                         {[...currentLeaderInternals.constituents].reverse().slice(0, 4).map((item) => (
@@ -704,7 +655,7 @@ export function StrategyLabPanel() {
                   <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-rank-grid">
                     <span>ETF</span>
                     <span>Weight</span>
-                    <span>Trailing Return</span>
+                    <span>Lookback Price Change</span>
                     <span>Avg Volume</span>
                     <span>Score</span>
                   </div>
@@ -738,6 +689,7 @@ export function StrategyLabPanel() {
                     </div>
                   ))}
                 </div>
+                <p className="helper">Checkpoint investor-performance fields are intentionally withheld until Strategy Lab meets the verified investor total-return equivalence contract.</p>
               </div>
             ) : null}
           </section>

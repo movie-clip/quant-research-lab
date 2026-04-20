@@ -45,6 +45,90 @@ function createChangeSummary(baseSnapshot: PortfolioSnapshot, nextSnapshot: Port
   }
 }
 
+export function assertSavedProposalArtifactIntegrity(proposal: VersionedProposalArtifact): VersionedProposalArtifact {
+  const replayBasis = proposal.replayBasis
+  const reviewSnapshot = proposal.reviewSnapshot
+  const replayProvenance = replayBasis.replayProvenance
+  const snapshotProvenance = reviewSnapshot.replay_provenance
+
+  if (replayBasis.candidateConstructionRule !== reviewSnapshot.derivation.candidate_construction_rule) {
+    throw new Error('Saved proposal candidateConstructionRule does not match reviewSnapshot derivation')
+  }
+  if (replayProvenance.construction_rule_id !== snapshotProvenance.construction_rule_id) {
+    throw new Error('Saved proposal replayProvenance construction_rule_id does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.candidate_input_source !== snapshotProvenance.candidate_input_source) {
+    throw new Error('Saved proposal replayProvenance candidate_input_source does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.upstream_ids.draft_id !== snapshotProvenance.upstream_ids.draft_id) {
+    throw new Error('Saved proposal replayProvenance upstream draft_id does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.upstream_ids.workspace_id !== snapshotProvenance.upstream_ids.workspace_id) {
+    throw new Error('Saved proposal replayProvenance upstream workspace_id does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.upstream_ids.base_node_id !== snapshotProvenance.upstream_ids.base_node_id) {
+    throw new Error('Saved proposal replayProvenance upstream base_node_id does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.seed_ranking_id !== snapshotProvenance.seed_ranking_id) {
+    throw new Error('Saved proposal replayProvenance seed_ranking_id does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.seed_methodology_id !== snapshotProvenance.seed_methodology_id) {
+    throw new Error('Saved proposal replayProvenance seed_methodology_id does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.constraint_validation.supplied !== snapshotProvenance.constraint_validation.supplied) {
+    throw new Error('Saved proposal replayProvenance constraint_validation.supplied does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.constraint_validation.validation_status !== snapshotProvenance.constraint_validation.validation_status) {
+    throw new Error('Saved proposal replayProvenance constraint_validation.validation_status does not match reviewSnapshot replay_provenance')
+  }
+  if (replayProvenance.constraint_validation.constraint_set_id !== snapshotProvenance.constraint_validation.constraint_set_id) {
+    throw new Error('Saved proposal replayProvenance constraint_validation.constraint_set_id does not match reviewSnapshot replay_provenance')
+  }
+
+  return proposal
+}
+
+
+export function buildSavedProposalArtifact(input: {
+  id: string
+  createdAt: string
+  workspaceId: string
+  sourceDraftId: string
+  sourceBaseNodeId: string
+  proposalFamilyId: string
+  versionNumber: number
+  sourceIntent: ReplacementIntentDraftArtifact
+  hypotheticalReplay: VersionedProposalArtifact['reviewSnapshot']
+}): VersionedProposalArtifact {
+  const activeReplay = 'replay' in input.hypotheticalReplay ? input.hypotheticalReplay.replay : input.hypotheticalReplay.overlay_replay
+  return assertSavedProposalArtifactIntegrity({
+    id: input.id,
+    kind: 'single_replacement_hypothetical_replay_proposal',
+    schemaVersion: 1,
+    createdAt: input.createdAt,
+    workspaceId: input.workspaceId,
+    sourceDraftId: input.sourceDraftId,
+    sourceBaseNodeId: input.sourceBaseNodeId,
+    proposalFamilyId: input.proposalFamilyId,
+    versionNumber: input.versionNumber,
+    savedFrom: 'desktop_hypothetical_replay_review',
+    reviewStatus: 'recorded',
+    sourceIntent: input.sourceIntent,
+    replayBasis: {
+      benchmarkSymbol: activeReplay.candidate_result.benchmark_symbol ?? input.sourceIntent.benchmarkSymbol,
+      startDate: activeReplay.candidate_result.start_date,
+      endDate: activeReplay.candidate_result.end_date,
+      rebalanceFrequency: activeReplay.candidate_result.rebalance_frequency,
+      commissionBps: activeReplay.candidate_result.commission_bps,
+      slippageBps: activeReplay.candidate_result.slippage_bps,
+      derivationBasis: input.hypotheticalReplay.derivation.baseline_basis,
+      candidateConstructionRule: input.hypotheticalReplay.derivation.candidate_construction_rule,
+      replayProvenance: input.hypotheticalReplay.replay_provenance,
+    },
+    reviewSnapshot: input.hypotheticalReplay,
+  })
+}
+
 export function isDraftDirty(baseSnapshot: PortfolioSnapshot, draftSnapshot: PortfolioSnapshot) {
   return hashPortfolioSnapshot(baseSnapshot) !== hashPortfolioSnapshot(draftSnapshot)
 }
@@ -361,12 +445,19 @@ export async function getWorkspaceProposalArtifacts(workspaceId: string) {
   return withStore<VersionedProposalArtifact[]>(versionedProposalStoreName, 'readonly', (store, resolve, reject) => {
     const index = store.index('workspaceId')
     const request = index.getAll(workspaceId)
-    request.onsuccess = () => resolve(((request.result as VersionedProposalArtifact[] | undefined) ?? []).sort((left, right) => right.versionNumber - left.versionNumber || right.createdAt.localeCompare(left.createdAt)))
+    request.onsuccess = () => {
+      try {
+        resolve((((request.result as VersionedProposalArtifact[] | undefined) ?? []).map(assertSavedProposalArtifactIntegrity)).sort((left, right) => right.versionNumber - left.versionNumber || right.createdAt.localeCompare(left.createdAt)))
+      } catch (error) {
+        reject(error)
+      }
+    }
     request.onerror = () => reject(request.error ?? new Error('Failed to load proposal artifacts'))
   })
 }
 
 export async function saveProposalArtifact(proposal: VersionedProposalArtifact) {
+  assertSavedProposalArtifactIntegrity(proposal)
   await withStore<void>(versionedProposalStoreName, 'readwrite', (store, resolve, reject) => {
     const request = store.put(proposal)
     request.onsuccess = () => resolve(undefined)
@@ -377,12 +468,25 @@ export async function saveProposalArtifact(proposal: VersionedProposalArtifact) 
 export async function getActiveThesis(workspaceId: string) {
   return withStore<ActiveThesisArtifact | null>(activeThesisStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(workspaceId)
-    request.onsuccess = () => resolve((request.result as ActiveThesisArtifact | undefined) ?? null)
+    request.onsuccess = () => {
+      try {
+        const thesis = (request.result as ActiveThesisArtifact | undefined) ?? null
+        if (!thesis) {
+          resolve(null)
+          return
+        }
+        thesis.thesisProposal = assertSavedProposalArtifactIntegrity(thesis.thesisProposal)
+        resolve(thesis)
+      } catch (error) {
+        reject(error)
+      }
+    }
     request.onerror = () => reject(request.error ?? new Error('Failed to load active thesis'))
   })
 }
 
 export async function saveActiveThesis(thesis: ActiveThesisArtifact) {
+  thesis.thesisProposal = assertSavedProposalArtifactIntegrity(thesis.thesisProposal)
   await withStore<void>(activeThesisStoreName, 'readwrite', (store, resolve, reject) => {
     const request = store.put(thesis)
     request.onsuccess = () => resolve(undefined)

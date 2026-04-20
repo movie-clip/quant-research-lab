@@ -208,10 +208,22 @@ def test_etf_cross_sectional_momentum_route_returns_rankings_and_curve() -> None
     assert payload["strategy_id"] == "book_etf_cross_sectional_momentum"
     assert payload["current_rankings"]
     assert payload["equity_curve"]
-    assert payload["metrics"]["total_return_pct"] is not None
+    assert payload["metrics"]["total_return_pct"] is None
+    assert payload["metrics"]["benchmark_return_pct"] is None
+    assert payload["metrics"]["excess_return_pct"] is None
+    assert payload["metrics"]["annualized_return_pct"] is None
+    assert payload["metrics"]["max_drawdown_pct"] is None
+    assert payload["metrics"]["benchmark_max_drawdown_pct"] is None
+    assert payload["metrics"]["win_rate_pct"] is None
     assert payload["metrics"]["average_volume_participation_ratio"] is not None
     assert payload["observations"][0]["rankings"]
     assert payload["observations"][0]["average_volume_ratio"] is not None
+    assert payload["observations"][0]["strategy_return_pct"] is None
+    assert payload["observations"][0]["benchmark_return_pct"] is None
+    assert payload["equity_curve"][0]["strategy_equity"] is None
+    assert payload["equity_curve"][0]["benchmark_equity"] is None
+    assert payload["equity_curve"][0]["strategy_drawdown_pct"] is None
+    assert payload["equity_curve"][0]["benchmark_drawdown_pct"] is None
     assert len(payload["latest_holdings"]) == 2
     assert payload["leader_internals"]
     assert payload["source_status"]["price_history"] in {"sample", "live"}

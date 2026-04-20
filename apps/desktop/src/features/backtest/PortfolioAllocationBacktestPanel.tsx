@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import type { CandidateConstructionRuleInput, HypotheticalReplayResponse, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
@@ -131,15 +131,15 @@ type DiagnosticsTopCallout = {
 }
 
 function formatPct(value: number | null | undefined) {
-  return value == null ? 'n/a' : `${value.toFixed(2)}%`
+  return value == null ? 'N/A' : `${value.toFixed(2)}%`
 }
 
 function formatNumber(value: number | null | undefined, digits = 2) {
-  return value == null ? 'n/a' : value.toFixed(digits)
+  return value == null ? 'N/A' : value.toFixed(digits)
 }
 
 function formatMoney(value: number | null | undefined) {
-  return value == null ? 'n/a' : `$${value.toFixed(2)}`
+  return value == null ? 'N/A' : `$${value.toFixed(2)}`
 }
 
 function formatDateLabel(value: string | number | null | undefined) {
@@ -150,7 +150,7 @@ function formatDateLabel(value: string | number | null | undefined) {
 }
 
 function formatWeightPct(value: number | null | undefined) {
-  return value == null ? 'n/a' : `${(value * 100).toFixed(2)}%`
+  return value == null ? 'N/A' : `${(value * 100).toFixed(2)}%`
 }
 
 function isOverlayAwareReplayResponse(value: HypotheticalReplayResponse | null | undefined): value is OverlayAwareHypotheticalReplayResponse {
@@ -160,6 +160,25 @@ function isOverlayAwareReplayResponse(value: HypotheticalReplayResponse | null |
 function activeReplayFromHypothetical(result: HypotheticalReplayResponse | null | undefined) {
   if (!result) return null
   return isOverlayAwareReplayResponse(result) ? result.overlay_replay : result.replay
+}
+
+function formatReplayCandidateInputSourceLabel(value: HypotheticalReplayResponse['replay_provenance']['candidate_input_source']) {
+  return value === 'constructed_candidate_payload' ? 'constructed candidate replay' : 'direct preview replay'
+}
+
+function formatReplayConstructionRuleLabel(value: HypotheticalReplayResponse['replay_provenance']['construction_rule_id']) {
+  return value === 'fixed_split_50_50_substitution_v2' ? 'fixed split 50/50' : 'same-weight substitution'
+}
+
+function formatReplayConstraintValidationLabel(value: HypotheticalReplayResponse['replay_provenance']['constraint_validation']) {
+  if (!value.supplied) return 'validation not supplied'
+  if (value.validation_status === 'blocked') return 'validated blocked'
+  if (value.validation_status === 'rejected') return 'validated rejected'
+  return 'validated ok'
+}
+
+function formatReplayLineageHelper(result: HypotheticalReplayResponse) {
+  return `Replay lineage: ${formatReplayCandidateInputSourceLabel(result.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(result.replay_provenance.construction_rule_id)} · ${formatReplayConstraintValidationLabel(result.replay_provenance.constraint_validation)}`
 }
 
 function standardReplayFromHypothetical(result: HypotheticalReplayResponse | null | undefined) {
@@ -200,7 +219,7 @@ function formatComparisonValue(value: number | null, kind: ComparisonMetricRow['
 }
 
 function formatSignedComparisonValue(value: number | null, kind: ComparisonMetricRow['format']) {
-  if (value == null) return 'n/a'
+  if (value == null) return 'N/A'
   if (kind === 'money') return `${value > 0 ? '+' : ''}${formatMoney(value)}`
   if (kind === 'pct') return `${value > 0 ? '+' : ''}${formatPct(value)}`
   return `${value > 0 ? '+' : ''}${formatNumber(value, 2)}`
@@ -208,7 +227,7 @@ function formatSignedComparisonValue(value: number | null, kind: ComparisonMetri
 
 function metricDeltaTone(row: ComparisonMetricRow): DeltaTone {
   if (row.delta == null || row.delta === 0) return 'neutral'
-  const betterWhenHigher = new Set(['total_return', 'annualized_return', 'max_drawdown', 'sharpe', 'sortino', 'excess_return', 'information_ratio'])
+  const betterWhenHigher = new Set(['excess_return', 'information_ratio'])
   const betterWhenLower = new Set(['annualized_volatility', 'downside_volatility', 'tracking_error', 'turnover', 'cost'])
   if (betterWhenHigher.has(row.key)) return row.delta > 0 ? 'positive' : 'negative'
   if (betterWhenLower.has(row.key)) return row.delta < 0 ? 'positive' : 'negative'
@@ -239,7 +258,7 @@ function sectionCardClass(kind: 'baseline' | 'candidate') {
 }
 
 function formatReplayWindow(startDate: string | null | undefined, endDate: string | null | undefined) {
-  if (!startDate || !endDate) return 'n/a'
+  if (!startDate || !endDate) return 'N/A'
   return `${startDate} -> ${endDate}`
 }
 
@@ -280,20 +299,49 @@ function buildReplayDeltaCallouts(rows: ComparisonMetricRow[]) {
   }))
 }
 
+function buildReplayMetricRefusalLine(replay: PortfolioAllocationBacktestResponse | null) {
+  if (!replay?.reference_result) return null
+
+  const candidateMetrics = replay.candidate_result.metrics
+  const referenceMetrics = replay.reference_result.metrics
+  const investorEconomicsRefused = [
+    candidateMetrics.total_return_pct,
+    candidateMetrics.annualized_return_pct,
+    candidateMetrics.max_drawdown_pct,
+    candidateMetrics.sharpe_ratio,
+    candidateMetrics.sortino_ratio,
+    candidateMetrics.benchmark_return_pct,
+    candidateMetrics.excess_return_pct,
+    candidateMetrics.information_ratio,
+    referenceMetrics.total_return_pct,
+    referenceMetrics.annualized_return_pct,
+    referenceMetrics.max_drawdown_pct,
+    referenceMetrics.sharpe_ratio,
+    referenceMetrics.sortino_ratio,
+    referenceMetrics.benchmark_return_pct,
+    referenceMetrics.excess_return_pct,
+    referenceMetrics.information_ratio,
+    replay.comparison?.total_return_diff_pct ?? null,
+    replay.comparison?.annualized_return_diff_pct ?? null,
+    replay.comparison?.benchmark_return_diff_pct ?? null,
+    replay.comparison?.max_drawdown_diff_pct ?? null,
+    replay.comparison?.sharpe_diff ?? null,
+    replay.comparison?.sortino_diff ?? null,
+    replay.comparison?.excess_return_diff_pct ?? null,
+    replay.comparison?.information_ratio_diff ?? null,
+  ].every((value) => value == null)
+
+  if (!investorEconomicsRefused) return null
+
+  return 'When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states.'
+}
+
 function buildSummaryRows(replay: PortfolioAllocationBacktestResponse | null): ComparisonMetricRow[] {
   if (!replay?.reference_result) return []
   return [
-    { key: 'total_return', label: 'Total Return', baseline: replay.reference_result.metrics.total_return_pct, candidate: replay.candidate_result.metrics.total_return_pct, delta: replay.comparison?.total_return_diff_pct ?? null, format: 'pct' },
-    { key: 'annualized_return', label: 'Annualized Return', baseline: replay.reference_result.metrics.annualized_return_pct, candidate: replay.candidate_result.metrics.annualized_return_pct, delta: replay.comparison?.annualized_return_diff_pct ?? null, format: 'pct' },
     { key: 'annualized_volatility', label: 'Annualized Volatility', baseline: replay.reference_result.metrics.annualized_volatility_pct, candidate: replay.candidate_result.metrics.annualized_volatility_pct, delta: replay.comparison?.annualized_volatility_diff_pct ?? null, format: 'pct' },
     { key: 'downside_volatility', label: 'Downside Volatility', baseline: replay.reference_result.metrics.downside_volatility_pct, candidate: replay.candidate_result.metrics.downside_volatility_pct, delta: replay.comparison?.downside_volatility_diff_pct ?? null, format: 'pct' },
-    { key: 'max_drawdown', label: 'Max Drawdown', baseline: replay.reference_result.metrics.max_drawdown_pct, candidate: replay.candidate_result.metrics.max_drawdown_pct, delta: replay.comparison?.max_drawdown_diff_pct ?? null, format: 'pct' },
-    { key: 'sharpe', label: 'Sharpe Ratio', baseline: replay.reference_result.metrics.sharpe_ratio, candidate: replay.candidate_result.metrics.sharpe_ratio, delta: replay.comparison?.sharpe_diff ?? null, format: 'number' },
-    { key: 'sortino', label: 'Sortino Ratio', baseline: replay.reference_result.metrics.sortino_ratio, candidate: replay.candidate_result.metrics.sortino_ratio, delta: replay.comparison?.sortino_diff ?? null, format: 'number' },
-    { key: 'benchmark_return', label: 'Benchmark Return', baseline: replay.reference_result.metrics.benchmark_return_pct, candidate: replay.candidate_result.metrics.benchmark_return_pct, delta: 0, format: 'pct' },
-    { key: 'excess_return', label: 'Excess Return', baseline: replay.reference_result.metrics.excess_return_pct, candidate: replay.candidate_result.metrics.excess_return_pct, delta: replay.comparison?.excess_return_diff_pct ?? null, format: 'pct' },
     { key: 'tracking_error', label: 'Tracking Error', baseline: replay.reference_result.metrics.tracking_error_pct, candidate: replay.candidate_result.metrics.tracking_error_pct, delta: replay.comparison?.tracking_error_diff_pct ?? null, format: 'pct' },
-    { key: 'information_ratio', label: 'Information Ratio', baseline: replay.reference_result.metrics.information_ratio, candidate: replay.candidate_result.metrics.information_ratio, delta: replay.comparison?.information_ratio_diff ?? null, format: 'number' },
     { key: 'beta', label: 'Beta vs Benchmark', baseline: replay.reference_result.metrics.beta_vs_benchmark, candidate: replay.candidate_result.metrics.beta_vs_benchmark, delta: replay.comparison?.beta_diff ?? null, format: 'number' },
     { key: 'correlation', label: 'Correlation vs Benchmark', baseline: replay.reference_result.metrics.correlation_vs_benchmark, candidate: replay.candidate_result.metrics.correlation_vs_benchmark, delta: replay.comparison?.correlation_diff ?? null, format: 'number' },
     { key: 'turnover', label: 'Total Turnover', baseline: replay.reference_result.metrics.total_turnover_pct, candidate: replay.candidate_result.metrics.total_turnover_pct, delta: replay.comparison?.total_turnover_diff_pct ?? null, format: 'pct' },
@@ -320,9 +368,9 @@ function diagnosticsSectionConfigs(activeReplay: PortfolioAllocationBacktestResp
       topCallout: activeReplay.diagnostics_comparison.top_factor_exposure_change,
     },
     {
-      key: 'volatility-drawdown',
-      title: 'Volatility & Drawdown',
-      helper: 'Review whether the hypothetical candidate changes the portfolio risk path under the shared replay window.',
+      key: 'volatility-shape',
+      title: 'Volatility Shape',
+      helper: 'Review allowed replay risk-shape metrics under the shared window without inferring investor-return or drawdown conclusions.',
       rows: activeReplay.diagnostics_comparison.volatility_changes,
       topCallout: activeReplay.diagnostics_comparison.top_volatility_change,
     },
@@ -882,51 +930,31 @@ function BacktestCurve({ result }: { result: PortfolioAllocationBacktestResponse
       date: point.date,
       candidateEquity: point.equity,
       referenceEquity: referenceByDate.get(point.date)?.equity ?? null,
-      candidateDrawdown: point.drawdown_pct,
-      referenceDrawdown: referenceByDate.get(point.date)?.drawdown_pct ?? null,
     }))
   }, [result])
 
   return (
-    <div className="split-grid dashboard-bottom-grid">
-      <section>
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Equity</p></div></div>
-        <div className="line-chart-panel compact-chart-panel">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-            <AreaChart data={chartData} margin={{ top: 18, right: 16, left: 8, bottom: 8 }}>
-              <defs>
-                <linearGradient id="allocationCandidateFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#d85a51" stopOpacity={0.24} />
-                  <stop offset="100%" stopColor="#d85a51" stopOpacity={0.03} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="rgba(70, 82, 98, 0.16)" strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fill: '#748295', fontSize: 10 }} minTickGap={28} interval="preserveStartEnd" tickFormatter={formatDateLabel} />
-              <YAxis tick={{ fill: '#748295', fontSize: 10 }} width={56} tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
-              <Tooltip formatter={(value) => formatMoney(typeof value === 'number' ? value : null)} labelFormatter={formatTooltipLabel} />
-              {result.reference_result ? <Line type="monotone" dataKey="referenceEquity" name="Baseline" stroke="#6c88a6" strokeWidth={1.8} dot={false} isAnimationActive={false} /> : null}
-              <Area type="monotone" dataKey="candidateEquity" name="Candidate" stroke="#d85a51" fill="url(#allocationCandidateFill)" strokeWidth={2.2} dot={false} isAnimationActive={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-      <section>
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Drawdown</p></div></div>
-        <div className="line-chart-panel compact-chart-panel">
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
-            <LineChart data={chartData} margin={{ top: 18, right: 16, left: 8, bottom: 8 }}>
-              <CartesianGrid stroke="rgba(70, 82, 98, 0.16)" strokeDasharray="3 3" />
-              <ReferenceLine y={0} stroke="rgba(156, 169, 184, 0.34)" strokeDasharray="5 5" />
-              <XAxis dataKey="date" tick={{ fill: '#748295', fontSize: 10 }} minTickGap={28} interval="preserveStartEnd" tickFormatter={formatDateLabel} />
-              <YAxis tick={{ fill: '#748295', fontSize: 10 }} width={48} />
-              <Tooltip formatter={(value) => formatPct(typeof value === 'number' ? value : null)} labelFormatter={formatTooltipLabel} />
-              {result.reference_result ? <Line type="monotone" dataKey="referenceDrawdown" name="Baseline" stroke="#6c88a6" strokeWidth={1.8} dot={false} isAnimationActive={false} /> : null}
-              <Line type="monotone" dataKey="candidateDrawdown" name="Candidate" stroke="#d85a51" strokeWidth={2.0} dot={false} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-    </div>
+    <section>
+      <div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Equity</p></div></div>
+      <div className="line-chart-panel compact-chart-panel">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={220}>
+          <AreaChart data={chartData} margin={{ top: 18, right: 16, left: 8, bottom: 8 }}>
+            <defs>
+              <linearGradient id="allocationCandidateFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#d85a51" stopOpacity={0.24} />
+                <stop offset="100%" stopColor="#d85a51" stopOpacity={0.03} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="rgba(70, 82, 98, 0.16)" strokeDasharray="3 3" />
+            <XAxis dataKey="date" tick={{ fill: '#748295', fontSize: 10 }} minTickGap={28} interval="preserveStartEnd" tickFormatter={formatDateLabel} />
+            <YAxis tick={{ fill: '#748295', fontSize: 10 }} width={56} tickFormatter={(value) => `$${Number(value).toFixed(0)}`} />
+            <Tooltip formatter={(value) => formatMoney(typeof value === 'number' ? value : null)} labelFormatter={formatTooltipLabel} />
+            {result.reference_result ? <Line type="monotone" dataKey="referenceEquity" name="Baseline" stroke="#6c88a6" strokeWidth={1.8} dot={false} isAnimationActive={false} /> : null}
+            <Area type="monotone" dataKey="candidateEquity" name="Candidate" stroke="#d85a51" fill="url(#allocationCandidateFill)" strokeWidth={2.2} dot={false} isAnimationActive={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
   )
 }
 
@@ -1123,12 +1151,13 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
         <p className="panel-label">Proposal Lineage</p>
         <p className="helper">Workspace: {proposal.workspaceId} · Draft: {proposal.sourceDraftId} · Base node: {proposal.sourceBaseNodeId} · Saved at: {proposal.createdAt}</p>
         <p className="helper">Source: {proposal.reviewSnapshot.proposal.source} · Construction rule: {proposal.replayBasis.candidateConstructionRule}</p>
+        <p className="helper">{formatReplayLineageHelper(proposal.reviewSnapshot)}</p>
       </div>
       <div className="dashboard-summary compact-summary-grid backtest-workspace-summary">
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{proposal.replayBasis.benchmarkSymbol}</p></div>
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(proposal.replayBasis.startDate, proposal.replayBasis.endDate)}</p></div>
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{proposal.replayBasis.rebalanceFrequency}</p><p className="helper">{proposal.replayBasis.commissionBps} commission bps / {proposal.replayBasis.slippageBps} slippage bps</p></div>
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{proposalReplay?.candidate_result.status ?? 'n/a'}</p><p className="helper">Snapshot of the saved hypothetical current-vs-candidate replay results captured with the proposal.</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{proposalReplay?.candidate_result.status ?? 'N/A'}</p><p className="helper">Snapshot of the saved hypothetical current-vs-candidate replay results captured with the proposal.</p></div>
       </div>
       {'overlay_application' in proposal.reviewSnapshot ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{proposal.reviewSnapshot.overlay_application.overlay_status}</p><p className="helper">As of {proposal.reviewSnapshot.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(proposal.reviewSnapshot.overlay_application.cash_residual_weight)}</p><p className="helper">Stored with the saved overlay-aware replay</p></div></div> : null}
       {proposalDeltaCallouts.length ? (
@@ -1149,7 +1178,7 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
             return (
               <div className="summary-card" key={`proposal-diagnostics-${section.key}`}>
                 <p className="stat-label">{section.title}</p>
-                <p className="summary-value">{topCallout?.label ?? 'n/a'}</p>
+                <p className="summary-value">{topCallout?.label ?? 'N/A'}</p>
                 <p className="helper">Diagnostics Delta Summary</p>
               </div>
             )
@@ -1223,6 +1252,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
   const baselineReplay = standardReplayFromHypothetical(hypotheticalReplayResult)
   const summaryRows = buildSummaryRows(activeReplay)
   const replayDeltaCallouts = useMemo(() => buildReplayDeltaCallouts(summaryRows), [summaryRows])
+  const replayMetricRefusalLine = buildReplayMetricRefusalLine(activeReplay)
   const overlayState = useMemo<OverlayStateInput | null>(() => {
     if (!replacementIntentDraft || replayBasisMode !== 'overlay_aware') return null
     return {
@@ -1287,6 +1317,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
             warning_count: replacementIntentDraft.warningCount,
           },
           constructed_candidate: constructedCandidateArtifact.construction,
+          constraint_validation: activeConstraintValidation,
           ...(isOverlayAware ? { overlay_state: overlayState } : {}),
           benchmark_symbol: replacementIntentDraft.benchmarkSymbol,
           start_date: startDate,
@@ -1377,15 +1408,15 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
               <div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className={`primary-button${hypotheticalLoading ? ' button-loading' : ''}`} type="button" disabled={hypotheticalLoading} onClick={() => void runHypotheticalReplayPreview()}>{hypotheticalLoading ? 'Running Preview...' : 'Run Preview'}</button><button className="secondary-button" type="button" onClick={() => setShowHypotheticalReplayConfirmation(false)}>Cancel</button></div>
             </div>
           )}
-          {hypotheticalError ? <p className="error">{hypotheticalError}</p> : null}
+          {hypotheticalError ? <p className="error">Replay preview failed: {hypotheticalError}</p> : null}
           {hypotheticalReplayResult ? (
             <>
               <div className="summary-card"><p className="helper">Baseline: current portfolio basis</p><p className="helper">Candidate: hypothetical replacement-intent variant</p><p className="helper">Status: not applied to holdings</p></div>
               <section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Decision Readout</p></div></div><p className="helper">Start here before reading the charts and tables. Confirm what this replay compares, what changed in the candidate, and what did not.</p><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Replay Type</p><p className="summary-value">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? 'Overlay-aware hypothetical replay' : 'Hypothetical current-vs-candidate'}</p></div><div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{hypotheticalReplayResult.proposal.incumbent_symbol} -&gt; {hypotheticalReplayResult.proposal.candidate_symbol}</p></div><div className="summary-card"><p className="stat-label">Baseline Basis</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Candidate Basis</p><p className="summary-value">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? 'Single replacement-intent variant with overlay-aware candidate scaling' : 'Single replacement-intent variant'}</p></div></div><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">What Changed</p><p className="helper">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? `The candidate replay first replaces ${hypotheticalReplayResult.proposal.incumbent_symbol} with ${hypotheticalReplayResult.proposal.candidate_symbol}, then applies the selected overlay state to the hypothetical candidate only.` : `The candidate replay changes one thing only: it replaces ${hypotheticalReplayResult.proposal.incumbent_symbol} with ${hypotheticalReplayResult.proposal.candidate_symbol} inside a hypothetical draft-only portfolio variant.`}</p></div><div className="summary-card"><p className="stat-label">What Did Not Change</p><p className="helper">No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.</p></div></div></section>
               <div className="summary-card"><p className="panel-label">Replay Metadata</p><p className="helper">Source: {hypotheticalReplayResult.proposal.source} · Draft: {hypotheticalReplayResult.proposal.draft_id} · Base node: {hypotheticalReplayResult.proposal.base_node_id}</p><p className="helper">Derivation: {hypotheticalReplayResult.derivation.baseline_basis} · {hypotheticalReplayResult.derivation.candidate_construction_rule}</p>{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <p className="helper">Overlay basis: {hypotheticalReplayResult.overlay_application.overlay_id} · {hypotheticalReplayResult.overlay_application.overlay_status} · Cash residual {formatWeightPct(hypotheticalReplayResult.overlay_application.cash_residual_weight)}</p> : null}<div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className="primary-button" type="button" onClick={() => void onSaveProposal()}>Save Proposal v{savedProposalCount + 1}</button><p className="helper">Create an immutable reviewed proposal artifact from this hypothetical replay. It remains separate from portfolio truth and does not apply any holdings change.</p></div></div>
-              <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{activeReplay?.candidate_result.status ?? 'n/a'}</p><p className="helper">Candidate replay status under the shared implementation window</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{activeReplay?.candidate_result.benchmark_symbol ?? 'n/a'}</p><p className="helper">Shared benchmark for baseline and candidate replay</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(activeReplay?.candidate_result.start_date, activeReplay?.candidate_result.end_date)}</p><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{activeReplay?.candidate_result.rebalance_frequency ?? 'n/a'}</p><p className="helper">{activeReplay ? `${activeReplay.candidate_result.commission_bps} commission bps / ${activeReplay.candidate_result.slippage_bps} slippage bps` : 'n/a'}</p></div></div>
+              <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{activeReplay?.candidate_result.status ?? 'N/A'}</p><p className="helper">Candidate replay status under the shared implementation window</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{activeReplay?.candidate_result.benchmark_symbol ?? 'N/A'}</p><p className="helper">Shared benchmark for baseline and candidate replay</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(activeReplay?.candidate_result.start_date, activeReplay?.candidate_result.end_date)}</p><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{activeReplay?.candidate_result.rebalance_frequency ?? 'N/A'}</p><p className="helper">{activeReplay ? `${activeReplay.candidate_result.commission_bps} commission bps / ${activeReplay.candidate_result.slippage_bps} slippage bps` : 'N/A'}</p></div></div>
               {isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{hypotheticalReplayResult.overlay_application.overlay_status}</p><p className="helper">As of {hypotheticalReplayResult.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay Basis</p><p className="summary-value">{hypotheticalReplayResult.overlay_application.overlay_id}</p><p className="helper">Candidate-only application: {hypotheticalReplayResult.overlay_application.applied_to_candidate_only ? 'yes' : 'no'}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Risky Weight Scale</p><p className="summary-value">{formatWeightPct(hypotheticalReplayResult.overlay_application.risky_weight_scale)}</p><p className="helper">Backend-authored overlay scaling</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(hypotheticalReplayResult.overlay_application.cash_residual_weight)}</p><p className="helper">Residual held as hypothetical cash only</p></div></div> : null}
-              <section className="dashboard-bottom-grid"><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Summary</p></div><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div>{summaryRows.length && replayDeltaCallouts.length ? <div className="dashboard-summary compact-summary-grid">{replayDeltaCallouts.map((callout) => <div className="summary-card" key={callout.key}><p className="stat-label">{callout.label}</p><p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p><p className="helper">{callout.rationale}</p></div>)}</div> : null}{summaryRows.length ? <ComparisonTable rows={summaryRows} /> : <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">Run with baseline comparison enabled to view before/after replay metrics.</p></div>}</section>
+              <section className="dashboard-bottom-grid"><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Summary</p></div><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div>{replayMetricRefusalLine ? <p className="helper">{replayMetricRefusalLine}</p> : null}{summaryRows.length && replayDeltaCallouts.length ? <div className="dashboard-summary compact-summary-grid">{replayDeltaCallouts.map((callout) => <div className="summary-card" key={callout.key}><p className="stat-label">{callout.label}</p><p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p><p className="helper">{callout.rationale}</p></div>)}</div> : null}{summaryRows.length ? <ComparisonTable rows={summaryRows} /> : <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">Run with baseline comparison enabled to view before/after replay metrics.</p></div>}</section>
               {activeReplay ? <BacktestCurve result={activeReplay} /> : null}
               {isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.baseline_weights.map((row) => <div className="list-row" key={`baseline-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Pre-Overlay</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights_pre_overlay.map((row) => <div className="list-row" key={`candidate-pre-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section></div> : <div className="split-grid dashboard-bottom-grid"><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.baseline_weights.map((row) => <div className="list-row" key={`baseline-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section><section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Weights</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights.map((row) => <div className="list-row" key={`candidate-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section></div>}
               {isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <section className="dashboard-bottom-grid"><div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Post-Overlay</p></div></div><div className="list-table">{hypotheticalReplayResult.candidate_weights_post_overlay.map((row) => <div className="list-row" key={`candidate-post-weight-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div></section> : null}

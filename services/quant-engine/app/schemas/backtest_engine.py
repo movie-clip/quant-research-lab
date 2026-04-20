@@ -333,6 +333,7 @@ class AllocationBacktestResult(BaseModel):
 class AllocationBacktestComparison(BaseModel):
     total_return_diff_pct: float | None = None
     annualized_return_diff_pct: float | None = None
+    benchmark_return_diff_pct: float | None = None
     annualized_volatility_diff_pct: float | None = None
     downside_volatility_diff_pct: float | None = None
     max_drawdown_diff_pct: float | None = None

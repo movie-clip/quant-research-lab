@@ -51,7 +51,8 @@ describe('DashboardPanel', () => {
 
     expect(screen.getByText('Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.')).toBeTruthy()
     expect(screen.getAllByText('Range metrics live').length).toBeGreaterThan(0)
-    expect(screen.getByText(/Audit: SPY · live_market_data · 01\/02\/25 to 03\/03\/25 · dataset market_data_service_v1/)).toBeTruthy()
+    expect(screen.getByText(/Audit: SPY · live_market_data_unverified_return_basis · portfolio imported_replay · benchmark degraded_unverified_return_basis · monthly imported_replay · 01\/02\/25 to 03\/03\/25 · dataset market_data_service_v1/)).toBeTruthy()
+    expect(screen.getByText('Refusals: benchmark return, excess return, and drawdown are intentionally withheld because benchmark total-return equivalence is unverified for this dashboard path.')).toBeTruthy()
     expect(screen.getByText('Workspace State')).toBeTruthy()
     expect(screen.getByText('Current imported view and editable draft status.')).toBeTruthy()
   })
@@ -483,7 +484,7 @@ describe('DashboardPanel', () => {
     )
 
     expect(screen.getByText('Performance history is unavailable for this import.')).toBeTruthy()
-    expect(screen.getByText(/Audit: SPY · unavailable · History window unavailable · dataset market_data_service_v1/)).toBeTruthy()
+    expect(screen.getByText(/Audit: SPY · unavailable · portfolio unavailable · benchmark unavailable · monthly unavailable · History window unavailable · dataset market_data_service_v1/)).toBeTruthy()
     expect(screen.queryByText('Monthly Returns')).toBeNull()
   })
 

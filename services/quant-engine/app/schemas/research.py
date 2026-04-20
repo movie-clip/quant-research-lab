@@ -106,8 +106,8 @@ class EtfMomentumObservation(BaseModel):
 
 class EtfMomentumPoint(BaseModel):
     date: str
-    strategy_equity: float
-    benchmark_equity: float
+    strategy_equity: float | None = None
+    benchmark_equity: float | None = None
     strategy_drawdown_pct: float | None = None
     benchmark_drawdown_pct: float | None = None
 

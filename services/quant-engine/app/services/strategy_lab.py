@@ -17,6 +17,13 @@ DEFAULT_ETF_ROTATION_BENCHMARK = "SPY"
 ETF_RANKING_METHODOLOGY_ID = "etf_ranking_methodology_v1"
 LIVE_HISTORY_BUFFER_MONTHS = 84
 LIVE_LEADER_CONSTITUENT_LIMIT = 12
+STRATEGY_LAB_REFUSAL_POLICY_RATIONALE = (
+    "Strategy Lab ranking and holdings-intelligence outputs remain available, but investor-economics and path-dependent performance outputs are withheld until verified investor total-return equivalence is established for this surface."
+)
+
+
+def _allow_strategy_lab_investor_economics_outputs() -> bool:
+    return False
 
 
 @dataclass(frozen=True)
@@ -74,6 +81,7 @@ def build_etf_momentum_strategy_analysis(
     top_n: int = 3,
     prefer_live_data: bool = False,
 ) -> EtfMomentumStrategyResponse:
+    allow_investor_economics_outputs = _allow_strategy_lab_investor_economics_outputs()
     symbols = [symbol.upper() for symbol in (universe or DEFAULT_ETF_ROTATION_UNIVERSE)]
     benchmark = benchmark_symbol.upper()
     dataset_catalog = DatasetCatalog()
@@ -147,8 +155,8 @@ def build_etf_momentum_strategy_analysis(
                 holdings=holdings,
                 leader=selected[0].symbol if selected else None,
                 leader_score=selected[0].score if selected else None,
-                benchmark_return_pct=benchmark_return * 100,
-                strategy_return_pct=strategy_return * 100,
+                benchmark_return_pct=round(benchmark_return * 100, 2) if allow_investor_economics_outputs else None,
+                strategy_return_pct=round(strategy_return * 100, 2) if allow_investor_economics_outputs else None,
                 average_volume_ratio=average_participation,
             )
         )
@@ -156,8 +164,8 @@ def build_etf_momentum_strategy_analysis(
         equity_curve.append(
             EtfMomentumPoint(
                 date=current_date,
-                strategy_equity=round(strategy_equity, 4),
-                benchmark_equity=round(benchmark_equity, 4),
+                strategy_equity=round(strategy_equity, 4) if allow_investor_economics_outputs else None,
+                benchmark_equity=round(benchmark_equity, 4) if allow_investor_economics_outputs else None,
             )
         )
 
@@ -173,7 +181,7 @@ def build_etf_momentum_strategy_analysis(
     )
     source_status = leader_internals_result.status.model_copy(update={"price_history": base_data.price_history_status})
 
-    _apply_drawdowns(equity_curve)
+    _apply_drawdowns(equity_curve, allow_investor_economics_outputs=allow_investor_economics_outputs)
     latest_holdings = observations[-1].holdings if observations else []
     latest_rankings = _rank_assets(symbols, by_symbol_and_date, common_dates, len(common_dates) - 1, lookback_months)
     current_target_weight = 1 / top_n if top_n else 0.0
@@ -204,7 +212,16 @@ def build_etf_momentum_strategy_analysis(
         etf_internals_history=leader_internals_result.etf_internals_history,
         source_status=source_status,
         equity_curve=equity_curve,
-        metrics=_build_metrics(strategy_returns, benchmark_returns, turnover_values, participation_values, strategy_equity, benchmark_equity, equity_curve),
+        metrics=_build_metrics(
+            strategy_returns,
+            benchmark_returns,
+            turnover_values,
+            participation_values,
+            strategy_equity,
+            benchmark_equity,
+            equity_curve,
+            allow_investor_economics_outputs=allow_investor_economics_outputs,
+        ),
     )
 
 
@@ -799,7 +816,8 @@ def _build_methodology(price_source_label: str, internals_mode: str) -> str:
         "Monthly ETF cross-sectional momentum prototype: rank the sector ETF universe by trailing price return over the selected lookback, "
         "hold the top-ranked sleeves equally, and rebalance monthly. "
         f"Price history source: {price_source_label}. {internals_description} "
-        "Volume is surfaced as participation context, not as a core signal."
+        "Volume is surfaced as participation context, not as a core signal. "
+        f"{STRATEGY_LAB_REFUSAL_POLICY_RATIONALE}"
     )
 
 
@@ -1004,14 +1022,28 @@ def _participation_ratio(selected: list[_RankedAsset], ranked: list[_RankedAsset
     return (sum(selected_volumes) / len(selected_volumes)) / (sum(ranked_volumes) / len(ranked_volumes))
 
 
-def _apply_drawdowns(points: list[EtfMomentumPoint]) -> None:
+def _apply_drawdowns(points: list[EtfMomentumPoint], *, allow_investor_economics_outputs: bool) -> None:
+    if not allow_investor_economics_outputs:
+        for point in points:
+            point.strategy_drawdown_pct = None
+            point.benchmark_drawdown_pct = None
+        return
+
     max_strategy = 0.0
     max_benchmark = 0.0
     for point in points:
-        max_strategy = max(max_strategy, point.strategy_equity)
-        max_benchmark = max(max_benchmark, point.benchmark_equity)
-        point.strategy_drawdown_pct = ((point.strategy_equity / max_strategy) - 1) * 100 if max_strategy else 0.0
-        point.benchmark_drawdown_pct = ((point.benchmark_equity / max_benchmark) - 1) * 100 if max_benchmark else 0.0
+        strategy_equity_value = point.strategy_equity
+        benchmark_equity_value = point.benchmark_equity
+        if strategy_equity_value is None or benchmark_equity_value is None:
+            point.strategy_drawdown_pct = None
+            point.benchmark_drawdown_pct = None
+            continue
+        strategy_equity = float(strategy_equity_value)
+        benchmark_equity = float(benchmark_equity_value)
+        max_strategy = max(max_strategy, strategy_equity)
+        max_benchmark = max(max_benchmark, benchmark_equity)
+        point.strategy_drawdown_pct = ((strategy_equity / max_strategy) - 1) * 100 if max_strategy else 0.0
+        point.benchmark_drawdown_pct = ((benchmark_equity / max_benchmark) - 1) * 100 if max_benchmark else 0.0
 
 
 def _build_metrics(
@@ -1022,6 +1054,8 @@ def _build_metrics(
     strategy_equity: float,
     benchmark_equity: float,
     equity_curve: list[EtfMomentumPoint],
+    *,
+    allow_investor_economics_outputs: bool,
 ) -> EtfMomentumMetrics:
     periods = len(strategy_returns)
     annualization = 12 / periods if periods else 0.0
@@ -1034,13 +1068,13 @@ def _build_metrics(
     win_rate = (sum(1 for value in strategy_returns if value > 0) / periods * 100) if periods else None
     average_turnover = (sum(turnover_values) / len(turnover_values) * 100) if turnover_values else None
     return EtfMomentumMetrics(
-        total_return_pct=round(strategy_total_return, 2),
-        benchmark_return_pct=round(benchmark_total_return, 2),
-        excess_return_pct=round(strategy_total_return - benchmark_total_return, 2),
-        annualized_return_pct=round(annualized, 2) if annualized is not None else None,
-        max_drawdown_pct=round(strategy_drawdown, 2) if strategy_drawdown is not None else None,
-        benchmark_max_drawdown_pct=round(benchmark_drawdown, 2) if benchmark_drawdown is not None else None,
-        win_rate_pct=round(win_rate, 2) if win_rate is not None else None,
+        total_return_pct=round(strategy_total_return, 2) if allow_investor_economics_outputs else None,
+        benchmark_return_pct=round(benchmark_total_return, 2) if allow_investor_economics_outputs else None,
+        excess_return_pct=round(strategy_total_return - benchmark_total_return, 2) if allow_investor_economics_outputs else None,
+        annualized_return_pct=round(annualized, 2) if annualized is not None and allow_investor_economics_outputs else None,
+        max_drawdown_pct=round(strategy_drawdown, 2) if strategy_drawdown is not None and allow_investor_economics_outputs else None,
+        benchmark_max_drawdown_pct=round(benchmark_drawdown, 2) if benchmark_drawdown is not None and allow_investor_economics_outputs else None,
+        win_rate_pct=round(win_rate, 2) if win_rate is not None and allow_investor_economics_outputs else None,
         average_turnover_pct=round(average_turnover, 2) if average_turnover is not None else None,
         average_volume_participation_ratio=round(sum(participation_values) / len(participation_values), 2) if participation_values else None,
     )

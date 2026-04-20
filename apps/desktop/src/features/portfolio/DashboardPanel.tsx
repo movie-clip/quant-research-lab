@@ -78,11 +78,31 @@ function formatDashboardAuditLine(result: DashboardAnalysis | null) {
   if (!runMetadata) return null
 
   const reproducibility = runMetadata.reproducibility
+  const sectionTrust = runMetadata.section_trust ?? {
+    portfolio_path: 'unavailable',
+    benchmark_path: 'unavailable',
+    monthly_returns_path: 'unavailable',
+  }
   const effectiveWindow = reproducibility.history_start_date && reproducibility.history_end_date
     ? `${formatDateLabel(reproducibility.history_start_date)} to ${formatDateLabel(reproducibility.history_end_date)}`
     : 'History window unavailable'
 
-  return `Audit: ${reproducibility.benchmark_symbol} · ${runMetadata.source_status.benchmark_history} · ${effectiveWindow} · dataset ${reproducibility.dataset_version}`
+  return `Audit: ${reproducibility.benchmark_symbol} · ${runMetadata.source_status.benchmark_history} · portfolio ${sectionTrust.portfolio_path} · benchmark ${sectionTrust.benchmark_path} · monthly ${sectionTrust.monthly_returns_path} · ${effectiveWindow} · dataset ${reproducibility.dataset_version}`
+}
+
+function formatDashboardReturnBasisRefusalLine(result: DashboardAnalysis | null, selectedRangeMetrics: DashboardAnalysis['range_metrics'] extends Record<string, infer T> | null ? T | null : null) {
+  const runMetadata = result?.run_metadata
+  if (!runMetadata || !selectedRangeMetrics) return null
+
+  const benchmarkContract = runMetadata.return_basis_contract.benchmark_path
+  const benchmarkReturnRefused = selectedRangeMetrics.summary.benchmark_return_pct == null
+  const excessReturnRefused = selectedRangeMetrics.summary.excess_return_pct == null
+  const drawdownRefused = selectedRangeMetrics.max_drawdown_pct == null
+
+  if (benchmarkContract === 'verified_total_return') return null
+  if (!benchmarkReturnRefused && !excessReturnRefused && !drawdownRefused) return null
+
+  return 'Refusals: benchmark return, excess return, and drawdown are intentionally withheld because benchmark total-return equivalence is unverified for this dashboard path.'
 }
 
 function hasRichDashboardData(result: DashboardAnalysis | null) {
@@ -433,6 +453,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
   const dashboardSourceSummary = result?.source_status?.performance_history ? dashboardSourceLabel(result.source_status.performance_history) : null
   const dashboardAuditLine = formatDashboardAuditLine(result)
+  const dashboardReturnBasisRefusalLine = formatDashboardReturnBasisRefusalLine(result, selectedRangeMetrics)
 
   if (!result || !hasRichDashboardData(result)) {
     return (
@@ -521,6 +542,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
                 <span className="backtest-source-badge">Portfolio value: {formatMoney(displayedPortfolioValue)}</span>
               </div>
               {dashboardAuditLine ? <p className="helper">{dashboardAuditLine}</p> : null}
+              {dashboardReturnBasisRefusalLine ? <p className="helper">{dashboardReturnBasisRefusalLine}</p> : null}
             </div>
             <div className="chart-controls dashboard-performance-controls">
               <div className="dashboard-control-stack">

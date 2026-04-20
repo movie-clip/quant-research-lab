@@ -27,14 +27,14 @@ const mockResponse: PortfolioAllocationBacktestResponse = {
     portfolio_name: 'Reference', benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', observation_count: 3, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, drift_tolerance_pct: null, assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' }, status: 'ok', instrument_metadata: [{ symbol: 'SPY', trading_currency: 'USD', instrument_base_currency: 'USD', currency_hedged: null, distribution_policy: 'unknown' }], starting_weights: [{ symbol: 'SPY', target_weight: 1 }], ending_weights: [{ symbol: 'SPY', target_weight: 1 }], metrics: { total_return_pct: 8, annualized_return_pct: 8, annualized_volatility_pct: 10, downside_volatility_pct: 6, max_drawdown_pct: -4, sharpe_ratio: 0.8, sortino_ratio: 1.1, benchmark_return_pct: 7, excess_return_pct: 1, tracking_error_pct: 3, information_ratio: 0.3, beta_vs_benchmark: 1, correlation_vs_benchmark: 0.9, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 }, equity_curve: [{ date: '2024-01-01', equity: 100000, cash: 0, gross_exposure: 100000, drawdown_pct: 0 }, { date: '2024-06-01', equity: 103000, cash: 0, gross_exposure: 103000, drawdown_pct: -1 }, { date: '2024-12-31', equity: 108000, cash: 0, gross_exposure: 108000, drawdown_pct: -2 }], rebalance_events: [], trades: [] },
   candidate_result: {
     portfolio_name: 'Candidate', benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', observation_count: 3, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, drift_tolerance_pct: null, assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' }, status: 'degraded', instrument_metadata: [{ symbol: 'SPY', trading_currency: 'USD', instrument_base_currency: 'USD', currency_hedged: null, distribution_policy: 'unknown' }, { symbol: 'TLT', trading_currency: 'USD', instrument_base_currency: 'USD', currency_hedged: null, distribution_policy: 'unknown' }], starting_weights: [{ symbol: 'SPY', target_weight: 0.6 }, { symbol: 'TLT', target_weight: 0.4 }], ending_weights: [{ symbol: 'SPY', target_weight: 0.58 }, { symbol: 'TLT', target_weight: 0.42 }], metrics: { total_return_pct: 10, annualized_return_pct: 10, annualized_volatility_pct: 9, downside_volatility_pct: 5, max_drawdown_pct: -3, sharpe_ratio: 1.1, sortino_ratio: 1.4, benchmark_return_pct: 7, excess_return_pct: 3, tracking_error_pct: 4, information_ratio: 0.5, beta_vs_benchmark: 0.8, correlation_vs_benchmark: 0.85, total_turnover_pct: 12, turnover_events_count: 2, total_cost_paid: 45 }, equity_curve: [{ date: '2024-01-01', equity: 100000, cash: 0, gross_exposure: 100000, drawdown_pct: 0 }, { date: '2024-06-01', equity: 104000, cash: 0, gross_exposure: 104000, drawdown_pct: -0.5 }, { date: '2024-12-31', equity: 110000, cash: 0, gross_exposure: 110000, drawdown_pct: -1.5 }], rebalance_events: [{ decision_date: '2024-01-31', execution_date: '2024-02-01', turnover_pct: 5, traded_notional: 5000, total_cost: 15 }], trades: [{ date: '2024-02-01', symbol: 'SPY', action: 'buy', quantity: 1, price: 100, traded_notional: 100, commission_cost: 0.5, slippage_cost: 0.5, total_cost: 1 }] },
-  comparison: { total_return_diff_pct: 2, annualized_return_diff_pct: 2, annualized_volatility_diff_pct: -1, downside_volatility_diff_pct: -1, max_drawdown_diff_pct: 1, sharpe_diff: 0.3, sortino_diff: 0.3, excess_return_diff_pct: 2, tracking_error_diff_pct: 1, information_ratio_diff: 0.2, beta_diff: -0.2, correlation_diff: -0.05, total_turnover_diff_pct: 12, total_cost_diff: 45 },
+  comparison: { total_return_diff_pct: 2, annualized_return_diff_pct: 2, benchmark_return_diff_pct: 0, annualized_volatility_diff_pct: -1, downside_volatility_diff_pct: -1, max_drawdown_diff_pct: 1, sharpe_diff: 0.3, sortino_diff: 0.3, excess_return_diff_pct: 2, tracking_error_diff_pct: 1, information_ratio_diff: 0.2, beta_diff: -0.2, correlation_diff: -0.05, total_turnover_diff_pct: 12, total_cost_diff: 45 },
   reference_diagnostics: { provenance: { snapshot_basis: 'synthetic_replay_snapshot', historical_basis: 'market_data_history', note: 'Backtest diagnostics combine a synthetic replay snapshot with replay-derived daily states and external historical market data.' }, factor_snapshot: [{ key: 'market', label: 'Market', category: 'market', us_proxy: 'SPY', latest_loading: 1, target_exposure: null, primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'high', description: 'broad market' }], volatility_snapshot: { realized_vol_20d: null, realized_vol_60d: null, realized_vol_252d: 10, downside_vol_20d: null, downside_vol_60d: null, downside_vol_252d: 6, benchmark_vol_20d: null, benchmark_vol_60d: null, benchmark_vol_252d: null, tracking_error_20d: null, tracking_error_60d: null, tracking_error_252d: 3, current_drawdown_pct: -2, max_drawdown_pct: -4, vol_ratio_20_60: null, vol_ratio_20_252: null, current_20d_vol_percentile: null }, risk_contribution: { methodology: 'm', window_days: 60, observation_count: 60, status: 'ok', factor_contributions: [{ key: 'market', label: 'Market', us_proxy: 'SPY', loading: 1, factor_volatility: 12, variance_contribution: 0.01, risk_share: 0.6 }], factor_total_variance: 0.01, specific_variance: 0.005, total_variance: 0.015, factor_risk_share_total: 0.6667, specific_risk_share: 0.3333, residual_volatility: 5, position_contributions: [{ symbol: 'SPY', weight: 1, volatility: 10, marginal_contribution: 0.01, component_contribution: 0.01, risk_share: 1 }], concentration: { top_1_factor_risk_share: 0.6, top_3_factor_risk_share: 0.6, top_1_position_risk_share: 1, top_5_position_risk_share: 1, factor_hhi: 0.36, position_hhi: 1 } }, stress_scenarios: [{ name: 'Broad Market Selloff', estimated_return_pct: -8.5, description: 'x' }] },
   candidate_diagnostics: { provenance: { snapshot_basis: 'synthetic_replay_snapshot', historical_basis: 'market_data_history', note: 'Backtest diagnostics combine a synthetic replay snapshot with replay-derived daily states and external historical market data.' }, factor_snapshot: [{ key: 'market', label: 'Market', category: 'market', us_proxy: 'SPY', latest_loading: 0.8, target_exposure: null, primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'high', description: 'broad market' }], volatility_snapshot: { realized_vol_20d: null, realized_vol_60d: null, realized_vol_252d: 9, downside_vol_20d: null, downside_vol_60d: null, downside_vol_252d: 5, benchmark_vol_20d: null, benchmark_vol_60d: null, benchmark_vol_252d: null, tracking_error_20d: null, tracking_error_60d: null, tracking_error_252d: 4, current_drawdown_pct: -1.5, max_drawdown_pct: -3, vol_ratio_20_60: null, vol_ratio_20_252: null, current_20d_vol_percentile: null }, risk_contribution: { methodology: 'm', window_days: 60, observation_count: 60, status: 'ok', factor_contributions: [{ key: 'market', label: 'Market', us_proxy: 'SPY', loading: 0.8, factor_volatility: 11, variance_contribution: 0.008, risk_share: 0.45 }], factor_total_variance: 0.008, specific_variance: 0.004, total_variance: 0.012, factor_risk_share_total: 0.6667, specific_risk_share: 0.3333, residual_volatility: 4.5, position_contributions: [{ symbol: 'SPY', weight: 0.6, volatility: 9, marginal_contribution: 0.008, component_contribution: 0.006, risk_share: 0.7 }], concentration: { top_1_factor_risk_share: 0.45, top_3_factor_risk_share: 0.45, top_1_position_risk_share: 0.7, top_5_position_risk_share: 1, factor_hhi: 0.2, position_hhi: 0.58 } }, stress_scenarios: [{ name: 'Broad Market Selloff', estimated_return_pct: -6.4, description: 'x' }] },
   diagnostics_comparison: {
     factor_exposure_changes: [{ key: 'market', label: 'Market', baseline_value: 1, candidate_value: 0.8, delta_value: -0.2 }],
     top_factor_exposure_change: { key: 'market', label: 'Market', baseline_value: 1, candidate_value: 0.8, delta_value: -0.2, selection_rule: 'largest_absolute_delta', rationale: 'Largest valid factor exposure delta in this group (candidate - baseline).' },
     volatility_changes: [{ key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1 }],
-    top_volatility_change: { key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1, selection_rule: 'fixed_priority', rationale: 'Selected by fixed priority order: max drawdown, then annualized volatility, then downside volatility.' },
+    top_volatility_change: { key: 'annualized_volatility', label: 'Annualized Volatility', baseline_value: 10, candidate_value: 9, delta_value: -1, selection_rule: 'fixed_priority', rationale: 'When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states. Selected by fixed priority order across allowed replay risk-shape metrics: annualized volatility, then downside volatility, then tracking error.' },
     risk_contribution_changes: [{ key: 'market', label: 'Market', baseline_value: 0.6, candidate_value: 0.45, delta_value: -0.15 }],
     top_risk_contribution_change: { key: 'market', label: 'Market', baseline_value: 0.6, candidate_value: 0.45, delta_value: -0.15, selection_rule: 'largest_absolute_delta', rationale: 'Largest valid factor risk-contribution delta in this group (candidate - baseline).' },
     concentration_changes: [{ key: 'factor_hhi', label: 'Factor HHI', baseline_value: 0.36, candidate_value: 0.2, delta_value: -0.16 }],
@@ -283,6 +283,7 @@ const savedProposal: VersionedProposalArtifact = {
     slippageBps: 0,
     derivationBasis: 'draft_snapshot_positions_normalized',
     candidateConstructionRule: 'same_weight_substitution_v1',
+    replayProvenance: hypotheticalResponse.replay_provenance,
   },
   reviewSnapshot: hypotheticalResponse,
 }
@@ -369,6 +370,8 @@ describe('PortfolioAllocationBacktestPanel', () => {
     const payload = JSON.parse(String(request.body))
     expect(String(url)).toContain('/api/backtests/portfolio-allocation/replacement-intent-preview')
     expect(payload.constructed_candidate.construction.status).toBe('ok')
+    expect(payload.constraint_validation.validation.status).toBe('ok')
+    expect(payload.constraint_validation.validation.constraint_set_id).toBe('single_replacement_construction_constraints_v1')
     expect(payload.constructed_candidate.outputs.candidate_weights).toEqual([
       { symbol: 'MSFT', target_weight: 0.4 },
       { symbol: 'IUFS', target_weight: 0.6 },
@@ -377,6 +380,21 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(payload.replacement_intent.candidate_symbol).toBe('IUFS')
     expect(payload.snapshot.positions).toHaveLength(2)
     expect(onHypotheticalReplayResult).toHaveBeenCalledWith(hypotheticalResponse)
+  })
+
+  it('renders artifact-specific replay integrity failures without softening the backend message', async () => {
+    const onHypotheticalReplayResult = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, json: async () => ({ detail: 'constraint_validation rule_id does not match constructed_candidate' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={null} savedProposalCount={0} onSaveProposal={() => {}} onHypotheticalReplayResult={onHypotheticalReplayResult} />)
+
+    fireEvent.click(screen.getByText('Preview Hypothetical Replay'))
+    fireEvent.click(screen.getByText('Run Preview'))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(screen.getByText('Replay preview failed: constraint_validation rule_id does not match constructed_candidate')).toBeTruthy()
+    expect(onHypotheticalReplayResult).not.toHaveBeenCalled()
   })
 
   it('submits overlay-aware hypothetical replay payload to the dedicated endpoint', async () => {
@@ -418,7 +436,52 @@ describe('PortfolioAllocationBacktestPanel', () => {
 
   it('renders hypothetical replay provenance and interpretation notes after a preview run', () => {
     const onSaveProposal = vi.fn()
-    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={hypotheticalResponse} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
+    const replayWithRefusedInvestorEconomics = {
+      ...hypotheticalResponse,
+      replay: {
+        ...hypotheticalResponse.replay,
+        reference_result: {
+          ...hypotheticalResponse.replay.reference_result,
+          metrics: {
+            ...hypotheticalResponse.replay.reference_result.metrics,
+            total_return_pct: null,
+            annualized_return_pct: null,
+            max_drawdown_pct: null,
+            sharpe_ratio: null,
+            sortino_ratio: null,
+            benchmark_return_pct: null,
+            excess_return_pct: null,
+            information_ratio: null,
+          },
+        },
+        candidate_result: {
+          ...hypotheticalResponse.replay.candidate_result,
+          metrics: {
+            ...hypotheticalResponse.replay.candidate_result.metrics,
+            total_return_pct: null,
+            annualized_return_pct: null,
+            max_drawdown_pct: null,
+            sharpe_ratio: null,
+            sortino_ratio: null,
+            benchmark_return_pct: null,
+            excess_return_pct: null,
+            information_ratio: null,
+          },
+        },
+        comparison: {
+          ...hypotheticalResponse.replay.comparison,
+          total_return_diff_pct: null,
+          annualized_return_diff_pct: null,
+          benchmark_return_diff_pct: null,
+          max_drawdown_diff_pct: null,
+          sharpe_diff: null,
+          sortino_diff: null,
+          excess_return_diff_pct: null,
+          information_ratio_diff: null,
+        },
+      },
+    }
+    render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={replayWithRefusedInvestorEconomics} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
 
     const readout = screen.getByText('Replay Decision Readout')
     const summary = screen.getAllByText('Replay Summary').find((element) => element.className === 'panel-label') as HTMLElement
@@ -440,6 +503,13 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText('What Did Not Change')).toBeTruthy()
     expect(screen.getByText('No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.')).toBeTruthy()
     expect(screen.getAllByText('Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.').length).toBeGreaterThan(0)
+    expect(screen.getByText('When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states.')).toBeTruthy()
+    expect(screen.queryByText('Replay Drawdown')).toBeNull()
+    expect(screen.queryByText('Max Drawdown')).toBeNull()
+    expect(screen.queryByText('Sharpe Ratio')).toBeNull()
+    expect(screen.queryByText('Sortino Ratio')).toBeNull()
+    expect(screen.getByText('Tracking Error')).toBeTruthy()
+    expect(screen.getByText('Beta vs Benchmark')).toBeTruthy()
     expect(screen.getByText('Save Proposal v2')).toBeTruthy()
     fireEvent.click(screen.getByText('Save Proposal v2'))
     expect(onSaveProposal).toHaveBeenCalledTimes(1)
@@ -584,6 +654,9 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText('Hypothetical Replay Diagnostics Delta Review')).toBeTruthy()
     expect(screen.getByText('Candidate - baseline')).toBeTruthy()
     expect(screen.getByText('Available with degradation. Interpret this comparison cautiously because one or both replay variants have limited diagnostics support.')).toBeTruthy()
+    expect(screen.getByText('Volatility Shape')).toBeTruthy()
+    expect(screen.queryByText('Volatility & Drawdown')).toBeNull()
+    expect(screen.queryByText('Max Drawdown')).toBeNull()
   })
 
   it('renders saved proposal review from artifact data without relying on live draft state', () => {
@@ -595,6 +668,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
     expect(screen.getByText('Proposal Lineage')).toBeTruthy()
     expect(screen.getByText(/Workspace: workspace-1 · Draft: draft-1 · Base node: node-1/)).toBeTruthy()
+    expect(screen.getByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied')).toBeTruthy()
     expect(screen.getByText('Proposal Basis')).toBeTruthy()
     expect(screen.getByText('draft_snapshot_positions_normalized')).toBeTruthy()
     expect(screen.getAllByText('Replay Summary').length).toBeGreaterThan(0)

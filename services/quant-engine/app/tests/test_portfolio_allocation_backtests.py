@@ -5,7 +5,7 @@ from typing import Literal, cast
 
 from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
-from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, build_hypothetical_replacement_replay_preview
+from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_hypothetical_replacement_replay_preview
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -227,8 +227,9 @@ def test_build_diagnostics_comparison_adds_explicit_top_callouts() -> None:
     assert comparison.top_factor_exposure_change is not None
     assert comparison.top_factor_exposure_change == PortfolioDiagnosticsTopCallout(key="value", label="Value", baseline_value=0.1, candidate_value=0.4, delta_value=0.3, selection_rule="largest_absolute_delta", rationale="Largest valid factor exposure delta in this group (candidate - baseline).")
     assert comparison.top_volatility_change is not None
-    assert comparison.top_volatility_change.key == "max_drawdown"
+    assert comparison.top_volatility_change.key == "annualized_volatility"
     assert comparison.top_volatility_change.selection_rule == "fixed_priority"
+    assert "drawdown surfaces" in comparison.top_volatility_change.rationale
     assert comparison.top_risk_contribution_change is not None
     assert comparison.top_risk_contribution_change.key == "market"
     assert comparison.top_concentration_change is not None
@@ -253,6 +254,103 @@ def test_build_diagnostics_comparison_returns_null_top_callouts_when_groups_have
     assert comparison.top_risk_contribution_change is None
     assert comparison.top_concentration_change is None
     assert comparison.top_stress_scenario_change is None
+
+
+def test_compare_results_returns_null_diffs_for_refused_investor_economics_metrics() -> None:
+    reference = AllocationBacktestResult(
+        portfolio_name="Reference",
+        benchmark_symbol="SPY",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        observation_count=2,
+        rebalance_frequency="monthly",
+        commission_bps=0,
+        slippage_bps=0,
+        assumptions=AllocationBacktestAssumptions(
+            price_basis="adjusted_close",
+            execution_price_field="close",
+            execution_lag_days=1,
+            calendar_policy="intersection_common_dates",
+            fractional_shares=True,
+            long_only=True,
+            leverage_allowed=False,
+            tax_treatment="pre_tax",
+            investor_base_currency="USD",
+        ),
+        status="ok",
+        instrument_metadata=[],
+        starting_weights=[],
+        ending_weights=[],
+        metrics=AllocationBacktestMetrics(
+            total_return_pct=None,
+            annualized_return_pct=None,
+            annualized_volatility_pct=10.0,
+            downside_volatility_pct=6.0,
+            max_drawdown_pct=None,
+            sharpe_ratio=None,
+            sortino_ratio=None,
+            benchmark_return_pct=None,
+            excess_return_pct=None,
+            tracking_error_pct=3.0,
+            information_ratio=None,
+            beta_vs_benchmark=1.0,
+            correlation_vs_benchmark=0.9,
+            total_turnover_pct=5.0,
+            total_cost_paid=10.0,
+        ),
+        equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=101000, cash=0)],
+        rebalance_events=[],
+        trades=[],
+    )
+    candidate = AllocationBacktestResult(
+        portfolio_name="Candidate",
+        benchmark_symbol="SPY",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        observation_count=2,
+        rebalance_frequency="monthly",
+        commission_bps=0,
+        slippage_bps=0,
+        assumptions=reference.assumptions,
+        status="ok",
+        instrument_metadata=[],
+        starting_weights=[],
+        ending_weights=[],
+        metrics=AllocationBacktestMetrics(
+            total_return_pct=None,
+            annualized_return_pct=None,
+            annualized_volatility_pct=9.0,
+            downside_volatility_pct=5.0,
+            max_drawdown_pct=None,
+            sharpe_ratio=None,
+            sortino_ratio=None,
+            benchmark_return_pct=None,
+            excess_return_pct=None,
+            tracking_error_pct=4.0,
+            information_ratio=None,
+            beta_vs_benchmark=0.8,
+            correlation_vs_benchmark=0.85,
+            total_turnover_pct=12.0,
+            total_cost_paid=45.0,
+        ),
+        equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=102000, cash=0)],
+        rebalance_events=[],
+        trades=[],
+    )
+
+    comparison = _compare_results(reference, candidate)
+
+    assert comparison.total_return_diff_pct is None
+    assert comparison.annualized_return_diff_pct is None
+    assert comparison.benchmark_return_diff_pct is None
+    assert comparison.max_drawdown_diff_pct is None
+    assert comparison.sharpe_diff is None
+    assert comparison.sortino_diff is None
+    assert comparison.excess_return_diff_pct is None
+    assert comparison.information_ratio_diff is None
+    assert comparison.tracking_error_diff_pct == 1.0
+    assert comparison.beta_diff == -0.2
+    assert comparison.correlation_diff == -0.05
 
 
 def test_portfolio_allocation_backtest_route_returns_reference_assumptions_and_metadata(mocker) -> None:
@@ -302,6 +400,23 @@ def test_portfolio_allocation_backtest_route_returns_reference_assumptions_and_m
     assert payload["candidate_result"]["assumptions"]["tax_treatment"] == "pre_tax"
     assert payload["candidate_result"]["instrument_metadata"][0]["symbol"] == "VUAA"
     assert payload["candidate_result"]["status"] in {"ok", "degraded"}
+    assert payload["reference_result"]["metrics"]["total_return_pct"] is None
+    assert payload["reference_result"]["metrics"]["annualized_return_pct"] is None
+    assert payload["reference_result"]["metrics"]["max_drawdown_pct"] is None
+    assert payload["reference_result"]["metrics"]["sharpe_ratio"] is None
+    assert payload["reference_result"]["metrics"]["sortino_ratio"] is None
+    assert payload["reference_result"]["metrics"]["benchmark_return_pct"] is None
+    assert payload["reference_result"]["metrics"]["excess_return_pct"] is None
+    assert payload["reference_result"]["metrics"]["information_ratio"] is None
+    assert payload["candidate_result"]["metrics"]["total_return_pct"] is None
+    assert payload["candidate_result"]["metrics"]["annualized_return_pct"] is None
+    assert payload["candidate_result"]["metrics"]["max_drawdown_pct"] is None
+    assert payload["candidate_result"]["metrics"]["sharpe_ratio"] is None
+    assert payload["candidate_result"]["metrics"]["sortino_ratio"] is None
+    assert payload["candidate_result"]["metrics"]["benchmark_return_pct"] is None
+    assert payload["candidate_result"]["metrics"]["excess_return_pct"] is None
+    assert payload["candidate_result"]["metrics"]["information_ratio"] is None
+    assert payload["candidate_result"]["metrics"]["tracking_error_pct"] is not None
     assert payload["reference_diagnostics"] is not None
     assert payload["candidate_diagnostics"] is not None
     assert payload["candidate_diagnostics"]["provenance"]["snapshot_basis"] == "synthetic_replay_snapshot"
@@ -711,9 +826,28 @@ def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_
     assert payload["replay"]["candidate_result"]["portfolio_name"] == "Hypothetical Candidate"
     assert payload["replay"]["candidate_result"]["commission_bps"] == 2
     assert payload["replay"]["candidate_result"]["slippage_bps"] == 3
+    assert payload["replay"]["reference_result"]["metrics"]["total_return_pct"] is None
+    assert payload["replay"]["reference_result"]["metrics"]["annualized_return_pct"] is None
+    assert payload["replay"]["reference_result"]["metrics"]["max_drawdown_pct"] is None
+    assert payload["replay"]["reference_result"]["metrics"]["sharpe_ratio"] is None
+    assert payload["replay"]["reference_result"]["metrics"]["sortino_ratio"] is None
+    assert payload["replay"]["reference_result"]["metrics"]["benchmark_return_pct"] is None
+    assert payload["replay"]["reference_result"]["metrics"]["excess_return_pct"] is None
+    assert payload["replay"]["reference_result"]["metrics"]["information_ratio"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["total_return_pct"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["annualized_return_pct"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["max_drawdown_pct"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["sharpe_ratio"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["sortino_ratio"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["benchmark_return_pct"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["excess_return_pct"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["information_ratio"] is None
+    assert payload["replay"]["candidate_result"]["metrics"]["tracking_error_pct"] is not None
     assert payload["replay"]["candidate_diagnostics"]["provenance"]["snapshot_basis"] == "synthetic_replay_snapshot"
     assert payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"] is not None
-    assert payload["replay"]["diagnostics_comparison"]["top_volatility_change"] is not None
+    top_volatility_change = payload["replay"]["diagnostics_comparison"]["top_volatility_change"]
+    if top_volatility_change is not None:
+        assert top_volatility_change["key"] != "max_drawdown"
     assert payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"]["selection_rule"] == "largest_absolute_delta"
     assert "candidate - baseline" in payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"]["rationale"]
 

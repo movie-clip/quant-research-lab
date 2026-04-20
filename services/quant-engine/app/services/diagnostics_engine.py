@@ -6,6 +6,8 @@ from app.analytics.risk import (
     RISK_CONTRIBUTION_WINDOW_DAYS,
     ROLLING_WINDOWS,
     WINDOW_MIN_OBSERVATIONS,
+    apply_return_basis_status_to_factor_model,
+    apply_return_basis_status_to_model_reliability,
     build_factor_exposures,
     build_factor_registry,
     build_factor_shift_diagnostics,
@@ -51,7 +53,7 @@ from app.schemas.reconciliation import (
     RegimeAssessment,
 )
 from app.services.exposure_engine import build_snapshot_from_exposure_request
-from app.services.market_data import MarketDataService
+from app.services.market_data import MarketDataService, detect_histories_return_basis, detect_history_return_basis
 
 
 DIAGNOSTICS_ID = "diagnostics_engine_v1"
@@ -71,18 +73,34 @@ DiagnosticsUnavailableReason = Literal[
 
 def _build_diagnostics_source_status(
     historical_basis: Literal["imported_portfolio_history", "market_data_history", "unavailable"],
+    benchmark_return_basis: Literal["verified_adjusted_close", "unverified_close_only", "unavailable"],
+    factor_return_basis: Literal["verified_adjusted_close", "unverified_close_only", "unavailable"],
 ) -> DiagnosticsSourceStatus:
+    benchmark_history_status = (
+        "live_market_data_verified_adjusted_close"
+        if benchmark_return_basis == "verified_adjusted_close"
+        else "live_market_data_unverified_return_basis"
+        if benchmark_return_basis == "unverified_close_only"
+        else "unavailable"
+    )
+    factor_history_status = (
+        "live_market_data_verified_adjusted_close"
+        if factor_return_basis == "verified_adjusted_close"
+        else "live_market_data_unverified_return_basis"
+        if factor_return_basis == "unverified_close_only"
+        else "unavailable"
+    )
     if historical_basis == "imported_portfolio_history":
         return DiagnosticsSourceStatus(
             portfolio_history="imported_replay",
-            benchmark_history="live_market_data",
-            factor_history="live_market_data",
+            benchmark_history=benchmark_history_status,
+            factor_history=factor_history_status,
         )
     if historical_basis == "market_data_history":
         return DiagnosticsSourceStatus(
             portfolio_history="synthetic_snapshot_history",
-            benchmark_history="live_market_data",
-            factor_history="live_market_data",
+            benchmark_history=benchmark_history_status,
+            factor_history=factor_history_status,
         )
     return DiagnosticsSourceStatus(
         portfolio_history="unavailable",
@@ -123,6 +141,120 @@ def _build_unavailable_provenance_note(reason: DiagnosticsUnavailableReason) -> 
     if reason == "missing_imported_history_path":
         return "Historical diagnostics are unavailable because imported broker history could not be reconstructed from this snapshot."
     return "Historical diagnostics are unavailable because the required benchmark or symbol market data could not be loaded for the requested history window."
+
+
+def _build_history_available_provenance_note(historical_basis: Literal["imported_portfolio_history", "market_data_history"]) -> str:
+    if historical_basis == "imported_portfolio_history":
+        return "Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
+    return "Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
+
+
+def _resolve_diagnostics_confidence(
+    source_status: DiagnosticsSourceStatus,
+    model_reliability: ModelReliabilitySnapshot,
+) -> Literal["high", "medium", "low"]:
+    if (
+        source_status.benchmark_history != "live_market_data_verified_adjusted_close"
+        or source_status.factor_history != "live_market_data_verified_adjusted_close"
+    ):
+        return "low"
+    if model_reliability.confidence == "high":
+        return "high"
+    if model_reliability.confidence == "medium":
+        return "medium"
+    return "low"
+
+
+def _resolve_section_trust(
+    *,
+    benchmark_return_basis: Literal["verified_adjusted_close", "unverified_close_only", "unavailable"],
+    factor_return_basis: Literal["verified_adjusted_close", "unverified_close_only", "unavailable"],
+    historical_sections_available: bool,
+) -> DiagnosticsRunMetadata.SectionTrust:
+    if not historical_sections_available:
+        return DiagnosticsRunMetadata.SectionTrust(
+            benchmark_relative_path="unavailable",
+            factor_model_path="unavailable",
+            risk_contribution_path="unavailable",
+        )
+
+    benchmark_relative_path = "verified_adjusted_close" if benchmark_return_basis == "verified_adjusted_close" else "degraded_unverified_return_basis"
+    factor_model_path = (
+        "verified_adjusted_close"
+        if benchmark_return_basis == "verified_adjusted_close" and factor_return_basis == "verified_adjusted_close"
+        else "degraded_unverified_return_basis"
+    )
+    risk_contribution_path = factor_model_path
+    return DiagnosticsRunMetadata.SectionTrust(
+        benchmark_relative_path=benchmark_relative_path,
+        factor_model_path=factor_model_path,
+        risk_contribution_path=risk_contribution_path,
+    )
+
+
+def _allow_diagnostics_drawdown_outputs() -> bool:
+    return False
+
+
+def _apply_diagnostics_drawdown_output_policy(
+    volatility_regime: VolatilityRegimePayload,
+    *,
+    allow_drawdown_outputs: bool,
+) -> VolatilityRegimePayload:
+    if allow_drawdown_outputs:
+        return volatility_regime
+
+    return volatility_regime.model_copy(
+        update={
+            "rolling_series": [
+                point.model_copy(update={"drawdown_pct": None, "wealth_index": None})
+                for point in volatility_regime.rolling_series
+            ],
+            "snapshot": volatility_regime.snapshot.model_copy(
+                update={
+                    "current_drawdown_pct": None,
+                    "max_drawdown_pct": None,
+                }
+            ),
+        }
+    )
+
+
+def _build_diagnostics_drawdown_summary(
+    volatility_regime: VolatilityRegimePayload,
+    *,
+    allow_drawdown_outputs: bool,
+) -> DiagnosticsDrawdownSummary:
+    if not allow_drawdown_outputs:
+        return DiagnosticsDrawdownSummary(
+            current_drawdown_pct=None,
+            max_drawdown_pct=None,
+        )
+
+    return DiagnosticsDrawdownSummary(
+        current_drawdown_pct=volatility_regime.snapshot.current_drawdown_pct,
+        max_drawdown_pct=volatility_regime.snapshot.max_drawdown_pct,
+    )
+
+
+def _allow_diagnostics_relative_return_outputs() -> bool:
+    return False
+
+
+def _apply_diagnostics_relative_return_output_policy(
+    relative_risk: RelativeRiskSummary,
+    *,
+    allow_relative_return_outputs: bool,
+) -> RelativeRiskSummary:
+    if allow_relative_return_outputs:
+        return relative_risk
+
+    return relative_risk.model_copy(
+        update={
+            "active_return_pct": None,
+            "information_ratio": None,
+        }
+    )
 
 
 def _build_unavailable_availability(reason: DiagnosticsUnavailableReason) -> DiagnosticsAvailability:
@@ -176,14 +308,42 @@ def build_historical_diagnostics_result(
     market_overlap: MarketOverlapSummary,
     lookthrough_sector_exposure: list[LookThroughSectorExposure],
     provenance: DiagnosticsProvenance,
-    confidence: Literal["high", "medium", "low"],
 ) -> DiagnosticsResult:
     factor_registry = build_factor_registry()
+    benchmark_return_basis = detect_history_return_basis(benchmark_rows)
+    factor_return_basis = detect_histories_return_basis({
+        symbol: rows
+        for symbol, rows in factor_histories.items()
+        if symbol != benchmark_symbol
+    })
+    source_status = _build_diagnostics_source_status(
+        provenance.historical_basis,
+        benchmark_return_basis=benchmark_return_basis,
+        factor_return_basis=factor_return_basis,
+    )
+    section_trust = _resolve_section_trust(
+        benchmark_return_basis=benchmark_return_basis,
+        factor_return_basis=factor_return_basis,
+        historical_sections_available=True,
+    )
+    allow_relative_return_outputs = _allow_diagnostics_relative_return_outputs()
     risk_summary = build_portfolio_risk_summary(daily_states, benchmark_rows, benchmark_symbol)
     rolling_risk = build_rolling_risk_series(daily_states, benchmark_rows)
-    relative_risk = build_relative_risk_summary(daily_states, benchmark_rows, benchmark_symbol)
-    volatility_regime = build_volatility_regime_payload(daily_states, benchmark_rows)
+    relative_risk = _apply_diagnostics_relative_return_output_policy(
+        build_relative_risk_summary(daily_states, benchmark_rows, benchmark_symbol),
+        allow_relative_return_outputs=allow_relative_return_outputs,
+    )
     statistical_factor_model = build_statistical_factor_model(daily_states, factor_histories, benchmark_symbol)
+    statistical_factor_model = apply_return_basis_status_to_factor_model(
+        statistical_factor_model,
+        benchmark_rows=benchmark_rows,
+        factor_histories=factor_histories,
+    )
+    allow_drawdown_outputs = _allow_diagnostics_drawdown_outputs()
+    volatility_regime = _apply_diagnostics_drawdown_output_policy(
+        build_volatility_regime_payload(daily_states, benchmark_rows),
+        allow_drawdown_outputs=allow_drawdown_outputs,
+    )
     factor_shift_diagnostics = build_factor_shift_diagnostics(factor_registry, statistical_factor_model, volatility_regime)
     risk_contribution_breakdown = build_risk_contribution_breakdown(
         snapshot,
@@ -193,7 +353,12 @@ def build_historical_diagnostics_result(
         factor_registry,
         statistical_factor_model,
     )
-    model_reliability = build_model_reliability_snapshot(statistical_factor_model)
+    model_reliability = apply_return_basis_status_to_model_reliability(
+        build_model_reliability_snapshot(statistical_factor_model),
+        benchmark_rows=benchmark_rows,
+        factor_histories=factor_histories,
+    )
+    diagnostics_confidence = _resolve_diagnostics_confidence(source_status, model_reliability)
     stress_scenarios = build_stress_scenarios(statistical_factor_model)
     factor_exposures = build_factor_exposures(risk_summary, market_overlap, lookthrough_sector_exposure)
     concentration = risk_contribution_breakdown.concentration
@@ -211,8 +376,9 @@ def build_historical_diagnostics_result(
             diagnostics_id=DIAGNOSTICS_ID,
             methodology_id=DIAGNOSTICS_METHODOLOGY_ID,
             price_basis=DIAGNOSTICS_PRICE_BASIS,
-            source_status=_build_diagnostics_source_status(provenance.historical_basis),
-            confidence=confidence,
+            source_status=source_status,
+            section_trust=section_trust,
+            confidence=diagnostics_confidence,
             factor_model_parameters=_build_factor_model_parameters(),
             reproducibility=_build_reproducibility_metadata(
                 snapshot,
@@ -220,9 +386,9 @@ def build_historical_diagnostics_result(
                 history_end_date=daily_states[-1].date if daily_states else None,
             ),
         ),
-        drawdown_summary=DiagnosticsDrawdownSummary(
-            current_drawdown_pct=volatility_regime.snapshot.current_drawdown_pct,
-            max_drawdown_pct=volatility_regime.snapshot.max_drawdown_pct,
+        drawdown_summary=_build_diagnostics_drawdown_summary(
+            volatility_regime,
+            allow_drawdown_outputs=allow_drawdown_outputs,
         ),
         volatility_summary=DiagnosticsVolatilitySummary(
             portfolio_volatility_pct=risk_summary.portfolio_volatility_pct,
@@ -275,7 +441,16 @@ def build_unavailable_diagnostics_result(
             diagnostics_id=DIAGNOSTICS_ID,
             methodology_id=DIAGNOSTICS_METHODOLOGY_ID,
             price_basis="unavailable",
-            source_status=_build_diagnostics_source_status("unavailable"),
+            source_status=_build_diagnostics_source_status(
+                "unavailable",
+                benchmark_return_basis="unavailable",
+                factor_return_basis="unavailable",
+            ),
+            section_trust=_resolve_section_trust(
+                benchmark_return_basis="unavailable",
+                factor_return_basis="unavailable",
+                historical_sections_available=False,
+            ),
             confidence="low",
             factor_model_parameters=_build_factor_model_parameters(),
             reproducibility=_build_reproducibility_metadata(snapshot, history_start_date=None, history_end_date=None),
@@ -382,7 +557,7 @@ def run_diagnostics_engine(request: DiagnosticsEngineRequest) -> DiagnosticsResu
         history_end_date=history_context.history_end_date,
         snapshot_basis="snapshot_request",
         historical_basis="market_data_history",
-        provenance_note="Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.",
+        provenance_note=_build_history_available_provenance_note("market_data_history"),
     )
 
 
@@ -451,7 +626,6 @@ def _run_diagnostics_with_history(
             price_basis=DIAGNOSTICS_PRICE_BASIS,
             note=provenance_note,
         ),
-        confidence="high" if historical_basis == "imported_portfolio_history" else "medium",
     )
 
 
@@ -551,7 +725,7 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
         history_end_date=history_end_date,
         snapshot_basis="imported_snapshot",
         historical_basis="imported_portfolio_history",
-        provenance_note="Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.",
+        provenance_note=_build_history_available_provenance_note("imported_portfolio_history"),
     )
 
 

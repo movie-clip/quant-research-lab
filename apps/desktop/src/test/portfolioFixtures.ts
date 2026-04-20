@@ -25,7 +25,7 @@ const ib2026MutableDashboardFixture = cloneMutable<DashboardGoldenFixture>(ib202
 const ff2026MutableDashboardFixture = cloneMutable<DashboardGoldenFixture>(ff2026ImportedDashboardGoldenFixture)
 
 function createImportedBenchmarkFixture() {
-  return { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: 5 }
+  return { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: null, return_basis_contract: 'price_return_only' as const }
 }
 
 function createImportedSnapshotFixture() {
@@ -232,7 +232,7 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
       historical_basis: 'market_data_history' as const,
       history_truth_class: 'synthetic_history_derived' as const,
       price_basis: 'close' as const,
-      note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.',
+      note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice.',
     },
     availability: {
       historical_sections_available: true,
@@ -246,8 +246,13 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
       price_basis: 'close',
       source_status: {
         portfolio_history: 'synthetic_snapshot_history',
-        benchmark_history: 'live_market_data',
-        factor_history: 'live_market_data',
+        benchmark_history: 'live_market_data_unverified_return_basis',
+        factor_history: 'live_market_data_unverified_return_basis',
+      },
+      section_trust: {
+        benchmark_relative_path: 'degraded_unverified_return_basis',
+        factor_model_path: 'degraded_unverified_return_basis',
+        risk_contribution_path: 'degraded_unverified_return_basis',
       },
       confidence: 'medium',
       factor_model_parameters: {
@@ -288,8 +293,8 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
     relative_risk: {
       benchmark_symbol: 'SPY',
       tracking_error_pct: 7.2,
-      active_return_pct: 3.5,
-      information_ratio: 0.48,
+      active_return_pct: null,
+      information_ratio: null,
     },
     volatility_regime: createImportedVolatilityRegimeFixture(),
     factor_exposures: [
@@ -343,7 +348,7 @@ function createImportedExposureFixture(snapshot: ReturnType<typeof createImporte
         lookthrough_resolution: 'live',
         benchmark_holdings: 'live',
       },
-      confidence: 'high',
+      confidence: 'low',
       reproducibility: {
         input_imported_at: '2026-04-10T00:00:00Z',
         snapshot_as_of_date: null,
@@ -407,8 +412,8 @@ function createImportedDashboardSeriesFixture() {
   return {
     performance_series: [
       { date: '2025-01-02', portfolio_value: 10000, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
-      { date: '2025-02-03', portfolio_value: 11000, benchmark_price: 102, portfolio_return_pct: 10, benchmark_return_pct: 2 },
-      { date: '2025-03-03', portfolio_value: 12000, benchmark_price: 105, portfolio_return_pct: 20, benchmark_return_pct: 5 },
+      { date: '2025-02-03', portfolio_value: 11000, benchmark_price: 102, portfolio_return_pct: 0, benchmark_return_pct: null },
+      { date: '2025-03-03', portfolio_value: 12000, benchmark_price: 105, portfolio_return_pct: 0, benchmark_return_pct: null },
     ],
     daily_states: [
       { date: '2025-01-02', total_market_value: 9000, total_portfolio_value: 10000, external_cash_flow: 0, cash: { USD: 1000 }, positions: [] },
@@ -421,31 +426,31 @@ function createImportedDashboardSeriesFixture() {
 function createImportedDashboardRangeMetricsFixture() {
   return {
     '1M': {
-      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
       max_drawdown_pct: 0,
       monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
       monthly_returns_reliable: true,
     },
     '3M': {
-      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
       max_drawdown_pct: 0,
       monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
       monthly_returns_reliable: true,
     },
     YTD: {
-      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
       max_drawdown_pct: 0,
       monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
       monthly_returns_reliable: true,
     },
     '1Y': {
-      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
       max_drawdown_pct: 0,
       monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
       monthly_returns_reliable: true,
     },
     All: {
-      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
+      summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
       max_drawdown_pct: 0,
       monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
       monthly_returns_reliable: true,
@@ -492,7 +497,7 @@ export function createImportedDashboardHistoryFixture() {
     daily_states: fixture.daily_states,
     source_status: fixture.source_status,
     run_metadata: fixture.run_metadata,
-    benchmark: { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: 5 },
+    benchmark: { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: null, return_basis_contract: 'price_return_only' },
   }
 }
 
@@ -503,8 +508,8 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
     overview: fixture.overview,
     performance_series: [
       { date: '2025-01-02', portfolio_value: 10000, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
-      { date: '2025-02-03', portfolio_value: 11000, benchmark_price: 102, portfolio_return_pct: 10, benchmark_return_pct: 2 },
-      { date: '2025-03-03', portfolio_value: 12000, benchmark_price: 105, portfolio_return_pct: 20, benchmark_return_pct: 5 },
+      { date: '2025-02-03', portfolio_value: 11000, benchmark_price: 102, portfolio_return_pct: 0, benchmark_return_pct: null },
+      { date: '2025-03-03', portfolio_value: 12000, benchmark_price: 105, portfolio_return_pct: 0, benchmark_return_pct: null },
     ],
     daily_states: [
       { date: '2025-01-02', total_market_value: 9000, total_portfolio_value: 10000, external_cash_flow: 0, cash: { USD: 1000 }, positions: [] },
@@ -518,7 +523,16 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
       source_status: {
         performance_history: 'live',
         monthly_returns: 'live',
-        benchmark_history: 'live_market_data',
+        benchmark_history: 'live_market_data_unverified_return_basis',
+      },
+      section_trust: {
+        portfolio_path: 'imported_replay',
+        benchmark_path: 'degraded_unverified_return_basis',
+        monthly_returns_path: 'imported_replay',
+      },
+      return_basis_contract: {
+        portfolio_path: 'unavailable',
+        benchmark_path: 'price_return_only',
       },
       reproducibility: {
         input_imported_at: '2026-04-10T00:00:00Z',
@@ -531,32 +545,32 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
     },
     range_metrics: {
       '1M': {
-        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
-        max_drawdown_pct: 0,
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
+        max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
       },
       '3M': {
-        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
-        max_drawdown_pct: 0,
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
+        max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
       },
       YTD: {
-        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
-        max_drawdown_pct: 0,
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
+        max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
       },
       '1Y': {
-        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
-        max_drawdown_pct: 0,
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
+        max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
       },
       All: {
-        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: 5, excess_return_pct: 15 },
-        max_drawdown_pct: 0,
+        summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
+        max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
       },
@@ -589,16 +603,21 @@ export function createIb2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
       historical_basis: 'imported_portfolio_history',
       history_truth_class: 'imported_history_equivalent',
       price_basis: 'close',
-      note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
+      note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice.',
     },
     run_metadata: {
       ...createDiagnosticsEngineFixture().run_metadata,
       source_status: {
         portfolio_history: 'imported_replay',
-        benchmark_history: 'live_market_data',
-        factor_history: 'live_market_data',
+        benchmark_history: 'live_market_data_verified_adjusted_close',
+        factor_history: 'live_market_data_verified_adjusted_close',
       },
-      confidence: 'high',
+      section_trust: {
+        benchmark_relative_path: 'verified_adjusted_close',
+        factor_model_path: 'verified_adjusted_close',
+        risk_contribution_path: 'verified_adjusted_close',
+      },
+      confidence: 'low',
     },
     risk_summary: cloneMutable(ib2026MutableDashboardFixture.risk_summary),
   }
@@ -621,14 +640,19 @@ export function createFf2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
       historical_basis: 'imported_portfolio_history',
       history_truth_class: 'imported_history_equivalent',
       price_basis: 'close',
-      note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data.',
+      note: 'Historical diagnostics are derived from imported portfolio history replay plus external benchmark and factor market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice.',
     },
     run_metadata: {
       ...createDiagnosticsEngineFixture().run_metadata,
       source_status: {
         portfolio_history: 'imported_replay',
-        benchmark_history: 'live_market_data',
-        factor_history: 'live_market_data',
+        benchmark_history: 'live_market_data_verified_adjusted_close',
+        factor_history: 'live_market_data_verified_adjusted_close',
+      },
+      section_trust: {
+        benchmark_relative_path: 'verified_adjusted_close',
+        factor_model_path: 'verified_adjusted_close',
+        risk_contribution_path: 'verified_adjusted_close',
       },
       confidence: 'high',
     },
@@ -659,7 +683,7 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
       historical_basis: 'market_data_history',
       history_truth_class: 'synthetic_history_derived',
       price_basis: 'close',
-      note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data.',
+      note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice.',
     },
     run_metadata: {
       diagnostics_id: 'diagnostics_engine_v1',
@@ -667,10 +691,15 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
       price_basis: 'close',
       source_status: {
         portfolio_history: 'synthetic_snapshot_history',
-        benchmark_history: 'live_market_data',
-        factor_history: 'live_market_data',
+        benchmark_history: 'live_market_data_unverified_return_basis',
+        factor_history: 'live_market_data_unverified_return_basis',
       },
-      confidence: 'medium',
+      section_trust: {
+        benchmark_relative_path: 'degraded_unverified_return_basis',
+        factor_model_path: 'degraded_unverified_return_basis',
+        risk_contribution_path: 'degraded_unverified_return_basis',
+      },
+      confidence: 'low',
       factor_model_parameters: {
         rolling_windows_days: [20, 60, 252],
         current_reliability_window_days: 60,
@@ -687,7 +716,7 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
         dataset_version: 'market_data_service_v1',
       },
     },
-    drawdown_summary: { current_drawdown_pct: -4.2, max_drawdown_pct: -8.9 },
+    drawdown_summary: { current_drawdown_pct: null, max_drawdown_pct: null },
     volatility_summary: {
       portfolio_volatility_pct: 18.2,
       benchmark_volatility_pct: 12.4,

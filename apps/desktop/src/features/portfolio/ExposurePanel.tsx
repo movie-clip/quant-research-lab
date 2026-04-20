@@ -384,6 +384,14 @@ function formatExposureAuditLine(result: ExposureAnalysis) {
   return `Audit: snapshot ${snapshotDate} · ${reproducibility.benchmark_symbol} · look-through ${runMetadata.source_status.lookthrough_resolution} · ${benchmarkStatus} · dataset ${reproducibility.dataset_version}`
 }
 
+function formatExposureRelativeReturnRefusalLine(result: ExposureAnalysis) {
+  const diagnosticsAvailable = result.availability?.historical_sections_available !== false
+  const relativeReturnRefused = result.relative_risk.active_return_pct == null && result.relative_risk.information_ratio == null
+  if (!diagnosticsAvailable || !relativeReturnRefused) return null
+
+  return 'Benchmark-relative return readouts intentionally refuse active return and information ratio because total-return equivalence is unverified.'
+}
+
 
 function NumericChartTooltip({ active, payload, label }: TooltipContentProps<ValueType, NameType>) {
   if (!active || !payload?.length) return null
@@ -649,6 +657,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   const lookthroughDegraded = exposureAvailability?.lookthrough_status === 'partial'
   const overlapUnavailable = exposureAvailability?.benchmark_overlap_status === 'unavailable'
   const exposureAuditLine = formatExposureAuditLine(result)
+  const exposureRelativeReturnRefusalLine = formatExposureRelativeReturnRefusalLine(result)
 
   const topRiskPath = [
     {
@@ -711,6 +720,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         </div>
       ) : null}
       {exposureAuditLine ? <p className="helper">{exposureAuditLine}</p> : null}
+      {exposureRelativeReturnRefusalLine ? <p className="helper">{exposureRelativeReturnRefusalLine}</p> : null}
       {scenarioPreview ? (
         <div className="summary-card strategy-summary-card dashboard-edit-summary-card">
           <p className="stat-label">Scenario Preview</p>

@@ -13,7 +13,8 @@ from app.analytics.portfolio_imports import (
     build_simulated_rebalance_trades,
     build_true_performance_series,
 )
-from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload
+from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
+from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
 from app.core.symbols import canonicalize_symbol
 from app.domain.ledger import reconstruct_position_lots, snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine
@@ -692,8 +693,10 @@ def test_run_diagnostics_engine_uses_history_context_for_snapshot_requests(mocke
     assert result.availability.history_context_required is True
     assert result.provenance.snapshot_basis == "snapshot_request"
     assert result.provenance.historical_basis == "market_data_history"
-    assert result.drawdown_summary.current_drawdown_pct == result.volatility_regime.snapshot.current_drawdown_pct
-    assert result.drawdown_summary.max_drawdown_pct == result.volatility_regime.snapshot.max_drawdown_pct
+    assert result.drawdown_summary.current_drawdown_pct is None
+    assert result.drawdown_summary.max_drawdown_pct is None
+    assert result.volatility_regime.snapshot.current_drawdown_pct is None
+    assert result.volatility_regime.snapshot.max_drawdown_pct is None
     assert result.volatility_summary.portfolio_volatility_pct == result.risk_summary.portfolio_volatility_pct
     assert result.volatility_summary.benchmark_volatility_pct == result.risk_summary.benchmark_volatility_pct
     assert result.volatility_summary.downside_volatility_pct == result.volatility_regime.snapshot.downside_vol_60d
@@ -908,11 +911,27 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
     }
     assert result.run_metadata.source_status.model_dump() == {
         "portfolio_history": "imported_replay",
-        "benchmark_history": "live_market_data",
-        "factor_history": "live_market_data",
+        "benchmark_history": "live_market_data_unverified_return_basis",
+        "factor_history": "live_market_data_unverified_return_basis",
     }
-    assert result.drawdown_summary.current_drawdown_pct == result.volatility_regime.snapshot.current_drawdown_pct
-    assert result.drawdown_summary.max_drawdown_pct == result.volatility_regime.snapshot.max_drawdown_pct
+    assert result.run_metadata.section_trust.model_dump() == {
+        "benchmark_relative_path": "degraded_unverified_return_basis",
+        "factor_model_path": "degraded_unverified_return_basis",
+        "risk_contribution_path": "degraded_unverified_return_basis",
+    }
+    assert result.run_metadata.confidence == "low"
+    assert result.statistical_factor_model.status == "insufficient_history"
+    assert result.model_reliability.status == "insufficient_history"
+    assert result.risk_contribution_breakdown.status == "insufficient_history"
+    assert result.provenance.note.endswith(
+        "Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
+    )
+    assert result.drawdown_summary.current_drawdown_pct is None
+    assert result.drawdown_summary.max_drawdown_pct is None
+    assert result.volatility_regime.snapshot.current_drawdown_pct is None
+    assert result.volatility_regime.snapshot.max_drawdown_pct is None
+    assert result.relative_risk.active_return_pct is None
+    assert result.relative_risk.information_ratio is None
     assert result.volatility_summary.portfolio_volatility_pct == result.risk_summary.portfolio_volatility_pct
     assert result.volatility_summary.benchmark_volatility_pct == result.risk_summary.benchmark_volatility_pct
     assert result.volatility_summary.downside_volatility_pct == result.volatility_regime.snapshot.downside_vol_60d
@@ -923,6 +942,192 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
     assert result.risk_concentration_summary.top_5_position_risk_share == result.risk_contribution_breakdown.concentration.top_5_position_risk_share
     assert result.risk_concentration_summary.factor_hhi == result.risk_contribution_breakdown.concentration.factor_hhi
     assert result.risk_concentration_summary.position_hhi == result.risk_contribution_breakdown.concentration.position_hhi
+
+
+def test_run_imported_diagnostics_engine_marks_verified_adjusted_close_when_all_history_rows_have_adjusted_fields(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
+    ]
+    service.get_historical_prices_for_symbols.side_effect = [
+        {
+            "AAPL": [
+                {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
+                {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
+            ]
+        },
+        {
+            "SPY": [
+                {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
+                {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
+            ],
+            "QQQ": [
+                {"date": "2026-04-10", "price": 200.0, "adjusted_close": 198.0},
+                {"date": "2026-04-11", "price": 202.0, "adjusted_close": 199.5},
+            ],
+        },
+    ]
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.run_metadata.source_status.model_dump() == {
+        "portfolio_history": "imported_replay",
+        "benchmark_history": "live_market_data_verified_adjusted_close",
+        "factor_history": "live_market_data_verified_adjusted_close",
+    }
+    assert result.run_metadata.section_trust.model_dump() == {
+        "benchmark_relative_path": "verified_adjusted_close",
+        "factor_model_path": "verified_adjusted_close",
+        "risk_contribution_path": "verified_adjusted_close",
+    }
+    assert result.drawdown_summary.current_drawdown_pct is None
+    assert result.drawdown_summary.max_drawdown_pct is None
+    assert result.volatility_regime.snapshot.current_drawdown_pct is None
+    assert result.volatility_regime.snapshot.max_drawdown_pct is None
+    assert result.relative_risk.active_return_pct is None
+    assert result.relative_risk.information_ratio is None
+    assert result.statistical_factor_model.status != "degraded_unverified_return_basis"
+    assert result.model_reliability.status != "degraded_unverified_return_basis"
+    assert result.risk_contribution_breakdown.status != "degraded_unverified_return_basis"
+
+
+def test_run_imported_diagnostics_engine_keeps_unverified_status_when_any_factor_history_lacks_adjusted_fields(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
+    ]
+    service.get_historical_prices_for_symbols.side_effect = [
+        {
+            "AAPL": [
+                {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
+                {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
+            ]
+        },
+        {
+            "QQQ": [
+                {"date": "2026-04-10", "price": 200.0},
+                {"date": "2026-04-11", "price": 202.0},
+            ],
+        },
+    ]
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.run_metadata.source_status.model_dump() == {
+        "portfolio_history": "imported_replay",
+        "benchmark_history": "live_market_data_verified_adjusted_close",
+        "factor_history": "live_market_data_unverified_return_basis",
+    }
+    assert result.run_metadata.section_trust.model_dump() == {
+        "benchmark_relative_path": "verified_adjusted_close",
+        "factor_model_path": "degraded_unverified_return_basis",
+        "risk_contribution_path": "degraded_unverified_return_basis",
+    }
+    assert result.drawdown_summary.current_drawdown_pct is None
+    assert result.drawdown_summary.max_drawdown_pct is None
+    assert result.volatility_regime.snapshot.current_drawdown_pct is None
+    assert result.volatility_regime.snapshot.max_drawdown_pct is None
+    assert result.relative_risk.active_return_pct is None
+    assert result.relative_risk.information_ratio is None
+    assert result.statistical_factor_model.status == "insufficient_history"
+    assert result.model_reliability.status == "insufficient_history"
+    assert result.risk_contribution_breakdown.status == "insufficient_history"
+
+
+def test_run_imported_diagnostics_engine_refuses_drawdown_family_even_when_history_is_available(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 105.0},
+        {"date": "2026-04-14", "price": 104.0},
+    ]
+    service.get_historical_prices_for_symbols.side_effect = [
+        {
+            "AAPL": [
+                {"date": "2026-04-10", "price": 100.0},
+                {"date": "2026-04-11", "price": 110.0},
+                {"date": "2026-04-14", "price": 105.0},
+            ]
+        },
+        {
+            definition.us_proxy: [
+                {"date": "2026-04-10", "price": 100.0},
+                {"date": "2026-04-11", "price": 101.0},
+                {"date": "2026-04-14", "price": 99.0},
+            ]
+            for definition in DEFAULT_FACTOR_DEFINITIONS
+        },
+    ]
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 14),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-14",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 14), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=105.0, market_value=1050.0, unrealized_pnl=50.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.drawdown_summary.current_drawdown_pct is None
+    assert result.drawdown_summary.max_drawdown_pct is None
+    assert result.volatility_regime.snapshot.current_drawdown_pct is None
+    assert result.volatility_regime.snapshot.max_drawdown_pct is None
+    assert result.relative_risk.active_return_pct is None
+    assert result.relative_risk.information_ratio is None
+    assert all(point.drawdown_pct is None for point in result.volatility_regime.rolling_series)
+    assert all(point.wealth_index is None for point in result.volatility_regime.rolling_series)
 
 
 def test_run_imported_dashboard_history_returns_unavailable_without_imported_history_dates(mocker) -> None:
@@ -1012,7 +1217,16 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert result.run_metadata.source_status.model_dump() == {
         "performance_history": "live",
         "monthly_returns": "live",
-        "benchmark_history": "live_market_data",
+        "benchmark_history": "live_market_data_unverified_return_basis",
+    }
+    assert result.run_metadata.section_trust.model_dump() == {
+        "portfolio_path": "imported_replay",
+        "benchmark_path": "degraded_unverified_return_basis",
+        "monthly_returns_path": "imported_replay",
+    }
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "price_return_only",
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
@@ -1027,7 +1241,186 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert len(result.daily_states) == 2
     assert len(result.performance_series) == 2
     assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct is None
     assert result.range_metrics["All"].summary.end_value == result.daily_states[-1].total_portfolio_value
+    assert result.range_metrics["All"].summary.benchmark_return_pct is None
+    assert result.range_metrics["All"].summary.excess_return_pct is None
+    assert result.range_metrics["All"].max_drawdown_pct is None
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+    assert result.benchmark.return_basis_contract == "price_return_only"
+
+
+def test_build_true_performance_series_prefers_adjusted_benchmark_prices_when_available() -> None:
+    states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 1000.0}, positions=[], total_market_value=0.0, total_portfolio_value=1000.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 1100.0}, positions=[], total_market_value=0.0, total_portfolio_value=1100.0, external_cash_flow=100.0),
+        DailyPortfolioState(date="2025-01-04", cash={"USD": 1210.0}, positions=[], total_market_value=0.0, total_portfolio_value=1210.0, external_cash_flow=0.0),
+    ]
+
+    series = build_true_performance_series(
+        states,
+        [
+            {"date": "2025-01-02", "price": 100.0, "adjClose": 100.0},
+            {"date": "2025-01-03", "price": 101.0, "adjClose": 99.0},
+            {"date": "2025-01-04", "price": 103.0, "adjClose": 101.97},
+        ],
+    )
+
+    assert series[2].benchmark_return_pct is None
+
+
+def test_build_true_performance_series_refuses_unverified_adjusted_proxy_benchmark_return_pct() -> None:
+    states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 1000.0}, positions=[], total_market_value=0.0, total_portfolio_value=1000.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 1100.0}, positions=[], total_market_value=0.0, total_portfolio_value=1100.0, external_cash_flow=100.0),
+        DailyPortfolioState(date="2025-01-04", cash={"USD": 1210.0}, positions=[], total_market_value=0.0, total_portfolio_value=1210.0, external_cash_flow=0.0),
+    ]
+
+    series = build_true_performance_series(
+        states,
+        [
+            {"date": "2025-01-02", "price": 100.0, "adjClose": 100.0},
+            {"date": "2025-01-03", "price": 101.0, "adjClose": 99.0},
+            {"date": "2025-01-04", "price": 103.0, "adjClose": 101.97},
+        ],
+    )
+
+    assert series[1].portfolio_return_pct == 0.0
+    assert series[2].portfolio_return_pct == 10.0
+    assert series[2].benchmark_return_pct is None
+
+
+def test_build_true_performance_series_refuses_compounded_portfolio_and_benchmark_returns_for_price_only_basis() -> None:
+    states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 1000.0}, positions=[], total_market_value=0.0, total_portfolio_value=1000.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 1100.0}, positions=[], total_market_value=0.0, total_portfolio_value=1100.0, external_cash_flow=100.0),
+        DailyPortfolioState(date="2025-01-04", cash={"USD": 1210.0}, positions=[], total_market_value=0.0, total_portfolio_value=1210.0, external_cash_flow=0.0),
+    ]
+
+    series = build_true_performance_series(
+        states,
+        [
+            {"date": "2025-01-02", "price": 100.0},
+            {"date": "2025-01-03", "price": 101.0},
+            {"date": "2025-01-04", "price": 103.0},
+        ],
+        portfolio_return_basis_contract="price_return_only",
+        benchmark_return_basis_contract="price_return_only",
+    )
+
+    assert series[1].portfolio_return_pct == 0.0
+    assert series[2].portfolio_return_pct == 0.0
+    assert series[2].benchmark_return_pct is None
+
+
+def test_build_true_performance_series_refuses_compounded_portfolio_and_benchmark_returns_for_unverified_adjusted_proxy_basis() -> None:
+    states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 1000.0}, positions=[], total_market_value=0.0, total_portfolio_value=1000.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 1100.0}, positions=[], total_market_value=0.0, total_portfolio_value=1100.0, external_cash_flow=100.0),
+        DailyPortfolioState(date="2025-01-04", cash={"USD": 1210.0}, positions=[], total_market_value=0.0, total_portfolio_value=1210.0, external_cash_flow=0.0),
+    ]
+
+    series = build_true_performance_series(
+        states,
+        [
+            {"date": "2025-01-02", "price": 100.0, "adjClose": 100.0},
+            {"date": "2025-01-03", "price": 101.0, "adjClose": 99.0},
+            {"date": "2025-01-04", "price": 103.0, "adjClose": 101.97},
+        ],
+        portfolio_return_basis_contract="unverified_adjusted_proxy",
+        benchmark_return_basis_contract="unverified_adjusted_proxy",
+    )
+
+    assert series[1].portfolio_return_pct == 0.0
+    assert series[2].portfolio_return_pct == 0.0
+    assert series[2].benchmark_return_pct is None
+
+
+def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_price_only_basis(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+    ]
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].max_drawdown_pct is None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct is None
+    assert result.range_metrics["All"].summary.benchmark_return_pct is None
+    assert result.range_metrics["All"].summary.excess_return_pct is None
+
+
+def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_unverified_adjusted_proxy_basis(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
+    ]
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0, "adjClose": 109.5},
+            {"date": "2026-04-11", "price": 115.0, "adjClose": 114.7},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "unverified_adjusted_proxy",
+    }
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].max_drawdown_pct is None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct is None
+    assert result.range_metrics["All"].summary.benchmark_return_pct is None
+    assert result.range_metrics["All"].summary.excess_return_pct is None
 
 
 def test_run_imported_diagnostics_engine_returns_unavailable_when_symbol_history_is_missing(mocker) -> None:
@@ -1190,6 +1583,11 @@ def test_run_imported_dashboard_history_returns_unavailable_when_symbol_history_
         "monthly_returns": "unavailable",
         "benchmark_history": "unavailable",
     }
+    assert result.run_metadata.section_trust.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "unavailable",
+        "monthly_returns_path": "unavailable",
+    }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
         "snapshot_as_of_date": "2026-04-11",
@@ -1244,6 +1642,11 @@ def test_run_imported_dashboard_history_returns_unavailable_when_benchmark_histo
         "monthly_returns": "unavailable",
         "benchmark_history": "unavailable",
     }
+    assert result.run_metadata.section_trust.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "unavailable",
+        "monthly_returns_path": "unavailable",
+    }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
         "snapshot_as_of_date": "2026-04-11",
@@ -1294,6 +1697,8 @@ def test_build_portfolio_risk_summary_and_position_contributions() -> None:
     assert rolling[-1].beta_20d is None
     assert rolling[-1].beta_252d is None
     assert relative.tracking_error_pct is not None
+    assert relative.active_return_pct is not None
+    assert relative.information_ratio is not None
 
 
 def test_build_rolling_risk_series_populates_252d_window_when_history_is_long_enough() -> None:
@@ -2075,8 +2480,278 @@ def test_build_model_reliability_snapshot_uses_current_60d_window_metrics() -> N
     assert reliability.residual_volatility is not None
     assert reliability.factor_count_used >= 1
     assert reliability.missing_factor_count >= 0
-    assert reliability.status in {"ok", "partial", "insufficient_history"}
-    assert reliability.confidence in {"high", "medium", "low"}
+
+
+def test_apply_return_basis_status_to_factor_model_degrades_status_when_adjusted_support_is_incomplete() -> None:
+    start = date(2025, 1, 1)
+    daily_states = [
+        DailyPortfolioState(
+            date=(start + timedelta(days=offset)).isoformat(),
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=float(1000 + offset),
+            total_portfolio_value=float(1000 + offset),
+        )
+        for offset in range(290)
+    ]
+    benchmark_rows = [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset)} for offset in range(290)]
+    factor_histories = {definition.us_proxy: benchmark_rows for definition in DEFAULT_FACTOR_DEFINITIONS}
+    factor_model = build_statistical_factor_model(daily_states, factor_histories, "SPY")
+
+    degraded = apply_return_basis_status_to_factor_model(
+        factor_model,
+        benchmark_rows=benchmark_rows,
+        factor_histories=factor_histories,
+    )
+
+    assert degraded.status == "degraded_unverified_return_basis"
+    assert any(window.status == "degraded_unverified_return_basis" for window in degraded.windows if window.status in {"degraded_unverified_return_basis", "ok", "partial"})
+
+
+def test_apply_return_basis_status_to_model_reliability_degrades_status_and_confidence_when_adjusted_support_is_incomplete() -> None:
+    start = date(2025, 1, 1)
+    daily_states = [
+        DailyPortfolioState(
+            date=(start + timedelta(days=offset)).isoformat(),
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=float(1000 + offset),
+            total_portfolio_value=float(1000 + offset),
+        )
+        for offset in range(290)
+    ]
+    benchmark_rows = [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset)} for offset in range(290)]
+    factor_histories = {definition.us_proxy: benchmark_rows for definition in DEFAULT_FACTOR_DEFINITIONS}
+    factor_model = build_statistical_factor_model(daily_states, factor_histories, "SPY")
+    reliability = build_model_reliability_snapshot(factor_model)
+
+    degraded = apply_return_basis_status_to_model_reliability(
+        reliability,
+        benchmark_rows=benchmark_rows,
+        factor_histories=factor_histories,
+    )
+
+    assert degraded.status == "degraded_unverified_return_basis"
+    assert degraded.confidence == "low"
+
+
+def test_select_history_price_series_prefers_adjusted_close_when_fully_available() -> None:
+    selected = select_history_price_series([
+        {"date": "2026-01-02", "price": 100.0, "adjClose": 98.0},
+        {"date": "2026-01-03", "price": 101.0, "adjusted_close": 99.0},
+    ])
+
+    assert selected.selected_field == "adjusted_close"
+    assert selected.return_basis_status == "verified_adjusted_close"
+    assert selected.points == [("2026-01-02", 98.0), ("2026-01-03", 99.0)]
+
+
+def test_select_history_price_series_falls_back_to_price_with_unverified_status() -> None:
+    selected = select_history_price_series([
+        {"date": "2026-01-02", "price": 100.0, "adjClose": 98.0},
+        {"date": "2026-01-03", "price": 101.0},
+    ])
+
+    assert selected.selected_field == "price"
+    assert selected.return_basis_status == "unverified_close_only"
+    assert selected.points == [("2026-01-02", 100.0), ("2026-01-03", 101.0)]
+
+
+def test_selected_history_price_map_returns_selected_points_and_status() -> None:
+    selected_map, status = selected_history_price_map([
+        {"date": "2026-01-02", "price": 100.0, "adjClose": 98.0},
+        {"date": "2026-01-03", "price": 101.0, "adjClose": 99.0},
+    ])
+
+    assert status == "verified_adjusted_close"
+    assert selected_map == {"2026-01-02": 98.0, "2026-01-03": 99.0}
+
+
+def test_is_history_series_verified_adjusted_reports_false_for_price_fallback() -> None:
+    assert is_history_series_verified_adjusted([
+        {"date": "2026-01-02", "price": 100.0},
+        {"date": "2026-01-03", "price": 101.0},
+    ]) is False
+
+
+def test_build_position_risk_contributions_uses_adjusted_series_when_available() -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 1, 1),
+            source_path="sample.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2025",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[],
+        positions=[ImportedPosition(as_of_date=date(2025, 1, 3), symbol="AAPL", quantity=1.0, cost_basis=100.0, close_price=105.0, market_value=105.0, unrealized_pnl=5.0, currency="USD")],
+        ledger_entries=[],
+    )
+
+    contributions = risk_module.build_position_risk_contributions(
+        snapshot,
+        price_histories={
+            "AAPL": [
+                {"date": "2025-01-01", "price": 100.0, "adjClose": 100.0},
+                {"date": "2025-01-02", "price": 110.0, "adjClose": 103.0},
+                {"date": "2025-01-03", "price": 121.0, "adjClose": 101.0},
+            ]
+        },
+        benchmark_rows=[
+            {"date": "2025-01-01", "price": 200.0, "adjClose": 200.0},
+            {"date": "2025-01-02", "price": 210.0, "adjClose": 198.0},
+            {"date": "2025-01-03", "price": 220.5, "adjClose": 201.0},
+        ],
+    )
+
+    assert contributions[0].beta is not None
+    assert contributions[0].correlation is not None
+
+
+def test_build_portfolio_risk_summary_prefers_adjusted_benchmark_series_when_available() -> None:
+    daily_states = [
+        DailyPortfolioState(date="2025-01-01", cash={"USD": 0.0}, positions=[], total_market_value=1000.0, total_portfolio_value=1000.0),
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 0.0}, positions=[], total_market_value=1050.0, total_portfolio_value=1050.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 0.0}, positions=[], total_market_value=1029.0, total_portfolio_value=1029.0),
+    ]
+
+    summary = build_portfolio_risk_summary(
+        daily_states,
+        [
+            {"date": "2025-01-01", "price": 100.0, "adjClose": 100.0},
+            {"date": "2025-01-02", "price": 110.0, "adjClose": 102.0},
+            {"date": "2025-01-03", "price": 121.0, "adjClose": 99.96},
+        ],
+        "SPY",
+    )
+
+    assert summary.observations == 2
+    assert summary.portfolio_beta is not None
+    assert summary.portfolio_correlation is not None
+
+
+def test_build_volatility_regime_payload_prefers_adjusted_benchmark_series_when_available() -> None:
+    start = date(2025, 1, 1)
+    daily_values = [1000.0, 1020.0, 999.6, 1019.592, 999.20016] * 16
+    daily_states = [
+        DailyPortfolioState(
+            date=(start + timedelta(days=offset)).isoformat(),
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=value,
+            total_portfolio_value=value,
+        )
+        for offset, value in enumerate(daily_values)
+    ]
+    benchmark_rows = [
+        {"date": (start + timedelta(days=offset)).isoformat(), "price": 100.0 + offset, "adjClose": value}
+        for offset, value in enumerate([100.0, 101.0, 98.98, 100.9596, 98.940408] * 16)
+    ]
+
+    payload = build_volatility_regime_payload(daily_states, benchmark_rows)
+
+    assert payload.snapshot.benchmark_vol_20d is not None
+    assert payload.snapshot.tracking_error_20d is not None
+
+
+def test_build_statistical_factor_model_prefers_adjusted_factor_series_when_available() -> None:
+    start = date(2025, 1, 1)
+    daily_states = [
+        DailyPortfolioState(
+            date=(start + timedelta(days=offset)).isoformat(),
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=float(1000 + (offset * 2)),
+            total_portfolio_value=float(1000 + (offset * 2)),
+        )
+        for offset in range(290)
+    ]
+    factor_histories = {
+        definition.us_proxy: [
+            {
+                "date": (start + timedelta(days=offset)).isoformat(),
+                "price": float(100 + offset),
+                "adjClose": float(100 + (offset * 0.5) + (1 if definition.key == "market" else 0)),
+            }
+            for offset in range(290)
+        ]
+        for definition in DEFAULT_FACTOR_DEFINITIONS
+    }
+
+    factor_model = build_statistical_factor_model(daily_states, factor_histories, "SPY")
+
+    assert factor_model.status in {"ok", "partial", "insufficient_history"}
+
+
+def test_build_risk_contribution_breakdown_prefers_adjusted_factor_and_position_series_when_available() -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 1, 1),
+            source_path="sample.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2025",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[],
+        positions=[
+            ImportedPosition(as_of_date=date(2025, 10, 17), symbol="AAPL", quantity=1.0, cost_basis=100.0, close_price=100.0, market_value=600.0, unrealized_pnl=0.0, currency="USD"),
+            ImportedPosition(as_of_date=date(2025, 10, 17), symbol="MSFT", quantity=1.0, cost_basis=100.0, close_price=100.0, market_value=400.0, unrealized_pnl=0.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+    start = date(2025, 1, 1)
+    daily_states = [
+        DailyPortfolioState(
+            date=(start + timedelta(days=offset)).isoformat(),
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=float(1000 + (offset * 5)),
+            total_portfolio_value=float(1000 + (offset * 5)),
+        )
+        for offset in range(290)
+    ]
+    factor_histories = {
+        definition.us_proxy: [
+            {
+                "date": (start + timedelta(days=offset)).isoformat(),
+                "price": float(100 + offset),
+                "adjClose": float(100 + (offset * 0.3) + ((offset % 7) * 0.2)),
+            }
+            for offset in range(290)
+        ]
+        for definition in DEFAULT_FACTOR_DEFINITIONS
+    }
+    price_histories = {
+        "AAPL": [
+            {"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset), "adjClose": float(100 + (offset * 0.4) + ((offset % 5) * 0.3))}
+            for offset in range(290)
+        ],
+        "MSFT": [
+            {"date": (start + timedelta(days=offset)).isoformat(), "price": float(80 + (offset * 0.5)), "adjClose": float(80 + (offset * 0.2) + ((offset % 3) * 0.25))}
+            for offset in range(290)
+        ],
+    }
+    factor_registry = build_factor_registry()
+    factor_model = build_statistical_factor_model(daily_states, factor_histories, "SPY")
+
+    breakdown = build_risk_contribution_breakdown(snapshot, daily_states, price_histories, factor_histories, factor_registry, factor_model)
+
+    assert breakdown.factor_contributions
+    assert breakdown.position_contributions
+    assert breakdown.factor_total_variance is not None
+    assert breakdown.total_variance is not None
 
 
 def test_build_model_reliability_snapshot_uses_current_window_collinearity() -> None:
@@ -2588,5 +3263,5 @@ def test_performance_summary_reports_twr_mwr_and_excess_return() -> None:
     assert summary.investment_gain == 110.0
     assert summary.time_weighted_return_pct == 10.0
     assert summary.money_weighted_return_pct == 10.48
-    assert summary.benchmark_return_pct == 3.0
-    assert summary.excess_return_pct == 7.0
+    assert summary.benchmark_return_pct is None
+    assert summary.excess_return_pct is None

@@ -77,6 +77,29 @@ Current risk note:
 Current diagnostics note:
 - diagnostics engine run metadata currently reports `price_basis = close` when history-aware diagnostics are available
 - unavailable diagnostics report `price_basis = unavailable`
+- diagnostics engine now degrades `run_metadata.source_status.{benchmark_history,factor_history}` to `live_market_data_unverified_return_basis` until return-basis trust is explicitly verified for those histories
+- this degradation is intentional: diagnostics may still run, but the contract must not overclaim adjusted-close or total-return-aware trust for benchmark/factor return math
+- while that unverified return-basis state is present, diagnostics run-level confidence must degrade to `low` even if imported history exists, because the return-input trust required for stronger benchmark/factor claims is not yet proven
+- current narrow detection rule: a history is marked `live_market_data_verified_adjusted_close` only when every loaded row explicitly carries `adjClose` or `adjusted_close`; otherwise it remains `live_market_data_unverified_return_basis`
+- this is adjusted-close field detection only, not proof of full total-return equivalence, split correctness across all vendors, or economically complete dividend treatment
+- diagnostics now also degrade `statistical_factor_model.status`, `model_reliability.status`, and `risk_contribution_breakdown.status` to `degraded_unverified_return_basis` whenever benchmark/factor adjusted-close support is incomplete, so those outputs no longer present close-based factor math as clean `ok`/`partial` status
+- a first explicit price-series selector now exists in `risk.py`; it prefers adjusted-close when every dated row provides it, otherwise it falls back to raw `price` with `unverified_close_only` semantics
+- this selector now covers a broader but still narrow subset: position-risk contributions, benchmark-relative summary inputs, rolling volatility benchmark inputs, and factor-model benchmark/factor return inputs
+- the selector now also feeds the deeper covariance/contribution helper builders used inside risk-contribution breakdowns, reducing residual raw-price dependence in factor-risk math
+- outside the risk stack, the next narrow migration now covers dashboard-history benchmark series and benchmark comparison readouts, so those paths also prefer adjusted-close when it is fully available
+- remaining unmigrated return paths should keep using the same selector pattern rather than direct raw-price reads
+- a centralized selector-policy helper now exists for analytics entry points: use `selected_history_price_map(...)` / `select_history_price_series(...)` rather than rebuilding benchmark or return series directly from raw rows
+- Stage 1 intent is now enforceable in code review: direct raw-price history construction should be treated as suspicious unless the path is explicitly non-return/display-only
+- diagnostics now expose grouped subsection-level trust in `run_metadata.section_trust` for benchmark-relative, factor-model, and risk-contribution paths
+- these subsection trust states are intentionally narrow: `verified_adjusted_close`, `degraded_unverified_return_basis`, or `unavailable`; mixed or unprovable sections stay degraded rather than claiming stronger certainty
+- dashboard-history now exposes its own compact `run_metadata.section_trust` for `portfolio_path`, `benchmark_path`, and `monthly_returns_path`
+- these dashboard trust states are also intentionally conservative: imported portfolio replay can be explicit, benchmark return basis can degrade independently, and monthly returns can be marked `suppressed_unstable_path` rather than implied reliable
+- a first `return_basis_contract` slice now exists for dashboard-history benchmark investor-return semantics; current reachable states are intentionally conservative (`price_return_only`, `unverified_adjusted_proxy`, `unavailable`)
+- adjusted-close field presence alone does not upgrade dashboard benchmark returns to investor-economics truth; benchmark cumulative return / excess return now refuse (`None`) until `verified_total_return` can be justified
+- the next refusal slice now gates the dashboard drawdown-loss family as well: `range_metrics[*].max_drawdown_pct` refuses unless the required return basis can be proven as `verified_total_return`
+- this remains intentionally strict; drawdown depth should not be emitted from price-only or unverified-adjusted proxy wealth paths
+- the compounded-return family is now partially gated in dashboard-history as well: range-summary canonical compounded investor-return outputs (`time_weighted_return_pct`, `benchmark_return_pct`, `excess_return_pct`) refuse when the return basis contract is not `verified_total_return`
+- this slice is intentionally narrow and does not yet claim that broker-replayed portfolio paths are fully proven total-return investor economics
 
 ## Portfolio Return Methodology
 
@@ -591,6 +614,7 @@ Current replay provenance state:
 - the replay response also carries upstream draft/workspace/base-node lineage and ranking seed lineage for the current single-replacement replay slice
 - when constraint validation is supplied to replay routes, the replay response also echoes validation-supplied status, validation result, and constraint-set lineage
 - replay now rejects provable lineage mismatches between supplied validation artifacts and constructed-candidate artifacts
+- immutable saved proposal artifacts now reject provable internal contradictions between saved replay-basis provenance and the saved replay snapshot provenance
 
 ### Single-Replacement Candidate Construction
 
@@ -652,6 +676,7 @@ At the time of writing, the main finance-related limitations are:
 - overlay support is currently a narrow hypothetical replay path, not a generalized overlay methodology family
 - candidate construction is currently narrow single-replacement review logic, not generalized portfolio construction
 - replay provenance is now explicit for constructed-candidate consumption and echoed constraint-validation lineage, and replay rejects provable artifact mismatches, but replay still does not enforce validation status in the current contract
+- immutable saved proposal artifacts and active thesis restore now reject provable internal replay-lineage contradictions rather than silently trusting inconsistent review artifacts
 - some diagnostics panels are more monitoring-oriented than portfolio-manager-decision-oriented
 
 ## Recommended Maintenance Rule

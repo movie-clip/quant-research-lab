@@ -228,6 +228,11 @@ function diagnosticsSourceSummary(result: DiagnosticsEngineResponse) {
   return `Sources: portfolio ${formatStatusLabel(sourceStatus.portfolio_history)} · benchmark ${formatStatusLabel(sourceStatus.benchmark_history)} · factors ${formatStatusLabel(sourceStatus.factor_history)}`
 }
 
+function diagnosticsSectionTrustSummary(result: DiagnosticsEngineResponse) {
+  const sectionTrust = result.run_metadata.section_trust
+  return `Section trust: benchmark-relative ${formatStatusLabel(sectionTrust.benchmark_relative_path)} · factor model ${formatStatusLabel(sectionTrust.factor_model_path)} · risk contribution ${formatStatusLabel(sectionTrust.risk_contribution_path)}`
+}
+
 function diagnosticsAuditSummary(result: DiagnosticsEngineResponse) {
   const parameters = result.run_metadata.factor_model_parameters
   const reproducibility = result.run_metadata.reproducibility
@@ -235,6 +240,16 @@ function diagnosticsAuditSummary(result: DiagnosticsEngineResponse) {
     ? `${formatDateLabel(reproducibility.history_start_date)} to ${formatDateLabel(reproducibility.history_end_date)}`
     : 'No historical range'
   return `Audit: ${parameters.current_reliability_window_days}d reliability · ridge ${parameters.ridge_lambda} · dataset ${reproducibility.dataset_version} · ${effectiveHistory}`
+}
+
+function diagnosticsReturnBasisRefusalSummary(result: DiagnosticsEngineResponse) {
+  const benchmarkPathDegraded = result.run_metadata.section_trust.benchmark_relative_path === 'degraded_unverified_return_basis'
+  const drawdownRefused = result.drawdown_summary.current_drawdown_pct == null && result.drawdown_summary.max_drawdown_pct == null
+  const relativeReturnRefused = result.relative_risk.active_return_pct == null && result.relative_risk.information_ratio == null
+
+  if (!benchmarkPathDegraded || (!drawdownRefused && !relativeReturnRefused)) return null
+
+  return 'Refusals: drawdown, active return, and information ratio are intentionally withheld because total-return equivalence is unverified for the benchmark-relative path.'
 }
 
 function decisionCardToneForDrawdown(value: number | null | undefined): DecisionCardTone {
@@ -519,7 +534,9 @@ export function DiagnosticsPanel({ result }: { result: DiagnosticsEngineResponse
           <p className="helper">Source: {result.provenance.note}</p>
           <p className="helper">Availability: {result.availability.note ?? 'Historical diagnostics remain live for the supported windows shown here.'}</p>
           <p className="helper">{diagnosticsSourceSummary(result)}</p>
+          <p className="helper">{diagnosticsSectionTrustSummary(result)}</p>
           <p className="helper">{diagnosticsAuditSummary(result)}</p>
+          {diagnosticsReturnBasisRefusalSummary(result) ? <p className="helper">{diagnosticsReturnBasisRefusalSummary(result)}</p> : null}
           <p className="helper">Status: {historyTruthClassLabel} / {historicalStatusLabel} / {behaviorWindowStatusLabel}. Unsupported windows stay hidden rather than interpolated.</p>
         </div>
 
