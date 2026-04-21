@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { BacktestRunResponse } from '../portfolio/types'
 
 type Props = {
@@ -12,6 +13,13 @@ function parseUniverse(value: string) {
     .split(',')
     .map((item) => item.trim().toUpperCase())
     .filter(Boolean)
+}
+
+function investorEconomicsHelper(status: BacktestRunResponse['investor_economics_status']) {
+  if (investorEconomicsBaseReason(status)) {
+    return 'Investor-performance metrics are intentionally withheld until verified total-return equivalence is available. Treat this run as workflow and dataset evidence only.'
+  }
+  return 'Investor-performance metrics are available on this run.'
 }
 
 export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Props) {
@@ -40,6 +48,7 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
     if (anyFallback) return 'Mixed FMP + sample'
     return 'Mixed sources'
   }, [backtestResult])
+  const investorEconomicsWithheld = investorEconomicsBaseReason(backtestResult?.investor_economics_status) != null
 
   async function runBacktest() {
     const parsedUniverse = parseUniverse(universe)
@@ -155,18 +164,26 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
               <p className="stat-value">{backtestResult.run_id.split(':')[0]}</p>
             </div>
             <div className="stat">
-              <p className="stat-label">Total Return</p>
-              <p className="stat-value">{backtestResult.total_return_pct?.toFixed(2) ?? 'n/a'}%</p>
+              <p className="stat-label">Investor Economics</p>
+              <p className="stat-value">{investorEconomicsWithheld ? 'Withheld' : 'Available'}</p>
             </div>
             <div className="stat">
-              <p className="stat-label">Max Drawdown</p>
-              <p className="stat-value">{backtestResult.max_drawdown_pct?.toFixed(2) ?? 'n/a'}%</p>
+              <p className="stat-label">Run Window</p>
+              <p className="stat-value">{backtestResult.config.start_date} - {backtestResult.config.end_date}</p>
             </div>
             <div className="stat">
-              <p className="stat-label">Sharpe</p>
-              <p className="stat-value">{backtestResult.sharpe_ratio?.toFixed(2) ?? 'n/a'}</p>
+              <p className="stat-label">Benchmark</p>
+              <p className="stat-value">{backtestResult.config.benchmark_symbol}</p>
+            </div>
+            <div className="stat">
+              <p className="stat-label">Dataset Coverage</p>
+              <p className="stat-value">{Object.keys(backtestResult.dataset_info).length} symbols</p>
             </div>
           </div>
+          <p className="helper">{investorEconomicsHelper(backtestResult.investor_economics_status)}</p>
+          {investorEconomicsWithheld ? (
+            <p className="helper">Return, benchmark-relative, drawdown, and Sharpe readouts stay suppressed on this surface while withholding is active.</p>
+          ) : null}
           <div className="factor-snapshot-table-wrap">
                     <div className="section-header-inline sector-list-header strategy-detail-subheader">
                       <div>

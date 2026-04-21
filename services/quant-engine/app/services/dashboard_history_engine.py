@@ -3,14 +3,103 @@ from typing import TypedDict
 from app.analytics.performance import build_daily_portfolio_states, build_true_performance_series
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.dashboard_history import DashboardHistoryEngineRequest, DashboardHistoryResult, DashboardHistoryRunMetadata, DashboardHistoryRunReproducibility, DashboardHistoryRunSourceStatus, DashboardMonthlyReturn, DashboardRangeMetrics
+from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
 from app.schemas.reconciliation import PerformanceSummary
 from app.services.benchmark_service import build_benchmark_comparison
-from app.services.market_data import MarketDataService, classify_histories_return_basis_contract, classify_history_return_basis_contract, detect_history_return_basis
+from app.services.market_data import (
+    MarketDataService,
+    VERIFIED_BENCHMARK_ENDPOINT,
+    VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST,
+    VERIFIED_BENCHMARK_VENDOR,
+    build_histories_return_basis_evidence,
+    build_history_return_basis_evidence,
+    classify_histories_return_basis_contract,
+    classify_history_return_basis_contract,
+    detect_history_return_basis,
+)
+from app.services.portfolio_proof import build_portfolio_proof_metadata, build_unavailable_portfolio_proof_metadata
 
 
 DASHBOARD_HISTORY_ID = "dashboard_history_engine_v1"
 DASHBOARD_HISTORY_METHODOLOGY_ID = "dashboard_history_methodology_v1"
 DASHBOARD_HISTORY_DATASET_VERSION = "market_data_service_v1"
+
+
+def _coerce_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _validate_verified_benchmark_slice(
+    *,
+    benchmark_symbol: str,
+    benchmark_rows: list[dict],
+    benchmark_fetch_meta: dict[str, object] | None,
+    history_start_date: str,
+    history_end_date: str,
+) -> dict[str, str | bool | int | None] | None:
+    if benchmark_symbol not in VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST:
+        return None
+    if not benchmark_rows or benchmark_fetch_meta is None:
+        return None
+    if benchmark_fetch_meta.get("requested_symbol") != benchmark_symbol:
+        return None
+    if benchmark_fetch_meta.get("resolved_symbol") != benchmark_symbol:
+        return None
+    if benchmark_fetch_meta.get("vendor") != VERIFIED_BENCHMARK_VENDOR:
+        return None
+    if benchmark_fetch_meta.get("endpoint") != VERIFIED_BENCHMARK_ENDPOINT:
+        return None
+    if benchmark_fetch_meta.get("direct_path_only") is not True:
+        return None
+    if benchmark_fetch_meta.get("fallback_used") is not False:
+        return None
+    if benchmark_fetch_meta.get("proxy_used") is not False:
+        return None
+    if benchmark_fetch_meta.get("mixed_source") is not False:
+        return None
+    if benchmark_fetch_meta.get("symbol_override_used") is not False:
+        return None
+
+    in_window_rows = [
+        row
+        for row in benchmark_rows
+        if isinstance(row.get("date"), str) and history_start_date <= row["date"] <= history_end_date
+    ]
+    if not in_window_rows:
+        return None
+
+    ordered_dates = [row["date"] for row in in_window_rows]
+    if ordered_dates != sorted(ordered_dates):
+        return None
+    if len(set(ordered_dates)) != len(ordered_dates):
+        return None
+    if any(_coerce_float(row.get("adjClose")) is None for row in in_window_rows):
+        return None
+
+    return {
+        "symbol": benchmark_symbol,
+        "requested_symbol": benchmark_symbol,
+        "resolved_symbol": benchmark_symbol,
+        "vendor": VERIFIED_BENCHMARK_VENDOR,
+        "endpoint": VERIFIED_BENCHMARK_ENDPOINT,
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+        "window_start": history_start_date,
+        "window_end": history_end_date,
+        "row_count": len(in_window_rows),
+        "rows_ordered": True,
+        "rows_unique_by_date": True,
+        "adjclose_complete": True,
+        "validation_version": f"{benchmark_symbol.lower()}_fmp_light_adjclose_v1",
+    }
 
 
 def _build_dashboard_benchmark_history_status(benchmark_rows: list[dict]) -> str:
@@ -59,6 +148,44 @@ def _build_dashboard_return_basis_contract(benchmark_rows: list[dict]) -> Dashbo
     )
 
 
+def _build_dashboard_return_basis_evidence(
+    *,
+    benchmark_rows: list[dict],
+    symbol_price_histories: dict[str, list[dict]] | None = None,
+    verified_benchmark_scope: dict[str, str | bool | int | None] | None = None,
+) -> DashboardHistoryRunMetadata.ReturnBasisEvidenceBundle:
+    portfolio_evidence = (
+        build_histories_return_basis_evidence(symbol_price_histories or {})
+        if symbol_price_histories
+        else build_history_return_basis_evidence([])
+    )
+    return DashboardHistoryRunMetadata.ReturnBasisEvidenceBundle(
+        portfolio_path=portfolio_evidence,
+        benchmark_path=build_history_return_basis_evidence(
+            benchmark_rows,
+            verified_total_return_scope=verified_benchmark_scope,
+        ),
+    )
+
+
+def _build_dashboard_portfolio_proof_metadata(
+    *,
+    snapshot: ImportedPortfolioSnapshot,
+    symbol_price_histories: dict[str, list[dict]],
+    valuation_dates: list[str],
+    history_available: bool,
+):
+    if not history_available:
+        return build_unavailable_portfolio_proof_metadata()
+    return build_portfolio_proof_metadata(
+        snapshot=snapshot,
+        price_histories=symbol_price_histories,
+        valuation_dates=valuation_dates,
+        fx_history={},
+        history_source="imported_replay",
+    )
+
+
 def _allow_dashboard_compounded_return_outputs(return_basis_contract: DashboardHistoryRunMetadata.ReturnBasisContract) -> bool:
     return (
         return_basis_contract.portfolio_path == "verified_total_return"
@@ -74,6 +201,18 @@ def _allow_dashboard_drawdown_outputs(
     benchmark_contract = classify_history_return_basis_contract(benchmark_rows)
     position_contract = classify_histories_return_basis_contract(symbol_price_histories)
     return benchmark_contract == "verified_total_return" and position_contract == "verified_total_return"
+
+
+def _build_dashboard_investor_economics_status(
+    *,
+    allow_compounded_return_outputs: bool,
+    allow_drawdown_outputs: bool,
+) -> InvestorEconomicsStatus:
+    if allow_compounded_return_outputs and allow_drawdown_outputs:
+        return build_investor_economics_status(available=True)
+    return build_investor_economics_status(
+        available=False,
+    )
 
 
 RANGE_WINDOWS: dict[str, int | None] = {
@@ -125,11 +264,18 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
         )
 
     market_data = MarketDataService()
-    benchmark_rows = market_data.get_historical_prices(
-        resolved_benchmark_symbol,
-        history_start_date,
-        history_end_date,
-    )
+    if resolved_benchmark_symbol in VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST:
+        benchmark_rows = market_data.get_direct_verified_benchmark_history(
+            resolved_benchmark_symbol,
+            history_start_date,
+            history_end_date,
+        )
+    else:
+        benchmark_rows = market_data.get_historical_prices(
+            resolved_benchmark_symbol,
+            history_start_date,
+            history_end_date,
+        )
     symbol_price_histories = market_data.get_historical_prices_for_symbols(
         [position.symbol for position in snapshot.positions],
         history_start_date,
@@ -152,7 +298,20 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
         valuation_dates=valuation_dates,
         fx_history={},
     )
+    verified_benchmark_scope = _validate_verified_benchmark_slice(
+        benchmark_symbol=resolved_benchmark_symbol,
+        benchmark_rows=benchmark_rows,
+        benchmark_fetch_meta=market_data.get_last_fetch_meta(resolved_benchmark_symbol),
+        history_start_date=history_start_date,
+        history_end_date=history_end_date,
+    )
     return_basis_contract = _build_dashboard_return_basis_contract(benchmark_rows)
+    if verified_benchmark_scope is not None:
+        return_basis_contract = DashboardHistoryRunMetadata.ReturnBasisContract(
+            portfolio_path=return_basis_contract.portfolio_path,
+            benchmark_path="verified_total_return",
+        )
+    allow_compounded_return_outputs = _allow_dashboard_compounded_return_outputs(return_basis_contract)
     performance_series = build_true_performance_series(
         daily_states,
         benchmark_rows,
@@ -187,6 +346,21 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
                 monthly_returns_suppressed=monthly_returns_suppressed,
             ),
             return_basis_contract=return_basis_contract,
+            return_basis_evidence=_build_dashboard_return_basis_evidence(
+                benchmark_rows=benchmark_rows,
+                symbol_price_histories=symbol_price_histories,
+                verified_benchmark_scope=verified_benchmark_scope,
+            ),
+            portfolio_proof=_build_dashboard_portfolio_proof_metadata(
+                snapshot=snapshot,
+                symbol_price_histories=symbol_price_histories,
+                valuation_dates=valuation_dates,
+                history_available=True,
+            ),
+            investor_economics_status=_build_dashboard_investor_economics_status(
+                allow_compounded_return_outputs=allow_compounded_return_outputs,
+                allow_drawdown_outputs=allow_drawdown_outputs,
+            ),
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
                 snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
@@ -196,12 +370,16 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
                 dataset_version=DASHBOARD_HISTORY_DATASET_VERSION,
             ),
         ),
-        benchmark=build_benchmark_comparison(resolved_benchmark_symbol, benchmark_rows),
+        benchmark=build_benchmark_comparison(
+            resolved_benchmark_symbol,
+            benchmark_rows,
+            return_basis_contract=return_basis_contract.benchmark_path,
+        ),
         range_metrics=_build_range_metrics(
             daily_states,
             performance_series,
             allow_drawdown_outputs=allow_drawdown_outputs,
-            allow_compounded_return_outputs=_allow_dashboard_compounded_return_outputs(return_basis_contract),
+            allow_compounded_return_outputs=allow_compounded_return_outputs,
         ),
     )
 
@@ -235,6 +413,9 @@ def _build_unavailable_dashboard_history_result(
                 portfolio_path="unavailable",
                 benchmark_path="unavailable",
             ),
+            return_basis_evidence=_build_dashboard_return_basis_evidence(benchmark_rows=[]),
+            portfolio_proof=build_unavailable_portfolio_proof_metadata(),
+            investor_economics_status=build_investor_economics_status(available=True),
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=input_imported_at,
                 snapshot_as_of_date=snapshot_as_of_date,

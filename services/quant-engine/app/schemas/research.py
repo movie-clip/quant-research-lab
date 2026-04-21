@@ -156,6 +156,24 @@ class EtfMomentumSourceStatus(BaseModel):
     sample_fallback_symbols: list[str] = Field(default_factory=list)
 
 
+InvestorEconomicsWithheldReason = Literal["withheld_unverified_total_return_equivalence"]
+INVESTOR_ECONOMICS_WITHHELD_REASON: InvestorEconomicsWithheldReason = "withheld_unverified_total_return_equivalence"
+
+
+class InvestorEconomicsStatus(BaseModel):
+    status: Literal["available", "withheld"]
+    reason: InvestorEconomicsWithheldReason | None = None
+
+
+def build_investor_economics_status(*, available: bool) -> InvestorEconomicsStatus:
+    if available:
+        return InvestorEconomicsStatus(status="available", reason=None)
+    return InvestorEconomicsStatus(
+        status="withheld",
+        reason=INVESTOR_ECONOMICS_WITHHELD_REASON,
+    )
+
+
 class EtfMomentumStrategyResponse(BaseModel):
     strategy_id: str
     title: str
@@ -167,6 +185,7 @@ class EtfMomentumStrategyResponse(BaseModel):
     lookback_months: int
     top_n: int
     methodology: str
+    investor_economics_status: InvestorEconomicsStatus
     current_rankings: list[EtfMomentumWeight] = Field(default_factory=list)
     latest_holdings: list[EtfMomentumWeight] = Field(default_factory=list)
     observations: list[EtfMomentumObservation] = Field(default_factory=list)

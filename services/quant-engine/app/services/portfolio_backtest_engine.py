@@ -32,6 +32,7 @@ from app.schemas.backtest_engine import (
     PortfolioAllocationBacktestRequest,
     PortfolioAllocationBacktestResponse,
 )
+from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
 from app.services.candidate_construction import build_candidate_weights_from_replacement_intent as _shared_build_candidate_weights_from_replacement_intent
 from app.services.candidate_construction import build_snapshot_baseline_weights as _shared_build_snapshot_baseline_weights
 from app.services.candidate_construction import derive_single_replacement_construction
@@ -172,12 +173,25 @@ def build_portfolio_allocation_backtest_analysis(request: PortfolioAllocationBac
 
     return PortfolioAllocationBacktestResponse(
         methodology=METHODOLOGY,
+        investor_economics_status=_build_response_investor_economics_status(reference_result, candidate_result),
         reference_result=reference_result,
         candidate_result=candidate_result,
         comparison=comparison,
         reference_diagnostics=reference_diagnostics,
         candidate_diagnostics=candidate_diagnostics,
         diagnostics_comparison=diagnostics_comparison,
+    )
+
+
+def _build_response_investor_economics_status(
+    reference_result: AllocationBacktestResult | None,
+    candidate_result: AllocationBacktestResult,
+) -> InvestorEconomicsStatus:
+    statuses = [candidate_result.investor_economics_status]
+    if reference_result is not None:
+        statuses.append(reference_result.investor_economics_status)
+    return build_investor_economics_status(
+        available=not any(status.status == "withheld" for status in statuses),
     )
 
 

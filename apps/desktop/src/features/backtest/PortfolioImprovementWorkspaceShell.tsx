@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
+import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { MonitoringResearchHandoff, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
@@ -137,13 +138,6 @@ function getProposalActiveReplay(proposal: VersionedProposalArtifact) {
   return 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay
 }
 
-function formatComparisonDelta(value: number | null | undefined, kind: 'pct' | 'number' | 'money' = 'pct') {
-  if (value == null) return 'n/a'
-  if (kind === 'money') return `${value > 0 ? '+' : ''}${formatMoney(value)}`
-  if (kind === 'number') return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
-  return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`
-}
-
 function formatReplayStatusLabel(status: string | null | undefined) {
   if (!status) return 'n/a'
   if (status === 'ok') return 'Pass'
@@ -175,7 +169,7 @@ type ProposalComparisonMetric = {
   label: string
   leftValue: string
   rightValue: string
-  delta: string
+  note: string
 }
 
 function buildProposalComparisonMetrics(left: VersionedProposalArtifact, right: VersionedProposalArtifact): ProposalComparisonMetric[] {
@@ -184,32 +178,39 @@ function buildProposalComparisonMetrics(left: VersionedProposalArtifact, right: 
 
   return [
     {
-      key: 'total-return',
-      label: 'Candidate total return',
-      leftValue: formatPct(leftReplay.candidate_result.metrics.total_return_pct),
-      rightValue: formatPct(rightReplay.candidate_result.metrics.total_return_pct),
-      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.total_return_pct ?? 0) - (leftReplay.candidate_result.metrics.total_return_pct ?? 0)),
+      key: 'replay-status',
+      label: 'Replay status',
+      leftValue: formatReplayStatusLabel(leftReplay.candidate_result.status),
+      rightValue: formatReplayStatusLabel(rightReplay.candidate_result.status),
+      note: 'Candidate replay execution status only.',
     },
     {
-      key: 'volatility',
-      label: 'Annualized volatility',
-      leftValue: formatPct(leftReplay.candidate_result.metrics.annualized_volatility_pct),
-      rightValue: formatPct(rightReplay.candidate_result.metrics.annualized_volatility_pct),
-      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.annualized_volatility_pct ?? 0) - (leftReplay.candidate_result.metrics.annualized_volatility_pct ?? 0)),
+      key: 'replay-window',
+      label: 'Replay window',
+      leftValue: `${left.replayBasis.startDate} -> ${left.replayBasis.endDate}`,
+      rightValue: `${right.replayBasis.startDate} -> ${right.replayBasis.endDate}`,
+      note: 'Window compatibility for saved replay review.',
     },
     {
-      key: 'drawdown',
-      label: 'Max drawdown',
-      leftValue: formatPct(leftReplay.candidate_result.metrics.max_drawdown_pct),
-      rightValue: formatPct(rightReplay.candidate_result.metrics.max_drawdown_pct),
-      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.max_drawdown_pct ?? 0) - (leftReplay.candidate_result.metrics.max_drawdown_pct ?? 0)),
+      key: 'replay-setup',
+      label: 'Replay setup',
+      leftValue: `${left.replayBasis.rebalanceFrequency} · ${left.replayBasis.commissionBps}/${left.replayBasis.slippageBps} bps`,
+      rightValue: `${right.replayBasis.rebalanceFrequency} · ${right.replayBasis.commissionBps}/${right.replayBasis.slippageBps} bps`,
+      note: 'Rebalance and cost inputs captured with each artifact.',
     },
     {
-      key: 'sharpe',
-      label: 'Sharpe ratio',
-      leftValue: formatValue(leftReplay.candidate_result.metrics.sharpe_ratio),
-      rightValue: formatValue(rightReplay.candidate_result.metrics.sharpe_ratio),
-      delta: formatComparisonDelta((rightReplay.candidate_result.metrics.sharpe_ratio ?? 0) - (leftReplay.candidate_result.metrics.sharpe_ratio ?? 0), 'number'),
+      key: 'lineage',
+      label: 'Replay lineage',
+      leftValue: `${formatReplayCandidateInputSourceLabel(left.reviewSnapshot.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(left.reviewSnapshot.replay_provenance.construction_rule_id)}`,
+      rightValue: `${formatReplayCandidateInputSourceLabel(right.reviewSnapshot.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(right.reviewSnapshot.replay_provenance.construction_rule_id)}`,
+      note: 'Saved provenance and replay handoff only.',
+    },
+    {
+      key: 'constraint-validation',
+      label: 'Constraint validation',
+      leftValue: formatReplayConstraintValidationLabel(left.reviewSnapshot.replay_provenance.constraint_validation),
+      rightValue: formatReplayConstraintValidationLabel(right.reviewSnapshot.replay_provenance.constraint_validation),
+      note: 'Saved validation handoff state only.',
     },
   ]
 }
@@ -274,20 +275,20 @@ function SavedProposalComparisonView({
         <button className="secondary-button" onClick={onClearComparison} type="button">Clear comparison</button>
       </div>
       <div className="summary-card">
-        <p className="panel-label">Key Differences</p>
+        <p className="panel-label">Comparison Checks</p>
         <div className="list-table">
           <div className="list-row list-row-wide">
-            <span>Metric</span>
+            <span>Check</span>
             <span>Left</span>
             <span>Right</span>
-            <span>Right - left</span>
+            <span>Review note</span>
           </div>
           {comparisonMetrics.map((metric) => (
             <div className="list-row list-row-wide" key={metric.key}>
               <span>{metric.label}</span>
               <span>{metric.leftValue}</span>
               <span>{metric.rightValue}</span>
-              <span>{metric.delta}</span>
+              <span>{metric.note}</span>
             </div>
           ))}
         </div>
@@ -317,7 +318,7 @@ function SavedProposalComparisonView({
       {!diagnosticsAvailable ? (
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">Saved diagnostics takeaway is unavailable for both proposals.</p>
-          <p className="helper">Comparison still shows shared replay metrics and saved proposal lineage from the immutable artifacts.</p>
+          <p className="helper">Comparison still shows saved replay status, setup, compatibility, and lineage from the immutable artifacts.</p>
         </div>
       ) : null}
       <div className="split-grid dashboard-bottom-grid">
@@ -393,6 +394,9 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
     && activeConstraintValidation?.validation.status === 'rejected',
   )
   const activeReplay = getActiveReplay(props)
+  const replayInvestorEconomicsWithheld = investorEconomicsBaseReason(activeReplay?.investor_economics_status) != null
+  const replayTotalReturnDelta = activeReplay?.comparison?.total_return_diff_pct ?? null
+  const replayCandidateTotalReturn = activeReplay?.candidate_result.metrics.total_return_pct ?? null
   const diagnosticsTakeaway = getTopDiagnosticsTakeaway(activeReplay)
   const latestProposal = getLatestProposal(props.savedProposals)
 
@@ -514,9 +518,13 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
             ? 'Blocked'
             : 'Unavailable',
       detail: props.hypotheticalReplayResult && activeReplay
-        ? activeReplay.comparison?.total_return_diff_pct != null
-          ? `Total return delta ${formatSignedPct(activeReplay.comparison.total_return_diff_pct)} versus baseline under the shared replay window.`
-          : `Candidate total return ${formatPct(activeReplay.candidate_result.metrics.total_return_pct)} under the shared replay window.`
+        ? replayInvestorEconomicsWithheld
+          ? 'Replay evidence is recorded for this workflow, but investor-performance outputs are withheld. Review replay status, lineage, window, and allowed diagnostics only.'
+          : replayTotalReturnDelta != null
+          ? `Total return delta ${formatSignedPct(replayTotalReturnDelta)} versus baseline under the shared replay window.`
+          : replayCandidateTotalReturn != null
+            ? `Candidate total return ${formatPct(activeReplay.candidate_result.metrics.total_return_pct)} under the shared replay window.`
+            : 'Replay evidence is recorded for this workflow. Review replay status, lineage, window, and allowed diagnostics only.'
         : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok' && hasPassingConstraintValidation
           ? 'A validated construction artifact exists, but no hypothetical replay review has been run yet.'
           : hasBlockedConstraintValidation

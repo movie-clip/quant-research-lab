@@ -206,6 +206,10 @@ def test_etf_cross_sectional_momentum_route_returns_rankings_and_curve() -> None
     assert response.status_code == 200
     payload = response.json()
     assert payload["strategy_id"] == "book_etf_cross_sectional_momentum"
+    assert payload["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
     assert payload["current_rankings"]
     assert payload["equity_curve"]
     assert payload["metrics"]["total_return_pct"] is None

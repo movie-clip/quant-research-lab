@@ -57,6 +57,7 @@ Important rules:
 Replay and diagnostics provenance should be interpreted together with explicit backend metadata:
 
 - replay assumptions carry the authoritative replay `price_basis`
+- replay responses now carry explicit `investor_economics_status` at the top level and on each replay run (`reference_result`/`candidate_result` when present)
 - diagnostics provenance carries `snapshot_basis` and `historical_basis`
 - grouped ranking metadata remains authoritative for ranking flows used upstream of replay
 
@@ -83,6 +84,13 @@ This means diagnostics are built from:
 - a synthetic snapshot from replay ending weights
 - replay-derived daily states from the equity curve
 - historical benchmark/factor market data
+
+Investor-economics withholding rule:
+
+- `PortfolioAllocationBacktestResponse.investor_economics_status` is the aggregate user-facing replay status for the response
+- `reference_result.investor_economics_status` and `candidate_result.investor_economics_status` expose the per-run status
+- when any relevant replay status is `withheld`, user-facing investor-economics metrics and any derived/comparative views from that basis are intentionally suppressed rather than merely absent
+- current withholding reason is explicit and should be read as total-return equivalence not yet verified, not as a market-data failure
 
 Implementation:
 
@@ -187,24 +195,24 @@ Current overlay rule:
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Total Return | `reference_result.metrics.total_return_pct`, `candidate_result.metrics.total_return_pct` | `result.reference_result.metrics`, `result.candidate_result.metrics` | `replay-derived` | if no comparison run, hide table | candidate/baseline replay result |
-| Annualized Return | `annualized_return_pct` | replay metrics | `replay-derived` | if no comparison run, hide table | replay metric |
+| Total Return | `reference_result.metrics.total_return_pct`, `candidate_result.metrics.total_return_pct` | `result.reference_result.metrics`, `result.candidate_result.metrics` | `replay-derived` | if no comparison run, hide table; if investor-economics are withheld, render `n/a`/suppressed state | candidate/baseline replay result |
+| Annualized Return | `annualized_return_pct` | replay metrics | `replay-derived` | if no comparison run, hide table; if investor-economics are withheld, render `n/a`/suppressed state | replay metric |
 | Annualized Volatility | `annualized_volatility_pct` | replay metrics | `replay-derived` | if no comparison run, hide table | replay metric |
 | Downside Volatility | `downside_volatility_pct` | replay metrics | `replay-derived` | if no comparison run, hide table | replay metric |
-| Max Drawdown | `max_drawdown_pct` | replay metrics | `replay-derived` | if no comparison run, hide table | replay metric |
-| Sharpe / Sortino | `sharpe_ratio`, `sortino_ratio` | replay metrics | `replay-derived` | if unavailable, render `n/a` | replay metric |
-| Benchmark Return / Excess Return | `benchmark_return_pct`, `excess_return_pct` | replay metrics | `replay-derived` | if unavailable, render `n/a` | benchmark-relative replay metric |
-| Tracking Error / Information Ratio | `tracking_error_pct`, `information_ratio` | replay metrics | `replay-derived` | if unavailable, render `n/a` | benchmark-relative replay metric |
-| Beta / Correlation vs Benchmark | `beta_vs_benchmark`, `correlation_vs_benchmark` | replay metrics | `replay-derived` | if unavailable, render `n/a` | benchmark-relative replay metric |
+| Max Drawdown | `max_drawdown_pct` | replay metrics | `replay-derived` | if no comparison run, hide table; if investor-economics are withheld, render `n/a`/suppressed state | replay metric |
+| Sharpe / Sortino | `sharpe_ratio`, `sortino_ratio` | replay metrics | `replay-derived` | if unavailable or investor-economics are withheld, render `n/a`/suppressed state | replay metric |
+| Benchmark Return / Excess Return | `benchmark_return_pct`, `excess_return_pct` | replay metrics | `replay-derived` | if unavailable or investor-economics are withheld, render `n/a`/suppressed state | benchmark-relative replay metric |
+| Tracking Error / Information Ratio | `tracking_error_pct`, `information_ratio` | replay metrics | `replay-derived` | if unavailable or the specific metric is withheld, render `n/a`/suppressed state | benchmark-relative replay metric |
+| Beta / Correlation vs Benchmark | `beta_vs_benchmark`, `correlation_vs_benchmark` | replay metrics | `replay-derived` | if unavailable or the specific metric is withheld, render `n/a`/suppressed state | benchmark-relative replay metric |
 | Turnover / Total Cost | `total_turnover_pct`, `total_cost_paid` | replay metrics | `replay-derived` | if unavailable, render `n/a` | implementation-sensitive replay metric |
-| Delta column | `candidate - baseline` | comparison payload | `replay-derived` | if baseline absent, no comparison rows | delta semantics defined in `_diff(...)` |
+| Delta column | `candidate - baseline` | comparison payload | `replay-derived` | if baseline absent, no comparison rows; if the underlying investor-economics metric is withheld, the delta must stay `null`/suppressed | delta semantics defined in `_diff(...)` |
 
 ### Replay curve section
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Replay Equity | `candidate_result.equity_curve`, optional `reference_result.equity_curve` | replay result curves | `replay-derived` | if no result, hide whole section | chart values come directly from replay output |
-| Replay Drawdown | `drawdown_pct` from replay curves | replay result curves | `replay-derived` | if unavailable, render `n/a` in tooltip/series gap | replay-derived drawdown path |
+| Replay Drawdown | `drawdown_pct` from replay curves | replay result curves | `replay-derived` | if unavailable or investor-economics are withheld, render `n/a`/suppress the drawdown view | replay-derived drawdown path |
 
 ### Diagnostics comparison section
 
@@ -212,7 +220,7 @@ Current overlay rule:
 | --- | --- | --- | --- | --- | --- |
 | Before / After Diagnostics header note | `candidate_diagnostics.provenance.note` | diagnostics provenance | `synthetic-derived` + `diagnostics-derived` | if provenance absent, fallback helper text should remain explicit | must prevent confusion with imported diagnostics |
 | Factor Exposure Change | `diagnostics_comparison.factor_exposure_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | built from synthetic replay diagnostics snapshots |
-| Volatility / Drawdown Change | `diagnostics_comparison.volatility_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | built from replay diagnostics |
+| Volatility / Drawdown Change | `diagnostics_comparison.volatility_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section; withheld investor-economics metrics must not be backfilled through this section | built from replay diagnostics |
 | Risk Contribution Change | `diagnostics_comparison.risk_contribution_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | synthetic snapshot + historical factor data |
 | Concentration Change | `diagnostics_comparison.concentration_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | derived from diagnostics snapshots |
 | Stress Scenario Change | `diagnostics_comparison.stress_scenario_changes` | diagnostics comparison payload | `diagnostics-derived` | if diagnostics comparison missing, hide whole diagnostics section | uses diagnostics model outputs, not imported truth |
@@ -274,6 +282,7 @@ Important semantics:
 - the callout means `most salient valid change in this group` under the documented backend rule, not `best`, `recommended`, or `approved`
 - desktop must render the returned callout fields as-is and must not recompute ranking from array order
 - if no eligible row exists for a group, the corresponding `top_*` field must be `null`
+- if investor-economics withholding suppresses the underlying metric family, the corresponding comparative row/callout values must remain `null` or absent rather than substituted with fallback numbers
 
 ### Implementation details section
 
@@ -304,6 +313,7 @@ Important semantics:
 6. Replacement-intent replay preview must reject invalid substitution cases rather than invent renormalization or portfolio-construction behavior.
 7. Constructed-candidate replay may consume `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`, and the replay contract now exposes that distinction explicitly through both `derivation` and `replay_provenance`.
 8. Overlay-aware replay may inject synthetic cash `__CASH__`; this is a replay artifact only and must not be presented as imported cash truth.
+9. Backtest/replay withholding is distinct from unavailability: when `investor_economics_status` is `withheld`, replay evidence can still exist, but user-facing investor-economics metrics and derived/comparative views from that basis must stay suppressed or `null`.
 
 ## Current Coverage Status
 

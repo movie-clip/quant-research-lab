@@ -34,6 +34,8 @@ from app.schemas.diagnostics import (
     DiagnosticsRiskConcentrationSummary,
     DiagnosticsVolatilitySummary,
 )
+from app.schemas.return_basis import ReturnBasisEvidence
+from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
 from app.schemas.reconciliation import (
     DailyPortfolioState,
     DailyStatePosition,
@@ -53,7 +55,14 @@ from app.schemas.reconciliation import (
     RegimeAssessment,
 )
 from app.services.exposure_engine import build_snapshot_from_exposure_request
-from app.services.market_data import MarketDataService, detect_histories_return_basis, detect_history_return_basis
+from app.services.market_data import (
+    MarketDataService,
+    build_histories_return_basis_evidence,
+    build_history_return_basis_evidence,
+    detect_histories_return_basis,
+    detect_history_return_basis,
+)
+from app.services.portfolio_proof import build_portfolio_proof_metadata, build_unavailable_portfolio_proof_metadata
 
 
 DIAGNOSTICS_ID = "diagnostics_engine_v1"
@@ -241,6 +250,21 @@ def _allow_diagnostics_relative_return_outputs() -> bool:
     return False
 
 
+def _build_diagnostics_investor_economics_status(
+    *,
+    historical_sections_available: bool,
+    allow_drawdown_outputs: bool,
+    allow_relative_return_outputs: bool,
+) -> InvestorEconomicsStatus:
+    if not historical_sections_available:
+        return build_investor_economics_status(available=True)
+    if allow_drawdown_outputs and allow_relative_return_outputs:
+        return build_investor_economics_status(available=True)
+    return build_investor_economics_status(
+        available=False,
+    )
+
+
 def _apply_diagnostics_relative_return_output_policy(
     relative_risk: RelativeRiskSummary,
     *,
@@ -316,6 +340,40 @@ def build_historical_diagnostics_result(
         for symbol, rows in factor_histories.items()
         if symbol != benchmark_symbol
     })
+    portfolio_history_evidence = (
+        ReturnBasisEvidence(
+            verification_status="unverified",
+            economic_basis="price_return_only",
+            construction_method="synthetic_snapshot_history",
+            disqualifiers=[
+                "synthetic_snapshot_history",
+                "missing_total_return_reconstruction",
+                "missing_dividend_coverage_proof",
+            ],
+            fallbacks_used=["synthetic_snapshot_history"],
+            source_price_field="price",
+        )
+        if provenance.historical_basis == "market_data_history"
+        else ReturnBasisEvidence(
+            verification_status="unverified",
+            economic_basis="unavailable",
+            construction_method="unknown",
+            disqualifiers=["missing_portfolio_return_basis_proof"],
+            fallbacks_used=[],
+            source_price_field=None,
+        )
+    )
+    return_basis_evidence = DiagnosticsRunMetadata.ReturnBasisEvidenceBundle(
+        portfolio_history=portfolio_history_evidence,
+        benchmark_history=build_history_return_basis_evidence(benchmark_rows),
+        factor_history=build_histories_return_basis_evidence(
+            {
+                symbol: rows
+                for symbol, rows in factor_histories.items()
+                if symbol != benchmark_symbol
+            }
+        ),
+    )
     source_status = _build_diagnostics_source_status(
         provenance.historical_basis,
         benchmark_return_basis=benchmark_return_basis,
@@ -362,6 +420,11 @@ def build_historical_diagnostics_result(
     stress_scenarios = build_stress_scenarios(statistical_factor_model)
     factor_exposures = build_factor_exposures(risk_summary, market_overlap, lookthrough_sector_exposure)
     concentration = risk_contribution_breakdown.concentration
+    portfolio_proof_history_source = (
+        "imported_replay"
+        if provenance.historical_basis == "imported_portfolio_history"
+        else "synthetic_snapshot_history"
+    )
 
     return DiagnosticsResult(
         snapshot=snapshot,
@@ -378,6 +441,19 @@ def build_historical_diagnostics_result(
             price_basis=DIAGNOSTICS_PRICE_BASIS,
             source_status=source_status,
             section_trust=section_trust,
+            return_basis_evidence=return_basis_evidence,
+            portfolio_proof=build_portfolio_proof_metadata(
+                snapshot=snapshot,
+                price_histories=symbol_price_histories,
+                valuation_dates=[state.date for state in daily_states],
+                fx_history={},
+                history_source=portfolio_proof_history_source,
+            ),
+            investor_economics_status=_build_diagnostics_investor_economics_status(
+                historical_sections_available=True,
+                allow_drawdown_outputs=allow_drawdown_outputs,
+                allow_relative_return_outputs=allow_relative_return_outputs,
+            ),
             confidence=diagnostics_confidence,
             factor_model_parameters=_build_factor_model_parameters(),
             reproducibility=_build_reproducibility_metadata(
@@ -450,6 +526,17 @@ def build_unavailable_diagnostics_result(
                 benchmark_return_basis="unavailable",
                 factor_return_basis="unavailable",
                 historical_sections_available=False,
+            ),
+            return_basis_evidence=DiagnosticsRunMetadata.ReturnBasisEvidenceBundle(
+                portfolio_history=build_history_return_basis_evidence([]),
+                benchmark_history=build_history_return_basis_evidence([]),
+                factor_history=build_history_return_basis_evidence([]),
+            ),
+            portfolio_proof=build_unavailable_portfolio_proof_metadata(),
+            investor_economics_status=_build_diagnostics_investor_economics_status(
+                historical_sections_available=False,
+                allow_drawdown_outputs=False,
+                allow_relative_return_outputs=False,
             ),
             confidence="low",
             factor_model_parameters=_build_factor_model_parameters(),

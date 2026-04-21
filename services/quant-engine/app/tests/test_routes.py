@@ -373,6 +373,57 @@ def test_diagnostics_engine_route_marks_snapshot_only_history_as_unavailable() -
         "benchmark_history": "unavailable",
         "factor_history": "unavailable",
     }
+    assert payload["run_metadata"]["return_basis_evidence"] == {
+        "portfolio_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "factor_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+    }
+    assert payload["run_metadata"]["portfolio_proof"] == {
+        "proof_system": "portfolio_verified_total_return_v1",
+        "portfolio_path": "unavailable",
+        "verification_status": "unavailable",
+        "output_status": "unavailable",
+        "verified_total_return_emitted": False,
+        "benchmark_proof_independent": True,
+        "disqualifiers": ["portfolio_history_unavailable"],
+        "evidence": {
+            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "corporate_action_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+        },
+    }
+    assert payload["run_metadata"]["investor_economics_status"] == {
+        "status": "available",
+        "reason": None,
+    }
     assert payload["stress_scenarios"][0]["estimated_return_pct"] is None
     assert payload["stress_scenarios"][0]["status"] == "unavailable"
     assert payload["drawdown_summary"] == {
@@ -434,9 +485,11 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
         "input_imported_at": "2026-04-23T00:00:00+00:00",
         "snapshot_as_of_date": "2026-04-23",
         "history_start_date": "2026-04-10",
-        "history_end_date": "2026-04-17",
+        "history_end_date": payload["run_metadata"]["reproducibility"]["history_end_date"],
         "dataset_version": "market_data_service_v1",
     }
+    assert payload["run_metadata"]["reproducibility"]["history_end_date"] is not None
+    assert payload["run_metadata"]["reproducibility"]["history_end_date"] <= "2026-04-23"
     assert payload["run_metadata"]["factor_model_parameters"] == {
         "rolling_windows_days": [20, 60, 252],
         "current_reliability_window_days": 60,
@@ -450,10 +503,176 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
         "benchmark_history": "live_market_data_unverified_return_basis",
         "factor_history": "live_market_data_unverified_return_basis",
     }
+    assert payload["run_metadata"]["return_basis_evidence"] == {
+        "portfolio_history": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "synthetic_snapshot_history",
+            "disqualifiers": [
+                "synthetic_snapshot_history",
+                "missing_total_return_reconstruction",
+                "missing_dividend_coverage_proof",
+            ],
+            "fallbacks_used": ["synthetic_snapshot_history"],
+            "source_price_field": "price",
+            "scope": {},
+        },
+        "benchmark_history": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+        "factor_history": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+    }
+    portfolio_proof = payload["run_metadata"]["portfolio_proof"]
+    assert portfolio_proof["proof_system"] == "portfolio_verified_total_return_v1"
+    assert portfolio_proof["portfolio_path"] == "withheld"
+    assert portfolio_proof["verification_status"] == "unverified"
+    assert portfolio_proof["output_status"] == "withheld"
+    assert portfolio_proof["verified_total_return_emitted"] is False
+    assert portfolio_proof["benchmark_proof_independent"] is True
+    assert portfolio_proof["disqualifiers"] == [
+        "calendar_coverage_not_broker_proven",
+        "corporate_action_proof_missing",
+        "portfolio_verified_total_return_withheld",
+        "raw_price_used_for_valuation",
+        "synthetic_snapshot_history",
+        "synthetic_snapshot_opening_state",
+    ]
+    assert portfolio_proof["evidence"]["opening_state_basis"] == {
+        "status": "disqualified",
+        "positive_evidence": ["no_broker_ledger_entries_available"],
+        "negative_evidence": ["opening_state_derived_from_current_snapshot"],
+        "disqualifiers": ["synthetic_snapshot_opening_state"],
+        "witnesses": [
+            {
+                "label": "opening_cash_state",
+                "status": "unknown_inferred",
+                "evidence": ["synthetic_snapshot_history_has_no_broker_opening_cash_state"],
+                "counts": {},
+            },
+            {
+                "label": "opening_positions_state",
+                "status": "unknown_inferred",
+                "evidence": ["opening_positions_derived_from_current_snapshot"],
+                "counts": {},
+            },
+        ],
+    }
+    assert portfolio_proof["evidence"]["cash_flow_basis"] == {
+        "status": "disqualified",
+        "positive_evidence": ["no_broker_ledger_entries_available"],
+        "negative_evidence": ["synthetic_snapshot_history_has_no_external_flow_replay"],
+        "disqualifiers": ["synthetic_snapshot_history"],
+        "witnesses": [
+            {
+                "label": "cash_flow_classification",
+                "status": "not_observed",
+                "evidence": ["no_broker_proven_external_capital_flow_entries_observed"],
+                "counts": {"external_capital_flow": 0},
+            },
+            {
+                "label": "internal_trading_flow_classification",
+                "status": "not_observed",
+                "evidence": ["no_internal_trading_cash_flows_observed"],
+                "counts": {"internal_trading_flow": 0},
+            },
+            {
+                "label": "broker_explicit_income_expense_classification",
+                "status": "not_observed",
+                "evidence": ["no_broker_explicit_income_or_expense_cash_flows_observed"],
+                "counts": {
+                    "broker_explicit_dividend": 0,
+                    "broker_explicit_interest": 0,
+                    "broker_explicit_fee": 0,
+                    "broker_explicit_tax": 0,
+                },
+            },
+            {
+                "label": "unknown_cash_flow_classification",
+                "status": "none_observed",
+                "evidence": ["no_unknown_cash_flow_entries_observed"],
+                "counts": {"unknown": 0},
+            },
+        ],
+    }
+    assert portfolio_proof["evidence"]["fx_basis"] == {
+        "status": "supported",
+        "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
+        "negative_evidence": [],
+        "disqualifiers": [],
+        "witnesses": [],
+    }
+    assert portfolio_proof["evidence"]["corporate_action_basis"] == {
+        "status": "disqualified",
+        "positive_evidence": ["no_broker_ledger_entries_available"],
+        "negative_evidence": ["corporate_action_proof_not_available"],
+        "disqualifiers": ["corporate_action_proof_missing"],
+        "witnesses": [],
+    }
+    assert portfolio_proof["evidence"]["terminal_reconciliation_basis"] == {
+        "status": "supported",
+        "positive_evidence": ["terminal_force_reconciliation_not_present"],
+        "negative_evidence": [],
+        "disqualifiers": [],
+        "witnesses": [],
+    }
+    assert portfolio_proof["evidence"]["calendar_coverage_basis"] == {
+        "status": "disqualified",
+        "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
+        "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
+        "disqualifiers": ["calendar_coverage_not_broker_proven"],
+        "witnesses": [],
+    }
+    valuation_witnesses = portfolio_proof["evidence"]["valuation_basis"]["witnesses"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["status"] == "disqualified"
+    assert portfolio_proof["evidence"]["valuation_basis"]["positive_evidence"] == ["valuation_dates_available", "position_price_histories_loaded"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["negative_evidence"] == ["vendor_raw_price_used_for_valuation", "valuation_path_is_synthetic_snapshot_history"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["disqualifiers"] == ["raw_price_used_for_valuation", "synthetic_snapshot_history"]
+    assert valuation_witnesses[0] == {
+        "label": "valuation_input_policy",
+        "status": "explicit_withholding_contract",
+        "evidence": [
+            "proof_eligible:broker_proven_mark_to_market_inputs",
+            "replay_only:raw_vendor_price",
+            "replay_only:forward_fill",
+            "replay_only:synthetic_snapshot_history",
+            "replay_only:snapshot_fallback",
+            "replay_only:other_fallback_construction",
+            "replay_only:mixed_basis_construction",
+            "verified_total_return_withheld_when_any_replay_only_valuation_input_is_observed",
+        ],
+        "counts": {"proof_eligible_input_types": 1, "replay_only_input_types": 6},
+    }
+    assert valuation_witnesses[1]["label"] == "valuation_history_construction"
+    assert valuation_witnesses[1]["status"] == "synthetic_snapshot_history"
+    assert valuation_witnesses[1]["evidence"] == ["valuation_states_constructed_from_synthetic_snapshot_history"]
+    assert valuation_witnesses[1]["counts"]["valuation_date_count"] >= 1
+    assert valuation_witnesses[2]["label"].startswith("valuation_window_basis:2026-04-10")
+    assert valuation_witnesses[2]["status"] == "raw_vendor_price"
+    assert valuation_witnesses[2]["counts"]["valuation_date_count"] >= 1
+    assert valuation_witnesses[2]["counts"]["valued_symbol_count"] >= 1
+    assert valuation_witnesses[2]["counts"]["raw_vendor_price"] >= 1
     assert payload["run_metadata"]["section_trust"] == {
         "benchmark_relative_path": "degraded_unverified_return_basis",
         "factor_model_path": "degraded_unverified_return_basis",
         "risk_contribution_path": "degraded_unverified_return_basis",
+    }
+    assert payload["run_metadata"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
     }
     assert payload["provenance"]["note"].endswith(
         "Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
@@ -513,6 +732,10 @@ def test_dashboard_history_engine_route_accepts_snapshot_with_history_context() 
         "performance_history": "unavailable",
         "monthly_returns": "unavailable",
         "benchmark_history": "unavailable",
+    }
+    assert payload["run_metadata"]["investor_economics_status"] == {
+        "status": "available",
+        "reason": None,
     }
     assert payload["run_metadata"]["reproducibility"] == {
         "input_imported_at": "2026-04-10T00:00:00+00:00",
@@ -593,6 +816,157 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
         "portfolio_path": "unavailable",
         "benchmark_path": "price_return_only",
     }
+    assert payload["run_metadata"]["return_basis_evidence"] == {
+        "portfolio_path": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+        "benchmark_path": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+    }
+    portfolio_proof = payload["run_metadata"]["portfolio_proof"]
+    assert portfolio_proof["proof_system"] == "portfolio_verified_total_return_v1"
+    assert portfolio_proof["portfolio_path"] == "withheld"
+    assert portfolio_proof["verification_status"] == "unverified"
+    assert portfolio_proof["output_status"] == "withheld"
+    assert portfolio_proof["verified_total_return_emitted"] is False
+    assert portfolio_proof["benchmark_proof_independent"] is True
+    assert portfolio_proof["disqualifiers"] == [
+        "calendar_coverage_not_broker_proven",
+        "corporate_action_proof_missing",
+        "portfolio_verified_total_return_withheld",
+        "raw_price_used_for_valuation",
+    ]
+    assert portfolio_proof["evidence"]["opening_state_basis"] == {
+        "status": "supported",
+        "positive_evidence": ["broker_ledger_entries_available", "opening_state_covered_by_observed_trade_window"],
+        "negative_evidence": [],
+        "disqualifiers": [],
+        "witnesses": [
+            {
+                "label": "opening_cash_state",
+                "status": "unknown_inferred",
+                "evidence": ["broker_opening_cash_state_not_present"],
+                "counts": {},
+            },
+            {
+                "label": "opening_positions_state",
+                "status": "trade_window_covered",
+                "evidence": ["opening_positions_covered_by_observed_trade_window"],
+                "counts": {"covered_symbol_count": 1},
+            },
+        ],
+    }
+    assert portfolio_proof["evidence"]["cash_flow_basis"] == {
+        "status": "supported",
+        "positive_evidence": ["broker_ledger_entries_available", "cash_movement_entries_classified_with_broker_native_evidence"],
+        "negative_evidence": [],
+        "disqualifiers": [],
+        "witnesses": [
+            {
+                "label": "cash_flow_classification",
+                "status": "not_observed",
+                "evidence": ["no_broker_proven_external_capital_flow_entries_observed"],
+                "counts": {"external_capital_flow": 0},
+            },
+            {
+                "label": "internal_trading_flow_classification",
+                "status": "broker_proven",
+                "evidence": ["broker_trade_ledger_line"],
+                "counts": {"internal_trading_flow": 1},
+            },
+            {
+                "label": "broker_explicit_income_expense_classification",
+                "status": "not_observed",
+                "evidence": ["no_broker_explicit_income_or_expense_cash_flows_observed"],
+                "counts": {
+                    "broker_explicit_dividend": 0,
+                    "broker_explicit_interest": 0,
+                    "broker_explicit_fee": 0,
+                    "broker_explicit_tax": 0,
+                },
+            },
+            {
+                "label": "unknown_cash_flow_classification",
+                "status": "none_observed",
+                "evidence": ["no_unknown_cash_flow_entries_observed"],
+                "counts": {"unknown": 0},
+            },
+        ],
+    }
+    assert portfolio_proof["evidence"]["fx_basis"] == {
+        "status": "supported",
+        "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
+        "negative_evidence": [],
+        "disqualifiers": [],
+        "witnesses": [],
+    }
+    assert portfolio_proof["evidence"]["corporate_action_basis"] == {
+        "status": "disqualified",
+        "positive_evidence": ["broker_ledger_entries_available"],
+        "negative_evidence": ["corporate_action_proof_not_available"],
+        "disqualifiers": ["corporate_action_proof_missing"],
+        "witnesses": [],
+    }
+    assert portfolio_proof["evidence"]["terminal_reconciliation_basis"] == {
+        "status": "supported",
+        "positive_evidence": ["terminal_force_reconciliation_not_present"],
+        "negative_evidence": [],
+        "disqualifiers": [],
+        "witnesses": [],
+    }
+    assert portfolio_proof["evidence"]["calendar_coverage_basis"] == {
+        "status": "disqualified",
+        "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
+        "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
+        "disqualifiers": ["calendar_coverage_not_broker_proven"],
+        "witnesses": [],
+    }
+    valuation_witnesses = portfolio_proof["evidence"]["valuation_basis"]["witnesses"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["status"] == "disqualified"
+    assert portfolio_proof["evidence"]["valuation_basis"]["positive_evidence"] == ["valuation_dates_available", "position_price_histories_loaded"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["negative_evidence"] == ["vendor_raw_price_used_for_valuation"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["disqualifiers"] == ["raw_price_used_for_valuation"]
+    assert valuation_witnesses[0] == {
+        "label": "valuation_input_policy",
+        "status": "explicit_withholding_contract",
+        "evidence": [
+            "proof_eligible:broker_proven_mark_to_market_inputs",
+            "replay_only:raw_vendor_price",
+            "replay_only:forward_fill",
+            "replay_only:synthetic_snapshot_history",
+            "replay_only:snapshot_fallback",
+            "replay_only:other_fallback_construction",
+            "replay_only:mixed_basis_construction",
+            "verified_total_return_withheld_when_any_replay_only_valuation_input_is_observed",
+        ],
+        "counts": {"proof_eligible_input_types": 1, "replay_only_input_types": 6},
+    }
+    assert valuation_witnesses[1]["label"] == "valuation_history_construction"
+    assert valuation_witnesses[1]["status"] == "imported_replay"
+    assert valuation_witnesses[1]["evidence"] == ["valuation_states_replayed_from_imported_broker_activity"]
+    assert valuation_witnesses[1]["counts"]["valuation_date_count"] >= 1
+    assert valuation_witnesses[2]["label"].startswith("valuation_window_basis:2026-04-10")
+    assert valuation_witnesses[2]["status"] == "raw_vendor_price"
+    assert valuation_witnesses[2]["counts"]["valuation_date_count"] >= 1
+    assert valuation_witnesses[2]["counts"]["valued_symbol_count"] >= 1
+    assert valuation_witnesses[2]["counts"]["raw_vendor_price"] >= 1
+    assert payload["run_metadata"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
     assert payload["run_metadata"]["reproducibility"] == {
         "input_imported_at": "2026-04-10T00:00:00+00:00",
         "snapshot_as_of_date": "2026-04-11",
@@ -601,6 +975,65 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
         "benchmark_symbol": "SPY",
         "dataset_version": "market_data_service_v1",
     }
+
+
+def test_imported_dashboard_history_engine_route_exposes_verified_total_return_for_direct_allowlisted_fmp_slice(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 101.5},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    client = TestClient(app)
+
+    response = client.post(
+        "/engines/dashboard-history/run-imported",
+        json={
+            "statement": {
+                "importer": "interactive_brokers",
+                "imported_at": "2026-04-10T00:00:00Z",
+                "source_path": "snapshot.pdf",
+                "detected_format": "pdf",
+                "account_id": "U123",
+                "base_currency": "USD",
+                "statement_period": "2026-04-10 - 2026-04-11",
+                "page_count": 1,
+            },
+            "statements": [],
+            "statement_totals": None,
+            "instruments": [],
+            "cash_balances": [{"currency": "USD", "ending_cash": 100.0}],
+            "positions": [{"symbol": "AAPL", "quantity": 10, "market_value": 1150, "currency": "USD", "as_of_date": "2026-04-11", "cost_basis": 1000, "close_price": 115, "unrealized_pnl": 150}],
+            "ledger_entries": [{"entry_type": "BUY", "trade_date": "2026-04-10", "symbol": "AAPL", "quantity": 10, "price": 100, "gross_amount": 1000, "net_amount": 1000, "currency": "USD", "source_section": "Trades"}],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_metadata"]["return_basis_contract"]["benchmark_path"] == "verified_total_return"
+    assert payload["run_metadata"]["return_basis_evidence"]["benchmark_path"]["verification_status"] == "verified"
+    assert payload["run_metadata"]["return_basis_evidence"]["benchmark_path"]["source_price_field"] == "adjClose"
+    assert payload["run_metadata"]["return_basis_evidence"]["benchmark_path"]["scope"]["vendor"] == "FMP"
+    assert payload["run_metadata"]["return_basis_evidence"]["benchmark_path"]["scope"]["direct_path_only"] is True
 
 
 def test_imported_dashboard_history_engine_route_marks_missing_imported_history_as_unavailable() -> None:
@@ -644,6 +1077,24 @@ def test_imported_dashboard_history_engine_route_marks_missing_imported_history_
         "history_end_date": None,
         "benchmark_symbol": "SPY",
         "dataset_version": "market_data_service_v1",
+    }
+    assert payload["run_metadata"]["portfolio_proof"] == {
+        "proof_system": "portfolio_verified_total_return_v1",
+        "portfolio_path": "unavailable",
+        "verification_status": "unavailable",
+        "output_status": "unavailable",
+        "verified_total_return_emitted": False,
+        "benchmark_proof_independent": True,
+        "disqualifiers": ["portfolio_history_unavailable"],
+        "evidence": {
+            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "corporate_action_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+        },
     }
     assert payload["daily_states"] == []
     assert payload["performance_series"] == []
@@ -732,10 +1183,182 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
         "benchmark_history": "live_market_data_unverified_return_basis",
         "factor_history": "live_market_data_unverified_return_basis",
     }
+    assert payload["run_metadata"]["return_basis_evidence"] == {
+        "portfolio_history": {
+            "verification_status": "unverified",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_portfolio_return_basis_proof"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_history": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+        "factor_history": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+    }
+    assert payload["run_metadata"]["portfolio_proof"] == {
+        "proof_system": "portfolio_verified_total_return_v1",
+        "portfolio_path": "withheld",
+        "verification_status": "unverified",
+        "output_status": "withheld",
+        "verified_total_return_emitted": False,
+        "benchmark_proof_independent": True,
+        "disqualifiers": [
+            "calendar_coverage_not_broker_proven",
+            "corporate_action_proof_missing",
+            "portfolio_verified_total_return_withheld",
+            "raw_price_used_for_valuation",
+        ],
+        "evidence": {
+            "opening_state_basis": {
+                "status": "supported",
+                "positive_evidence": ["broker_ledger_entries_available", "opening_state_covered_by_observed_trade_window"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "opening_cash_state",
+                        "status": "unknown_inferred",
+                        "evidence": ["broker_opening_cash_state_not_present"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "opening_positions_state",
+                        "status": "trade_window_covered",
+                        "evidence": ["opening_positions_covered_by_observed_trade_window"],
+                        "counts": {"covered_symbol_count": 1},
+                    },
+                ],
+            },
+            "valuation_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["valuation_dates_available", "position_price_histories_loaded"],
+                "negative_evidence": ["vendor_raw_price_used_for_valuation"],
+                "disqualifiers": ["raw_price_used_for_valuation"],
+                "witnesses": [
+                    {
+                        "label": "valuation_input_policy",
+                        "status": "explicit_withholding_contract",
+                        "evidence": [
+                            "proof_eligible:broker_proven_mark_to_market_inputs",
+                            "replay_only:raw_vendor_price",
+                            "replay_only:forward_fill",
+                            "replay_only:synthetic_snapshot_history",
+                            "replay_only:snapshot_fallback",
+                            "replay_only:other_fallback_construction",
+                            "replay_only:mixed_basis_construction",
+                            "verified_total_return_withheld_when_any_replay_only_valuation_input_is_observed",
+                        ],
+                        "counts": {"proof_eligible_input_types": 1, "replay_only_input_types": 6},
+                    },
+                    {
+                        "label": "valuation_history_construction",
+                        "status": "imported_replay",
+                        "evidence": ["valuation_states_replayed_from_imported_broker_activity"],
+                        "counts": {"valuation_date_count": 1},
+                    },
+                    {
+                        "label": "valuation_window_basis:2026-04-10",
+                        "status": "raw_vendor_price",
+                        "evidence": [
+                            "valuation_date:2026-04-10",
+                            "valuation_window_uses:raw_vendor_price",
+                        ],
+                        "counts": {"valuation_date_count": 1, "valued_symbol_count": 1, "raw_vendor_price": 1},
+                    },
+                ],
+            },
+            "cash_flow_basis": {
+                "status": "supported",
+                "positive_evidence": ["broker_ledger_entries_available", "cash_movement_entries_classified_with_broker_native_evidence"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "cash_flow_classification",
+                        "status": "not_observed",
+                        "evidence": ["no_broker_proven_external_capital_flow_entries_observed"],
+                        "counts": {"external_capital_flow": 0},
+                    },
+                    {
+                        "label": "internal_trading_flow_classification",
+                        "status": "broker_proven",
+                        "evidence": ["broker_trade_ledger_line"],
+                        "counts": {"internal_trading_flow": 1},
+                    },
+                    {
+                        "label": "broker_explicit_income_expense_classification",
+                        "status": "not_observed",
+                        "evidence": ["no_broker_explicit_income_or_expense_cash_flows_observed"],
+                        "counts": {
+                            "broker_explicit_dividend": 0,
+                            "broker_explicit_interest": 0,
+                            "broker_explicit_fee": 0,
+                            "broker_explicit_tax": 0,
+                        },
+                    },
+                    {
+                        "label": "unknown_cash_flow_classification",
+                        "status": "none_observed",
+                        "evidence": ["no_unknown_cash_flow_entries_observed"],
+                        "counts": {"unknown": 0},
+                    },
+                ],
+            },
+            "fx_basis": {
+                "status": "supported",
+                "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [],
+            },
+            "corporate_action_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["broker_ledger_entries_available"],
+                "negative_evidence": ["corporate_action_proof_not_available"],
+                "disqualifiers": ["corporate_action_proof_missing"],
+                "witnesses": [],
+            },
+            "terminal_reconciliation_basis": {
+                "status": "supported",
+                "positive_evidence": ["terminal_force_reconciliation_not_present"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [],
+            },
+            "calendar_coverage_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
+                "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
+                "disqualifiers": ["calendar_coverage_not_broker_proven"],
+                "witnesses": [],
+            },
+        },
+    }
     assert payload["run_metadata"]["section_trust"] == {
         "benchmark_relative_path": "degraded_unverified_return_basis",
         "factor_model_path": "degraded_unverified_return_basis",
         "risk_contribution_path": "degraded_unverified_return_basis",
+    }
+    assert payload["run_metadata"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
     }
     assert payload["provenance"]["note"].endswith(
         "Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
@@ -813,6 +1436,57 @@ def test_imported_diagnostics_engine_route_marks_missing_imported_history_as_una
         "portfolio_history": "unavailable",
         "benchmark_history": "unavailable",
         "factor_history": "unavailable",
+    }
+    assert payload["run_metadata"]["return_basis_evidence"] == {
+        "portfolio_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "factor_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+    }
+    assert payload["run_metadata"]["portfolio_proof"] == {
+        "proof_system": "portfolio_verified_total_return_v1",
+        "portfolio_path": "unavailable",
+        "verification_status": "unavailable",
+        "output_status": "unavailable",
+        "verified_total_return_emitted": False,
+        "benchmark_proof_independent": True,
+        "disqualifiers": ["portfolio_history_unavailable"],
+        "evidence": {
+            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "corporate_action_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+        },
+    }
+    assert payload["run_metadata"]["investor_economics_status"] == {
+        "status": "available",
+        "reason": None,
     }
     assert payload["drawdown_summary"] == {
         "current_drawdown_pct": None,

@@ -1,13 +1,23 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.imports import ImportedPortfolioSnapshot, LedgerEntryType
 
 
 LedgerAccountBucket = Literal["TRADE", "INCOME", "EXPENSE", "TRANSFER"]
 LotSource = Literal["opening_balance", "statement_trade"]
+CashMovementClassification = Literal[
+    "external_capital_flow",
+    "internal_trading_flow",
+    "broker_explicit_dividend",
+    "broker_explicit_interest",
+    "broker_explicit_fee",
+    "broker_explicit_tax",
+    "unknown",
+]
+OpeningStateSource = Literal["broker_proven", "trade_window_covered", "unknown_inferred"]
 
 
 class LedgerRecord(BaseModel):
@@ -30,6 +40,9 @@ class LedgerRecord(BaseModel):
     tax: float | None = None
     source_section: str
     source_line: str | None = None
+    cash_movement_classification: CashMovementClassification = "unknown"
+    broker_evidence: list[str] = Field(default_factory=list)
+    opening_state_source: OpeningStateSource | None = None
 
 
 class PositionLot(BaseModel):
@@ -46,6 +59,39 @@ class PositionLot(BaseModel):
 
 def snapshot_to_ledger(snapshot: ImportedPortfolioSnapshot) -> list[LedgerRecord]:
     symbol_currencies = {position.symbol: position.currency for position in snapshot.positions}
+
+    def broker_evidence(entry_type: LedgerEntryType, source_section: str, source_line: str | None) -> list[str]:
+        evidence = [f"source_section:{source_section.lower().replace(' ', '_').replace('&', 'and')}"]
+        if source_line:
+            evidence.append("source_line_present")
+        if entry_type in {"BUY", "SELL"} and source_section == "Trades":
+            evidence.append("broker_trade_ledger_line")
+        elif entry_type in {"DEPOSIT", "WITHDRAWAL"} and source_section == "Deposits & Withdrawals":
+            evidence.append("broker_transfer_section_line")
+        elif entry_type == "DIVIDEND" and source_section in {"Dividends", "Income Summary", "Cash deposits/ withdrawals"}:
+            evidence.append("broker_dividend_section_line")
+        elif entry_type == "INTEREST" and source_section == "Interest":
+            evidence.append("broker_interest_section_line")
+        elif entry_type == "FEE" and source_section in {"Fees", "Other Fees", "Commissions"}:
+            evidence.append("broker_fee_section_line")
+        elif entry_type == "WITHHOLDING_TAX" and source_section in {"Withholding Tax", "Account Summary", "Cash deposits/ withdrawals"}:
+            evidence.append("broker_tax_section_line")
+        return evidence
+
+    def cash_movement_classification(entry_type: LedgerEntryType, source_section: str, evidence: list[str]) -> CashMovementClassification:
+        if entry_type in {"DEPOSIT", "WITHDRAWAL"} and "broker_transfer_section_line" in evidence:
+            return "external_capital_flow"
+        if entry_type in {"BUY", "SELL"} and "broker_trade_ledger_line" in evidence:
+            return "internal_trading_flow"
+        if entry_type == "DIVIDEND" and "broker_dividend_section_line" in evidence:
+            return "broker_explicit_dividend"
+        if entry_type == "INTEREST" and "broker_interest_section_line" in evidence:
+            return "broker_explicit_interest"
+        if entry_type == "FEE" and "broker_fee_section_line" in evidence:
+            return "broker_explicit_fee"
+        if entry_type == "WITHHOLDING_TAX" and "broker_tax_section_line" in evidence:
+            return "broker_explicit_tax"
+        return "unknown"
 
     def account_bucket(entry_type: LedgerEntryType) -> LedgerAccountBucket:
         if entry_type in {"BUY", "SELL"}:
@@ -65,30 +111,34 @@ def snapshot_to_ledger(snapshot: ImportedPortfolioSnapshot) -> list[LedgerRecord
             return -quantity
         return None
 
-    records = [
-        LedgerRecord(
-            date=entry.trade_date,
-            entry_type=entry.entry_type,
-            account_bucket=account_bucket(entry.entry_type),
-            symbol=entry.symbol,
-            description=entry.description,
-            signed_quantity=signed_quantity(entry.entry_type, entry.quantity),
-            quantity=entry.quantity,
-            price=entry.price,
-            gross_amount=entry.gross_amount,
-            net_amount=entry.net_amount,
-            cash_effect=entry.net_amount or 0.0,
-            asset_currency=symbol_currencies.get(entry.symbol) if entry.symbol else None,
-            cash_currency=entry.currency,
-            affects_positions=entry.entry_type in {"BUY", "SELL"},
-            affects_cash=True,
-            fee=entry.fee,
-            tax=entry.tax,
-            source_section=entry.source_section,
-            source_line=entry.source_line,
+    records: list[LedgerRecord] = []
+    for entry in snapshot.ledger_entries:
+        evidence = broker_evidence(entry.entry_type, entry.source_section, entry.source_line)
+        records.append(
+            LedgerRecord(
+                date=entry.trade_date,
+                entry_type=entry.entry_type,
+                account_bucket=account_bucket(entry.entry_type),
+                symbol=entry.symbol,
+                description=entry.description,
+                signed_quantity=signed_quantity(entry.entry_type, entry.quantity),
+                quantity=entry.quantity,
+                price=entry.price,
+                gross_amount=entry.gross_amount,
+                net_amount=entry.net_amount,
+                cash_effect=entry.net_amount or 0.0,
+                asset_currency=symbol_currencies.get(entry.symbol) if entry.symbol else None,
+                cash_currency=entry.currency,
+                affects_positions=entry.entry_type in {"BUY", "SELL"},
+                affects_cash=True,
+                fee=entry.fee,
+                tax=entry.tax,
+                source_section=entry.source_section,
+                source_line=entry.source_line,
+                cash_movement_classification=cash_movement_classification(entry.entry_type, entry.source_section, evidence),
+                broker_evidence=evidence,
+            )
         )
-        for entry in snapshot.ledger_entries
-    ]
 
     return sorted(records, key=lambda entry: (entry.date, entry.symbol or "", entry.entry_type, entry.description or ""))
 
@@ -173,3 +223,28 @@ def reconstruct_position_lots(snapshot: ImportedPortfolioSnapshot) -> list[Posit
             symbol_lots[symbol] = open_lots
 
     return [lot for symbol in sorted(symbol_lots) for lot in symbol_lots[symbol]]
+
+
+def classify_opening_state(snapshot: ImportedPortfolioSnapshot) -> OpeningStateSource:
+    ledger = snapshot_to_ledger(snapshot)
+    if any(balance.starting_cash is not None for balance in snapshot.cash_balances):
+        return "broker_proven"
+
+    ending_positions = {position.symbol: position.quantity for position in snapshot.positions}
+    buy_totals: dict[str, float] = {}
+    sell_totals: dict[str, float] = {}
+    for entry in ledger:
+        if entry.entry_type == "BUY" and entry.symbol and entry.quantity:
+            buy_totals[entry.symbol] = buy_totals.get(entry.symbol, 0.0) + entry.quantity
+        elif entry.entry_type == "SELL" and entry.symbol and entry.quantity:
+            sell_totals[entry.symbol] = sell_totals.get(entry.symbol, 0.0) + entry.quantity
+
+    inferred_symbols: list[str] = []
+    for symbol in sorted(set(ending_positions) | set(buy_totals) | set(sell_totals)):
+        opening_quantity = ending_positions.get(symbol, 0.0) + sell_totals.get(symbol, 0.0) - buy_totals.get(symbol, 0.0)
+        if abs(opening_quantity) > 1e-9:
+            inferred_symbols.append(symbol)
+
+    if inferred_symbols:
+        return "unknown_inferred"
+    return "trade_window_covered"

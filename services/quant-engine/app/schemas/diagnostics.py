@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest, PortfolioHistoryContext
+from app.schemas.return_basis import PortfolioProofMetadata, ReturnBasisEvidence
 from app.schemas.reconciliation import (
     FactorExposurePoint,
     FactorProxyDefinition,
@@ -17,6 +18,7 @@ from app.schemas.reconciliation import (
     StressScenarioResult,
     VolatilityRegimePayload,
 )
+from app.schemas.research import InvestorEconomicsStatus
 
 
 class DiagnosticsEngineRequest(PortfolioEngineRequest):
@@ -65,11 +67,19 @@ class DiagnosticsRunMetadata(BaseModel):
         history_end_date: str | None = None
         dataset_version: str
 
+    class ReturnBasisEvidenceBundle(BaseModel):
+        portfolio_history: ReturnBasisEvidence
+        benchmark_history: ReturnBasisEvidence
+        factor_history: ReturnBasisEvidence
+
     diagnostics_id: str
     methodology_id: str
     price_basis: Literal["close", "unavailable"]
     source_status: DiagnosticsSourceStatus
     section_trust: SectionTrust
+    return_basis_evidence: ReturnBasisEvidenceBundle
+    portfolio_proof: PortfolioProofMetadata
+    investor_economics_status: InvestorEconomicsStatus
     confidence: Literal["high", "medium", "low"]
     factor_model_parameters: FactorModelParameters
     reproducibility: ReproducibilityMetadata

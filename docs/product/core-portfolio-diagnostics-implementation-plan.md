@@ -24,11 +24,13 @@ Current shipped-state anchor:
 
 Already in place:
 - current-state look-through and benchmark overlap in `services/quant-engine/app/services/exposure_engine.py`
+- current-state concentration summaries in `services/quant-engine/app/services/exposure_engine.py` and `services/quant-engine/app/analytics/overview.py`
 - history-aware risk, factor, volatility, and decomposition analytics in `services/quant-engine/app/services/diagnostics_engine.py`
 - daily-state and historical path support in `services/quant-engine/app/services/dashboard_history_engine.py`
-- explicit unavailable handling for missing history context
+- explicit diagnostics provenance and run metadata in `services/quant-engine/app/schemas/diagnostics.py`
+- explicit unavailable handling for missing history context and intentional `withheld` investor-economics suppression
 - methodology documentation in `docs/finance/financial-methodology.md`
-- contract docs in `docs/contracts/exposure-fields.md`, `docs/contracts/dashboard-fields.md`, and `docs/contracts/backtest-fields.md`
+- contract docs in `docs/contracts/exposure-fields.md`, `docs/contracts/dashboard-fields.md`, `docs/contracts/backtest-fields.md`, and `docs/contracts/diagnostics-fields.md`
 
 Current desktop consumption context that matters for this plan:
 - current-state diagnostics are primarily consumed in the `Diagnostics` tab for current portfolio review
@@ -58,9 +60,9 @@ Keep in `services/quant-engine/app/services/exposure_engine.py`:
 - benchmark overlap
 - name / sector concentration that depends only on current holdings
 
-Recommended additions:
-- explicit concentration block for current-state diagnostics
-- section-level availability/confidence for overlap + concentration
+Current shipped state:
+- the exposure contract already includes an explicit current-state concentration block
+- docs should preserve the distinction between current-state holdings concentration and diagnostics-side history-derived risk concentration
 
 ### Diagnostics engine
 
@@ -72,9 +74,9 @@ Keep in `services/quant-engine/app/services/diagnostics_engine.py`:
 - factor-risk decomposition
 - factor/systematic vs specific risk summary
 
-Recommended additions:
-- explicit diagnostics provenance/truth-class block
-- dedicated summary sections for drawdown, volatility, and history-derived risk concentration outputs reused by future construction/replay reviews
+Current shipped state:
+- diagnostics already expose explicit provenance/truth-class metadata and run metadata, including `investor_economics_status`
+- diagnostics already expose summary sections for drawdown, volatility, and history-derived risk concentration through the current contract
 
 ### Dashboard history engine
 
@@ -89,48 +91,33 @@ Recommended role:
 
 ## Schema Plan
 
-### Phase 1: add explicit diagnostics provenance
+Most of the original schema-hardening work in this plan is now shipped. The remaining value of this document is to preserve the intended boundary between current-state exposure concentration and history-derived diagnostics concentration, and to keep future additions aligned with the current provenance/truth-class contract.
 
-Extend `services/quant-engine/app/schemas/diagnostics.py` with a small provenance model aligned with the existing provenance style already used by backtest diagnostics in `services/quant-engine/app/schemas/backtest_engine.py`, for example:
-- `truth_class`
-  - `broker_truth_historical`
-  - `synthetic_snapshot_history`
-  - `snapshot_only_unavailable`
-- `history_basis`
-- `market_data_basis`
-- `note`
+### Phase 1: explicit diagnostics provenance
+
+Shipped state:
+- `services/quant-engine/app/schemas/diagnostics.py` already carries explicit diagnostics provenance and run metadata aligned with the current diagnostics contract
+- `docs/contracts/diagnostics-fields.md` is the current field inventory for those shipped diagnostics provenance and summary fields
 
 Purpose:
 - let desktop and future replay/construction features distinguish broker-truth diagnostics from synthetic diagnostics without guessing
 - separate provenance from availability, since `historical_sections_available` only says whether diagnostics were computed, not whether they are broker-truth historical results
 
-### Phase 2: add focused diagnostics summary sections
+### Phase 2: focused diagnostics summary sections
 
-Add summary blocks in the diagnostics contract only for fields whose basis is explicit and history-derived:
-- `drawdown_summary`
-  - current drawdown
-  - max drawdown
-  - optional drawdown start/end if already available
-- `volatility_summary`
-  - realized volatility
-  - downside volatility
-  - tracking error
-- `risk_concentration_summary`
-  - top factor risk share
-  - top position risk share
-  - factor HHI / position HHI if these remain risk-derived
+Shipped state:
+- the diagnostics contract already exposes `drawdown_summary`, `volatility_summary`, and `risk_concentration_summary`
+- those summaries are history-derived diagnostics fields and should remain separate from exposure-side current-state concentration
 
 Purpose:
 - prevent future ranking/construction/replay features from scraping these values out of deeper nested payloads
 - avoid mixing current-state holdings concentration with history-derived risk concentration in one undifferentiated summary object
 
-### Phase 3: add concentration to the exposure-side contract
+### Phase 3: concentration in the exposure-side contract
 
-Extend `services/quant-engine/app/schemas/exposure.py` with a current-state concentration block sourced only from snapshot holdings, for example:
-- top name weights
-- HHI
-- effective holdings
-- top sector weights
+Shipped state:
+- `services/quant-engine/app/schemas/exposure.py` already exposes a current-state concentration block sourced from snapshot holdings
+- this plan should treat that block as current contract reality, not future work
 
 Purpose:
 - separate current-state concentration truth from historical diagnostics concentration
@@ -143,18 +130,17 @@ Files:
 - `services/quant-engine/app/schemas/diagnostics.py`
 - `services/quant-engine/app/services/diagnostics_engine.py`
 - `docs/finance/financial-methodology.md`
-- possibly a new `docs/contracts/diagnostics-fields.md`
+- `docs/contracts/diagnostics-fields.md`
 
-Work:
-- add provenance model
-- populate it in imported-history, synthetic snapshot-history, and unavailable diagnostics paths
-- expose explicit truth class in the response
+Shipped state:
+- provenance model, truth-class metadata, and `investor_economics_status` are already part of the diagnostics response
+- imported-history, synthetic snapshot-history, and unavailable diagnostics paths already populate those distinctions
 
 Why first:
 - smallest, highest-value contract improvement
 - immediately useful for future replay and construction features
 - low UI risk because it adds fields rather than changing current sections
-- it fixes the repo's highest-risk correctness issue: synthetic snapshot-history and broker-truth history are currently indistinguishable in the diagnostics contract
+- it fixed the repo's highest-risk correctness issue: synthetic snapshot-history and broker-truth history are no longer indistinguishable in the diagnostics contract
 
 ### Slice 2: current-state concentration block in exposure
 
@@ -164,10 +150,9 @@ Files:
 - `services/quant-engine/app/analytics/risk.py` if helper extraction is needed
 - `docs/contracts/exposure-fields.md`
 
-Work:
-- add name/sector concentration summary derived from snapshot holdings
-- keep this explicitly current-state
-- document difference between current-state concentration and historical risk concentration
+Shipped state:
+- name/sector concentration summary is already derived from snapshot holdings in the exposure contract
+- the ongoing documentation requirement is to keep it explicitly current-state and distinct from historical risk concentration
 
 Why second:
 - construction rules need concentration constraints early
@@ -231,7 +216,7 @@ Update together whenever formulas or visible fields change:
 - `docs/finance/financial-methodology.md`
 - `docs/contracts/exposure-fields.md`
 - `docs/contracts/dashboard-fields.md`
-- add `docs/contracts/diagnostics-fields.md` once diagnostics summary/provenance becomes a first-class visible contract
+- `docs/contracts/diagnostics-fields.md`
 - `docs/product/current-product-state.md` when a diagnostics surface changes current panel ownership or workflow role in the shipped desktop app
 
 ## Recommended First Build Slice

@@ -31,6 +31,7 @@ describe('StrategyLabPanel', () => {
         lookback_months: 3,
         top_n: 3,
         methodology: 'm',
+        investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
         source_status: {
           price_history: 'live',
           leader_internals: 'mixed',
@@ -84,6 +85,8 @@ describe('StrategyLabPanel', () => {
     expect(within(heatmap).queryByText('04/24')).toBeNull()
     expect(screen.queryByText('2024-04-02')).toBeNull()
     expect(screen.getByText('Investor Economics')).toBeTruthy()
+    expect(screen.getByText('Withheld')).toBeTruthy()
+    expect(screen.getByText('Withheld until Strategy Lab has verified investor total-return equivalence.')).toBeTruthy()
     expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
     expect(screen.getByText('Volume Participation')).toBeTruthy()
     expect(screen.getByText('Price History')).toBeTruthy()
@@ -141,6 +144,7 @@ describe('StrategyLabPanel', () => {
         lookback_months: 12,
         top_n: 1,
         methodology: 'm',
+        investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
         source_status: {
           price_history: 'live',
           leader_internals: 'live-dated',
@@ -218,6 +222,7 @@ describe('StrategyLabPanel', () => {
         lookback_months: 12,
         top_n: 1,
         methodology: 'm',
+        investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
         source_status: { price_history: 'live', leader_internals: 'live-dated', holdings_snapshot_counts: { XLE: 1 }, dated_holdings_symbols: ['XLE'], sample_fallback_symbols: [] },
         current_rankings: [{ symbol: 'XLE', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],
         latest_holdings: [{ symbol: 'XLE', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],
@@ -275,6 +280,7 @@ describe('StrategyLabPanel', () => {
         lookback_months: 12,
         top_n: 1,
         methodology: 'm',
+        investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
         source_status: { price_history: 'live', leader_internals: 'live-dated', holdings_snapshot_counts: { XLK: 1 }, dated_holdings_symbols: ['XLK'], sample_fallback_symbols: [] },
         current_rankings: [{ symbol: 'XLK', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],
         latest_holdings: [{ symbol: 'XLK', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],
@@ -326,6 +332,7 @@ describe('StrategyLabPanel', () => {
         lookback_months: 12,
         top_n: 1,
         methodology: 'm',
+        investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
         source_status: { price_history: 'live', leader_internals: 'live-dated', holdings_snapshot_counts: { XLK: 1 }, dated_holdings_symbols: ['XLK'], sample_fallback_symbols: [] },
         current_rankings: [{ symbol: 'XLK', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],
         latest_holdings: [{ symbol: 'XLK', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],
@@ -347,6 +354,7 @@ describe('StrategyLabPanel', () => {
         lookback_months: 12,
         top_n: 1,
         methodology: 'm',
+        investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
         source_status: { price_history: 'live', leader_internals: 'live-dated', holdings_snapshot_counts: { XLK: 2 }, dated_holdings_symbols: ['XLK'], sample_fallback_symbols: [] },
         current_rankings: [{ symbol: 'XLK', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],
         latest_holdings: [{ symbol: 'XLK', target_weight: 1, score: 0.12, trailing_return_pct: 12, average_volume: 1000000 }],

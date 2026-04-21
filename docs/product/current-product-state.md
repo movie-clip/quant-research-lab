@@ -30,9 +30,11 @@ Use this file when updating `README.md`, roadmap docs, architecture docs, and co
 - financial outputs are expected to stay traceable to engine responses rather than frontend-created finance logic
 - exposure contracts now carry explicit grouped run metadata for structured source-status and reproducibility fields
 - diagnostics contracts now carry explicit grouped run metadata for source-status, factor-model assumptions, and reproducibility time-basis fields
+- dashboard-history, diagnostics, exposure-consumed diagnostics, and replay/backtest flows now expose explicit `investor_economics_status` metadata on their shipped contract surfaces
 - diagnostics unavailable paths are now reason-specific: snapshot-request history-context gaps, imported-history reconstruction failures, and market-data failures no longer share the same note/flag wording
 - dashboard-history contracts now carry explicit grouped run metadata for structured source-status and reproducibility fields
 - hypothetical replay outputs now carry explicit replay provenance for direct preview vs constructed-candidate replay lineage, actual construction rule used, upstream draft/workspace/base-node lineage, echoed constraint-validation lineage, and basic lineage-integrity enforcement for provable artifact mismatches
+- some investor-economics outputs are intentionally withheld until total-return equivalence is verified; this is a distinct shipped state from broader source unavailability and should be documented as `withheld`, not merely `missing`
 
 ### Replay and portfolio-improvement workflow
 
@@ -81,6 +83,7 @@ Current Workspace composition is also explicit:
 - current Monitoring-to-Workspace continuity is narrow: explicit user-initiated handoff, versioned handoff payload, session-scoped dismiss state, and no persistent alert/review history
 - optimization is not yet a shipped product capability
 - replay provenance is now explicit for the current hypothetical replay slice, including echoed constraint-validation lineage; replay now rejects provable artifact mismatches but still does not enforce validation status in-engine
+- investor-economics availability is still intentionally narrow: some return, drawdown, and benchmark-relative outputs stay withheld until total-return equivalence is verified, even when broader history/replay evidence exists
 
 ## Local workspace and artifact behavior that matters to product docs
 

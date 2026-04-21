@@ -61,6 +61,11 @@ Diagnostics contract rule:
 - diagnostics responses must also carry `history_truth_class` and `price_basis` so consumers can distinguish imported-history-equivalent, synthetic-history-derived, and unavailable states
 - diagnostics summary fields must only expose history-derived diagnostics values and must not mix in current-state holdings concentration
 
+Investor-economics status rule:
+- `withheld` means investor-economics outputs are intentionally suppressed even though a broader diagnostics/history or replay artifact exists
+- `unavailable` means the required source inputs or trustworthy computation path do not exist for the requested output
+- consumers must use shipped `investor_economics_status` semantics rather than treating all `null` return-family fields as generic missing data
+
 ## Market Data Basis
 
 The project uses historical price series, benchmark series, ETF holdings, and security metadata supplied through `MarketDataService`.
@@ -96,10 +101,13 @@ Current diagnostics note:
 - these dashboard trust states are also intentionally conservative: imported portfolio replay can be explicit, benchmark return basis can degrade independently, and monthly returns can be marked `suppressed_unstable_path` rather than implied reliable
 - a first `return_basis_contract` slice now exists for dashboard-history benchmark investor-return semantics; current reachable states are intentionally conservative (`price_return_only`, `unverified_adjusted_proxy`, `unavailable`)
 - adjusted-close field presence alone does not upgrade dashboard benchmark returns to investor-economics truth; benchmark cumulative return / excess return now refuse (`None`) until `verified_total_return` can be justified
+- narrow pilot exception: imported dashboard-history may label only the benchmark path as `verified_total_return` when and only when the benchmark slice is exactly `SPY`, fetched directly from FMP `historical-price-eod/light`, with no fallback, no symbol override, no mixed-source stitching, and explicit provenance scope evidence proving ordered, unique, in-window `adjClose` coverage
+- this pilot does not upgrade any portfolio path, any non-`SPY` symbol, any other vendor or endpoint, or any diagnostics / replay / strategy path
 - the next refusal slice now gates the dashboard drawdown-loss family as well: `range_metrics[*].max_drawdown_pct` refuses unless the required return basis can be proven as `verified_total_return`
 - this remains intentionally strict; drawdown depth should not be emitted from price-only or unverified-adjusted proxy wealth paths
 - the compounded-return family is now partially gated in dashboard-history as well: range-summary canonical compounded investor-return outputs (`time_weighted_return_pct`, `benchmark_return_pct`, `excess_return_pct`) refuse when the return basis contract is not `verified_total_return`
 - this slice is intentionally narrow and does not yet claim that broker-replayed portfolio paths are fully proven total-return investor economics
+- when those refusals occur, shipped contracts surface them through `investor_economics_status = withheld`; this is intentional suppression tied to return-basis limits, not generic source unavailability
 
 ## Portfolio Return Methodology
 
@@ -615,6 +623,11 @@ Current replay provenance state:
 - when constraint validation is supplied to replay routes, the replay response also echoes validation-supplied status, validation result, and constraint-set lineage
 - replay now rejects provable lineage mismatches between supplied validation artifacts and constructed-candidate artifacts
 - immutable saved proposal artifacts now reject provable internal contradictions between saved replay-basis provenance and the saved replay snapshot provenance
+
+Replay investor-economics semantics:
+- replay and replay-derived diagnostics can expose evidence-rich paths while still reporting `investor_economics_status = withheld`
+- in that state, return-family, drawdown-family, and benchmark-relative investor-economics outputs are intentionally suppressed because `verified_total_return` has not been justified
+- this must be documented and rendered as withholding, not as generic replay failure or missing history
 
 ### Single-Replacement Candidate Construction
 

@@ -407,11 +407,13 @@ def test_full_portfolio_imported_diagnostics_produces_deterministic_growth_facto
     assert first.availability.historical_sections_available is True
     assert first.risk_summary.observations > 100
     assert first_window_20 is not None
-    assert first_window_20.status == "ok"
     assert first_growth is not None
     assert second_growth is not None
     assert second_window_20 is not None
     assert first_growth.us_proxy == "QQQ"
+    assert second_growth.us_proxy == "QQQ"
     assert first_growth.latest_loading is not None
     assert first_growth.latest_loading == second_growth.latest_loading
+    assert first_window_20.status == "degraded_unverified_return_basis"
+    assert second_window_20.status == "degraded_unverified_return_basis"
     assert first_window_20.model_dump() == second_window_20.model_dump()

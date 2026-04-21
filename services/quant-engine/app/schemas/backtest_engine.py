@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.imports import StatementImporter
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
-from app.schemas.research import AllocationRebalanceFrequency, BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, StrategyDefinition
+from app.schemas.research import AllocationRebalanceFrequency, BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, InvestorEconomicsStatus, StrategyDefinition
 
 
 class BacktestConfig(BaseModel):
@@ -59,7 +59,7 @@ class BacktestPosition(BaseModel):
 
 class BacktestEquityPoint(BaseModel):
     date: str
-    equity: float
+    equity: float | None = None
     cash: float
     gross_exposure: float | None = None
     net_exposure: float | None = None
@@ -70,6 +70,7 @@ class BacktestRun(BaseModel):
     run_id: str
     config: BacktestConfig
     dataset_info: dict[str, dict[str, str | bool]] = Field(default_factory=dict)
+    investor_economics_status: InvestorEconomicsStatus
     trades: list[BacktestTrade] = Field(default_factory=list)
     positions: list[BacktestPosition] = Field(default_factory=list)
     equity_curve: list[BacktestEquityPoint] = Field(default_factory=list)
@@ -321,6 +322,7 @@ class AllocationBacktestResult(BaseModel):
     drift_tolerance_pct: float | None = None
     assumptions: AllocationBacktestAssumptions
     status: AllocationBacktestStatus
+    investor_economics_status: InvestorEconomicsStatus
     instrument_metadata: list[AllocationBacktestInstrumentMeta] = Field(default_factory=list)
     starting_weights: list[AllocationBacktestWeight] = Field(default_factory=list)
     ending_weights: list[AllocationBacktestWeight] = Field(default_factory=list)
@@ -395,6 +397,7 @@ class PortfolioImprovementComparison(BaseModel):
 
 class PortfolioAllocationBacktestResponse(BaseModel):
     methodology: str
+    investor_economics_status: InvestorEconomicsStatus
     reference_result: AllocationBacktestResult | None = None
     candidate_result: AllocationBacktestResult
     comparison: AllocationBacktestComparison | None = None

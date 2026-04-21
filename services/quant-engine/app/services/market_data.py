@@ -4,6 +4,7 @@ from typing import Iterable, Literal
 
 from app.core.symbols import canonicalize_symbol, resolve_etf_holdings_candidates, resolve_symbol_candidates
 from app.clients.fmp import FmpClient
+from app.schemas.return_basis import ReturnBasisEvidence
 from app.services.holdings_history import HoldingsHistoryStore
 
 
@@ -19,6 +20,10 @@ HistoryReturnBasisContract = Literal[
     "unverified_adjusted_proxy",
     "unavailable",
 ]
+
+VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST = frozenset({"SPY", "QQQ"})
+VERIFIED_BENCHMARK_VENDOR = "FMP"
+VERIFIED_BENCHMARK_ENDPOINT = "historical-price-eod/light"
 
 
 def _row_has_adjusted_close(row: dict) -> bool:
@@ -63,11 +68,140 @@ def classify_histories_return_basis_contract(histories: dict[str, list[dict]]) -
     return "unavailable"
 
 
+def build_history_return_basis_evidence(
+    rows: list[dict],
+    *,
+    construction_method_hint: Literal["synthetic_snapshot_history", "sample_dataset"] | None = None,
+    verified_total_return_scope: dict[str, str | bool | int | None] | None = None,
+) -> ReturnBasisEvidence:
+    if not rows:
+        disqualifiers = ["missing_history_rows"]
+        if construction_method_hint == "synthetic_snapshot_history":
+            disqualifiers.append("synthetic_snapshot_history")
+        if construction_method_hint == "sample_dataset":
+            disqualifiers.append("sample_dataset")
+        return ReturnBasisEvidence(
+            verification_status="unavailable",
+            economic_basis="unavailable",
+            construction_method=construction_method_hint or "unknown",
+            disqualifiers=disqualifiers,
+            scope={},
+        )
+
+    if verified_total_return_scope is not None:
+        return ReturnBasisEvidence(
+            verification_status="verified",
+            economic_basis="total_return",
+            construction_method="vendor_adjusted_close",
+            disqualifiers=[],
+            fallbacks_used=[],
+            source_price_field="adjClose",
+            scope=verified_total_return_scope,
+        )
+
+    if construction_method_hint == "synthetic_snapshot_history":
+        return ReturnBasisEvidence(
+            verification_status="unverified",
+            economic_basis="price_return_only",
+            construction_method="synthetic_snapshot_history",
+            disqualifiers=[
+                "synthetic_snapshot_history",
+                "missing_total_return_reconstruction",
+                "missing_dividend_coverage_proof",
+            ],
+            fallbacks_used=["synthetic_snapshot_history"],
+            source_price_field="price",
+            scope={},
+        )
+
+    if construction_method_hint == "sample_dataset":
+        return ReturnBasisEvidence(
+            verification_status="unverified",
+            economic_basis="price_return_only",
+            construction_method="sample_dataset",
+            disqualifiers=[
+                "sample_dataset",
+                "missing_total_return_reconstruction",
+                "missing_vendor_scope_proof",
+            ],
+            fallbacks_used=["sample_dataset"],
+            source_price_field="price",
+            scope={},
+        )
+
+    adjusted_field_names = {
+        field_name
+        for field_name in ("adjClose", "adjusted_close")
+        if all(row.get(field_name) is not None for row in rows)
+    }
+    has_any_adjusted_field = bool(adjusted_field_names)
+
+    if has_any_adjusted_field:
+        source_price_field = "adjusted_close" if "adjusted_close" in adjusted_field_names else "adjClose"
+        return ReturnBasisEvidence(
+            verification_status="proxy",
+            economic_basis="adjusted_close_proxy",
+            construction_method="vendor_adjusted_close",
+            disqualifiers=[
+                "missing_dividend_coverage_proof",
+                "missing_vendor_scope_proof",
+                "adjusted_close_is_not_verified_total_return",
+            ],
+            source_price_field=source_price_field,
+            scope={},
+        )
+
+    return ReturnBasisEvidence(
+        verification_status="unverified",
+        economic_basis="price_return_only",
+        construction_method="raw_close",
+        disqualifiers=[
+            "missing_adjusted_close_series",
+            "missing_total_return_reconstruction",
+        ],
+        source_price_field="price",
+        scope={},
+    )
+
+
+def build_histories_return_basis_evidence(
+    histories: dict[str, list[dict]],
+    *,
+    construction_method_hint: Literal["synthetic_snapshot_history", "sample_dataset"] | None = None,
+) -> ReturnBasisEvidence:
+    populated_histories = [rows for rows in histories.values() if rows]
+    if not populated_histories:
+        return build_history_return_basis_evidence([], construction_method_hint=construction_method_hint)
+
+    evidences = [
+        build_history_return_basis_evidence(rows, construction_method_hint=construction_method_hint)
+        for rows in populated_histories
+    ]
+
+    verification_priority = {"verified": 3, "proxy": 2, "unverified": 1, "unavailable": 0}
+    economic_priority = {"total_return": 3, "adjusted_close_proxy": 2, "price_return_only": 1, "unavailable": 0}
+    representative = min(evidences, key=lambda item: verification_priority[item.verification_status])
+    weakest_economic_basis = min(evidences, key=lambda item: economic_priority[item.economic_basis]).economic_basis
+    disqualifiers = sorted({disqualifier for item in evidences for disqualifier in item.disqualifiers})
+    fallbacks_used = sorted({fallback for item in evidences for fallback in item.fallbacks_used})
+    source_fields = {item.source_price_field for item in evidences if item.source_price_field}
+
+    return ReturnBasisEvidence(
+        verification_status=representative.verification_status,
+        economic_basis=weakest_economic_basis,
+        construction_method=construction_method_hint or representative.construction_method,
+        disqualifiers=disqualifiers,
+        fallbacks_used=fallbacks_used,
+        source_price_field=source_fields.pop() if len(source_fields) == 1 else None,
+        scope={},
+    )
+
+
 class MarketDataService:
     def __init__(self) -> None:
         self.client = FmpClient()
         self.holdings_history = HoldingsHistoryStore()
-        self.last_fetch_meta: dict[str, dict[str, str | bool]] = {}
+        self.last_fetch_meta: dict[str, dict[str, object]] = {}
 
     def get_latest_quotes(self, symbols: Iterable[str], symbol_overrides: dict[str, list[str]] | None = None) -> dict[str, dict]:
         quotes: dict[str, dict] = {}
@@ -109,6 +243,33 @@ class MarketDataService:
                 self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True}
                 return rows
         return []
+
+    def get_direct_spy_benchmark_history(self, from_date: str, to_date: str) -> list[dict]:
+        return self.get_direct_verified_benchmark_history("SPY", from_date, to_date)
+
+    def get_direct_verified_benchmark_history(self, symbol: str, from_date: str, to_date: str) -> list[dict]:
+        requested_symbol = canonicalize_symbol(symbol)
+        if requested_symbol not in VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST:
+            return []
+        try:
+            rows = self.client.get_historical_price_light(requested_symbol, from_date, to_date)
+        except Exception:  # noqa: BLE001
+            return []
+        if rows:
+            self.last_fetch_meta[requested_symbol] = {
+                "type": "history",
+                "requested_symbol": requested_symbol,
+                "resolved_symbol": requested_symbol,
+                "cached": True,
+                "vendor": VERIFIED_BENCHMARK_VENDOR,
+                "endpoint": VERIFIED_BENCHMARK_ENDPOINT,
+                "direct_path_only": True,
+                "fallback_used": False,
+                "proxy_used": False,
+                "mixed_source": False,
+                "symbol_override_used": False,
+            }
+        return rows
 
     def get_historical_prices_for_symbols(
         self,
@@ -173,5 +334,5 @@ class MarketDataService:
         self.holdings_history.delete_symbol_snapshots(requested_symbol)
         return self.get_etf_holdings(requested_symbol, symbol_overrides)
 
-    def get_last_fetch_meta(self, symbol: str) -> dict[str, str | bool] | None:
+    def get_last_fetch_meta(self, symbol: str) -> dict[str, object] | None:
         return self.last_fetch_meta.get(symbol)

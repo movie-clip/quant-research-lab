@@ -72,7 +72,7 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Look-through live')).toBeTruthy()
     expect(screen.getByText('Overlap live')).toBeTruthy()
     expect(screen.getByText(/Audit: snapshot .*SPY.*look-through live.*benchmark holdings live.*dataset market_data_service_v1/)).toBeTruthy()
-    expect(screen.getByText('Benchmark-relative return readouts intentionally refuse active return and information ratio because total-return equivalence is unverified.')).toBeTruthy()
+    expect(screen.getByText('Benchmark-relative return readouts intentionally refuse active return and information ratio. Investor-economics outputs are withheld because total-return equivalence is unverified.')).toBeTruthy()
     expect(screen.getByText('Volatility')).toBeTruthy()
     expect(screen.getByText('Drawdown')).toBeTruthy()
     expect(screen.getByText('Benchmark Sensitivity')).toBeTruthy()

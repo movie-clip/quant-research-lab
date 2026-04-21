@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from app.schemas.backtest_engine import BacktestConfig, BacktestEquityPoint, BacktestPosition, BacktestRun, BacktestTrade
-from app.schemas.research import BarRecord, Instrument, StrategySignal
+from app.schemas.research import BarRecord, Instrument, InvestorEconomicsStatus, StrategySignal, build_investor_economics_status
+
+
+def _build_backtest_investor_economics_status() -> InvestorEconomicsStatus:
+    return build_investor_economics_status(available=False)
 
 
 class BacktestEngine:
@@ -110,22 +114,30 @@ class BacktestEngine:
                 )
             )
 
-        ending_equity = round(config.initial_capital + total_pnl, 2)
-        return_pct = round(((ending_equity / config.initial_capital) - 1) * 100, 2) if config.initial_capital else None
-        max_drawdown_pct = min((point.drawdown_pct or 0.0) for point in equity_curve) if equity_curve else None
-
         notes = ",".join(sorted(symbol for symbol, info in dataset_info.items() if info.get("ready")))
-        run_id = f"{config.strategy.strategy_id}:{config.start_date.isoformat()}:{config.end_date.isoformat()}:{notes or 'none'}"
+        run_id_note = notes or "none"
+        run_id = f"{config.strategy.strategy_id}:{config.start_date.isoformat()}:{config.end_date.isoformat()}:{run_id_note}"
+
+        withheld_equity_curve = [
+            point.model_copy(
+                update={
+                    "equity": None,
+                    "drawdown_pct": None,
+                }
+            )
+            for point in equity_curve
+        ]
 
         return BacktestRun(
             run_id=run_id,
             config=config,
             dataset_info=dataset_info,
+            investor_economics_status=_build_backtest_investor_economics_status(),
             trades=trades,
             positions=positions,
-            equity_curve=equity_curve,
-            total_return_pct=return_pct,
-            annualized_return_pct=return_pct,
-            max_drawdown_pct=max_drawdown_pct,
-            sharpe_ratio=1.0 if trades else None,
+            equity_curve=withheld_equity_curve,
+            total_return_pct=None,
+            annualized_return_pct=None,
+            max_drawdown_pct=None,
+            sharpe_ratio=None,
         )

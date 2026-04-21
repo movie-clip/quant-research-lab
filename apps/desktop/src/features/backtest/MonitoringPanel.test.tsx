@@ -6,6 +6,7 @@ import { MonitoringPanel } from './MonitoringPanel'
 
 const baseReplay: PortfolioAllocationBacktestResponse = {
   methodology: 'm',
+  investor_economics_status: { status: 'available', reason: null },
   reference_result: {
     portfolio_name: 'Reference',
     benchmark_symbol: 'SPY',
@@ -18,6 +19,7 @@ const baseReplay: PortfolioAllocationBacktestResponse = {
     drift_tolerance_pct: null,
     assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
     status: 'ok',
+    investor_economics_status: { status: 'available', reason: null },
     instrument_metadata: [],
     starting_weights: [],
     ending_weights: [],
@@ -38,6 +40,7 @@ const baseReplay: PortfolioAllocationBacktestResponse = {
     drift_tolerance_pct: null,
     assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
     status: 'degraded',
+    investor_economics_status: { status: 'available', reason: null },
     instrument_metadata: [],
     starting_weights: [],
     ending_weights: [],
@@ -112,11 +115,36 @@ describe('MonitoringPanel', () => {
     expect(screen.getByText('Candidate replay status: degraded.')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Benchmark-Relative Drift/i }))
-    expect(screen.getByText('Active return is intentionally withheld because replay total-return equivalence is unverified.')).toBeTruthy()
+    expect(screen.getByText('This monitor stays on tracking error, beta, and correlation only rather than investor-performance benchmark-relative outcomes.')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: /Volatility Shape/i }))
-    expect(screen.getByText('Drawdown surfaces are intentionally withheld because replay investor total-return equivalence is unverified.')).toBeTruthy()
-    expect(screen.queryByText(/Max drawdown snapshot:/)).toBeNull()
+    expect(screen.getByText('This monitor stays on allowed volatility-shape context and does not rely on investor-performance drawdown readouts.')).toBeTruthy()
+  })
+
+  it('uses explicit investor economics metadata for withheld monitoring guidance', () => {
+    render(
+      <MonitoringPanel
+        result={{
+          ...baseReplay,
+          investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
+          reference_result: baseReplay.reference_result ? {
+            ...baseReplay.reference_result,
+            investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
+          } : null,
+          candidate_result: {
+            ...baseReplay.candidate_result,
+            investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
+          },
+        }}
+        hypotheticalReplayResult={null}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Benchmark-Relative Drift/i }))
+    expect(screen.getByText('Investor-performance benchmark-relative deltas are withheld for this replay state because total-return equivalence is unverified.')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Volatility Shape/i }))
+    expect(screen.getByText('Investor-performance drawdown views are withheld for this replay state because total-return equivalence is unverified.')).toBeTruthy()
   })
 
   it('shows explicit waiting state when no replay evidence exists', () => {

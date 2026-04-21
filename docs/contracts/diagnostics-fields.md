@@ -47,6 +47,7 @@ Diagnostics now expose explicit grouped run metadata:
 - `run_metadata.methodology_id`
 - `run_metadata.price_basis`
 - `run_metadata.source_status`
+- `run_metadata.investor_economics_status`
 - `run_metadata.confidence`
 - `run_metadata.factor_model_parameters`
 - `run_metadata.reproducibility`
@@ -63,11 +64,26 @@ Diagnostics now expose explicit grouped run metadata:
     - `unavailable`
       - no valid portfolio-history path was available
   - `benchmark_history`
-    - `live_market_data`
+    - `live_market_data_verified_adjusted_close`
+    - `live_market_data_unverified_return_basis`
     - `unavailable`
   - `factor_history`
-    - `live_market_data`
+    - `live_market_data_verified_adjusted_close`
+    - `live_market_data_unverified_return_basis`
     - `unavailable`
+
+### `run_metadata.investor_economics_status`
+
+- explicit investor-economics interpretation for the diagnostics run
+- current values:
+  - `available`
+    - diagnostics investor-economics outputs that depend on verified total-return equivalence are allowed to render
+  - `withheld`
+    - drawdown-family and benchmark-relative investor-economics outputs are intentionally refused until total-return equivalence is verified
+
+Contract rule:
+- treat `withheld` as deliberate output suppression, not as a synonym for `availability.status = unavailable`
+- use the explicit status and reason to interpret `null` history-derived fields
 
 Contract rule:
 - downstream consumers should treat `run_metadata` plus `provenance` as the authoritative interpretation layer for diagnostics availability and reliability
@@ -108,6 +124,7 @@ Contract rule:
 - availability and provenance are separate dimensions and must not be conflated
 - desktop review flows must not infer broker-truth history from `historical_sections_available = true` alone
 - `historical_basis = market_data_history` must be treated as downgraded synthetic history, not as imported-history equivalence
+- diagnostics can have `availability.status = ok` while `run_metadata.investor_economics_status = withheld`; this means historical sections exist, but some investor-economics outputs are intentionally refused
 
 ## Unavailable-Path Messaging Rules
 
@@ -134,6 +151,10 @@ These summary blocks exist so downstream consumers can read key diagnostics fiel
 - `max_drawdown_pct`
   - sourced from `volatility_regime.snapshot.max_drawdown_pct`
 
+Refusal rule:
+- these fields may be `null` even when historical diagnostics are otherwise available
+- when `run_metadata.investor_economics_status = withheld`, treat `null` drawdown values as intentionally refused outputs rather than generic unavailable history
+
 ### `volatility_summary`
 - `portfolio_volatility_pct`
   - sourced from `risk_summary.portfolio_volatility_pct`
@@ -143,6 +164,10 @@ These summary blocks exist so downstream consumers can read key diagnostics fiel
   - sourced from `volatility_regime.snapshot.downside_vol_60d`
 - `tracking_error_pct`
   - sourced from `relative_risk.tracking_error_pct`
+
+Benchmark-relative refusal rule:
+- benchmark-relative investor-economics outputs such as `relative_risk.active_return_pct` and `relative_risk.information_ratio` may be `null` even when `availability.status = ok`
+- in that case, `run_metadata.investor_economics_status` is the authoritative explanation for intentional refusal
 
 ### `risk_concentration_summary`
 - `top_1_factor_risk_share`
@@ -157,5 +182,6 @@ These summary blocks exist so downstream consumers can read key diagnostics fiel
 
 - these summary blocks are history-derived diagnostics only
 - unavailable diagnostics must return the summary objects with `null` field values rather than inferred placeholders
+- withheld investor-economics outputs must also remain `null`; consumers must distinguish intentional withholding from broader diagnostics unavailability
 - `risk_concentration_summary` must remain separate from any future current-state holdings concentration summary
 - current-state holdings concentration belongs to the exposure-side contract, not the diagnostics history-derived summary contract

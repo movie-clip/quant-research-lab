@@ -17,6 +17,147 @@ type DashboardGoldenFixture = ImportedDashboardSource & {
   risk_summary: PortfolioRiskSummary
 }
 
+function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withheld') {
+  if (status === 'unavailable') {
+    const unavailableBucket = {
+      status: 'disqualified' as const,
+      positive_evidence: [],
+      negative_evidence: ['portfolio_history_unavailable'],
+      disqualifiers: ['portfolio_history_unavailable'],
+      witnesses: [],
+    }
+    return {
+      proof_system: 'portfolio_verified_total_return_v1',
+      portfolio_path: 'unavailable' as const,
+      verification_status: 'unavailable' as const,
+      output_status: 'unavailable' as const,
+      verified_total_return_emitted: false,
+      benchmark_proof_independent: true,
+      disqualifiers: ['portfolio_history_unavailable'],
+      evidence: {
+        opening_state_basis: unavailableBucket,
+        valuation_basis: unavailableBucket,
+        cash_flow_basis: unavailableBucket,
+        fx_basis: unavailableBucket,
+        corporate_action_basis: unavailableBucket,
+        terminal_reconciliation_basis: unavailableBucket,
+        calendar_coverage_basis: unavailableBucket,
+      },
+    }
+  }
+
+  return {
+    proof_system: 'portfolio_verified_total_return_v1',
+    portfolio_path: 'withheld' as const,
+    verification_status: 'unverified' as const,
+    output_status: 'withheld' as const,
+    verified_total_return_emitted: false,
+    benchmark_proof_independent: true,
+    disqualifiers: [
+      'calendar_coverage_not_broker_proven',
+      'cash_flow_classification_incomplete',
+      'corporate_action_proof_missing',
+      'portfolio_verified_total_return_withheld',
+      'raw_price_used_for_valuation',
+      'synthetic_snapshot_history',
+    ],
+    evidence: {
+      opening_state_basis: {
+        status: 'disqualified' as const,
+        positive_evidence: ['broker_ledger_entries_available'],
+        negative_evidence: ['opening_state_derived_from_current_snapshot'],
+        disqualifiers: ['synthetic_snapshot_opening_state'],
+        witnesses: [
+          {
+            label: 'opening_cash_state',
+            status: 'unknown_inferred',
+            evidence: ['synthetic_snapshot_history_has_no_broker_opening_cash_state'],
+            counts: {},
+          },
+          {
+            label: 'opening_positions_state',
+            status: 'unknown_inferred',
+            evidence: ['opening_positions_derived_from_current_snapshot'],
+            counts: {},
+          },
+        ],
+      },
+      valuation_basis: {
+        status: 'disqualified' as const,
+        positive_evidence: ['valuation_dates_available', 'position_price_histories_loaded'],
+        negative_evidence: ['vendor_raw_price_used_for_valuation', 'valuation_path_is_synthetic_snapshot_history'],
+        disqualifiers: ['raw_price_used_for_valuation', 'synthetic_snapshot_history'],
+        witnesses: [],
+      },
+      cash_flow_basis: {
+        status: 'disqualified' as const,
+        positive_evidence: ['broker_ledger_entries_available'],
+        negative_evidence: ['synthetic_snapshot_history_has_no_external_flow_replay'],
+        disqualifiers: ['synthetic_snapshot_history'],
+        witnesses: [
+          {
+            label: 'cash_flow_classification',
+            status: 'not_observed',
+            evidence: ['no_broker_proven_external_capital_flow_entries_observed'],
+            counts: { external_capital_flow: 0 },
+          },
+          {
+            label: 'internal_trading_flow_classification',
+            status: 'not_observed',
+            evidence: ['no_internal_trading_cash_flows_observed'],
+            counts: { internal_trading_flow: 0 },
+          },
+          {
+            label: 'broker_explicit_income_expense_classification',
+            status: 'not_observed',
+            evidence: ['no_broker_explicit_income_or_expense_cash_flows_observed'],
+            counts: {
+              broker_explicit_dividend: 0,
+              broker_explicit_interest: 0,
+              broker_explicit_fee: 0,
+              broker_explicit_tax: 0,
+            },
+          },
+          {
+            label: 'unknown_cash_flow_classification',
+            status: 'none_observed',
+            evidence: ['no_unknown_cash_flow_entries_observed'],
+            counts: { unknown: 0 },
+          },
+        ],
+      },
+      fx_basis: {
+        status: 'supported' as const,
+        positive_evidence: ['all_observed_statement_currencies_match_base_currency'],
+        negative_evidence: [],
+        disqualifiers: [],
+        witnesses: [],
+      },
+      corporate_action_basis: {
+        status: 'disqualified' as const,
+        positive_evidence: ['broker_ledger_entries_available'],
+        negative_evidence: ['corporate_action_proof_not_available'],
+        disqualifiers: ['corporate_action_proof_missing'],
+        witnesses: [],
+      },
+      terminal_reconciliation_basis: {
+        status: 'supported' as const,
+        positive_evidence: ['terminal_force_reconciliation_not_present'],
+        negative_evidence: [],
+        disqualifiers: [],
+        witnesses: [],
+      },
+      calendar_coverage_basis: {
+        status: 'disqualified' as const,
+        positive_evidence: ['valuation_window_dates_available', 'valuation_dates_are_sorted_and_unique'],
+        negative_evidence: ['valuation_calendar_is_derived_from_benchmark_history'],
+        disqualifiers: ['calendar_coverage_not_broker_proven'],
+        witnesses: [],
+      },
+    },
+  }
+}
+
 function cloneMutable<T>(value: unknown): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
@@ -254,6 +395,37 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
         factor_model_path: 'degraded_unverified_return_basis',
         risk_contribution_path: 'degraded_unverified_return_basis',
       },
+      return_basis_evidence: {
+        portfolio_history: {
+          verification_status: 'unverified',
+          economic_basis: 'price_return_only',
+          construction_method: 'synthetic_snapshot_history',
+          disqualifiers: ['synthetic_snapshot_history', 'missing_total_return_reconstruction', 'missing_dividend_coverage_proof'],
+          fallbacks_used: ['synthetic_snapshot_history'],
+          source_price_field: 'price',
+        },
+        benchmark_history: {
+          verification_status: 'unverified',
+          economic_basis: 'price_return_only',
+          construction_method: 'raw_close',
+          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+          fallbacks_used: [],
+          source_price_field: 'price',
+        },
+        factor_history: {
+          verification_status: 'unverified',
+          economic_basis: 'price_return_only',
+          construction_method: 'raw_close',
+          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+          fallbacks_used: [],
+          source_price_field: 'price',
+        },
+      },
+      portfolio_proof: createPortfolioProofFixture(),
+      investor_economics_status: {
+        status: 'withheld',
+        reason: 'withheld_unverified_total_return_equivalence',
+      },
       confidence: 'medium',
       factor_model_parameters: {
         rolling_windows_days: [20, 60, 252],
@@ -356,6 +528,7 @@ function createImportedExposureFixture(snapshot: ReturnType<typeof createImporte
         dataset_version: 'market_data_service_v1',
       },
     },
+    diagnostics_run_metadata: createImportedDiagnosticsFixture(snapshot).run_metadata,
     overview,
     lookthrough: {
       portfolio_market_value: 50000,
@@ -534,6 +707,29 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
         portfolio_path: 'unavailable',
         benchmark_path: 'price_return_only',
       },
+      return_basis_evidence: {
+        portfolio_path: {
+          verification_status: 'unverified',
+          economic_basis: 'price_return_only',
+          construction_method: 'raw_close',
+          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+          fallbacks_used: [],
+          source_price_field: 'price',
+        },
+        benchmark_path: {
+          verification_status: 'unverified',
+          economic_basis: 'price_return_only',
+          construction_method: 'raw_close',
+          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+          fallbacks_used: [],
+          source_price_field: 'price',
+        },
+      },
+      portfolio_proof: createPortfolioProofFixture(),
+      investor_economics_status: {
+        status: 'withheld',
+        reason: 'withheld_unverified_total_return_equivalence',
+      },
       reproducibility: {
         input_imported_at: '2026-04-10T00:00:00Z',
         snapshot_as_of_date: null,
@@ -617,6 +813,32 @@ export function createIb2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
         factor_model_path: 'verified_adjusted_close',
         risk_contribution_path: 'verified_adjusted_close',
       },
+      return_basis_evidence: {
+        portfolio_history: {
+          verification_status: 'unverified',
+          economic_basis: 'unavailable',
+          construction_method: 'unknown',
+          disqualifiers: ['missing_portfolio_return_basis_proof'],
+          fallbacks_used: [],
+          source_price_field: null,
+        },
+        benchmark_history: {
+          verification_status: 'proxy',
+          economic_basis: 'adjusted_close_proxy',
+          construction_method: 'vendor_adjusted_close',
+          disqualifiers: ['missing_dividend_coverage_proof', 'missing_vendor_scope_proof', 'adjusted_close_is_not_verified_total_return'],
+          fallbacks_used: [],
+          source_price_field: 'adjClose',
+        },
+        factor_history: {
+          verification_status: 'proxy',
+          economic_basis: 'adjusted_close_proxy',
+          construction_method: 'vendor_adjusted_close',
+          disqualifiers: ['missing_dividend_coverage_proof', 'missing_vendor_scope_proof', 'adjusted_close_is_not_verified_total_return'],
+          fallbacks_used: [],
+          source_price_field: 'adjClose',
+        },
+      },
       confidence: 'low',
     },
     risk_summary: cloneMutable(ib2026MutableDashboardFixture.risk_summary),
@@ -653,6 +875,32 @@ export function createFf2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
         benchmark_relative_path: 'verified_adjusted_close',
         factor_model_path: 'verified_adjusted_close',
         risk_contribution_path: 'verified_adjusted_close',
+      },
+      return_basis_evidence: {
+        portfolio_history: {
+          verification_status: 'unverified',
+          economic_basis: 'unavailable',
+          construction_method: 'unknown',
+          disqualifiers: ['missing_portfolio_return_basis_proof'],
+          fallbacks_used: [],
+          source_price_field: null,
+        },
+        benchmark_history: {
+          verification_status: 'proxy',
+          economic_basis: 'adjusted_close_proxy',
+          construction_method: 'vendor_adjusted_close',
+          disqualifiers: ['missing_dividend_coverage_proof', 'missing_vendor_scope_proof', 'adjusted_close_is_not_verified_total_return'],
+          fallbacks_used: [],
+          source_price_field: 'adjClose',
+        },
+        factor_history: {
+          verification_status: 'proxy',
+          economic_basis: 'adjusted_close_proxy',
+          construction_method: 'vendor_adjusted_close',
+          disqualifiers: ['missing_dividend_coverage_proof', 'missing_vendor_scope_proof', 'adjusted_close_is_not_verified_total_return'],
+          fallbacks_used: [],
+          source_price_field: 'adjClose',
+        },
       },
       confidence: 'high',
     },
@@ -698,6 +946,10 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
         benchmark_relative_path: 'degraded_unverified_return_basis',
         factor_model_path: 'degraded_unverified_return_basis',
         risk_contribution_path: 'degraded_unverified_return_basis',
+      },
+      investor_economics_status: {
+        status: 'withheld',
+        reason: 'withheld_unverified_total_return_equivalence',
       },
       confidence: 'low',
       factor_model_parameters: {

@@ -9,7 +9,7 @@ from typing import Any, Literal, Mapping
 from app.datasets import DatasetCatalog
 from app.instruments.registry import InstrumentRegistry
 from app.schemas.research import BarRecord
-from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight, EtfRankingComponentScore, EtfRankingComponentWeights, EtfRankingEffectiveInputs, EtfRankingExcludedSymbol, EtfRankingInstrumentContext, EtfRankingRequestContext, EtfRankingResponse, EtfRankingRow, EtfRankingRunMetadata, EtfRankingSourceStatus, EtfRankingWarnings, RankingDirection, RankingUnit
+from app.schemas.research import EtfConstituentInternalsObservation, EtfLeaderConstituent, EtfLeaderInternalsObservation, EtfMomentumMetrics, EtfMomentumObservation, EtfMomentumPoint, EtfMomentumSourceStatus, EtfMomentumStrategyResponse, EtfMomentumWeight, EtfRankingComponentScore, EtfRankingComponentWeights, EtfRankingEffectiveInputs, EtfRankingExcludedSymbol, EtfRankingInstrumentContext, EtfRankingRequestContext, EtfRankingResponse, EtfRankingRow, EtfRankingRunMetadata, EtfRankingSourceStatus, EtfRankingWarnings, InvestorEconomicsStatus, RankingDirection, RankingUnit, build_investor_economics_status
 from app.services.market_data import MarketDataService
 
 DEFAULT_ETF_ROTATION_UNIVERSE = ["XLK", "XLF", "XLV", "XLE", "XLI", "QQQ", "IWM"]
@@ -24,6 +24,10 @@ STRATEGY_LAB_REFUSAL_POLICY_RATIONALE = (
 
 def _allow_strategy_lab_investor_economics_outputs() -> bool:
     return False
+
+
+def _build_strategy_lab_investor_economics_status(*, allow_outputs: bool) -> InvestorEconomicsStatus:
+    return build_investor_economics_status(available=allow_outputs)
 
 
 @dataclass(frozen=True)
@@ -82,6 +86,9 @@ def build_etf_momentum_strategy_analysis(
     prefer_live_data: bool = False,
 ) -> EtfMomentumStrategyResponse:
     allow_investor_economics_outputs = _allow_strategy_lab_investor_economics_outputs()
+    investor_economics_status = _build_strategy_lab_investor_economics_status(
+        allow_outputs=allow_investor_economics_outputs
+    )
     symbols = [symbol.upper() for symbol in (universe or DEFAULT_ETF_ROTATION_UNIVERSE)]
     benchmark = benchmark_symbol.upper()
     dataset_catalog = DatasetCatalog()
@@ -196,6 +203,7 @@ def build_etf_momentum_strategy_analysis(
         lookback_months=lookback_months,
         top_n=top_n,
         methodology=_build_methodology(base_data.price_source_label, base_data.internals_mode),
+        investor_economics_status=investor_economics_status,
         current_rankings=[
             EtfMomentumWeight(
                 symbol=item.symbol,

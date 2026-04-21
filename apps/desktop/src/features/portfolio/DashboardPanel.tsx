@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse, ImportedStatementImporter } from './types'
+import type { DashboardAnalysis, DashboardRangeMetrics, ExposureAnalysis, ExposureFactorModelResponse, ImportedStatementImporter } from './types'
+import { investorEconomicsBaseReason } from './investorEconomics'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
 import type { PortfolioSnapshot } from './workspaceTypes'
@@ -90,19 +91,21 @@ function formatDashboardAuditLine(result: DashboardAnalysis | null) {
   return `Audit: ${reproducibility.benchmark_symbol} · ${runMetadata.source_status.benchmark_history} · portfolio ${sectionTrust.portfolio_path} · benchmark ${sectionTrust.benchmark_path} · monthly ${sectionTrust.monthly_returns_path} · ${effectiveWindow} · dataset ${reproducibility.dataset_version}`
 }
 
-function formatDashboardReturnBasisRefusalLine(result: DashboardAnalysis | null, selectedRangeMetrics: DashboardAnalysis['range_metrics'] extends Record<string, infer T> | null ? T | null : null) {
+function formatDashboardReturnBasisRefusalLine(result: DashboardAnalysis | null, selectedRangeMetrics: DashboardRangeMetrics | null) {
   const runMetadata = result?.run_metadata
   if (!runMetadata || !selectedRangeMetrics) return null
 
-  const benchmarkContract = runMetadata.return_basis_contract.benchmark_path
   const benchmarkReturnRefused = selectedRangeMetrics.summary.benchmark_return_pct == null
   const excessReturnRefused = selectedRangeMetrics.summary.excess_return_pct == null
   const drawdownRefused = selectedRangeMetrics.max_drawdown_pct == null
 
-  if (benchmarkContract === 'verified_total_return') return null
+  if (runMetadata.investor_economics_status.status !== 'withheld') return null
   if (!benchmarkReturnRefused && !excessReturnRefused && !drawdownRefused) return null
 
-  return 'Refusals: benchmark return, excess return, and drawdown are intentionally withheld because benchmark total-return equivalence is unverified for this dashboard path.'
+  const baseReason = investorEconomicsBaseReason(runMetadata.investor_economics_status)
+  if (!baseReason) return null
+
+  return `Refusals: benchmark return, excess return, and drawdown are intentionally withheld. ${baseReason}`
 }
 
 function hasRichDashboardData(result: DashboardAnalysis | null) {
@@ -351,7 +354,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
     return result.daily_states.filter((state) => visibleDates.has(state.date))
   }, [perf, result])
 
-  const selectedRangeMetrics = result?.range_metrics?.[selectedRange] ?? null
+  const selectedRangeMetrics: DashboardRangeMetrics | null = result?.range_metrics?.[selectedRange] ?? null
 
   const resolvedSummary = selectedRangeMetrics?.summary
     ? {

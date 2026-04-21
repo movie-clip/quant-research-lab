@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
+import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { EtfMomentumStrategyResponse as EtfMomentumResponse } from '../portfolio/types'
 
 const UNIVERSE_PRESETS = {
@@ -162,6 +163,15 @@ function sourceStatusLabel(status: string) {
   return 'Sample fallback'
 }
 
+function investorEconomicsHelper(
+  status: EtfMomentumResponse['investor_economics_status'],
+) {
+  if (investorEconomicsBaseReason(status)) {
+    return 'Withheld until Strategy Lab has verified investor total-return equivalence.'
+  }
+  return 'Investor-economics outputs are available on this surface.'
+}
+
 function leaderCheckpointSourceLabel(status: string, snapshotDate: string | null) {
   if (status === 'live-dated') {
     return snapshotDate ? `FMP ${snapshotDate}` : 'FMP snapshot'
@@ -245,6 +255,7 @@ export function StrategyLabPanel() {
     () => visibleLeaderInternalsSeries.flatMap((item) => item.constituents.map((constituent) => constituentMetricValue(constituent, constituentHeatmapMetric))).filter((value): value is number => value != null),
     [constituentHeatmapMetric, visibleLeaderInternalsSeries],
   )
+  const investorEconomicsWithheld = result?.investor_economics_status.status === 'withheld'
 
   async function runStrategy() {
     const parsedUniverse = universe.split(',').map((item) => item.trim().toUpperCase()).filter(Boolean)
@@ -403,8 +414,8 @@ export function StrategyLabPanel() {
           <section className="workspace-section strategy-lab-summary-grid">
             <div className="summary-card strategy-summary-card strategy-summary-card-primary">
               <p className="stat-label">Investor Economics</p>
-              <p className="summary-value">N/A</p>
-              <p className="helper">Withheld until Strategy Lab has verified investor total-return equivalence.</p>
+              <p className="summary-value">{investorEconomicsWithheld ? 'Withheld' : 'Available'}</p>
+              <p className="helper">{investorEconomicsHelper(result.investor_economics_status)}</p>
             </div>
             <div className="summary-card strategy-summary-card">
               <p className="stat-label">Turnover</p>
@@ -419,12 +430,12 @@ export function StrategyLabPanel() {
             <div className="summary-card strategy-summary-card">
               <p className="stat-label">Benchmark</p>
               <p className="summary-value">{result.benchmark_symbol}</p>
-              <p className="helper">Used for ranking context only; return comparisons are withheld.</p>
+              <p className="helper">{investorEconomicsWithheld ? 'Used for ranking context only; return comparisons are withheld.' : 'Used for ranking context and performance comparison.'}</p>
             </div>
             <div className="summary-card strategy-summary-card">
               <p className="stat-label">Withheld Metrics</p>
-              <p className="summary-value">N/A</p>
-              <p className="helper">Total return, benchmark return, excess return, annualized return, max drawdown, and win rate are intentionally suppressed.</p>
+              <p className="summary-value">{investorEconomicsWithheld ? 'N/A' : 'Visible'}</p>
+              <p className="helper">{investorEconomicsWithheld ? 'Total return, benchmark return, excess return, annualized return, max drawdown, and win rate are intentionally suppressed.' : 'Investor-economics metrics are visible on this surface.'}</p>
             </div>
           </section>
 
@@ -479,8 +490,8 @@ export function StrategyLabPanel() {
           <section className="workspace-section">
             <div className="summary-card strategy-summary-card">
               <p className="stat-label">Performance Charts</p>
-              <p className="summary-value">N/A</p>
-              <p className="helper">Strategy equity, benchmark equity, and drawdown charts are intentionally withheld until investor-performance equivalence is verified.</p>
+              <p className="summary-value">{investorEconomicsWithheld ? 'N/A' : 'Available'}</p>
+              <p className="helper">{investorEconomicsWithheld ? 'Strategy equity, benchmark equity, and drawdown charts are intentionally withheld until investor-performance equivalence is verified.' : 'Strategy equity, benchmark equity, and drawdown charts are available on this surface.'}</p>
             </div>
           </section>
 
@@ -689,7 +700,7 @@ export function StrategyLabPanel() {
                     </div>
                   ))}
                 </div>
-                <p className="helper">Checkpoint investor-performance fields are intentionally withheld until Strategy Lab meets the verified investor total-return equivalence contract.</p>
+                <p className="helper">{investorEconomicsWithheld ? 'Checkpoint investor-performance fields are intentionally withheld until Strategy Lab meets the verified investor total-return equivalence contract.' : 'Checkpoint investor-performance fields are available on this surface.'}</p>
               </div>
             ) : null}
           </section>

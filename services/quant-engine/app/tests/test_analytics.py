@@ -38,8 +38,10 @@ from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, 
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import run_dashboard_history_engine, run_imported_dashboard_history
 from app.services.diagnostics_engine import run_diagnostics_engine, run_imported_diagnostics_engine
+from app.services.portfolio_proof import build_portfolio_proof_metadata
 from app.services.exposure_engine import build_exposure_result
 from app.services.import_engine import build_import_bootstrap_from_snapshot
+from app.services.market_data import build_histories_return_basis_evidence, build_history_return_basis_evidence
 from app.services.statement_importer import import_statements
 
 
@@ -55,9 +57,9 @@ FF2026_DASHBOARD_GOLDEN = {
         "start_value": 4033.48,
         "end_value": 3071.00,
         "net_contributions": 0.0,
-        "time_weighted_return_pct": -23.86,
+        "time_weighted_return_pct": None,
         "money_weighted_return_pct": -23.86,
-        "max_drawdown_pct": -25.30,
+        "max_drawdown_pct": None,
     },
     "monthly_returns": [
         ("2025-12", 0.14),
@@ -76,7 +78,12 @@ FF2026_DASHBOARD_GOLDEN = {
 }
 
 
-def _compute_dashboard_visible_summary(daily_states: list[DailyPortfolioState], performance_series: list) -> dict[str, float | None]:
+def _compute_dashboard_visible_summary(
+    daily_states: list[DailyPortfolioState],
+    performance_series: list,
+    *,
+    allow_compounded_return_outputs: bool = True,
+) -> dict[str, float | None]:
     if not daily_states:
         return {
             "start_value": None,
@@ -94,7 +101,7 @@ def _compute_dashboard_visible_summary(daily_states: list[DailyPortfolioState], 
     start_value = anchored_states[0].total_portfolio_value if anchored_states else None
     end_value = daily_states[-1].total_portfolio_value
     net_contributions = round(sum(state.external_cash_flow for state in anchored_states[1:]), 2) if anchored_states else 0.0
-    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf else None
+    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf and allow_compounded_return_outputs else None
 
     money_weighted_return_pct = None
     if anchored_states and len(anchored_states) >= 2:
@@ -142,7 +149,9 @@ def _compute_dashboard_monthly_returns(daily_states: list[DailyPortfolioState]) 
     return monthly_returns
 
 
-def _compute_dashboard_max_drawdown(performance_series: list) -> float:
+def _compute_dashboard_max_drawdown(performance_series: list, *, allow_drawdown_outputs: bool = True) -> float | None:
+    if not allow_drawdown_outputs:
+        return None
     peak = 0.0
     max_drawdown = 0.0
     for point in performance_series:
@@ -569,6 +578,30 @@ def test_run_dashboard_history_engine_returns_unavailable_without_complete_histo
         "monthly_returns": "unavailable",
         "benchmark_history": "unavailable",
     }
+    assert result.run_metadata.return_basis_evidence.model_dump() == {
+        "portfolio_path": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_path": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+    }
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "available",
+        "reason": None,
+    }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
         "snapshot_as_of_date": "2026-04-10",
@@ -611,6 +644,30 @@ def test_run_dashboard_history_engine_returns_unavailable_for_snapshot_only_requ
         "performance_history": "unavailable",
         "monthly_returns": "unavailable",
         "benchmark_history": "unavailable",
+    }
+    assert result.run_metadata.return_basis_evidence.model_dump() == {
+        "portfolio_path": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_path": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+    }
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "available",
+        "reason": None,
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
@@ -811,6 +868,99 @@ def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_hi
         "benchmark_history": "unavailable",
         "factor_history": "unavailable",
     }
+    assert result.run_metadata.return_basis_evidence.model_dump() == {
+        "portfolio_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "factor_history": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+    }
+    assert result.run_metadata.portfolio_proof.model_dump() == {
+        "proof_system": "portfolio_verified_total_return_v1",
+        "portfolio_path": "unavailable",
+        "verification_status": "unavailable",
+        "output_status": "unavailable",
+        "verified_total_return_emitted": False,
+        "benchmark_proof_independent": True,
+        "disqualifiers": ["portfolio_history_unavailable"],
+        "evidence": {
+            "opening_state_basis": {
+                "status": "disqualified",
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": ["portfolio_history_unavailable"],
+                "witnesses": [],
+            },
+            "valuation_basis": {
+                "status": "disqualified",
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": ["portfolio_history_unavailable"],
+                "witnesses": [],
+            },
+            "cash_flow_basis": {
+                "status": "disqualified",
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": ["portfolio_history_unavailable"],
+                "witnesses": [],
+            },
+            "fx_basis": {
+                "status": "disqualified",
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": ["portfolio_history_unavailable"],
+                "witnesses": [],
+            },
+            "corporate_action_basis": {
+                "status": "disqualified",
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": ["portfolio_history_unavailable"],
+                "witnesses": [],
+            },
+            "terminal_reconciliation_basis": {
+                "status": "disqualified",
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": ["portfolio_history_unavailable"],
+                "witnesses": [],
+            },
+            "calendar_coverage_basis": {
+                "status": "disqualified",
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": ["portfolio_history_unavailable"],
+                "witnesses": [],
+            },
+        },
+    }
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "available",
+        "reason": None,
+    }
     assert result.drawdown_summary.current_drawdown_pct is None
     assert result.drawdown_summary.max_drawdown_pct is None
     assert result.volatility_summary.portfolio_volatility_pct is None
@@ -914,10 +1064,188 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
         "benchmark_history": "live_market_data_unverified_return_basis",
         "factor_history": "live_market_data_unverified_return_basis",
     }
+    assert result.run_metadata.return_basis_evidence.model_dump() == {
+        "portfolio_history": {
+            "verification_status": "unverified",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_portfolio_return_basis_proof"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_history": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+        "factor_history": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+    }
+    assert result.run_metadata.portfolio_proof.model_dump() == {
+        "proof_system": "portfolio_verified_total_return_v1",
+        "portfolio_path": "withheld",
+        "verification_status": "unverified",
+        "output_status": "withheld",
+        "verified_total_return_emitted": False,
+        "benchmark_proof_independent": True,
+        "disqualifiers": [
+            "calendar_coverage_not_broker_proven",
+            "corporate_action_proof_missing",
+            "portfolio_verified_total_return_withheld",
+            "raw_price_used_for_valuation",
+        ],
+        "evidence": {
+            "opening_state_basis": {
+                "status": "supported",
+                "positive_evidence": [
+                    "broker_ledger_entries_available",
+                    "opening_state_covered_by_observed_trade_window",
+                ],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "opening_cash_state",
+                        "status": "unknown_inferred",
+                        "evidence": ["broker_opening_cash_state_not_present"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "opening_positions_state",
+                        "status": "trade_window_covered",
+                        "evidence": ["opening_positions_covered_by_observed_trade_window"],
+                        "counts": {"covered_symbol_count": 1},
+                    },
+                ],
+            },
+            "valuation_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["valuation_dates_available", "position_price_histories_loaded"],
+                "negative_evidence": ["vendor_raw_price_used_for_valuation"],
+                "disqualifiers": ["raw_price_used_for_valuation"],
+                "witnesses": [
+                    {
+                        "label": "valuation_input_policy",
+                        "status": "explicit_withholding_contract",
+                        "evidence": [
+                            "proof_eligible:broker_proven_mark_to_market_inputs",
+                            "replay_only:raw_vendor_price",
+                            "replay_only:forward_fill",
+                            "replay_only:synthetic_snapshot_history",
+                            "replay_only:snapshot_fallback",
+                            "replay_only:other_fallback_construction",
+                            "replay_only:mixed_basis_construction",
+                            "verified_total_return_withheld_when_any_replay_only_valuation_input_is_observed",
+                        ],
+                        "counts": {"proof_eligible_input_types": 1, "replay_only_input_types": 6},
+                    },
+                    {
+                        "label": "valuation_history_construction",
+                        "status": "imported_replay",
+                        "evidence": ["valuation_states_replayed_from_imported_broker_activity"],
+                        "counts": {"valuation_date_count": 10},
+                    },
+                    {
+                        "label": "valuation_window_basis:2026-04-10:2026-04-23",
+                        "status": "raw_vendor_price",
+                        "evidence": [
+                            "valuation_window_dates:2026-04-10->2026-04-23",
+                            "valuation_window_uses:raw_vendor_price",
+                        ],
+                        "counts": {"valuation_date_count": 10, "valued_symbol_count": 10, "raw_vendor_price": 10},
+                    },
+                ],
+            },
+            "cash_flow_basis": {
+                "status": "supported",
+                "positive_evidence": [
+                    "broker_ledger_entries_available",
+                    "cash_movement_entries_classified_with_broker_native_evidence",
+                ],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "cash_flow_classification",
+                        "status": "not_observed",
+                        "evidence": ["no_broker_proven_external_capital_flow_entries_observed"],
+                        "counts": {"external_capital_flow": 0},
+                    },
+                    {
+                        "label": "internal_trading_flow_classification",
+                        "status": "broker_proven",
+                        "evidence": ["broker_trade_ledger_line"],
+                        "counts": {"internal_trading_flow": 1},
+                    },
+                    {
+                        "label": "broker_explicit_income_expense_classification",
+                        "status": "not_observed",
+                        "evidence": ["no_broker_explicit_income_or_expense_cash_flows_observed"],
+                        "counts": {
+                            "broker_explicit_dividend": 0,
+                            "broker_explicit_interest": 0,
+                            "broker_explicit_fee": 0,
+                            "broker_explicit_tax": 0,
+                        },
+                    },
+                    {
+                        "label": "unknown_cash_flow_classification",
+                        "status": "none_observed",
+                        "evidence": ["no_unknown_cash_flow_entries_observed"],
+                        "counts": {"unknown": 0},
+                    },
+                ],
+            },
+            "fx_basis": {
+                "status": "supported",
+                "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [],
+            },
+            "corporate_action_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["broker_ledger_entries_available"],
+                "negative_evidence": ["corporate_action_proof_not_available"],
+                "disqualifiers": ["corporate_action_proof_missing"],
+                "witnesses": [],
+            },
+            "terminal_reconciliation_basis": {
+                "status": "supported",
+                "positive_evidence": ["terminal_force_reconciliation_not_present"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [],
+            },
+            "calendar_coverage_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
+                "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
+                "disqualifiers": ["calendar_coverage_not_broker_proven"],
+                "witnesses": [],
+            },
+        },
+    }
     assert result.run_metadata.section_trust.model_dump() == {
         "benchmark_relative_path": "degraded_unverified_return_basis",
         "factor_model_path": "degraded_unverified_return_basis",
         "risk_contribution_path": "degraded_unverified_return_basis",
+    }
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
     }
     assert result.run_metadata.confidence == "low"
     assert result.statistical_factor_model.status == "insufficient_history"
@@ -1159,6 +1487,30 @@ def test_run_imported_dashboard_history_returns_unavailable_without_imported_his
         "monthly_returns": "unavailable",
         "benchmark_history": "unavailable",
     }
+    assert result.run_metadata.return_basis_evidence.model_dump() == {
+        "portfolio_path": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+        "benchmark_path": {
+            "verification_status": "unavailable",
+            "economic_basis": "unavailable",
+            "construction_method": "unknown",
+            "disqualifiers": ["missing_history_rows"],
+            "fallbacks_used": [],
+            "source_price_field": None,
+            "scope": {},
+        },
+    }
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "available",
+        "reason": None,
+    }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
         "snapshot_as_of_date": None,
@@ -1181,7 +1533,7 @@ def test_run_imported_dashboard_history_returns_unavailable_without_imported_his
 def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_returns_live_result(mocker) -> None:
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service = market_data.return_value
-    service.get_historical_prices.return_value = [
+    service.get_direct_verified_benchmark_history.return_value = [
         {"date": "2026-04-10", "price": 100.0},
         {"date": "2026-04-11", "price": 120.0},
     ]
@@ -1212,7 +1564,7 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
 
     result = run_imported_dashboard_history(snapshot, "SPY")
 
-    service.get_historical_prices.assert_called_once_with("SPY", "2026-04-10", "2026-04-11")
+    service.get_direct_verified_benchmark_history.assert_called_once_with("SPY", "2026-04-10", "2026-04-11")
     assert result.source_status == {"performance_history": "live", "monthly_returns": "live"}
     assert result.run_metadata.source_status.model_dump() == {
         "performance_history": "live",
@@ -1227,6 +1579,175 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert result.run_metadata.return_basis_contract.model_dump() == {
         "portfolio_path": "unavailable",
         "benchmark_path": "price_return_only",
+    }
+    assert result.run_metadata.return_basis_evidence.model_dump() == {
+        "portfolio_path": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+        "benchmark_path": {
+            "verification_status": "unverified",
+            "economic_basis": "price_return_only",
+            "construction_method": "raw_close",
+            "disqualifiers": ["missing_adjusted_close_series", "missing_total_return_reconstruction"],
+            "fallbacks_used": [],
+            "source_price_field": "price",
+            "scope": {},
+        },
+    }
+    assert result.run_metadata.portfolio_proof.model_dump() == {
+        "proof_system": "portfolio_verified_total_return_v1",
+        "portfolio_path": "withheld",
+        "verification_status": "unverified",
+        "output_status": "withheld",
+        "verified_total_return_emitted": False,
+        "benchmark_proof_independent": True,
+        "disqualifiers": [
+            "calendar_coverage_not_broker_proven",
+            "corporate_action_proof_missing",
+            "portfolio_verified_total_return_withheld",
+            "raw_price_used_for_valuation",
+        ],
+        "evidence": {
+            "opening_state_basis": {
+                "status": "supported",
+                "positive_evidence": [
+                    "broker_ledger_entries_available",
+                    "opening_state_covered_by_observed_trade_window",
+                ],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "opening_cash_state",
+                        "status": "unknown_inferred",
+                        "evidence": ["broker_opening_cash_state_not_present"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "opening_positions_state",
+                        "status": "trade_window_covered",
+                        "evidence": ["opening_positions_covered_by_observed_trade_window"],
+                        "counts": {"covered_symbol_count": 1},
+                    },
+                ],
+            },
+            "valuation_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["valuation_dates_available", "position_price_histories_loaded"],
+                "negative_evidence": ["vendor_raw_price_used_for_valuation"],
+                "disqualifiers": ["raw_price_used_for_valuation"],
+                "witnesses": [
+                    {
+                        "label": "valuation_input_policy",
+                        "status": "explicit_withholding_contract",
+                        "evidence": [
+                            "proof_eligible:broker_proven_mark_to_market_inputs",
+                            "replay_only:raw_vendor_price",
+                            "replay_only:forward_fill",
+                            "replay_only:synthetic_snapshot_history",
+                            "replay_only:snapshot_fallback",
+                            "replay_only:other_fallback_construction",
+                            "replay_only:mixed_basis_construction",
+                            "verified_total_return_withheld_when_any_replay_only_valuation_input_is_observed",
+                        ],
+                        "counts": {"proof_eligible_input_types": 1, "replay_only_input_types": 6},
+                    },
+                    {
+                        "label": "valuation_history_construction",
+                        "status": "imported_replay",
+                        "evidence": ["valuation_states_replayed_from_imported_broker_activity"],
+                        "counts": {"valuation_date_count": 2},
+                    },
+                    {
+                        "label": "valuation_window_basis:2026-04-10:2026-04-11",
+                        "status": "raw_vendor_price",
+                        "evidence": [
+                            "valuation_window_dates:2026-04-10->2026-04-11",
+                            "valuation_window_uses:raw_vendor_price",
+                        ],
+                        "counts": {"valuation_date_count": 2, "valued_symbol_count": 2, "raw_vendor_price": 2},
+                    },
+                ],
+            },
+            "cash_flow_basis": {
+                "status": "supported",
+                "positive_evidence": [
+                    "broker_ledger_entries_available",
+                    "cash_movement_entries_classified_with_broker_native_evidence",
+                ],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "cash_flow_classification",
+                        "status": "not_observed",
+                        "evidence": ["no_broker_proven_external_capital_flow_entries_observed"],
+                        "counts": {"external_capital_flow": 0},
+                    },
+                    {
+                        "label": "internal_trading_flow_classification",
+                        "status": "broker_proven",
+                        "evidence": ["broker_trade_ledger_line"],
+                        "counts": {"internal_trading_flow": 1},
+                    },
+                    {
+                        "label": "broker_explicit_income_expense_classification",
+                        "status": "not_observed",
+                        "evidence": ["no_broker_explicit_income_or_expense_cash_flows_observed"],
+                        "counts": {
+                            "broker_explicit_dividend": 0,
+                            "broker_explicit_interest": 0,
+                            "broker_explicit_fee": 0,
+                            "broker_explicit_tax": 0,
+                        },
+                    },
+                    {
+                        "label": "unknown_cash_flow_classification",
+                        "status": "none_observed",
+                        "evidence": ["no_unknown_cash_flow_entries_observed"],
+                        "counts": {"unknown": 0},
+                    },
+                ],
+            },
+            "fx_basis": {
+                "status": "supported",
+                "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [],
+            },
+            "corporate_action_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["broker_ledger_entries_available"],
+                "negative_evidence": ["corporate_action_proof_not_available"],
+                "disqualifiers": ["corporate_action_proof_missing"],
+                "witnesses": [],
+            },
+            "terminal_reconciliation_basis": {
+                "status": "supported",
+                "positive_evidence": ["terminal_force_reconciliation_not_present"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "witnesses": [],
+            },
+            "calendar_coverage_basis": {
+                "status": "disqualified",
+                "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
+                "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
+                "disqualifiers": ["calendar_coverage_not_broker_proven"],
+                "witnesses": [],
+            },
+        },
+    }
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
@@ -1249,6 +1770,414 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert result.benchmark is not None
     assert result.benchmark.return_pct is None
     assert result.benchmark.return_basis_contract == "price_return_only"
+
+
+def test_run_imported_dashboard_history_enables_verified_benchmark_only_for_direct_spy_fmp_slice(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 101.5},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    service.get_direct_verified_benchmark_history.assert_called_once_with("SPY", "2026-04-10", "2026-04-11")
+    service.get_historical_prices.assert_not_called()
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "verified_total_return",
+    }
+    assert result.run_metadata.return_basis_evidence.benchmark_path.model_dump() == {
+        "verification_status": "verified",
+        "economic_basis": "total_return",
+        "construction_method": "vendor_adjusted_close",
+        "disqualifiers": [],
+        "fallbacks_used": [],
+        "source_price_field": "adjClose",
+        "scope": {
+            "symbol": "SPY",
+            "requested_symbol": "SPY",
+            "resolved_symbol": "SPY",
+            "vendor": "FMP",
+            "endpoint": "historical-price-eod/light",
+            "direct_path_only": True,
+            "fallback_used": False,
+            "symbol_override_used": False,
+            "window_start": "2026-04-10",
+            "window_end": "2026-04-11",
+            "row_count": 2,
+            "rows_ordered": True,
+            "rows_unique_by_date": True,
+            "adjclose_complete": True,
+            "proxy_used": False,
+            "mixed_source": False,
+            "validation_version": "spy_fmp_light_adjclose_v1",
+        },
+    }
+    assert result.range_metrics is not None
+    assert result.performance_series[-1].benchmark_return_pct == 1.5
+    assert result.range_metrics["All"].summary.benchmark_return_pct is None
+    assert result.benchmark is not None
+    assert result.benchmark.return_basis_contract == "verified_total_return"
+    assert result.benchmark.return_pct == 1.5
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+
+
+def test_run_imported_dashboard_history_keeps_adjusted_spy_unverified_when_direct_scope_evidence_is_missing(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 101.5},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": False,
+        "fallback_used": True,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "unverified_adjusted_proxy",
+    }
+    assert result.run_metadata.return_basis_evidence.benchmark_path.verification_status == "proxy"
+    assert result.run_metadata.return_basis_evidence.benchmark_path.scope == {}
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.benchmark_return_pct is None
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+
+
+def test_run_imported_dashboard_history_enables_verified_benchmark_for_direct_qqq_fmp_slice(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 200.0, "adjClose": 200.0},
+        {"date": "2026-04-11", "price": 202.0, "adjClose": 203.0},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "QQQ",
+        "resolved_symbol": "QQQ",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "QQQ")
+
+    service.get_direct_verified_benchmark_history.assert_called_once_with("QQQ", "2026-04-10", "2026-04-11")
+    service.get_historical_prices.assert_not_called()
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "verified_total_return",
+    }
+    assert result.run_metadata.return_basis_evidence.benchmark_path.model_dump() == {
+        "verification_status": "verified",
+        "economic_basis": "total_return",
+        "construction_method": "vendor_adjusted_close",
+        "disqualifiers": [],
+        "fallbacks_used": [],
+        "source_price_field": "adjClose",
+        "scope": {
+            "symbol": "QQQ",
+            "requested_symbol": "QQQ",
+            "resolved_symbol": "QQQ",
+            "vendor": "FMP",
+            "endpoint": "historical-price-eod/light",
+            "direct_path_only": True,
+            "fallback_used": False,
+            "proxy_used": False,
+            "mixed_source": False,
+            "symbol_override_used": False,
+            "window_start": "2026-04-10",
+            "window_end": "2026-04-11",
+            "row_count": 2,
+            "rows_ordered": True,
+            "rows_unique_by_date": True,
+            "adjclose_complete": True,
+            "validation_version": "qqq_fmp_light_adjclose_v1",
+        },
+    }
+    assert result.benchmark is not None
+    assert result.benchmark.return_basis_contract == "verified_total_return"
+    assert result.benchmark.return_pct == 1.5
+
+
+def test_run_imported_dashboard_history_keeps_qqq_unverified_when_direct_scope_evidence_is_broken(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 200.0, "adjClose": 200.0},
+        {"date": "2026-04-11", "price": 202.0, "adjClose": 203.0},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "QQQ",
+        "resolved_symbol": "QQQ",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": True,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "QQQ")
+
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "unverified_adjusted_proxy",
+    }
+    assert result.run_metadata.return_basis_evidence.benchmark_path.verification_status == "proxy"
+    assert result.run_metadata.return_basis_evidence.benchmark_path.scope == {}
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+
+
+def test_run_imported_dashboard_history_keeps_qqq_unverified_when_in_window_adjclose_coverage_is_incomplete(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 200.0, "adjClose": 200.0},
+        {"date": "2026-04-11", "price": 202.0, "adjClose": None},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "QQQ",
+        "resolved_symbol": "QQQ",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "QQQ")
+
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "price_return_only",
+    }
+    assert result.run_metadata.return_basis_evidence.benchmark_path.verification_status == "unverified"
+    assert result.run_metadata.return_basis_evidence.benchmark_path.scope == {}
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+
+
+def test_run_imported_dashboard_history_keeps_non_allowlisted_benchmark_unverified_even_with_adjusted_rows(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_historical_prices.return_value = [
+        {"date": "2026-04-10", "price": 400.0, "adjClose": 400.0},
+        {"date": "2026-04-11", "price": 404.0, "adjClose": 406.0},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "VOO",
+        "resolved_symbol": "VOO",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "VOO")
+
+    service.get_direct_verified_benchmark_history.assert_not_called()
+    service.get_historical_prices.assert_called_once_with("VOO", "2026-04-10", "2026-04-11")
+    assert result.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "unverified_adjusted_proxy",
+    }
+    assert result.run_metadata.return_basis_evidence.benchmark_path.scope == {}
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
 
 
 def test_build_true_performance_series_prefers_adjusted_benchmark_prices_when_available() -> None:
@@ -1340,7 +2269,7 @@ def test_build_true_performance_series_refuses_compounded_portfolio_and_benchmar
 def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_price_only_basis(mocker) -> None:
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service = market_data.return_value
-    service.get_historical_prices.return_value = [
+    service.get_direct_verified_benchmark_history.return_value = [
         {"date": "2026-04-10", "price": 100.0},
         {"date": "2026-04-11", "price": 101.0},
     ]
@@ -1381,7 +2310,7 @@ def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_price_
 def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_unverified_adjusted_proxy_basis(mocker) -> None:
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service = market_data.return_value
-    service.get_historical_prices.return_value = [
+    service.get_direct_verified_benchmark_history.return_value = [
         {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
         {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
     ]
@@ -1415,6 +2344,19 @@ def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_unveri
     assert result.run_metadata.return_basis_contract.model_dump() == {
         "portfolio_path": "unavailable",
         "benchmark_path": "unverified_adjusted_proxy",
+    }
+    assert result.run_metadata.return_basis_evidence.benchmark_path.model_dump() == {
+        "verification_status": "proxy",
+        "economic_basis": "adjusted_close_proxy",
+        "construction_method": "vendor_adjusted_close",
+        "disqualifiers": [
+            "missing_dividend_coverage_proof",
+            "missing_vendor_scope_proof",
+            "adjusted_close_is_not_verified_total_return",
+        ],
+        "fallbacks_used": [],
+        "source_price_field": "adjClose",
+        "scope": {},
     }
     assert result.range_metrics is not None
     assert result.range_metrics["All"].max_drawdown_pct is None
@@ -1551,7 +2493,7 @@ def test_run_imported_diagnostics_engine_returns_unavailable_when_benchmark_hist
 def test_run_imported_dashboard_history_returns_unavailable_when_symbol_history_is_missing(mocker) -> None:
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service = market_data.return_value
-    service.get_historical_prices.return_value = [
+    service.get_direct_verified_benchmark_history.return_value = [
         {"date": "2026-04-10", "price": 100.0},
         {"date": "2026-04-11", "price": 101.0},
     ]
@@ -1608,7 +2550,7 @@ def test_run_imported_dashboard_history_returns_unavailable_when_symbol_history_
 def test_run_imported_dashboard_history_returns_unavailable_when_benchmark_history_is_missing(mocker) -> None:
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service = market_data.return_value
-    service.get_historical_prices.return_value = []
+    service.get_direct_verified_benchmark_history.return_value = []
     service.get_historical_prices_for_symbols.return_value = {
         "AAPL": [
             {"date": "2026-04-10", "price": 100.0},
@@ -2567,6 +3509,68 @@ def test_selected_history_price_map_returns_selected_points_and_status() -> None
     assert selected_map == {"2026-01-02": 98.0, "2026-01-03": 99.0}
 
 
+def test_build_history_return_basis_evidence_marks_adjusted_close_as_proxy_not_verified() -> None:
+    evidence = build_history_return_basis_evidence([
+        {"date": "2026-01-02", "price": 100.0, "adjClose": 98.0},
+        {"date": "2026-01-03", "price": 101.0, "adjClose": 99.0},
+    ])
+
+    assert evidence.model_dump() == {
+        "verification_status": "proxy",
+        "economic_basis": "adjusted_close_proxy",
+        "construction_method": "vendor_adjusted_close",
+        "disqualifiers": [
+            "missing_dividend_coverage_proof",
+            "missing_vendor_scope_proof",
+            "adjusted_close_is_not_verified_total_return",
+        ],
+        "fallbacks_used": [],
+        "source_price_field": "adjClose",
+        "scope": {},
+    }
+
+
+def test_build_history_return_basis_evidence_marks_price_only_history_as_unverified() -> None:
+    evidence = build_history_return_basis_evidence([
+        {"date": "2026-01-02", "price": 100.0},
+        {"date": "2026-01-03", "price": 101.0},
+    ])
+
+    assert evidence.model_dump() == {
+        "verification_status": "unverified",
+        "economic_basis": "price_return_only",
+        "construction_method": "raw_close",
+        "disqualifiers": [
+            "missing_adjusted_close_series",
+            "missing_total_return_reconstruction",
+        ],
+        "fallbacks_used": [],
+        "source_price_field": "price",
+        "scope": {},
+    }
+
+
+def test_build_histories_return_basis_evidence_marks_synthetic_snapshot_history_explicitly() -> None:
+    evidence = build_histories_return_basis_evidence(
+        {"AAPL": [{"date": "2026-01-02", "price": 100.0}]},
+        construction_method_hint="synthetic_snapshot_history",
+    )
+
+    assert evidence.model_dump() == {
+        "verification_status": "unverified",
+        "economic_basis": "price_return_only",
+        "construction_method": "synthetic_snapshot_history",
+        "disqualifiers": [
+            "missing_dividend_coverage_proof",
+            "missing_total_return_reconstruction",
+            "synthetic_snapshot_history",
+        ],
+        "fallbacks_used": ["synthetic_snapshot_history"],
+        "source_price_field": "price",
+        "scope": {},
+    }
+
+
 def test_is_history_series_verified_adjusted_reports_false_for_price_fallback() -> None:
     assert is_history_series_verified_adjusted([
         {"date": "2026-01-02", "price": 100.0},
@@ -2889,8 +3893,121 @@ def test_snapshot_to_ledger_preserves_trade_and_cash_fields() -> None:
     assert ledger[0].date.isoformat() == "2025-01-02"
     assert ledger[0].entry_type == "DEPOSIT"
     assert ledger[0].cash_effect == 100.0
+    assert ledger[0].cash_movement_classification == "external_capital_flow"
+    assert "broker_transfer_section_line" in ledger[0].broker_evidence
     assert ledger[-1].entry_type == "FEE"
     assert ledger[-1].cash_effect == -2.0
+    assert ledger[-1].cash_movement_classification == "broker_explicit_fee"
+
+
+def test_portfolio_proof_cash_flow_witnesses_narrow_to_unknown_cash_movements() -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 23),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-23",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=500.0, ending_cash=620.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 23), symbol="AAPL", quantity=1.0, cost_basis=100.0, close_price=120.0, market_value=120.0, unrealized_pnl=20.0, currency="USD")],
+        ledger_entries=[
+            ImportedLedgerEntry(entry_type="DEPOSIT", trade_date=date(2026, 4, 10), gross_amount=200.0, net_amount=200.0, currency="USD", source_section="Deposits & Withdrawals", source_line="2026-04-10 ACH 200.00"),
+            ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 11), symbol="AAPL", quantity=1.0, price=100.0, gross_amount=-100.0, net_amount=-101.0, fee=1.0, currency="USD", source_section="Trades", source_line="AAPL 2026-04-11 1 100"),
+            ImportedLedgerEntry(entry_type="DIVIDEND", trade_date=date(2026, 4, 15), symbol="AAPL", gross_amount=10.0, net_amount=10.0, currency="USD", source_section="Unknown Income", source_line="mystery dividend line"),
+        ],
+    )
+
+    proof = build_portfolio_proof_metadata(
+        snapshot=snapshot,
+        price_histories={"AAPL": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-23", "price": 120.0}]},
+        valuation_dates=["2026-04-10", "2026-04-23"],
+        fx_history={},
+        history_source="imported_replay",
+    )
+
+    assert proof.verified_total_return_emitted is False
+    assert proof.evidence.cash_flow_basis.disqualifiers == ["unknown_cash_movements"]
+    assert proof.evidence.cash_flow_basis.witnesses[0].counts == {"external_capital_flow": 1}
+    assert proof.evidence.cash_flow_basis.witnesses[1].counts == {"internal_trading_flow": 1}
+    assert proof.evidence.cash_flow_basis.witnesses[3].counts == {"unknown": 1}
+    assert proof.evidence.cash_flow_basis.witnesses[3].evidence == ["unknown_cash_flow_entry_types:dividend"]
+    assert proof.evidence.opening_state_basis.witnesses[0].status == "broker_proven"
+    assert proof.evidence.opening_state_basis.witnesses[1].status == "trade_window_covered"
+
+
+def test_portfolio_proof_valuation_witnesses_capture_mixed_forward_fill_and_snapshot_fallback() -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 23),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=300.0,
+            ending_nav=325.0,
+            stock_total=275.0,
+            cash_total=50.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=50.0, ending_cash=50.0)],
+        positions=[
+            ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=1.0, cost_basis=100.0, close_price=110.0, market_value=110.0, unrealized_pnl=10.0, currency="USD"),
+            ImportedPosition(as_of_date=date(2026, 4, 11), symbol="MSFT", quantity=1.0, cost_basis=200.0, close_price=215.0, market_value=215.0, unrealized_pnl=15.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+
+    proof = build_portfolio_proof_metadata(
+        snapshot=snapshot,
+        price_histories={"AAPL": [{"date": "2026-04-10", "price": 100.0}]},
+        valuation_dates=["2026-04-10", "2026-04-11"],
+        fx_history={},
+        history_source="imported_replay",
+    )
+
+    assert proof.portfolio_path == "withheld"
+    assert proof.verified_total_return_emitted is False
+    assert proof.evidence.valuation_basis.disqualifiers == [
+        "forward_filled_prices",
+        "mixed_basis_valuation",
+        "raw_price_used_for_valuation",
+        "snapshot_close_price_fallback",
+    ]
+    assert proof.evidence.valuation_basis.negative_evidence == [
+        "vendor_raw_price_used_for_valuation",
+        "position_prices_forward_filled",
+        "snapshot_close_price_fallback_used",
+        "mixed_basis_valuation_construction_used",
+    ]
+    assert proof.evidence.valuation_basis.witnesses[0].label == "valuation_input_policy"
+    assert proof.evidence.valuation_basis.witnesses[1].status == "imported_replay"
+    assert proof.evidence.valuation_basis.witnesses[2].label == "valuation_window_basis:2026-04-10:2026-04-11"
+    assert proof.evidence.valuation_basis.witnesses[2].status == "mixed_basis_construction"
+    assert proof.evidence.valuation_basis.witnesses[2].evidence == [
+        "valuation_window_dates:2026-04-10->2026-04-11",
+        "mixed_basis_inputs:forward_fill,raw_vendor_price,snapshot_fallback",
+    ]
+    assert proof.evidence.valuation_basis.witnesses[2].counts == {
+        "valuation_date_count": 2,
+        "valued_symbol_count": 4,
+        "forward_fill": 1,
+        "raw_vendor_price": 1,
+        "snapshot_fallback": 2,
+    }
 
 
 def test_reconstruct_position_lots_creates_opening_balance_lot() -> None:
@@ -3102,6 +4219,7 @@ def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement() ->
     assert visible_summary["end_value"] == round(history.performance_series[-1].portfolio_value, 2)
     assert visible_summary["start_value"] is not None
     assert visible_summary["start_value"] > 0
+    assert max_drawdown is not None
     assert max_drawdown <= 0
     assert history.range_metrics is not None
     assert history.range_metrics["3M"].summary.end_value is not None
@@ -3125,9 +4243,26 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview() -> 
     snapshot = import_statements([str(ff_2026_path)])
     history = run_imported_dashboard_history(snapshot, "SPY")
     overview = build_portfolio_overview(snapshot)
-    visible_summary = _compute_dashboard_visible_summary(history.daily_states, history.performance_series)
+    assert history.range_metrics is not None
+    assert history.run_metadata.return_basis_contract.model_dump() == {
+        "portfolio_path": "unavailable",
+        "benchmark_path": "price_return_only",
+    }
+    assert history.run_metadata.investor_economics_status.model_dump() == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+
+    visible_summary = _compute_dashboard_visible_summary(
+        history.daily_states,
+        history.performance_series,
+        allow_compounded_return_outputs=history.range_metrics["All"].summary.time_weighted_return_pct is not None,
+    )
     monthly_returns = _compute_dashboard_monthly_returns(history.daily_states)
-    max_drawdown = _compute_dashboard_max_drawdown(history.performance_series)
+    max_drawdown = _compute_dashboard_max_drawdown(
+        history.performance_series,
+        allow_drawdown_outputs=history.range_metrics["All"].max_drawdown_pct is not None,
+    )
 
     assert snapshot.statement.account_id == FF2026_DASHBOARD_GOLDEN["account_id"]
     assert snapshot.statement.statement_period == FF2026_DASHBOARD_GOLDEN["statement_period"]
@@ -3139,11 +4274,11 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview() -> 
     assert visible_summary["time_weighted_return_pct"] == expected_summary["time_weighted_return_pct"]
     assert visible_summary["money_weighted_return_pct"] == expected_summary["money_weighted_return_pct"]
     assert max_drawdown == expected_summary["max_drawdown_pct"]
-    assert history.range_metrics is not None
     assert round(history.range_metrics["3M"].summary.start_value or 0, 2) == expected_summary["start_value"]
     assert round(history.range_metrics["3M"].summary.end_value or 0, 2) == expected_summary["end_value"]
+    assert history.range_metrics["3M"].summary.time_weighted_return_pct == expected_summary["time_weighted_return_pct"]
     assert round(history.range_metrics["3M"].summary.money_weighted_return_pct or 0, 2) == expected_summary["money_weighted_return_pct"]
-    assert round(history.range_metrics["3M"].max_drawdown_pct or 0, 2) == expected_summary["max_drawdown_pct"]
+    assert history.range_metrics["3M"].max_drawdown_pct == expected_summary["max_drawdown_pct"]
 
     assert monthly_returns == FF2026_DASHBOARD_GOLDEN["monthly_returns"]
     assert [(item.month, round(item.return_pct, 2)) for item in history.range_metrics["All"].monthly_returns] == FF2026_DASHBOARD_GOLDEN["monthly_returns"]

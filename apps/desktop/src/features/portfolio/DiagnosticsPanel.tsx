@@ -6,6 +6,7 @@ import type { NameType, ValueType } from 'recharts/types/component/DefaultToolti
 
 import type { DiagnosticsEngineResponse } from './types'
 import { formatHistoryTruthClassLabel, formatSnapshotBasisLabel, humanizeContractLabel } from './historyTruth'
+import { investorEconomicsBaseReason } from './investorEconomics'
 
 type BehaviorWindow = 20 | 60 | 252
 
@@ -243,13 +244,16 @@ function diagnosticsAuditSummary(result: DiagnosticsEngineResponse) {
 }
 
 function diagnosticsReturnBasisRefusalSummary(result: DiagnosticsEngineResponse) {
-  const benchmarkPathDegraded = result.run_metadata.section_trust.benchmark_relative_path === 'degraded_unverified_return_basis'
   const drawdownRefused = result.drawdown_summary.current_drawdown_pct == null && result.drawdown_summary.max_drawdown_pct == null
   const relativeReturnRefused = result.relative_risk.active_return_pct == null && result.relative_risk.information_ratio == null
 
-  if (!benchmarkPathDegraded || (!drawdownRefused && !relativeReturnRefused)) return null
+  if (result.run_metadata.investor_economics_status.status !== 'withheld') return null
+  if (!drawdownRefused && !relativeReturnRefused) return null
 
-  return 'Refusals: drawdown, active return, and information ratio are intentionally withheld because total-return equivalence is unverified for the benchmark-relative path.'
+  const baseReason = investorEconomicsBaseReason(result.run_metadata.investor_economics_status)
+  if (!baseReason) return null
+
+  return `Refusals: drawdown, active return, and information ratio are intentionally withheld. ${baseReason}`
 }
 
 function decisionCardToneForDrawdown(value: number | null | undefined): DecisionCardTone {

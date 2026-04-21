@@ -166,3 +166,65 @@ def test_detect_histories_return_basis_requires_all_populated_histories_to_be_ve
         "SPY": [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}],
         "QQQ": [{"date": "2024-01-02", "price": 200.0}],
     }) == "unverified_close_only"
+
+
+def test_get_direct_spy_benchmark_history_records_direct_vendor_scope_metadata(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.get_historical_price_light.return_value = [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}]
+
+    service = MarketDataService()
+    rows = service.get_direct_spy_benchmark_history("2024-01-01", "2024-01-31")
+
+    assert rows == [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}]
+    instance.get_historical_price_light.assert_called_once_with("SPY", "2024-01-01", "2024-01-31")
+    assert service.get_last_fetch_meta("SPY") == {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+
+
+def test_get_direct_verified_benchmark_history_records_direct_vendor_scope_metadata_for_qqq(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.get_historical_price_light.return_value = [{"date": "2024-01-02", "price": 400.0, "adjClose": 399.0}]
+
+    service = MarketDataService()
+    rows = service.get_direct_verified_benchmark_history("QQQ", "2024-01-01", "2024-01-31")
+
+    assert rows == [{"date": "2024-01-02", "price": 400.0, "adjClose": 399.0}]
+    instance.get_historical_price_light.assert_called_once_with("QQQ", "2024-01-01", "2024-01-31")
+    assert service.get_last_fetch_meta("QQQ") == {
+        "type": "history",
+        "requested_symbol": "QQQ",
+        "resolved_symbol": "QQQ",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+
+
+def test_get_direct_verified_benchmark_history_rejects_non_allowlisted_symbols(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+
+    service = MarketDataService()
+    rows = service.get_direct_verified_benchmark_history("VOO", "2024-01-01", "2024-01-31")
+
+    assert rows == []
+    instance.get_historical_price_light.assert_not_called()
+    assert service.get_last_fetch_meta("VOO") is None

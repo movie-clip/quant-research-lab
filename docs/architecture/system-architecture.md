@@ -188,6 +188,12 @@ The project uses explicit truth classes when reasoning about financial outputs:
 
 These must remain visibly distinct in both payloads and UI.
 
+Architecture-level investor-economics rule:
+
+- `withheld` means the system has a broader history or replay artifact but intentionally suppresses investor-economics outputs until the required return-basis claim can be justified
+- `unavailable` means the required source inputs or trustworthy computation path are not available at all
+- docs and UI must not collapse `withheld` into generic `unavailable`
+
 ## Data Flow
 
 ### FMP market data
@@ -252,11 +258,11 @@ UI rule:
 
 - backtest diagnostics should present this provenance explicitly so users do not confuse synthetic replay diagnostics with imported history-backed portfolio diagnostics
 
-Known contract limitation:
+Current replay derivation rule:
 
 - hypothetical replay can consume candidate construction outputs built with either `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`
-- the replay response derivation payload still reports the older generic `single_symbol_weight_substitution` value rather than the exact construction rule consumed
-- treat candidate construction as the current authoritative source for exact single-replacement derivation semantics until replay provenance is tightened
+- replay provenance now preserves the actual construction rule consumed by the replay rather than collapsing it to the older generic `single_symbol_weight_substitution` label
+- replay consumers should read replay provenance and derivation together when interpreting single-replacement hypothetical construction semantics
 
 Overlay-specific current-state rule:
 

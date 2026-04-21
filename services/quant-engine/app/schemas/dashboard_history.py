@@ -3,7 +3,9 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.schemas.portfolio_engine import PortfolioEngineRequest, PortfolioHistoryContext
+from app.schemas.return_basis import PortfolioProofMetadata, ReturnBasisEvidence
 from app.schemas.reconciliation import BenchmarkComparison, DailyPortfolioState, PerformancePoint, PerformanceSummary
+from app.schemas.research import InvestorEconomicsStatus
 
 
 class DashboardHistoryEngineRequest(PortfolioEngineRequest):
@@ -47,11 +49,18 @@ class DashboardHistoryRunMetadata(BaseModel):
         portfolio_path: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"]
         benchmark_path: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"]
 
+    class ReturnBasisEvidenceBundle(BaseModel):
+        portfolio_path: ReturnBasisEvidence
+        benchmark_path: ReturnBasisEvidence
+
     history_id: str
     methodology_id: str
     source_status: DashboardHistoryRunSourceStatus
     section_trust: SectionTrust
     return_basis_contract: ReturnBasisContract
+    return_basis_evidence: ReturnBasisEvidenceBundle
+    portfolio_proof: PortfolioProofMetadata
+    investor_economics_status: InvestorEconomicsStatus
     reproducibility: DashboardHistoryRunReproducibility
 
 

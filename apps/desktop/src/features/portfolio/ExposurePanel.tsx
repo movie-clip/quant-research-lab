@@ -5,6 +5,7 @@ import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 
 import { DEFAULT_FACTOR_MODEL_METHODOLOGY } from './exposureFactorModel'
+import { investorEconomicsBaseReason } from './investorEconomics'
 import type { ExposureAnalysis, ExposureFactorModelResponse } from './types'
 
 export { sortTooltipPayloadRows } from './RollingFactorLoadingsCard'
@@ -386,10 +387,15 @@ function formatExposureAuditLine(result: ExposureAnalysis) {
 
 function formatExposureRelativeReturnRefusalLine(result: ExposureAnalysis) {
   const diagnosticsAvailable = result.availability?.historical_sections_available !== false
+  const diagnosticsRunMetadata = result.diagnostics_run_metadata
   const relativeReturnRefused = result.relative_risk.active_return_pct == null && result.relative_risk.information_ratio == null
-  if (!diagnosticsAvailable || !relativeReturnRefused) return null
+  if (!diagnosticsAvailable || !diagnosticsRunMetadata || !relativeReturnRefused) return null
+  if (diagnosticsRunMetadata.investor_economics_status.status !== 'withheld') return null
 
-  return 'Benchmark-relative return readouts intentionally refuse active return and information ratio because total-return equivalence is unverified.'
+  const baseReason = investorEconomicsBaseReason(diagnosticsRunMetadata.investor_economics_status)
+  if (!baseReason) return null
+
+  return `Benchmark-relative return readouts intentionally refuse active return and information ratio. ${baseReason}`
 }
 
 

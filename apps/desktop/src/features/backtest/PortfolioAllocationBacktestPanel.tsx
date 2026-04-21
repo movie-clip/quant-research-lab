@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
+import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { CandidateConstructionRuleInput, HypotheticalReplayResponse, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { formatReplayHistoricalBasisLabel, formatSnapshotBasisLabel } from '../portfolio/historyTruth'
@@ -300,38 +301,7 @@ function buildReplayDeltaCallouts(rows: ComparisonMetricRow[]) {
 }
 
 function buildReplayMetricRefusalLine(replay: PortfolioAllocationBacktestResponse | null) {
-  if (!replay?.reference_result) return null
-
-  const candidateMetrics = replay.candidate_result.metrics
-  const referenceMetrics = replay.reference_result.metrics
-  const investorEconomicsRefused = [
-    candidateMetrics.total_return_pct,
-    candidateMetrics.annualized_return_pct,
-    candidateMetrics.max_drawdown_pct,
-    candidateMetrics.sharpe_ratio,
-    candidateMetrics.sortino_ratio,
-    candidateMetrics.benchmark_return_pct,
-    candidateMetrics.excess_return_pct,
-    candidateMetrics.information_ratio,
-    referenceMetrics.total_return_pct,
-    referenceMetrics.annualized_return_pct,
-    referenceMetrics.max_drawdown_pct,
-    referenceMetrics.sharpe_ratio,
-    referenceMetrics.sortino_ratio,
-    referenceMetrics.benchmark_return_pct,
-    referenceMetrics.excess_return_pct,
-    referenceMetrics.information_ratio,
-    replay.comparison?.total_return_diff_pct ?? null,
-    replay.comparison?.annualized_return_diff_pct ?? null,
-    replay.comparison?.benchmark_return_diff_pct ?? null,
-    replay.comparison?.max_drawdown_diff_pct ?? null,
-    replay.comparison?.sharpe_diff ?? null,
-    replay.comparison?.sortino_diff ?? null,
-    replay.comparison?.excess_return_diff_pct ?? null,
-    replay.comparison?.information_ratio_diff ?? null,
-  ].every((value) => value == null)
-
-  if (!investorEconomicsRefused) return null
+  if (!investorEconomicsBaseReason(replay?.investor_economics_status)) return null
 
   return 'When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states.'
 }

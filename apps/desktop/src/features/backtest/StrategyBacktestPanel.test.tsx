@@ -32,13 +32,14 @@ const backtestResult: BacktestRunResponse = {
     ES: { symbol: 'ES', timeframe: 'daily', source: 'fmp', continuous: false, ready: true },
     NQ: { symbol: 'NQ', timeframe: 'daily', source: 'local approximation', continuous: false, ready: true },
   },
+  investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
   trades: [],
   positions: [],
-  equity_curve: [],
-  total_return_pct: 12.5,
-  annualized_return_pct: 12.5,
-  max_drawdown_pct: -6.2,
-  sharpe_ratio: 1.14,
+  equity_curve: [{ date: '2024-01-02', equity: null, cash: 100000, gross_exposure: 50000, net_exposure: 50000, drawdown_pct: null }],
+  total_return_pct: null,
+  annualized_return_pct: null,
+  max_drawdown_pct: null,
+  sharpe_ratio: null,
   overlay_preview: null,
 }
 
@@ -73,5 +74,20 @@ describe('StrategyBacktestPanel', () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
     expect(body.strategy_id).toBe('book_trend_breakout')
     expect(body.universe).toEqual(['ES', 'NQ', 'CL'])
+  })
+
+  it('reframes withheld runs around workflow metadata instead of investor-performance output', () => {
+    render(<StrategyBacktestPanel backtestResult={backtestResult} onBacktestResult={() => {}} />)
+
+    expect(screen.getByText('Investor-performance metrics are intentionally withheld until verified total-return equivalence is available. Treat this run as workflow and dataset evidence only.')).toBeTruthy()
+    expect(screen.getByText('Return, benchmark-relative, drawdown, and Sharpe readouts stay suppressed on this surface while withholding is active.')).toBeTruthy()
+    expect(screen.getByText('Withheld')).toBeTruthy()
+    expect(screen.getByText('Run Window')).toBeTruthy()
+    expect(screen.getByText('2024-01-01 - 2024-12-31')).toBeTruthy()
+    expect(screen.getByText('Dataset Coverage')).toBeTruthy()
+    expect(screen.getByText('2 symbols')).toBeTruthy()
+    expect(screen.queryByText('Total Return')).toBeNull()
+    expect(screen.queryByText('Max Drawdown')).toBeNull()
+    expect(screen.queryByText('Sharpe')).toBeNull()
   })
 })

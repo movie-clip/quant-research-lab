@@ -19,6 +19,7 @@ from app.schemas.backtest_engine import (
     PortfolioAllocationBacktestRequest,
     PortfolioWeightInput,
 )
+from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
 
 
 CALENDAR_POLICY = "intersection_common_dates"
@@ -81,6 +82,12 @@ def _annualized_return(start_value: float, end_value: float, start_date: str, en
 
 def _allow_allocation_backtest_investor_economics_outputs() -> bool:
     return False
+
+
+def _build_allocation_backtest_investor_economics_status() -> InvestorEconomicsStatus:
+    return build_investor_economics_status(
+        available=_allow_allocation_backtest_investor_economics_outputs(),
+    )
 
 
 def _row_price(row: dict) -> float:
@@ -240,6 +247,7 @@ class PortfolioAllocationBacktestEngine:
             start_date=active_dates[0],
             end_date=active_dates[-1],
         )
+        investor_economics_status = _build_allocation_backtest_investor_economics_status()
 
         return AllocationBacktestResult(
             portfolio_name=portfolio_name,
@@ -263,6 +271,7 @@ class PortfolioAllocationBacktestEngine:
                 investor_base_currency=request.base_currency,
             ),
             status=status,
+            investor_economics_status=investor_economics_status,
             instrument_metadata=instrument_metadata,
             starting_weights=starting_weights,
             ending_weights=ending_weights,

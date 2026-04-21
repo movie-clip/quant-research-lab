@@ -36,7 +36,7 @@ describe('DiagnosticsPanel', () => {
     expect(within(behaviorSection).getByText('Sources: portfolio synthetic snapshot history · benchmark live market data (return basis unverified) · factors live market data (return basis unverified)')).toBeTruthy()
     expect(within(behaviorSection).getByText('Section trust: benchmark-relative degraded unverified return basis · factor model degraded unverified return basis · risk contribution degraded unverified return basis')).toBeTruthy()
     expect(within(behaviorSection).getByText(/Audit: 60d reliability · ridge 0\.00001 · dataset market_data_service_v1 · No historical range/)).toBeTruthy()
-    expect(within(behaviorSection).getByText('Refusals: drawdown, active return, and information ratio are intentionally withheld because total-return equivalence is unverified for the benchmark-relative path.')).toBeTruthy()
+    expect(within(behaviorSection).getByText('Refusals: drawdown, active return, and information ratio are intentionally withheld. Investor-economics outputs are withheld because total-return equivalence is unverified.')).toBeTruthy()
     expect(screen.getAllByText('Current Drawdown').length).toBeGreaterThan(0)
     expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
     expect(screen.queryByText('Risk Concentration')).toBeNull()

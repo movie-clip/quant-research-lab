@@ -10,6 +10,7 @@ import {
 } from '../test/dashboardGoldens'
 import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
+import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
 import type { HypotheticalReplayResponse, ImportedSnapshot, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
@@ -43,15 +44,15 @@ const ib2026BootstrapPayload = {
   snapshot: ib2026MutableSnapshot,
   overview: ib2026MutableOverview,
   risk_summary: ib2026ImportedDashboardGoldenFixture.risk_summary,
-  history_context: {
-    benchmarkSymbol: 'SPY',
-    statementPeriod: ib2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
-    importedAt: ib2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
-    importer: ib2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
-    sourceFileNames: ib2026LoadedFiles,
-    historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
-    historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
-  },
+   history_context: {
+     benchmark_symbol: 'SPY',
+     statement_period: ib2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+     imported_at: ib2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+     importer: ib2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
+     source_file_names: ib2026LoadedFiles,
+     history_start_date: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
+     history_end_date: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
+   },
 }
 const ff2026DashboardHistoryPayload = {
   performance_series: ff2026ImportedDashboardGoldenFixture.performance_series,
@@ -66,15 +67,15 @@ const ff2026BootstrapPayload = {
   snapshot: ff2026MutableSnapshot,
   overview: ff2026MutableOverview,
   risk_summary: ff2026ImportedDashboardGoldenFixture.risk_summary,
-  history_context: {
-    benchmarkSymbol: 'SPY',
-    statementPeriod: ff2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
-    importedAt: ff2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
-    importer: ff2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
-    sourceFileNames: ff2026LoadedFiles,
-    historyStartDate: ff2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
-    historyEndDate: ff2026ImportedDashboardGoldenFixture.daily_states[ff2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
-  },
+   history_context: {
+     benchmark_symbol: 'SPY',
+     statement_period: ff2026ImportedDashboardGoldenFixture.snapshot.statement.statement_period,
+     imported_at: ff2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+     importer: ff2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
+     source_file_names: ff2026LoadedFiles,
+     history_start_date: ff2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
+     history_end_date: ff2026ImportedDashboardGoldenFixture.daily_states[ff2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
+   },
 }
 const appendedExposurePayload = {
   ...exposurePayload,
@@ -119,6 +120,7 @@ const appendedDiagnosticsPayload = {
 
 const allocationBacktestPayload: PortfolioAllocationBacktestResponse = {
   methodology: 'm',
+  investor_economics_status: { status: 'available', reason: null },
   reference_result: {
     portfolio_name: 'Reference',
     benchmark_symbol: 'SPY',
@@ -131,6 +133,7 @@ const allocationBacktestPayload: PortfolioAllocationBacktestResponse = {
     drift_tolerance_pct: null,
     assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
     status: 'ok',
+    investor_economics_status: { status: 'available', reason: null },
     instrument_metadata: [],
     starting_weights: [],
     ending_weights: [],
@@ -151,6 +154,7 @@ const allocationBacktestPayload: PortfolioAllocationBacktestResponse = {
     drift_tolerance_pct: null,
     assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
     status: 'ok',
+    investor_economics_status: { status: 'available', reason: null },
     instrument_metadata: [],
     starting_weights: [],
     ending_weights: [],
@@ -285,6 +289,9 @@ function buildImportedSource(input: {
     historySource: buildHistorySource(input.historyContext ?? null, input.importedHistorySnapshot ?? null),
   }
 }
+
+const ib2026HistoryContext = mapImportedHistoryContextToWorkspace(ib2026BootstrapPayload.history_context)
+const ff2026HistoryContext = mapImportedHistoryContextToWorkspace(ff2026BootstrapPayload.history_context)
 
 function mockImportedWorkspace(): { workspace: PortfolioWorkspace; rootNode: PortfolioNode; draft: WorkingDraft; workspaceState: WorkspaceState } {
   return {
@@ -707,7 +714,7 @@ describe('App', () => {
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'IB 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 }, portfolioSnapshot: snapshot }])
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-14T00:00:00Z', updatedAt: '2026-04-14T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: ib2026MutableSnapshot.statement.statement_period, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ib2026LoadedFiles, historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null, historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null }, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-14T00:00:00Z', updatedAt: '2026-04-14T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: ib2026HistoryContext, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }) })
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'IB 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 }, portfolioSnapshot: snapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-14T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: snapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
@@ -755,7 +762,7 @@ describe('App', () => {
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'FF 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'FF 2026', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 3018.96, netCapitalDelta: 3018.96 }, portfolioSnapshot: snapshot }])
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-14T00:00:00Z', updatedAt: '2026-04-14T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ff2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'freedom24', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: ff2026MutableSnapshot.statement.statement_period, importedAt: '2026-04-14T00:00:00Z', importer: 'freedom24', sourceFileNames: ff2026LoadedFiles, historyStartDate: ff2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null, historyEndDate: ff2026ImportedDashboardGoldenFixture.daily_states[ff2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null }, importedHistorySnapshot: ff2026BootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-14T00:00:00Z', updatedAt: '2026-04-14T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ff2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'freedom24', baseCurrency: 'USD', historyContext: ff2026HistoryContext, importedHistorySnapshot: ff2026BootstrapPayload.snapshot }) })
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'FF 2026', createdAt: '2026-04-14T00:00:00Z', changeSummary: { label: 'FF 2026', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 3018.96, netCapitalDelta: 3018.96 }, portfolioSnapshot: snapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-14T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: snapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
@@ -2138,7 +2145,7 @@ describe('App', () => {
       createdAt: '2026-04-14T00:00:00Z',
       changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 },
       portfolioSnapshot: ib2026Snapshot,
-      source: buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: ib2026MutableSnapshot.statement.statement_period, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ib2026LoadedFiles, historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null, historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null }, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
+      source: buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: ib2026HistoryContext, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
     }
     const cleanImportedDraft = {
       id: 'draft-2',
@@ -2242,7 +2249,7 @@ describe('App', () => {
       changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 },
       portfolioSnapshot: ib2026Snapshot,
       source: {
-        ...buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: ib2026MutableSnapshot.statement.statement_period, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ib2026LoadedFiles, historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null, historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null }, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
+        ...buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: ib2026HistoryContext, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
       },
     }
     const variantFromImportedSnapshot: PortfolioSnapshot = {
@@ -2474,7 +2481,7 @@ describe('App', () => {
       changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 },
       portfolioSnapshot: importedSnapshot,
       source: {
-        ...buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: ib2026MutableSnapshot.statement.statement_period, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ib2026LoadedFiles, historyStartDate: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null, historyEndDate: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null }, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
+        ...buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: ib2026HistoryContext, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
       },
     }
     const importedVariantSnapshot: PortfolioSnapshot = {

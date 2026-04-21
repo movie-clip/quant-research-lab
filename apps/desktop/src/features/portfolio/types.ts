@@ -270,6 +270,53 @@ export type SourceStatus = {
   monthly_returns: string
 }
 
+export type InvestorEconomicsStatus = {
+  status: 'available' | 'withheld'
+  reason: 'withheld_unverified_total_return_equivalence' | null
+}
+
+export type ReturnBasisEvidence = {
+  verification_status: 'verified' | 'proxy' | 'unverified' | 'unavailable'
+  economic_basis: 'total_return' | 'adjusted_close_proxy' | 'price_return_only' | 'unavailable'
+  construction_method: 'vendor_adjusted_close' | 'raw_close' | 'synthetic_snapshot_history' | 'sample_dataset' | 'unknown'
+  disqualifiers: string[]
+  fallbacks_used: string[]
+  source_price_field: string | null
+  scope?: Record<string, string | number | boolean | null>
+}
+
+export type PortfolioProofBucketEvidence = {
+  status: 'supported' | 'disqualified' | 'unavailable'
+  positive_evidence: string[]
+  negative_evidence: string[]
+  disqualifiers: string[]
+  witnesses: Array<{
+    label: string
+    status: string
+    evidence: string[]
+    counts: Record<string, number>
+  }>
+}
+
+export type PortfolioProofMetadata = {
+  proof_system: string
+  portfolio_path: 'withheld' | 'unverified' | 'unavailable'
+  verification_status: 'unverified' | 'unavailable'
+  output_status: 'withheld' | 'unavailable'
+  verified_total_return_emitted: boolean
+  benchmark_proof_independent: boolean
+  disqualifiers: string[]
+  evidence: {
+    opening_state_basis: PortfolioProofBucketEvidence
+    valuation_basis: PortfolioProofBucketEvidence
+    cash_flow_basis: PortfolioProofBucketEvidence
+    fx_basis: PortfolioProofBucketEvidence
+    corporate_action_basis: PortfolioProofBucketEvidence
+    terminal_reconciliation_basis: PortfolioProofBucketEvidence
+    calendar_coverage_basis: PortfolioProofBucketEvidence
+  }
+}
+
 export type DashboardHistoryRunMetadata = {
   history_id: string
   methodology_id: string
@@ -287,6 +334,12 @@ export type DashboardHistoryRunMetadata = {
     portfolio_path: 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
     benchmark_path: 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
   }
+  return_basis_evidence: {
+    portfolio_path: ReturnBasisEvidence
+    benchmark_path: ReturnBasisEvidence
+  }
+  portfolio_proof: PortfolioProofMetadata
+  investor_economics_status: InvestorEconomicsStatus
   reproducibility: {
     input_imported_at: string | null
     snapshot_as_of_date: string | null
@@ -657,6 +710,13 @@ export type DiagnosticsRunMetadata = {
     factor_model_path: 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
     risk_contribution_path: 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
   }
+  return_basis_evidence: {
+    portfolio_history: ReturnBasisEvidence
+    benchmark_history: ReturnBasisEvidence
+    factor_history: ReturnBasisEvidence
+  }
+  portfolio_proof: PortfolioProofMetadata
+  investor_economics_status: InvestorEconomicsStatus
   factor_model_parameters: {
     rolling_windows_days: number[]
     current_reliability_window_days: number
@@ -834,6 +894,7 @@ export type ImportedExposureSource = {
   snapshot: ImportedSnapshot
   provenance?: ExposureProvenance | null
   run_metadata?: ExposureRunMetadata | null
+  diagnostics_run_metadata?: DiagnosticsRunMetadata | null
   overview: PortfolioOverview
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
@@ -888,6 +949,7 @@ export type ExposureEngineResponse = {
   snapshot: ImportedSnapshot
   provenance: ExposureProvenance
   run_metadata: ExposureRunMetadata
+  diagnostics_run_metadata?: DiagnosticsRunMetadata | null
   overview: PortfolioOverview
   lookthrough: LookThroughOverview
   lookthrough_sector_exposure: LookThroughSectorExposure[]
@@ -984,6 +1046,7 @@ export type BacktestRunResponse = {
   run_id: string
   config: BacktestConfig
   dataset_info: Record<string, { symbol: string; timeframe: string; source: string; continuous: boolean; ready: boolean }>
+  investor_economics_status: InvestorEconomicsStatus
   trades: Array<{
     date: string
     symbol: string
@@ -1003,7 +1066,7 @@ export type BacktestRunResponse = {
   }>
   equity_curve: Array<{
     date: string
-    equity: number
+    equity: number | null
     cash: number
     gross_exposure: number | null
     net_exposure: number | null
@@ -1025,7 +1088,7 @@ export type BacktestRunResponse = {
     }>
     equity_curve: Array<{
       date: string
-      equity: number
+      equity: number | null
       cash: number
       gross_exposure: number | null
       net_exposure: number | null
@@ -1046,6 +1109,7 @@ export type EtfMomentumStrategyResponse = {
   lookback_months: number
   top_n: number
   methodology: string
+  investor_economics_status: InvestorEconomicsStatus
   current_rankings: Array<{
     symbol: string
     target_weight: number
@@ -1315,6 +1379,7 @@ export type AllocationBacktestResult = {
   drift_tolerance_pct: number | null
   assumptions: AllocationBacktestAssumptions
   status: 'ok' | 'degraded' | 'rejected'
+  investor_economics_status: InvestorEconomicsStatus
   instrument_metadata: AllocationBacktestInstrumentMeta[]
   starting_weights: AllocationBacktestWeight[]
   ending_weights: AllocationBacktestWeight[]
@@ -1389,6 +1454,7 @@ export type PortfolioImprovementComparison = {
 
 export type PortfolioAllocationBacktestResponse = {
   methodology: string
+  investor_economics_status: InvestorEconomicsStatus
   reference_result: AllocationBacktestResult | null
   candidate_result: AllocationBacktestResult
   comparison: AllocationBacktestComparison | null

@@ -6,11 +6,12 @@ import { BacktestWorkspacePanel } from './BacktestWorkspacePanel'
 
 const replay: PortfolioAllocationBacktestResponse = {
   methodology: 'm',
+  investor_economics_status: { status: 'available', reason: null },
   reference_result: null,
   candidate_result: {
     portfolio_name: 'Candidate', benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', observation_count: 2, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, drift_tolerance_pct: null,
     assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
-    status: 'ok', instrument_metadata: [], starting_weights: [], ending_weights: [],
+    status: 'ok', investor_economics_status: { status: 'available', reason: null }, instrument_metadata: [], starting_weights: [], ending_weights: [],
     metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
     equity_curve: [], rebalance_events: [], trades: [],
   },

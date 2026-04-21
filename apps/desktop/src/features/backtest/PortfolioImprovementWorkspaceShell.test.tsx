@@ -53,6 +53,7 @@ const draftSnapshot = {
 function makeReplay() {
   return {
     methodology: 'm',
+    investor_economics_status: { status: 'available', reason: null },
     reference_result: null,
     candidate_result: {
       portfolio_name: 'Candidate',
@@ -76,6 +77,7 @@ function makeReplay() {
         investor_base_currency: 'USD',
       },
       status: 'ok',
+      investor_economics_status: { status: 'available', reason: null },
       instrument_metadata: [],
       starting_weights: [],
       ending_weights: [],
@@ -669,6 +671,71 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getByText('Concentration shows -0.05. candidate modestly reduces concentration')).toBeTruthy()
   })
 
+  it('gates shell summary wording when replay investor-economics are withheld', () => {
+    const withheldReplay = {
+      ...makeReplay(),
+      investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
+      candidate_result: {
+        ...makeReplay().candidate_result,
+        investor_economics_status: { status: 'withheld', reason: 'withheld_unverified_total_return_equivalence' },
+        metrics: {
+          ...makeReplay().candidate_result.metrics,
+          total_return_pct: 1,
+          max_drawdown_pct: -1,
+          sharpe_ratio: 1,
+        },
+      },
+      comparison: {
+        total_return_diff_pct: 2.5,
+        annualized_return_diff_pct: 1.5,
+        benchmark_return_diff_pct: 0,
+        annualized_volatility_diff_pct: -0.5,
+        downside_volatility_diff_pct: -0.4,
+        max_drawdown_diff_pct: 0.3,
+        sharpe_diff: 0.2,
+        sortino_diff: 0.2,
+        excess_return_diff_pct: 1.1,
+        tracking_error_diff_pct: 0.2,
+        information_ratio_diff: 0.1,
+        beta_diff: 0,
+        correlation_diff: 0,
+        total_turnover_diff_pct: 0,
+        total_cost_diff: 0,
+      },
+    } as any
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent}
+        formedCandidateArtifact={makeFormedCandidate()}
+        constructedCandidateArtifact={makeConstructedCandidate()}
+        constructionConstraintValidationArtifact={makeConstraintValidation()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={{ ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').reviewSnapshot, replay: withheldReplay }}
+        savedProposals={[]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    const ui = within(container)
+
+    expect(ui.getByText('Replay evidence is recorded for this workflow, but investor-performance outputs are withheld. Review replay status, lineage, window, and allowed diagnostics only.')).toBeTruthy()
+    expect(ui.queryByText('Total return delta +2.50% versus baseline under the shared replay window.')).toBeNull()
+  })
+
   it('summarizes recorded proposal state when an artifact exists', () => {
     const savedProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
 
@@ -783,10 +850,49 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(latestByTestIdIn(container, 'saved-proposal-comparison-view')).toBeTruthy()
     expect(ui.getByText('2 of 2 selected')).toBeTruthy()
-    expect(ui.getByText('Key Differences')).toBeTruthy()
+    expect(ui.getByText('Comparison Checks')).toBeTruthy()
     expect(ui.getByRole('button', { name: 'Swap sides' })).toBeTruthy()
     expect(ui.getByRole('button', { name: 'Open full proposal v2' })).toBeTruthy()
     expect(ui.getByRole('button', { name: 'Open full proposal v1' })).toBeTruthy()
+  })
+
+  it('keeps saved proposal comparison on provenance and replay metadata instead of investor-performance rows', () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[olderProposal, latestProposal]}
+        activeThesis={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    clickCompareForIn(container, 'proposal-2')
+    clickCompareForIn(container, 'proposal-1')
+
+    expect(within(container).getByText('Replay setup')).toBeTruthy()
+    expect(within(container).queryByText('Candidate total return')).toBeNull()
+    expect(within(container).queryByText('Max drawdown')).toBeNull()
+    expect(within(container).queryByText('Sharpe ratio')).toBeNull()
   })
 
   it('shows comparison ineligible state when fewer than two saved proposals exist', () => {

@@ -57,6 +57,11 @@ Dashboard-history now exposes an explicit run-metadata slice alongside the light
 - `run_metadata.source_status.performance_history`
 - `run_metadata.source_status.monthly_returns`
 - `run_metadata.source_status.benchmark_history`
+- `run_metadata.return_basis_contract.portfolio_path`
+- `run_metadata.return_basis_contract.benchmark_path`
+- `run_metadata.investor_economics_status`
+- `run_metadata.return_basis_evidence.portfolio_path`
+- `run_metadata.return_basis_evidence.benchmark_path`
 - `run_metadata.reproducibility.input_imported_at`
 - `run_metadata.reproducibility.snapshot_as_of_date`
 - `run_metadata.reproducibility.history_start_date`
@@ -74,10 +79,30 @@ Current dashboard-history run-metadata semantics:
   - `suppressed`: daily history exists, but monthly-return display should be hidden because the reconstructed series is unstable
   - `unavailable`: history is unavailable, so monthly returns are unavailable too
 - `run_metadata.source_status.benchmark_history`
-  - `live_market_data`: benchmark rows loaded successfully from market data and were used in the run
+  - `live_market_data_verified_adjusted_close`: benchmark rows loaded successfully on a verified adjusted-close basis
+  - `live_market_data_unverified_return_basis`: benchmark rows loaded, but only on an unverified return basis
   - `unavailable`: no benchmark history was available for a valid dashboard-history run
+- `run_metadata.return_basis_contract.portfolio_path`
+  - current contract values are `verified_total_return`, `price_return_only`, `unverified_adjusted_proxy`, or `unavailable`
+  - consumers must use the returned enum as-is and must not infer `verified_total_return` when the payload does not explicitly say so
+- `run_metadata.return_basis_contract.benchmark_path`
+  - current contract values are `verified_total_return`, `price_return_only`, `unverified_adjusted_proxy`, or `unavailable`
+  - this is the authoritative benchmark return-basis classification for dashboard-history outputs
+  - current fenced pilot: `verified_total_return` is only allowed for imported dashboard-history benchmark `SPY` when provenance also proves direct FMP `historical-price-eod/light`, no fallback, and ordered unique in-window `adjClose` coverage
+- `run_metadata.return_basis_evidence.benchmark_path`
+  - authoritative positive evidence for the benchmark slice
+  - consumers must not infer verification from `adjClose` field presence alone; use `verification_status`, `economic_basis`, and explicit `scope` evidence together
+- `run_metadata.investor_economics_status`
+  - `available`: investor-economics outputs that depend on verified total-return equivalence are currently allowed to render
+  - `withheld`: some investor-economics outputs are intentionally refused until total-return equivalence is verified; use the explicit reason rather than treating the values as merely missing
 - `run_metadata.reproducibility.*`
   - records the import timestamp, latest snapshot as-of date, effective history window, requested benchmark symbol, and current market-data dataset version used by the dashboard-history engine
+
+Investor-economics withholding rule:
+
+- daily history and performance-series rows may still exist while `run_metadata.investor_economics_status.status = withheld`
+- in that state, `time_weighted_return_pct`, `benchmark_return_pct`, `excess_return_pct`, and `max_drawdown_pct` may be intentionally returned as `null`
+- downstream consumers must treat those `null` values as deliberate withholding tied to the run metadata, not as a generic history failure
 
 ## Truth Classes
 
@@ -110,7 +135,7 @@ Current dashboard-history run-metadata semantics:
 | --- | --- | --- | --- | --- | --- |
 | Portfolio Value | `resolveDisplayedPortfolioValue(result, selectedRangeMetrics.summary.end_value, latestPerf?.portfolio_value)` | `analysis.snapshot.statement_totals.ending_nav`, `analysis.range_metrics`, `analysis.daily_states`, `analysis.performance_series` | `broker-truth` for imported snapshots when statement ending NAV exists, otherwise `engine-derived` | if no history and no statement ending NAV, render `n/a` | covered by IB2026 and FF2026 golden tests plus ending-NAV override regression |
 | Start value | `selectedRangeMetrics.summary.start_value` | `analysis.range_metrics[selectedRange].summary.start_value` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests; this is the visible-range anchor, not always statement starting NAV |
-| Time-Weighted Return | `selectedRangeMetrics.summary.time_weighted_return_pct` | `analysis.range_metrics[selectedRange].summary.time_weighted_return_pct` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
+| Time-Weighted Return | `selectedRangeMetrics.summary.time_weighted_return_pct` | `analysis.range_metrics[selectedRange].summary.time_weighted_return_pct` | `engine-derived` | if backend range metrics are unavailable, or investor-economics outputs are intentionally withheld for the run, render `n/a` | this value may be `null` even when daily history exists; covered by IB2026 and FF2026 golden tests |
 | Net Contributions | `selectedRangeMetrics.summary.net_contributions` | `analysis.range_metrics[selectedRange].summary.net_contributions` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
 
 ### Performance section
@@ -142,7 +167,7 @@ Current dashboard-history run-metadata semantics:
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Drawdown | `selectedRangeMetrics.max_drawdown_pct` | `analysis.range_metrics[selectedRange].max_drawdown_pct` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
+| Drawdown | `selectedRangeMetrics.max_drawdown_pct` | `analysis.range_metrics[selectedRange].max_drawdown_pct` | `engine-derived` | if backend range metrics are unavailable, or investor-economics outputs are intentionally withheld for the run, render `n/a` | this value may be `null` even when daily history exists; covered by IB2026 and FF2026 golden tests |
 | Money-Weighted Return | `selectedRangeMetrics.summary.money_weighted_return_pct` | `analysis.range_metrics[selectedRange].summary.money_weighted_return_pct` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
 
 ### Monthly Returns section
@@ -194,6 +219,7 @@ Current dashboard-history run-metadata semantics:
 4. If cards/chart/history come from one snapshot and allocation comes from another snapshot, Dashboard is internally inconsistent and that is a bug.
 5. If a history-based field cannot be supported faithfully, the UI must render `n/a`, hide the unstable cards, or show an unavailable panel.
 6. Imported history replay is only trustworthy when the broker snapshot and required market-data support are both present; otherwise the result must degrade to `unavailable`.
+7. Dashboard-history withholding is distinct from unavailability: when `run_metadata.investor_economics_status` is `withheld`, history may still be present but investor-economics outputs such as `time_weighted_return_pct`, `benchmark_return_pct`, `excess_return_pct`, and `max_drawdown_pct` must stay `null`/hidden.
 
 ## Immediate Follow-up Targets
 

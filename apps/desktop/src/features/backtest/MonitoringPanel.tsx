@@ -10,6 +10,7 @@ import type {
   PortfolioDiagnosticsTopCallout,
 } from '../portfolio/types'
 import { formatReplayHistoricalBasisLabel } from '../portfolio/historyTruth'
+import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import { MONITORING_RESEARCH_HANDOFF_VERSION } from './monitoringResearchHandoff'
 
 type MonitorTone = 'hot' | 'warm' | 'cool' | 'neutral'
@@ -95,6 +96,15 @@ function confidenceFromReplay(activeReplay: PortfolioAllocationBacktestResponse,
   return activeReplay.reference_result ? 'High' : 'Medium'
 }
 
+function isReplayInvestorEconomicsWithheld(activeReplay: PortfolioAllocationBacktestResponse) {
+  return investorEconomicsBaseReason(activeReplay.investor_economics_status) != null
+}
+
+function isResultInvestorEconomicsWithheld(activeReplay: PortfolioAllocationBacktestResponse, side: 'candidate' | 'reference') {
+  if (side === 'candidate') return investorEconomicsBaseReason(activeReplay.candidate_result.investor_economics_status) != null
+  return investorEconomicsBaseReason(activeReplay.reference_result?.investor_economics_status) != null
+}
+
 function monitorFromCallout(
   key: string,
   title: string,
@@ -172,6 +182,7 @@ function benchmarkRelativeMonitor(
   diagnosticsConfidence: 'High' | 'Medium' | 'Low',
 ): MonitorItem {
   const tone = toneFromMagnitude(comparison?.tracking_error_diff_pct, 2.5, 1)
+  const replayInvestorEconomicsWithheld = isReplayInvestorEconomicsWithheld(activeReplay)
 
   return {
     key: 'benchmark-relative',
@@ -184,7 +195,9 @@ function benchmarkRelativeMonitor(
     tone,
     detail: [
       `Candidate correlation vs benchmark: ${formatNumber(activeReplay.candidate_result.metrics.correlation_vs_benchmark)}.`,
-      'Active return is intentionally withheld because replay total-return equivalence is unverified.',
+      replayInvestorEconomicsWithheld
+        ? 'Investor-performance benchmark-relative deltas are withheld for this replay state because total-return equivalence is unverified.'
+        : 'This monitor stays on tracking error, beta, and correlation only rather than investor-performance benchmark-relative outcomes.',
       'Benchmark-relative watch keeps tracking error, beta, and correlation as replay-basis risk-shape metrics rather than verified investor-return measures.',
     ],
     researchTarget: 'hypothetical_replay',
@@ -193,12 +206,14 @@ function benchmarkRelativeMonitor(
 
 function volatilityMonitor(
   row: PortfolioDiagnosticsTopCallout | null,
+  activeReplay: PortfolioAllocationBacktestResponse,
   candidateDiagnostics: PortfolioDiagnosticsSnapshot | null,
   provenance: string,
   diagnosticsConfidence: 'High' | 'Medium' | 'Low',
 ): MonitorItem {
   const snapshot = candidateDiagnostics?.volatility_snapshot ?? null
   const tone = toneFromMagnitude(row?.delta_value ?? snapshot?.tracking_error_252d ?? null, 3, 1)
+  const candidateInvestorEconomicsWithheld = isResultInvestorEconomicsWithheld(activeReplay, 'candidate')
 
   return {
     key: 'volatility',
@@ -211,7 +226,9 @@ function volatilityMonitor(
     tone,
     detail: [
       `Downside volatility: ${formatPct(snapshot?.downside_vol_252d)}.`,
-      'Drawdown surfaces are intentionally withheld because replay investor total-return equivalence is unverified.',
+      candidateInvestorEconomicsWithheld
+        ? 'Investor-performance drawdown views are withheld for this replay state because total-return equivalence is unverified.'
+        : 'This monitor stays on allowed volatility-shape context and does not rely on investor-performance drawdown readouts.',
       row?.rationale ?? 'Replay monitoring keeps allowed volatility-shape metrics only and does not expose drawdown-derived regime text.',
     ],
     researchTarget: 'diagnostics_change',
@@ -234,7 +251,7 @@ function buildMonitors(activeReplay: PortfolioAllocationBacktestResponse, hypoth
     monitorFromCallout('factor-drift', 'Factor Drift', diagnostics?.top_factor_exposure_change ?? null, provenance, diagnosticsConfidence, 'No factor-drift callout is available for the current replay state.'),
     monitorFromCallout('concentration-drift', 'Concentration Drift', diagnostics?.top_concentration_change ?? null, provenance, diagnosticsConfidence, 'No concentration-drift callout is available for the current replay state.'),
     benchmarkRelativeMonitor(activeReplay.comparison, activeReplay, provenance, diagnosticsConfidence),
-    volatilityMonitor(diagnostics?.top_volatility_change ?? null, candidateDiagnostics, provenance, diagnosticsConfidence),
+    volatilityMonitor(diagnostics?.top_volatility_change ?? null, activeReplay, candidateDiagnostics, provenance, diagnosticsConfidence),
     dataQualityMonitor(activeReplay, candidateDiagnostics, referenceDiagnostics),
   ]
 

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from typing import Literal, cast
 
 from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_hypothetical_replacement_replay_preview
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
@@ -104,6 +105,7 @@ def test_build_synthetic_snapshot_from_weights_returns_explicit_imported_snapsho
             investor_base_currency="USD",
         ),
         status="ok",
+        investor_economics_status=InvestorEconomicsStatus(status="withheld", reason="withheld_unverified_total_return_equivalence"),
         instrument_metadata=[],
         starting_weights=[AllocationBacktestWeight(symbol="SPY", target_weight=1.0)],
         ending_weights=[AllocationBacktestWeight(symbol="SPY", target_weight=1.0)],
@@ -145,6 +147,7 @@ def test_build_backtest_diagnostics_inputs_separates_replay_and_historical_input
             investor_base_currency="USD",
         ),
         status="ok",
+        investor_economics_status=InvestorEconomicsStatus(status="withheld", reason="withheld_unverified_total_return_equivalence"),
         instrument_metadata=[],
         starting_weights=[AllocationBacktestWeight(symbol="SPY", target_weight=1.0)],
         ending_weights=[AllocationBacktestWeight(symbol="SPY", target_weight=1.0)],
@@ -278,6 +281,7 @@ def test_compare_results_returns_null_diffs_for_refused_investor_economics_metri
             investor_base_currency="USD",
         ),
         status="ok",
+        investor_economics_status=InvestorEconomicsStatus(status="withheld", reason="withheld_unverified_total_return_equivalence"),
         instrument_metadata=[],
         starting_weights=[],
         ending_weights=[],
@@ -313,6 +317,7 @@ def test_compare_results_returns_null_diffs_for_refused_investor_economics_metri
         slippage_bps=0,
         assumptions=reference.assumptions,
         status="ok",
+        investor_economics_status=InvestorEconomicsStatus(status="withheld", reason="withheld_unverified_total_return_equivalence"),
         instrument_metadata=[],
         starting_weights=[],
         ending_weights=[],
@@ -408,6 +413,10 @@ def test_portfolio_allocation_backtest_route_returns_reference_assumptions_and_m
     assert payload["reference_result"]["metrics"]["benchmark_return_pct"] is None
     assert payload["reference_result"]["metrics"]["excess_return_pct"] is None
     assert payload["reference_result"]["metrics"]["information_ratio"] is None
+    assert payload["reference_result"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
     assert payload["candidate_result"]["metrics"]["total_return_pct"] is None
     assert payload["candidate_result"]["metrics"]["annualized_return_pct"] is None
     assert payload["candidate_result"]["metrics"]["max_drawdown_pct"] is None
@@ -416,6 +425,14 @@ def test_portfolio_allocation_backtest_route_returns_reference_assumptions_and_m
     assert payload["candidate_result"]["metrics"]["benchmark_return_pct"] is None
     assert payload["candidate_result"]["metrics"]["excess_return_pct"] is None
     assert payload["candidate_result"]["metrics"]["information_ratio"] is None
+    assert payload["candidate_result"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+    assert payload["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
     assert payload["candidate_result"]["metrics"]["tracking_error_pct"] is not None
     assert payload["reference_diagnostics"] is not None
     assert payload["candidate_diagnostics"] is not None
@@ -834,6 +851,10 @@ def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_
     assert payload["replay"]["reference_result"]["metrics"]["benchmark_return_pct"] is None
     assert payload["replay"]["reference_result"]["metrics"]["excess_return_pct"] is None
     assert payload["replay"]["reference_result"]["metrics"]["information_ratio"] is None
+    assert payload["replay"]["reference_result"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
     assert payload["replay"]["candidate_result"]["metrics"]["total_return_pct"] is None
     assert payload["replay"]["candidate_result"]["metrics"]["annualized_return_pct"] is None
     assert payload["replay"]["candidate_result"]["metrics"]["max_drawdown_pct"] is None
@@ -842,6 +863,14 @@ def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_
     assert payload["replay"]["candidate_result"]["metrics"]["benchmark_return_pct"] is None
     assert payload["replay"]["candidate_result"]["metrics"]["excess_return_pct"] is None
     assert payload["replay"]["candidate_result"]["metrics"]["information_ratio"] is None
+    assert payload["replay"]["candidate_result"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+    assert payload["replay"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
     assert payload["replay"]["candidate_result"]["metrics"]["tracking_error_pct"] is not None
     assert payload["replay"]["candidate_diagnostics"]["provenance"]["snapshot_basis"] == "synthetic_replay_snapshot"
     assert payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"] is not None
@@ -1206,6 +1235,14 @@ def test_overlay_aware_hypothetical_replacement_preview_route_returns_base_and_o
     assert payload["base_replay"]["candidate_result"]["portfolio_name"] == "Hypothetical Candidate"
     assert payload["overlay_replay"]["candidate_result"]["portfolio_name"] == "Hypothetical Candidate Overlay-Aware"
     assert payload["overlay_replay"]["candidate_result"]["starting_weights"][-1]["symbol"] == "__CASH__"
+    assert payload["base_replay"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+    assert payload["overlay_replay"]["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
 
 
 def test_overlay_aware_hypothetical_replacement_preview_route_rejects_unconfirmed_overlay() -> None:

@@ -52,7 +52,7 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.')).toBeTruthy()
     expect(screen.getAllByText('Range metrics live').length).toBeGreaterThan(0)
     expect(screen.getByText(/Audit: SPY · live_market_data_unverified_return_basis · portfolio imported_replay · benchmark degraded_unverified_return_basis · monthly imported_replay · 01\/02\/25 to 03\/03\/25 · dataset market_data_service_v1/)).toBeTruthy()
-    expect(screen.getByText('Refusals: benchmark return, excess return, and drawdown are intentionally withheld because benchmark total-return equivalence is unverified for this dashboard path.')).toBeTruthy()
+    expect(screen.getByText('Refusals: benchmark return, excess return, and drawdown are intentionally withheld. Investor-economics outputs are withheld because total-return equivalence is unverified.')).toBeTruthy()
     expect(screen.getByText('Workspace State')).toBeTruthy()
     expect(screen.getByText('Current imported view and editable draft status.')).toBeTruthy()
   })
@@ -465,10 +465,61 @@ describe('DashboardPanel', () => {
           run_metadata: {
             history_id: 'dashboard_history_engine_v1',
             methodology_id: 'dashboard_history_methodology_v1',
-            source_status: {
-              performance_history: 'unavailable',
-              monthly_returns: 'unavailable',
-              benchmark_history: 'unavailable',
+           source_status: {
+             performance_history: 'unavailable',
+             monthly_returns: 'unavailable',
+             benchmark_history: 'unavailable',
+           },
+            section_trust: {
+              portfolio_path: 'unavailable',
+              benchmark_path: 'unavailable',
+              monthly_returns_path: 'unavailable',
+            },
+            return_basis_contract: {
+              portfolio_path: 'unavailable',
+              benchmark_path: 'unavailable',
+            },
+            return_basis_evidence: {
+              portfolio_path: {
+                verification_status: 'unavailable',
+                economic_basis: 'unavailable',
+                construction_method: 'unknown',
+               disqualifiers: ['missing_history_rows'],
+               fallbacks_used: [],
+               source_price_field: null,
+               scope: {},
+             },
+             benchmark_path: {
+               verification_status: 'unavailable',
+               economic_basis: 'unavailable',
+               construction_method: 'unknown',
+               disqualifiers: ['missing_history_rows'],
+               fallbacks_used: [],
+               source_price_field: null,
+                scope: {},
+              },
+            },
+            portfolio_proof: {
+              proof_system: 'portfolio_verified_total_return_v1',
+              portfolio_path: 'unavailable',
+              verification_status: 'unavailable',
+              output_status: 'unavailable',
+              verified_total_return_emitted: false,
+              benchmark_proof_independent: true,
+              disqualifiers: ['portfolio_history_unavailable'],
+               evidence: {
+                opening_state_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
+                valuation_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
+                cash_flow_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
+                fx_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
+                corporate_action_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
+                terminal_reconciliation_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
+                calendar_coverage_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
+               },
+             },
+            investor_economics_status: {
+              status: 'available',
+              reason: null,
             },
             reproducibility: {
               input_imported_at: '2026-04-10T00:00:00Z',
