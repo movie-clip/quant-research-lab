@@ -19,6 +19,8 @@ class PortfolioStateEngine:
         self,
         price_histories: dict[str, list[dict]],
         valuation_dates: list[str],
+        *,
+        apply_terminal_reconciliation: bool = True,
     ) -> list[DailyPortfolioState]:
         if not valuation_dates:
             return []
@@ -141,7 +143,8 @@ class PortfolioStateEngine:
                 )
             )
 
-        self._reconcile_terminal_state_to_statement_totals(states)
+        if apply_terminal_reconciliation:
+            self._reconcile_terminal_state_to_statement_totals(states)
 
         return states
 

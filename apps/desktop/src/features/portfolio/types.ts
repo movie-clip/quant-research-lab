@@ -290,6 +290,7 @@ export type PortfolioProofBucketEvidence = {
   positive_evidence: string[]
   negative_evidence: string[]
   disqualifiers: string[]
+  hard_disqualifiers: string[]
   witnesses: Array<{
     label: string
     status: string
@@ -298,20 +299,61 @@ export type PortfolioProofBucketEvidence = {
   }>
 }
 
+export type PortfolioCorporateActionBasisEvidence = PortfolioProofBucketEvidence & {
+  policy: {
+    scope: 'broker_native_statement_window' | 'broker_scope_unproven'
+    cash_dividend_coverage_status:
+      | 'cash_dividend_coverage_proven_by_broker_native_evidence'
+      | 'cash_dividend_coverage_unproven'
+    cash_dividend_observation_status:
+      | 'cash_dividend_observed_by_broker_native_evidence'
+      | 'no_cash_dividend_observed_within_covered_broker_scope'
+      | 'cash_dividend_observation_unproven'
+    non_dividend_status: 'non_dividend_corporate_actions_unproven_and_disqualifying'
+    scope_start_date: string | null
+    scope_end_date: string | null
+    statement_window_count: number
+  }
+}
+
+export type PortfolioProofAdmissionDecision = {
+  status: 'withheld' | 'rejected' | 'not_applicable'
+  scope: Record<string, string | number | boolean | null>
+  blocking_reasons: Array<{
+    code: string
+    bucket: string
+    provenance_bucket: string
+    reason_type: 'blocking' | 'missing' | 'scope_mismatch' | 'withheld'
+  }>
+  missing_proof_buckets: string[]
+  bucket_decisions: Array<{
+    bucket: string
+    status: 'withheld' | 'rejected' | 'not_applicable'
+    blocks_admission: boolean
+    provenance_buckets: string[]
+    blocking_reasons: string[]
+    scope: Record<string, string | number | boolean | null>
+  }>
+}
+
 export type PortfolioProofMetadata = {
   proof_system: string
   portfolio_path: 'withheld' | 'unverified' | 'unavailable'
   verification_status: 'unverified' | 'unavailable'
   output_status: 'withheld' | 'unavailable'
+  replay_status: 'replay_usable' | 'replay_unavailable'
+  opening_state_status: 'opening_state_verified' | 'opening_state_unverified' | 'opening_state_unavailable'
   verified_total_return_emitted: boolean
   benchmark_proof_independent: boolean
   disqualifiers: string[]
+  hard_disqualifiers: string[]
+  admission: PortfolioProofAdmissionDecision
   evidence: {
     opening_state_basis: PortfolioProofBucketEvidence
     valuation_basis: PortfolioProofBucketEvidence
     cash_flow_basis: PortfolioProofBucketEvidence
     fx_basis: PortfolioProofBucketEvidence
-    corporate_action_basis: PortfolioProofBucketEvidence
+    corporate_action_basis: PortfolioCorporateActionBasisEvidence
     terminal_reconciliation_basis: PortfolioProofBucketEvidence
     calendar_coverage_basis: PortfolioProofBucketEvidence
   }

@@ -402,22 +402,88 @@ def test_diagnostics_engine_route_marks_snapshot_only_history_as_unavailable() -
             "scope": {},
         },
     }
-    assert payload["run_metadata"]["portfolio_proof"] == {
+    portfolio_proof = payload["run_metadata"]["portfolio_proof"]
+    assert portfolio_proof["admission"] == {
+        "status": "not_applicable",
+        "scope": {
+            "account_id": None,
+            "base_currency": None,
+            "history_source": "unavailable",
+            "valuation_window_start": None,
+            "valuation_window_end": None,
+            "valuation_date_count": 0,
+            "statement_window_start": None,
+            "statement_window_end": None,
+            "statement_window_count": 0,
+        },
+        "blocking_reasons": [
+            {
+                "code": "portfolio_history_unavailable",
+                "bucket": "portfolio_admission",
+                "provenance_bucket": "portfolio_history",
+                "reason_type": "missing",
+            }
+        ],
+        "missing_proof_buckets": [
+            "boundary_hardening",
+            "capital_boundary_proof",
+            "corporate_action_proof",
+            "fx_proof",
+            "investor_economics_proof",
+            "opening_state_admission",
+            "return_basis_metadata",
+            "valuation_basis_separation",
+        ],
+        "bucket_decisions": [
+            {
+                "bucket": bucket,
+                "status": "not_applicable",
+                "blocks_admission": True,
+                "provenance_buckets": [bucket],
+                "blocking_reasons": ["portfolio_history_unavailable"],
+                "scope": {
+                    "account_id": None,
+                    "base_currency": None,
+                    "history_source": "unavailable",
+                    "valuation_window_start": None,
+                    "valuation_window_end": None,
+                    "valuation_date_count": 0,
+                    "statement_window_start": None,
+                    "statement_window_end": None,
+                    "statement_window_count": 0,
+                },
+            }
+            for bucket in [
+                "return_basis_metadata",
+                "capital_boundary_proof",
+                "valuation_basis_separation",
+                "boundary_hardening",
+                "opening_state_admission",
+                "fx_proof",
+                "corporate_action_proof",
+                "investor_economics_proof",
+            ]
+        ],
+    }
+    assert {key: value for key, value in portfolio_proof.items() if key != "admission"} == {
         "proof_system": "portfolio_verified_total_return_v1",
         "portfolio_path": "unavailable",
         "verification_status": "unavailable",
         "output_status": "unavailable",
+        "replay_status": "replay_unavailable",
+        "opening_state_status": "opening_state_unavailable",
         "verified_total_return_emitted": False,
         "benchmark_proof_independent": True,
         "disqualifiers": ["portfolio_history_unavailable"],
+        "hard_disqualifiers": ["portfolio_history_unavailable"],
         "evidence": {
-            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "corporate_action_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "corporate_action_basis": {"status": "disqualified", "policy": {"scope": "broker_scope_unproven", "cash_dividend_coverage_status": "cash_dividend_coverage_unproven", "cash_dividend_observation_status": "cash_dividend_observation_unproven", "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying", "scope_start_date": None, "scope_end_date": None, "statement_window_count": 0}, "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
         },
     }
     assert payload["run_metadata"]["investor_economics_status"] == {
@@ -541,32 +607,131 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     assert portfolio_proof["portfolio_path"] == "withheld"
     assert portfolio_proof["verification_status"] == "unverified"
     assert portfolio_proof["output_status"] == "withheld"
+    assert portfolio_proof["replay_status"] == "replay_usable"
+    assert portfolio_proof["opening_state_status"] == "opening_state_unverified"
     assert portfolio_proof["verified_total_return_emitted"] is False
     assert portfolio_proof["benchmark_proof_independent"] is True
-    assert portfolio_proof["disqualifiers"] == [
+    assert portfolio_proof["disqualifiers"] == sorted([
         "calendar_coverage_not_broker_proven",
         "corporate_action_proof_missing",
+        "opening_cash_state_missing",
+        "opening_timestamp_semantics_missing",
         "portfolio_verified_total_return_withheld",
         "raw_price_used_for_valuation",
         "synthetic_snapshot_history",
+        "synthetic_snapshot_opening_holdings_quantities",
         "synthetic_snapshot_opening_state",
+    ])
+    assert portfolio_proof["hard_disqualifiers"] == sorted([
+        "calendar_coverage_not_broker_proven",
+        "corporate_action_proof_missing",
+        "opening_cash_state_missing",
+        "opening_timestamp_semantics_missing",
+        "raw_price_used_for_valuation",
+        "synthetic_snapshot_history",
+        "synthetic_snapshot_opening_holdings_quantities",
+        "synthetic_snapshot_opening_state",
+    ])
+    assert portfolio_proof["admission"]["status"] == "rejected"
+    assert portfolio_proof["admission"]["missing_proof_buckets"] == [
+        "boundary_hardening",
+        "capital_boundary_proof",
+        "corporate_action_proof",
+        "investor_economics_proof",
+        "opening_state_admission",
+        "return_basis_metadata",
+        "valuation_basis_separation",
+    ]
+    assert portfolio_proof["admission"]["bucket_decisions"][0]["blocking_reasons"] == [
+        "raw_price_used_for_valuation",
+        "synthetic_snapshot_history",
+    ]
+    assert portfolio_proof["admission"]["bucket_decisions"][6]["blocking_reasons"] == [
+        "corporate_action_proof_missing",
+        "corporate_action_scope_unproven_for_portfolio_slice",
+    ]
+    assert portfolio_proof["admission"]["bucket_decisions"][7]["blocking_reasons"] == [
+        "missing_investor_economics_proof_bucket",
+        "portfolio_verified_total_return_withheld",
     ]
     assert portfolio_proof["evidence"]["opening_state_basis"] == {
         "status": "disqualified",
-        "positive_evidence": ["no_broker_ledger_entries_available"],
-        "negative_evidence": ["opening_state_derived_from_current_snapshot"],
-        "disqualifiers": ["synthetic_snapshot_opening_state"],
+        "positive_evidence": [
+            "no_broker_ledger_entries_available",
+            "broker_statement_account_id_available",
+            "broker_statement_base_currency_available",
+        ],
+        "negative_evidence": [
+            "opening_cash_state_missing_broker_evidence",
+            "opening_holdings_state_derived_from_current_snapshot",
+            "opening_quantities_state_derived_from_current_snapshot",
+            "opening_timestamp_semantics_not_broker_proven",
+        ],
+        "disqualifiers": [
+            "opening_cash_state_missing",
+            "opening_timestamp_semantics_missing",
+            "synthetic_snapshot_opening_holdings_quantities",
+            "synthetic_snapshot_opening_state",
+        ],
+        "hard_disqualifiers": [
+            "opening_cash_state_missing",
+            "opening_timestamp_semantics_missing",
+            "synthetic_snapshot_opening_holdings_quantities",
+            "synthetic_snapshot_opening_state",
+        ],
         "witnesses": [
             {
-                "label": "opening_cash_state",
-                "status": "unknown_inferred",
-                "evidence": ["synthetic_snapshot_history_has_no_broker_opening_cash_state"],
+                "label": "opening_account_identity",
+                "status": "broker_proven",
+                "evidence": ["accepted_source:broker_statement_account_id"],
                 "counts": {},
             },
             {
-                "label": "opening_positions_state",
+                "label": "opening_base_currency_state",
+                "status": "broker_proven",
+                "evidence": ["accepted_source:broker_statement_base_currency:USD"],
+                "counts": {},
+            },
+            {
+                "label": "opening_cash_state",
                 "status": "unknown_inferred",
-                "evidence": ["opening_positions_derived_from_current_snapshot"],
+                "evidence": [
+                    "accepted_source_missing:broker_cash_report_starting_cash",
+                    "synthetic_snapshot_history_has_no_broker_opening_cash_state",
+                ],
+                "counts": {},
+            },
+            {
+                "label": "opening_holdings_state",
+                "status": "unknown_inferred",
+                "evidence": [
+                    "accepted_source_missing:broker_trade_window_opening_holdings",
+                    "opening_holdings_derived_from_current_snapshot",
+                ],
+                "counts": {},
+            },
+            {
+                "label": "opening_quantities_state",
+                "status": "unknown_inferred",
+                "evidence": [
+                    "accepted_source_missing:broker_trade_window_opening_quantities",
+                    "opening_quantities_derived_from_current_snapshot",
+                ],
+                "counts": {},
+            },
+            {
+                "label": "opening_timestamp_semantics",
+                "status": "replay_boundary_only",
+                "evidence": ["accepted_source_missing:broker_statement_period_boundary"],
+                "counts": {},
+            },
+            {
+                "label": "opening_state_admission",
+                "status": "opening_state_unverified",
+                "evidence": [
+                    "replay_status:replay_usable",
+                    "proof_eligibility_blocked_until_opening_state_verified",
+                ],
                 "counts": {},
             },
         ],
@@ -576,6 +741,7 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
         "positive_evidence": ["no_broker_ledger_entries_available"],
         "negative_evidence": ["synthetic_snapshot_history_has_no_external_flow_replay"],
         "disqualifiers": ["synthetic_snapshot_history"],
+        "hard_disqualifiers": ["synthetic_snapshot_history"],
         "witnesses": [
             {
                 "label": "cash_flow_classification",
@@ -613,34 +779,145 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
         "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
         "negative_evidence": [],
         "disqualifiers": [],
-        "witnesses": [],
+        "hard_disqualifiers": [],
+        "witnesses": [
+            {
+                "label": "fx_base_currency_state",
+                "status": "broker_proven",
+                "evidence": ["accepted_source:broker_statement_base_currency:USD"],
+                "counts": {},
+            },
+            {
+                "label": "fx_currency_observation_scope",
+                "status": "observed_currency_scope",
+                "evidence": [
+                    "observed_statement_currencies:USD",
+                    "observed_cash_currencies:USD",
+                    "observed_ledger_currencies:none",
+                    "observed_position_currencies:USD",
+                ],
+                "counts": {
+                    "statement_currency_count": 1,
+                    "cash_currency_count": 1,
+                    "ledger_currency_count": 0,
+                    "position_currency_count": 1,
+                    "observed_currency_count": 1,
+                },
+            },
+            {
+                "label": "fx_translation_requirement",
+                "status": "identity_case_supported",
+                "evidence": ["all_observed_currencies_equal_base:USD"],
+                "counts": {"observed_currency_count": 1},
+            },
+        ],
     }
     assert portfolio_proof["evidence"]["corporate_action_basis"] == {
         "status": "disqualified",
-        "positive_evidence": ["no_broker_ledger_entries_available"],
-        "negative_evidence": ["corporate_action_proof_not_available"],
+        "policy": {
+            "scope": "broker_scope_unproven",
+            "cash_dividend_coverage_status": "cash_dividend_coverage_unproven",
+            "cash_dividend_observation_status": "cash_dividend_observation_unproven",
+            "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+            "scope_start_date": None,
+            "scope_end_date": None,
+            "statement_window_count": 0,
+        },
+        "positive_evidence": [],
+        "negative_evidence": [
+            "cash_dividend_coverage_unproven_without_broker_native_statement_window",
+            "cash_dividend_observation_unproven_without_covered_broker_scope",
+            "non_dividend_corporate_actions_unproven_and_disqualifying",
+        ],
         "disqualifiers": ["corporate_action_proof_missing"],
-        "witnesses": [],
+        "hard_disqualifiers": ["corporate_action_proof_missing"],
+        "witnesses": [
+            {
+                "label": "corporate_action_basis_policy",
+                "status": "cash_dividend_scope_only",
+                "evidence": [
+                    "positive_proof_limited_to:cash_dividend",
+                    "coverage_and_absence_semantics_require:broker_native_statement_window",
+                    "positive_observation_requires:broker_dividend_section_line_within_statement_window",
+                    "non_dividend_corporate_actions_remain_unproven_and_disqualifying",
+                ],
+                "counts": {"statement_window_count": 0},
+            },
+            {
+                "label": "cash_dividend_coverage_scope",
+                "status": "cash_dividend_coverage_unproven",
+                "evidence": ["broker_native_statement_window_missing_for_cash_dividend_scope"],
+                "counts": {"statement_window_count": 0},
+            },
+            {
+                "label": "cash_dividend_observation_scope",
+                "status": "cash_dividend_observation_unproven",
+                "evidence": ["cash_dividend_absence_not_provable_without_covered_broker_scope"],
+                "counts": {"broker_native_dividend_count": 0},
+            },
+            {
+                "label": "non_dividend_corporate_action_scope",
+                "status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                "evidence": [
+                    "unproven_action_classes:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes"
+                ],
+                "counts": {},
+            },
+        ],
     }
     assert portfolio_proof["evidence"]["terminal_reconciliation_basis"] == {
         "status": "supported",
-        "positive_evidence": ["terminal_force_reconciliation_not_present"],
-        "negative_evidence": [],
+        "positive_evidence": ["terminal_replay_state_available"],
+        "negative_evidence": ["terminal_statement_totals_not_available_for_comparison"],
         "disqualifiers": [],
-        "witnesses": [],
+        "hard_disqualifiers": [],
+        "witnesses": [
+            {
+                "label": "terminal_reconciliation_basis",
+                "status": "terminal_statement_totals_missing",
+                "evidence": ["terminal_statement_totals_not_available_for_comparison"],
+                "counts": {"compared_field_count": 0},
+            }
+        ],
     }
-    assert portfolio_proof["evidence"]["calendar_coverage_basis"] == {
-        "status": "disqualified",
-        "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
-        "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
-        "disqualifiers": ["calendar_coverage_not_broker_proven"],
-        "witnesses": [],
+    calendar_basis = portfolio_proof["evidence"]["calendar_coverage_basis"]
+    assert calendar_basis["status"] == "disqualified"
+    assert calendar_basis["positive_evidence"] == ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"]
+    assert calendar_basis["negative_evidence"] == ["valuation_calendar_is_derived_from_benchmark_history", "broker_statement_period_windows_missing"]
+    assert calendar_basis["disqualifiers"] == ["calendar_coverage_not_broker_proven"]
+    assert calendar_basis["hard_disqualifiers"] == ["calendar_coverage_not_broker_proven"]
+    assert calendar_basis["witnesses"][0] == {
+        "label": "first_covered_date_basis",
+        "status": "replay_boundary_only",
+        "evidence": ["broker_statement_period_first_covered_date_missing", "replay_window_first_date:2026-04-10"],
+        "counts": {},
     }
+    assert calendar_basis["witnesses"][1] == {
+        "label": "last_covered_date_basis",
+        "status": "replay_boundary_only",
+        "evidence": ["broker_statement_period_last_covered_date_missing", f"replay_window_last_date:{payload['run_metadata']['reproducibility']['history_end_date']}"],
+        "counts": {},
+    }
+    assert calendar_basis["witnesses"][2]["status"] == "replay_derived_window"
+    assert calendar_basis["witnesses"][2]["label"].startswith("replay_derived_window:2026-04-10")
+    assert calendar_basis["witnesses"][2]["evidence"] == [f"replay_window_dates:2026-04-10->{payload['run_metadata']['reproducibility']['history_end_date']}"]
+    assert calendar_basis["witnesses"][2]["counts"]["valuation_date_count"] >= 1
+    assert calendar_basis["witnesses"][3] == {
+        "label": "calendar_continuity_basis",
+        "status": "broker_statement_period_missing",
+        "evidence": ["broker_statement_period_windows_missing"],
+        "counts": {},
+    }
+    assert calendar_basis["witnesses"][4]["status"] == "disqualified_window"
+    assert calendar_basis["witnesses"][4]["label"].startswith("disqualified_window:2026-04-10")
+    assert calendar_basis["witnesses"][4]["evidence"] == [f"replay_window_not_backed_by_broker_statement_window:2026-04-10->{payload['run_metadata']['reproducibility']['history_end_date']}"]
+    assert calendar_basis["witnesses"][4]["counts"]["valuation_date_count"] >= 1
     valuation_witnesses = portfolio_proof["evidence"]["valuation_basis"]["witnesses"]
     assert portfolio_proof["evidence"]["valuation_basis"]["status"] == "disqualified"
     assert portfolio_proof["evidence"]["valuation_basis"]["positive_evidence"] == ["valuation_dates_available", "position_price_histories_loaded"]
     assert portfolio_proof["evidence"]["valuation_basis"]["negative_evidence"] == ["vendor_raw_price_used_for_valuation", "valuation_path_is_synthetic_snapshot_history"]
     assert portfolio_proof["evidence"]["valuation_basis"]["disqualifiers"] == ["raw_price_used_for_valuation", "synthetic_snapshot_history"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["hard_disqualifiers"] == ["raw_price_used_for_valuation", "synthetic_snapshot_history"]
     assert valuation_witnesses[0] == {
         "label": "valuation_input_policy",
         "status": "explicit_withholding_contract",
@@ -841,31 +1118,81 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
     assert portfolio_proof["portfolio_path"] == "withheld"
     assert portfolio_proof["verification_status"] == "unverified"
     assert portfolio_proof["output_status"] == "withheld"
+    assert portfolio_proof["replay_status"] == "replay_usable"
+    assert portfolio_proof["opening_state_status"] == "opening_state_unverified"
     assert portfolio_proof["verified_total_return_emitted"] is False
     assert portfolio_proof["benchmark_proof_independent"] is True
     assert portfolio_proof["disqualifiers"] == [
         "calendar_coverage_not_broker_proven",
         "corporate_action_proof_missing",
+        "opening_cash_state_missing",
         "portfolio_verified_total_return_withheld",
         "raw_price_used_for_valuation",
     ]
+    assert portfolio_proof["hard_disqualifiers"] == [
+        "calendar_coverage_not_broker_proven",
+        "corporate_action_proof_missing",
+        "opening_cash_state_missing",
+        "raw_price_used_for_valuation",
+    ]
     assert portfolio_proof["evidence"]["opening_state_basis"] == {
-        "status": "supported",
-        "positive_evidence": ["broker_ledger_entries_available", "opening_state_covered_by_observed_trade_window"],
-        "negative_evidence": [],
-        "disqualifiers": [],
+        "status": "disqualified",
+        "positive_evidence": [
+            "broker_ledger_entries_available",
+            "broker_statement_account_id_available",
+            "broker_statement_base_currency_available",
+            "opening_holdings_covered_by_observed_trade_window",
+            "opening_quantities_covered_by_observed_trade_window",
+            "opening_timestamp_semantics_backed_by_broker_statement_period",
+        ],
+        "negative_evidence": ["opening_cash_state_missing_broker_evidence"],
+        "disqualifiers": ["opening_cash_state_missing"],
+        "hard_disqualifiers": ["opening_cash_state_missing"],
         "witnesses": [
             {
-                "label": "opening_cash_state",
-                "status": "unknown_inferred",
-                "evidence": ["broker_opening_cash_state_not_present"],
+                "label": "opening_account_identity",
+                "status": "broker_proven",
+                "evidence": ["accepted_source:broker_statement_account_id"],
                 "counts": {},
             },
             {
-                "label": "opening_positions_state",
+                "label": "opening_base_currency_state",
+                "status": "broker_proven",
+                "evidence": ["accepted_source:broker_statement_base_currency:USD"],
+                "counts": {},
+            },
+            {
+                "label": "opening_cash_state",
+                "status": "missing_broker_evidence",
+                "evidence": ["accepted_source_missing:broker_cash_report_starting_cash"],
+                "counts": {},
+            },
+            {
+                "label": "opening_holdings_state",
                 "status": "trade_window_covered",
-                "evidence": ["opening_positions_covered_by_observed_trade_window"],
+                "evidence": ["accepted_source:broker_trade_window_opening_holdings"],
                 "counts": {"covered_symbol_count": 1},
+            },
+            {
+                "label": "opening_quantities_state",
+                "status": "trade_window_covered",
+                "evidence": ["accepted_source:broker_trade_window_opening_quantities"],
+                "counts": {"covered_symbol_count": 1},
+            },
+            {
+                "label": "opening_timestamp_semantics",
+                "status": "broker_statement_period_boundary",
+                "evidence": ["accepted_source:broker_statement_period_boundary:2026-04-10"],
+                "counts": {"statement_window_count": 1},
+            },
+            {
+                "label": "opening_state_admission",
+                "status": "opening_state_unverified",
+                "evidence": [
+                    "replay_status:replay_usable",
+                    "proof_eligibility_blocked_until_opening_state_verified",
+                ],
+                "counts": {},
             },
         ],
     }
@@ -874,6 +1201,7 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
         "positive_evidence": ["broker_ledger_entries_available", "cash_movement_entries_classified_with_broker_native_evidence"],
         "negative_evidence": [],
         "disqualifiers": [],
+        "hard_disqualifiers": [],
         "witnesses": [
             {
                 "label": "cash_flow_classification",
@@ -911,34 +1239,154 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
         "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
         "negative_evidence": [],
         "disqualifiers": [],
-        "witnesses": [],
+        "hard_disqualifiers": [],
+        "witnesses": [
+            {
+                "label": "fx_base_currency_state",
+                "status": "broker_proven",
+                "evidence": ["accepted_source:broker_statement_base_currency:USD"],
+                "counts": {},
+            },
+            {
+                "label": "fx_currency_observation_scope",
+                "status": "observed_currency_scope",
+                "evidence": [
+                    "observed_statement_currencies:USD",
+                    "observed_cash_currencies:USD",
+                    "observed_ledger_currencies:USD",
+                    "observed_position_currencies:USD",
+                ],
+                "counts": {
+                    "statement_currency_count": 1,
+                    "cash_currency_count": 1,
+                    "ledger_currency_count": 1,
+                    "position_currency_count": 1,
+                    "observed_currency_count": 1,
+                },
+            },
+            {
+                "label": "fx_translation_requirement",
+                "status": "identity_case_supported",
+                "evidence": ["all_observed_currencies_equal_base:USD"],
+                "counts": {"observed_currency_count": 1},
+            },
+        ],
     }
     assert portfolio_proof["evidence"]["corporate_action_basis"] == {
         "status": "disqualified",
-        "positive_evidence": ["broker_ledger_entries_available"],
-        "negative_evidence": ["corporate_action_proof_not_available"],
+        "policy": {
+            "scope": "broker_native_statement_window",
+            "cash_dividend_coverage_status": "cash_dividend_coverage_proven_by_broker_native_evidence",
+            "cash_dividend_observation_status": "no_cash_dividend_observed_within_covered_broker_scope",
+            "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+            "scope_start_date": "2026-04-10",
+            "scope_end_date": "2026-04-11",
+            "statement_window_count": 1,
+        },
+        "positive_evidence": [
+            "cash_dividend_coverage_proven_by_broker_native_evidence",
+            "no_cash_dividend_observed_within_covered_broker_scope",
+        ],
+        "negative_evidence": ["non_dividend_corporate_actions_unproven_and_disqualifying"],
         "disqualifiers": ["corporate_action_proof_missing"],
-        "witnesses": [],
+        "hard_disqualifiers": ["corporate_action_proof_missing"],
+        "witnesses": [
+            {
+                "label": "corporate_action_basis_policy",
+                "status": "cash_dividend_scope_only",
+                "evidence": [
+                    "positive_proof_limited_to:cash_dividend",
+                    "coverage_and_absence_semantics_require:broker_native_statement_window",
+                    "positive_observation_requires:broker_dividend_section_line_within_statement_window",
+                    "non_dividend_corporate_actions_remain_unproven_and_disqualifying",
+                ],
+                "counts": {"statement_window_count": 1},
+            },
+            {
+                "label": "cash_dividend_coverage_scope",
+                "status": "cash_dividend_coverage_proven_by_broker_native_evidence",
+                "evidence": ["broker_native_statement_windows:2026-04-10->2026-04-11"],
+                "counts": {"statement_window_count": 1},
+            },
+            {
+                "label": "cash_dividend_observation_scope",
+                "status": "no_cash_dividend_observed_within_covered_broker_scope",
+                "evidence": ["no_broker_native_dividend_rows_observed_within_statement_window_scope"],
+                "counts": {"broker_native_dividend_count": 0},
+            },
+            {
+                "label": "non_dividend_corporate_action_scope",
+                "status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                "evidence": [
+                    "unproven_action_classes:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes"
+                ],
+                "counts": {},
+            },
+        ],
     }
     assert portfolio_proof["evidence"]["terminal_reconciliation_basis"] == {
         "status": "supported",
-        "positive_evidence": ["terminal_force_reconciliation_not_present"],
-        "negative_evidence": [],
+        "positive_evidence": ["terminal_replay_state_available"],
+        "negative_evidence": ["terminal_statement_totals_not_available_for_comparison"],
         "disqualifiers": [],
-        "witnesses": [],
+        "hard_disqualifiers": [],
+        "witnesses": [
+            {
+                "label": "terminal_reconciliation_basis",
+                "status": "terminal_statement_totals_missing",
+                "evidence": ["terminal_statement_totals_not_available_for_comparison"],
+                "counts": {"compared_field_count": 0},
+            }
+        ],
     }
-    assert portfolio_proof["evidence"]["calendar_coverage_basis"] == {
-        "status": "disqualified",
-        "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
-        "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
-        "disqualifiers": ["calendar_coverage_not_broker_proven"],
-        "witnesses": [],
+    calendar_basis = portfolio_proof["evidence"]["calendar_coverage_basis"]
+    assert calendar_basis["status"] == "disqualified"
+    assert calendar_basis["positive_evidence"] == [
+        "valuation_window_dates_available",
+        "valuation_dates_are_sorted_and_unique",
+        "broker_statement_period_windows_available",
+        "broker_statement_calendar_continuity_observed",
+        "replay_window_within_broker_statement_boundaries",
+    ]
+    assert calendar_basis["negative_evidence"] == ["valuation_calendar_is_derived_from_benchmark_history"]
+    assert calendar_basis["disqualifiers"] == ["calendar_coverage_not_broker_proven"]
+    assert calendar_basis["hard_disqualifiers"] == ["calendar_coverage_not_broker_proven"]
+    assert calendar_basis["witnesses"][0] == {
+        "label": "first_covered_date_basis",
+        "status": "broker_statement_period_boundary",
+        "evidence": ["broker_statement_period_first_covered_date:2026-04-10"],
+        "counts": {},
+    }
+    assert calendar_basis["witnesses"][1] == {
+        "label": "last_covered_date_basis",
+        "status": "broker_statement_period_boundary",
+        "evidence": ["broker_statement_period_last_covered_date:2026-04-11"],
+        "counts": {},
+    }
+    assert calendar_basis["witnesses"][2] == {
+        "label": "replay_derived_window:2026-04-10",
+        "status": "replay_derived_window",
+        "evidence": ["replay_window_dates:2026-04-10->2026-04-10"],
+        "counts": {"valuation_date_count": 1},
+    }
+    assert calendar_basis["witnesses"][3] == {
+        "label": "calendar_continuity_basis",
+        "status": "broker_statement_period_contiguous",
+        "evidence": ["broker_statement_calendar_window:2026-04-10->2026-04-11"],
+        "counts": {"statement_window_count": 1, "gap_count": 0},
+    }
+    assert calendar_basis["witnesses"][4] == {
+        "label": "broker_covered_window:2026-04-10",
+        "status": "broker_covered_window",
+        "evidence": ["broker_statement_period_window:2026-04-10->2026-04-10"],
+        "counts": {"valuation_date_count": 1},
     }
     valuation_witnesses = portfolio_proof["evidence"]["valuation_basis"]["witnesses"]
     assert portfolio_proof["evidence"]["valuation_basis"]["status"] == "disqualified"
     assert portfolio_proof["evidence"]["valuation_basis"]["positive_evidence"] == ["valuation_dates_available", "position_price_histories_loaded"]
     assert portfolio_proof["evidence"]["valuation_basis"]["negative_evidence"] == ["vendor_raw_price_used_for_valuation"]
     assert portfolio_proof["evidence"]["valuation_basis"]["disqualifiers"] == ["raw_price_used_for_valuation"]
+    assert portfolio_proof["evidence"]["valuation_basis"]["hard_disqualifiers"] == ["raw_price_used_for_valuation"]
     assert valuation_witnesses[0] == {
         "label": "valuation_input_policy",
         "status": "explicit_withholding_contract",
@@ -1078,22 +1526,88 @@ def test_imported_dashboard_history_engine_route_marks_missing_imported_history_
         "benchmark_symbol": "SPY",
         "dataset_version": "market_data_service_v1",
     }
-    assert payload["run_metadata"]["portfolio_proof"] == {
+    portfolio_proof = payload["run_metadata"]["portfolio_proof"]
+    assert portfolio_proof["admission"] == {
+        "status": "not_applicable",
+        "scope": {
+            "account_id": None,
+            "base_currency": None,
+            "history_source": "unavailable",
+            "valuation_window_start": None,
+            "valuation_window_end": None,
+            "valuation_date_count": 0,
+            "statement_window_start": None,
+            "statement_window_end": None,
+            "statement_window_count": 0,
+        },
+        "blocking_reasons": [
+            {
+                "code": "portfolio_history_unavailable",
+                "bucket": "portfolio_admission",
+                "provenance_bucket": "portfolio_history",
+                "reason_type": "missing",
+            }
+        ],
+        "missing_proof_buckets": [
+            "boundary_hardening",
+            "capital_boundary_proof",
+            "corporate_action_proof",
+            "fx_proof",
+            "investor_economics_proof",
+            "opening_state_admission",
+            "return_basis_metadata",
+            "valuation_basis_separation",
+        ],
+        "bucket_decisions": [
+            {
+                "bucket": bucket,
+                "status": "not_applicable",
+                "blocks_admission": True,
+                "provenance_buckets": [bucket],
+                "blocking_reasons": ["portfolio_history_unavailable"],
+                "scope": {
+                    "account_id": None,
+                    "base_currency": None,
+                    "history_source": "unavailable",
+                    "valuation_window_start": None,
+                    "valuation_window_end": None,
+                    "valuation_date_count": 0,
+                    "statement_window_start": None,
+                    "statement_window_end": None,
+                    "statement_window_count": 0,
+                },
+            }
+            for bucket in [
+                "return_basis_metadata",
+                "capital_boundary_proof",
+                "valuation_basis_separation",
+                "boundary_hardening",
+                "opening_state_admission",
+                "fx_proof",
+                "corporate_action_proof",
+                "investor_economics_proof",
+            ]
+        ],
+    }
+    assert {key: value for key, value in portfolio_proof.items() if key != "admission"} == {
         "proof_system": "portfolio_verified_total_return_v1",
         "portfolio_path": "unavailable",
         "verification_status": "unavailable",
         "output_status": "unavailable",
+        "replay_status": "replay_unavailable",
+        "opening_state_status": "opening_state_unavailable",
         "verified_total_return_emitted": False,
         "benchmark_proof_independent": True,
         "disqualifiers": ["portfolio_history_unavailable"],
+        "hard_disqualifiers": ["portfolio_history_unavailable"],
         "evidence": {
-            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "corporate_action_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "corporate_action_basis": {"status": "disqualified", "policy": {"scope": "broker_scope_unproven", "cash_dividend_coverage_status": "cash_dividend_coverage_unproven", "cash_dividend_observation_status": "cash_dividend_observation_unproven", "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying", "scope_start_date": None, "scope_end_date": None, "statement_window_count": 0}, "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
         },
     }
     assert payload["daily_states"] == []
@@ -1212,37 +1726,101 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
             "scope": {},
         },
     }
-    assert payload["run_metadata"]["portfolio_proof"] == {
+    portfolio_proof = payload["run_metadata"]["portfolio_proof"]
+    assert portfolio_proof["admission"]["status"] == "rejected"
+    assert portfolio_proof["admission"]["missing_proof_buckets"] == [
+        "boundary_hardening",
+        "corporate_action_proof",
+        "investor_economics_proof",
+        "opening_state_admission",
+        "return_basis_metadata",
+        "valuation_basis_separation",
+    ]
+    assert portfolio_proof["admission"]["bucket_decisions"][7]["blocking_reasons"] == [
+        "missing_investor_economics_proof_bucket",
+        "portfolio_verified_total_return_withheld",
+    ]
+    assert {key: value for key, value in portfolio_proof.items() if key != "admission"} == {
         "proof_system": "portfolio_verified_total_return_v1",
         "portfolio_path": "withheld",
         "verification_status": "unverified",
         "output_status": "withheld",
+        "replay_status": "replay_usable",
+        "opening_state_status": "opening_state_unverified",
         "verified_total_return_emitted": False,
         "benchmark_proof_independent": True,
         "disqualifiers": [
             "calendar_coverage_not_broker_proven",
             "corporate_action_proof_missing",
+            "opening_cash_state_missing",
             "portfolio_verified_total_return_withheld",
+            "raw_price_used_for_valuation",
+        ],
+        "hard_disqualifiers": [
+            "calendar_coverage_not_broker_proven",
+            "corporate_action_proof_missing",
+            "opening_cash_state_missing",
             "raw_price_used_for_valuation",
         ],
         "evidence": {
             "opening_state_basis": {
-                "status": "supported",
-                "positive_evidence": ["broker_ledger_entries_available", "opening_state_covered_by_observed_trade_window"],
-                "negative_evidence": [],
-                "disqualifiers": [],
+                "status": "disqualified",
+                "positive_evidence": [
+                    "broker_ledger_entries_available",
+                    "broker_statement_account_id_available",
+                    "broker_statement_base_currency_available",
+                    "opening_holdings_covered_by_observed_trade_window",
+                    "opening_quantities_covered_by_observed_trade_window",
+                    "opening_timestamp_semantics_backed_by_broker_statement_period",
+                ],
+                "negative_evidence": ["opening_cash_state_missing_broker_evidence"],
+                "disqualifiers": ["opening_cash_state_missing"],
+                "hard_disqualifiers": ["opening_cash_state_missing"],
                 "witnesses": [
                     {
-                        "label": "opening_cash_state",
-                        "status": "unknown_inferred",
-                        "evidence": ["broker_opening_cash_state_not_present"],
+                        "label": "opening_account_identity",
+                        "status": "broker_proven",
+                        "evidence": ["accepted_source:broker_statement_account_id"],
                         "counts": {},
                     },
                     {
-                        "label": "opening_positions_state",
+                        "label": "opening_base_currency_state",
+                        "status": "broker_proven",
+                        "evidence": ["accepted_source:broker_statement_base_currency:USD"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "opening_cash_state",
+                        "status": "missing_broker_evidence",
+                        "evidence": ["accepted_source_missing:broker_cash_report_starting_cash"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "opening_holdings_state",
                         "status": "trade_window_covered",
-                        "evidence": ["opening_positions_covered_by_observed_trade_window"],
+                        "evidence": ["accepted_source:broker_trade_window_opening_holdings"],
                         "counts": {"covered_symbol_count": 1},
+                    },
+                    {
+                        "label": "opening_quantities_state",
+                        "status": "trade_window_covered",
+                        "evidence": ["accepted_source:broker_trade_window_opening_quantities"],
+                        "counts": {"covered_symbol_count": 1},
+                    },
+                    {
+                        "label": "opening_timestamp_semantics",
+                        "status": "broker_statement_period_boundary",
+                        "evidence": ["accepted_source:broker_statement_period_boundary:2026-04-10"],
+                        "counts": {"statement_window_count": 1},
+                    },
+                    {
+                        "label": "opening_state_admission",
+                        "status": "opening_state_unverified",
+                        "evidence": [
+                            "replay_status:replay_usable",
+                            "proof_eligibility_blocked_until_opening_state_verified",
+                        ],
+                        "counts": {},
                     },
                 ],
             },
@@ -1251,6 +1829,7 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
                 "positive_evidence": ["valuation_dates_available", "position_price_histories_loaded"],
                 "negative_evidence": ["vendor_raw_price_used_for_valuation"],
                 "disqualifiers": ["raw_price_used_for_valuation"],
+                "hard_disqualifiers": ["raw_price_used_for_valuation"],
                 "witnesses": [
                     {
                         "label": "valuation_input_policy",
@@ -1289,6 +1868,7 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
                 "positive_evidence": ["broker_ledger_entries_available", "cash_movement_entries_classified_with_broker_native_evidence"],
                 "negative_evidence": [],
                 "disqualifiers": [],
+                "hard_disqualifiers": [],
                 "witnesses": [
                     {
                         "label": "cash_flow_classification",
@@ -1326,28 +1906,150 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
                 "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
                 "negative_evidence": [],
                 "disqualifiers": [],
-                "witnesses": [],
+                "hard_disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "fx_base_currency_state",
+                        "status": "broker_proven",
+                        "evidence": ["accepted_source:broker_statement_base_currency:USD"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "fx_currency_observation_scope",
+                        "status": "observed_currency_scope",
+                        "evidence": [
+                            "observed_statement_currencies:USD",
+                            "observed_cash_currencies:USD",
+                            "observed_ledger_currencies:USD",
+                            "observed_position_currencies:USD",
+                        ],
+                        "counts": {
+                            "statement_currency_count": 1,
+                            "cash_currency_count": 1,
+                            "ledger_currency_count": 1,
+                            "position_currency_count": 1,
+                            "observed_currency_count": 1,
+                        },
+                    },
+                    {
+                        "label": "fx_translation_requirement",
+                        "status": "identity_case_supported",
+                        "evidence": ["all_observed_currencies_equal_base:USD"],
+                        "counts": {"observed_currency_count": 1},
+                    },
+                ],
             },
             "corporate_action_basis": {
                 "status": "disqualified",
-                "positive_evidence": ["broker_ledger_entries_available"],
-                "negative_evidence": ["corporate_action_proof_not_available"],
+                "policy": {
+                    "scope": "broker_native_statement_window",
+                    "cash_dividend_coverage_status": "cash_dividend_coverage_proven_by_broker_native_evidence",
+                    "cash_dividend_observation_status": "no_cash_dividend_observed_within_covered_broker_scope",
+                    "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                    "scope_start_date": "2026-04-10",
+                    "scope_end_date": "2026-04-11",
+                    "statement_window_count": 1,
+                },
+                "positive_evidence": [
+                    "cash_dividend_coverage_proven_by_broker_native_evidence",
+                    "no_cash_dividend_observed_within_covered_broker_scope",
+                ],
+                "negative_evidence": ["non_dividend_corporate_actions_unproven_and_disqualifying"],
                 "disqualifiers": ["corporate_action_proof_missing"],
-                "witnesses": [],
+                "hard_disqualifiers": ["corporate_action_proof_missing"],
+                "witnesses": [
+                    {
+                        "label": "corporate_action_basis_policy",
+                        "status": "cash_dividend_scope_only",
+                        "evidence": [
+                            "positive_proof_limited_to:cash_dividend",
+                            "coverage_and_absence_semantics_require:broker_native_statement_window",
+                            "positive_observation_requires:broker_dividend_section_line_within_statement_window",
+                            "non_dividend_corporate_actions_remain_unproven_and_disqualifying",
+                        ],
+                        "counts": {"statement_window_count": 1},
+                    },
+                    {
+                        "label": "cash_dividend_coverage_scope",
+                        "status": "cash_dividend_coverage_proven_by_broker_native_evidence",
+                        "evidence": ["broker_native_statement_windows:2026-04-10->2026-04-11"],
+                        "counts": {"statement_window_count": 1},
+                    },
+                    {
+                        "label": "cash_dividend_observation_scope",
+                        "status": "no_cash_dividend_observed_within_covered_broker_scope",
+                        "evidence": ["no_broker_native_dividend_rows_observed_within_statement_window_scope"],
+                        "counts": {"broker_native_dividend_count": 0},
+                    },
+                    {
+                        "label": "non_dividend_corporate_action_scope",
+                        "status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                        "evidence": [
+                            "unproven_action_classes:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes"
+                        ],
+                        "counts": {},
+                    },
+                ],
             },
             "terminal_reconciliation_basis": {
                 "status": "supported",
-                "positive_evidence": ["terminal_force_reconciliation_not_present"],
-                "negative_evidence": [],
+                "positive_evidence": ["terminal_replay_state_available"],
+                "negative_evidence": ["terminal_statement_totals_not_available_for_comparison"],
                 "disqualifiers": [],
-                "witnesses": [],
+                "hard_disqualifiers": [],
+                "witnesses": [
+                    {
+                        "label": "terminal_reconciliation_basis",
+                        "status": "terminal_statement_totals_missing",
+                        "evidence": ["terminal_statement_totals_not_available_for_comparison"],
+                        "counts": {"compared_field_count": 0},
+                    }
+                ],
             },
             "calendar_coverage_basis": {
                 "status": "disqualified",
-                "positive_evidence": ["valuation_window_dates_available", "valuation_dates_are_sorted_and_unique"],
+                "positive_evidence": [
+                    "valuation_window_dates_available",
+                    "valuation_dates_are_sorted_and_unique",
+                    "broker_statement_period_windows_available",
+                    "broker_statement_calendar_continuity_observed",
+                    "replay_window_within_broker_statement_boundaries",
+                ],
                 "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
                 "disqualifiers": ["calendar_coverage_not_broker_proven"],
-                "witnesses": [],
+                "hard_disqualifiers": ["calendar_coverage_not_broker_proven"],
+                "witnesses": [
+                    {
+                        "label": "first_covered_date_basis",
+                        "status": "broker_statement_period_boundary",
+                        "evidence": ["broker_statement_period_first_covered_date:2026-04-10"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "last_covered_date_basis",
+                        "status": "broker_statement_period_boundary",
+                        "evidence": ["broker_statement_period_last_covered_date:2026-04-11"],
+                        "counts": {},
+                    },
+                    {
+                        "label": "replay_derived_window:2026-04-10",
+                        "status": "replay_derived_window",
+                        "evidence": ["replay_window_dates:2026-04-10->2026-04-10"],
+                        "counts": {"valuation_date_count": 1},
+                    },
+                    {
+                        "label": "calendar_continuity_basis",
+                        "status": "broker_statement_period_contiguous",
+                        "evidence": ["broker_statement_calendar_window:2026-04-10->2026-04-11"],
+                        "counts": {"statement_window_count": 1, "gap_count": 0},
+                    },
+                    {
+                        "label": "broker_covered_window:2026-04-10",
+                        "status": "broker_covered_window",
+                        "evidence": ["broker_statement_period_window:2026-04-10->2026-04-10"],
+                        "counts": {"valuation_date_count": 1},
+                    },
+                ],
             },
         },
     }
@@ -1466,22 +2168,88 @@ def test_imported_diagnostics_engine_route_marks_missing_imported_history_as_una
             "scope": {},
         },
     }
-    assert payload["run_metadata"]["portfolio_proof"] == {
+    portfolio_proof = payload["run_metadata"]["portfolio_proof"]
+    assert portfolio_proof["admission"] == {
+        "status": "not_applicable",
+        "scope": {
+            "account_id": None,
+            "base_currency": None,
+            "history_source": "unavailable",
+            "valuation_window_start": None,
+            "valuation_window_end": None,
+            "valuation_date_count": 0,
+            "statement_window_start": None,
+            "statement_window_end": None,
+            "statement_window_count": 0,
+        },
+        "blocking_reasons": [
+            {
+                "code": "portfolio_history_unavailable",
+                "bucket": "portfolio_admission",
+                "provenance_bucket": "portfolio_history",
+                "reason_type": "missing",
+            }
+        ],
+        "missing_proof_buckets": [
+            "boundary_hardening",
+            "capital_boundary_proof",
+            "corporate_action_proof",
+            "fx_proof",
+            "investor_economics_proof",
+            "opening_state_admission",
+            "return_basis_metadata",
+            "valuation_basis_separation",
+        ],
+        "bucket_decisions": [
+            {
+                "bucket": bucket,
+                "status": "not_applicable",
+                "blocks_admission": True,
+                "provenance_buckets": [bucket],
+                "blocking_reasons": ["portfolio_history_unavailable"],
+                "scope": {
+                    "account_id": None,
+                    "base_currency": None,
+                    "history_source": "unavailable",
+                    "valuation_window_start": None,
+                    "valuation_window_end": None,
+                    "valuation_date_count": 0,
+                    "statement_window_start": None,
+                    "statement_window_end": None,
+                    "statement_window_count": 0,
+                },
+            }
+            for bucket in [
+                "return_basis_metadata",
+                "capital_boundary_proof",
+                "valuation_basis_separation",
+                "boundary_hardening",
+                "opening_state_admission",
+                "fx_proof",
+                "corporate_action_proof",
+                "investor_economics_proof",
+            ]
+        ],
+    }
+    assert {key: value for key, value in portfolio_proof.items() if key != "admission"} == {
         "proof_system": "portfolio_verified_total_return_v1",
         "portfolio_path": "unavailable",
         "verification_status": "unavailable",
         "output_status": "unavailable",
+        "replay_status": "replay_unavailable",
+        "opening_state_status": "opening_state_unavailable",
         "verified_total_return_emitted": False,
         "benchmark_proof_independent": True,
         "disqualifiers": ["portfolio_history_unavailable"],
+        "hard_disqualifiers": ["portfolio_history_unavailable"],
         "evidence": {
-            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "corporate_action_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
-            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "opening_state_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "valuation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "cash_flow_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "fx_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "corporate_action_basis": {"status": "disqualified", "policy": {"scope": "broker_scope_unproven", "cash_dividend_coverage_status": "cash_dividend_coverage_unproven", "cash_dividend_observation_status": "cash_dividend_observation_unproven", "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying", "scope_start_date": None, "scope_end_date": None, "statement_window_count": 0}, "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "terminal_reconciliation_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
+            "calendar_coverage_basis": {"status": "disqualified", "positive_evidence": [], "negative_evidence": ["portfolio_history_unavailable"], "disqualifiers": ["portfolio_history_unavailable"], "hard_disqualifiers": ["portfolio_history_unavailable"], "witnesses": []},
         },
     }
     assert payload["run_metadata"]["investor_economics_status"] == {
