@@ -275,7 +275,7 @@ def test_dashboard_history_route_with_incomplete_history_context_returns_unavail
 def test_imported_dashboard_history_route_with_mocked_market_data(mocker) -> None:
     mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service_instance = mock_service.return_value
-    service_instance.get_historical_prices.return_value = [{"date": "2026-04-10", "price": 100.0}]
+    service_instance.get_direct_verified_benchmark_history.return_value = [{"date": "2026-04-10", "price": 100.0}]
     service_instance.get_historical_prices_for_symbols.return_value = {"AAPL": [{"date": "2026-04-10", "price": 100.0}]}
 
     client = TestClient(app)
@@ -309,7 +309,7 @@ def test_imported_dashboard_history_route_with_mocked_market_data(mocker) -> Non
 def test_imported_dashboard_history_route_reconciles_terminal_value_to_statement_totals(mocker) -> None:
     mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service_instance = mock_service.return_value
-    service_instance.get_historical_prices.return_value = [
+    service_instance.get_direct_verified_benchmark_history.return_value = [
         {"date": "2026-04-10", "price": 100.0},
         {"date": "2026-04-11", "price": 101.0},
     ]
@@ -353,7 +353,7 @@ def test_imported_dashboard_history_route_reconciles_terminal_value_to_statement
 def test_imported_dashboard_history_route_accepts_mixed_broker_snapshot_with_mocked_market_data(mocker) -> None:
     mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service_instance = mock_service.return_value
-    service_instance.get_historical_prices.return_value = [
+    service_instance.get_direct_verified_benchmark_history.return_value = [
         {"date": "2026-04-10", "price": 100.0},
         {"date": "2026-04-11", "price": 101.0},
     ]
@@ -422,7 +422,7 @@ def test_imported_dashboard_history_route_accepts_mixed_broker_snapshot_with_moc
 def test_imported_dashboard_history_route_marks_missing_symbol_price_history_as_unavailable(mocker) -> None:
     mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service_instance = mock_service.return_value
-    service_instance.get_historical_prices.return_value = [
+    service_instance.get_direct_verified_benchmark_history.return_value = [
         {"date": "2026-04-10", "price": 100.0},
         {"date": "2026-04-11", "price": 101.0},
     ]
@@ -463,7 +463,7 @@ def test_imported_dashboard_history_route_marks_missing_symbol_price_history_as_
 def test_imported_dashboard_history_route_marks_missing_benchmark_history_as_unavailable(mocker) -> None:
     mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     service_instance = mock_service.return_value
-    service_instance.get_historical_prices.return_value = []
+    service_instance.get_direct_verified_benchmark_history.return_value = []
     service_instance.get_historical_prices_for_symbols.return_value = {"AAPL": [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}]}
 
     client = TestClient(app)
@@ -496,6 +496,52 @@ def test_imported_dashboard_history_route_marks_missing_benchmark_history_as_una
     assert payload["daily_states"] == []
     assert payload["performance_series"] == []
     assert payload["range_metrics"]["3M"]["summary"]["start_value"] is None
+
+
+def test_imported_dashboard_history_route_marks_empty_replay_output_as_unavailable(mocker) -> None:
+    mock_service = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+    ]
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 100.0},
+            {"date": "2026-04-11", "price": 101.0},
+        ]
+    }
+
+    client = TestClient(app)
+    response = client.post(
+        "/engines/dashboard-history/run-imported",
+        json={
+            "statement": {
+                "importer": "interactive_brokers",
+                "imported_at": "2026-04-10T00:00:00Z",
+                "source_path": "IB2026.pdf",
+                "detected_format": "pdf",
+                "account_id": "U123",
+                "base_currency": "USD",
+                "statement_period": "2026-04-10 - 2026-04-11",
+                "page_count": 1,
+            },
+            "statements": [],
+            "statement_totals": None,
+            "instruments": [],
+            "cash_balances": [{"currency": "USD", "ending_cash": 0}],
+            "positions": [{"symbol": "AAPL", "quantity": 0, "market_value": 0, "currency": "USD", "as_of_date": "2026-04-11", "cost_basis": 0, "close_price": 100, "unrealized_pnl": 0}],
+            "ledger_entries": [],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_status"]["performance_history"] == "unavailable"
+    assert payload["source_status"]["monthly_returns"] == "unavailable"
+    assert payload["run_metadata"]["source_status"]["benchmark_history"] == "unavailable"
+    assert payload["daily_states"] == []
+    assert payload["performance_series"] == []
 
 
 def test_imported_diagnostics_route_with_mocked_market_data(mocker) -> None:

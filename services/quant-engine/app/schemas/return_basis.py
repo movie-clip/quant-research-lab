@@ -24,12 +24,25 @@ class ReturnBasisEvidence(BaseModel):
     scope: dict[str, str | bool | int | None] = Field(default_factory=dict)
 
 
-PortfolioProofPathStatus = Literal["withheld", "unverified", "unavailable"]
-PortfolioProofVerificationStatus = Literal["unverified", "unavailable"]
-PortfolioProofOutputStatus = Literal["withheld", "unavailable"]
+PortfolioProofPathStatus = Literal["verified", "withheld", "unverified", "unavailable"]
+PortfolioProofVerificationStatus = Literal["verified", "unverified", "unavailable"]
+PortfolioProofOutputStatus = Literal["available", "withheld", "unavailable"]
 PortfolioProofBucketStatus = Literal["supported", "disqualified", "unavailable"]
 PortfolioProofReplayStatus = Literal["replay_usable", "replay_unavailable"]
-PortfolioProofAdmissionStatus = Literal["withheld", "rejected", "not_applicable"]
+PortfolioProofAdmissionStatus = Literal["admitted", "withheld", "rejected", "not_applicable"]
+PortfolioProofPreparationStatus = Literal[
+    "exact_slice_admitted",
+    "exact_slice_prerequisites_incomplete",
+    "exact_slice_ready_but_withheld_by_policy",
+    "not_applicable",
+]
+PortfolioProofPreparationGapType = Literal[
+    "blocking",
+    "missing",
+    "scope_unproven",
+    "scope_mismatch",
+    "policy_withheld",
+]
 PortfolioProofOpeningStateStatus = Literal[
     "opening_state_verified",
     "opening_state_unverified",
@@ -45,7 +58,10 @@ PortfolioCashDividendObservationStatus = Literal[
     "no_cash_dividend_observed_within_covered_broker_scope",
     "cash_dividend_observation_unproven",
 ]
-PortfolioNonDividendCorporateActionStatus = Literal["non_dividend_corporate_actions_unproven_and_disqualifying"]
+PortfolioNonDividendCorporateActionStatus = Literal[
+    "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
+    "non_dividend_corporate_actions_unproven_and_disqualifying",
+]
 
 
 class PortfolioProofWitness(BaseModel):
@@ -80,6 +96,18 @@ class PortfolioCorporateActionBasisEvidence(PortfolioProofBucketEvidence):
     policy: PortfolioCorporateActionBasisPolicy
 
 
+class PortfolioInvestorEconomicsProofEvidence(PortfolioProofBucketEvidence):
+    claim_id: str
+    claim: str
+    decision: PortfolioProofAdmissionStatus
+    preparation_status: PortfolioProofPreparationStatus
+    required_inputs: list[str] = Field(default_factory=list)
+    blocking_reasons: list[str] = Field(default_factory=list)
+    missing_proof_buckets: list[str] = Field(default_factory=list)
+    scope_mismatches: list[str] = Field(default_factory=list)
+    scope: dict[str, str | bool | int | None] = Field(default_factory=dict)
+
+
 class PortfolioProofAdmissionBlockingReason(BaseModel):
     code: str
     bucket: str
@@ -96,8 +124,63 @@ class PortfolioProofAdmissionBucketDecision(BaseModel):
     scope: dict[str, str | bool | int | None] = Field(default_factory=dict)
 
 
+class PortfolioProofPreparationGap(BaseModel):
+    code: str
+    bucket: str
+    provenance_buckets: list[str] = Field(default_factory=list)
+    gap_type: PortfolioProofPreparationGapType
+
+
+class PortfolioProofWindowTarget(BaseModel):
+    start_date: str | None = None
+    end_date: str | None = None
+    count: int = 0
+
+
+class PortfolioProofOpeningStateAnchorTarget(BaseModel):
+    required_anchor_date: str | None = None
+    observed_anchor_date: str | None = None
+    status: str
+
+
+class PortfolioProofFxScopeTarget(BaseModel):
+    translation_case: str
+    base_currency: str | None = None
+    observed_currencies: list[str] = Field(default_factory=list)
+    required_pairs: list[str] = Field(default_factory=list)
+    required_pair_dates: list[str] = Field(default_factory=list)
+
+
+class PortfolioProofCorporateActionScopeTarget(BaseModel):
+    scope: PortfolioCorporateActionScope
+    scope_start_date: str | None = None
+    scope_end_date: str | None = None
+    statement_window_count: int = 0
+    positive_proof_classes: list[str] = Field(default_factory=list)
+    unproven_disqualifying_classes: list[str] = Field(default_factory=list)
+
+
+class PortfolioProofExactSliceTarget(BaseModel):
+    account_set: list[str] = Field(default_factory=list)
+    base_currency: str | None = None
+    valuation_window: PortfolioProofWindowTarget
+    statement_window: PortfolioProofWindowTarget
+    opening_state_anchor: PortfolioProofOpeningStateAnchorTarget
+    fx_scope: PortfolioProofFxScopeTarget
+    corporate_action_scope: PortfolioProofCorporateActionScopeTarget
+
+
+class PortfolioProofPreparationMetadata(BaseModel):
+    readiness_status: PortfolioProofPreparationStatus
+    all_prerequisite_buckets_supported: bool = False
+    exact_slice_target: PortfolioProofExactSliceTarget
+    readiness_gaps: list[PortfolioProofPreparationGap] = Field(default_factory=list)
+    policy_blockers: list[PortfolioProofPreparationGap] = Field(default_factory=list)
+
+
 class PortfolioProofAdmissionDecision(BaseModel):
     status: PortfolioProofAdmissionStatus
+    readiness_status: PortfolioProofPreparationStatus
     scope: dict[str, str | bool | int | None] = Field(default_factory=dict)
     blocking_reasons: list[PortfolioProofAdmissionBlockingReason] = Field(default_factory=list)
     missing_proof_buckets: list[str] = Field(default_factory=list)
@@ -112,6 +195,7 @@ class PortfolioProofEvidenceBundle(BaseModel):
     corporate_action_basis: PortfolioCorporateActionBasisEvidence
     terminal_reconciliation_basis: PortfolioProofBucketEvidence
     calendar_coverage_basis: PortfolioProofBucketEvidence
+    investor_economics_proof: PortfolioInvestorEconomicsProofEvidence
 
 
 class PortfolioProofMetadata(BaseModel):
@@ -125,5 +209,6 @@ class PortfolioProofMetadata(BaseModel):
     benchmark_proof_independent: bool = True
     disqualifiers: list[str] = Field(default_factory=list)
     hard_disqualifiers: list[str] = Field(default_factory=list)
+    preparation: PortfolioProofPreparationMetadata
     admission: PortfolioProofAdmissionDecision
     evidence: PortfolioProofEvidenceBundle

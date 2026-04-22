@@ -8,6 +8,7 @@ def build_benchmark_comparison(
     rows: list[dict],
     *,
     return_basis_contract: HistoryReturnBasisContract | None = None,
+    allow_return_pct: bool = True,
 ) -> BenchmarkComparison | None:
     if not rows:
         return None
@@ -19,7 +20,11 @@ def build_benchmark_comparison(
     start_price = float(ordered[0]["price"])
     end_price = float(ordered[-1]["price"])
     resolved_return_basis_contract = return_basis_contract or classify_history_return_basis_contract(rows)
-    return_pct = round(((end_price / start_price) - 1) * 100, 2) if start_price and resolved_return_basis_contract == "verified_total_return" else None
+    return_pct = (
+        round(((end_price / start_price) - 1) * 100, 2)
+        if allow_return_pct and start_price and resolved_return_basis_contract == "verified_total_return"
+        else None
+    )
 
     return BenchmarkComparison(
         symbol=symbol,

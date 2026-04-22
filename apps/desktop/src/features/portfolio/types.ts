@@ -275,6 +275,34 @@ export type InvestorEconomicsStatus = {
   reason: 'withheld_unverified_total_return_equivalence' | null
 }
 
+export type DashboardHistoryInvestorEconomicsScalarPolicy = {
+  field:
+    | 'range_metrics[*].summary.time_weighted_return_pct'
+    | 'range_metrics[*].summary.benchmark_return_pct'
+    | 'range_metrics[*].summary.excess_return_pct'
+  unlock_condition:
+    | 'identical_admitted_exact_slice_only'
+    | 'identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only'
+    | 'identical_admitted_exact_slice_pair_only'
+  runtime_enabled: boolean
+}
+
+export type DashboardHistoryInvestorEconomicsPartialUnlock = {
+  mode: 'allowlisted_exact_slice_scalars_only'
+  exact_slice_scalar_allowlist: DashboardHistoryInvestorEconomicsScalarPolicy[]
+  client_derivation_rule: 'server_side_scalar_only_no_daily_series_subtraction_equivalence'
+  withheld_families: Array<
+    | 'benchmark_relative_series'
+    | 'benchmark_relative_path_derived_outputs'
+    | 'drawdown_family'
+    | 'rebucketed_window_summaries'
+    | 'rewindowed_range_summaries'
+    | 'diagnostics_benchmark_relative_outputs'
+    | 'replay_benchmark_relative_outputs'
+    | 'strategy_lab_benchmark_relative_outputs'
+  >
+}
+
 export type ReturnBasisEvidence = {
   verification_status: 'verified' | 'proxy' | 'unverified' | 'unavailable'
   economic_basis: 'total_return' | 'adjusted_close_proxy' | 'price_return_only' | 'unavailable'
@@ -309,15 +337,38 @@ export type PortfolioCorporateActionBasisEvidence = PortfolioProofBucketEvidence
       | 'cash_dividend_observed_by_broker_native_evidence'
       | 'no_cash_dividend_observed_within_covered_broker_scope'
       | 'cash_dividend_observation_unproven'
-    non_dividend_status: 'non_dividend_corporate_actions_unproven_and_disqualifying'
+    non_dividend_status:
+      | 'no_non_dividend_corporate_actions_observed_within_covered_broker_scope'
+      | 'non_dividend_corporate_actions_unproven_and_disqualifying'
     scope_start_date: string | null
     scope_end_date: string | null
     statement_window_count: number
   }
 }
 
+export type PortfolioInvestorEconomicsProofEvidence = PortfolioProofBucketEvidence & {
+  claim_id: string
+  claim: string
+  decision: 'admitted' | 'withheld' | 'rejected' | 'not_applicable'
+  preparation_status:
+    | 'exact_slice_admitted'
+    | 'exact_slice_prerequisites_incomplete'
+    | 'exact_slice_ready_but_withheld_by_policy'
+    | 'not_applicable'
+  required_inputs: string[]
+  blocking_reasons: string[]
+  missing_proof_buckets: string[]
+  scope_mismatches: string[]
+  scope: Record<string, string | number | boolean | null>
+}
+
 export type PortfolioProofAdmissionDecision = {
-  status: 'withheld' | 'rejected' | 'not_applicable'
+  status: 'admitted' | 'withheld' | 'rejected' | 'not_applicable'
+  readiness_status:
+    | 'exact_slice_admitted'
+    | 'exact_slice_prerequisites_incomplete'
+    | 'exact_slice_ready_but_withheld_by_policy'
+    | 'not_applicable'
   scope: Record<string, string | number | boolean | null>
   blocking_reasons: Array<{
     code: string
@@ -328,7 +379,7 @@ export type PortfolioProofAdmissionDecision = {
   missing_proof_buckets: string[]
   bucket_decisions: Array<{
     bucket: string
-    status: 'withheld' | 'rejected' | 'not_applicable'
+    status: 'admitted' | 'withheld' | 'rejected' | 'not_applicable'
     blocks_admission: boolean
     provenance_buckets: string[]
     blocking_reasons: string[]
@@ -336,17 +387,70 @@ export type PortfolioProofAdmissionDecision = {
   }>
 }
 
+export type PortfolioProofPreparationGap = {
+  code: string
+  bucket: string
+  provenance_buckets: string[]
+  gap_type: 'blocking' | 'missing' | 'scope_unproven' | 'scope_mismatch' | 'policy_withheld'
+}
+
+export type PortfolioProofPreparationMetadata = {
+  readiness_status:
+    | 'exact_slice_admitted'
+    | 'exact_slice_prerequisites_incomplete'
+    | 'exact_slice_ready_but_withheld_by_policy'
+    | 'not_applicable'
+  all_prerequisite_buckets_supported: boolean
+  exact_slice_target: {
+    account_set: string[]
+    base_currency: string | null
+    valuation_window: {
+      start_date: string | null
+      end_date: string | null
+      count: number
+    }
+    statement_window: {
+      start_date: string | null
+      end_date: string | null
+      count: number
+    }
+    opening_state_anchor: {
+      required_anchor_date: string | null
+      observed_anchor_date: string | null
+      status: string
+    }
+    fx_scope: {
+      translation_case: string
+      base_currency: string | null
+      observed_currencies: string[]
+      required_pairs: string[]
+      required_pair_dates: string[]
+    }
+    corporate_action_scope: {
+      scope: 'broker_native_statement_window' | 'broker_scope_unproven'
+      scope_start_date: string | null
+      scope_end_date: string | null
+      statement_window_count: number
+      positive_proof_classes: string[]
+      unproven_disqualifying_classes: string[]
+    }
+  }
+  readiness_gaps: PortfolioProofPreparationGap[]
+  policy_blockers: PortfolioProofPreparationGap[]
+}
+
 export type PortfolioProofMetadata = {
   proof_system: string
-  portfolio_path: 'withheld' | 'unverified' | 'unavailable'
-  verification_status: 'unverified' | 'unavailable'
-  output_status: 'withheld' | 'unavailable'
+  portfolio_path: 'verified' | 'withheld' | 'unverified' | 'unavailable'
+  verification_status: 'verified' | 'unverified' | 'unavailable'
+  output_status: 'available' | 'withheld' | 'unavailable'
   replay_status: 'replay_usable' | 'replay_unavailable'
   opening_state_status: 'opening_state_verified' | 'opening_state_unverified' | 'opening_state_unavailable'
   verified_total_return_emitted: boolean
   benchmark_proof_independent: boolean
   disqualifiers: string[]
   hard_disqualifiers: string[]
+  preparation: PortfolioProofPreparationMetadata
   admission: PortfolioProofAdmissionDecision
   evidence: {
     opening_state_basis: PortfolioProofBucketEvidence
@@ -356,6 +460,7 @@ export type PortfolioProofMetadata = {
     corporate_action_basis: PortfolioCorporateActionBasisEvidence
     terminal_reconciliation_basis: PortfolioProofBucketEvidence
     calendar_coverage_basis: PortfolioProofBucketEvidence
+    investor_economics_proof: PortfolioInvestorEconomicsProofEvidence
   }
 }
 
@@ -382,6 +487,7 @@ export type DashboardHistoryRunMetadata = {
   }
   portfolio_proof: PortfolioProofMetadata
   investor_economics_status: InvestorEconomicsStatus
+  investor_economics_partial_unlock: DashboardHistoryInvestorEconomicsPartialUnlock
   reproducibility: {
     input_imported_at: string | null
     snapshot_as_of_date: string | null

@@ -1,8 +1,18 @@
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from app.analytics.performance import build_daily_portfolio_states, build_true_performance_series
 from app.schemas.imports import ImportedPortfolioSnapshot
-from app.schemas.dashboard_history import DashboardHistoryEngineRequest, DashboardHistoryResult, DashboardHistoryRunMetadata, DashboardHistoryRunReproducibility, DashboardHistoryRunSourceStatus, DashboardMonthlyReturn, DashboardRangeMetrics
+from app.schemas.dashboard_history import (
+    DashboardHistoryEngineRequest,
+    DashboardHistoryInvestorEconomicsPartialUnlock,
+    DashboardHistoryInvestorEconomicsScalarPolicy,
+    DashboardHistoryResult,
+    DashboardHistoryRunMetadata,
+    DashboardHistoryRunReproducibility,
+    DashboardHistoryRunSourceStatus,
+    DashboardMonthlyReturn,
+    DashboardRangeMetrics,
+)
 from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
 from app.schemas.reconciliation import PerformanceSummary
 from app.services.benchmark_service import build_benchmark_comparison
@@ -13,7 +23,6 @@ from app.services.market_data import (
     VERIFIED_BENCHMARK_VENDOR,
     build_histories_return_basis_evidence,
     build_history_return_basis_evidence,
-    classify_histories_return_basis_contract,
     classify_history_return_basis_contract,
     detect_history_return_basis,
 )
@@ -23,6 +32,7 @@ from app.services.portfolio_proof import build_portfolio_proof_metadata, build_u
 DASHBOARD_HISTORY_ID = "dashboard_history_engine_v1"
 DASHBOARD_HISTORY_METHODOLOGY_ID = "dashboard_history_methodology_v1"
 DASHBOARD_HISTORY_DATASET_VERSION = "market_data_service_v1"
+DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED = True
 
 
 def _coerce_float(value: object) -> float | None:
@@ -186,32 +196,53 @@ def _build_dashboard_portfolio_proof_metadata(
     )
 
 
-def _allow_dashboard_compounded_return_outputs(return_basis_contract: DashboardHistoryRunMetadata.ReturnBasisContract) -> bool:
-    return (
-        return_basis_contract.portfolio_path == "verified_total_return"
-        and return_basis_contract.benchmark_path == "verified_total_return"
-    )
-
-
 def _allow_dashboard_drawdown_outputs(
     *,
     benchmark_rows: list[dict],
     symbol_price_histories: dict[str, list[dict]],
 ) -> bool:
-    benchmark_contract = classify_history_return_basis_contract(benchmark_rows)
-    position_contract = classify_histories_return_basis_contract(symbol_price_histories)
-    return benchmark_contract == "verified_total_return" and position_contract == "verified_total_return"
+    # Dashboard investor-economics policy stays narrower than the underlying proof
+    # system: drawdown and other path-derived outputs remain withheld for now.
+    return False
 
 
-def _build_dashboard_investor_economics_status(
-    *,
-    allow_compounded_return_outputs: bool,
-    allow_drawdown_outputs: bool,
-) -> InvestorEconomicsStatus:
-    if allow_compounded_return_outputs and allow_drawdown_outputs:
-        return build_investor_economics_status(available=True)
+def _build_dashboard_investor_economics_status() -> InvestorEconomicsStatus:
     return build_investor_economics_status(
         available=False,
+    )
+
+
+def _build_dashboard_investor_economics_partial_unlock() -> DashboardHistoryInvestorEconomicsPartialUnlock:
+    return DashboardHistoryInvestorEconomicsPartialUnlock(
+        mode="allowlisted_exact_slice_scalars_only",
+        exact_slice_scalar_allowlist=[
+            DashboardHistoryInvestorEconomicsScalarPolicy(
+                field="range_metrics[*].summary.time_weighted_return_pct",
+                unlock_condition="identical_admitted_exact_slice_only",
+                runtime_enabled=True,
+            ),
+            DashboardHistoryInvestorEconomicsScalarPolicy(
+                field="range_metrics[*].summary.benchmark_return_pct",
+                unlock_condition="identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+                runtime_enabled=True,
+            ),
+            DashboardHistoryInvestorEconomicsScalarPolicy(
+                field="range_metrics[*].summary.excess_return_pct",
+                unlock_condition="identical_admitted_exact_slice_pair_only",
+                runtime_enabled=DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED,
+            ),
+        ],
+        client_derivation_rule="server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        withheld_families=[
+            "benchmark_relative_series",
+            "benchmark_relative_path_derived_outputs",
+            "drawdown_family",
+            "rebucketed_window_summaries",
+            "rewindowed_range_summaries",
+            "diagnostics_benchmark_relative_outputs",
+            "replay_benchmark_relative_outputs",
+            "strategy_lab_benchmark_relative_outputs",
+        ],
     )
 
 
@@ -227,6 +258,123 @@ RANGE_WINDOWS: dict[str, int | None] = {
 class MonthlyReturnPoint(TypedDict):
     month: str
     return_pct: float
+
+
+def _admitted_exact_slice_scope(portfolio_proof) -> tuple[str, str, int] | None:
+    if portfolio_proof.admission.status != "admitted":
+        return None
+    if portfolio_proof.admission.readiness_status != "exact_slice_admitted":
+        return None
+
+    start_date = portfolio_proof.admission.scope.get("valuation_window_start")
+    end_date = portfolio_proof.admission.scope.get("valuation_window_end")
+    count = portfolio_proof.admission.scope.get("valuation_date_count")
+    if not isinstance(start_date, str) or not isinstance(end_date, str) or not isinstance(count, int) or count <= 0:
+        return None
+    return start_date, end_date, count
+
+
+def _slice_matches_admitted_scope(
+    performance_points,
+    admitted_scope: tuple[str, str, int] | None,
+    *,
+    source_performance_series=None,
+) -> bool:
+    if admitted_scope is None or not performance_points:
+        return False
+
+    dates = sorted({point.date for point in performance_points})
+    if not dates:
+        return False
+
+    start_date, end_date, count = admitted_scope
+    if dates[0] != start_date or dates[-1] != end_date or len(dates) != count:
+        return False
+
+    if source_performance_series is None:
+        return True
+
+    source_slice = [point for point in source_performance_series if start_date <= point.date <= end_date]
+    if len(source_slice) != len(performance_points):
+        return False
+
+    return all(
+        point.date == source_point.date
+        and point.portfolio_value == source_point.portfolio_value
+        and point.benchmark_price == source_point.benchmark_price
+        and point.portfolio_return_pct == source_point.portfolio_return_pct
+        and point.benchmark_return_pct == source_point.benchmark_return_pct
+        for point, source_point in zip(performance_points, source_slice)
+    )
+
+
+def _allow_exact_slice_benchmark_return_output(
+    *,
+    performance_points,
+    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
+    benchmark_return_basis_contract: str,
+    source_performance_series=None,
+) -> bool:
+    return (
+        benchmark_return_basis_contract == "verified_total_return"
+        and _slice_matches_admitted_scope(
+            performance_points,
+            admitted_portfolio_twr_scope,
+            source_performance_series=source_performance_series,
+        )
+    )
+
+
+def _allow_future_exact_slice_excess_return_output(
+    *,
+    performance_points,
+    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
+    allow_portfolio_twr_outputs: bool,
+    allow_exact_slice_benchmark_return_output: bool,
+    time_weighted_return_pct: float | None,
+    benchmark_return_pct: float | None,
+    source_performance_series=None,
+) -> bool:
+    if not allow_portfolio_twr_outputs or not allow_exact_slice_benchmark_return_output:
+        return False
+    if time_weighted_return_pct is None or benchmark_return_pct is None:
+        return False
+    return _slice_matches_admitted_scope(
+        performance_points,
+        admitted_portfolio_twr_scope,
+        source_performance_series=source_performance_series,
+    )
+
+
+def _compute_future_exact_slice_excess_return_pct(
+    *,
+    performance_points,
+    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
+    allow_portfolio_twr_outputs: bool,
+    allow_exact_slice_benchmark_return_output: bool,
+    time_weighted_return_pct: float | None,
+    benchmark_return_pct: float | None,
+    source_performance_series=None,
+) -> float | None:
+    if not _allow_future_exact_slice_excess_return_output(
+        performance_points=performance_points,
+        admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
+        allow_portfolio_twr_outputs=allow_portfolio_twr_outputs,
+        allow_exact_slice_benchmark_return_output=allow_exact_slice_benchmark_return_output,
+        time_weighted_return_pct=time_weighted_return_pct,
+        benchmark_return_pct=benchmark_return_pct,
+        source_performance_series=source_performance_series,
+    ):
+        return None
+    if not DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED:
+        return None
+    portfolio_return = cast(float, time_weighted_return_pct)
+    benchmark_return = cast(float, benchmark_return_pct)
+    return portfolio_return - benchmark_return
+
+
+def _withhold_benchmark_return_series(performance_series):
+    return [point.model_copy(update={"benchmark_return_pct": None}) for point in performance_series]
 
 
 def run_dashboard_history_engine(request: DashboardHistoryEngineRequest) -> DashboardHistoryResult:
@@ -311,13 +459,36 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
             portfolio_path=return_basis_contract.portfolio_path,
             benchmark_path="verified_total_return",
         )
-    allow_compounded_return_outputs = _allow_dashboard_compounded_return_outputs(return_basis_contract)
-    performance_series = build_true_performance_series(
+    portfolio_proof = _build_dashboard_portfolio_proof_metadata(
+        snapshot=snapshot,
+        symbol_price_histories=symbol_price_histories,
+        valuation_dates=valuation_dates,
+        history_available=True,
+    )
+    admitted_portfolio_twr_scope = _admitted_exact_slice_scope(portfolio_proof)
+    raw_performance_series = build_true_performance_series(
         daily_states,
         benchmark_rows,
-        portfolio_return_basis_contract=return_basis_contract.portfolio_path,
+        portfolio_return_basis_contract=(
+            "verified_total_return" if admitted_portfolio_twr_scope is not None else return_basis_contract.portfolio_path
+        ),
         benchmark_return_basis_contract=return_basis_contract.benchmark_path,
     )
+    if not _has_replay_outputs(daily_states, raw_performance_series):
+        return _build_unavailable_dashboard_history_result(
+            input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
+            snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
+            history_start_date=None,
+            history_end_date=None,
+            benchmark_symbol=resolved_benchmark_symbol,
+        )
+    allow_exact_slice_benchmark_return_output = _allow_exact_slice_benchmark_return_output(
+        performance_points=raw_performance_series,
+        admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
+        benchmark_return_basis_contract=return_basis_contract.benchmark_path,
+        source_performance_series=raw_performance_series,
+    )
+    performance_series = _withhold_benchmark_return_series(raw_performance_series)
     benchmark_history_status = _build_dashboard_benchmark_history_status(benchmark_rows)
     monthly_returns_suppressed = any(state.total_portfolio_value < 0 for state in daily_states)
     allow_drawdown_outputs = _allow_dashboard_drawdown_outputs(
@@ -351,16 +522,9 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
                 symbol_price_histories=symbol_price_histories,
                 verified_benchmark_scope=verified_benchmark_scope,
             ),
-            portfolio_proof=_build_dashboard_portfolio_proof_metadata(
-                snapshot=snapshot,
-                symbol_price_histories=symbol_price_histories,
-                valuation_dates=valuation_dates,
-                history_available=True,
-            ),
-            investor_economics_status=_build_dashboard_investor_economics_status(
-                allow_compounded_return_outputs=allow_compounded_return_outputs,
-                allow_drawdown_outputs=allow_drawdown_outputs,
-            ),
+            portfolio_proof=portfolio_proof,
+            investor_economics_status=_build_dashboard_investor_economics_status(),
+            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
                 snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
@@ -374,12 +538,14 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
             resolved_benchmark_symbol,
             benchmark_rows,
             return_basis_contract=return_basis_contract.benchmark_path,
+            allow_return_pct=False,
         ),
         range_metrics=_build_range_metrics(
             daily_states,
-            performance_series,
+            raw_performance_series,
             allow_drawdown_outputs=allow_drawdown_outputs,
-            allow_compounded_return_outputs=allow_compounded_return_outputs,
+            admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
+            benchmark_return_basis_contract=return_basis_contract.benchmark_path,
         ),
     )
 
@@ -415,7 +581,8 @@ def _build_unavailable_dashboard_history_result(
             ),
             return_basis_evidence=_build_dashboard_return_basis_evidence(benchmark_rows=[]),
             portfolio_proof=build_unavailable_portfolio_proof_metadata(),
-            investor_economics_status=build_investor_economics_status(available=True),
+            investor_economics_status=build_investor_economics_status(available=False),
+            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=input_imported_at,
                 snapshot_as_of_date=snapshot_as_of_date,
@@ -426,7 +593,13 @@ def _build_unavailable_dashboard_history_result(
             ),
         ),
         benchmark=None,
-        range_metrics=_build_range_metrics([], [], allow_drawdown_outputs=False, allow_compounded_return_outputs=False),
+        range_metrics=_build_range_metrics(
+            [],
+            [],
+            allow_drawdown_outputs=False,
+            admitted_portfolio_twr_scope=None,
+            benchmark_return_basis_contract="unavailable",
+        ),
     )
 
 
@@ -446,7 +619,18 @@ def _has_any_symbol_price_history(symbol_price_histories: dict[str, list[dict]])
     return any(rows for rows in symbol_price_histories.values())
 
 
-def _build_range_metrics(daily_states, performance_series, *, allow_drawdown_outputs: bool, allow_compounded_return_outputs: bool) -> dict[str, DashboardRangeMetrics]:
+def _has_replay_outputs(daily_states, performance_series) -> bool:
+    return bool(daily_states) and bool(performance_series)
+
+
+def _build_range_metrics(
+    daily_states,
+    performance_series,
+    *,
+    allow_drawdown_outputs: bool,
+    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
+    benchmark_return_basis_contract: str = "unavailable",
+) -> dict[str, DashboardRangeMetrics]:
     if not performance_series:
         return {
             range_name: DashboardRangeMetrics(
@@ -474,8 +658,26 @@ def _build_range_metrics(daily_states, performance_series, *, allow_drawdown_out
         visible_dates = {point.date for point in perf}
         states = [state for state in daily_states if state.date in visible_dates]
         monthly_returns = _compute_contribution_adjusted_monthly_returns(states)
+        allow_portfolio_twr_outputs = _slice_matches_admitted_scope(
+            perf,
+            admitted_portfolio_twr_scope,
+            source_performance_series=performance_series,
+        )
+        allow_exact_slice_benchmark_return_output = _allow_exact_slice_benchmark_return_output(
+            performance_points=perf,
+            admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
+            benchmark_return_basis_contract=benchmark_return_basis_contract,
+            source_performance_series=performance_series,
+        )
         metrics[range_name] = DashboardRangeMetrics(
-                summary=_compute_visible_summary(states, perf, allow_compounded_return_outputs=allow_compounded_return_outputs),
+                summary=_compute_visible_summary(
+                    states,
+                    perf,
+                    allow_portfolio_twr_outputs=allow_portfolio_twr_outputs,
+                    allow_exact_slice_benchmark_return_output=allow_exact_slice_benchmark_return_output,
+                    admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
+                    source_performance_series=performance_series,
+                ),
                 max_drawdown_pct=_compute_max_drawdown(perf) if allow_drawdown_outputs else None,
             monthly_returns=[DashboardMonthlyReturn(month=item["month"], return_pct=item["return_pct"]) for item in monthly_returns],
             monthly_returns_reliable=_monthly_returns_are_reliable(monthly_returns, states),
@@ -526,7 +728,15 @@ def _compute_money_weighted_return(states) -> float | None:
     return ((end_value - start_value - total_flows) / denominator) * 100
 
 
-def _compute_visible_summary(daily_states, performance_series, *, allow_compounded_return_outputs: bool) -> PerformanceSummary:
+def _compute_visible_summary(
+    daily_states,
+    performance_series,
+    *,
+    allow_portfolio_twr_outputs: bool,
+    allow_exact_slice_benchmark_return_output: bool,
+    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
+    source_performance_series=None,
+) -> PerformanceSummary:
     if not daily_states:
         return PerformanceSummary(
             start_value=None,
@@ -547,12 +757,22 @@ def _compute_visible_summary(daily_states, performance_series, *, allow_compound
     end_value = daily_states[-1].total_portfolio_value
     net_contributions = sum(state.external_cash_flow for state in anchored_states[1:]) if anchored_states else 0.0
     investment_gain = (end_value - start_value - net_contributions) if start_value is not None else None
-    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf and allow_compounded_return_outputs else None
-    benchmark_return_pct = anchored_perf[-1].benchmark_return_pct if anchored_perf and allow_compounded_return_outputs else None
+    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf and allow_portfolio_twr_outputs else None
+    benchmark_return_pct = (
+        anchored_perf[-1].benchmark_return_pct
+        if anchored_perf and allow_exact_slice_benchmark_return_output
+        else None
+    )
+    excess_return_pct = _compute_future_exact_slice_excess_return_pct(
+        performance_points=performance_series,
+        admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
+        allow_portfolio_twr_outputs=allow_portfolio_twr_outputs,
+        allow_exact_slice_benchmark_return_output=allow_exact_slice_benchmark_return_output,
+        time_weighted_return_pct=time_weighted_return_pct,
+        benchmark_return_pct=benchmark_return_pct,
+        source_performance_series=source_performance_series,
+    )
     money_weighted_return_pct = _compute_money_weighted_return(anchored_states)
-    excess_return_pct = None
-    if time_weighted_return_pct is not None and benchmark_return_pct is not None:
-        excess_return_pct = time_weighted_return_pct - benchmark_return_pct
     return PerformanceSummary(
         start_value=start_value,
         end_value=end_value,

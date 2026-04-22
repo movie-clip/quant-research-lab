@@ -103,11 +103,18 @@ Current diagnostics note:
 - adjusted-close field presence alone does not upgrade dashboard benchmark returns to investor-economics truth; benchmark cumulative return / excess return now refuse (`None`) until `verified_total_return` can be justified
 - narrow pilot exception: imported dashboard-history may label only the benchmark path as `verified_total_return` when and only when the benchmark slice is exactly `SPY`, fetched directly from FMP `historical-price-eod/light`, with no fallback, no symbol override, no mixed-source stitching, and explicit provenance scope evidence proving ordered, unique, in-window `adjClose` coverage
 - this pilot does not upgrade any portfolio path, any non-`SPY` symbol, any other vendor or endpoint, or any diagnostics / replay / strategy path
-- the next refusal slice now gates the dashboard drawdown-loss family as well: `range_metrics[*].max_drawdown_pct` refuses unless the required return basis can be proven as `verified_total_return`
-- this remains intentionally strict; drawdown depth should not be emitted from price-only or unverified-adjusted proxy wealth paths
-- the compounded-return family is now partially gated in dashboard-history as well: range-summary canonical compounded investor-return outputs (`time_weighted_return_pct`, `benchmark_return_pct`, `excess_return_pct`) refuse when the return basis contract is not `verified_total_return`
-- this slice is intentionally narrow and does not yet claim that broker-replayed portfolio paths are fully proven total-return investor economics
-- when those refusals occur, shipped contracts surface them through `investor_economics_status = withheld`; this is intentional suppression tied to return-basis limits, not generic source unavailability
+- dashboard-history now hard-codes a narrower investor-economics boundary: only three exact-slice scalar outputs may unlock
+- allowlisted output 1: portfolio-only exact-slice `time_weighted_return_pct`, and only for an admitted exact portfolio slice
+- allowlisted output 2: exact-slice `benchmark_return_pct`, and only when that same slice is exact and the benchmark basis is independently `verified_total_return`
+- dashboard-history contracts now also surface this as explicit partial-unlock metadata while overall `investor_economics_status` remains `withheld`; consumers must use that allowlist metadata rather than inferring family-wide enablement from a present scalar
+- dashboard-history now also allows exact-slice `excess_return_pct`, but only as same-slice subtraction of those two already-admitted scalars with no independent recomputation, no daily-series subtraction, no client-side equivalence path, and no scope transfer beyond the identical admitted slice
+- if either source leg is withheld, null, unverified, or scope-mismatched, exact-slice `excess_return_pct` must remain withheld
+- this runtime enablement is scalar-only and exact-slice-only; consumers must not derive or render broader benchmark-relative outputs from subtraction
+- the drawdown-loss family remains withheld for dashboard-history; `range_metrics[*].max_drawdown_pct` stays refused even if an exact-slice scalar unlock occurs
+- monthly/rebucketed/rolling/non-identical-window outputs also remain outside the unlock boundary; the exact-slice allowance must not be generalized to broader windows or rebucketed summaries
+- this exact-slice policy does not extend to diagnostics, replay, backtest, or strategy-lab surfaces; benchmark-relative logic must stay fenced to the dashboard exact-slice admission rule
+- this slice is intentionally narrow and does not claim that broker-replayed portfolio paths are generally proven total-return investor economics
+- shipped contracts surface that policy through `investor_economics_status = withheld`; this is intentional suppression tied to policy and return-basis limits, not generic source unavailability
 
 ## Portfolio Return Methodology
 

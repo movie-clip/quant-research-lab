@@ -105,7 +105,21 @@ function formatDashboardReturnBasisRefusalLine(result: DashboardAnalysis | null,
   const baseReason = investorEconomicsBaseReason(runMetadata.investor_economics_status)
   if (!baseReason) return null
 
-  return `Refusals: benchmark return, excess return, and drawdown are intentionally withheld. ${baseReason}`
+  const partialUnlock = runMetadata.investor_economics_partial_unlock
+  const excessReturnPolicy = partialUnlock.exact_slice_scalar_allowlist.find(
+    (item) => item.field === 'range_metrics[*].summary.excess_return_pct',
+  )
+  const benchmarkPolicy = partialUnlock.exact_slice_scalar_allowlist.find(
+    (item) => item.field === 'range_metrics[*].summary.benchmark_return_pct',
+  )
+  const policyDetail = benchmarkPolicy?.runtime_enabled && excessReturnPolicy?.runtime_enabled === false
+    ? ' Dashboard policy remains partial-unlock only: exact-slice benchmark return may appear only for the identical admitted slice with independently verified benchmark total-return proof, and excess return still requires the same identical admitted slice pair plus a future server-side runtime enablement.'
+    : ''
+  const derivationDetail = partialUnlock.client_derivation_rule === 'server_side_scalar_only_no_daily_series_subtraction_equivalence'
+    ? ' Clients must not treat daily-series subtraction or local derivation as an equivalent path.'
+    : ''
+
+  return `Refusals: benchmark return, excess return, and drawdown stay withheld outside the narrow allowlisted exact-slice contract. ${baseReason}${policyDetail}${derivationDetail}`
 }
 
 function hasRichDashboardData(result: DashboardAnalysis | null) {

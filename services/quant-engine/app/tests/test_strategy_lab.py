@@ -237,6 +237,30 @@ def test_etf_cross_sectional_momentum_route_returns_rankings_and_curve() -> None
     assert payload["leader_internals"][0]["snapshot_date"] is not None
 
 
+def test_dashboard_exact_slice_policy_does_not_change_strategy_lab_payloads() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-cross-sectional-momentum",
+        json={
+            "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 3,
+            "top_n": 2,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["investor_economics_status"] == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+    assert payload["metrics"]["benchmark_return_pct"] is None
+    assert payload["metrics"]["excess_return_pct"] is None
+    assert payload["metrics"]["max_drawdown_pct"] is None
+
+
 def test_etf_cross_sectional_momentum_route_rejects_invalid_top_n() -> None:
     client = TestClient(app)
 

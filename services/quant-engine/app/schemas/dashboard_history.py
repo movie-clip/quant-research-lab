@@ -39,6 +39,38 @@ class DashboardHistoryRunReproducibility(BaseModel):
     dataset_version: str
 
 
+class DashboardHistoryInvestorEconomicsScalarPolicy(BaseModel):
+    field: Literal[
+        "range_metrics[*].summary.time_weighted_return_pct",
+        "range_metrics[*].summary.benchmark_return_pct",
+        "range_metrics[*].summary.excess_return_pct",
+    ]
+    unlock_condition: Literal[
+        "identical_admitted_exact_slice_only",
+        "identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+        "identical_admitted_exact_slice_pair_only",
+    ]
+    runtime_enabled: bool
+
+
+class DashboardHistoryInvestorEconomicsPartialUnlock(BaseModel):
+    mode: Literal["allowlisted_exact_slice_scalars_only"]
+    exact_slice_scalar_allowlist: list[DashboardHistoryInvestorEconomicsScalarPolicy]
+    client_derivation_rule: Literal["server_side_scalar_only_no_daily_series_subtraction_equivalence"]
+    withheld_families: list[
+        Literal[
+            "benchmark_relative_series",
+            "benchmark_relative_path_derived_outputs",
+            "drawdown_family",
+            "rebucketed_window_summaries",
+            "rewindowed_range_summaries",
+            "diagnostics_benchmark_relative_outputs",
+            "replay_benchmark_relative_outputs",
+            "strategy_lab_benchmark_relative_outputs",
+        ]
+    ]
+
+
 class DashboardHistoryRunMetadata(BaseModel):
     class SectionTrust(BaseModel):
         portfolio_path: str
@@ -61,6 +93,7 @@ class DashboardHistoryRunMetadata(BaseModel):
     return_basis_evidence: ReturnBasisEvidenceBundle
     portfolio_proof: PortfolioProofMetadata
     investor_economics_status: InvestorEconomicsStatus
+    investor_economics_partial_unlock: DashboardHistoryInvestorEconomicsPartialUnlock
     reproducibility: DashboardHistoryRunReproducibility
 
 

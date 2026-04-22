@@ -1,11 +1,17 @@
 import type {
+  DashboardHistoryInvestorEconomicsPartialUnlock,
+  DashboardHistoryRunMetadata,
   DiagnosticsEngineResponse,
+  DiagnosticsRunMetadata,
   ExposureEngineResponse,
   ImportedBootstrapResponse,
   ImportedBaselineSource,
   ImportedDashboardSource,
   ImportedHistoryContext,
+  PortfolioProofBucketEvidence,
+  PortfolioProofMetadata,
   PortfolioRiskSummary,
+  ReturnBasisEvidence,
 } from '../features/portfolio/types'
 import {
   ff2026ImportedDashboardGoldenFixture,
@@ -17,16 +23,59 @@ type DashboardGoldenFixture = ImportedDashboardSource & {
   risk_summary: PortfolioRiskSummary
 }
 
-function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withheld') {
+function createUnavailableReturnBasisEvidence(disqualifiers: string[]): ReturnBasisEvidence {
+  return {
+    verification_status: 'unavailable',
+    economic_basis: 'unavailable',
+    construction_method: 'unknown',
+    disqualifiers,
+    fallbacks_used: [],
+    source_price_field: null,
+    scope: {},
+  }
+}
+
+function createProofBucketFixture(overrides: Partial<PortfolioProofBucketEvidence>): PortfolioProofBucketEvidence {
+  return {
+    status: 'unavailable',
+    positive_evidence: [],
+    negative_evidence: [],
+    disqualifiers: [],
+    hard_disqualifiers: [],
+    witnesses: [],
+    ...overrides,
+  }
+}
+
+function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withheld'): PortfolioProofMetadata {
   if (status === 'unavailable') {
-    const unavailableBucket = {
-      status: 'disqualified' as const,
-      positive_evidence: [],
+    const unavailableScope = {
+      account_id: null,
+      base_currency: null,
+      history_source: 'unavailable',
+      valuation_window_start: null,
+      valuation_window_end: null,
+      valuation_date_count: 0,
+      statement_window_start: null,
+      statement_window_end: null,
+      statement_window_count: 0,
+    }
+    const unavailableBucket = createProofBucketFixture({
+      status: 'disqualified',
       negative_evidence: ['portfolio_history_unavailable'],
       disqualifiers: ['portfolio_history_unavailable'],
       hard_disqualifiers: ['portfolio_history_unavailable'],
-      witnesses: [],
-    }
+    })
+    const missingProofBuckets = [
+      'boundary_hardening',
+      'capital_boundary_proof',
+      'corporate_action_proof',
+      'fx_proof',
+      'investor_economics_proof',
+      'opening_state_admission',
+      'return_basis_metadata',
+      'valuation_basis_separation',
+    ]
     return {
       proof_system: 'portfolio_verified_total_return_v1',
       portfolio_path: 'unavailable' as const,
@@ -38,19 +87,57 @@ function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withh
       benchmark_proof_independent: true,
       disqualifiers: ['portfolio_history_unavailable'],
       hard_disqualifiers: ['portfolio_history_unavailable'],
+      preparation: {
+        readiness_status: 'not_applicable',
+        all_prerequisite_buckets_supported: false,
+        exact_slice_target: {
+          account_set: [],
+          base_currency: null,
+          valuation_window: {
+            start_date: null,
+            end_date: null,
+            count: 0,
+          },
+          statement_window: {
+            start_date: null,
+            end_date: null,
+            count: 0,
+          },
+          opening_state_anchor: {
+            required_anchor_date: null,
+            observed_anchor_date: null,
+            status: 'unavailable',
+          },
+          fx_scope: {
+            translation_case: 'unavailable',
+            base_currency: null,
+            observed_currencies: [],
+            required_pairs: [],
+            required_pair_dates: [],
+          },
+          corporate_action_scope: {
+            scope: 'broker_scope_unproven',
+            scope_start_date: null,
+            scope_end_date: null,
+            statement_window_count: 0,
+            positive_proof_classes: [],
+            unproven_disqualifying_classes: ['portfolio_history_unavailable'],
+          },
+        },
+        readiness_gaps: [
+          {
+            code: 'portfolio_history_unavailable',
+            bucket: 'portfolio_admission',
+            provenance_buckets: ['portfolio_history'],
+            gap_type: 'missing',
+          },
+        ],
+        policy_blockers: [],
+      },
       admission: {
         status: 'not_applicable' as const,
-        scope: {
-          account_id: null,
-          base_currency: null,
-          history_source: 'unavailable',
-          valuation_window_start: null,
-          valuation_window_end: null,
-          valuation_date_count: 0,
-          statement_window_start: null,
-          statement_window_end: null,
-          statement_window_count: 0,
-        },
+        readiness_status: 'not_applicable' as const,
+        scope: unavailableScope,
         blocking_reasons: [
           {
             code: 'portfolio_history_unavailable',
@@ -59,16 +146,7 @@ function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withh
             reason_type: 'missing' as const,
           },
         ],
-        missing_proof_buckets: [
-          'boundary_hardening',
-          'capital_boundary_proof',
-          'corporate_action_proof',
-          'fx_proof',
-          'investor_economics_proof',
-          'opening_state_admission',
-          'return_basis_metadata',
-          'valuation_basis_separation',
-        ],
+        missing_proof_buckets: missingProofBuckets,
         bucket_decisions: [
           'return_basis_metadata',
           'capital_boundary_proof',
@@ -78,23 +156,13 @@ function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withh
           'fx_proof',
           'corporate_action_proof',
           'investor_economics_proof',
-        ].map((bucket) => ({
+          ].map((bucket) => ({
           bucket,
           status: 'not_applicable' as const,
           blocks_admission: true,
           provenance_buckets: [bucket],
           blocking_reasons: ['portfolio_history_unavailable'],
-          scope: {
-            account_id: null,
-            base_currency: null,
-            history_source: 'unavailable',
-            valuation_window_start: null,
-            valuation_window_end: null,
-            valuation_date_count: 0,
-            statement_window_start: null,
-            statement_window_end: null,
-            statement_window_count: 0,
-          },
+          scope: unavailableScope,
         })),
       },
       evidence: {
@@ -116,9 +184,47 @@ function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withh
         },
         terminal_reconciliation_basis: unavailableBucket,
         calendar_coverage_basis: unavailableBucket,
+        investor_economics_proof: {
+          ...createProofBucketFixture({
+            status: 'unavailable',
+            negative_evidence: ['portfolio_history_unavailable'],
+            disqualifiers: ['portfolio_history_unavailable'],
+            hard_disqualifiers: ['portfolio_history_unavailable'],
+          }),
+          claim_id: 'portfolio_investor_economics_proof_v1',
+        claim: 'Investor-economics-grade exact-slice proof for portfolio returns.',
+        decision: 'not_applicable',
+        preparation_status: 'not_applicable',
+        required_inputs: missingProofBuckets,
+        blocking_reasons: ['portfolio_history_unavailable'],
+        missing_proof_buckets: missingProofBuckets,
+        scope_mismatches: [],
+        scope: unavailableScope,
+      },
       },
     }
   }
+
+  const withheldScope = {
+    account_id: 'U8516450',
+    base_currency: 'USD',
+    history_source: 'synthetic_snapshot_history',
+    valuation_window_start: '2025-01-02',
+    valuation_window_end: '2025-03-03',
+    valuation_date_count: 2,
+    statement_window_start: null,
+    statement_window_end: null,
+    statement_window_count: 0,
+  }
+  const withheldMissingProofBuckets = [
+    'boundary_hardening',
+    'capital_boundary_proof',
+    'corporate_action_proof',
+    'investor_economics_proof',
+    'opening_state_admission',
+    'return_basis_metadata',
+    'valuation_basis_separation',
+  ]
 
   return {
     proof_system: 'portfolio_verified_total_return_v1',
@@ -143,19 +249,94 @@ function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withh
       'raw_price_used_for_valuation',
       'synthetic_snapshot_history',
     ],
+    preparation: {
+      readiness_status: 'exact_slice_prerequisites_incomplete',
+      all_prerequisite_buckets_supported: false,
+      exact_slice_target: {
+        account_set: ['U8516450'],
+        base_currency: 'USD',
+        valuation_window: {
+          start_date: '2025-01-02',
+          end_date: '2025-03-03',
+          count: 2,
+        },
+        statement_window: {
+          start_date: null,
+          end_date: null,
+          count: 0,
+        },
+        opening_state_anchor: {
+          required_anchor_date: '2025-01-02',
+          observed_anchor_date: null,
+          status: 'synthetic_snapshot_opening_state',
+        },
+        fx_scope: {
+          translation_case: 'base_currency_only',
+          base_currency: 'USD',
+          observed_currencies: ['USD'],
+          required_pairs: [],
+          required_pair_dates: [],
+        },
+        corporate_action_scope: {
+          scope: 'broker_scope_unproven',
+          scope_start_date: null,
+          scope_end_date: null,
+          statement_window_count: 0,
+          positive_proof_classes: [],
+          unproven_disqualifying_classes: ['non_dividend_corporate_actions'],
+        },
+      },
+      readiness_gaps: [
+        {
+          code: 'raw_price_used_for_valuation',
+          bucket: 'return_basis_metadata',
+          provenance_buckets: ['valuation_basis'],
+          gap_type: 'blocking',
+        },
+        {
+          code: 'synthetic_snapshot_history',
+          bucket: 'capital_boundary_proof',
+          provenance_buckets: ['cash_flow_basis'],
+          gap_type: 'blocking',
+        },
+        {
+          code: 'calendar_coverage_not_broker_proven',
+          bucket: 'boundary_hardening',
+          provenance_buckets: ['calendar_coverage_basis'],
+          gap_type: 'blocking',
+        },
+        {
+          code: 'statement_window_scope_unproven_for_portfolio_slice',
+          bucket: 'boundary_hardening',
+          provenance_buckets: ['calendar_coverage_basis'],
+          gap_type: 'scope_mismatch',
+        },
+        {
+          code: 'synthetic_snapshot_opening_state',
+          bucket: 'opening_state_admission',
+          provenance_buckets: ['opening_state_basis'],
+          gap_type: 'blocking',
+        },
+        {
+          code: 'corporate_action_proof_missing',
+          bucket: 'corporate_action_proof',
+          provenance_buckets: ['corporate_action_basis'],
+          gap_type: 'blocking',
+        },
+      ],
+      policy_blockers: [
+        {
+          code: 'portfolio_verified_total_return_withheld',
+          bucket: 'investor_economics_proof',
+          provenance_buckets: ['portfolio_proof_admission_governor_v1'],
+          gap_type: 'policy_withheld',
+        },
+      ],
+    },
     admission: {
       status: 'rejected' as const,
-      scope: {
-        account_id: 'U8516450',
-        base_currency: 'USD',
-        history_source: 'synthetic_snapshot_history',
-        valuation_window_start: '2025-01-02',
-        valuation_window_end: '2025-03-03',
-        valuation_date_count: 2,
-        statement_window_start: null,
-        statement_window_end: null,
-        statement_window_count: 0,
-      },
+      readiness_status: 'exact_slice_prerequisites_incomplete' as const,
+      scope: withheldScope,
       blocking_reasons: [
         { code: 'raw_price_used_for_valuation', bucket: 'return_basis_metadata', provenance_bucket: 'valuation_basis', reason_type: 'blocking' as const },
         { code: 'synthetic_snapshot_history', bucket: 'return_basis_metadata', provenance_bucket: 'valuation_basis', reason_type: 'blocking' as const },
@@ -170,15 +351,7 @@ function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withh
         { code: 'missing_investor_economics_proof_bucket', bucket: 'investor_economics_proof', provenance_bucket: 'portfolio_proof_admission_governor_v1', reason_type: 'missing' as const },
         { code: 'portfolio_verified_total_return_withheld', bucket: 'investor_economics_proof', provenance_bucket: 'portfolio_proof_admission_governor_v1', reason_type: 'withheld' as const },
       ],
-      missing_proof_buckets: [
-        'boundary_hardening',
-        'capital_boundary_proof',
-        'corporate_action_proof',
-        'investor_economics_proof',
-        'opening_state_admission',
-        'return_basis_metadata',
-        'valuation_basis_separation',
-      ],
+      missing_proof_buckets: withheldMissingProofBuckets,
       bucket_decisions: [
         {
           bucket: 'return_basis_metadata',
@@ -371,7 +544,220 @@ function createPortfolioProofFixture(status: 'withheld' | 'unavailable' = 'withh
         hard_disqualifiers: ['calendar_coverage_not_broker_proven'],
         witnesses: [],
       },
+      investor_economics_proof: {
+        ...createProofBucketFixture({
+          status: 'unavailable',
+          negative_evidence: ['portfolio_verified_total_return_withheld'],
+          disqualifiers: ['missing_investor_economics_proof_bucket', 'portfolio_verified_total_return_withheld'],
+        }),
+        claim_id: 'portfolio_investor_economics_proof_v1',
+        claim: 'Investor-economics-grade exact-slice proof for portfolio returns.',
+        decision: 'withheld',
+        preparation_status: 'exact_slice_prerequisites_incomplete',
+        required_inputs: [
+          'return_basis_metadata',
+          'capital_boundary_proof',
+          'valuation_basis_separation',
+          'boundary_hardening',
+          'opening_state_admission',
+          'fx_proof',
+          'corporate_action_proof',
+        ],
+        blocking_reasons: ['missing_investor_economics_proof_bucket', 'portfolio_verified_total_return_withheld'],
+        missing_proof_buckets: withheldMissingProofBuckets,
+        scope_mismatches: ['corporate_action_scope_unproven_for_portfolio_slice', 'statement_window_scope_unproven_for_portfolio_slice'],
+        scope: withheldScope,
+      },
     },
+  }
+}
+
+export function createDashboardHistoryRunMetadataFixture(status: 'default' | 'unavailable' = 'default'): DashboardHistoryRunMetadata {
+  const investorEconomicsPartialUnlock: DashboardHistoryInvestorEconomicsPartialUnlock = {
+    mode: 'allowlisted_exact_slice_scalars_only',
+    exact_slice_scalar_allowlist: [
+      {
+        field: 'range_metrics[*].summary.time_weighted_return_pct',
+        unlock_condition: 'identical_admitted_exact_slice_only',
+        runtime_enabled: true,
+      },
+      {
+        field: 'range_metrics[*].summary.benchmark_return_pct',
+        unlock_condition: 'identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only',
+        runtime_enabled: true,
+      },
+      {
+        field: 'range_metrics[*].summary.excess_return_pct',
+        unlock_condition: 'identical_admitted_exact_slice_pair_only',
+        runtime_enabled: false,
+      },
+    ],
+    client_derivation_rule: 'server_side_scalar_only_no_daily_series_subtraction_equivalence',
+    withheld_families: [
+      'benchmark_relative_series',
+      'benchmark_relative_path_derived_outputs',
+      'drawdown_family',
+      'rebucketed_window_summaries',
+      'rewindowed_range_summaries',
+      'diagnostics_benchmark_relative_outputs',
+      'replay_benchmark_relative_outputs',
+      'strategy_lab_benchmark_relative_outputs',
+    ],
+  }
+
+  if (status === 'unavailable') {
+    return {
+      history_id: 'dashboard_history_engine_v1',
+      methodology_id: 'dashboard_history_methodology_v1',
+      source_status: {
+        performance_history: 'unavailable',
+        monthly_returns: 'unavailable',
+        benchmark_history: 'unavailable',
+      },
+      section_trust: {
+        portfolio_path: 'unavailable',
+        benchmark_path: 'unavailable',
+        monthly_returns_path: 'unavailable',
+      },
+      return_basis_contract: {
+        portfolio_path: 'unavailable',
+        benchmark_path: 'unavailable',
+      },
+      return_basis_evidence: {
+        portfolio_path: createUnavailableReturnBasisEvidence(['missing_history_rows']),
+        benchmark_path: createUnavailableReturnBasisEvidence(['missing_history_rows']),
+      },
+      portfolio_proof: createPortfolioProofFixture('unavailable'),
+      investor_economics_status: {
+        status: 'withheld',
+        reason: 'withheld_unverified_total_return_equivalence',
+      },
+      investor_economics_partial_unlock: investorEconomicsPartialUnlock,
+      reproducibility: {
+        input_imported_at: '2026-04-10T00:00:00Z',
+        snapshot_as_of_date: null,
+        history_start_date: null,
+        history_end_date: null,
+        benchmark_symbol: 'SPY',
+        dataset_version: 'market_data_service_v1',
+      },
+    }
+  }
+
+  return {
+    history_id: 'dashboard_history_engine_v1',
+    methodology_id: 'dashboard_history_methodology_v1',
+    source_status: {
+      performance_history: 'live',
+      monthly_returns: 'live',
+      benchmark_history: 'live_market_data_unverified_return_basis',
+    },
+    section_trust: {
+      portfolio_path: 'imported_replay',
+      benchmark_path: 'degraded_unverified_return_basis',
+      monthly_returns_path: 'imported_replay',
+    },
+    return_basis_contract: {
+      portfolio_path: 'unavailable',
+      benchmark_path: 'price_return_only',
+    },
+    return_basis_evidence: {
+      portfolio_path: {
+        verification_status: 'unverified',
+        economic_basis: 'price_return_only',
+        construction_method: 'raw_close',
+        disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+        fallbacks_used: [],
+        source_price_field: 'price',
+      },
+      benchmark_path: {
+        verification_status: 'unverified',
+        economic_basis: 'price_return_only',
+        construction_method: 'raw_close',
+        disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+        fallbacks_used: [],
+        source_price_field: 'price',
+      },
+    },
+    portfolio_proof: createPortfolioProofFixture(),
+    investor_economics_status: {
+      status: 'withheld',
+      reason: 'withheld_unverified_total_return_equivalence',
+    },
+    investor_economics_partial_unlock: investorEconomicsPartialUnlock,
+    reproducibility: {
+      input_imported_at: '2026-04-10T00:00:00Z',
+      snapshot_as_of_date: null,
+      history_start_date: '2025-01-02',
+      history_end_date: '2025-03-03',
+      benchmark_symbol: 'SPY',
+      dataset_version: 'market_data_service_v1',
+    },
+  }
+}
+
+export function createDiagnosticsRunMetadataFixture(): DiagnosticsRunMetadata {
+  return {
+    diagnostics_id: 'diagnostics_engine_v1',
+    methodology_id: 'historical_regression_v1',
+    price_basis: 'close',
+    source_status: {
+      portfolio_history: 'synthetic_snapshot_history',
+      benchmark_history: 'live_market_data_unverified_return_basis',
+      factor_history: 'live_market_data_unverified_return_basis',
+    },
+    section_trust: {
+      benchmark_relative_path: 'degraded_unverified_return_basis',
+      factor_model_path: 'degraded_unverified_return_basis',
+      risk_contribution_path: 'degraded_unverified_return_basis',
+    },
+    return_basis_evidence: {
+      portfolio_history: {
+        verification_status: 'unverified',
+        economic_basis: 'price_return_only',
+        construction_method: 'synthetic_snapshot_history',
+        disqualifiers: ['synthetic_snapshot_history', 'missing_total_return_reconstruction', 'missing_dividend_coverage_proof'],
+        fallbacks_used: ['synthetic_snapshot_history'],
+        source_price_field: 'price',
+      },
+      benchmark_history: {
+        verification_status: 'unverified',
+        economic_basis: 'price_return_only',
+        construction_method: 'raw_close',
+        disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+        fallbacks_used: [],
+        source_price_field: 'price',
+      },
+      factor_history: {
+        verification_status: 'unverified',
+        economic_basis: 'price_return_only',
+        construction_method: 'raw_close',
+        disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
+        fallbacks_used: [],
+        source_price_field: 'price',
+      },
+    },
+    portfolio_proof: createPortfolioProofFixture(),
+    investor_economics_status: {
+      status: 'withheld',
+      reason: 'withheld_unverified_total_return_equivalence',
+    },
+    factor_model_parameters: {
+      rolling_windows_days: [20, 60, 252],
+      current_reliability_window_days: 60,
+      minimum_window_observations: { '20': 25, '60': 75, '252': 275 },
+      collinearity_warning_threshold: 0.85,
+      orthogonalization_basis: 'factor_proxy_definition_order',
+      ridge_lambda: 1e-5,
+    },
+    reproducibility: {
+      input_imported_at: '2026-04-10T00:00:00Z',
+      snapshot_as_of_date: null,
+      history_start_date: null,
+      history_end_date: null,
+      dataset_version: 'market_data_service_v1',
+    },
+    confidence: 'low',
   }
 }
 
@@ -599,66 +985,8 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
       status: 'ok',
     },
     run_metadata: {
-      diagnostics_id: 'diagnostics_engine_v1',
-      methodology_id: 'historical_regression_v1',
-      price_basis: 'close',
-      source_status: {
-        portfolio_history: 'synthetic_snapshot_history',
-        benchmark_history: 'live_market_data_unverified_return_basis',
-        factor_history: 'live_market_data_unverified_return_basis',
-      },
-      section_trust: {
-        benchmark_relative_path: 'degraded_unverified_return_basis',
-        factor_model_path: 'degraded_unverified_return_basis',
-        risk_contribution_path: 'degraded_unverified_return_basis',
-      },
-      return_basis_evidence: {
-        portfolio_history: {
-          verification_status: 'unverified',
-          economic_basis: 'price_return_only',
-          construction_method: 'synthetic_snapshot_history',
-          disqualifiers: ['synthetic_snapshot_history', 'missing_total_return_reconstruction', 'missing_dividend_coverage_proof'],
-          fallbacks_used: ['synthetic_snapshot_history'],
-          source_price_field: 'price',
-        },
-        benchmark_history: {
-          verification_status: 'unverified',
-          economic_basis: 'price_return_only',
-          construction_method: 'raw_close',
-          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
-          fallbacks_used: [],
-          source_price_field: 'price',
-        },
-        factor_history: {
-          verification_status: 'unverified',
-          economic_basis: 'price_return_only',
-          construction_method: 'raw_close',
-          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
-          fallbacks_used: [],
-          source_price_field: 'price',
-        },
-      },
-      portfolio_proof: createPortfolioProofFixture(),
-      investor_economics_status: {
-        status: 'withheld',
-        reason: 'withheld_unverified_total_return_equivalence',
-      },
+      ...createDiagnosticsRunMetadataFixture(),
       confidence: 'medium',
-      factor_model_parameters: {
-        rolling_windows_days: [20, 60, 252],
-        current_reliability_window_days: 60,
-        minimum_window_observations: { '20': 25, '60': 75, '252': 275 },
-        collinearity_warning_threshold: 0.85,
-        orthogonalization_basis: 'factor_proxy_definition_order',
-        ridge_lambda: 1e-5,
-      },
-      reproducibility: {
-        input_imported_at: '2026-04-10T00:00:00Z',
-        snapshot_as_of_date: null,
-        history_start_date: null,
-        history_end_date: null,
-        dataset_version: 'market_data_service_v1',
-      },
     },
     drawdown_summary: drawdownSummary,
     volatility_summary: volatilitySummary,
@@ -907,55 +1235,7 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
       { date: '2025-03-03', total_market_value: 11000, total_portfolio_value: 12000, external_cash_flow: 0, cash: { USD: 1000 }, positions: [] },
     ],
     source_status: { performance_history: 'live', monthly_returns: 'live' },
-    run_metadata: {
-      history_id: 'dashboard_history_engine_v1',
-      methodology_id: 'dashboard_history_methodology_v1',
-      source_status: {
-        performance_history: 'live',
-        monthly_returns: 'live',
-        benchmark_history: 'live_market_data_unverified_return_basis',
-      },
-      section_trust: {
-        portfolio_path: 'imported_replay',
-        benchmark_path: 'degraded_unverified_return_basis',
-        monthly_returns_path: 'imported_replay',
-      },
-      return_basis_contract: {
-        portfolio_path: 'unavailable',
-        benchmark_path: 'price_return_only',
-      },
-      return_basis_evidence: {
-        portfolio_path: {
-          verification_status: 'unverified',
-          economic_basis: 'price_return_only',
-          construction_method: 'raw_close',
-          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
-          fallbacks_used: [],
-          source_price_field: 'price',
-        },
-        benchmark_path: {
-          verification_status: 'unverified',
-          economic_basis: 'price_return_only',
-          construction_method: 'raw_close',
-          disqualifiers: ['missing_adjusted_close_series', 'missing_total_return_reconstruction'],
-          fallbacks_used: [],
-          source_price_field: 'price',
-        },
-      },
-      portfolio_proof: createPortfolioProofFixture(),
-      investor_economics_status: {
-        status: 'withheld',
-        reason: 'withheld_unverified_total_return_equivalence',
-      },
-      reproducibility: {
-        input_imported_at: '2026-04-10T00:00:00Z',
-        snapshot_as_of_date: null,
-        history_start_date: '2025-01-02',
-        history_end_date: '2025-03-03',
-        benchmark_symbol: 'SPY',
-        dataset_version: 'market_data_service_v1',
-      },
-    },
+    run_metadata: createDashboardHistoryRunMetadataFixture(),
     range_metrics: {
       '1M': {
         summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
@@ -1150,41 +1430,7 @@ export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
       price_basis: 'close',
       note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice.',
     },
-    run_metadata: {
-      diagnostics_id: 'diagnostics_engine_v1',
-      methodology_id: 'historical_regression_v1',
-      price_basis: 'close',
-      source_status: {
-        portfolio_history: 'synthetic_snapshot_history',
-        benchmark_history: 'live_market_data_unverified_return_basis',
-        factor_history: 'live_market_data_unverified_return_basis',
-      },
-      section_trust: {
-        benchmark_relative_path: 'degraded_unverified_return_basis',
-        factor_model_path: 'degraded_unverified_return_basis',
-        risk_contribution_path: 'degraded_unverified_return_basis',
-      },
-      investor_economics_status: {
-        status: 'withheld',
-        reason: 'withheld_unverified_total_return_equivalence',
-      },
-      confidence: 'low',
-      factor_model_parameters: {
-        rolling_windows_days: [20, 60, 252],
-        current_reliability_window_days: 60,
-        minimum_window_observations: { '20': 25, '60': 75, '252': 275 },
-        collinearity_warning_threshold: 0.85,
-        orthogonalization_basis: 'factor_proxy_definition_order',
-        ridge_lambda: 1e-5,
-      },
-      reproducibility: {
-        input_imported_at: '2026-04-10T00:00:00Z',
-        snapshot_as_of_date: null,
-        history_start_date: null,
-        history_end_date: null,
-        dataset_version: 'market_data_service_v1',
-      },
-    },
+    run_metadata: createDiagnosticsRunMetadataFixture(),
     drawdown_summary: { current_drawdown_pct: null, max_drawdown_pct: null },
     volatility_summary: {
       portfolio_volatility_pct: 18.2,

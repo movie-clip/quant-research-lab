@@ -34,9 +34,14 @@ from app.schemas.diagnostics import DiagnosticsEngineRequest
 from app.schemas.exposure import ExposureAvailability, ExposureConcentrationItem, ExposureCurrentStateConcentration, ExposureProvenance, ExposureResult, ExposureRunMetadata
 from app.schemas.exposure import ExposureRunReproducibilityMetadata, ExposureRunSourceStatus
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
-from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PortfolioRiskSummary
+from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PerformancePoint, PortfolioRiskSummary
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
-from app.services.dashboard_history_engine import run_dashboard_history_engine, run_imported_dashboard_history
+from app.services.dashboard_history_engine import (
+    _allow_future_exact_slice_excess_return_output,
+    _compute_future_exact_slice_excess_return_pct,
+    run_dashboard_history_engine,
+    run_imported_dashboard_history,
+)
 from app.services.diagnostics_engine import run_diagnostics_engine, run_imported_diagnostics_engine
 from app.services.portfolio_proof import build_portfolio_proof_metadata
 from app.services.exposure_engine import build_exposure_result
@@ -599,8 +604,39 @@ def test_run_dashboard_history_engine_returns_unavailable_without_complete_histo
         },
     }
     assert result.run_metadata.investor_economics_status.model_dump() == {
-        "status": "available",
-        "reason": None,
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+    assert result.run_metadata.investor_economics_partial_unlock.model_dump() == {
+        "mode": "allowlisted_exact_slice_scalars_only",
+        "exact_slice_scalar_allowlist": [
+            {
+                "field": "range_metrics[*].summary.time_weighted_return_pct",
+                "unlock_condition": "identical_admitted_exact_slice_only",
+                "runtime_enabled": True,
+            },
+            {
+                "field": "range_metrics[*].summary.benchmark_return_pct",
+                "unlock_condition": "identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+                "runtime_enabled": True,
+            },
+            {
+                "field": "range_metrics[*].summary.excess_return_pct",
+                "unlock_condition": "identical_admitted_exact_slice_pair_only",
+                "runtime_enabled": True,
+            },
+        ],
+        "client_derivation_rule": "server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        "withheld_families": [
+            "benchmark_relative_series",
+            "benchmark_relative_path_derived_outputs",
+            "drawdown_family",
+            "rebucketed_window_summaries",
+            "rewindowed_range_summaries",
+            "diagnostics_benchmark_relative_outputs",
+            "replay_benchmark_relative_outputs",
+            "strategy_lab_benchmark_relative_outputs",
+        ],
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
@@ -666,8 +702,8 @@ def test_run_dashboard_history_engine_returns_unavailable_for_snapshot_only_requ
         },
     }
     assert result.run_metadata.investor_economics_status.model_dump() == {
-        "status": "available",
-        "reason": None,
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
@@ -898,7 +934,8 @@ def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_hi
         },
     }
     portfolio_proof = result.run_metadata.portfolio_proof.model_dump()
-    assert portfolio_proof["admission"] == {
+    assert portfolio_proof["admission"]["readiness_status"] == "not_applicable"
+    assert {key: value for key, value in portfolio_proof["admission"].items() if key != "readiness_status"} == {
         "status": "not_applicable",
         "scope": {
             "account_id": None,
@@ -960,7 +997,9 @@ def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_hi
             ]
         ],
     }
-    assert {key: value for key, value in portfolio_proof.items() if key != "admission"} == {
+    proof_without_admission = {key: value for key, value in portfolio_proof.items() if key != "admission"}
+    preparation = proof_without_admission.pop("preparation")
+    assert proof_without_admission == {
         "proof_system": "portfolio_verified_total_return_v1",
         "portfolio_path": "unavailable",
         "verification_status": "unavailable",
@@ -1037,11 +1076,101 @@ def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_hi
                 "hard_disqualifiers": ["portfolio_history_unavailable"],
                 "witnesses": [],
             },
+            "investor_economics_proof": {
+                "status": "unavailable",
+                "claim_id": "portfolio_investor_economics_proof_v1",
+                "claim": "For a specific portfolio account set, base currency, valuation window, and statement window, the computed portfolio wealth path is proven enough to support investor-economics outputs that require portfolio total-return equivalence.",
+                "decision": "not_applicable",
+                "preparation_status": "not_applicable",
+                "required_inputs": [
+                    "capital_boundary_proof",
+                    "valuation_basis_proof",
+                    "boundary_calendar_terminal_proof",
+                    "opening_state_proof",
+                    "fx_proof",
+                    "corporate_action_proof",
+                    "cross_bucket_scope_consistency",
+                ],
+                "positive_evidence": [],
+                "negative_evidence": ["portfolio_history_unavailable"],
+                "disqualifiers": [],
+                "hard_disqualifiers": [],
+                "witnesses": [],
+                "blocking_reasons": ["portfolio_history_unavailable"],
+                "missing_proof_buckets": [
+                    "capital_boundary_proof",
+                    "valuation_basis_proof",
+                    "boundary_calendar_terminal_proof",
+                    "opening_state_proof",
+                    "fx_proof",
+                    "corporate_action_proof",
+                    "cross_bucket_scope_consistency",
+                ],
+                "scope_mismatches": [],
+                "scope": {
+                    "account_id": None,
+                    "base_currency": None,
+                    "history_source": "unavailable",
+                    "valuation_window_start": None,
+                    "valuation_window_end": None,
+                    "valuation_date_count": 0,
+                    "statement_window_start": None,
+                    "statement_window_end": None,
+                    "statement_window_count": 0,
+                },
+            },
         },
     }
+    assert preparation == {
+        "readiness_status": "not_applicable",
+        "all_prerequisite_buckets_supported": False,
+        "exact_slice_target": {
+            "account_set": [],
+            "base_currency": None,
+            "valuation_window": {"start_date": None, "end_date": None, "count": 0},
+            "statement_window": {"start_date": None, "end_date": None, "count": 0},
+            "opening_state_anchor": {
+                "required_anchor_date": None,
+                "observed_anchor_date": None,
+                "status": "unavailable",
+            },
+            "fx_scope": {
+                "translation_case": "unavailable",
+                "base_currency": None,
+                "observed_currencies": [],
+                "required_pairs": [],
+                "required_pair_dates": [],
+            },
+            "corporate_action_scope": {
+                "scope": "broker_scope_unproven",
+                "scope_start_date": None,
+                "scope_end_date": None,
+                "statement_window_count": 0,
+                "positive_proof_classes": ["cash_dividend"],
+                "unproven_disqualifying_classes": [
+                    "splits",
+                    "reverse_splits",
+                    "spin_offs",
+                    "mergers",
+                    "rights",
+                    "return_of_capital",
+                    "symbol_changes",
+                ],
+            },
+        },
+        "readiness_gaps": [
+            {
+                "code": "portfolio_history_unavailable",
+                "bucket": "portfolio_history",
+                "provenance_buckets": ["portfolio_history"],
+                "gap_type": "missing",
+            }
+        ],
+        "policy_blockers": [],
+    }
     assert result.run_metadata.investor_economics_status.model_dump() == {
-        "status": "available",
-        "reason": None,
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
     }
     assert result.drawdown_summary.current_drawdown_pct is None
     assert result.drawdown_summary.max_drawdown_pct is None
@@ -1176,21 +1305,27 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
         },
     }
     portfolio_proof = result.run_metadata.portfolio_proof.model_dump()
-    assert portfolio_proof["admission"]["status"] == "rejected"
+    assert portfolio_proof["admission"]["status"] == "withheld"
+    assert portfolio_proof["admission"]["readiness_status"] == "exact_slice_prerequisites_incomplete"
     assert portfolio_proof["admission"]["missing_proof_buckets"] == [
+        "boundary_calendar_terminal_proof",
         "boundary_hardening",
-        "corporate_action_proof",
         "investor_economics_proof",
         "opening_state_admission",
+        "opening_state_proof",
         "return_basis_metadata",
+        "valuation_basis_proof",
         "valuation_basis_separation",
     ]
     assert portfolio_proof["admission"]["bucket_decisions"][0] == {
         "bucket": "return_basis_metadata",
-        "status": "rejected",
+        "status": "withheld",
         "blocks_admission": True,
         "provenance_buckets": ["valuation_basis"],
-        "blocking_reasons": ["raw_price_used_for_valuation"],
+        "blocking_reasons": [
+            "raw_price_used_for_valuation",
+            "return_basis_positive_support_missing_for_portfolio_slice",
+        ],
         "scope": {
             "base_currency": "USD",
             "history_source": "imported_replay",
@@ -1216,8 +1351,24 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
         "bucket": "investor_economics_proof",
         "status": "withheld",
         "blocks_admission": True,
-        "provenance_buckets": ["portfolio_proof_admission_governor_v1"],
-        "blocking_reasons": ["missing_investor_economics_proof_bucket", "portfolio_verified_total_return_withheld"],
+        "provenance_buckets": [
+            "boundary_calendar_terminal_proof",
+            "capital_boundary_proof",
+            "corporate_action_proof",
+            "cross_bucket_scope_consistency",
+            "fx_proof",
+            "opening_state_proof",
+            "valuation_basis_proof",
+        ],
+        "blocking_reasons": [
+            "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+            "opening_cash_state_missing",
+            "opening_state_positive_support_missing_for_portfolio_slice",
+            "opening_state_unverified_for_portfolio_slice",
+            "raw_price_used_for_valuation",
+            "return_basis_positive_support_missing_for_portfolio_slice",
+            "valuation_basis_positive_support_missing_for_portfolio_slice",
+        ],
         "scope": {
             "account_id": "U123",
             "base_currency": "USD",
@@ -1230,7 +1381,10 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
             "statement_window_count": 1,
         },
     }
-    assert {key: value for key, value in portfolio_proof.items() if key != "admission"} == {
+    proof_without_admission = {key: value for key, value in portfolio_proof.items() if key != "admission"}
+    preparation = proof_without_admission.pop("preparation")
+    evidence = proof_without_admission.pop("evidence")
+    assert proof_without_admission == {
         "proof_system": "portfolio_verified_total_return_v1",
         "portfolio_path": "withheld",
         "verification_status": "unverified",
@@ -1240,20 +1394,16 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
         "verified_total_return_emitted": False,
         "benchmark_proof_independent": True,
         "disqualifiers": [
-            "calendar_coverage_not_broker_proven",
-            "corporate_action_proof_missing",
             "opening_cash_state_missing",
             "portfolio_verified_total_return_withheld",
             "raw_price_used_for_valuation",
         ],
         "hard_disqualifiers": [
-            "calendar_coverage_not_broker_proven",
-            "corporate_action_proof_missing",
             "opening_cash_state_missing",
             "raw_price_used_for_valuation",
         ],
-        "evidence": {
-            "opening_state_basis": {
+    }
+    assert evidence["opening_state_basis"] == {
                 "status": "disqualified",
                 "positive_evidence": [
                     "broker_ledger_entries_available",
@@ -1313,8 +1463,8 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                         "counts": {},
                     },
                 ],
-            },
-            "valuation_basis": {
+            }
+    assert evidence["valuation_basis"] == {
                 "status": "disqualified",
                 "positive_evidence": ["valuation_dates_available", "position_price_histories_loaded"],
                 "negative_evidence": ["vendor_raw_price_used_for_valuation"],
@@ -1352,8 +1502,8 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                         "counts": {"valuation_date_count": 10, "valued_symbol_count": 10, "raw_vendor_price": 10},
                     },
                 ],
-            },
-            "cash_flow_basis": {
+            }
+    assert evidence["cash_flow_basis"] == {
                 "status": "supported",
                 "positive_evidence": [
                     "broker_ledger_entries_available",
@@ -1393,8 +1543,8 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                         "counts": {"unknown": 0},
                     },
                 ],
-            },
-            "fx_basis": {
+            }
+    assert evidence["fx_basis"] == {
                 "status": "supported",
                 "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
                 "negative_evidence": [],
@@ -1431,14 +1581,14 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                         "counts": {"observed_currency_count": 1},
                     },
                 ],
-            },
-            "corporate_action_basis": {
-                "status": "disqualified",
+            }
+    assert evidence["corporate_action_basis"] == {
+                "status": "supported",
                 "policy": {
                     "scope": "broker_native_statement_window",
                     "cash_dividend_coverage_status": "cash_dividend_coverage_proven_by_broker_native_evidence",
                     "cash_dividend_observation_status": "no_cash_dividend_observed_within_covered_broker_scope",
-                    "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                    "non_dividend_status": "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
                     "scope_start_date": "2026-04-10",
                     "scope_end_date": "2026-04-23",
                     "statement_window_count": 1,
@@ -1446,10 +1596,11 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                 "positive_evidence": [
                     "cash_dividend_coverage_proven_by_broker_native_evidence",
                     "no_cash_dividend_observed_within_covered_broker_scope",
+                    "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
                 ],
-                "negative_evidence": ["non_dividend_corporate_actions_unproven_and_disqualifying"],
-                "disqualifiers": ["corporate_action_proof_missing"],
-                "hard_disqualifiers": ["corporate_action_proof_missing"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "hard_disqualifiers": [],
                 "witnesses": [
                     {
                         "label": "corporate_action_basis_policy",
@@ -1476,15 +1627,16 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                     },
                     {
                         "label": "non_dividend_corporate_action_scope",
-                        "status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                        "status": "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
                         "evidence": [
-                            "unproven_action_classes:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes"
+                            "supported_non_dividend_classes:none_observed_within_broker_native_statement_window",
+                            "unresolved_non_dividend_classes_would_remain_blocking:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes",
                         ],
                         "counts": {},
                     },
                 ],
-            },
-            "terminal_reconciliation_basis": {
+            }
+    assert evidence["terminal_reconciliation_basis"] == {
                 "status": "supported",
                 "positive_evidence": ["terminal_replay_state_available"],
                 "negative_evidence": ["terminal_statement_totals_not_available_for_comparison"],
@@ -1498,9 +1650,9 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                         "counts": {"compared_field_count": 0},
                     }
                 ],
-            },
-            "calendar_coverage_basis": {
-                "status": "disqualified",
+            }
+    assert evidence["calendar_coverage_basis"] == {
+                "status": "supported",
                 "positive_evidence": [
                     "valuation_window_dates_available",
                     "valuation_dates_are_sorted_and_unique",
@@ -1511,8 +1663,8 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                 "negative_evidence": [
                     "valuation_calendar_is_derived_from_benchmark_history",
                 ],
-                "disqualifiers": ["calendar_coverage_not_broker_proven"],
-                "hard_disqualifiers": ["calendar_coverage_not_broker_proven"],
+                "disqualifiers": [],
+                "hard_disqualifiers": [],
                 "witnesses": [
                     {
                         "label": "first_covered_date_basis",
@@ -1545,9 +1697,103 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
                         "counts": {"valuation_date_count": 10},
                     },
                 ],
-            },
+            }
+    assert preparation["readiness_status"] == "exact_slice_prerequisites_incomplete"
+    assert preparation["all_prerequisite_buckets_supported"] is False
+    assert preparation["exact_slice_target"] == {
+        "account_set": ["U123"],
+        "base_currency": "USD",
+        "valuation_window": {"start_date": "2026-04-10", "end_date": "2026-04-23", "count": 10},
+        "statement_window": {"start_date": "2026-04-10", "end_date": "2026-04-23", "count": 1},
+        "opening_state_anchor": {
+            "required_anchor_date": "2026-04-10",
+            "observed_anchor_date": "2026-04-10",
+            "status": "disqualified",
+        },
+        "fx_scope": {
+            "translation_case": "identity_base_currency_only",
+            "base_currency": "USD",
+            "observed_currencies": ["USD"],
+            "required_pairs": [],
+            "required_pair_dates": [],
+        },
+        "corporate_action_scope": {
+            "scope": "broker_native_statement_window",
+            "scope_start_date": "2026-04-10",
+            "scope_end_date": "2026-04-23",
+            "statement_window_count": 1,
+            "positive_proof_classes": ["cash_dividend"],
+            "unproven_disqualifying_classes": [
+                "splits",
+                "reverse_splits",
+                "spin_offs",
+                "mergers",
+                "rights",
+                "return_of_capital",
+                "symbol_changes",
+            ],
         },
     }
+    assert [gap["code"] for gap in preparation["readiness_gaps"]] == [
+        "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+        "opening_cash_state_missing",
+        "opening_state_positive_support_missing_for_portfolio_slice",
+        "opening_state_unverified_for_portfolio_slice",
+        "raw_price_used_for_valuation",
+        "return_basis_positive_support_missing_for_portfolio_slice",
+        "valuation_basis_positive_support_missing_for_portfolio_slice",
+    ]
+    assert preparation["policy_blockers"] == []
+    investor_proof = portfolio_proof["evidence"]["investor_economics_proof"]
+    assert investor_proof["status"] == "disqualified"
+    assert investor_proof["decision"] == "withheld"
+    assert investor_proof["preparation_status"] == "exact_slice_prerequisites_incomplete"
+    assert investor_proof["positive_evidence"] == []
+    assert investor_proof["negative_evidence"] == [
+        "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+        "opening_cash_state_missing",
+        "opening_state_positive_support_missing_for_portfolio_slice",
+        "opening_state_unverified_for_portfolio_slice",
+        "portfolio_claim_not_inferred_from_benchmark_allowlist_verification",
+        "portfolio_claim_not_inferred_from_replay_usability_or_history_availability",
+        "raw_price_used_for_valuation",
+        "return_basis_positive_support_missing_for_portfolio_slice",
+        "valuation_basis_positive_support_missing_for_portfolio_slice",
+    ]
+    assert investor_proof["disqualifiers"] == [
+        "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+        "opening_cash_state_missing",
+        "opening_state_positive_support_missing_for_portfolio_slice",
+        "opening_state_unverified_for_portfolio_slice",
+        "raw_price_used_for_valuation",
+        "return_basis_positive_support_missing_for_portfolio_slice",
+        "valuation_basis_positive_support_missing_for_portfolio_slice",
+    ]
+    assert investor_proof["hard_disqualifiers"] == investor_proof["disqualifiers"]
+    assert investor_proof["blocking_reasons"] == investor_proof["disqualifiers"]
+    assert investor_proof["missing_proof_buckets"] == [
+        "boundary_calendar_terminal_proof",
+        "opening_state_proof",
+        "valuation_basis_proof",
+    ]
+    assert investor_proof["scope_mismatches"] == []
+    assert [witness["label"] for witness in investor_proof["witnesses"]] == [
+        "prerequisite:capital_boundary_proof",
+        "prerequisite:valuation_basis_proof",
+        "prerequisite:boundary_calendar_terminal_proof",
+        "prerequisite:opening_state_proof",
+        "prerequisite:fx_proof",
+        "prerequisite:corporate_action_proof",
+        "scope:account_set",
+        "scope:base_currency",
+        "scope:valuation_window",
+        "scope:statement_window",
+        "scope:opening_state_anchor",
+        "scope:fx_scope",
+        "scope:corporate_action_scope",
+        "exact_slice_admission_policy",
+        "benchmark_scope_transfer_policy",
+    ]
     assert result.run_metadata.section_trust.model_dump() == {
         "benchmark_relative_path": "degraded_unverified_return_basis",
         "factor_model_path": "degraded_unverified_return_basis",
@@ -1816,8 +2062,8 @@ def test_run_imported_dashboard_history_returns_unavailable_without_imported_his
         },
     }
     assert result.run_metadata.investor_economics_status.model_dump() == {
-        "status": "available",
-        "reason": None,
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
@@ -1909,24 +2155,36 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
         },
     }
     portfolio_proof = result.run_metadata.portfolio_proof.model_dump()
-    assert portfolio_proof["admission"]["status"] == "rejected"
+    assert portfolio_proof["admission"]["status"] == "withheld"
+    assert portfolio_proof["admission"]["readiness_status"] == "exact_slice_prerequisites_incomplete"
     assert portfolio_proof["admission"]["missing_proof_buckets"] == [
+        "boundary_calendar_terminal_proof",
         "boundary_hardening",
-        "corporate_action_proof",
         "investor_economics_proof",
         "opening_state_admission",
+        "opening_state_proof",
         "return_basis_metadata",
+        "valuation_basis_proof",
         "valuation_basis_separation",
     ]
-    assert portfolio_proof["admission"]["bucket_decisions"][0]["blocking_reasons"] == ["raw_price_used_for_valuation"]
-    assert portfolio_proof["admission"]["bucket_decisions"][6]["blocking_reasons"] == [
-        "corporate_action_proof_missing"
+    assert portfolio_proof["admission"]["bucket_decisions"][0]["blocking_reasons"] == [
+        "raw_price_used_for_valuation",
+        "return_basis_positive_support_missing_for_portfolio_slice",
     ]
+    assert portfolio_proof["admission"]["bucket_decisions"][6]["blocking_reasons"] == []
     assert portfolio_proof["admission"]["bucket_decisions"][7]["blocking_reasons"] == [
-        "missing_investor_economics_proof_bucket",
-        "portfolio_verified_total_return_withheld",
+        "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+        "opening_cash_state_missing",
+        "opening_state_positive_support_missing_for_portfolio_slice",
+        "opening_state_unverified_for_portfolio_slice",
+        "raw_price_used_for_valuation",
+        "return_basis_positive_support_missing_for_portfolio_slice",
+        "valuation_basis_positive_support_missing_for_portfolio_slice",
     ]
-    assert {key: value for key, value in portfolio_proof.items() if key != "admission"} == {
+    proof_without_admission = {key: value for key, value in portfolio_proof.items() if key != "admission"}
+    preparation = proof_without_admission.pop("preparation")
+    evidence = proof_without_admission.pop("evidence")
+    assert proof_without_admission == {
         "proof_system": "portfolio_verified_total_return_v1",
         "portfolio_path": "withheld",
         "verification_status": "unverified",
@@ -1936,20 +2194,16 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
         "verified_total_return_emitted": False,
         "benchmark_proof_independent": True,
         "disqualifiers": [
-            "calendar_coverage_not_broker_proven",
-            "corporate_action_proof_missing",
             "opening_cash_state_missing",
             "portfolio_verified_total_return_withheld",
             "raw_price_used_for_valuation",
         ],
         "hard_disqualifiers": [
-            "calendar_coverage_not_broker_proven",
-            "corporate_action_proof_missing",
             "opening_cash_state_missing",
             "raw_price_used_for_valuation",
         ],
-        "evidence": {
-            "opening_state_basis": {
+    }
+    assert evidence["opening_state_basis"] == {
                 "status": "disqualified",
                 "positive_evidence": [
                     "broker_ledger_entries_available",
@@ -2009,8 +2263,8 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                         "counts": {},
                     },
                 ],
-            },
-            "valuation_basis": {
+            }
+    assert evidence["valuation_basis"] == {
                 "status": "disqualified",
                 "positive_evidence": ["valuation_dates_available", "position_price_histories_loaded"],
                 "negative_evidence": ["vendor_raw_price_used_for_valuation"],
@@ -2048,8 +2302,8 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                         "counts": {"valuation_date_count": 2, "valued_symbol_count": 2, "raw_vendor_price": 2},
                     },
                 ],
-            },
-            "cash_flow_basis": {
+            }
+    assert evidence["cash_flow_basis"] == {
                 "status": "supported",
                 "positive_evidence": [
                     "broker_ledger_entries_available",
@@ -2089,8 +2343,8 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                         "counts": {"unknown": 0},
                     },
                 ],
-            },
-            "fx_basis": {
+            }
+    assert evidence["fx_basis"] == {
                 "status": "supported",
                 "positive_evidence": ["all_observed_statement_currencies_match_base_currency"],
                 "negative_evidence": [],
@@ -2127,14 +2381,14 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                         "counts": {"observed_currency_count": 1},
                     },
                 ],
-            },
-            "corporate_action_basis": {
-                "status": "disqualified",
+            }
+    assert evidence["corporate_action_basis"] == {
+                "status": "supported",
                 "policy": {
                     "scope": "broker_native_statement_window",
                     "cash_dividend_coverage_status": "cash_dividend_coverage_proven_by_broker_native_evidence",
                     "cash_dividend_observation_status": "no_cash_dividend_observed_within_covered_broker_scope",
-                    "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                    "non_dividend_status": "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
                     "scope_start_date": "2026-04-10",
                     "scope_end_date": "2026-04-11",
                     "statement_window_count": 1,
@@ -2142,10 +2396,11 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                 "positive_evidence": [
                     "cash_dividend_coverage_proven_by_broker_native_evidence",
                     "no_cash_dividend_observed_within_covered_broker_scope",
+                    "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
                 ],
-                "negative_evidence": ["non_dividend_corporate_actions_unproven_and_disqualifying"],
-                "disqualifiers": ["corporate_action_proof_missing"],
-                "hard_disqualifiers": ["corporate_action_proof_missing"],
+                "negative_evidence": [],
+                "disqualifiers": [],
+                "hard_disqualifiers": [],
                 "witnesses": [
                     {
                         "label": "corporate_action_basis_policy",
@@ -2172,15 +2427,16 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                     },
                     {
                         "label": "non_dividend_corporate_action_scope",
-                        "status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+                        "status": "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
                         "evidence": [
-                            "unproven_action_classes:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes"
+                            "supported_non_dividend_classes:none_observed_within_broker_native_statement_window",
+                            "unresolved_non_dividend_classes_would_remain_blocking:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes",
                         ],
                         "counts": {},
                     },
                 ],
-            },
-            "terminal_reconciliation_basis": {
+            }
+    assert evidence["terminal_reconciliation_basis"] == {
                 "status": "supported",
                 "positive_evidence": ["terminal_replay_state_available"],
                 "negative_evidence": ["terminal_statement_totals_not_available_for_comparison"],
@@ -2194,9 +2450,9 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                         "counts": {"compared_field_count": 0},
                     }
                 ],
-            },
-            "calendar_coverage_basis": {
-                "status": "disqualified",
+            }
+    assert evidence["calendar_coverage_basis"] == {
+                "status": "supported",
                 "positive_evidence": [
                     "valuation_window_dates_available",
                     "valuation_dates_are_sorted_and_unique",
@@ -2205,8 +2461,8 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                     "replay_window_within_broker_statement_boundaries",
                 ],
                 "negative_evidence": ["valuation_calendar_is_derived_from_benchmark_history"],
-                "disqualifiers": ["calendar_coverage_not_broker_proven"],
-                "hard_disqualifiers": ["calendar_coverage_not_broker_proven"],
+                "disqualifiers": [],
+                "hard_disqualifiers": [],
                 "witnesses": [
                     {
                         "label": "first_covered_date_basis",
@@ -2239,9 +2495,88 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
                         "counts": {"valuation_date_count": 2},
                     },
                 ],
-            },
+            }
+    investor_proof = portfolio_proof["evidence"]["investor_economics_proof"]
+    assert investor_proof["status"] == "disqualified"
+    assert investor_proof["decision"] == "withheld"
+    assert investor_proof["preparation_status"] == "exact_slice_prerequisites_incomplete"
+    assert investor_proof["blocking_reasons"] == [
+        "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+        "opening_cash_state_missing",
+        "opening_state_positive_support_missing_for_portfolio_slice",
+        "opening_state_unverified_for_portfolio_slice",
+        "raw_price_used_for_valuation",
+        "return_basis_positive_support_missing_for_portfolio_slice",
+        "valuation_basis_positive_support_missing_for_portfolio_slice",
+    ]
+    assert investor_proof["missing_proof_buckets"] == [
+        "boundary_calendar_terminal_proof",
+        "opening_state_proof",
+        "valuation_basis_proof",
+    ]
+    assert investor_proof["scope_mismatches"] == []
+    assert preparation["readiness_status"] == "exact_slice_prerequisites_incomplete"
+    assert preparation["all_prerequisite_buckets_supported"] is False
+    assert preparation["exact_slice_target"] == {
+        "account_set": ["U123"],
+        "base_currency": "USD",
+        "valuation_window": {"start_date": "2026-04-10", "end_date": "2026-04-11", "count": 2},
+        "statement_window": {"start_date": "2026-04-10", "end_date": "2026-04-11", "count": 1},
+        "opening_state_anchor": {
+            "required_anchor_date": "2026-04-10",
+            "observed_anchor_date": "2026-04-10",
+            "status": "disqualified",
+        },
+        "fx_scope": {
+            "translation_case": "identity_base_currency_only",
+            "base_currency": "USD",
+            "observed_currencies": ["USD"],
+            "required_pairs": [],
+            "required_pair_dates": [],
+        },
+        "corporate_action_scope": {
+            "scope": "broker_native_statement_window",
+            "scope_start_date": "2026-04-10",
+            "scope_end_date": "2026-04-11",
+            "statement_window_count": 1,
+            "positive_proof_classes": ["cash_dividend"],
+            "unproven_disqualifying_classes": [
+                "splits",
+                "reverse_splits",
+                "spin_offs",
+                "mergers",
+                "rights",
+                "return_of_capital",
+                "symbol_changes",
+            ],
         },
     }
+    assert [gap["code"] for gap in preparation["readiness_gaps"]] == [
+        "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+        "opening_cash_state_missing",
+        "opening_state_positive_support_missing_for_portfolio_slice",
+        "opening_state_unverified_for_portfolio_slice",
+        "raw_price_used_for_valuation",
+        "return_basis_positive_support_missing_for_portfolio_slice",
+        "valuation_basis_positive_support_missing_for_portfolio_slice",
+    ]
+    assert [witness["label"] for witness in investor_proof["witnesses"]] == [
+        "prerequisite:capital_boundary_proof",
+        "prerequisite:valuation_basis_proof",
+        "prerequisite:boundary_calendar_terminal_proof",
+        "prerequisite:opening_state_proof",
+        "prerequisite:fx_proof",
+        "prerequisite:corporate_action_proof",
+        "scope:account_set",
+        "scope:base_currency",
+        "scope:valuation_window",
+        "scope:statement_window",
+        "scope:opening_state_anchor",
+        "scope:fx_scope",
+        "scope:corporate_action_scope",
+        "exact_slice_admission_policy",
+        "benchmark_scope_transfer_policy",
+    ]
     assert result.run_metadata.investor_economics_status.model_dump() == {
         "status": "withheld",
         "reason": "withheld_unverified_total_return_equivalence",
@@ -2350,11 +2685,11 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_only_for_dire
         },
     }
     assert result.range_metrics is not None
-    assert result.performance_series[-1].benchmark_return_pct == 1.5
+    assert result.performance_series[-1].benchmark_return_pct is None
     assert result.range_metrics["All"].summary.benchmark_return_pct is None
     assert result.benchmark is not None
     assert result.benchmark.return_basis_contract == "verified_total_return"
-    assert result.benchmark.return_pct == 1.5
+    assert result.benchmark.return_pct is None
     assert result.run_metadata.investor_economics_status.model_dump() == {
         "status": "withheld",
         "reason": "withheld_unverified_total_return_equivalence",
@@ -2502,7 +2837,7 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_for_direct_qq
     }
     assert result.benchmark is not None
     assert result.benchmark.return_basis_contract == "verified_total_return"
-    assert result.benchmark.return_pct == 1.5
+    assert result.benchmark.return_pct is None
 
 
 def test_run_imported_dashboard_history_keeps_qqq_unverified_when_direct_scope_evidence_is_broken(mocker) -> None:
@@ -2862,6 +3197,517 @@ def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_unveri
     assert result.range_metrics["All"].summary.excess_return_pct is None
 
 
+def test_run_imported_dashboard_history_unlocks_exact_slice_excess_return_for_admitted_slice_pair(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 101.0},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 100.0, "basis": "broker_proven_mark_to_market"},
+            {"date": "2026-04-11", "price": 103.0, "basis": "broker_proven_mark_to_market"},
+        ]
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=1000.0,
+            ending_nav=1030.0,
+            cash_total=0.0,
+            stock_total=1030.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=1000.0, ending_cash=0.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=103.0, market_value=1030.0, unrealized_pnl=30.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=-1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.run_metadata.portfolio_proof.admission.status == "admitted"
+    assert result.run_metadata.portfolio_proof.admission.readiness_status == "exact_slice_admitted"
+    assert result.performance_series[-1].portfolio_return_pct == 3.0
+    assert result.performance_series[-1].benchmark_return_pct is None
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct == 3.0
+    assert result.range_metrics["All"].summary.benchmark_return_pct == 1.0
+    assert result.range_metrics["All"].summary.excess_return_pct == 2.0
+    assert result.range_metrics["All"].max_drawdown_pct is None
+    assert result.benchmark is not None
+    assert result.benchmark.return_basis_contract == "verified_total_return"
+    assert result.benchmark.return_pct is None
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+
+
+def test_run_imported_dashboard_history_keeps_exact_slice_benchmark_return_withheld_without_independent_benchmark_proof(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 101.0},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": False,
+        "fallback_used": True,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 100.0, "basis": "broker_proven_mark_to_market"},
+            {"date": "2026-04-11", "price": 103.0, "basis": "broker_proven_mark_to_market"},
+        ]
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=1000.0,
+            ending_nav=1030.0,
+            cash_total=0.0,
+            stock_total=1030.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=1000.0, ending_cash=0.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=103.0, market_value=1030.0, unrealized_pnl=30.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=-1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.run_metadata.portfolio_proof.admission.status == "admitted"
+    assert result.run_metadata.portfolio_proof.admission.readiness_status == "exact_slice_admitted"
+    assert result.performance_series[-1].portfolio_return_pct == 3.0
+    assert result.performance_series[-1].benchmark_return_pct is None
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct == 3.0
+    assert result.range_metrics["All"].summary.benchmark_return_pct is None
+    assert result.range_metrics["All"].summary.excess_return_pct is None
+    assert result.range_metrics["All"].max_drawdown_pct is None
+    assert result.benchmark is not None
+    assert result.benchmark.return_basis_contract == "unverified_adjusted_proxy"
+    assert result.benchmark.return_pct is None
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+
+
+def test_run_imported_dashboard_history_keeps_partial_overlap_benchmark_return_withheld_for_non_exact_window(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    dates = [(date(2026, 1, 1) + timedelta(days=index)).isoformat() for index in range(22)]
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": day_str, "price": 100.0 + index, "adjClose": 100.0 + index}
+        for index, day_str in enumerate(dates)
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": day_str, "price": 100.0 + index, "basis": "broker_proven_mark_to_market"}
+            for index, day_str in enumerate(dates)
+        ]
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 1, 1),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period=f"{dates[0]} - {dates[-1]}",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=1000.0,
+            ending_nav=1210.0,
+            cash_total=0.0,
+            stock_total=1210.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=1000.0, ending_cash=0.0)],
+        positions=[ImportedPosition(as_of_date=date.fromisoformat(dates[-1]), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=121.0, market_value=1210.0, unrealized_pnl=210.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date.fromisoformat(dates[0]), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=-1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.run_metadata.portfolio_proof.admission.status == "admitted"
+    assert result.run_metadata.portfolio_proof.admission.readiness_status == "exact_slice_admitted"
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct == 21.0
+    assert result.range_metrics["All"].summary.benchmark_return_pct == 21.0
+    assert result.range_metrics["All"].summary.excess_return_pct == 0.0
+    assert result.range_metrics["1M"].summary.time_weighted_return_pct is None
+    assert result.range_metrics["1M"].summary.benchmark_return_pct is None
+    assert result.range_metrics["1M"].summary.excess_return_pct is None
+    assert result.range_metrics["1M"].max_drawdown_pct is None
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+    assert all(metrics.max_drawdown_pct is None for metrics in result.range_metrics.values())
+
+
+def test_run_imported_dashboard_history_unlocks_only_exact_slice_excess_return_and_keeps_broader_outputs_withheld(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-04-11", "price": 101.0, "adjClose": 101.0},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 100.0, "basis": "broker_proven_mark_to_market"},
+            {"date": "2026-04-11", "price": 103.0, "basis": "broker_proven_mark_to_market"},
+        ]
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=1000.0,
+            ending_nav=1030.0,
+            cash_total=0.0,
+            stock_total=1030.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=1000.0, ending_cash=0.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=103.0, market_value=1030.0, unrealized_pnl=30.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=-1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct == 3.0
+    assert result.range_metrics["All"].summary.benchmark_return_pct == 1.0
+    assert result.range_metrics["All"].summary.excess_return_pct == 2.0
+    assert result.performance_series[-1].benchmark_return_pct is None
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+    assert all(metrics.max_drawdown_pct is None for metrics in result.range_metrics.values())
+    assert result.run_metadata.investor_economics_partial_unlock.exact_slice_scalar_allowlist[2].model_dump() == {
+        "field": "range_metrics[*].summary.excess_return_pct",
+        "unlock_condition": "identical_admitted_exact_slice_pair_only",
+        "runtime_enabled": True,
+    }
+    assert result.run_metadata.investor_economics_partial_unlock.withheld_families == [
+        "benchmark_relative_series",
+        "benchmark_relative_path_derived_outputs",
+        "drawdown_family",
+        "rebucketed_window_summaries",
+        "rewindowed_range_summaries",
+        "diagnostics_benchmark_relative_outputs",
+        "replay_benchmark_relative_outputs",
+        "strategy_lab_benchmark_relative_outputs",
+    ]
+
+
+def test_future_exact_slice_excess_return_policy_requires_both_exact_leg_permissions() -> None:
+    assert _allow_future_exact_slice_excess_return_output(
+        performance_points=[],
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
+        allow_portfolio_twr_outputs=False,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=None,
+        benchmark_return_pct=1.0,
+    ) is False
+    assert _allow_future_exact_slice_excess_return_output(
+        performance_points=[],
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=False,
+        time_weighted_return_pct=3.0,
+        benchmark_return_pct=None,
+    ) is False
+    assert _compute_future_exact_slice_excess_return_pct(
+        performance_points=[],
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
+        allow_portfolio_twr_outputs=False,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=None,
+        benchmark_return_pct=1.0,
+    ) is None
+    assert _compute_future_exact_slice_excess_return_pct(
+        performance_points=[],
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=False,
+        time_weighted_return_pct=3.0,
+        benchmark_return_pct=None,
+    ) is None
+
+
+def test_future_exact_slice_excess_return_policy_requires_verified_exact_same_scope_slice() -> None:
+    performance_series = [
+        PerformancePoint(
+            date="2026-04-10",
+            portfolio_value=1000.0,
+            benchmark_price=100.0,
+            portfolio_return_pct=0.0,
+            benchmark_return_pct=0.0,
+        ),
+        PerformancePoint(
+            date="2026-04-11",
+            portfolio_value=1030.0,
+            benchmark_price=101.0,
+            portfolio_return_pct=3.0,
+            benchmark_return_pct=1.0,
+        ),
+    ]
+
+    assert _allow_future_exact_slice_excess_return_output(
+        performance_points=performance_series,
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 3),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=3.0,
+        benchmark_return_pct=1.0,
+        source_performance_series=performance_series,
+    ) is False
+    assert _compute_future_exact_slice_excess_return_pct(
+        performance_points=performance_series,
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 3),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=3.0,
+        benchmark_return_pct=1.0,
+        source_performance_series=performance_series,
+    ) is None
+
+
+def test_future_exact_slice_excess_return_policy_emits_only_for_exact_verified_same_response_pair() -> None:
+    performance_series = [
+        PerformancePoint(
+            date="2026-04-10",
+            portfolio_value=1000.0,
+            benchmark_price=100.0,
+            portfolio_return_pct=0.0,
+            benchmark_return_pct=0.0,
+        ),
+        PerformancePoint(
+            date="2026-04-11",
+            portfolio_value=1030.0,
+            benchmark_price=101.0,
+            portfolio_return_pct=3.0,
+            benchmark_return_pct=1.0,
+        ),
+    ]
+
+    assert _allow_future_exact_slice_excess_return_output(
+        performance_points=performance_series,
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=3.0,
+        benchmark_return_pct=1.0,
+        source_performance_series=performance_series,
+    ) is True
+    assert _compute_future_exact_slice_excess_return_pct(
+        performance_points=performance_series,
+        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=3.0,
+        benchmark_return_pct=1.0,
+        source_performance_series=performance_series,
+    ) == 2.0
+
+
+def test_future_exact_slice_excess_return_policy_refuses_client_side_subtraction_equivalents() -> None:
+    all_range = [
+        PerformancePoint(
+            date="2026-01-01",
+            portfolio_value=1000.0,
+            benchmark_price=100.0,
+            portfolio_return_pct=0.0,
+            benchmark_return_pct=0.0,
+        ),
+        PerformancePoint(
+            date="2026-01-02",
+            portfolio_value=1100.0,
+            benchmark_price=110.0,
+            portfolio_return_pct=10.0,
+            benchmark_return_pct=10.0,
+        ),
+        PerformancePoint(
+            date="2026-01-03",
+            portfolio_value=1210.0,
+            benchmark_price=121.0,
+            portfolio_return_pct=21.0,
+            benchmark_return_pct=21.0,
+        ),
+    ]
+    rebucketed_slice = all_range[1:]
+
+    assert _allow_future_exact_slice_excess_return_output(
+        performance_points=rebucketed_slice,
+        admitted_portfolio_twr_scope=("2026-01-01", "2026-01-03", 3),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=21.0,
+        benchmark_return_pct=21.0,
+        source_performance_series=all_range,
+    ) is False
+    assert _compute_future_exact_slice_excess_return_pct(
+        performance_points=rebucketed_slice,
+        admitted_portfolio_twr_scope=("2026-01-01", "2026-01-03", 3),
+        allow_portfolio_twr_outputs=True,
+        allow_exact_slice_benchmark_return_output=True,
+        time_weighted_return_pct=21.0,
+        benchmark_return_pct=21.0,
+        source_performance_series=all_range,
+    ) is None
+
+
+def test_run_imported_dashboard_history_future_exact_slice_policy_keeps_rebucketed_and_non_identical_windows_withheld(mocker) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    dates = [(date(2026, 1, 1) + timedelta(days=index)).isoformat() for index in range(22)]
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": day_str, "price": 100.0 + index, "adjClose": 100.0 + index}
+        for index, day_str in enumerate(dates)
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": day_str, "price": 100.0 + index, "basis": "broker_proven_mark_to_market"}
+            for index, day_str in enumerate(dates)
+        ]
+    }
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 1, 1),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period=f"{dates[0]} - {dates[-1]}",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=1000.0,
+            ending_nav=1210.0,
+            cash_total=0.0,
+            stock_total=1210.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=1000.0, ending_cash=0.0)],
+        positions=[ImportedPosition(as_of_date=date.fromisoformat(dates[-1]), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=121.0, market_value=1210.0, unrealized_pnl=210.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date.fromisoformat(dates[0]), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=-1000.0, currency="USD", source_section="Trades")],
+    )
+
+    result = run_imported_dashboard_history(snapshot, "SPY")
+
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.time_weighted_return_pct == 21.0
+    assert result.range_metrics["All"].summary.benchmark_return_pct == 21.0
+    assert result.range_metrics["All"].summary.excess_return_pct == 0.0
+    assert result.range_metrics["YTD"].summary.time_weighted_return_pct == 21.0
+    assert result.range_metrics["YTD"].summary.benchmark_return_pct == 21.0
+    assert result.range_metrics["YTD"].summary.excess_return_pct == 0.0
+    assert result.range_metrics["1M"].summary.time_weighted_return_pct is None
+    assert result.range_metrics["1M"].summary.benchmark_return_pct is None
+    assert result.range_metrics["1M"].summary.excess_return_pct is None
+    assert all(metrics.max_drawdown_pct is None for metrics in result.range_metrics.values())
 def test_run_imported_diagnostics_engine_returns_unavailable_when_symbol_history_is_missing(mocker) -> None:
     market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
     service = market_data.return_value
@@ -4482,7 +5328,7 @@ def test_portfolio_proof_corporate_action_policy_tracks_broker_native_cash_divid
         "scope": "broker_native_statement_window",
         "cash_dividend_coverage_status": "cash_dividend_coverage_proven_by_broker_native_evidence",
         "cash_dividend_observation_status": "cash_dividend_observed_by_broker_native_evidence",
-        "non_dividend_status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+        "non_dividend_status": "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
         "scope_start_date": "2026-04-10",
         "scope_end_date": "2026-04-23",
         "statement_window_count": 1,
@@ -4490,10 +5336,9 @@ def test_portfolio_proof_corporate_action_policy_tracks_broker_native_cash_divid
     assert proof.evidence.corporate_action_basis.positive_evidence == [
         "cash_dividend_coverage_proven_by_broker_native_evidence",
         "cash_dividend_observed_by_broker_native_evidence",
+        "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
     ]
-    assert proof.evidence.corporate_action_basis.negative_evidence == [
-        "non_dividend_corporate_actions_unproven_and_disqualifying"
-    ]
+    assert proof.evidence.corporate_action_basis.negative_evidence == []
     assert [witness.model_dump() for witness in proof.evidence.corporate_action_basis.witnesses] == [
         {
             "label": "corporate_action_basis_policy",
@@ -4520,9 +5365,10 @@ def test_portfolio_proof_corporate_action_policy_tracks_broker_native_cash_divid
         },
         {
             "label": "non_dividend_corporate_action_scope",
-            "status": "non_dividend_corporate_actions_unproven_and_disqualifying",
+            "status": "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
             "evidence": [
-                "unproven_action_classes:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes"
+                "supported_non_dividend_classes:none_observed_within_broker_native_statement_window",
+                "unresolved_non_dividend_classes_would_remain_blocking:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes",
             ],
             "counts": {},
         },
@@ -4681,14 +5527,11 @@ def test_portfolio_proof_boundary_witnesses_separate_broker_replay_and_disqualif
     assert proof.replay_status == "replay_usable"
     assert proof.opening_state_status == "opening_state_unverified"
     assert proof.hard_disqualifiers == [
-        "calendar_coverage_not_broker_proven",
-        "corporate_action_proof_missing",
         "opening_cash_state_missing",
         "raw_price_used_for_valuation",
         "replay_window_outside_broker_coverage",
     ]
     assert proof.evidence.calendar_coverage_basis.hard_disqualifiers == [
-        "calendar_coverage_not_broker_proven",
         "replay_window_outside_broker_coverage",
     ]
     assert proof.evidence.calendar_coverage_basis.positive_evidence == [
@@ -4702,7 +5545,6 @@ def test_portfolio_proof_boundary_witnesses_separate_broker_replay_and_disqualif
         "replay_window_extends_outside_broker_statement_coverage",
     ]
     assert proof.evidence.calendar_coverage_basis.disqualifiers == [
-        "calendar_coverage_not_broker_proven",
         "replay_window_outside_broker_coverage",
     ]
     assert [witness.model_dump() for witness in proof.evidence.calendar_coverage_basis.witnesses] == [
@@ -5067,6 +5909,152 @@ def test_portfolio_proof_fx_disqualifies_missing_pair_date_coverage() -> None:
         "evidence": ["missing_pair_dates:EURUSD@2026-04-23"],
         "counts": {"missing_pair_date_count": 1},
     }
+
+
+def test_portfolio_proof_admits_one_exact_slice_when_full_proof_bar_is_explicitly_met() -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 23),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=1000.0,
+            ending_nav=1030.0,
+            cash_total=0.0,
+            stock_total=1030.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=1000.0, ending_cash=0.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=103.0, market_value=1030.0, unrealized_pnl=30.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=-1000.0, currency="USD", source_section="Trades")],
+    )
+
+    proof = build_portfolio_proof_metadata(
+        snapshot=snapshot,
+        price_histories={
+            "AAPL": [
+                {"date": "2026-04-10", "price": 100.0, "basis": "broker_proven_mark_to_market"},
+                {"date": "2026-04-11", "price": 103.0, "basis": "broker_proven_mark_to_market"},
+            ]
+        },
+        valuation_dates=["2026-04-10", "2026-04-11"],
+        fx_history={},
+        history_source="imported_replay",
+    )
+
+    assert proof.portfolio_path == "verified"
+    assert proof.verification_status == "verified"
+    assert proof.output_status == "available"
+    assert proof.verified_total_return_emitted is True
+    assert proof.opening_state_status == "opening_state_verified"
+    assert proof.disqualifiers == []
+    assert proof.hard_disqualifiers == []
+    assert proof.preparation.readiness_status == "exact_slice_admitted"
+    assert proof.preparation.all_prerequisite_buckets_supported is True
+    assert proof.preparation.policy_blockers == []
+    assert proof.admission.status == "admitted"
+    assert proof.admission.readiness_status == "exact_slice_admitted"
+    assert proof.admission.blocking_reasons == []
+    assert proof.admission.missing_proof_buckets == []
+    assert all(bucket.status == "admitted" and bucket.blocks_admission is False for bucket in proof.admission.bucket_decisions)
+    assert proof.evidence.valuation_basis.status == "supported"
+    assert proof.evidence.valuation_basis.positive_evidence == [
+        "valuation_dates_available",
+        "position_price_histories_loaded",
+        "broker_proven_mark_to_market_inputs_observed",
+    ]
+    assert proof.evidence.valuation_basis.negative_evidence == []
+    assert proof.evidence.valuation_basis.disqualifiers == []
+    assert proof.evidence.calendar_coverage_basis.status == "supported"
+    assert proof.evidence.calendar_coverage_basis.disqualifiers == []
+    assert proof.evidence.terminal_reconciliation_basis.status == "supported"
+    assert proof.evidence.terminal_reconciliation_basis.positive_evidence == ["terminal_state_naturally_reconciles_to_statement_totals"]
+    assert proof.evidence.corporate_action_basis.status == "supported"
+    assert proof.evidence.corporate_action_basis.policy.non_dividend_status == "no_non_dividend_corporate_actions_observed_within_covered_broker_scope"
+    assert proof.evidence.corporate_action_basis.positive_evidence == [
+        "cash_dividend_coverage_proven_by_broker_native_evidence",
+        "no_cash_dividend_observed_within_covered_broker_scope",
+        "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
+    ]
+    assert proof.evidence.corporate_action_basis.negative_evidence == []
+    assert proof.evidence.corporate_action_basis.disqualifiers == []
+    assert proof.evidence.investor_economics_proof.status == "supported"
+    assert proof.evidence.investor_economics_proof.decision == "admitted"
+    assert proof.evidence.investor_economics_proof.preparation_status == "exact_slice_admitted"
+    assert proof.evidence.investor_economics_proof.blocking_reasons == []
+    assert proof.evidence.investor_economics_proof.missing_proof_buckets == []
+    assert proof.evidence.investor_economics_proof.scope_mismatches == []
+    assert "policy_id:portfolio_exact_slice_admission_policy_v1" in proof.evidence.investor_economics_proof.positive_evidence
+
+
+def test_portfolio_proof_rejects_exact_slice_when_non_dividend_corporate_action_scope_is_unresolved() -> None:
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 23),
+            source_path="IB2026.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=ImportedStatementTotals(
+            starting_nav=1000.0,
+            ending_nav=1030.0,
+            cash_total=0.0,
+            stock_total=1030.0,
+            fx_rates={"USDUSD": 1.0},
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", starting_cash=1000.0, ending_cash=0.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=103.0, market_value=1030.0, unrealized_pnl=30.0, currency="USD")],
+        ledger_entries=[
+            ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=-1000.0, currency="USD", source_section="Trades"),
+            ImportedLedgerEntry(entry_type="DIVIDEND", trade_date=date(2026, 4, 11), symbol="AAPL", gross_amount=5.0, net_amount=5.0, currency="USD", source_section="Unknown Income", source_line="unresolved cash event"),
+        ],
+    )
+
+    proof = build_portfolio_proof_metadata(
+        snapshot=snapshot,
+        price_histories={
+            "AAPL": [
+                {"date": "2026-04-10", "price": 100.0, "basis": "broker_proven_mark_to_market"},
+                {"date": "2026-04-11", "price": 103.0, "basis": "broker_proven_mark_to_market"},
+            ]
+        },
+        valuation_dates=["2026-04-10", "2026-04-11"],
+        fx_history={},
+        history_source="imported_replay",
+    )
+
+    assert proof.portfolio_path == "withheld"
+    assert proof.verified_total_return_emitted is False
+    assert proof.admission.status == "withheld"
+    assert proof.preparation.readiness_status == "exact_slice_prerequisites_incomplete"
+    assert proof.admission.missing_proof_buckets == [
+        "boundary_calendar_terminal_proof",
+        "boundary_hardening",
+        "capital_boundary_proof",
+        "investor_economics_proof",
+    ]
+    assert proof.evidence.cash_flow_basis.disqualifiers == ["unknown_cash_movements"]
+    assert proof.evidence.corporate_action_basis.disqualifiers == []
+    assert proof.evidence.investor_economics_proof.blocking_reasons == [
+        "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+        "capital_boundary_positive_support_missing_for_portfolio_slice",
+        "terminal_force_reconciliation_present",
+        "unknown_cash_movements",
+    ]
 
 
 def test_portfolio_proof_fx_disqualifies_inferred_fallback_forward_fill_and_mixed_source_fx() -> None:

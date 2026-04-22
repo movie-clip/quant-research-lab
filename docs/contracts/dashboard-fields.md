@@ -60,6 +60,7 @@ Dashboard-history now exposes an explicit run-metadata slice alongside the light
 - `run_metadata.return_basis_contract.portfolio_path`
 - `run_metadata.return_basis_contract.benchmark_path`
 - `run_metadata.investor_economics_status`
+- `run_metadata.investor_economics_partial_unlock`
 - `run_metadata.return_basis_evidence.portfolio_path`
 - `run_metadata.return_basis_evidence.benchmark_path`
 - `run_metadata.reproducibility.input_imported_at`
@@ -93,15 +94,31 @@ Current dashboard-history run-metadata semantics:
   - authoritative positive evidence for the benchmark slice
   - consumers must not infer verification from `adjClose` field presence alone; use `verification_status`, `economic_basis`, and explicit `scope` evidence together
 - `run_metadata.investor_economics_status`
-  - `available`: investor-economics outputs that depend on verified total-return equivalence are currently allowed to render
-  - `withheld`: some investor-economics outputs are intentionally refused until total-return equivalence is verified; use the explicit reason rather than treating the values as merely missing
+  - current dashboard-history policy is always `withheld`
+  - this is deliberate policy codification, not a transient data-quality fallback
+  - `withheld` remains the overall investor-economics state even when a narrow exact-slice scalar allowlist admits one or more individual fields
+  - use the explicit reason together with the partial-unlock metadata rather than treating the values as merely missing
+- `run_metadata.investor_economics_partial_unlock`
+  - explicit contract for the only currently allowlisted dashboard-history exception path while overall investor-economics status stays `withheld`
+  - `mode = allowlisted_exact_slice_scalars_only` means consumers must not generalize from any admitted scalar to broader benchmark-relative or path-derived families
+  - `exact_slice_scalar_allowlist` is authoritative per-field policy:
+    - `range_metrics[*].summary.time_weighted_return_pct`: only for the identical admitted exact portfolio slice
+    - `range_metrics[*].summary.benchmark_return_pct`: only for that same identical admitted exact slice and only with independently verified benchmark `verified_total_return`
+    - `range_metrics[*].summary.excess_return_pct`: only for that same identical admitted slice pair, only when both already-allowlisted exact-slice legs are present in the same server response, and only from the server-side scalar runtime path
+  - `client_derivation_rule = server_side_scalar_only_no_daily_series_subtraction_equivalence` means consumers must not treat daily-series subtraction, benchmark-path reconstruction, or any local derivation as equivalent to a future server-emitted exact-slice scalar
+  - `withheld_families` explicitly fences the broader withheld families that remain off-limits even if one of the allowlisted scalars is present
 - `run_metadata.reproducibility.*`
   - records the import timestamp, latest snapshot as-of date, effective history window, requested benchmark symbol, and current market-data dataset version used by the dashboard-history engine
 
 Investor-economics withholding rule:
 
 - daily history and performance-series rows may still exist while `run_metadata.investor_economics_status.status = withheld`
-- in that state, `time_weighted_return_pct`, `benchmark_return_pct`, `excess_return_pct`, and `max_drawdown_pct` may be intentionally returned as `null`
+- in that state, dashboard-history now publishes an explicit partial-unlock contract for the only allowlisted exception path
+- under that contract, dashboard-history only allows three live exact-slice scalar outputs today: portfolio-only `time_weighted_return_pct`, exact-slice `benchmark_return_pct` only when the benchmark basis is independently `verified_total_return`, and exact-slice `excess_return_pct` only when both admitted exact-slice legs are present in the same server response
+- exact-slice `excess_return_pct` is admitted only as same-slice subtraction of those two already-admitted exact-slice scalars; if either leg is withheld, null, unverified, or scope-mismatched, `excess_return_pct` must remain `null`
+- current runtime now emits only that exact-slice `excess_return_pct` scalar exception; `max_drawdown_pct` and all other investor-economics outputs still remain withheld even when one or both exact-slice scalar outputs are present
+- monthly/rebucketed/rolling/non-identical-window outputs must not be inferred or reconstructed from those two scalars
+- daily-series subtraction or client-side derivation must not be treated as equivalent to the server-emitted exact-slice scalar
 - downstream consumers must treat those `null` values as deliberate withholding tied to the run metadata, not as a generic history failure
 
 ## Truth Classes
@@ -219,7 +236,7 @@ Investor-economics withholding rule:
 4. If cards/chart/history come from one snapshot and allocation comes from another snapshot, Dashboard is internally inconsistent and that is a bug.
 5. If a history-based field cannot be supported faithfully, the UI must render `n/a`, hide the unstable cards, or show an unavailable panel.
 6. Imported history replay is only trustworthy when the broker snapshot and required market-data support are both present; otherwise the result must degrade to `unavailable`.
-7. Dashboard-history withholding is distinct from unavailability: when `run_metadata.investor_economics_status` is `withheld`, history may still be present but investor-economics outputs such as `time_weighted_return_pct`, `benchmark_return_pct`, `excess_return_pct`, and `max_drawdown_pct` must stay `null`/hidden.
+7. Dashboard-history withholding is distinct from unavailability: when `run_metadata.investor_economics_status` is `withheld`, history may still be present, but only the explicit allowlisted exact-slice scalars described in `run_metadata.investor_economics_partial_unlock` may appear; only exact-slice `range_metrics[*].summary.excess_return_pct` joins `time_weighted_return_pct` and exact-slice `benchmark_return_pct`, while `max_drawdown_pct` and other non-allowlisted investor-economics outputs must stay `null`/hidden.
 
 ## Immediate Follow-up Targets
 

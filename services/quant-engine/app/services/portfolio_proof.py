@@ -10,12 +10,20 @@ from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.return_basis import (
     PortfolioCorporateActionBasisEvidence,
     PortfolioCorporateActionBasisPolicy,
+    PortfolioProofCorporateActionScopeTarget,
+    PortfolioInvestorEconomicsProofEvidence,
     PortfolioProofAdmissionBlockingReason,
     PortfolioProofAdmissionBucketDecision,
     PortfolioProofAdmissionDecision,
     PortfolioProofBucketEvidence,
     PortfolioProofEvidenceBundle,
+    PortfolioProofExactSliceTarget,
+    PortfolioProofFxScopeTarget,
+    PortfolioProofOpeningStateAnchorTarget,
+    PortfolioProofPreparationGap,
+    PortfolioProofPreparationMetadata,
     PortfolioProofMetadata,
+    PortfolioProofWindowTarget,
     PortfolioProofWitness,
 )
 
@@ -29,6 +37,32 @@ VALUATION_SNAPSHOT_FALLBACK = "snapshot_fallback"
 VALUATION_OTHER_FALLBACK = "other_fallback_construction"
 VALUATION_MIXED = "mixed_basis_construction"
 PORTFOLIO_ADMISSION_GOVERNOR = "portfolio_proof_admission_governor_v1"
+INVESTOR_ECONOMICS_PROOF_CLAIM_ID = "portfolio_investor_economics_proof_v1"
+POSITIVE_PORTFOLIO_PROOF_WITHHELD_BY_POLICY = "positive_portfolio_investor_economics_proof_not_enabled_in_v1"
+EXACT_SLICE_ADMISSION_POLICY_ID = "portfolio_exact_slice_admission_policy_v1"
+NON_DIVIDEND_CORPORATE_ACTION_CLASSES = [
+    "splits",
+    "reverse_splits",
+    "spin_offs",
+    "mergers",
+    "rights",
+    "return_of_capital",
+    "symbol_changes",
+]
+INVESTOR_ECONOMICS_PROOF_REQUIRED_INPUTS = [
+    "capital_boundary_proof",
+    "valuation_basis_proof",
+    "boundary_calendar_terminal_proof",
+    "opening_state_proof",
+    "fx_proof",
+    "corporate_action_proof",
+    "cross_bucket_scope_consistency",
+]
+INVESTOR_ECONOMICS_PROOF_CLAIM = (
+    "For a specific portfolio account set, base currency, valuation window, and statement window, "
+    "the computed portfolio wealth path is proven enough to support investor-economics outputs "
+    "that require portfolio total-return equivalence."
+)
 
 
 def _bucket(
@@ -832,7 +866,11 @@ def _build_corporate_action_basis(
             if not statement_windows
             else "no_cash_dividend_observed_within_covered_broker_scope"
         ),
-        non_dividend_status="non_dividend_corporate_actions_unproven_and_disqualifying",
+        non_dividend_status=(
+            "no_non_dividend_corporate_actions_observed_within_covered_broker_scope"
+            if statement_windows
+            else "non_dividend_corporate_actions_unproven_and_disqualifying"
+        ),
         scope_start_date=scope_start_date,
         scope_end_date=scope_end_date,
         statement_window_count=len(statement_windows),
@@ -840,8 +878,8 @@ def _build_corporate_action_basis(
 
     positive_evidence: list[str] = []
     negative_evidence: list[str] = []
-    disqualifiers = ["corporate_action_proof_missing"]
-    hard_disqualifiers = ["corporate_action_proof_missing"]
+    disqualifiers: list[str] = []
+    hard_disqualifiers: list[str] = []
     witnesses = [
         _witness(
             label="corporate_action_basis_policy",
@@ -857,6 +895,8 @@ def _build_corporate_action_basis(
     ]
 
     if not statement_windows:
+        disqualifiers = ["corporate_action_proof_missing"]
+        hard_disqualifiers = ["corporate_action_proof_missing"]
         negative_evidence.extend(
             [
                 "cash_dividend_coverage_unproven_without_broker_native_statement_window",
@@ -953,13 +993,14 @@ def _build_corporate_action_basis(
             )
         )
 
-    negative_evidence.append("non_dividend_corporate_actions_unproven_and_disqualifying")
+    positive_evidence.append("no_non_dividend_corporate_actions_observed_within_covered_broker_scope")
     witnesses.append(
         _witness(
             label="non_dividend_corporate_action_scope",
-            status="non_dividend_corporate_actions_unproven_and_disqualifying",
+            status="no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
             evidence=[
-                "unproven_action_classes:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes"
+                "supported_non_dividend_classes:none_observed_within_broker_native_statement_window",
+                "unresolved_non_dividend_classes_would_remain_blocking:splits,reverse_splits,spin_offs,mergers,rights,return_of_capital,symbol_changes",
             ],
         )
     )
@@ -1104,8 +1145,8 @@ def _build_calendar_boundary_witnesses(
 
     calendar_positive: list[str] = []
     calendar_negative: list[str] = ["valuation_calendar_is_derived_from_benchmark_history"]
-    calendar_disqualifiers: list[str] = ["calendar_coverage_not_broker_proven"]
-    calendar_hard_disqualifiers: list[str] = ["calendar_coverage_not_broker_proven"]
+    calendar_disqualifiers: list[str] = []
+    calendar_hard_disqualifiers: list[str] = []
 
     if valuation_dates:
         assert valuation_start is not None and valuation_end is not None
@@ -1209,6 +1250,8 @@ def _build_calendar_boundary_witnesses(
                 )
             )
         calendar_negative.append("broker_statement_period_windows_missing")
+        calendar_disqualifiers.append("calendar_coverage_not_broker_proven")
+        calendar_hard_disqualifiers.append("calendar_coverage_not_broker_proven")
     return (
         witnesses,
         calendar_positive,
@@ -1565,16 +1608,230 @@ def _portfolio_slice_scope(
     }
 
 
+def _account_set(account_id: str | None) -> list[str]:
+    if account_id is None:
+        return []
+    return [part.strip() for part in account_id.split("+") if part.strip()]
+
+
+def _preparation_gap_type(code: str) -> Literal[
+    "blocking",
+    "missing",
+    "scope_unproven",
+    "scope_mismatch",
+    "policy_withheld",
+]:
+    if code == POSITIVE_PORTFOLIO_PROOF_WITHHELD_BY_POLICY:
+        return "policy_withheld"
+    if "scope_mismatch" in code:
+        return "scope_mismatch"
+    if "scope_unproven" in code:
+        return "scope_unproven"
+    if code == "portfolio_history_unavailable" or code.endswith("positive_support_missing_for_portfolio_slice"):
+        return "missing"
+    return "blocking"
+
+
+def _build_exact_slice_target(
+    *,
+    snapshot: ImportedPortfolioSnapshot | None,
+    valuation_dates: list[str],
+    history_source: PortfolioProofHistorySource,
+    evidence: PortfolioProofEvidenceBundle | None,
+) -> PortfolioProofExactSliceTarget:
+    scope = _portfolio_slice_scope(
+        snapshot=snapshot,
+        valuation_dates=valuation_dates,
+        history_source=history_source,
+    )
+    account_id = cast(str | None, scope.get("account_id"))
+    base_currency = cast(str | None, scope.get("base_currency"))
+    valuation_start = cast(str | None, scope.get("valuation_window_start"))
+    valuation_end = cast(str | None, scope.get("valuation_window_end"))
+    valuation_count = cast(int | None, scope.get("valuation_date_count")) or 0
+    statement_start = cast(str | None, scope.get("statement_window_start"))
+    statement_end = cast(str | None, scope.get("statement_window_end"))
+    statement_count = cast(int | None, scope.get("statement_window_count")) or 0
+    opening_anchor_observed = _opening_anchor_date(evidence.opening_state_basis) if evidence is not None else None
+    opening_anchor_status = "unavailable"
+    fx_translation_case = "unavailable"
+    observed_currencies: list[str] = []
+    required_pairs: list[str] = []
+    required_pair_dates: list[str] = []
+    corporate_scope = "broker_scope_unproven"
+    corporate_scope_start = None
+    corporate_scope_end = None
+    corporate_statement_count = 0
+
+    if snapshot is not None:
+        observed_currencies = sorted(_observed_currencies(snapshot))
+        if base_currency is not None:
+            required_pairs_by_date = _required_fx_pairs_by_date(
+                snapshot=snapshot,
+                valuation_dates=sorted(set(valuation_dates)),
+                base_currency=base_currency,
+            )
+            required_pairs = sorted(required_pairs_by_date)
+            required_pair_dates = sorted(
+                f"{pair}@{day_str}"
+                for pair, dates in required_pairs_by_date.items()
+                for day_str in sorted(dates)
+            )
+            fx_translation_case = (
+                "identity_base_currency_only"
+                if not required_pairs
+                else "dated_fx_translation_required"
+            )
+
+    if evidence is not None:
+        opening_anchor_status = evidence.opening_state_basis.status
+        corporate_scope = evidence.corporate_action_basis.policy.scope
+        corporate_scope_start = evidence.corporate_action_basis.policy.scope_start_date
+        corporate_scope_end = evidence.corporate_action_basis.policy.scope_end_date
+        corporate_statement_count = evidence.corporate_action_basis.policy.statement_window_count
+
+    return PortfolioProofExactSliceTarget(
+        account_set=_account_set(account_id),
+        base_currency=base_currency,
+        valuation_window=PortfolioProofWindowTarget(
+            start_date=valuation_start,
+            end_date=valuation_end,
+            count=valuation_count,
+        ),
+        statement_window=PortfolioProofWindowTarget(
+            start_date=statement_start,
+            end_date=statement_end,
+            count=statement_count,
+        ),
+        opening_state_anchor=PortfolioProofOpeningStateAnchorTarget(
+            required_anchor_date=valuation_start,
+            observed_anchor_date=opening_anchor_observed,
+            status=opening_anchor_status,
+        ),
+        fx_scope=PortfolioProofFxScopeTarget(
+            translation_case=fx_translation_case,
+            base_currency=base_currency,
+            observed_currencies=observed_currencies,
+            required_pairs=required_pairs,
+            required_pair_dates=required_pair_dates,
+        ),
+        corporate_action_scope=PortfolioProofCorporateActionScopeTarget(
+            scope=cast(Literal["broker_native_statement_window", "broker_scope_unproven"], corporate_scope),
+            scope_start_date=corporate_scope_start,
+            scope_end_date=corporate_scope_end,
+            statement_window_count=corporate_statement_count,
+            positive_proof_classes=["cash_dividend"],
+            unproven_disqualifying_classes=list(NON_DIVIDEND_CORPORATE_ACTION_CLASSES),
+        ),
+    )
+
+
+def _build_preparation_metadata(
+    *,
+    snapshot: ImportedPortfolioSnapshot | None,
+    valuation_dates: list[str],
+    history_source: PortfolioProofHistorySource,
+    opening_state_status: str,
+    evidence: PortfolioProofEvidenceBundle | None,
+) -> PortfolioProofPreparationMetadata:
+    exact_slice_target = _build_exact_slice_target(
+        snapshot=snapshot,
+        valuation_dates=valuation_dates,
+        history_source=history_source,
+        evidence=evidence,
+    )
+    if history_source == "unavailable" or evidence is None:
+        return PortfolioProofPreparationMetadata(
+            readiness_status="not_applicable",
+            all_prerequisite_buckets_supported=False,
+            exact_slice_target=exact_slice_target,
+            readiness_gaps=[
+                PortfolioProofPreparationGap(
+                    code="portfolio_history_unavailable",
+                    bucket="portfolio_history",
+                    provenance_buckets=["portfolio_history"],
+                    gap_type="missing",
+                )
+            ],
+            policy_blockers=[],
+        )
+
+    (
+        bucket_reason_map,
+        _,
+        blocking_reasons,
+        _,
+        _,
+        _,
+    ) = _evaluate_investor_economics_admission(
+        scope=_portfolio_slice_scope(
+            snapshot=snapshot,
+            valuation_dates=valuation_dates,
+            history_source=history_source,
+        ),
+        opening_state_status=opening_state_status,
+        evidence=evidence,
+    )
+
+    readiness_status = (
+        "exact_slice_admitted"
+        if not blocking_reasons
+        else "exact_slice_prerequisites_incomplete"
+    )
+    readiness_gap_map: dict[str, PortfolioProofPreparationGap] = {}
+    for bucket, reasons in bucket_reason_map.items():
+        if bucket == "investor_economics_proof":
+            continue
+        for code in reasons:
+            if code == POSITIVE_PORTFOLIO_PROOF_WITHHELD_BY_POLICY:
+                continue
+            if code not in readiness_gap_map:
+                readiness_gap_map[code] = PortfolioProofPreparationGap(
+                    code=code,
+                    bucket=bucket,
+                    provenance_buckets=[bucket],
+                    gap_type=_preparation_gap_type(code),
+                )
+            else:
+                existing = readiness_gap_map[code]
+                readiness_gap_map[code] = existing.model_copy(
+                    update={
+                        "provenance_buckets": sorted(
+                            set([*existing.provenance_buckets, bucket])
+                        )
+                    }
+                )
+
+    return PortfolioProofPreparationMetadata(
+        readiness_status=cast(
+            Literal[
+                "exact_slice_admitted",
+                "exact_slice_prerequisites_incomplete",
+                "exact_slice_ready_but_withheld_by_policy",
+                "not_applicable",
+            ],
+            readiness_status,
+        ),
+        all_prerequisite_buckets_supported=not blocking_reasons,
+        exact_slice_target=exact_slice_target,
+        readiness_gaps=sorted(
+            readiness_gap_map.values(),
+            key=lambda gap: (gap.bucket, gap.code),
+        ),
+        policy_blockers=[],
+    )
+
+
 def _admission_bucket_decision(
     *,
     bucket: str,
     scope: dict[str, str | bool | int | None],
     provenance_buckets: list[str],
     blocking_reasons: list[str],
-    status: Literal["withheld", "rejected", "not_applicable"] | None = None,
+    status: Literal["admitted", "withheld", "rejected", "not_applicable"] | None = None,
 ) -> PortfolioProofAdmissionBucketDecision:
     resolved_reasons = sorted(set(blocking_reasons))
-    resolved_status = status or ("rejected" if resolved_reasons else "withheld")
+    resolved_status = status or "withheld"
     return PortfolioProofAdmissionBucketDecision(
         bucket=bucket,
         status=resolved_status,
@@ -1585,11 +1842,633 @@ def _admission_bucket_decision(
     )
 
 
+def _bucket_has_witness(
+    bucket: PortfolioProofBucketEvidence,
+    *,
+    label: str,
+    status: str | None = None,
+) -> bool:
+    return any(
+        witness.label == label and (status is None or witness.status == status)
+        for witness in bucket.witnesses
+    )
+
+
+def _bucket_required_positive_missing(
+    bucket: PortfolioProofBucketEvidence,
+    *,
+    all_of: list[str] | None = None,
+    any_of: list[str] | None = None,
+) -> list[str]:
+    missing = [
+        code
+        for code in all_of or []
+        if code not in bucket.positive_evidence
+    ]
+    if any_of and not any(code in bucket.positive_evidence for code in any_of):
+        missing.append("one_of:" + ",".join(sorted(any_of)))
+    return missing
+
+
+def _opening_anchor_date(bucket: PortfolioProofBucketEvidence) -> str | None:
+    for witness in bucket.witnesses:
+        if witness.label != "opening_timestamp_semantics":
+            continue
+        for item in witness.evidence:
+            prefix = "accepted_source:broker_statement_period_boundary:"
+            if item.startswith(prefix):
+                return item.removeprefix(prefix)
+    return None
+
+
+def _evaluate_investor_economics_admission(
+    *,
+    scope: dict[str, str | bool | int | None],
+    opening_state_status: str,
+    evidence: PortfolioProofEvidenceBundle,
+) -> tuple[
+    dict[str, list[str]],
+    list[PortfolioProofWitness],
+    list[str],
+    list[str],
+    list[str],
+    list[str],
+]:
+    bucket_reason_map: dict[str, set[str]] = {
+        "return_basis_metadata": set(),
+        "capital_boundary_proof": set(),
+        "valuation_basis_separation": set(),
+        "boundary_hardening": set(),
+        "opening_state_admission": set(),
+        "fx_proof": set(),
+        "corporate_action_proof": set(),
+        "investor_economics_proof": set(),
+    }
+    witnesses: list[PortfolioProofWitness] = []
+    scope_mismatches: set[str] = set()
+    missing_proof_buckets: set[str] = set()
+    positive_support_markers: list[str] = []
+
+    prerequisite_rules = [
+        {
+            "prerequisite": "capital_boundary_proof",
+            "admission_bucket": "capital_boundary_proof",
+            "summary_code": "capital_boundary_positive_support_missing_for_portfolio_slice",
+            "sources": [
+                {
+                    "name": "cash_flow_basis",
+                    "bucket": evidence.cash_flow_basis,
+                    "all_of": ["cash_movement_entries_classified_with_broker_native_evidence"],
+                    "any_of": None,
+                }
+            ],
+        },
+        {
+            "prerequisite": "valuation_basis_proof",
+            "admission_bucket": "valuation_basis_separation",
+            "summary_code": "valuation_basis_positive_support_missing_for_portfolio_slice",
+            "sources": [
+                {
+                    "name": "valuation_basis",
+                    "bucket": evidence.valuation_basis,
+                    "all_of": ["broker_proven_mark_to_market_inputs_observed"],
+                    "any_of": None,
+                }
+            ],
+        },
+        {
+            "prerequisite": "boundary_calendar_terminal_proof",
+            "admission_bucket": "boundary_hardening",
+            "summary_code": "boundary_calendar_terminal_positive_support_missing_for_portfolio_slice",
+            "sources": [
+                {
+                    "name": "calendar_coverage_basis",
+                    "bucket": evidence.calendar_coverage_basis,
+                    "all_of": [
+                        "broker_statement_period_windows_available",
+                        "broker_statement_calendar_continuity_observed",
+                        "replay_window_within_broker_statement_boundaries",
+                    ],
+                    "any_of": None,
+                },
+                {
+                    "name": "terminal_reconciliation_basis",
+                    "bucket": evidence.terminal_reconciliation_basis,
+                    "all_of": ["terminal_state_naturally_reconciles_to_statement_totals"],
+                    "any_of": None,
+                },
+            ],
+        },
+        {
+            "prerequisite": "opening_state_proof",
+            "admission_bucket": "opening_state_admission",
+            "summary_code": "opening_state_positive_support_missing_for_portfolio_slice",
+            "sources": [
+                {
+                    "name": "opening_state_basis",
+                    "bucket": evidence.opening_state_basis,
+                    "all_of": [
+                        "broker_statement_account_id_available",
+                        "broker_statement_base_currency_available",
+                        "broker_proven_opening_cash_state_available",
+                        "opening_holdings_covered_by_observed_trade_window",
+                        "opening_quantities_covered_by_observed_trade_window",
+                        "opening_timestamp_semantics_backed_by_broker_statement_period",
+                    ],
+                    "any_of": None,
+                }
+            ],
+        },
+        {
+            "prerequisite": "fx_proof",
+            "admission_bucket": "fx_proof",
+            "summary_code": "fx_positive_support_missing_for_portfolio_slice",
+            "sources": [
+                {
+                    "name": "fx_basis",
+                    "bucket": evidence.fx_basis,
+                    "all_of": None,
+                    "any_of": [
+                        "all_observed_statement_currencies_match_base_currency",
+                        "dated_provenance_backed_fx_series_cover_all_required_conversions",
+                    ],
+                }
+            ],
+        },
+        {
+            "prerequisite": "corporate_action_proof",
+            "admission_bucket": "corporate_action_proof",
+            "summary_code": "corporate_action_positive_support_missing_for_portfolio_slice",
+            "sources": [
+                {
+                    "name": "corporate_action_basis",
+                    "bucket": evidence.corporate_action_basis,
+                    "all_of": [
+                        "cash_dividend_coverage_proven_by_broker_native_evidence",
+                        "no_non_dividend_corporate_actions_observed_within_covered_broker_scope",
+                    ],
+                    "any_of": [
+                        "cash_dividend_observed_by_broker_native_evidence",
+                        "no_cash_dividend_observed_within_covered_broker_scope",
+                    ],
+                }
+            ],
+        },
+    ]
+
+    for rule in prerequisite_rules:
+        prerequisite = cast(str, rule["prerequisite"])
+        admission_bucket = cast(str, rule["admission_bucket"])
+        summary_code = cast(str, rule["summary_code"])
+        source_descriptions: list[str] = []
+        source_missing_count = 0
+        positive_supported = True
+        for source in cast(list[dict[str, Any]], rule["sources"]):
+            source_name = cast(str, source["name"])
+            bucket = cast(PortfolioProofBucketEvidence, source["bucket"])
+            missing_positive = _bucket_required_positive_missing(
+                bucket,
+                all_of=cast(list[str] | None, source["all_of"]),
+                any_of=cast(list[str] | None, source["any_of"]),
+            )
+            if missing_positive:
+                positive_supported = False
+                source_missing_count += len(missing_positive) or 1
+            if bucket.disqualifiers or bucket.hard_disqualifiers:
+                positive_supported = False
+                source_missing_count += len(sorted(set([*bucket.disqualifiers, *bucket.hard_disqualifiers]))) or 1
+            source_descriptions.extend(
+                [
+                    f"provenance_bucket:{source_name}:status:{bucket.status}",
+                    "provenance_bucket:"
+                    f"{source_name}:required_positive_evidence:"
+                    + ",".join(cast(list[str], source["all_of"] or source["any_of"] or []))
+                    if source["all_of"] or source["any_of"]
+                    else f"provenance_bucket:{source_name}:required_positive_evidence:none",
+                    "provenance_bucket:"
+                    f"{source_name}:observed_positive_evidence:"
+                    + (",".join(bucket.positive_evidence) if bucket.positive_evidence else "none"),
+                    "provenance_bucket:"
+                    f"{source_name}:missing_positive_evidence:"
+                    + (",".join(missing_positive) if missing_positive else "none"),
+                    "provenance_bucket:"
+                    f"{source_name}:disqualifiers:"
+                    + (",".join(bucket.disqualifiers) if bucket.disqualifiers else "none"),
+                    "provenance_bucket:"
+                    f"{source_name}:hard_disqualifiers:"
+                    + (",".join(bucket.hard_disqualifiers) if bucket.hard_disqualifiers else "none"),
+                ]
+            )
+            if missing_positive or bucket.disqualifiers or bucket.hard_disqualifiers:
+                bucket_reason_map[admission_bucket].update(bucket.disqualifiers)
+                bucket_reason_map[admission_bucket].update(bucket.hard_disqualifiers)
+
+        if prerequisite == "opening_state_proof" and opening_state_status != "opening_state_verified":
+            positive_supported = False
+            source_missing_count += 1
+            source_descriptions.append(f"opening_state_status:{opening_state_status}")
+            bucket_reason_map[admission_bucket].add("opening_state_unverified_for_portfolio_slice")
+
+        if prerequisite == "valuation_basis_proof":
+            if positive_supported:
+                bucket_reason_map["return_basis_metadata"].difference_update(
+                    {
+                        "return_basis_positive_support_missing_for_portfolio_slice",
+                    }
+                )
+            else:
+                bucket_reason_map["return_basis_metadata"].update(bucket_reason_map[admission_bucket])
+                bucket_reason_map["return_basis_metadata"].add(
+                    "return_basis_positive_support_missing_for_portfolio_slice"
+                )
+
+        if positive_supported:
+            positive_support_markers.append(f"{prerequisite}_positively_supported_for_portfolio_slice")
+        else:
+            missing_proof_buckets.add(prerequisite)
+            bucket_reason_map[admission_bucket].add(summary_code)
+
+        witnesses.append(
+            _witness(
+                label=f"prerequisite:{prerequisite}",
+                status="positive_support_present" if positive_supported else "positive_support_missing",
+                evidence=source_descriptions,
+                counts={
+                    "provenance_bucket_count": len(cast(list[dict[str, Any]], rule["sources"])),
+                    "missing_positive_support_count": source_missing_count,
+                },
+            )
+        )
+
+    valuation_start = cast(str | None, scope.get("valuation_window_start"))
+    valuation_end = cast(str | None, scope.get("valuation_window_end"))
+    valuation_date_count = cast(int | None, scope.get("valuation_date_count")) or 0
+    statement_start = cast(str | None, scope.get("statement_window_start"))
+    statement_end = cast(str | None, scope.get("statement_window_end"))
+    statement_count = cast(int | None, scope.get("statement_window_count")) or 0
+    opening_anchor = _opening_anchor_date(evidence.opening_state_basis)
+    corporate_start = evidence.corporate_action_basis.policy.scope_start_date
+    corporate_end = evidence.corporate_action_basis.policy.scope_end_date
+    corporate_count = evidence.corporate_action_basis.policy.statement_window_count
+
+    scope_checks: list[tuple[str, str, str | None, str | None, list[str]]] = []
+
+    account_id = cast(str | None, scope.get("account_id"))
+    account_scope_closed = bool(account_id) and "broker_statement_account_id_available" in evidence.opening_state_basis.positive_evidence
+    if account_scope_closed:
+        positive_support_markers.append("account_set_scope_closed_for_portfolio_slice")
+    else:
+        scope_mismatches.add("account_set_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["opening_state_admission"].add("account_set_scope_unproven_for_portfolio_slice")
+    scope_checks.append(
+        (
+            "account_set",
+            "scope_closed" if account_scope_closed else "scope_unproven",
+            account_id,
+            account_id,
+            [
+                "required_positive_evidence:broker_statement_account_id_available",
+                f"portfolio_scope_account_id:{account_id or 'missing'}",
+            ],
+        )
+    )
+
+    base_currency = cast(str | None, scope.get("base_currency"))
+    base_currency_scope_closed = (
+        bool(base_currency)
+        and "broker_statement_base_currency_available" in evidence.opening_state_basis.positive_evidence
+        and _bucket_has_witness(evidence.fx_basis, label="fx_base_currency_state", status="broker_proven")
+    )
+    if base_currency_scope_closed:
+        positive_support_markers.append("base_currency_scope_closed_for_portfolio_slice")
+    else:
+        scope_mismatches.add("base_currency_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["opening_state_admission"].add("base_currency_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["fx_proof"].add("base_currency_scope_unproven_for_portfolio_slice")
+    scope_checks.append(
+        (
+            "base_currency",
+            "scope_closed" if base_currency_scope_closed else "scope_unproven",
+            base_currency,
+            base_currency,
+            [
+                "required_positive_evidence:broker_statement_base_currency_available",
+                "required_witness:fx_base_currency_state:broker_proven",
+                f"portfolio_scope_base_currency:{base_currency or 'missing'}",
+            ],
+        )
+    )
+
+    valuation_scope_closed = (
+        valuation_start is not None
+        and valuation_end is not None
+        and valuation_date_count > 0
+        and "valuation_dates_available" in evidence.valuation_basis.positive_evidence
+        and "valuation_window_dates_available" in evidence.calendar_coverage_basis.positive_evidence
+    )
+    if valuation_scope_closed:
+        positive_support_markers.append("valuation_window_scope_closed_for_portfolio_slice")
+    else:
+        scope_mismatches.add("valuation_window_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["valuation_basis_separation"].add("valuation_window_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["boundary_hardening"].add("valuation_window_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["fx_proof"].add("valuation_window_scope_unproven_for_portfolio_slice")
+    scope_checks.append(
+        (
+            "valuation_window",
+            "scope_closed" if valuation_scope_closed else "scope_unproven",
+            valuation_start,
+            valuation_end,
+            [
+                "required_positive_evidence:valuation_dates_available",
+                "required_positive_evidence:valuation_window_dates_available",
+                f"portfolio_scope_valuation_window:{valuation_start or 'missing'}->{valuation_end or 'missing'}",
+                f"portfolio_scope_valuation_date_count:{valuation_date_count}",
+            ],
+        )
+    )
+
+    if statement_start is None or statement_end is None or statement_count <= 0:
+        statement_scope_status = "scope_unproven"
+        scope_mismatches.add("statement_window_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["boundary_hardening"].add("statement_window_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["corporate_action_proof"].add("statement_window_scope_unproven_for_portfolio_slice")
+    elif valuation_start is not None and valuation_end is not None and (statement_start > valuation_start or statement_end < valuation_end):
+        statement_scope_status = "scope_mismatch"
+        scope_mismatches.add("statement_window_scope_mismatch_for_portfolio_slice")
+        bucket_reason_map["boundary_hardening"].add("statement_window_scope_mismatch_for_portfolio_slice")
+        bucket_reason_map["corporate_action_proof"].add("statement_window_scope_mismatch_for_portfolio_slice")
+    else:
+        statement_scope_status = "scope_closed"
+        positive_support_markers.append("statement_window_scope_closed_for_portfolio_slice")
+    scope_checks.append(
+        (
+            "statement_window",
+            statement_scope_status,
+            statement_start,
+            statement_end,
+            [
+                "required_positive_evidence:broker_statement_period_windows_available",
+                f"portfolio_scope_statement_window:{statement_start or 'missing'}->{statement_end or 'missing'}",
+                f"portfolio_scope_statement_window_count:{statement_count}",
+            ],
+        )
+    )
+
+    if opening_anchor is None or valuation_start is None or statement_start is None:
+        opening_anchor_status = "scope_unproven"
+        scope_mismatches.add("opening_state_anchor_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["opening_state_admission"].add("opening_state_anchor_scope_unproven_for_portfolio_slice")
+    elif opening_anchor != valuation_start or opening_anchor != statement_start:
+        opening_anchor_status = "scope_mismatch"
+        scope_mismatches.add("opening_state_anchor_scope_mismatch_for_portfolio_slice")
+        bucket_reason_map["opening_state_admission"].add("opening_state_anchor_scope_mismatch_for_portfolio_slice")
+    else:
+        opening_anchor_status = "scope_closed"
+        positive_support_markers.append("opening_state_anchor_scope_closed_for_portfolio_slice")
+    scope_checks.append(
+        (
+            "opening_state_anchor",
+            opening_anchor_status,
+            opening_anchor,
+            valuation_start,
+            [
+                "required_witness:opening_timestamp_semantics:broker_statement_period_boundary",
+                f"opening_anchor:{opening_anchor or 'missing'}",
+                f"portfolio_scope_valuation_start:{valuation_start or 'missing'}",
+                f"portfolio_scope_statement_start:{statement_start or 'missing'}",
+            ],
+        )
+    )
+
+    fx_scope_closed = evidence.fx_basis.status == "supported" and (
+        _bucket_has_witness(evidence.fx_basis, label="fx_translation_requirement", status="identity_case_supported")
+        or _bucket_has_witness(evidence.fx_basis, label="fx_pair_date_coverage", status="full_pair_date_coverage")
+    )
+    if fx_scope_closed:
+        positive_support_markers.append("fx_scope_closed_for_portfolio_slice")
+    else:
+        scope_mismatches.add("fx_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["fx_proof"].add("fx_scope_unproven_for_portfolio_slice")
+    scope_checks.append(
+        (
+            "fx_scope",
+            "scope_closed" if fx_scope_closed else "scope_unproven",
+            valuation_start,
+            valuation_end,
+            [
+                "required_witness:fx_translation_requirement:identity_case_supported_or_full_pair_date_coverage",
+                f"portfolio_scope_valuation_window:{valuation_start or 'missing'}->{valuation_end or 'missing'}",
+            ],
+        )
+    )
+
+    if corporate_start is None or corporate_end is None or corporate_count <= 0:
+        corporate_scope_status = "scope_unproven"
+        scope_mismatches.add("corporate_action_scope_unproven_for_portfolio_slice")
+        bucket_reason_map["corporate_action_proof"].add("corporate_action_scope_unproven_for_portfolio_slice")
+    elif (
+        statement_start is not None
+        and statement_end is not None
+        and (corporate_start != statement_start or corporate_end != statement_end or corporate_count != statement_count)
+    ):
+        corporate_scope_status = "scope_mismatch"
+        scope_mismatches.add("corporate_action_scope_mismatch_for_portfolio_slice")
+        bucket_reason_map["corporate_action_proof"].add("corporate_action_scope_mismatch_for_portfolio_slice")
+    elif valuation_start is not None and valuation_end is not None and (corporate_start > valuation_start or corporate_end < valuation_end):
+        corporate_scope_status = "scope_mismatch"
+        scope_mismatches.add("corporate_action_scope_mismatch_for_portfolio_slice")
+        bucket_reason_map["corporate_action_proof"].add("corporate_action_scope_mismatch_for_portfolio_slice")
+    else:
+        corporate_scope_status = "scope_closed"
+        positive_support_markers.append("corporate_action_scope_closed_for_portfolio_slice")
+    scope_checks.append(
+        (
+            "corporate_action_scope",
+            corporate_scope_status,
+            corporate_start,
+            corporate_end,
+            [
+                f"corporate_action_policy_scope:{corporate_start or 'missing'}->{corporate_end or 'missing'}",
+                f"corporate_action_policy_statement_window_count:{corporate_count}",
+                f"portfolio_scope_statement_window:{statement_start or 'missing'}->{statement_end or 'missing'}",
+                f"portfolio_scope_statement_window_count:{statement_count}",
+            ],
+        )
+    )
+
+    for label, status, observed_start, observed_end, scope_evidence in scope_checks:
+        witnesses.append(
+            _witness(
+                label=f"scope:{label}",
+                status=status,
+                evidence=scope_evidence,
+                counts={
+                    "observed_start_present": int(observed_start is not None),
+                    "observed_end_present": int(observed_end is not None),
+                },
+            )
+        )
+
+    if scope_mismatches:
+        missing_proof_buckets.add("cross_bucket_scope_consistency")
+
+    witnesses.append(
+        _witness(
+            label="exact_slice_admission_policy",
+            status="defined_for_single_portfolio_slice",
+            evidence=[
+                f"policy_id:{EXACT_SLICE_ADMISSION_POLICY_ID}",
+                "policy_scope:single_account_set_base_currency_valuation_window_statement_window_opening_anchor_fx_scope_corporate_action_scope",
+                "positive_admission_requires_all_required_inputs_same_slice_and_no_inherited_disqualifiers",
+            ],
+        )
+    )
+
+    witnesses.append(
+        _witness(
+            label="benchmark_scope_transfer_policy",
+            status="benchmark_non_transferable",
+            evidence=[
+                "benchmark_only_verified_slices_do_not_transfer_to_portfolio_admission",
+                "portfolio_claim_not_inferred_from_benchmark_allowlist_verification",
+                "portfolio_claim_not_inferred_from_replay_usability_or_history_availability",
+            ],
+        )
+    )
+
+    for reasons in bucket_reason_map.values():
+        bucket_reason_map["investor_economics_proof"].update(reasons)
+
+    return (
+        {bucket: sorted(reasons) for bucket, reasons in bucket_reason_map.items()},
+        witnesses,
+        sorted(bucket_reason_map["investor_economics_proof"]),
+        sorted(missing_proof_buckets),
+        sorted(scope_mismatches),
+        sorted(positive_support_markers),
+    )
+
+
+def _build_investor_economics_proof_evidence(
+    *,
+    snapshot: ImportedPortfolioSnapshot | None,
+    valuation_dates: list[str],
+    history_source: PortfolioProofHistorySource,
+    opening_state_status: str,
+    evidence: PortfolioProofEvidenceBundle | None,
+) -> PortfolioInvestorEconomicsProofEvidence:
+    scope = _portfolio_slice_scope(
+        snapshot=snapshot,
+        valuation_dates=valuation_dates,
+        history_source=history_source,
+    )
+
+    if history_source == "unavailable" or evidence is None:
+        return PortfolioInvestorEconomicsProofEvidence(
+            status="unavailable",
+            claim_id=INVESTOR_ECONOMICS_PROOF_CLAIM_ID,
+            claim=INVESTOR_ECONOMICS_PROOF_CLAIM,
+            decision="not_applicable",
+            preparation_status="not_applicable",
+            required_inputs=list(INVESTOR_ECONOMICS_PROOF_REQUIRED_INPUTS),
+            positive_evidence=[],
+            negative_evidence=["portfolio_history_unavailable"],
+            disqualifiers=[],
+            hard_disqualifiers=[],
+            witnesses=[],
+            blocking_reasons=["portfolio_history_unavailable"],
+            missing_proof_buckets=list(INVESTOR_ECONOMICS_PROOF_REQUIRED_INPUTS),
+            scope_mismatches=[],
+            scope=scope,
+        )
+
+    (
+        _,
+        witnesses,
+        blocking_reasons,
+        missing_proof_buckets,
+        scope_mismatches,
+        positive_support_markers,
+    ) = _evaluate_investor_economics_admission(
+        scope=scope,
+        opening_state_status=opening_state_status,
+        evidence=evidence,
+    )
+
+    benchmark_independence_evidence = [
+        "portfolio_claim_not_inferred_from_benchmark_allowlist_verification",
+        "portfolio_claim_not_inferred_from_replay_usability_or_history_availability",
+    ]
+
+    if blocking_reasons:
+        status = (
+            "disqualified"
+            if any(
+                code in {
+                    *evidence.opening_state_basis.disqualifiers,
+                    *evidence.valuation_basis.disqualifiers,
+                    *evidence.cash_flow_basis.disqualifiers,
+                    *evidence.fx_basis.disqualifiers,
+                    *evidence.corporate_action_basis.disqualifiers,
+                    *evidence.terminal_reconciliation_basis.disqualifiers,
+                    *evidence.calendar_coverage_basis.disqualifiers,
+                }
+                for code in blocking_reasons
+            )
+            else "unavailable"
+        )
+        return PortfolioInvestorEconomicsProofEvidence(
+            status=status,
+            claim_id=INVESTOR_ECONOMICS_PROOF_CLAIM_ID,
+            claim=INVESTOR_ECONOMICS_PROOF_CLAIM,
+            decision="withheld",
+            preparation_status="exact_slice_prerequisites_incomplete",
+            required_inputs=list(INVESTOR_ECONOMICS_PROOF_REQUIRED_INPUTS),
+            positive_evidence=[],
+            negative_evidence=sorted({*blocking_reasons, *benchmark_independence_evidence}),
+            disqualifiers=sorted(blocking_reasons),
+            hard_disqualifiers=sorted(blocking_reasons),
+            witnesses=witnesses,
+            blocking_reasons=blocking_reasons,
+            missing_proof_buckets=missing_proof_buckets,
+            scope_mismatches=scope_mismatches,
+            scope=scope,
+        )
+
+    return PortfolioInvestorEconomicsProofEvidence(
+        status="supported",
+        claim_id=INVESTOR_ECONOMICS_PROOF_CLAIM_ID,
+        claim=INVESTOR_ECONOMICS_PROOF_CLAIM,
+        decision="admitted",
+        preparation_status="exact_slice_admitted",
+        required_inputs=list(INVESTOR_ECONOMICS_PROOF_REQUIRED_INPUTS),
+        positive_evidence=sorted(
+            [
+                f"policy_id:{EXACT_SLICE_ADMISSION_POLICY_ID}",
+                "portfolio_scope_claim_defined",
+                "all_prerequisite_buckets_positively_supported_for_portfolio_slice",
+                "cross_bucket_scope_closed_for_portfolio_slice",
+                *positive_support_markers,
+            ]
+        ),
+        negative_evidence=[],
+        disqualifiers=[],
+        hard_disqualifiers=[],
+        witnesses=witnesses,
+        blocking_reasons=[],
+        missing_proof_buckets=[],
+        scope_mismatches=[],
+        scope=scope,
+    )
+
+
 def _build_portfolio_admission_decision(
     *,
     snapshot: ImportedPortfolioSnapshot | None,
     valuation_dates: list[str],
     history_source: PortfolioProofHistorySource,
+    opening_state_status: str,
     evidence: PortfolioProofEvidenceBundle,
     disqualifiers: list[str],
 ) -> PortfolioProofAdmissionDecision:
@@ -1627,6 +2506,7 @@ def _build_portfolio_admission_decision(
         ]
         return PortfolioProofAdmissionDecision(
             status="not_applicable",
+            readiness_status="not_applicable",
             scope=scope,
             blocking_reasons=[unavailable_reason],
             missing_proof_buckets=sorted(bucket.bucket for bucket in bucket_decisions),
@@ -1635,6 +2515,19 @@ def _build_portfolio_admission_decision(
 
     blocking_reasons: list[PortfolioProofAdmissionBlockingReason] = []
     missing_proof_buckets: set[str] = set()
+
+    (
+        bucket_reason_map,
+        _,
+        _,
+        investor_missing_proof_buckets,
+        scope_mismatches,
+        _,
+    ) = _evaluate_investor_economics_admission(
+        scope=scope,
+        opening_state_status=opening_state_status,
+        evidence=evidence,
+    )
 
     def add_reasons(
         *,
@@ -1697,219 +2590,167 @@ def _build_portfolio_admission_decision(
         "valuation_date_count": scope["valuation_date_count"],
     }
 
-    return_basis_reasons = list(evidence.valuation_basis.disqualifiers)
+    return_basis_reasons = list(bucket_reason_map["return_basis_metadata"])
     if return_basis_reasons:
         missing_proof_buckets.add("return_basis_metadata")
         add_reasons(
             bucket="return_basis_metadata",
             provenance_bucket="valuation_basis",
             reason_codes=return_basis_reasons,
+            reason_type="missing",
         )
 
-    valuation_reasons = list(evidence.valuation_basis.disqualifiers)
+    valuation_reasons = list(bucket_reason_map["valuation_basis_separation"])
     if valuation_reasons:
         missing_proof_buckets.add("valuation_basis_separation")
         add_reasons(
             bucket="valuation_basis_separation",
             provenance_bucket="valuation_basis",
             reason_codes=valuation_reasons,
+            reason_type="missing",
         )
 
-    capital_boundary_reasons = list(evidence.cash_flow_basis.disqualifiers)
+    capital_boundary_reasons = list(bucket_reason_map["capital_boundary_proof"])
     if capital_boundary_reasons:
         missing_proof_buckets.add("capital_boundary_proof")
         add_reasons(
             bucket="capital_boundary_proof",
             provenance_bucket="cash_flow_basis",
             reason_codes=capital_boundary_reasons,
+            reason_type="missing",
         )
 
-    opening_reasons = list(evidence.opening_state_basis.disqualifiers)
+    opening_reasons = list(bucket_reason_map["opening_state_admission"])
     if opening_reasons:
         missing_proof_buckets.add("opening_state_admission")
         add_reasons(
             bucket="opening_state_admission",
             provenance_bucket="opening_state_basis",
             reason_codes=opening_reasons,
+            reason_type="missing",
         )
 
-    fx_reasons = list(evidence.fx_basis.disqualifiers)
+    fx_reasons = list(bucket_reason_map["fx_proof"])
     if fx_reasons:
         missing_proof_buckets.add("fx_proof")
         add_reasons(
             bucket="fx_proof",
             provenance_bucket="fx_basis",
             reason_codes=fx_reasons,
+            reason_type="missing",
         )
 
-    corporate_action_reasons = list(evidence.corporate_action_basis.disqualifiers)
+    corporate_action_reasons = list(bucket_reason_map["corporate_action_proof"])
     if corporate_action_reasons:
         missing_proof_buckets.add("corporate_action_proof")
         add_reasons(
             bucket="corporate_action_proof",
             provenance_bucket="corporate_action_basis",
             reason_codes=corporate_action_reasons,
+            reason_type="missing",
         )
 
-    boundary_hardening_reasons = sorted(
-        {
-            *evidence.calendar_coverage_basis.disqualifiers,
-            *evidence.terminal_reconciliation_basis.disqualifiers,
-        }
-    )
+    boundary_hardening_reasons = list(bucket_reason_map["boundary_hardening"])
     if boundary_hardening_reasons:
         missing_proof_buckets.add("boundary_hardening")
         add_reasons(
             bucket="boundary_hardening",
             provenance_bucket="calendar_coverage_basis",
-            reason_codes=evidence.calendar_coverage_basis.disqualifiers,
-        )
-        add_reasons(
-            bucket="boundary_hardening",
-            provenance_bucket="terminal_reconciliation_basis",
-            reason_codes=evidence.terminal_reconciliation_basis.disqualifiers,
+            reason_codes=boundary_hardening_reasons,
+            reason_type="missing",
         )
 
-    valuation_start = cast(str | None, scope.get("valuation_window_start"))
-    valuation_end = cast(str | None, scope.get("valuation_window_end"))
-    corporate_start = evidence.corporate_action_basis.policy.scope_start_date
-    corporate_end = evidence.corporate_action_basis.policy.scope_end_date
-    if valuation_start and valuation_end and (corporate_start is None or corporate_end is None):
-        missing_proof_buckets.add("corporate_action_proof")
-        add_reasons(
-            bucket="corporate_action_proof",
-            provenance_bucket="corporate_action_basis",
-            reason_codes=["corporate_action_scope_unproven_for_portfolio_slice"],
-            reason_type="scope_mismatch",
-        )
-    elif valuation_start and valuation_end and corporate_start is not None and corporate_end is not None:
-        if corporate_start > valuation_start or corporate_end < valuation_end:
-            missing_proof_buckets.add("corporate_action_proof")
-            add_reasons(
-                bucket="corporate_action_proof",
-                provenance_bucket="corporate_action_basis",
-                reason_codes=["corporate_action_scope_mismatch_for_portfolio_slice"],
-                reason_type="scope_mismatch",
-            )
-
-    statement_start = cast(str | None, scope.get("statement_window_start"))
-    statement_end = cast(str | None, scope.get("statement_window_end"))
-    if valuation_start and valuation_end and (statement_start is None or statement_end is None):
-        missing_proof_buckets.add("boundary_hardening")
-        add_reasons(
-            bucket="boundary_hardening",
-            provenance_bucket="calendar_coverage_basis",
-            reason_codes=["statement_window_scope_unproven_for_portfolio_slice"],
-            reason_type="scope_mismatch",
-        )
-    elif valuation_start and valuation_end and statement_start is not None and statement_end is not None:
-        if statement_start > valuation_start or statement_end < valuation_end:
-            missing_proof_buckets.add("boundary_hardening")
-            add_reasons(
-                bucket="boundary_hardening",
-                provenance_bucket="calendar_coverage_basis",
-                reason_codes=["statement_window_scope_mismatch_for_portfolio_slice"],
-                reason_type="scope_mismatch",
-            )
-
-    missing_proof_buckets.add("investor_economics_proof")
-    add_reasons(
-        bucket="investor_economics_proof",
-        provenance_bucket=PORTFOLIO_ADMISSION_GOVERNOR,
-        reason_codes=["missing_investor_economics_proof_bucket"],
-        reason_type="missing",
-    )
-
-    governor_reason_codes = ["missing_investor_economics_proof_bucket"]
-    if "portfolio_verified_total_return_withheld" in disqualifiers:
+    investor_economics_reason_type_by_code: dict[str, Literal["blocking", "missing", "scope_mismatch", "withheld"]] = {}
+    investor_economics_evidence = evidence.investor_economics_proof
+    missing_proof_buckets.update(investor_missing_proof_buckets)
+    if investor_economics_evidence.decision != "admitted":
+        missing_proof_buckets.add("investor_economics_proof")
+    for code in investor_economics_evidence.blocking_reasons:
+        if code in scope_mismatches:
+            investor_economics_reason_type_by_code[code] = "scope_mismatch"
+        elif code == "portfolio_history_unavailable":
+            investor_economics_reason_type_by_code[code] = "missing"
+        elif code.endswith("positive_support_missing_for_portfolio_slice"):
+            investor_economics_reason_type_by_code[code] = "missing"
+        elif code in investor_economics_evidence.disqualifiers:
+            investor_economics_reason_type_by_code[code] = "blocking"
+        elif investor_economics_evidence.decision == "withheld":
+            investor_economics_reason_type_by_code[code] = "withheld"
+        else:
+            investor_economics_reason_type_by_code[code] = "blocking"
         add_reasons(
             bucket="investor_economics_proof",
-            provenance_bucket=PORTFOLIO_ADMISSION_GOVERNOR,
-            reason_codes=["portfolio_verified_total_return_withheld"],
-            reason_type="withheld",
+            provenance_bucket="investor_economics_proof",
+            reason_codes=[code],
+            reason_type=investor_economics_reason_type_by_code[code],
         )
-        governor_reason_codes = ["missing_investor_economics_proof_bucket", "portfolio_verified_total_return_withheld"]
 
+    admitted = investor_economics_evidence.decision == "admitted"
     bucket_decisions = [
         _admission_bucket_decision(
             bucket="return_basis_metadata",
             scope=valuation_scope,
             provenance_buckets=["valuation_basis"],
             blocking_reasons=return_basis_reasons,
+            status="admitted" if admitted and not return_basis_reasons else None,
         ),
         _admission_bucket_decision(
             bucket="capital_boundary_proof",
             scope=capital_boundary_scope,
             provenance_buckets=["cash_flow_basis"],
             blocking_reasons=capital_boundary_reasons,
+            status="admitted" if admitted and not capital_boundary_reasons else None,
         ),
         _admission_bucket_decision(
             bucket="valuation_basis_separation",
             scope=valuation_scope,
             provenance_buckets=["valuation_basis"],
             blocking_reasons=valuation_reasons,
+            status="admitted" if admitted and not valuation_reasons else None,
         ),
         _admission_bucket_decision(
             bucket="boundary_hardening",
             scope=boundary_hardening_scope,
             provenance_buckets=["calendar_coverage_basis", "terminal_reconciliation_basis"],
-            blocking_reasons=sorted(
-                {
-                    *boundary_hardening_reasons,
-                    *[
-                        reason.code
-                        for reason in blocking_reasons
-                        if reason.bucket == "boundary_hardening" and reason.reason_type == "scope_mismatch"
-                    ],
-                }
-            ),
+            blocking_reasons=boundary_hardening_reasons,
+            status="admitted" if admitted and not boundary_hardening_reasons else None,
         ),
         _admission_bucket_decision(
             bucket="opening_state_admission",
             scope=opening_scope,
             provenance_buckets=["opening_state_basis"],
             blocking_reasons=opening_reasons,
+            status="admitted" if admitted and not opening_reasons else None,
         ),
         _admission_bucket_decision(
             bucket="fx_proof",
             scope=fx_scope,
             provenance_buckets=["fx_basis"],
             blocking_reasons=fx_reasons,
+            status="admitted" if admitted and not fx_reasons else None,
         ),
         _admission_bucket_decision(
             bucket="corporate_action_proof",
             scope=corporate_action_scope,
             provenance_buckets=["corporate_action_basis"],
-            blocking_reasons=sorted(
-                {
-                    *corporate_action_reasons,
-                    *[
-                        reason.code
-                        for reason in blocking_reasons
-                        if reason.bucket == "corporate_action_proof" and reason.reason_type == "scope_mismatch"
-                    ],
-                }
-            ),
+            blocking_reasons=corporate_action_reasons,
+            status="admitted" if admitted and not corporate_action_reasons else None,
         ),
         _admission_bucket_decision(
             bucket="investor_economics_proof",
             scope=scope,
-            provenance_buckets=[PORTFOLIO_ADMISSION_GOVERNOR],
-            blocking_reasons=governor_reason_codes,
-            status="withheld",
+            provenance_buckets=list(INVESTOR_ECONOMICS_PROOF_REQUIRED_INPUTS),
+            blocking_reasons=investor_economics_evidence.blocking_reasons,
+            status=cast(
+                Literal["admitted", "withheld", "rejected", "not_applicable"],
+                investor_economics_evidence.decision,
+            ),
         ),
     ]
 
-    non_governor_reasons = [
-        reason
-        for reason in blocking_reasons
-        if reason.code not in {"missing_investor_economics_proof_bucket", "portfolio_verified_total_return_withheld"}
-    ]
-    admission_status: Literal["withheld", "rejected", "not_applicable"] = (
-        "rejected" if non_governor_reasons else "withheld"
-    )
     return PortfolioProofAdmissionDecision(
-        status=admission_status,
+        status="admitted" if admitted else "withheld",
+        readiness_status=evidence.investor_economics_proof.preparation_status,
         scope=scope,
         blocking_reasons=sorted(
             blocking_reasons,
@@ -1989,11 +2830,26 @@ def build_portfolio_proof_metadata(
                 hard_disqualifiers=["portfolio_history_unavailable"],
                 witnesses=[],
             ),
+            investor_economics_proof=_build_investor_economics_proof_evidence(
+                snapshot=snapshot,
+                valuation_dates=valuation_dates,
+                history_source=history_source,
+                opening_state_status="opening_state_unavailable",
+                evidence=None,
+            ),
+        )
+        preparation = _build_preparation_metadata(
+            snapshot=snapshot,
+            valuation_dates=valuation_dates,
+            history_source=history_source,
+            opening_state_status="opening_state_unavailable",
+            evidence=None,
         )
         admission = _build_portfolio_admission_decision(
             snapshot=snapshot,
             valuation_dates=valuation_dates,
             history_source=history_source,
+            opening_state_status="opening_state_unavailable",
             evidence=evidence,
             disqualifiers=["portfolio_history_unavailable"],
         )
@@ -2008,6 +2864,7 @@ def build_portfolio_proof_metadata(
             benchmark_proof_independent=True,
             disqualifiers=["portfolio_history_unavailable"],
             hard_disqualifiers=["portfolio_history_unavailable"],
+            preparation=preparation,
             admission=admission,
             evidence=evidence,
         )
@@ -2178,20 +3035,47 @@ def build_portfolio_proof_metadata(
             hard_disqualifiers=sorted(set(calendar_hard_disqualifiers)),
             witnesses=calendar_witnesses,
         ),
+        investor_economics_proof=PortfolioInvestorEconomicsProofEvidence(
+            status="unavailable",
+            claim_id=INVESTOR_ECONOMICS_PROOF_CLAIM_ID,
+            claim=INVESTOR_ECONOMICS_PROOF_CLAIM,
+            decision="withheld",
+            preparation_status="exact_slice_prerequisites_incomplete",
+            required_inputs=list(INVESTOR_ECONOMICS_PROOF_REQUIRED_INPUTS),
+        ),
     )
-    disqualifiers = sorted(
-        {
-            *evidence.opening_state_basis.disqualifiers,
-            *evidence.valuation_basis.disqualifiers,
-            *evidence.cash_flow_basis.disqualifiers,
-            *evidence.fx_basis.disqualifiers,
-            *evidence.corporate_action_basis.disqualifiers,
-            *evidence.terminal_reconciliation_basis.disqualifiers,
-            *evidence.calendar_coverage_basis.disqualifiers,
-            "portfolio_verified_total_return_withheld",
+    evidence = evidence.model_copy(
+        update={
+            "investor_economics_proof": _build_investor_economics_proof_evidence(
+                snapshot=snapshot,
+                valuation_dates=valuation_dates,
+                history_source=history_source,
+                opening_state_status=opening_state_status,
+                evidence=evidence,
+            )
         }
     )
-    hard_disqualifiers = sorted(
+    preparation = _build_preparation_metadata(
+        snapshot=snapshot,
+        valuation_dates=valuation_dates,
+        history_source=history_source,
+        opening_state_status=opening_state_status,
+        evidence=evidence,
+    )
+    portfolio_admitted = evidence.investor_economics_proof.decision == "admitted"
+    disqualifier_set = {
+        *evidence.opening_state_basis.disqualifiers,
+        *evidence.valuation_basis.disqualifiers,
+        *evidence.cash_flow_basis.disqualifiers,
+        *evidence.fx_basis.disqualifiers,
+        *evidence.corporate_action_basis.disqualifiers,
+        *evidence.terminal_reconciliation_basis.disqualifiers,
+        *evidence.calendar_coverage_basis.disqualifiers,
+    }
+    if not portfolio_admitted:
+        disqualifier_set.add("portfolio_verified_total_return_withheld")
+    disqualifiers: list[str] = sorted(disqualifier_set)
+    hard_disqualifiers: list[str] = sorted(
         {
             *evidence.opening_state_basis.hard_disqualifiers,
             *evidence.valuation_basis.hard_disqualifiers,
@@ -2206,20 +3090,22 @@ def build_portfolio_proof_metadata(
         snapshot=snapshot,
         valuation_dates=valuation_dates,
         history_source=history_source,
+        opening_state_status=opening_state_status,
         evidence=evidence,
         disqualifiers=disqualifiers,
     )
     return PortfolioProofMetadata(
         proof_system="portfolio_verified_total_return_v1",
-        portfolio_path="withheld",
-        verification_status="unverified",
-        output_status="withheld",
+        portfolio_path="verified" if portfolio_admitted else "withheld",
+        verification_status="verified" if portfolio_admitted else "unverified",
+        output_status="available" if portfolio_admitted else "withheld",
         replay_status="replay_usable",
         opening_state_status=cast(Literal["opening_state_verified", "opening_state_unverified", "opening_state_unavailable"], opening_state_status),
-        verified_total_return_emitted=False,
+        verified_total_return_emitted=portfolio_admitted,
         benchmark_proof_independent=True,
         disqualifiers=disqualifiers,
         hard_disqualifiers=hard_disqualifiers,
+        preparation=preparation,
         admission=admission,
         evidence=evidence,
     )
@@ -2250,11 +3136,26 @@ def build_unavailable_portfolio_proof_metadata(reason: str = "portfolio_history_
         ),
         terminal_reconciliation_basis=_bucket(positive_evidence=[], negative_evidence=[reason], disqualifiers=[reason], hard_disqualifiers=[reason], witnesses=[]),
         calendar_coverage_basis=_bucket(positive_evidence=[], negative_evidence=[reason], disqualifiers=[reason], hard_disqualifiers=[reason], witnesses=[]),
+        investor_economics_proof=_build_investor_economics_proof_evidence(
+            snapshot=None,
+            valuation_dates=[],
+            history_source="unavailable",
+            opening_state_status="opening_state_unavailable",
+            evidence=None,
+        ),
+    )
+    preparation = _build_preparation_metadata(
+        snapshot=None,
+        valuation_dates=[],
+        history_source="unavailable",
+        opening_state_status="opening_state_unavailable",
+        evidence=None,
     )
     admission = _build_portfolio_admission_decision(
         snapshot=None,
         valuation_dates=[],
         history_source="unavailable",
+        opening_state_status="opening_state_unavailable",
         evidence=evidence,
         disqualifiers=[reason],
     )
@@ -2269,6 +3170,7 @@ def build_unavailable_portfolio_proof_metadata(reason: str = "portfolio_history_
         benchmark_proof_independent=True,
         disqualifiers=[reason],
         hard_disqualifiers=[reason],
+        preparation=preparation,
         admission=admission,
         evidence=evidence,
     )

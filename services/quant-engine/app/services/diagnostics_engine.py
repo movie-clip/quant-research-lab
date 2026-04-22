@@ -257,7 +257,7 @@ def _build_diagnostics_investor_economics_status(
     allow_relative_return_outputs: bool,
 ) -> InvestorEconomicsStatus:
     if not historical_sections_available:
-        return build_investor_economics_status(available=True)
+        return build_investor_economics_status(available=False)
     if allow_drawdown_outputs and allow_relative_return_outputs:
         return build_investor_economics_status(available=True)
     return build_investor_economics_status(

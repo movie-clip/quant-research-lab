@@ -2,7 +2,14 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ff2026DashboardGolden, ib2026DashboardGolden } from '../../test/dashboardGoldens'
-import { createDiagnosticsEngineFixture, createExposureEngineFixture, createFf2026ImportedDashboardFixture, createIb2026ImportedDashboardFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
+import {
+  createDashboardHistoryRunMetadataFixture,
+  createDiagnosticsEngineFixture,
+  createExposureEngineFixture,
+  createFf2026ImportedDashboardFixture,
+  createIb2026ImportedDashboardFixture,
+  createImportedDashboardFixture,
+} from '../../test/portfolioFixtures'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
 import { buildExposureFactorModel, buildImportedDashboardView, composeExposureView } from './portfolioAnalysisAdapter'
 import { buildPortfolioSnapshotFromAnalysis } from './portfolioSnapshot'
@@ -10,6 +17,7 @@ import type { DashboardAnalysis, ImportedDashboardSource } from './types'
 
 const mockAnalysis: ImportedDashboardSource = createImportedDashboardFixture()
 const mockDashboardView: DashboardAnalysis = buildImportedDashboardView(mockAnalysis)
+const mockRunMetadata = createDashboardHistoryRunMetadataFixture()
 const ib2026Analysis: ImportedDashboardSource = createIb2026ImportedDashboardFixture()
 const ib2026DashboardView: DashboardAnalysis = buildImportedDashboardView(ib2026Analysis)
 const ff2026Analysis: ImportedDashboardSource = createFf2026ImportedDashboardFixture()
@@ -52,9 +60,68 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.')).toBeTruthy()
     expect(screen.getAllByText('Range metrics live').length).toBeGreaterThan(0)
     expect(screen.getByText(/Audit: SPY · live_market_data_unverified_return_basis · portfolio imported_replay · benchmark degraded_unverified_return_basis · monthly imported_replay · 01\/02\/25 to 03\/03\/25 · dataset market_data_service_v1/)).toBeTruthy()
-    expect(screen.getByText('Refusals: benchmark return, excess return, and drawdown are intentionally withheld. Investor-economics outputs are withheld because total-return equivalence is unverified.')).toBeTruthy()
+    expect(screen.getByText('Refusals: benchmark return, excess return, and drawdown stay withheld outside the narrow allowlisted exact-slice contract. Investor-economics outputs are withheld because total-return equivalence is unverified. Dashboard policy remains partial-unlock only: exact-slice benchmark return may appear only for the identical admitted slice with independently verified benchmark total-return proof, and excess return still requires the same identical admitted slice pair plus a future server-side runtime enablement. Clients must not treat daily-series subtraction or local derivation as an equivalent path.')).toBeTruthy()
     expect(screen.getByText('Workspace State')).toBeTruthy()
     expect(screen.getByText('Current imported view and editable draft status.')).toBeTruthy()
+  })
+
+  it('keeps the refusal copy visible even when an exact-slice scalar is present', () => {
+    render(
+      <DashboardPanel
+        result={buildImportedDashboardView({
+          ...mockAnalysis,
+          range_metrics: {
+            ...mockAnalysis.range_metrics,
+            All: {
+              ...mockAnalysis.range_metrics!.All,
+              summary: {
+                ...mockAnalysis.range_metrics!.All.summary,
+                time_weighted_return_pct: 3,
+                benchmark_return_pct: 1,
+                excess_return_pct: null,
+              },
+              max_drawdown_pct: null,
+            },
+          },
+          run_metadata: {
+            ...mockRunMetadata,
+            investor_economics_status: {
+              status: 'withheld',
+              reason: 'withheld_unverified_total_return_equivalence',
+            },
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getByText('Refusals: benchmark return, excess return, and drawdown stay withheld outside the narrow allowlisted exact-slice contract. Investor-economics outputs are withheld because total-return equivalence is unverified. Dashboard policy remains partial-unlock only: exact-slice benchmark return may appear only for the identical admitted slice with independently verified benchmark total-return proof, and excess return still requires the same identical admitted slice pair plus a future server-side runtime enablement. Clients must not treat daily-series subtraction or local derivation as an equivalent path.')).toBeTruthy()
+    expect(screen.queryByText('Drawdown')).toBeNull()
+  })
+
+  it('uses explicit partial-unlock metadata for dashboard refusal wording', () => {
+    render(<DashboardPanel result={mockDashboardView} />)
+
+    expect(mockDashboardView.run_metadata?.investor_economics_partial_unlock.mode).toBe('allowlisted_exact_slice_scalars_only')
+    expect(mockDashboardView.run_metadata?.investor_economics_partial_unlock.client_derivation_rule).toBe('server_side_scalar_only_no_daily_series_subtraction_equivalence')
+    expect(mockDashboardView.run_metadata?.investor_economics_partial_unlock.exact_slice_scalar_allowlist).toEqual([
+      {
+        field: 'range_metrics[*].summary.time_weighted_return_pct',
+        unlock_condition: 'identical_admitted_exact_slice_only',
+        runtime_enabled: true,
+      },
+      {
+        field: 'range_metrics[*].summary.benchmark_return_pct',
+        unlock_condition: 'identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only',
+        runtime_enabled: true,
+      },
+      {
+        field: 'range_metrics[*].summary.excess_return_pct',
+        unlock_condition: 'identical_admitted_exact_slice_pair_only',
+        runtime_enabled: false,
+      },
+    ])
+    expect(mockDashboardView.run_metadata?.investor_economics_partial_unlock.withheld_families).toContain('benchmark_relative_path_derived_outputs')
+    expect(mockDashboardView.run_metadata?.investor_economics_partial_unlock.withheld_families).toContain('drawdown_family')
   })
 
   it('renders the rolling factor chart on dashboard when exposure context is available', () => {
@@ -463,134 +530,7 @@ describe('DashboardPanel', () => {
             monthly_returns: 'unavailable',
           },
           run_metadata: {
-            history_id: 'dashboard_history_engine_v1',
-            methodology_id: 'dashboard_history_methodology_v1',
-           source_status: {
-             performance_history: 'unavailable',
-             monthly_returns: 'unavailable',
-             benchmark_history: 'unavailable',
-           },
-            section_trust: {
-              portfolio_path: 'unavailable',
-              benchmark_path: 'unavailable',
-              monthly_returns_path: 'unavailable',
-            },
-            return_basis_contract: {
-              portfolio_path: 'unavailable',
-              benchmark_path: 'unavailable',
-            },
-            return_basis_evidence: {
-              portfolio_path: {
-                verification_status: 'unavailable',
-                economic_basis: 'unavailable',
-                construction_method: 'unknown',
-               disqualifiers: ['missing_history_rows'],
-               fallbacks_used: [],
-               source_price_field: null,
-               scope: {},
-             },
-             benchmark_path: {
-               verification_status: 'unavailable',
-               economic_basis: 'unavailable',
-               construction_method: 'unknown',
-               disqualifiers: ['missing_history_rows'],
-               fallbacks_used: [],
-               source_price_field: null,
-                scope: {},
-              },
-            },
-             portfolio_proof: {
-               proof_system: 'portfolio_verified_total_return_v1',
-               portfolio_path: 'unavailable',
-               verification_status: 'unavailable',
-               output_status: 'unavailable',
-               replay_status: 'replay_unavailable',
-               opening_state_status: 'opening_state_unavailable',
-               verified_total_return_emitted: false,
-               benchmark_proof_independent: true,
-               disqualifiers: ['portfolio_history_unavailable'],
-               hard_disqualifiers: ['portfolio_history_unavailable'],
-               admission: {
-                 status: 'not_applicable',
-                 scope: {
-                   account_id: null,
-                   base_currency: null,
-                   history_source: 'unavailable',
-                   valuation_window_start: null,
-                   valuation_window_end: null,
-                   valuation_date_count: 0,
-                   statement_window_start: null,
-                   statement_window_end: null,
-                   statement_window_count: 0,
-                 },
-                 blocking_reasons: [
-                   {
-                     code: 'portfolio_history_unavailable',
-                     bucket: 'portfolio_admission',
-                     provenance_bucket: 'portfolio_history',
-                     reason_type: 'missing',
-                   },
-                 ],
-                 missing_proof_buckets: [
-                   'boundary_hardening',
-                   'capital_boundary_proof',
-                   'corporate_action_proof',
-                   'fx_proof',
-                   'investor_economics_proof',
-                   'opening_state_admission',
-                   'return_basis_metadata',
-                   'valuation_basis_separation',
-                 ],
-                 bucket_decisions: [
-                   'return_basis_metadata',
-                   'capital_boundary_proof',
-                   'valuation_basis_separation',
-                   'boundary_hardening',
-                   'opening_state_admission',
-                   'fx_proof',
-                   'corporate_action_proof',
-                   'investor_economics_proof',
-                 ].map((bucket) => ({
-                   bucket,
-                   status: 'not_applicable',
-                   blocks_admission: true,
-                   provenance_buckets: [bucket],
-                   blocking_reasons: ['portfolio_history_unavailable'],
-                   scope: {
-                     account_id: null,
-                     base_currency: null,
-                     history_source: 'unavailable',
-                     valuation_window_start: null,
-                     valuation_window_end: null,
-                     valuation_date_count: 0,
-                     statement_window_start: null,
-                     statement_window_end: null,
-                     statement_window_count: 0,
-                   },
-                 })),
-               },
-                evidence: {
-                 opening_state_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], hard_disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
-                 valuation_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], hard_disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
-                 cash_flow_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], hard_disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
-                 fx_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], hard_disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
-                 corporate_action_basis: { status: 'disqualified', policy: { scope: 'broker_scope_unproven', cash_dividend_coverage_status: 'cash_dividend_coverage_unproven', cash_dividend_observation_status: 'cash_dividend_observation_unproven', non_dividend_status: 'non_dividend_corporate_actions_unproven_and_disqualifying', scope_start_date: null, scope_end_date: null, statement_window_count: 0 }, positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], hard_disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
-                 terminal_reconciliation_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], hard_disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
-                 calendar_coverage_basis: { status: 'disqualified', positive_evidence: [], negative_evidence: ['portfolio_history_unavailable'], disqualifiers: ['portfolio_history_unavailable'], hard_disqualifiers: ['portfolio_history_unavailable'], witnesses: [] },
-                },
-              },
-            investor_economics_status: {
-              status: 'available',
-              reason: null,
-            },
-            reproducibility: {
-              input_imported_at: '2026-04-10T00:00:00Z',
-              snapshot_as_of_date: null,
-              history_start_date: null,
-              history_end_date: null,
-              benchmark_symbol: 'SPY',
-              dataset_version: 'market_data_service_v1',
-            },
+            ...createDashboardHistoryRunMetadataFixture('unavailable'),
           },
         })}
       />,
