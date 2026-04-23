@@ -14,12 +14,23 @@ from app.schemas.backtest_engine import (
     AllocationBacktestInstrumentMeta,
     AllocationBacktestResult,
     AllocationBacktestStatus,
+    ConstructionArtifactReplayProvenance,
+    ConstructionArtifactReplayRequest,
+    ConstructionArtifactReplayResponse,
     DistributionPolicy,
     HypotheticalReplayDerivation,
     HypotheticalReplayProvenance,
     HypotheticalReplayProposal,
     HypotheticalReplayUpstreamIds,
     OverlayApplicationSummary,
+    OptimizerHandoffReplayBenchmarkAttestationSummary,
+    OptimizerHandoffReplayConstraintSummary,
+    OptimizerHandoffReplayOptimizerContext,
+    OptimizerHandoffReplayOptimizerDiagnostics,
+    OptimizerHandoffReplayProvenance,
+    OptimizerHandoffReplayRequest,
+    OptimizerHandoffReplayResponse,
+    OptimizerHandoffReplayOptimizerRunSummary,
     OverlayAwareHypotheticalReplayRequest,
     OverlayAwareHypotheticalReplayResponse,
     HypotheticalReplacementReplayRequest,
@@ -31,18 +42,43 @@ from app.schemas.backtest_engine import (
     PortfolioImprovementComparison,
     PortfolioAllocationBacktestRequest,
     PortfolioAllocationBacktestResponse,
+    PortfolioWeightInput,
 )
+from app.schemas.optimizer import OptimizerReturnBasisAttestation
 from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
+from app.schemas.reconciliation import RiskConcentrationSnapshot
+from app.services.construction_artifact_service import load_construction_artifact
 from app.services.candidate_construction import build_candidate_weights_from_replacement_intent as _shared_build_candidate_weights_from_replacement_intent
 from app.services.candidate_construction import build_snapshot_baseline_weights as _shared_build_snapshot_baseline_weights
 from app.services.candidate_construction import derive_single_replacement_construction
 from app.services.candidate_construction import derive_same_weight_substitution_construction
 from app.services.market_data import MarketDataService
+from app.services.optimizer_handoff_constraints import (
+    build_optimizer_handoff_replay_output_policy,
+    load_validated_optimizer_handoff_for_replay,
+)
+from app.services.optimizer_artifact_service import normalize_optimizer_return_basis_attestation
 
 
 METHODOLOGY = "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions."
 CASH_SYMBOL = "__CASH__"
 REPLAY_REFUSAL_POLICY_RATIONALE = "When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states."
+REPLAY_BENCHMARK_RELATIVE_METRIC_FIELDS = (
+    "benchmark_return_pct",
+    "excess_return_pct",
+    "tracking_error_pct",
+    "information_ratio",
+    "beta_vs_benchmark",
+    "correlation_vs_benchmark",
+)
+REPLAY_BENCHMARK_RELATIVE_COMPARISON_FIELDS = (
+    "benchmark_return_diff_pct",
+    "excess_return_diff_pct",
+    "tracking_error_diff_pct",
+    "information_ratio_diff",
+    "beta_diff",
+    "correlation_diff",
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +90,14 @@ class BacktestDiagnosticsInputs:
 
 
 def build_portfolio_allocation_backtest_analysis(request: PortfolioAllocationBacktestRequest) -> PortfolioAllocationBacktestResponse:
+    return _build_portfolio_allocation_backtest_analysis(request)
+
+
+def _build_portfolio_allocation_backtest_analysis(
+    request: PortfolioAllocationBacktestRequest,
+    *,
+    return_basis_attestation: OptimizerReturnBasisAttestation | None = None,
+) -> PortfolioAllocationBacktestResponse:
     symbols = [item.symbol for item in request.weights]
     if request.reference_weights:
         symbols.extend(item.symbol for item in request.reference_weights)
@@ -153,6 +197,7 @@ def build_portfolio_allocation_backtest_analysis(request: PortfolioAllocationBac
             result=reference_result,
             benchmark_rows=benchmark_rows,
             histories=histories,
+            return_basis_attestation=return_basis_attestation,
         )
         candidate_diagnostics = _build_portfolio_diagnostics_snapshot(
             portfolio_name=request.portfolio_name or "Candidate",
@@ -160,8 +205,13 @@ def build_portfolio_allocation_backtest_analysis(request: PortfolioAllocationBac
             result=candidate_result,
             benchmark_rows=benchmark_rows,
             histories=histories,
+            return_basis_attestation=return_basis_attestation,
         )
-        diagnostics_comparison = _build_diagnostics_comparison(reference_diagnostics, candidate_diagnostics)
+        diagnostics_comparison = _build_diagnostics_comparison(
+            reference_diagnostics,
+            candidate_diagnostics,
+            return_basis_attestation=return_basis_attestation,
+        )
     else:
         candidate_diagnostics = _build_portfolio_diagnostics_snapshot(
             portfolio_name=request.portfolio_name or "Candidate",
@@ -169,7 +219,15 @@ def build_portfolio_allocation_backtest_analysis(request: PortfolioAllocationBac
             result=candidate_result,
             benchmark_rows=benchmark_rows,
             histories=histories,
+            return_basis_attestation=return_basis_attestation,
         )
+
+    reference_result = _apply_return_basis_attestation_to_replay_result(reference_result, return_basis_attestation)
+    candidate_result = _apply_return_basis_attestation_to_replay_result(candidate_result, return_basis_attestation)
+    comparison = _apply_return_basis_attestation_to_replay_comparison(comparison, return_basis_attestation)
+    if candidate_result is None:
+        raise ValueError("candidate replay result was not produced")
+    assert candidate_result is not None
 
     return PortfolioAllocationBacktestResponse(
         methodology=METHODOLOGY,
@@ -284,6 +342,119 @@ def build_hypothetical_replacement_replay_preview(request: HypotheticalReplaceme
         candidate_weights=candidate_weights,
         replay=replay,
         warnings=_build_hypothetical_replay_warnings(request.snapshot),
+    )
+
+
+def build_optimizer_handoff_replay_preview(
+    request: OptimizerHandoffReplayRequest,
+    *,
+    handoff_store=None,
+) -> OptimizerHandoffReplayResponse:
+    validated_gate = load_validated_optimizer_handoff_for_replay(request, handoff_store=handoff_store)
+    persisted_handoff = validated_gate.persisted_handoff
+    manifest = persisted_handoff.manifest
+    artifact = persisted_handoff.artifact
+    benchmark_symbol = validated_gate.benchmark_symbol
+    normalized_return_basis_attestation = manifest.return_basis_attestation
+
+    baseline_weights = _portfolio_weight_inputs_from_optimizer_weights(artifact.replay.current_weights)
+    candidate_weights = _portfolio_weight_inputs_from_optimizer_weights(artifact.proposed_weights)
+    replay = _build_portfolio_allocation_backtest_analysis(
+        PortfolioAllocationBacktestRequest(
+            portfolio_name="Optimizer Handoff Candidate",
+            weights=candidate_weights,
+            reference_weights=baseline_weights,
+            benchmark_symbol=benchmark_symbol,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            initial_capital=request.initial_capital,
+            rebalance_frequency=request.rebalance_frequency,
+            base_currency=request.base_currency,
+            commission_bps=request.commission_bps,
+            slippage_bps=request.slippage_bps,
+            drift_tolerance_pct=request.drift_tolerance_pct,
+            price_basis=request.price_basis,
+            execution_price_field=request.execution_price_field,
+            execution_lag_days=request.execution_lag_days,
+            symbol_overrides=request.symbol_overrides,
+        ),
+        return_basis_attestation=normalized_return_basis_attestation,
+    )
+
+    return OptimizerHandoffReplayResponse(
+        handoff_id=manifest.handoff_id,
+        artifact_id=artifact.artifact_id,
+        source_portfolio_snapshot_id=manifest.source_portfolio_snapshot.snapshot_id,
+        replay_provenance=OptimizerHandoffReplayProvenance(
+            benchmark_id=manifest.benchmark.benchmark_id,
+            benchmark_version=manifest.benchmark.benchmark_version,
+            benchmark_symbol=benchmark_symbol,
+            return_basis_attestation=normalized_return_basis_attestation,
+            replay_output_policy=build_optimizer_handoff_replay_output_policy(normalized_return_basis_attestation),
+            artifact_state=artifact.artifact_state.artifact_state,
+            constraint_set_fingerprint=manifest.constraint_set.constraint_set_fingerprint,
+        ),
+        optimizer_context=_build_optimizer_handoff_context(artifact),
+        baseline_weights=baseline_weights,
+        candidate_weights=candidate_weights,
+        replay=replay,
+    )
+
+
+def build_construction_artifact_replay_preview(
+    request: ConstructionArtifactReplayRequest,
+    *,
+    artifact_store=None,
+) -> ConstructionArtifactReplayResponse:
+    artifact = load_construction_artifact(request.construction_artifact_id, store=artifact_store)
+    if artifact.status != "feasible":
+        raise ValueError("construction_artifact_id must reference a feasible construction artifact")
+    if not artifact.final_target_weights:
+        raise ValueError("construction_artifact_id must reference an artifact with final_target_weights")
+    if not artifact.normalized_inputs.current_portfolio_weights:
+        raise ValueError(
+            "construction artifact replay requires normalized_inputs.current_portfolio_weights for the baseline replay path"
+        )
+
+    baseline_weights = _portfolio_weight_inputs_from_construction_weights(
+        artifact.normalized_inputs.current_portfolio_weights
+    )
+    candidate_weights = _portfolio_weight_inputs_from_construction_weights(artifact.final_target_weights)
+    replay = build_portfolio_allocation_backtest_analysis(
+        PortfolioAllocationBacktestRequest(
+            portfolio_name="Construction Artifact Candidate",
+            weights=candidate_weights,
+            reference_weights=baseline_weights,
+            benchmark_symbol=request.benchmark_symbol,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            initial_capital=request.initial_capital,
+            rebalance_frequency=request.rebalance_frequency,
+            base_currency=request.base_currency,
+            commission_bps=request.commission_bps,
+            slippage_bps=request.slippage_bps,
+            drift_tolerance_pct=request.drift_tolerance_pct,
+            price_basis=request.price_basis,
+            execution_price_field=request.execution_price_field,
+            execution_lag_days=request.execution_lag_days,
+            symbol_overrides=request.symbol_overrides,
+        )
+    )
+
+    return ConstructionArtifactReplayResponse(
+        construction_artifact_id=artifact.artifact_id,
+        replay_provenance=ConstructionArtifactReplayProvenance(
+            construction_artifact_id=artifact.artifact_id,
+            policy_id=artifact.normalized_inputs.policy_id,
+            ranked_universe_artifact_id=artifact.normalized_inputs.ranked_universe_artifact_id,
+            ranking_id=artifact.normalized_inputs.ranking_id,
+            ranking_methodology_id=artifact.normalized_inputs.ranking_methodology_id,
+            current_portfolio_artifact_id=artifact.normalized_inputs.current_portfolio_artifact_id,
+            selection_rule_trace=artifact.selection_rule_trace,
+        ),
+        baseline_weights=baseline_weights,
+        candidate_weights=candidate_weights,
+        replay=replay,
     )
 
 
@@ -419,6 +590,79 @@ def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayR
     return baseline_weights, candidate_weights
 
 
+def _portfolio_weight_inputs_from_optimizer_weights(weights) -> list[PortfolioWeightInput]:
+    return [
+        PortfolioWeightInput(symbol=item.symbol.upper(), target_weight=item.weight)
+        for item in weights
+        if item.weight > 0
+    ]
+
+
+def _portfolio_weight_inputs_from_construction_weights(weights) -> list[PortfolioWeightInput]:
+    return [
+        PortfolioWeightInput(symbol=item.symbol.upper(), target_weight=item.weight)
+        for item in weights
+        if item.weight > 0
+    ]
+
+
+def _build_optimizer_handoff_context(artifact) -> OptimizerHandoffReplayOptimizerContext:
+    return OptimizerHandoffReplayOptimizerContext(
+        objective_id=artifact.objective.objective_id,
+        penalty_ids=[penalty.penalty_id for penalty in artifact.penalties],
+        artifact_state=artifact.artifact_state.artifact_state,
+        stale_inputs=artifact.artifact_state.stale_inputs,
+        degraded_inputs=artifact.artifact_state.degraded_inputs,
+        reasons=artifact.artifact_state.reasons,
+        run_summary=OptimizerHandoffReplayOptimizerRunSummary(
+            engine_id=artifact.run_metadata.engine_id,
+            solver_id=artifact.run_metadata.solver_id,
+            methodology_id=artifact.run_metadata.methodology_id,
+            risk_package_id=artifact.run_metadata.risk_package_id,
+            risk_package_version=artifact.run_metadata.risk_package_version,
+            alpha_package_id=artifact.run_metadata.alpha_package_id,
+            alpha_package_version=artifact.run_metadata.alpha_package_version,
+        ),
+        diagnostics=OptimizerHandoffReplayOptimizerDiagnostics(
+            active_share=artifact.key_diagnostics.active_share,
+            turnover=artifact.key_diagnostics.turnover,
+            max_abs_active_weight=artifact.key_diagnostics.max_abs_active_weight,
+            active_risk=artifact.key_diagnostics.active_risk,
+            effective_holdings=artifact.key_diagnostics.effective_holdings,
+            current_to_proposed_l2=artifact.key_diagnostics.current_to_proposed_l2,
+            benchmark_to_proposed_l2=artifact.key_diagnostics.benchmark_to_proposed_l2,
+            risk_package_coverage_ratio=artifact.key_diagnostics.risk_package_coverage_ratio,
+            alpha_package_coverage_ratio=artifact.key_diagnostics.alpha_package_coverage_ratio,
+        ),
+        binding_constraints=artifact.feasibility.binding_constraints,
+        violated_constraints=artifact.feasibility.violated_constraints,
+        benchmark_relative_attestations=[
+            OptimizerHandoffReplayBenchmarkAttestationSummary(
+                attestation_id=item.attestation_id,
+                attestation_type=item.attestation_type,
+                status=item.status,
+                actual_value=item.actual_value,
+                limit_value=item.limit_value,
+                slack=item.slack,
+                message=item.message,
+            )
+            for item in artifact.benchmark_relative_attestations
+        ],
+        binding_constraint_evaluations=[
+            OptimizerHandoffReplayConstraintSummary(
+                constraint_id=item.constraint_id,
+                status=item.status,
+                actual_value=item.actual_value,
+                limit_value=item.limit_value,
+                slack=item.slack,
+                message=item.message,
+            )
+            for item in artifact.constraint_evaluations
+            if item.status == "binding"
+        ],
+    )
+
+
 def _validate_constraint_validation_lineage(request: HypotheticalReplacementReplayRequest) -> None:
     constraint_validation = request.constraint_validation
     if constraint_validation is None:
@@ -549,6 +793,43 @@ def _diff(left: float | None, right: float | None) -> float | None:
     return round(right - left, 4)
 
 
+def _benchmark_relative_replay_outputs_verified(
+    return_basis_attestation: OptimizerReturnBasisAttestation | None,
+) -> bool:
+    if return_basis_attestation is None:
+        return True
+    normalized_attestation = normalize_optimizer_return_basis_attestation(return_basis_attestation)
+    return normalized_attestation.section_trust.benchmark_relative_path == "verified_adjusted_close"
+
+
+def _apply_return_basis_attestation_to_replay_result(
+    result: AllocationBacktestResult | None,
+    return_basis_attestation: OptimizerReturnBasisAttestation | None,
+) -> AllocationBacktestResult | None:
+    if result is None or _benchmark_relative_replay_outputs_verified(return_basis_attestation):
+        return result
+
+    return result.model_copy(
+        update={
+            "metrics": result.metrics.model_copy(
+                update={field_name: None for field_name in REPLAY_BENCHMARK_RELATIVE_METRIC_FIELDS}
+            )
+        }
+    )
+
+
+def _apply_return_basis_attestation_to_replay_comparison(
+    comparison: AllocationBacktestComparison | None,
+    return_basis_attestation: OptimizerReturnBasisAttestation | None,
+) -> AllocationBacktestComparison | None:
+    if comparison is None or _benchmark_relative_replay_outputs_verified(return_basis_attestation):
+        return comparison
+
+    return comparison.model_copy(
+        update={field_name: None for field_name in REPLAY_BENCHMARK_RELATIVE_COMPARISON_FIELDS}
+    )
+
+
 def _build_portfolio_diagnostics_snapshot(
     *,
     portfolio_name: str,
@@ -556,6 +837,7 @@ def _build_portfolio_diagnostics_snapshot(
     result: AllocationBacktestResult,
     benchmark_rows: list[dict],
     histories: dict[str, list[dict]],
+    return_basis_attestation: OptimizerReturnBasisAttestation | None = None,
 ) -> PortfolioDiagnosticsSnapshot:
     diagnostics_inputs = _build_backtest_diagnostics_inputs(
         portfolio_name=portfolio_name,
@@ -570,7 +852,7 @@ def _build_portfolio_diagnostics_snapshot(
     volatility = build_volatility_regime_payload(diagnostics_inputs.replay_daily_states, diagnostics_inputs.benchmark_price_history)
     risk_contribution = build_risk_contribution_breakdown(diagnostics_inputs.synthetic_snapshot, diagnostics_inputs.replay_daily_states, {item.symbol: histories.get(item.symbol, []) for item in weights}, diagnostics_inputs.factor_price_histories, factor_registry, model)
 
-    return PortfolioDiagnosticsSnapshot(
+    snapshot = PortfolioDiagnosticsSnapshot(
         provenance=PortfolioDiagnosticsProvenance(
             snapshot_basis="synthetic_replay_snapshot",
             historical_basis="market_data_history",
@@ -581,6 +863,7 @@ def _build_portfolio_diagnostics_snapshot(
         risk_contribution=risk_contribution,
         stress_scenarios=build_stress_scenarios(model),
     )
+    return _apply_return_basis_attestation_to_diagnostics_snapshot(snapshot, return_basis_attestation)
 
 
 def _build_backtest_diagnostics_inputs(
@@ -698,6 +981,8 @@ def _build_fallback_factor_snapshot(weights, factor_registry) -> list[SnapshotIt
 def _build_diagnostics_comparison(
     baseline: PortfolioDiagnosticsSnapshot,
     candidate: PortfolioDiagnosticsSnapshot,
+    *,
+    return_basis_attestation: OptimizerReturnBasisAttestation | None = None,
 ) -> PortfolioImprovementComparison:
     factor_rows = _factor_exposure_change_rows(baseline, candidate)
     volatility_rows = _volatility_change_rows(baseline, candidate)
@@ -705,7 +990,7 @@ def _build_diagnostics_comparison(
     concentration_rows = _concentration_change_rows(baseline, candidate)
     stress_rows = _stress_change_rows(baseline, candidate)
 
-    return PortfolioImprovementComparison(
+    comparison = PortfolioImprovementComparison(
         factor_exposure_changes=factor_rows,
         top_factor_exposure_change=_top_largest_absolute_delta_callout(factor_rows, rationale="Largest valid factor exposure delta in this group (candidate - baseline)."),
         volatility_changes=volatility_rows,
@@ -717,8 +1002,107 @@ def _build_diagnostics_comparison(
         stress_scenario_changes=stress_rows,
         top_stress_scenario_change=_top_largest_absolute_delta_callout(stress_rows, rationale="Largest valid stress-scenario delta in this group (candidate - baseline)."),
     )
+    return _apply_return_basis_attestation_to_diagnostics_comparison(comparison, return_basis_attestation)
 
 
+def _apply_return_basis_attestation_to_diagnostics_snapshot(
+    snapshot: PortfolioDiagnosticsSnapshot,
+    return_basis_attestation: OptimizerReturnBasisAttestation | None,
+) -> PortfolioDiagnosticsSnapshot:
+    if return_basis_attestation is None:
+        return snapshot
+
+    return_basis_attestation = normalize_optimizer_return_basis_attestation(return_basis_attestation)
+
+    note = (
+        f"{snapshot.provenance.note} Replay consumption is capped by persisted optimizer return-basis attestation "
+        f"for {return_basis_attestation.history_start_date} to {return_basis_attestation.history_end_date}."
+    )
+    updated = snapshot.model_copy(update={"provenance": snapshot.provenance.model_copy(update={"note": note})})
+
+    if not _benchmark_relative_replay_outputs_verified(return_basis_attestation) and updated.volatility_snapshot is not None:
+        updated = updated.model_copy(
+            update={
+                "volatility_snapshot": updated.volatility_snapshot.model_copy(
+                    update={
+                        "benchmark_vol_20d": None,
+                        "benchmark_vol_60d": None,
+                        "benchmark_vol_252d": None,
+                        "tracking_error_20d": None,
+                        "tracking_error_60d": None,
+                        "tracking_error_252d": None,
+                    }
+                )
+            }
+        )
+
+    if return_basis_attestation.section_trust.factor_model_path != "verified_adjusted_close":
+        updated = updated.model_copy(update={"factor_snapshot": [], "stress_scenarios": []})
+
+    if return_basis_attestation.section_trust.risk_contribution_path != "verified_adjusted_close" and updated.risk_contribution is not None:
+        updated = updated.model_copy(
+            update={
+                "risk_contribution": updated.risk_contribution.model_copy(
+                    update={
+                        "status": "degraded_unverified_return_basis",
+                        "factor_contributions": [],
+                        "factor_total_variance": None,
+                        "specific_variance": None,
+                        "total_variance": None,
+                        "factor_risk_share_total": None,
+                        "specific_risk_share": None,
+                        "residual_volatility": None,
+                        "position_contributions": [],
+                        "concentration": RiskConcentrationSnapshot(),
+                    }
+                )
+            }
+        )
+
+    return updated
+
+
+def _apply_return_basis_attestation_to_diagnostics_comparison(
+    comparison: PortfolioImprovementComparison,
+    return_basis_attestation: OptimizerReturnBasisAttestation | None,
+) -> PortfolioImprovementComparison:
+    if return_basis_attestation is None:
+        return comparison
+
+    return_basis_attestation = normalize_optimizer_return_basis_attestation(return_basis_attestation)
+
+    updated = comparison
+    if not _benchmark_relative_replay_outputs_verified(return_basis_attestation):
+        updated = updated.model_copy(
+            update={
+                "volatility_changes": [item for item in updated.volatility_changes if item.key != "tracking_error"],
+                "top_volatility_change": _top_priority_callout(
+                    [item for item in updated.volatility_changes if item.key != "tracking_error"],
+                    ["annualized_volatility", "downside_volatility"],
+                    selection_rule="fixed_priority",
+                    rationale=f"{REPLAY_REFUSAL_POLICY_RATIONALE} Benchmark-relative volatility readouts stay withheld when persisted optimizer return-basis attestation is unverified.",
+                ),
+            }
+        )
+    if return_basis_attestation.section_trust.factor_model_path != "verified_adjusted_close":
+        updated = updated.model_copy(
+            update={
+                "factor_exposure_changes": [],
+                "top_factor_exposure_change": None,
+                "stress_scenario_changes": [],
+                "top_stress_scenario_change": None,
+            }
+        )
+    if return_basis_attestation.section_trust.risk_contribution_path != "verified_adjusted_close":
+        updated = updated.model_copy(
+            update={
+                "risk_contribution_changes": [],
+                "top_risk_contribution_change": None,
+                "concentration_changes": [],
+                "top_concentration_change": None,
+            }
+        )
+    return updated
 def _factor_exposure_change_rows(baseline: PortfolioDiagnosticsSnapshot, candidate: PortfolioDiagnosticsSnapshot) -> list[PortfolioDiagnosticsComparisonRow]:
     baseline_map = {item.key: item for item in baseline.factor_snapshot}
     candidate_map = {item.key: item for item in candidate.factor_snapshot}

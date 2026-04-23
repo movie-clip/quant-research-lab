@@ -1,12 +1,25 @@
-from datetime import datetime
+import json
+from datetime import date, datetime
+from hashlib import sha256
+from pathlib import Path
 
+import pytest
 from types import SimpleNamespace
 from typing import Literal, cast
+from pydantic import ValidationError
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, OptimizerHandoffReplayRequest, OptimizerHandoffValidationRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.optimizer import OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
 from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
-from app.services.portfolio_backtest_engine import _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_hypothetical_replacement_replay_preview
+from app.schemas.return_basis import ReturnBasisEvidence
+from app.schemas.construction import ConstructionRunRequest
+from app.services.optimizer_artifact_service import OptimizerHandoffStore
+from app.services.construction_artifact_service import ConstructionArtifactStore
+from app.services.construction_run_service import build_construction_run
+from app.services.optimizer_handoff_constraints import OptimizerHandoffValidationBlockedError, validate_optimizer_handoff_constraints
+from app.services.optimizer_preview_service import build_optimizer_preview
+from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -56,6 +69,112 @@ def _replacement_intent(base_symbol: str = "VUAA", candidate_symbol: str = "IUFS
         confidence="medium",
         holdings_support="mixed",
         warning_count=1,
+    )
+
+
+def _optimizer_preview_request() -> OptimizerPreviewRequest:
+    return OptimizerPreviewRequest(
+        request_id="preview-1",
+        universe_id="optimizer_universe_large_cap_demo_v1",
+        snapshot=_build_imported_snapshot_for_optimizer(),
+        benchmark=OptimizerPreviewBenchmarkInput(
+            benchmark_id="benchmark_spy_demo_v1",
+            benchmark_version="2024-04-15",
+            benchmark_symbol="SPY",
+            source_name="test_benchmark_contract",
+            as_of_timestamp="2024-12-31T09:30:00",
+            weights=[
+                OptimizerWeight(symbol="AAA", weight=0.50),
+                OptimizerWeight(symbol="BBB", weight=0.30),
+                OptimizerWeight(symbol="CCC", weight=0.20),
+            ],
+        ),
+        universe=[
+            OptimizerUniverseAsset(symbol="AAA", eligible=True),
+            OptimizerUniverseAsset(symbol="BBB", eligible=True),
+            OptimizerUniverseAsset(symbol="CCC", eligible=True),
+        ],
+        hard_constraints=OptimizerHardConstraints(
+            benchmark_relative=OptimizerBenchmarkRelativeConstraint(max_abs_active_weight=0.10),
+            position_limits=OptimizerPositionLimitConstraint(default_max_weight=0.60),
+            turnover=OptimizerTurnoverConstraint(max_turnover=None),
+        ),
+    )
+
+
+def _mutate_persisted_json(path: str, mutator) -> None:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    mutator(payload)
+    Path(path).write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+
+def _update_constraint_evaluation(payload: dict, constraint_id: str, **updates) -> None:
+    payload["constraint_evaluations"] = [
+        {**item, **updates} if item["constraint_id"] == constraint_id else item
+        for item in payload["constraint_evaluations"]
+    ]
+
+
+def _update_benchmark_attestation(payload: dict, attestation_id: str, **updates) -> None:
+    payload["benchmark_relative_attestations"] = [
+        {**item, **updates} if item["attestation_id"] == attestation_id else item
+        for item in payload["benchmark_relative_attestations"]
+    ]
+
+
+def _build_imported_snapshot_for_optimizer():
+    from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
+
+    return ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2024, 4, 15, 9, 30),
+            source_path="IB2024.pdf",
+            detected_format="statement_pdf",
+            account_id="U1234567",
+            base_currency="USD",
+            statement_period="2024-04",
+            page_count=4,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=500.0)],
+        positions=[
+            ImportedPosition(as_of_date=datetime(2024, 1, 1).date(), symbol="AAA", quantity=10.0, cost_basis=60.0, close_price=6.0, market_value=60.0, unrealized_pnl=0.0, currency="USD"),
+            ImportedPosition(as_of_date=datetime(2024, 1, 1).date(), symbol="BBB", quantity=8.0, cost_basis=40.0, close_price=5.0, market_value=40.0, unrealized_pnl=0.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+
+
+def _return_basis_attestation_for_test(
+    benchmark_relative_path: Literal["verified_adjusted_close", "degraded_unverified_return_basis", "unavailable"] = "degraded_unverified_return_basis",
+) -> OptimizerReturnBasisAttestation:
+    evidence = ReturnBasisEvidence(
+        verification_status="unverified",
+        economic_basis="adjusted_close_proxy",
+        construction_method="vendor_adjusted_close",
+        source_price_field="adjClose",
+    )
+    return OptimizerReturnBasisAttestation(
+        benchmark_symbol="SPY",
+        as_of_date="2024-04-15",
+        history_start_date="2024-01-01",
+        history_end_date="2024-12-31",
+        factor_proxy_symbols=["IWD", "IWM"],
+        benchmark_return_basis_contract="unverified_adjusted_proxy",
+        factor_return_basis_contract="unverified_adjusted_proxy",
+        factor_basis_path="degraded_unverified_return_basis",
+        section_trust=OptimizerReturnBasisSectionTrust(
+            benchmark_relative_path=benchmark_relative_path,
+            factor_model_path="degraded_unverified_return_basis",
+            risk_contribution_path="degraded_unverified_return_basis",
+        ),
+        evidence=OptimizerReturnBasisEvidenceBundle(
+            benchmark_history=evidence,
+            factor_history=evidence,
+        ),
     )
 
 
@@ -356,6 +475,362 @@ def test_compare_results_returns_null_diffs_for_refused_investor_economics_metri
     assert comparison.tracking_error_diff_pct == 1.0
     assert comparison.beta_diff == -0.2
     assert comparison.correlation_diff == -0.05
+
+
+def test_apply_return_basis_attestation_to_replay_result_suppresses_top_level_benchmark_relative_metrics() -> None:
+    result = AllocationBacktestResult(
+        portfolio_name="Candidate",
+        benchmark_symbol="SPY",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        observation_count=2,
+        rebalance_frequency="monthly",
+        commission_bps=0,
+        slippage_bps=0,
+        assumptions=AllocationBacktestAssumptions(
+            price_basis="adjusted_close",
+            execution_price_field="close",
+            execution_lag_days=1,
+            calendar_policy="intersection_common_dates",
+            fractional_shares=True,
+            long_only=True,
+            leverage_allowed=False,
+            tax_treatment="pre_tax",
+            investor_base_currency="USD",
+        ),
+        status="ok",
+        investor_economics_status=InvestorEconomicsStatus(status="available", reason=None),
+        instrument_metadata=[],
+        starting_weights=[],
+        ending_weights=[],
+        metrics=AllocationBacktestMetrics(
+            total_return_pct=5.0,
+            annualized_return_pct=5.0,
+            annualized_volatility_pct=10.0,
+            downside_volatility_pct=6.0,
+            max_drawdown_pct=-4.0,
+            sharpe_ratio=0.5,
+            sortino_ratio=0.7,
+            benchmark_return_pct=4.0,
+            excess_return_pct=1.0,
+            tracking_error_pct=3.0,
+            information_ratio=0.2,
+            beta_vs_benchmark=0.9,
+            correlation_vs_benchmark=0.8,
+            total_turnover_pct=2.0,
+            total_cost_paid=1.0,
+        ),
+        equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=105000, cash=0)],
+        rebalance_events=[],
+        trades=[],
+    )
+
+    suppressed = _apply_return_basis_attestation_to_replay_result(
+        result,
+        _return_basis_attestation_for_test(),
+    )
+
+    assert suppressed is not None
+    assert suppressed.metrics.total_return_pct == 5.0
+    assert suppressed.metrics.annualized_volatility_pct == 10.0
+    assert suppressed.metrics.total_turnover_pct == 2.0
+    assert suppressed.metrics.benchmark_return_pct is None
+    assert suppressed.metrics.excess_return_pct is None
+    assert suppressed.metrics.tracking_error_pct is None
+    assert suppressed.metrics.information_ratio is None
+    assert suppressed.metrics.beta_vs_benchmark is None
+    assert suppressed.metrics.correlation_vs_benchmark is None
+
+
+def test_apply_return_basis_attestation_to_replay_result_preserves_top_level_benchmark_relative_metrics_when_verified_adjusted_close() -> None:
+    result = AllocationBacktestResult(
+        portfolio_name="Candidate",
+        benchmark_symbol="SPY",
+        start_date="2024-01-01",
+        end_date="2024-12-31",
+        observation_count=2,
+        rebalance_frequency="monthly",
+        commission_bps=0,
+        slippage_bps=0,
+        assumptions=AllocationBacktestAssumptions(
+            price_basis="adjusted_close",
+            execution_price_field="close",
+            execution_lag_days=1,
+            calendar_policy="intersection_common_dates",
+            fractional_shares=True,
+            long_only=True,
+            leverage_allowed=False,
+            tax_treatment="pre_tax",
+            investor_base_currency="USD",
+        ),
+        status="ok",
+        investor_economics_status=InvestorEconomicsStatus(status="available", reason=None),
+        instrument_metadata=[],
+        starting_weights=[],
+        ending_weights=[],
+        metrics=AllocationBacktestMetrics(
+            total_return_pct=5.0,
+            annualized_return_pct=5.0,
+            annualized_volatility_pct=10.0,
+            downside_volatility_pct=6.0,
+            max_drawdown_pct=-4.0,
+            sharpe_ratio=0.5,
+            sortino_ratio=0.7,
+            benchmark_return_pct=4.0,
+            excess_return_pct=1.0,
+            tracking_error_pct=3.0,
+            information_ratio=0.2,
+            beta_vs_benchmark=0.9,
+            correlation_vs_benchmark=0.8,
+            total_turnover_pct=2.0,
+            total_cost_paid=1.0,
+        ),
+        equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=105000, cash=0)],
+        rebalance_events=[],
+        trades=[],
+    )
+
+    preserved = _apply_return_basis_attestation_to_replay_result(
+        result,
+        _return_basis_attestation_for_test(benchmark_relative_path="verified_adjusted_close"),
+    )
+
+    assert preserved is not None
+    assert preserved.metrics.total_return_pct == 5.0
+    assert preserved.metrics.annualized_volatility_pct == 10.0
+    assert preserved.metrics.total_turnover_pct == 2.0
+    assert preserved.metrics.benchmark_return_pct == 4.0
+    assert preserved.metrics.excess_return_pct == 1.0
+    assert preserved.metrics.tracking_error_pct == 3.0
+    assert preserved.metrics.information_ratio == 0.2
+    assert preserved.metrics.beta_vs_benchmark == 0.9
+    assert preserved.metrics.correlation_vs_benchmark == 0.8
+
+
+def test_apply_return_basis_attestation_to_replay_comparison_suppresses_top_level_benchmark_relative_diffs() -> None:
+    comparison = _compare_results(
+        AllocationBacktestResult(
+            portfolio_name="Reference",
+            benchmark_symbol="SPY",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            observation_count=2,
+            rebalance_frequency="monthly",
+            commission_bps=0,
+            slippage_bps=0,
+            assumptions=AllocationBacktestAssumptions(
+                price_basis="adjusted_close",
+                execution_price_field="close",
+                execution_lag_days=1,
+                calendar_policy="intersection_common_dates",
+                fractional_shares=True,
+                long_only=True,
+                leverage_allowed=False,
+                tax_treatment="pre_tax",
+                investor_base_currency="USD",
+            ),
+            status="ok",
+            investor_economics_status=InvestorEconomicsStatus(status="available", reason=None),
+            instrument_metadata=[],
+            starting_weights=[],
+            ending_weights=[],
+            metrics=AllocationBacktestMetrics(
+                total_return_pct=4.0,
+                annualized_return_pct=4.0,
+                annualized_volatility_pct=11.0,
+                downside_volatility_pct=7.0,
+                max_drawdown_pct=-5.0,
+                sharpe_ratio=0.4,
+                sortino_ratio=0.6,
+                benchmark_return_pct=3.0,
+                excess_return_pct=1.0,
+                tracking_error_pct=2.0,
+                information_ratio=0.1,
+                beta_vs_benchmark=1.0,
+                correlation_vs_benchmark=0.9,
+                total_turnover_pct=3.0,
+                total_cost_paid=1.0,
+            ),
+            equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=104000, cash=0)],
+            rebalance_events=[],
+            trades=[],
+        ),
+        AllocationBacktestResult(
+            portfolio_name="Candidate",
+            benchmark_symbol="SPY",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            observation_count=2,
+            rebalance_frequency="monthly",
+            commission_bps=0,
+            slippage_bps=0,
+            assumptions=AllocationBacktestAssumptions(
+                price_basis="adjusted_close",
+                execution_price_field="close",
+                execution_lag_days=1,
+                calendar_policy="intersection_common_dates",
+                fractional_shares=True,
+                long_only=True,
+                leverage_allowed=False,
+                tax_treatment="pre_tax",
+                investor_base_currency="USD",
+            ),
+            status="ok",
+            investor_economics_status=InvestorEconomicsStatus(status="available", reason=None),
+            instrument_metadata=[],
+            starting_weights=[],
+            ending_weights=[],
+            metrics=AllocationBacktestMetrics(
+                total_return_pct=5.0,
+                annualized_return_pct=5.0,
+                annualized_volatility_pct=10.0,
+                downside_volatility_pct=6.0,
+                max_drawdown_pct=-4.0,
+                sharpe_ratio=0.5,
+                sortino_ratio=0.7,
+                benchmark_return_pct=4.0,
+                excess_return_pct=1.0,
+                tracking_error_pct=3.0,
+                information_ratio=0.2,
+                beta_vs_benchmark=0.9,
+                correlation_vs_benchmark=0.8,
+                total_turnover_pct=2.0,
+                total_cost_paid=1.5,
+            ),
+            equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=105000, cash=0)],
+            rebalance_events=[],
+            trades=[],
+        ),
+    )
+
+    suppressed = _apply_return_basis_attestation_to_replay_comparison(
+        comparison,
+        _return_basis_attestation_for_test(),
+    )
+
+    assert suppressed is not None
+    assert suppressed.total_return_diff_pct == 1.0
+    assert suppressed.annualized_volatility_diff_pct == -1.0
+    assert suppressed.total_turnover_diff_pct == -1.0
+    assert suppressed.benchmark_return_diff_pct is None
+    assert suppressed.excess_return_diff_pct is None
+    assert suppressed.tracking_error_diff_pct is None
+    assert suppressed.information_ratio_diff is None
+    assert suppressed.beta_diff is None
+    assert suppressed.correlation_diff is None
+
+
+def test_apply_return_basis_attestation_to_replay_comparison_preserves_top_level_benchmark_relative_diffs_when_verified_adjusted_close() -> None:
+    comparison = _compare_results(
+        AllocationBacktestResult(
+            portfolio_name="Reference",
+            benchmark_symbol="SPY",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            observation_count=2,
+            rebalance_frequency="monthly",
+            commission_bps=0,
+            slippage_bps=0,
+            assumptions=AllocationBacktestAssumptions(
+                price_basis="adjusted_close",
+                execution_price_field="close",
+                execution_lag_days=1,
+                calendar_policy="intersection_common_dates",
+                fractional_shares=True,
+                long_only=True,
+                leverage_allowed=False,
+                tax_treatment="pre_tax",
+                investor_base_currency="USD",
+            ),
+            status="ok",
+            investor_economics_status=InvestorEconomicsStatus(status="available", reason=None),
+            instrument_metadata=[],
+            starting_weights=[],
+            ending_weights=[],
+            metrics=AllocationBacktestMetrics(
+                total_return_pct=4.0,
+                annualized_return_pct=4.0,
+                annualized_volatility_pct=11.0,
+                downside_volatility_pct=7.0,
+                max_drawdown_pct=-5.0,
+                sharpe_ratio=0.4,
+                sortino_ratio=0.6,
+                benchmark_return_pct=3.0,
+                excess_return_pct=1.0,
+                tracking_error_pct=2.0,
+                information_ratio=0.1,
+                beta_vs_benchmark=1.0,
+                correlation_vs_benchmark=0.9,
+                total_turnover_pct=3.0,
+                total_cost_paid=1.0,
+            ),
+            equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=104000, cash=0)],
+            rebalance_events=[],
+            trades=[],
+        ),
+        AllocationBacktestResult(
+            portfolio_name="Candidate",
+            benchmark_symbol="SPY",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            observation_count=2,
+            rebalance_frequency="monthly",
+            commission_bps=0,
+            slippage_bps=0,
+            assumptions=AllocationBacktestAssumptions(
+                price_basis="adjusted_close",
+                execution_price_field="close",
+                execution_lag_days=1,
+                calendar_policy="intersection_common_dates",
+                fractional_shares=True,
+                long_only=True,
+                leverage_allowed=False,
+                tax_treatment="pre_tax",
+                investor_base_currency="USD",
+            ),
+            status="ok",
+            investor_economics_status=InvestorEconomicsStatus(status="available", reason=None),
+            instrument_metadata=[],
+            starting_weights=[],
+            ending_weights=[],
+            metrics=AllocationBacktestMetrics(
+                total_return_pct=5.0,
+                annualized_return_pct=5.0,
+                annualized_volatility_pct=10.0,
+                downside_volatility_pct=6.0,
+                max_drawdown_pct=-4.0,
+                sharpe_ratio=0.5,
+                sortino_ratio=0.7,
+                benchmark_return_pct=4.0,
+                excess_return_pct=1.0,
+                tracking_error_pct=3.0,
+                information_ratio=0.2,
+                beta_vs_benchmark=0.9,
+                correlation_vs_benchmark=0.8,
+                total_turnover_pct=2.0,
+                total_cost_paid=1.5,
+            ),
+            equity_curve=[AllocationBacktestPoint(date="2024-01-31", equity=100000, cash=0), AllocationBacktestPoint(date="2024-12-31", equity=105000, cash=0)],
+            rebalance_events=[],
+            trades=[],
+        ),
+    )
+
+    preserved = _apply_return_basis_attestation_to_replay_comparison(
+        comparison,
+        _return_basis_attestation_for_test(benchmark_relative_path="verified_adjusted_close"),
+    )
+
+    assert preserved is not None
+    assert preserved.total_return_diff_pct == 1.0
+    assert preserved.annualized_volatility_diff_pct == -1.0
+    assert preserved.total_turnover_diff_pct == -1.0
+    assert preserved.benchmark_return_diff_pct == 1.0
+    assert preserved.excess_return_diff_pct == 0.0
+    assert preserved.tracking_error_diff_pct == 1.0
+    assert preserved.information_ratio_diff == 0.1
+    assert preserved.beta_diff == -0.1
+    assert preserved.correlation_diff == -0.1
 
 
 def test_portfolio_allocation_backtest_route_returns_reference_assumptions_and_metadata(mocker) -> None:
@@ -881,6 +1356,1440 @@ def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_
     assert "candidate - baseline" in payload["replay"]["diagnostics_comparison"]["top_factor_exposure_change"]["rationale"]
 
 
+def test_build_optimizer_handoff_replay_preview_runs_from_explicit_persisted_reference(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 103.0, 104.0, 106.0, 109.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    replay_response = build_optimizer_handoff_replay_preview(
+        OptimizerHandoffReplayRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert replay_response.handoff_id == preview_response.persisted_handoff.handoff_id
+    assert replay_response.artifact_id == preview_response.optimizer_artifact.artifact_id
+    assert replay_response.source_portfolio_snapshot_id.startswith("portfolio_snapshot_")
+    assert replay_response.truth_separation.model_dump() == {
+        "baseline_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_optimizer_handoff",
+        "candidate_applied": False,
+        "consumption_mode": "explicit_reference_only",
+    }
+    assert replay_response.replay_provenance.benchmark_id == "benchmark_spy_demo_v1"
+    assert replay_response.replay_provenance.benchmark_version == "2024-04-15"
+    assert replay_response.replay_provenance.benchmark_symbol == "SPY"
+    assert replay_response.replay_provenance.return_basis_attestation.benchmark_symbol == "SPY"
+    assert replay_response.replay_provenance.replay_output_policy.model_dump() == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+    assert replay_response.replay.reference_result is not None
+    assert replay_response.replay.comparison is not None
+    assert replay_response.optimizer_context is not None
+    assert replay_response.optimizer_context.objective_id == "minimize_l2_distance_to_benchmark"
+    assert replay_response.optimizer_context.run_summary.solver_id == "deterministic_projected_dykstra_v1"
+    assert replay_response.optimizer_context.diagnostics.turnover == 0.2
+    assert replay_response.optimizer_context.diagnostics.active_share == 0.0
+    assert replay_response.optimizer_context.benchmark_relative_attestations[0].attestation_id == "benchmark_relative_max_abs_active_weight"
+    assert replay_response.baseline_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.6),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.4),
+    ]
+    assert replay_response.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.5),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.3),
+        PortfolioWeightInput(symbol="CCC", target_weight=0.2),
+    ]
+    assert replay_response.replay.candidate_result.portfolio_name == "Optimizer Handoff Candidate"
+    assert replay_response.replay.reference_result.metrics.tracking_error_pct is None
+    assert replay_response.replay.reference_result.metrics.beta_vs_benchmark is None
+    assert replay_response.replay.reference_result.metrics.correlation_vs_benchmark is None
+    assert replay_response.replay.candidate_result.metrics.tracking_error_pct is None
+    assert replay_response.replay.candidate_result.metrics.beta_vs_benchmark is None
+    assert replay_response.replay.candidate_result.metrics.correlation_vs_benchmark is None
+    assert replay_response.replay.comparison.tracking_error_diff_pct is None
+    assert replay_response.replay.comparison.beta_diff is None
+    assert replay_response.replay.comparison.correlation_diff is None
+
+
+def test_build_optimizer_handoff_replay_preview_uses_persisted_benchmark_symbol_only(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 103.0, 104.0, 106.0, 109.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    replay_response = build_optimizer_handoff_replay_preview(
+        OptimizerHandoffReplayRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert replay_response.replay_provenance.benchmark_symbol == "SPY"
+    assert replay_response.replay_provenance.replay_output_policy.withheld_families == [
+        "benchmark_relative_volatility_outputs",
+        "factor_exposure_outputs",
+        "stress_scenario_outputs",
+        "risk_contribution_outputs",
+        "concentration_outputs",
+    ]
+    assert replay_response.replay.candidate_result.benchmark_symbol == "SPY"
+    assert replay_response.replay.candidate_result.metrics.tracking_error_pct is None
+    assert replay_response.replay.candidate_result.metrics.beta_vs_benchmark is None
+    assert replay_response.replay.candidate_result.metrics.correlation_vs_benchmark is None
+    assert replay_response.replay.candidate_diagnostics is not None
+    assert replay_response.replay.candidate_diagnostics.factor_snapshot == []
+    assert replay_response.replay.candidate_diagnostics.risk_contribution is not None
+    assert replay_response.replay.candidate_diagnostics.risk_contribution.factor_contributions == []
+    assert replay_response.replay.diagnostics_comparison is not None
+    assert replay_response.replay.diagnostics_comparison.factor_exposure_changes == []
+
+
+def test_build_construction_artifact_replay_preview_uses_persisted_final_target_weights_and_normalized_baseline(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=artifact.artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.construction_artifact_id == artifact.artifact_id
+    assert replay_response.truth_separation.model_dump() == {
+        "baseline_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_construction_artifact",
+        "candidate_applied": False,
+        "consumption_mode": "explicit_reference_only",
+    }
+    assert replay_response.replay_provenance.model_dump() == {
+        "source": "construction_artifact_reference",
+        "construction_artifact_id": artifact.artifact_id,
+        "policy_id": "top_n_equal_weight_v1",
+        "ranked_universe_artifact_id": "ranking_artifact_1",
+        "ranking_id": "ranked_candidates_v1",
+        "ranking_methodology_id": "ranked_candidates_methodology_v1",
+        "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "baseline_input_source": "normalized_inputs.current_portfolio_weights",
+        "candidate_input_source": "final_target_weights",
+        "selection_rule_trace": {
+            "rule_ids": ["eligible_only", "take_top_n"],
+            "steps": [
+                {
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA", "BBB"],
+                    "output_candidate_symbols": ["AAA", "BBB"],
+                },
+                {
+                    "rule_id": "take_top_n",
+                    "rule_order": 2,
+                    "input_candidate_symbols": ["AAA", "BBB"],
+                    "output_candidate_symbols": ["AAA", "BBB"],
+                },
+            ],
+        },
+    }
+    assert replay_response.baseline_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.6),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.4),
+    ]
+    assert replay_response.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.5),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.5),
+    ]
+    assert replay_response.replay.reference_result is not None
+    assert replay_response.replay.candidate_result.portfolio_name == "Construction Artifact Candidate"
+
+
+def test_build_construction_artifact_replay_preview_requires_normalized_current_portfolio_weights(
+    tmp_path,
+) -> None:
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-missing-baseline",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="construction artifact replay requires normalized_inputs.current_portfolio_weights for the baseline replay path",
+    ):
+        build_construction_artifact_replay_preview(
+            ConstructionArtifactReplayRequest(
+                construction_artifact_id=artifact.artifact_id,
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 12, 31),
+                initial_capital=100000,
+                execution_lag_days=1,
+            ),
+            artifact_store=artifact_store,
+        )
+
+
+@pytest.mark.parametrize(
+    "trace_mutator",
+    [
+        lambda payload: payload.pop("selection_rule_trace"),
+        lambda payload: payload.update({"selection_rule_trace": None}),
+        lambda payload: payload.update({"selection_rule_trace": {}}),
+    ],
+    ids=["missing", "null", "empty_object"],
+)
+def test_construction_artifact_replay_provenance_requires_explicit_selection_trace(trace_mutator) -> None:
+    payload = {
+        "construction_artifact_id": "construction_artifact_1234567890abcdef",
+        "policy_id": "top_n_equal_weight_v1",
+        "selection_rule_trace": {"rule_ids": [], "steps": []},
+    }
+    trace_mutator(payload)
+
+    with pytest.raises(ValidationError):
+        ConstructionArtifactReplayProvenance.model_validate(payload)
+
+
+def test_construction_artifact_replay_provenance_accepts_explicit_empty_selection_trace() -> None:
+    provenance = ConstructionArtifactReplayProvenance.model_validate(
+        {
+            "construction_artifact_id": "construction_artifact_1234567890abcdef",
+            "policy_id": "top_n_equal_weight_v1",
+            "selection_rule_trace": {"rule_ids": [], "steps": []},
+        }
+    )
+
+    assert provenance.selection_rule_trace.model_dump(mode="json") == {"rule_ids": [], "steps": []}
+
+
+def test_build_construction_artifact_replay_preview_echoes_empty_selection_trace_for_legacy_artifact(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-legacy-trace",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    original_path = tmp_path / f"{artifact.artifact_id}.json"
+    payload = json.loads(original_path.read_text(encoding="utf-8"))
+    payload.pop("selection_rule_trace")
+    payload_without_ids = {key: value for key, value in payload.items() if key not in {"artifact_id", "fingerprint"}}
+    fingerprint = sha256(
+        json.dumps(payload_without_ids, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    legacy_artifact_id = f"construction_artifact_{fingerprint[:16]}"
+    payload["fingerprint"] = fingerprint
+    payload["artifact_id"] = legacy_artifact_id
+    original_path.unlink()
+    legacy_path = tmp_path / f"{legacy_artifact_id}.json"
+    legacy_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=legacy_artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.replay_provenance.selection_rule_trace.model_dump(mode="json") == {
+        "rule_ids": [],
+        "steps": [],
+    }
+
+
+@pytest.mark.parametrize(
+    "selection_rule_trace",
+    [
+        {
+            "steps": [
+                {
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA"],
+                    "output_candidate_symbols": ["AAA"],
+                }
+            ]
+        },
+        {
+            "rule_ids": [],
+            "steps": [
+                {
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA"],
+                    "output_candidate_symbols": ["AAA"],
+                }
+            ],
+        },
+    ],
+    ids=["missing_rule_ids", "empty_rule_ids"],
+)
+def test_build_construction_artifact_replay_preview_rejects_partial_malformed_selection_trace(
+    tmp_path,
+    mocker,
+    selection_rule_trace,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-malformed-trace",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    artifact_path = tmp_path / f"{artifact.artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["selection_rule_trace"] = selection_rule_trace
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="persisted construction artifact failed schema validation",
+    ):
+        build_construction_artifact_replay_preview(
+            ConstructionArtifactReplayRequest(
+                construction_artifact_id=artifact.artifact_id,
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 12, 31),
+                initial_capital=100000,
+                execution_lag_days=1,
+            ),
+            artifact_store=artifact_store,
+        )
+
+
+@pytest.mark.parametrize(
+    "legacy_manifest_mutator",
+    [
+        lambda payload: payload["return_basis_attestation"].pop("factor_basis_path", None),
+        lambda payload: payload["return_basis_attestation"].update({"factor_basis_path": None}),
+    ],
+    ids=["missing_factor_basis_path", "null_factor_basis_path"],
+)
+def test_build_optimizer_handoff_replay_preview_normalizes_legacy_factor_basis_variants_with_canonical_parity(
+    tmp_path,
+    mocker,
+    legacy_manifest_mutator,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 103.0, 104.0, 106.0, 109.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    canonical_response = build_optimizer_handoff_replay_preview(
+        OptimizerHandoffReplayRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        legacy_manifest_mutator,
+    )
+
+    legacy_response = build_optimizer_handoff_replay_preview(
+        OptimizerHandoffReplayRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert legacy_response.replay_provenance.return_basis_attestation.model_dump() == canonical_response.replay_provenance.return_basis_attestation.model_dump()
+    assert legacy_response.replay_provenance.return_basis_attestation.factor_basis_path == "degraded_unverified_return_basis"
+    assert legacy_response.replay_provenance.replay_output_policy.model_dump() == canonical_response.replay_provenance.replay_output_policy.model_dump()
+    assert (
+        legacy_response.replay_provenance.benchmark_id,
+        legacy_response.replay_provenance.benchmark_version,
+        legacy_response.replay_provenance.benchmark_symbol,
+    ) == (
+        canonical_response.replay_provenance.benchmark_id,
+        canonical_response.replay_provenance.benchmark_version,
+        canonical_response.replay_provenance.benchmark_symbol,
+    )
+    assert legacy_response.replay.candidate_result.investor_economics_status == canonical_response.replay.candidate_result.investor_economics_status
+    assert legacy_response.replay.candidate_diagnostics is not None
+    assert canonical_response.replay.candidate_diagnostics is not None
+    assert legacy_response.replay.candidate_diagnostics.factor_snapshot == canonical_response.replay.candidate_diagnostics.factor_snapshot == []
+    assert legacy_response.replay.candidate_diagnostics.risk_contribution is not None
+    assert canonical_response.replay.candidate_diagnostics.risk_contribution is not None
+    assert (
+        legacy_response.replay.candidate_diagnostics.risk_contribution.factor_contributions
+        == canonical_response.replay.candidate_diagnostics.risk_contribution.factor_contributions
+        == []
+    )
+    assert legacy_response.replay.diagnostics_comparison is not None
+    assert canonical_response.replay.diagnostics_comparison is not None
+    assert (
+        legacy_response.replay.diagnostics_comparison.factor_exposure_changes
+        == canonical_response.replay.diagnostics_comparison.factor_exposure_changes
+        == []
+    )
+
+
+def test_optimizer_handoff_replay_request_rejects_removed_benchmark_symbol_field() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        OptimizerHandoffReplayRequest.model_validate(
+            {
+                "handoff_reference": {
+                "reference_kind": "optimizer_handoff_reference_v1",
+                "handoff_id": "optimizer_handoff_demo",
+                "artifact_id": "opt_artifact_demo",
+                "manifest_path": "C:/tmp/manifest.json",
+                "artifact_path": "C:/tmp/artifact.json",
+                },
+                "benchmark_symbol": "QQQ",
+                "start_date": date(2024, 1, 1),
+                "end_date": date(2024, 12, 31),
+            }
+        )
+
+    assert "Extra inputs are not permitted" in str(exc_info.value)
+
+
+def test_optimizer_handoff_replay_route_returns_explicit_reference_contract(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    service_instance = mock_service.return_value
+    service_instance.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 103.0, 104.0, 106.0, 109.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+    client = TestClient(app)
+
+    assert preview_response.persisted_handoff is not None
+    response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": preview_response.persisted_handoff.model_dump(mode="json"),
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["handoff_id"] == preview_response.persisted_handoff.handoff_id
+    assert payload["artifact_id"] == preview_response.persisted_handoff.artifact_id
+    assert payload["truth_separation"] == {
+        "baseline_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_optimizer_handoff",
+        "candidate_applied": False,
+        "consumption_mode": "explicit_reference_only",
+    }
+    assert payload["replay_provenance"]["source"] == "optimizer_handoff_reference"
+    assert payload["replay_provenance"]["benchmark_id"] == "benchmark_spy_demo_v1"
+    assert payload["replay_provenance"]["benchmark_version"] == "2024-04-15"
+    assert payload["replay_provenance"]["benchmark_symbol"] == "SPY"
+    assert payload["replay_provenance"]["replay_output_policy"] == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+    assert payload["optimizer_context"]["objective_id"] == "minimize_l2_distance_to_benchmark"
+    assert payload["optimizer_context"]["run_summary"]["solver_id"] == "deterministic_projected_dykstra_v1"
+    assert payload["optimizer_context"]["diagnostics"]["turnover"] == 0.2
+    assert payload["optimizer_context"]["benchmark_relative_attestations"][0]["attestation_id"] == "benchmark_relative_max_abs_active_weight"
+    assert payload["candidate_weights"][2] == {"symbol": "CCC", "target_weight": 0.2}
+
+
+def test_optimizer_handoff_replay_route_rejects_non_canonical_reference(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {}
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+    client = TestClient(app)
+
+    assert preview_response.persisted_handoff is not None
+    bad_reference = preview_response.persisted_handoff.model_copy(update={"handoff_id": "optimizer_handoff_wrong"})
+    response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": bad_reference.model_dump(mode="json"),
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    payload = response.json()["detail"]
+    assert payload["handoff_id"] is None
+    assert payload["artifact_id"] is None
+    assert payload["validation_status"] == "blocked"
+    assert payload["blocking_rule_ids"] == ["persisted_payload_accessible"]
+    assert payload["provenance"]["source"] == "optimizer_handoff_reference"
+
+
+def test_validate_optimizer_handoff_constraints_returns_ok_with_explicit_reference(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "ok"
+    assert response.blocking_rule_ids == []
+    assert {item.reason_family for item in response.evaluations} == {
+        "schema",
+        "benchmark_context",
+        "constraint_violation",
+        "provenance",
+        "truth_separation",
+    }
+    assert response.truth_separation.model_dump() == {
+        "source_truth": "persisted_hypothetical_optimizer_handoff",
+        "holdings_truth": "imported_portfolio_snapshot",
+        "optimizer_output_applied": False,
+        "consumption_mode": "explicit_reference_only",
+    }
+    assert response.provenance.benchmark_symbol == "SPY"
+    assert response.provenance.benchmark_id == "benchmark_spy_demo_v1"
+    assert response.provenance.benchmark_version == "2024-04-15"
+    assert response.eligible_replay_window is not None
+    assert response.eligible_replay_window.model_dump() == {
+        "source": "persisted_return_basis_attestation",
+        "benchmark_symbol": "SPY",
+        "as_of_date": "2024-12-31",
+        "start_date": "2024-01-01",
+        "end_date": "2024-12-31",
+    }
+    assert response.provenance.replay_output_policy is not None
+    assert response.provenance.replay_output_policy.model_dump() == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+    assert any(item.phase == "raw_persisted_payload" for item in response.evaluations)
+    assert any(item.rule_id == "artifact_feasible" and item.status == "pass" for item in response.evaluations)
+
+
+@pytest.mark.parametrize(
+    "legacy_manifest_mutator",
+    [
+        lambda payload: payload["return_basis_attestation"].pop("factor_basis_path", None),
+        lambda payload: payload["return_basis_attestation"].update({"factor_basis_path": None}),
+    ],
+    ids=["missing_factor_basis_path", "null_factor_basis_path"],
+)
+def test_validate_optimizer_handoff_constraints_normalizes_legacy_factor_basis_variants_with_canonical_parity(
+    tmp_path,
+    legacy_manifest_mutator,
+) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    canonical_response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    _mutate_persisted_json(preview_response.persisted_handoff.manifest_path, legacy_manifest_mutator)
+
+    legacy_response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert legacy_response.validation_status == canonical_response.validation_status == "ok"
+    assert legacy_response.blocking_rule_ids == canonical_response.blocking_rule_ids == []
+    assert legacy_response.provenance.replay_output_policy is not None
+    assert canonical_response.provenance.replay_output_policy is not None
+    assert (
+        legacy_response.provenance.replay_output_policy.model_dump()
+        == canonical_response.provenance.replay_output_policy.model_dump()
+    )
+    assert legacy_response.provenance.replay_output_policy.section_trust.factor_model_path == "degraded_unverified_return_basis"
+    assert legacy_response.provenance.replay_output_policy.section_trust.risk_contribution_path == "degraded_unverified_return_basis"
+
+
+@pytest.mark.parametrize(
+    "section_trust_mutator",
+    [
+        lambda attestation: attestation.pop("section_trust", None),
+        lambda attestation: attestation.update({"section_trust": {}}),
+    ],
+    ids=["missing_section_trust", "malformed_section_trust"],
+)
+def test_validate_optimizer_handoff_constraints_does_not_unlock_factor_families_without_valid_section_trust(
+    tmp_path,
+    section_trust_mutator,
+) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+
+    def _remove_factor_basis_with_invalid_section_trust(payload: dict) -> None:
+        attestation = payload["return_basis_attestation"]
+        attestation.pop("factor_basis_path", None)
+        section_trust_mutator(attestation)
+
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        _remove_factor_basis_with_invalid_section_trust,
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "manifest_model_valid" in response.blocking_rule_ids
+    assert response.provenance.replay_output_policy is None
+
+
+def test_validate_optimizer_handoff_constraints_maps_replay_output_families_from_persisted_section_trust(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        lambda payload: payload["return_basis_attestation"].update(
+            {
+                "factor_basis_path": "unavailable",
+                "section_trust": {
+                    "benchmark_relative_path": "verified_adjusted_close",
+                    "factor_model_path": "unavailable",
+                    "risk_contribution_path": "verified_adjusted_close",
+                },
+            }
+        ),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert response.blocking_rule_ids == ["manifest_artifact_consistent"]
+    assert response.provenance.replay_output_policy is not None
+    assert response.provenance.replay_output_policy.model_dump() == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "verified_adjusted_close",
+            "factor_model_path": "unavailable",
+            "risk_contribution_path": "unavailable",
+        },
+        "eligible_families": [
+            "benchmark_relative_volatility_outputs",
+        ],
+        "withheld_families": [
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+
+
+def test_validate_optimizer_handoff_constraints_prefers_persisted_factor_basis_path_for_factor_families(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        lambda payload: payload["return_basis_attestation"].update(
+            {
+                "factor_basis_path": "unavailable",
+                "section_trust": {
+                    "benchmark_relative_path": "verified_adjusted_close",
+                    "factor_model_path": "verified_adjusted_close",
+                    "risk_contribution_path": "verified_adjusted_close",
+                },
+            }
+        ),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert response.blocking_rule_ids == ["manifest_artifact_consistent"]
+    assert response.provenance.replay_output_policy is not None
+    assert response.provenance.replay_output_policy.model_dump() == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "verified_adjusted_close",
+            "factor_model_path": "unavailable",
+            "risk_contribution_path": "unavailable",
+        },
+        "eligible_families": [
+            "benchmark_relative_volatility_outputs",
+        ],
+        "withheld_families": [
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+
+
+def test_validate_optimizer_handoff_constraints_normalizes_loaded_attestation_before_policy_mapping(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    canonical_response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        lambda payload: payload["return_basis_attestation"].update(
+            {
+                "factor_basis_path": "unavailable",
+                "section_trust": {
+                    "benchmark_relative_path": "degraded_unverified_return_basis",
+                    "factor_model_path": "verified_adjusted_close",
+                    "risk_contribution_path": "verified_adjusted_close",
+                },
+            }
+        ),
+    )
+
+    normalized_response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert canonical_response.provenance.replay_output_policy is not None
+    assert normalized_response.provenance.replay_output_policy is not None
+    assert canonical_response.validation_status == "ok"
+    assert canonical_response.blocking_rule_ids == []
+    assert normalized_response.validation_status == "blocked"
+    assert normalized_response.blocking_rule_ids == ["manifest_artifact_consistent"]
+    assert normalized_response.provenance.replay_output_policy.model_dump() == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "unavailable",
+            "risk_contribution_path": "unavailable",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+
+
+def test_validate_optimizer_handoff_constraints_uses_persisted_benchmark_symbol_only(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(
+            handoff_reference=preview_response.persisted_handoff,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "ok"
+    assert response.provenance.benchmark_symbol == "SPY"
+    assert all(item.rule_id != "request_benchmark_matches_persisted" for item in response.evaluations)
+    assert any(item.rule_id == "persisted_return_basis_attestation_present" and item.status == "pass" for item in response.evaluations)
+
+
+def test_validate_optimizer_handoff_constraints_blocks_replay_window_outside_attested_coverage(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    with pytest.raises(OptimizerHandoffValidationBlockedError) as exc_info:
+        build_optimizer_handoff_replay_preview(
+            OptimizerHandoffReplayRequest(
+                handoff_reference=preview_response.persisted_handoff,
+                start_date=date(2023, 12, 31),
+                end_date=date(2024, 12, 31),
+                initial_capital=100000,
+                execution_lag_days=1,
+            ),
+            handoff_store=handoff_store,
+        )
+
+    response = exc_info.value.response
+    assert response.validation_status == "blocked"
+    assert "requested_replay_window_within_attested_return_basis_coverage" in response.blocking_rule_ids
+    assert response.eligible_replay_window is not None
+    assert response.eligible_replay_window.start_date == "2024-01-01"
+    assert response.eligible_replay_window.end_date == "2024-12-31"
+    evaluation = next(item for item in response.evaluations if item.rule_id == "requested_replay_window_within_attested_return_basis_coverage")
+    assert evaluation.status == "fail"
+    assert evaluation.actual_value == "2023-12-31..2024-12-31"
+    assert evaluation.expected_value == "2024-01-01..2024-12-31"
+
+
+def test_validate_optimizer_handoff_constraints_returns_candidate_window_check_when_requested(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "ok"
+    evaluation = next(item for item in response.evaluations if item.rule_id == "requested_replay_window_within_attested_return_basis_coverage")
+    assert evaluation.status == "pass"
+    assert evaluation.actual_value == "2024-01-01..2024-12-31"
+    assert evaluation.expected_value == "2024-01-01..2024-12-31"
+
+
+def test_optimizer_handoff_validation_request_requires_candidate_window_dates_together() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        OptimizerHandoffValidationRequest.model_validate(
+            {
+                "handoff_reference": {
+                    "reference_kind": "optimizer_handoff_reference_v1",
+                    "handoff_id": "optimizer_handoff_demo",
+                    "artifact_id": "opt_artifact_demo",
+                    "manifest_path": "C:/tmp/manifest.json",
+                    "artifact_path": "C:/tmp/artifact.json",
+                },
+                "start_date": "2024-01-01",
+            }
+        )
+
+    assert "start_date and end_date must be supplied together" in str(exc_info.value)
+
+
+def test_validate_optimizer_handoff_constraints_blocks_missing_return_basis_attestation(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        lambda payload: payload.pop("return_basis_attestation"),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(
+            handoff_reference=preview_response.persisted_handoff,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "manifest_model_valid" in response.blocking_rule_ids
+
+
+def test_optimizer_handoff_validation_request_rejects_removed_benchmark_symbol_field() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        OptimizerHandoffValidationRequest.model_validate(
+            {
+                "handoff_reference": {
+                "reference_kind": "optimizer_handoff_reference_v1",
+                "handoff_id": "optimizer_handoff_demo",
+                "artifact_id": "opt_artifact_demo",
+                "manifest_path": "C:/tmp/manifest.json",
+                "artifact_path": "C:/tmp/artifact.json",
+                },
+                "benchmark_symbol": "QQQ",
+            }
+        )
+
+    assert "Extra inputs are not permitted" in str(exc_info.value)
+
+
+def test_validate_optimizer_handoff_constraints_uses_canonical_persisted_benchmark_symbol(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_request = _optimizer_preview_request()
+    preview_request.benchmark.benchmark_symbol = " spy "
+    preview_response = build_optimizer_preview(preview_request, handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(
+            handoff_reference=preview_response.persisted_handoff,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "ok"
+    assert response.provenance.benchmark_symbol == "SPY"
+    assert all(item.rule_id != "request_benchmark_matches_persisted" for item in response.evaluations)
+
+
+def test_validate_optimizer_handoff_constraints_blocks_schema_failures(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.artifact_path,
+        lambda payload: payload.pop("replay"),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert response.blocking_rule_ids == ["artifact_model_valid"]
+    assert response.evaluations[-1].reason_family == "schema"
+    assert response.provenance.benchmark_id == "benchmark_spy_demo_v1"
+    assert response.provenance.artifact_state is None
+
+
+def test_validate_optimizer_handoff_constraints_blocks_benchmark_context_failure(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        lambda payload: payload["benchmark"].update({"benchmark_symbol": None}),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(
+            handoff_reference=preview_response.persisted_handoff,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "persisted_benchmark_symbol_present" in response.blocking_rule_ids
+    assert any(item.rule_id == "persisted_benchmark_symbol_present" and item.reason_family == "benchmark_context" for item in response.evaluations)
+    assert all(item.rule_id != "request_benchmark_matches_persisted" for item in response.evaluations)
+
+
+def test_validate_optimizer_handoff_constraints_blocks_constraint_failure(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.artifact_path,
+        lambda payload: _update_constraint_evaluation(payload, "benchmark_relative_max_abs_active_weight", status="violated"),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "benchmark_relative_attestation_consistency" in response.blocking_rule_ids
+    assert "benchmark_relative_constraints_clear" in response.blocking_rule_ids
+    assert any(item.rule_id == "benchmark_relative_constraints_clear" and item.reason_family == "constraint_violation" for item in response.evaluations)
+
+
+def test_validate_optimizer_handoff_constraints_blocks_provenance_failure(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.manifest_path,
+        lambda payload: payload.update({"artifact_id": "opt_artifact_wrong"}),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "manifest_artifact_consistent" in response.blocking_rule_ids
+    assert any(item.rule_id == "manifest_artifact_consistent" and item.reason_family == "provenance" for item in response.evaluations)
+    assert response.provenance.constraint_set_fingerprint is not None
+
+
+def test_validate_optimizer_handoff_constraints_blocks_forged_external_paths_before_read(tmp_path, mocker) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+    read_json = mocker.patch("app.services.optimizer_artifact_service._read_json_object")
+
+    assert preview_response.persisted_handoff is not None
+    forged_reference = preview_response.persisted_handoff.model_copy(
+        update={
+            "manifest_path": str(tmp_path / "forged" / "manifest.json"),
+            "artifact_path": str(tmp_path / "forged" / "artifact.json"),
+        }
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=forged_reference),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert response.blocking_rule_ids == ["persisted_payload_accessible"]
+    assert response.evaluations[-1].reason_family == "provenance"
+    assert response.evaluations[-1].message == "handoff reference manifest_path is not the canonical persisted path"
+    read_json.assert_not_called()
+
+
+def test_validate_optimizer_handoff_constraints_blocks_traversal_non_canonical_paths_before_read(tmp_path, mocker) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+    read_json = mocker.patch("app.services.optimizer_artifact_service._read_json_object")
+
+    assert preview_response.persisted_handoff is not None
+    canonical_manifest = Path(preview_response.persisted_handoff.manifest_path)
+    canonical_artifact = Path(preview_response.persisted_handoff.artifact_path)
+    non_canonical_reference = preview_response.persisted_handoff.model_copy(
+        update={
+            "manifest_path": str(canonical_manifest.parent / ".." / canonical_manifest.parent.name / canonical_manifest.name),
+            "artifact_path": str(canonical_artifact.parent / ".." / canonical_artifact.parent.name / canonical_artifact.name),
+        }
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=non_canonical_reference),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert response.blocking_rule_ids == ["persisted_payload_accessible"]
+    assert response.evaluations[-1].reason_family == "provenance"
+    assert response.evaluations[-1].message == "handoff reference manifest_path is not the canonical persisted path"
+    read_json.assert_not_called()
+
+
+def test_validate_optimizer_handoff_constraints_blocks_truth_separation_failure(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.artifact_path,
+        lambda payload: payload["replay"].update({"target_weights": payload["replay"]["current_weights"]}),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "candidate_target_matches_optimizer_output" in response.blocking_rule_ids
+    assert any(item.rule_id == "candidate_target_matches_optimizer_output" and item.reason_family == "truth_separation" for item in response.evaluations)
+
+
+def test_validate_optimizer_handoff_constraints_blocks_benchmark_misalignment_attestation(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.artifact_path,
+        lambda payload: _update_benchmark_attestation(
+            payload,
+            "benchmark_relative_max_abs_active_weight",
+            status="misaligned",
+            attestation_type="benchmark_alignment",
+        ),
+    )
+
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "benchmark_relative_attestation_consistency" in response.blocking_rule_ids
+    assert "benchmark_relative_attestations_clear" in response.blocking_rule_ids
+
+
+def test_build_optimizer_handoff_replay_preview_aborts_before_market_data_when_validation_blocked(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    _mutate_persisted_json(
+        preview_response.persisted_handoff.artifact_path,
+        lambda payload: payload["replay"].update({"target_weights": payload["replay"]["current_weights"]}),
+    )
+
+    with pytest.raises(OptimizerHandoffValidationBlockedError) as exc_info:
+        build_optimizer_handoff_replay_preview(
+            OptimizerHandoffReplayRequest(
+                handoff_reference=preview_response.persisted_handoff,
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 12, 31),
+                initial_capital=100000,
+                execution_lag_days=1,
+            ),
+            handoff_store=handoff_store,
+        )
+
+    assert exc_info.value.response.validation_status == "blocked"
+    assert "candidate_target_matches_optimizer_output" in exc_info.value.response.blocking_rule_ids
+    mock_service.assert_not_called()
+
+
+def test_build_optimizer_handoff_replay_preview_aborts_before_market_data_when_replay_window_outside_attested_coverage(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    with pytest.raises(OptimizerHandoffValidationBlockedError) as exc_info:
+        build_optimizer_handoff_replay_preview(
+            OptimizerHandoffReplayRequest(
+                handoff_reference=preview_response.persisted_handoff,
+                start_date=date(2023, 12, 31),
+                end_date=date(2024, 12, 31),
+                initial_capital=100000,
+                execution_lag_days=1,
+            ),
+            handoff_store=handoff_store,
+        )
+
+    assert exc_info.value.response.validation_status == "blocked"
+    assert "requested_replay_window_within_attested_return_basis_coverage" in exc_info.value.response.blocking_rule_ids
+    mock_service.assert_not_called()
+
+
+def test_optimizer_handoff_constraints_route_returns_validation_contract(tmp_path, mocker) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+    client = TestClient(app)
+
+    assert preview_response.persisted_handoff is not None
+    response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff/constraints",
+        json={
+            "handoff_reference": preview_response.persisted_handoff.model_dump(mode="json"),
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["validation_status"] == "ok"
+    assert payload["truth_separation"] == {
+        "source_truth": "persisted_hypothetical_optimizer_handoff",
+        "holdings_truth": "imported_portfolio_snapshot",
+        "optimizer_output_applied": False,
+        "consumption_mode": "explicit_reference_only",
+    }
+    assert payload["provenance"]["source"] == "optimizer_handoff_reference"
+    assert payload["provenance"]["benchmark_id"] == "benchmark_spy_demo_v1"
+    assert payload["provenance"]["benchmark_version"] == "2024-04-15"
+    assert payload["provenance"]["benchmark_symbol"] == "SPY"
+    assert payload["provenance"]["replay_output_policy"] == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+    assert payload["eligible_replay_window"] == {
+        "source": "persisted_return_basis_attestation",
+        "benchmark_symbol": "SPY",
+        "as_of_date": "2024-12-31",
+        "start_date": "2024-01-01",
+        "end_date": "2024-12-31",
+    }
+    assert payload["blocking_rule_ids"] == []
 def test_hypothetical_replacement_preview_route_rejects_missing_intent() -> None:
     client = TestClient(app)
     response = client.post(

@@ -2,20 +2,7 @@
 
 This document is the project-level reference for the financial and economic methodology implemented in the codebase.
 
-It is intended to describe:
-- what financial concepts the project uses
-- what formulas are implemented
-- what each model is trying to measure
-- where the implementation lives
-- what the important assumptions and limitations are
-
-This file should be updated whenever financially meaningful formulas, assumptions, or truth classes change.
-
-This document is the core finance-methodology reference for the `Quant Research Lab` direction of the project.
-
-For the canonical shipped-scope boundary of what is actually live today, use `docs/product/current-product-state.md`.
-
-This document should explain implemented financial methodology without overstating transitional or future-only capabilities.
+For the canonical shipped-state boundary, use `docs/product/current-product-state.md`.
 
 ## Terminology
 
@@ -26,14 +13,6 @@ Implemented factor families include:
 - `style`
 - `sector`
 - `macro`
-
-Examples:
-- `SPY` -> market beta proxy
-- `QQQ` -> growth proxy
-- `IWD` -> value proxy
-- `IWM` -> small-cap proxy
-- `XLK`, `XLI`, `XLF`, `XLE`, `XLV`, `XLP`, `XLU`, `XLY` -> sector factor proxies
-- `IEF`, `TLT`, `LQD`, `DBC` -> macro proxies
 
 Primary implementation:
 - `services/quant-engine/app/analytics/risk.py`
@@ -48,23 +27,35 @@ The project distinguishes between different financial truth classes.
   - based on current holdings only
 - `synthetic snapshot-history diagnostics`
   - approximate historical diagnostics built from current holdings plus external market data
+- `persisted construction artifacts`
+  - deterministic target-weight artifacts produced by backend construction policy execution
+- `hypothetical optimizer previews and handoffs`
+  - optimizer outputs and persisted handoff references used only for downstream evaluation
 - `replay-derived hypothetical outputs`
-  - hypothetical allocation replay, candidate comparison, and overlay-aware replay artifacts built from explicit candidate/reference weights and market data
-
-This distinction matters because some panels can be financially exact for imported history, while variant/snapshot workflows may be approximate.
+  - historical replay, candidate comparison, and overlay-aware replay artifacts built from explicit candidate/reference weights and market data
 
 Relevant implementation:
 - `services/quant-engine/app/services/diagnostics_engine.py`
+- `services/quant-engine/app/services/construction_run_service.py`
+- `services/quant-engine/app/services/optimizer_preview_service.py`
+- `services/quant-engine/app/services/portfolio_backtest_engine.py`
 
-Diagnostics contract rule:
-- diagnostics responses must carry explicit provenance for snapshot basis and historical basis so imported portfolio history and synthetic snapshot-history analytics are not conflated
-- diagnostics responses must also carry `history_truth_class` and `price_basis` so consumers can distinguish imported-history-equivalent, synthetic-history-derived, and unavailable states
-- diagnostics summary fields must only expose history-derived diagnostics values and must not mix in current-state holdings concentration
+## Trust, Degradation, Withholding, and Unavailability
 
-Investor-economics status rule:
-- `withheld` means investor-economics outputs are intentionally suppressed even though a broader diagnostics/history or replay artifact exists
-- `unavailable` means the required source inputs or trustworthy computation path do not exist for the requested output
-- consumers must use shipped `investor_economics_status` semantics rather than treating all `null` return-family fields as generic missing data
+This is shipped baseline behavior across diagnostics, dashboard-history, replay, construction replay, and optimizer handoff replay.
+
+- `verified_*`
+  - the contract can make the documented trust claim for that path
+- `degraded_*`
+  - the engine may still compute useful outputs, but trust must be downgraded explicitly and stronger claims must stay suppressed
+- `withheld`
+  - broader diagnostics or replay evidence exists, but investor-economics outputs stay intentionally suppressed until return-basis requirements are justified
+- `unavailable`
+  - the required source inputs or trustworthy path do not exist for the requested output
+
+Consumer rule:
+- do not treat `withheld` as generic missing data
+- do not backfill withheld investor-economics families through nearby diagnostics or comparison views
 
 ## Market Data Basis
 
@@ -74,51 +65,22 @@ Primary implementation:
 - `services/quant-engine/app/services/market_data.py`
 
 Important financial rule:
-- financially meaningful analytics should use adjusted-close or total-return-equivalent price series when measuring returns, volatility, drawdown, or factor behavior
+- return-based analytics should use adjusted-close or stronger total-return-equivalent inputs whenever economically required
 
-Current risk note:
-- some model paths rely on the incoming `price` field being total-return-aware; this should be treated as a financial assumption until explicitly hardened in code and metadata
+Current shipped hardening state:
+- diagnostics degrades benchmark and factor source semantics to `live_market_data_unverified_return_basis` when adjusted-close trust is not proven
+- diagnostics run-level confidence degrades when those paths remain unverified
+- diagnostics and dashboard-history expose grouped `section_trust` so mixed trust does not collapse into one top-line label
+- replay and optimizer-handoff replay use persisted or normalized return-basis attestation to suppress benchmark-relative outputs when trust is narrower than the raw engine surface
+- investor-economics withholding is policy-driven and explicit, not a generic market-data failure
 
-Current diagnostics note:
-- diagnostics engine run metadata currently reports `price_basis = close` when history-aware diagnostics are available
-- unavailable diagnostics report `price_basis = unavailable`
-- diagnostics engine now degrades `run_metadata.source_status.{benchmark_history,factor_history}` to `live_market_data_unverified_return_basis` until return-basis trust is explicitly verified for those histories
-- this degradation is intentional: diagnostics may still run, but the contract must not overclaim adjusted-close or total-return-aware trust for benchmark/factor return math
-- while that unverified return-basis state is present, diagnostics run-level confidence must degrade to `low` even if imported history exists, because the return-input trust required for stronger benchmark/factor claims is not yet proven
-- current narrow detection rule: a history is marked `live_market_data_verified_adjusted_close` only when every loaded row explicitly carries `adjClose` or `adjusted_close`; otherwise it remains `live_market_data_unverified_return_basis`
-- this is adjusted-close field detection only, not proof of full total-return equivalence, split correctness across all vendors, or economically complete dividend treatment
-- diagnostics now also degrade `statistical_factor_model.status`, `model_reliability.status`, and `risk_contribution_breakdown.status` to `degraded_unverified_return_basis` whenever benchmark/factor adjusted-close support is incomplete, so those outputs no longer present close-based factor math as clean `ok`/`partial` status
-- a first explicit price-series selector now exists in `risk.py`; it prefers adjusted-close when every dated row provides it, otherwise it falls back to raw `price` with `unverified_close_only` semantics
-- this selector now covers a broader but still narrow subset: position-risk contributions, benchmark-relative summary inputs, rolling volatility benchmark inputs, and factor-model benchmark/factor return inputs
-- the selector now also feeds the deeper covariance/contribution helper builders used inside risk-contribution breakdowns, reducing residual raw-price dependence in factor-risk math
-- outside the risk stack, the next narrow migration now covers dashboard-history benchmark series and benchmark comparison readouts, so those paths also prefer adjusted-close when it is fully available
-- remaining unmigrated return paths should keep using the same selector pattern rather than direct raw-price reads
-- a centralized selector-policy helper now exists for analytics entry points: use `selected_history_price_map(...)` / `select_history_price_series(...)` rather than rebuilding benchmark or return series directly from raw rows
-- Stage 1 intent is now enforceable in code review: direct raw-price history construction should be treated as suspicious unless the path is explicitly non-return/display-only
-- diagnostics now expose grouped subsection-level trust in `run_metadata.section_trust` for benchmark-relative, factor-model, and risk-contribution paths
-- these subsection trust states are intentionally narrow: `verified_adjusted_close`, `degraded_unverified_return_basis`, or `unavailable`; mixed or unprovable sections stay degraded rather than claiming stronger certainty
-- dashboard-history now exposes its own compact `run_metadata.section_trust` for `portfolio_path`, `benchmark_path`, and `monthly_returns_path`
-- these dashboard trust states are also intentionally conservative: imported portfolio replay can be explicit, benchmark return basis can degrade independently, and monthly returns can be marked `suppressed_unstable_path` rather than implied reliable
-- a first `return_basis_contract` slice now exists for dashboard-history benchmark investor-return semantics; current reachable states are intentionally conservative (`price_return_only`, `unverified_adjusted_proxy`, `unavailable`)
-- adjusted-close field presence alone does not upgrade dashboard benchmark returns to investor-economics truth; benchmark cumulative return / excess return now refuse (`None`) until `verified_total_return` can be justified
-- narrow pilot exception: imported dashboard-history may label only the benchmark path as `verified_total_return` when and only when the benchmark slice is exactly `SPY`, fetched directly from FMP `historical-price-eod/light`, with no fallback, no symbol override, no mixed-source stitching, and explicit provenance scope evidence proving ordered, unique, in-window `adjClose` coverage
-- this pilot does not upgrade any portfolio path, any non-`SPY` symbol, any other vendor or endpoint, or any diagnostics / replay / strategy path
-- dashboard-history now hard-codes a narrower investor-economics boundary: only three exact-slice scalar outputs may unlock
-- allowlisted output 1: portfolio-only exact-slice `time_weighted_return_pct`, and only for an admitted exact portfolio slice
-- allowlisted output 2: exact-slice `benchmark_return_pct`, and only when that same slice is exact and the benchmark basis is independently `verified_total_return`
-- dashboard-history contracts now also surface this as explicit partial-unlock metadata while overall `investor_economics_status` remains `withheld`; consumers must use that allowlist metadata rather than inferring family-wide enablement from a present scalar
-- dashboard-history now also allows exact-slice `excess_return_pct`, but only as same-slice subtraction of those two already-admitted scalars with no independent recomputation, no daily-series subtraction, no client-side equivalence path, and no scope transfer beyond the identical admitted slice
-- if either source leg is withheld, null, unverified, or scope-mismatched, exact-slice `excess_return_pct` must remain withheld
-- this runtime enablement is scalar-only and exact-slice-only; consumers must not derive or render broader benchmark-relative outputs from subtraction
-- the drawdown-loss family remains withheld for dashboard-history; `range_metrics[*].max_drawdown_pct` stays refused even if an exact-slice scalar unlock occurs
-- monthly/rebucketed/rolling/non-identical-window outputs also remain outside the unlock boundary; the exact-slice allowance must not be generalized to broader windows or rebucketed summaries
-- this exact-slice policy does not extend to diagnostics, replay, backtest, or strategy-lab surfaces; benchmark-relative logic must stay fenced to the dashboard exact-slice admission rule
-- this slice is intentionally narrow and does not claim that broker-replayed portfolio paths are generally proven total-return investor economics
-- shipped contracts surface that policy through `investor_economics_status = withheld`; this is intentional suppression tied to policy and return-basis limits, not generic source unavailability
+Current adjusted-close verification rule:
+- a history is marked `verified_adjusted_close` only when the required loaded rows explicitly support that claim under the current code path
+- absence of that proof keeps the path degraded or withheld rather than silently upgrading trust
 
 ## Portfolio Return Methodology
 
-### Cash-Flow-Neutral Daily Returns
+### Cash-flow-neutral daily returns
 
 For historical risk and factor diagnostics, the portfolio return series is built from daily portfolio states using a cash-flow-neutral formula.
 
@@ -128,109 +90,64 @@ Implemented formula:
 daily_return_t = ((total_portfolio_value_t - external_cash_flow_t) / total_portfolio_value_(t-1)) - 1
 ```
 
-Purpose:
-- remove distortion from deposits and withdrawals
-- measure investment performance rather than capital movements
-
 Implementation:
 - `services/quant-engine/app/analytics/risk.py`
-- function: `_portfolio_time_weighted_return_series(...)`
+- `_portfolio_time_weighted_return_series(...)`
 
-Economic meaning:
-- approximates a daily time-weighted return framework for portfolio analytics
+## Benchmark and Factor Return Methodology
 
-## Benchmark Return Methodology
-
-Benchmark returns are built from a price series using simple daily returns.
+Benchmark and factor returns are built from price series using simple daily returns.
 
 Implemented formula:
 
 ```text
-benchmark_return_t = (price_t / price_(t-1)) - 1
+return_t = (price_t / price_(t-1)) - 1
 ```
 
 Implementation:
 - `services/quant-engine/app/analytics/risk.py`
-- function: `_benchmark_return_series(...)`
-- helper: `_series_to_returns(...)`
+- `_benchmark_return_series(...)`
+- `_series_to_returns(...)`
 
-Assumption:
-- the benchmark price series should be adjusted-close or total-return-equivalent for financially correct comparison work
+Financial rule:
+- these return paths must not overclaim investor-economics trust when adjusted-close or total-return-equivalent support is not proven for the specific contract path
 
 ## Wealth Index and Drawdown
 
-### Wealth Index
-
-The project builds a compounded return index from daily returns.
-
-Implemented logic:
+### Wealth index
 
 ```text
 wealth_0 = 100
 wealth_t = wealth_(t-1) * (1 + daily_return_t)
 ```
 
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- function: `_build_wealth_index(...)`
-
 ### Drawdown
-
-Drawdown is computed from the compounded return index rather than raw portfolio value.
-
-Implemented formula:
 
 ```text
 drawdown_t = (wealth_t / running_peak_t) - 1
 ```
 
-The code reports this as a percent value.
-
 Implementation:
 - `services/quant-engine/app/analytics/risk.py`
-- function: `_build_drawdown_from_return_index(...)`
+- `_build_wealth_index(...)`
+- `_build_drawdown_from_return_index(...)`
 
-Economic meaning:
-- drawdown measures path-dependent loss from the prior peak
-- this is a better risk measure than raw volatility for many portfolio users
+## Volatility and Relative Risk
 
-## Volatility Methodology
-
-### Annualized Realized Volatility
-
-Implemented formula:
+### Annualized realized volatility
 
 ```text
 realized_vol = stdev(daily_returns) * sqrt(252)
 ```
 
-The UI generally displays volatility in percent form.
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- helper: `_calculate_annualized_volatility(...)`
-
-### Downside Volatility
-
-The project uses downside deviation with minimum acceptable return `mar = 0`.
-
-Implemented formula:
+### Downside volatility
 
 ```text
-downside_t = min(return_t - mar, 0)
+downside_t = min(return_t, 0)
 downside_vol = stdev(downside_t) * sqrt(252)
 ```
 
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- downside-deviation helper near the volatility payload logic
-
-Economic meaning:
-- measures harmful volatility rather than total volatility
-
-### Tracking Error
-
-Implemented formula:
+### Tracking error
 
 ```text
 active_return_t = portfolio_return_t - benchmark_return_t
@@ -239,68 +156,11 @@ tracking_error = stdev(active_return_t) * sqrt(252)
 
 Implementation:
 - `services/quant-engine/app/analytics/risk.py`
-- aligned through `_aligned_active_return_series(...)`
 
-Economic meaning:
-- measures active risk versus benchmark
-
-### Volatility Regime
-
-The project derives a simple regime label from the percentile rank of current `20d` realized volatility relative to observed history.
-
-Implemented logic:
-- percentile < 0.30 -> `calm`
-- percentile <= 0.80 -> `normal`
-- otherwise -> `stressed`
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_calculate_percentile_rank(...)`
-- `_classify_volatility_regime(...)`
-
-Economic meaning:
-- provides a simple market-state classification
-
-Limitation:
-- this is a practical dashboard regime model, not a full institutional regime framework
-
-## Relative Risk Summary
-
-The project includes benchmark-relative risk metrics such as:
-- tracking error
-- active return
-- information ratio
-
-Information ratio concept:
-
-```text
-information_ratio = active_return / tracking_error
-```
-
-The exact payload is defined in:
-- `services/quant-engine/app/schemas/reconciliation.py`
-
-## Rolling Risk Summary
-
-The project also computes rolling beta and correlation windows.
-
-Typical windows:
-- `20d`
-- `60d`
-- `252d`
-
-Economic meaning:
-- beta measures benchmark sensitivity
-- correlation measures co-movement
-
-These are different from factor loadings and should not be interpreted as the same thing.
-
-Schema location:
-- `services/quant-engine/app/schemas/reconciliation.py`
+Contract rule:
+- benchmark-relative replay outputs may be computed internally but still withheld or suppressed at the contract boundary when trust attestation is weaker than required
 
 ## Statistical Factor Model
-
-### High-Level Approach
 
 The project implements a rolling ETF-proxy factor model.
 
@@ -312,220 +172,31 @@ Orthogonalized rolling ridge factor model using US ETF proxies for market, style
 
 Implementation:
 - `services/quant-engine/app/analytics/risk.py`
-- function: `factor_model_methodology()`
+- `factor_model_methodology()`
 
-### Factor Definitions
-
-Factor definitions are declared in:
-- `services/quant-engine/app/analytics/risk.py`
-- `DEFAULT_FACTOR_DEFINITIONS`
-
-Each factor includes:
-- key
-- label
-- category
-- US ETF proxy
-- target exposure
-- UCITS mapping metadata
-- default enabled flag
-- orthogonalization order
-- description
-
-### Factor Returns
-
-Factor proxy return series are built from ETF price histories using simple daily returns.
-
-Implemented formula:
-
-```text
-factor_return_t = (price_t / price_(t-1)) - 1
-```
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- helper: `_series_to_returns(...)`
-
-### Orthogonalization
-
-The factor model orthogonalizes later factor series against earlier ones in the configured order.
-
-Conceptually:
-
-```text
-f_i = a + b_1 f_1 + ... + b_(i-1) f_(i-1) + u_i
-orthogonalized_factor_i = u_i
-```
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- function: `_orthogonalize_factor_series(...)`
-
-Economic meaning:
-- reduces overlap between highly correlated proxies such as `SPY`, `QQQ`, and `XLK`
-
-Important limitation:
-- factor interpretation is sensitive to the chosen order
-
-### Regression Fit
-
-After orthogonalization, the project fits a regression of portfolio returns on factor returns.
-
-Conceptually:
-
-```text
-portfolio_return_t = alpha + beta_1 f_1 + ... + beta_n f_n + error_t
-```
-
-Implementation uses a least-squares solver with very light ridge stabilization:
-
-```text
-ridge_lambda = 1e-5
-```
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_fit_factor_model(...)`
-- `_least_squares(...)`
-
-Economic meaning:
-- estimated coefficients are factor loadings / exposures
-
-### Rolling Factor Loadings
-
-The project refits the factor model over rolling windows.
-
-Current windows:
-- `20d`
-- `60d`
-- `252d`
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_build_rolling_factor_loadings(...)`
-
-Economic meaning:
-- shows how exposures evolve through time rather than assuming one fixed factor profile
-
-### R-squared
-
-The project calculates standard regression `R²`.
-
-Implemented formula:
-
-```text
-ss_total = sum((y_t - mean_y)^2)
-ss_resid = sum(error_t^2)
-r_squared = 1 - ss_resid / ss_total
-```
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_fit_factor_model(...)`
-
-### Residual Volatility / Specific Risk
-
-Residual volatility is built from regression residuals.
-
-Implementation:
-- residuals come from `_fit_factor_model(...)`
-- annualization uses `_calculate_annualized_volatility(...)`
-
-Economic meaning:
-- the part of portfolio behavior not explained by the chosen factor set
-
-## Collinearity Diagnostics
-
-The project checks pairwise factor correlation and flags highly overlapping factors.
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_build_factor_collinearity_warnings(...)`
-- `_build_collinearity_diagnostics(...)`
-
-Economic meaning:
-- warns when factor interpretation may be unstable because ETF proxies are too similar
-
-Limitation:
-- pairwise correlation is a useful but basic collinearity diagnostic
-
-## Factor Shift Diagnostics
-
-The project tracks changes in factor loadings across windows and recent history.
-
-Current concepts include:
-- current loading by window
-- 20d / 60d change
-- stability gaps across windows
-- heuristic flags for large shifts or unstable windows
-
-Schema location:
-- `services/quant-engine/app/schemas/reconciliation.py`
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-
-Economic meaning:
-- intended as change monitoring for exposures
-
-Current status:
-- useful operationally
-- should be treated as diagnostics/monitoring rather than a complete institutional balancing framework
-
-## Risk Contribution
-
-The project includes risk contribution by factor and by position.
-
-### Position Risk Contribution
-
-Position-level risk uses:
-- weights
-- covariance matrix of historical returns
-- marginal contribution
-- component contribution
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_build_position_risk_contributions(...)`
-- `_compute_covariance_matrix(...)`
-- `_component_risk_contributions(...)`
-
-Economic meaning:
-- identifies which holdings drive portfolio risk most strongly
-
-### Factor Risk Contribution
-
-The project also reports factor contribution metrics.
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_build_factor_risk_contributions(...)`
-
-Current status:
-- useful as an initial diagnostics layer
-- should be interpreted carefully until the production-grade covariance-based hardening work is complete
-
-### Concentration Metrics
-
-The project reports concentration metrics such as:
-- top factor risk shares
-- top position risk shares
-- HHI (Herfindahl-Hirschman style concentration index)
-
-Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_sum_top_risk_shares(...)`
-- `_herfindahl_index(...)`
-
-Economic meaning:
-- helps identify concentration risk and diversification weakness
+Core mechanics:
+- factor proxy returns use simple daily returns on the selected history price series
+- later factors are orthogonalized against earlier factors in configured order
+- regression uses a very light ridge stabilization term
+- rolling windows currently include `20d`, `60d`, and `252d`
 
 Contract rule:
-- diagnostics summary concentration fields are derived from historical risk contribution outputs
-- current-state holdings concentration is a separate truth class and should live in exposure-side contracts instead
+- factor-model and risk-contribution paths degrade explicitly when their return-basis trust is not proven
+
+## Risk Contribution and Concentration
+
+The project reports position and factor risk contribution metrics plus concentration diagnostics.
+
+Implementation:
+- `services/quant-engine/app/analytics/risk.py`
+
+Contract rule:
+- diagnostics-side concentration fields are history-derived risk concentration outputs
+- current-state holdings concentration remains a separate snapshot truth class in exposure contracts
 
 ## Stress Scenarios
 
-The project estimates stress scenario returns by shocking current factor exposures.
+Stress scenario returns are estimated from current factor exposures.
 
 Conceptually:
 
@@ -537,63 +208,10 @@ Implementation:
 - `services/quant-engine/app/analytics/risk.py`
 - `build_stress_scenarios(...)`
 
-Economic meaning:
-- provides first-pass scenario sensitivity based on current factor profile
-
-Limitation:
-- this is an exposure-based approximation, not a full market replay
-
 Contract rule:
-- unavailable stress scenario support must not fabricate `0.0%` returns
-- when unavailable, diagnostics should return `estimated_return_pct = null` with `status = unavailable`
+- unavailable stress support must return `null`, not fabricated zeroes
 
-## Market Overlap and Look-Through
-
-The project includes benchmark overlap and ETF look-through logic.
-
-Implemented concepts include:
-- benchmark overlap weight
-- active share
-- ETF constituent overlap
-- look-through sector exposure
-
-Relevant implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `services/quant-engine/app/services/exposure_engine.py`
-
-Economic meaning:
-- helps distinguish apparent diversification from hidden overlap
-
-## Current-State Concentration
-
-The exposure contract now includes a current-state concentration block sourced only from snapshot holdings and current holdings metadata.
-
-Implemented concepts include:
-- top position weights
-- top sector weights
-- position HHI
-- sector HHI
-- effective holdings
-
-Implemented formulas:
-
-```text
-position_hhi = sum(weight_i^2)
-sector_hhi = sum(sector_weight_j^2)
-effective_holdings = 1 / position_hhi
-```
-
-Implementation:
-- `services/quant-engine/app/analytics/overview.py`
-- `services/quant-engine/app/services/exposure_engine.py`
-
-Truth-class rule:
-- this block is current-state concentration only
-- it must remain separate from diagnostics-side history-derived risk concentration
-
-## Allocation Backtest Methodology
-
-The project also includes a separate allocation replay engine.
+## Allocation Replay Methodology
 
 Core methodology string:
 
@@ -605,113 +223,88 @@ Relevant implementation:
 - `services/quant-engine/app/backtests/portfolio_engine.py`
 - `services/quant-engine/app/services/portfolio_backtest_engine.py`
 
-Key ideas:
-- weighted portfolio replay
-- scheduled rebalancing
-- turnover and transaction costs
-- reference vs candidate portfolio comparison
-
-Current request assumptions:
-- replay request contract currently uses `price_basis = adjusted_close`
-- execution uses `execution_price_field = close`
-- execution lag is explicit and must be at least one day
-- candidate/reference comparisons fail explicitly when there are not enough common aligned dates
-
 Current shipped replay surfaces:
-- canonical allocation replay at `POST /backtests/portfolio-allocation`
-- hypothetical replacement replay at `POST /backtests/portfolio-allocation/replacement-intent-preview`
-- overlay-aware hypothetical replay at `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
+- `POST /backtests/portfolio-allocation`
+- `POST /backtests/portfolio-allocation/replacement-intent-preview`
+- `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
+- `POST /backtests/portfolio-allocation/construction-artifact-preview`
+- `POST /backtests/portfolio-allocation/optimizer-handoff-preview`
 
-Current replay provenance state:
-- hypothetical replay can consume a backend-constructed candidate built from either `same_weight_substitution_v1` or `fixed_split_50_50_substitution_v2`
-- the replay response now explicitly preserves whether the replay used direct preview derivation or a supplied constructed candidate
-- the replay response now explicitly preserves the actual construction rule consumed by the hypothetical replay
-- the replay response also carries upstream draft/workspace/base-node lineage and ranking seed lineage for the current single-replacement replay slice
-- when constraint validation is supplied to replay routes, the replay response also echoes validation-supplied status, validation result, and constraint-set lineage
-- replay now rejects provable lineage mismatches between supplied validation artifacts and constructed-candidate artifacts
-- immutable saved proposal artifacts now reject provable internal contradictions between saved replay-basis provenance and the saved replay snapshot provenance
+Current replay provenance rules:
+- replay preserves direct-preview vs persisted-artifact vs optimizer-handoff source lineage explicitly
+- replacement-intent replay preserves the actual construction rule consumed by the replay
+- construction-artifact replay preserves the persisted `selection_rule_trace`
+- optimizer-handoff replay preserves persisted return-basis attestation and uses it to suppress benchmark-relative output families when required
+- replay rejects provable lineage mismatches between supplied or persisted artifacts where the contract can verify contradiction
 
 Replay investor-economics semantics:
 - replay and replay-derived diagnostics can expose evidence-rich paths while still reporting `investor_economics_status = withheld`
-- in that state, return-family, drawdown-family, and benchmark-relative investor-economics outputs are intentionally suppressed because `verified_total_return` has not been justified
-- this must be documented and rendered as withholding, not as generic replay failure or missing history
+- in that state, investor-economics families remain intentionally suppressed because stronger return-basis claims have not been justified for the contract path
 
-### Single-Replacement Candidate Construction
+## Construction Methodology
 
-The current shipped construction logic is narrow and review-oriented rather than a generalized portfolio construction engine.
+The codebase now has two shipped construction surfaces.
 
-Current implemented rules:
-- `same_weight_substitution_v1`
-  - fully remove the incumbent weight and assign that full starting weight to the candidate symbol
-- `fixed_split_50_50_substitution_v2`
-  - retain half of the incumbent starting weight and assign the other half to the candidate symbol
+### Persisted construction engine
 
-Construction basis rules:
-- baseline weights are derived from positive-market-value draft snapshot positions only
-- draft cash balances are excluded from the current construction basis
-- constructed candidates are hypothetical candidate inputs only and do not mutate `PortfolioSnapshot`
+- route: `POST /construction/run`
+- persisted load route: `GET /construction/artifacts/{artifact_id}`
+- current persisted policy: `top_n_equal_weight_v1`
+- current deterministic selection pipeline: `eligible_only` then `take_top_n`
+- policy execution captures and persists `selection_rule_trace` provenance
+- replay consumption happens through `POST /backtests/portfolio-allocation/construction-artifact-preview`
+
+Current basis rules:
+- consumes ranked candidates plus current portfolio weights as explicit input artifacts
+- seeds equal weights across selected names
+- enforces only the shipped constraint family for this policy slice
+- fails closed on infeasible requests rather than repairing or silently relaxing the policy
+
+### Review-oriented single-replacement construction
+
+- current rules:
+  - `same_weight_substitution_v1`
+  - `fixed_split_50_50_substitution_v2`
+- basis uses positive-market-value draft snapshot positions
+- draft cash balances are excluded from the current review construction basis
+- outputs remain hypothetical review artifacts and do not mutate `PortfolioSnapshot`
 
 Relevant implementation:
+- `services/quant-engine/app/services/construction_run_service.py`
+- `services/quant-engine/app/services/construction_artifact_service.py`
 - `services/quant-engine/app/services/candidate_construction.py`
 - `services/quant-engine/app/services/candidate_formation.py`
 
-### Overlay-Aware Hypothetical Replay
+## Optimizer Preview and Handoff Methodology
 
-The current shipped overlay-aware replay is a narrow methodology layer on top of hypothetical replay, not a general overlay engine.
+The shipped optimizer workflow is hypothetical and lineage-first.
 
-Current overlay behavior:
-- supported overlay id: `benchmark_trend_overlay_v1`
-- supported replayable overlay states: `risk_on`, `risk_reduced`
-- `risk_on` leaves candidate weights unchanged
-- `risk_reduced` scales non-cash candidate weights by `0.35`
-- residual weight is assigned to synthetic replay cash symbol `__CASH__`
-- overlay is applied to the hypothetical candidate only, not to baseline/reference weights
+- preview route: `POST /optimizer/preview`
+- replay route: `POST /backtests/portfolio-allocation/optimizer-handoff-preview`
+- validation route: `POST /backtests/portfolio-allocation/optimizer-handoff/constraints`
 
-Methodology rule:
-- synthetic replay cash `__CASH__` is an internal replay artifact used to preserve candidate total weight under overlay risk reduction
-- it must not be interpreted as imported broker cash truth
-
-Relevant implementation:
-- `services/quant-engine/app/services/portfolio_backtest_engine.py`
-
-## Financial Accuracy Rules
-
-The project has an explicit rule that financially meaningful formulas must be documented and traceable.
-
-Relevant documentation and policy references:
-- `docs/product/roadmap.md`
-- `README.md`
-
-Important project rule:
-- any metric shown in UI should be traceable to one engine response field and further back to code-level implementation and data truth class
+Methodology rules:
+- optimizer preview produces hypothetical output only; it is not applied portfolio truth
+- feasible previews can persist immutable handoff references for downstream replay and validation
+- downstream replay consumes the explicit persisted reference rather than reconstructed inline state
+- benchmark-relative replay output suppression follows the persisted return-basis attestation on the handoff
+- trusted PIT alpha can be attached for the narrow `alpha_quality_v1` path when requested by preview
 
 ## Current Known Financial Limitations
 
 At the time of writing, the main finance-related limitations are:
 
-- some factor/benchmark return paths still rely on the incoming price field being adjusted or total-return-aware
-- orthogonalized factor interpretation depends on factor ordering
-- factor-model reliability diagnostics are present but still need production-grade hardening
-- synthetic snapshot-history diagnostics are useful but not equivalent to broker-truth historical replay
-- overlay support is currently a narrow hypothetical replay path, not a generalized overlay methodology family
-- candidate construction is currently narrow single-replacement review logic, not generalized portfolio construction
-- replay provenance is now explicit for constructed-candidate consumption and echoed constraint-validation lineage, and replay rejects provable artifact mismatches, but replay still does not enforce validation status in the current contract
-- immutable saved proposal artifacts and active thesis restore now reject provable internal replay-lineage contradictions rather than silently trusting inconsistent review artifacts
-- some diagnostics panels are more monitoring-oriented than portfolio-manager-decision-oriented
+- some return paths still remain intentionally degraded or withheld because total-return-equivalent trust is not yet proven broadly enough to unlock stronger claims everywhere
+- factor interpretation still depends on factor ordering and proxy quality
+- persisted construction is shipped, but the persisted policy set and constraint breadth are still narrow
+- optimizer is shipped only as a hypothetical preview and handoff workflow, not an execution or applied-allocation workflow
+- overlay support remains a narrow hypothetical replay slice
 
-## Recommended Maintenance Rule
+## Maintenance Rule
 
 When any of the following changes, update this file:
 - financial formulas
 - methodology strings
 - factor definitions
-- risk assumptions
-- degradation semantics
-- truth-class semantics
-- economically meaningful backtest assumptions
-
-At minimum, updates should remain aligned with:
-- code implementation
-- schema fields
-- methodology strings
-- test expectations
+- trust, degradation, withholding, or unavailability semantics
+- economically meaningful replay, construction, or optimizer assumptions

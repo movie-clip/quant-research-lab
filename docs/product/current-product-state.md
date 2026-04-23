@@ -2,121 +2,89 @@
 
 This document is the canonical source for what is actually shipped today, what is intentionally narrow, and what remains future work.
 
-Use this file when updating `README.md`, roadmap docs, architecture docs, and contract docs. Do not repeat the same current-state summary across multiple docs unless a shorter pointer is enough.
-
 ## Current product shape
 
-- local-first product with a desktop workflow UI in `apps/desktop` and a deterministic Python engine in `services/quant-engine`
-- desktop owns workflow state and review surfaces; the quant engine owns finance calculations, ranking outputs, construction outputs, and replay outputs
-- the platform is already usable as a portfolio analysis and review workspace, but the quant-research-lab pivot is still partial rather than complete
+- local-first desktop workflow in `apps/desktop` backed by deterministic engine services in `services/quant-engine`
+- desktop owns workflow state and review surfaces; the quant engine owns portfolio math, ranking, construction, optimizer preview, and replay outputs
+- the platform is already usable for portfolio analysis, candidate review, persisted construction, and hypothetical optimizer evaluation
 
 ## Shipped today
 
-### Desktop app ownership and navigation
-
-- top-level desktop tabs are `Dashboard`, `Exposure`, `Diagnostics`, `Workspace`, `Backtest`, `Strategy Lab`, and `ETF Ranking`
-- `Dashboard` owns import/session controls, current workspace summary, and variant access
-- `Exposure` owns current-state exposure review with snapshot selection across draft and saved nodes
-- `Diagnostics` owns current-state overlays plus current-state diagnostics review
-- `Workspace` owns the portfolio-improvement workflow shell, replay diagnostics review, replay-scoped monitoring, and the allocation replay builder for portfolio-improvement flows
-- `Backtest` owns generic strategy backtests and is separate from the portfolio-improvement Workspace workflow
-- `ETF Ranking` owns the current shipped candidate-seeding entry point into Workspace
-
 ### Portfolio truth and current-state analysis
 
-- local workspace model built around `PortfolioSnapshot`, immutable saved nodes, and working drafts
-- broker import and portfolio snapshot workflows exist as part of the current desktop-plus-engine architecture
-- current-state exposure and diagnostics flows exist for portfolio understanding, including look-through, overlap, factor/risk, and related diagnostics surfaces
-- financial outputs are expected to stay traceable to engine responses rather than frontend-created finance logic
-- exposure contracts now carry explicit grouped run metadata for structured source-status and reproducibility fields
-- diagnostics contracts now carry explicit grouped run metadata for source-status, factor-model assumptions, and reproducibility time-basis fields
-- dashboard-history, diagnostics, exposure-consumed diagnostics, and replay/backtest flows now expose explicit `investor_economics_status` metadata on their shipped contract surfaces
-- diagnostics unavailable paths are now reason-specific: snapshot-request history-context gaps, imported-history reconstruction failures, and market-data failures no longer share the same note/flag wording
-- dashboard-history contracts now carry explicit grouped run metadata for structured source-status and reproducibility fields
-- hypothetical replay outputs now carry explicit replay provenance for direct preview vs constructed-candidate replay lineage, actual construction rule used, upstream draft/workspace/base-node lineage, echoed constraint-validation lineage, and basic lineage-integrity enforcement for provable artifact mismatches
-- some investor-economics outputs are intentionally withheld until total-return equivalence is verified; this is a distinct shipped state from broader source unavailability and should be documented as `withheld`, not merely `missing`
+- broker import, workspace snapshots, immutable saved nodes, and working drafts are shipped product behavior
+- exposure, diagnostics, dashboard-history, and replay contracts now use explicit trust semantics instead of generic missing-data language
+- shipped trust states distinguish verified paths, degraded unverified return-basis paths, explicit investor-economics withholding, and true unavailability
+- `investor_economics_status = withheld` is baseline shipped behavior when broader evidence exists but total-return-equivalent claims are not justified
+- diagnostics and dashboard-history expose grouped `section_trust` so benchmark-relative, factor-model, risk-contribution, portfolio, benchmark, and monthly-return paths do not overclaim trust
 
 ### Replay and portfolio-improvement workflow
 
-- canonical portfolio allocation replay route exists at `POST /backtests/portfolio-allocation`
-- explicit hypothetical replacement replay exists at `POST /backtests/portfolio-allocation/replacement-intent-preview`
+- canonical allocation replay exists at `POST /backtests/portfolio-allocation`
+- hypothetical replacement replay exists at `POST /backtests/portfolio-allocation/replacement-intent-preview`
+- overlay-aware hypothetical replay exists at `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
 - replacement-intent candidate formation exists at `POST /backtests/candidate-formation/replacement-intent`
 - replacement-intent candidate construction exists at `POST /backtests/candidate-construction/replacement-intent`
-- desktop supports explicit replacement-intent review, replay review, diagnostics delta review, and immutable local proposal artifact persistence/readout
-- Workspace replay preview now surfaces artifact-specific backend replay failures directly in the existing replay error line, rather than collapsing lineage-integrity failures into generic copy
-- immutable saved proposal artifacts now fail on provable internal lineage contradictions between saved replay-basis provenance and saved review-snapshot provenance
+- replacement-intent constraint validation exists at `POST /backtests/candidate-construction/replacement-intent/constraints`
+- replay provenance is explicit for direct preview vs constructed-candidate replay, actual construction rule used, upstream draft/workspace lineage, ranking seed lineage, and echoed validation lineage
+- replay rejects provable lineage mismatches across persisted or supplied artifacts; validation lineage is descriptive, not execution approval
+- immutable saved proposal artifacts and active thesis restore fail closed on provable internal lineage contradictions
 
-Current Workspace workflow order is explicit and shell-owned:
-1. current portfolio
-2. candidate idea
-3. candidate formation
-4. construction rule
-5. hypothetical replay
-6. diagnostics change
-7. saved proposal
+### Persisted construction engine
 
-Current Workspace composition is also explicit:
-- the workflow shell appears first
-- replay-scoped Monitoring appears after the shell
-- the lower-level allocation replay builder appears after Monitoring
-- Monitoring can hand off back into the shell with a narrow `Review In Workspace` action and a session-scoped banner
+- construction is now a first-class persisted backend capability, not just an inline review helper
+- `POST /construction/run` persists canonical construction artifacts before returning them
+- `GET /construction/artifacts/{artifact_id}` reloads persisted artifacts, validates them on read, and fails closed on corruption or malformed payloads
+- `POST /backtests/portfolio-allocation/construction-artifact-preview` replays persisted construction artifacts through an explicit artifact-reference boundary
+- current persisted construction policy is `top_n_equal_weight_v1`
+- persisted construction execution is deterministic and records an ordered `selection_rule_trace` as provenance
+- replay echoes the persisted `selection_rule_trace`; it is descriptive lineage only and must not drive replay math
 
-### Ranking and research workflow
+### Optimizer preview, handoff, and replay workflow
 
-- generic ETF ranking exists at `POST /strategy-lab/etf-ranking`
-- intent-bound ETF replacement ranking exists at `POST /ranking/etf-replacements`
-- desktop can seed a draft-scoped ETF replacement review flow from ranking output without mutating portfolio truth
+- optimizer preview is shipped as a hypothetical workflow at `POST /optimizer/preview`
+- feasible previews can persist an immutable explicit handoff reference with benchmark, snapshot, optimizer artifact, and return-basis attestation lineage
+- persisted handoffs replay through `POST /backtests/portfolio-allocation/optimizer-handoff-preview`
+- persisted handoffs validate through `POST /backtests/portfolio-allocation/optimizer-handoff/constraints`
+- optimizer replay truth is explicit: hypothetical output only, not applied portfolio truth
+- optimizer handoff replay uses persisted lineage and return-basis attestation to control benchmark-relative output suppression
+- trusted PIT alpha attachment is shipped for the narrow `alpha_quality_v1` path when requested by optimizer preview
 
-### Overlay support
+### Desktop workflow ownership
 
-- overlay-aware hypothetical replay exists at `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
-- current shipped overlay behavior is a narrow review path, not a general overlay platform
+- top-level desktop tabs are `Dashboard`, `Exposure`, `Diagnostics`, `Workspace`, `Backtest`, `Strategy Lab`, and `ETF Ranking`
+- `Workspace` owns the portfolio-improvement shell, replay review, replay-scoped Monitoring, and proposal review
+- Workspace workflow order is explicit: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> saved proposal
+- Monitoring can hand off back into Workspace through an explicit review action; it is still review-scoped rather than continuous monitoring infrastructure
 
-## Narrow boundaries that docs should state explicitly
+## Narrow boundaries docs should still state explicitly
 
-- ranking is shipped only in narrow ETF-focused slices; it is not yet a generalized ranking-run platform across universes
-- construction is shipped only for explicit single-replacement review flows; it is not yet a generalized portfolio construction engine
-- current construction rules are limited to `same_weight_substitution_v1` and `fixed_split_50_50_substitution_v2`
-- formed candidates, constructed candidates, hypothetical replays, and saved proposals are review artifacts only; they do not mutate `PortfolioSnapshot` or apply a holdings change
-- overlay support is limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only
-- monitoring is currently a replay-scoped Workspace surface only; it is not yet a broad continuous monitoring and alerting system
-- current Monitoring-to-Workspace continuity is narrow: explicit user-initiated handoff, versioned handoff payload, session-scoped dismiss state, and no persistent alert/review history
-- optimization is not yet a shipped product capability
-- replay provenance is now explicit for the current hypothetical replay slice, including echoed constraint-validation lineage; replay now rejects provable artifact mismatches but still does not enforce validation status in-engine
-- investor-economics availability is still intentionally narrow: some return, drawdown, and benchmark-relative outputs stay withheld until total-return equivalence is verified, even when broader history/replay evidence exists
+- ranking is still narrow and ETF-heavy; it is not yet a generalized persisted ranking-run platform across broader universes
+- persisted construction is shipped, but the persisted policy set is still narrow; today it is frozen to `top_n_equal_weight_v1`
+- single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
+- optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`
+- overlays remain limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only
+- monitoring remains a replay-scoped Workspace review surface, not a continuous alerting and review-history system
 
-## Local workspace and artifact behavior that matters to product docs
+## Local workspace and artifact behavior that matters to docs
 
 - workspace state restores on launch from local persistence when available
-- the editable `WorkingDraft` is recreated from the active node when opening a node or discarding draft changes
-- saved nodes are immutable portfolio truth snapshots; review artifacts are separate from those snapshots
-- seeded candidate metadata, replacement intent, formed candidate artifact, constructed candidate artifact, selected construction rule, hypothetical replay draft, and saved proposal artifacts all persist locally
-- review artifacts are draft-scoped unless explicitly saved as immutable workspace-scoped proposal artifacts
-- active thesis restore now uses the same saved-proposal integrity checks and fails closed on contradictory embedded proposal lineage
-- recreating a draft from a node clears dependent draft-scoped review artifacts so stale review state does not silently carry across lineage changes
+- saved nodes are immutable portfolio-truth snapshots; review artifacts are separate from those snapshots
+- seeded candidate metadata, replacement intent, formed candidates, constructed candidates, selected construction rules, hypothetical replays, persisted construction references, optimizer handoffs, and saved proposals all preserve explicit lineage boundaries
+- recreating a draft from a node clears dependent draft-scoped review artifacts so stale review state does not silently cross lineage changes
 
 ## What is future, not current
 
-- generalized ranking engine with persisted ranking runs across broader universes
-- generalized rule-based construction with richer constraint models
-- broader overlay engine families beyond the narrow benchmark-trend replay path
+- broader ranking engines with persisted runs across wider universes and non-ETF scopes
+- more persisted construction policies, richer constraints, turnover models, and broader ranking-to-construction integration
+- broader overlay families beyond the current benchmark-trend replay path
 - continuous monitoring, alerts, and review history as first-class product capabilities
-- constrained optimization as a bounded refinement layer
-- a fully unified end-to-end quant-research workflow that makes ranking, construction, replay, and monitoring all first-class and generalized
+- optimizer expansion beyond the current hypothetical preview and handoff workflow
+- fuller end-to-end quant research workflows that unify ranking, construction, replay, monitoring, and execution planning
 
-## Documentation use rules
+## Documentation rules
 
-- use this document for shipped-scope truth
-- keep `docs/product/roadmap.md` focused on future product direction and sequencing
-- keep `docs/product/technical-roadmap.md` focused on target architecture, delivery plan, and technical future state
-- keep `docs/architecture/system-architecture.md` explicit about current seams vs future normalized seams
-- keep `docs/contracts/*.md` and `docs/finance/financial-methodology.md` aligned with any financially meaningful change
-
-## Update trigger
-
-Update this file when any of the following changes:
-
-- a route or workflow becomes user-usable and should count as shipped
-- a currently narrow slice becomes generalized enough that docs should stop calling it narrow
-- a current workflow is deprecated or replaced as the canonical path
-- a truth-class, replay-provenance, or finance-accuracy constraint materially changes what can be claimed as current behavior
+- use this file for shipped-scope truth
+- keep `docs/product/roadmap.md` focused on remaining product work only
+- keep `docs/product/technical-roadmap.md` focused on remaining technical work only
+- keep `docs/architecture/system-architecture.md`, `docs/finance/financial-methodology.md`, and `docs/contracts/*.md` aligned with any materially meaningful change in trust, withholding, provenance, or financial methodology

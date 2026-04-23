@@ -1,493 +1,101 @@
 # Quant Research Lab Roadmap
 
-This roadmap replaces the older engine-refactor roadmap as the main product direction.
-
-The project is being steered toward a `quant-research-lab` model:
-- a local-first portfolio intelligence and construction platform
-- grounded in financially meaningful analytics
-- focused on systematic portfolio decisions rather than generic dashboarding
-- built for portfolio improvement, risk control, ranking, factor analysis, allocation replay, and disciplined research workflows
-
-The target product is not a black-box predictor.
-It is a transparent systematic investing and portfolio-construction workbench.
-
-## Consolidation Guidance
-
-Keep this file future-looking.
-
-Retain in this file:
-- `## Product Thesis`
-- `## Core Product Principles`
-- `## What the Project Should Become`
-- `## Quant Methods the Product Should Prioritize`
-- `## Required Financial Accuracy Work`
-- `## Architecture Direction`
-- `## Execution Plan`
-- `## Immediate Priorities`
-- `## Naming Direction`
-- `## Documentation Rules`
-
-Trim or move into `docs/product/current-product-state.md` on the next pass:
-- `## Current Project Strengths to Build On`
-- `## Current Product Gaps`
-- under `### Stage 4. Portfolio Improvement Workspace`
-  - `Current implemented Stage 4 slice`
-  - `Current implemented pre-stage boundary`
-
-Working rule:
-- keep stage goals, tasks, and exit criteria here
-- move shipped-scope snapshots and narrow implemented-slice detail into the canonical current-state doc
+This file is future-looking only.
+Shipped-state detail belongs in `docs/product/current-product-state.md`.
 
 ## Product Thesis
 
-The project should evolve into a professional-grade workflow for:
-- understanding current portfolio exposures and risks
-- ranking ETFs / instruments systematically
-- constructing candidate portfolios with explicit rules
-- comparing current vs candidate portfolios historically
-- monitoring factor drift, concentration, volatility, and benchmark-relative behavior
-- applying quant methods that professionals actually use in practice
+The product should keep evolving into a deterministic portfolio research and decision workbench for:
+- portfolio intelligence and risk review
+- systematic ranking
+- rule-based construction
+- hypothetical replay and improvement review
+- optimizer-assisted refinement under clear guardrails
+- overlays and ongoing monitoring
 
-The strongest quant direction for this product is:
-- `ranking systems`
-- `factor investing`
-- `risk budgeting`
-- `portfolio construction`
-- `allocation replay`
-- `trend / momentum overlays`
-- `scenario analysis`
-- `monitoring`
-
-The project should avoid centering itself on:
-- opaque ML return prediction
-- unconstrained Markowitz optimization
-- short-horizon mean reversion trading
-- overfit macro regime forecasting
+The product should stay focused on transparent, auditable investing workflows rather than black-box prediction.
 
 ## Core Product Principles
 
-1. Financial outputs must be methodologically explicit.
-2. Every displayed metric must be traceable to one engine output and one implementation path.
-3. Broker-truth history, snapshot current-state analytics, and synthetic history approximations must remain clearly separated.
-4. Systematic decision support is more important than signal novelty.
-5. Portfolio construction rules and risk controls matter more than black-box alpha.
-6. The UI should present decision-grade information, not quant-debug noise.
-7. Any quant model added to the project must justify its economic meaning, data requirements, and operational usefulness.
+1. Financial outputs must stay methodologically explicit.
+2. Every displayed metric must trace to one engine output and one code path.
+3. Truth classes, trust states, degradation, and withholding must remain explicit.
+4. Ranking and construction rules remain primary; optimization is a constrained refinement layer.
+5. The UI should present decision-grade outputs, not debug dumps.
 
-## What the Project Should Become
+## Remaining Milestones
 
-### 1. Portfolio Intelligence Layer
-
-Purpose:
-- explain what the portfolio currently is
-- identify hidden exposures and concentrations
-- benchmark the portfolio against market, style, sector, and macro factors
-
-Core capabilities:
-- look-through exposure
-- benchmark overlap / active share
-- sector exposure
-- factor model
-- volatility / drawdown / tracking error
-- risk contribution
-- concentration
-- stress scenarios
-
-### 2. Quant Ranking Layer
-
-Purpose:
-- rank ETFs and instruments using systematic criteria
-- support candidate selection and sleeve rotation
-
-Target methods:
-- momentum ranking
-- volatility-adjusted ranking
-- drawdown-aware ranking
-- liquidity-aware ranking
-- mapping-fit-aware ranking for UCITS vs US proxy translation
-- later: factor-composite ranking
-
-Outputs:
-- ranked universe
-- composite score
-- component score breakdown
-- inclusion/exclusion filters
-
-### 3. Portfolio Construction Layer
-
-Purpose:
-- convert rankings, exposures, and constraints into target weights
-
-Target methods:
-- equal weight
-- capped score-weighting
-- volatility-scaled weighting
-- benchmark + tilt construction
-- risk-budget-aware sizing
-- concentration-constrained allocation
-
-Outputs:
-- target weights
-- turnover estimate
-- implementation assumptions
-- baseline vs candidate comparison
-
-### 4. Portfolio Improvement Layer
-
-Purpose:
-- show whether changes actually improve the portfolio
-
-Target workflow:
-- baseline portfolio
-- candidate portfolio
-- historical allocation replay
-- before/after diagnostics
-
-Comparison dimensions:
-- return
-- annualized return
-- volatility
-- downside volatility
-- drawdown
-- tracking error
-- information ratio
-- factor exposure change
-- risk contribution change
-- concentration change
-- stress scenario change
-
-### 5. Overlay and Monitoring Layer
-
-Purpose:
-- maintain discipline after the portfolio is built
-
-Target methods:
-- trend-following overlay
-- risk-on / risk-off overlay
-- volatility / regime monitoring
-- factor drift monitoring
-- concentration drift monitoring
-- benchmark-relative drift monitoring
-
-## Quant Methods the Product Should Prioritize
-
-### Tier 1: Highest-Value Methods
-
-These are the most realistic and useful quant methods for this project and for personal investing.
-
-1. `Ranking systems`
-2. `Momentum`
-3. `Factor investing`
-4. `Portfolio construction rules`
-5. `Risk budgeting`
-6. `Allocation replay / current vs candidate comparison`
-7. `Monitoring`
-
-### Tier 2: Strong Supporting Methods
-
-1. `Trend-following overlays`
-2. `Scenario analysis`
-3. `Simple regime flags`
-4. `Constrained minimum-volatility construction`
-5. `Multi-asset risk budgeting`
-
-### Tier 3: Use Carefully
-
-1. `Risk parity`
-2. `Optimization`
-3. `Theme rotation`
-
-These should only be implemented with strong constraints and clear economic framing.
-
-### Deprioritized / Not Core
-
-1. `Short-horizon mean reversion`
-2. `Black-box ML return prediction`
-3. `Complex macro regime engines`
-4. `Unconstrained expected-return optimization`
-
-## Current Project Strengths to Build On
-
-The project already has strong foundations in:
-- factor and exposure analytics
-- look-through and overlap analysis
-- volatility and relative-risk diagnostics
-- candidate vs reference allocation replay
-- ETF momentum / ranking-adjacent strategy-lab workflow
-- financial methodology documentation
-
-This means the project is already best positioned as:
-- a `portfolio intelligence + portfolio construction` platform
-
-not yet as:
-- a full institutional alpha-research stack
-
-## Current Product Gaps
-
-The main gaps blocking a real quant-research-lab direction are:
-
-1. no unified instrument / ETF ranking engine
-2. no true portfolio-construction rule engine
-3. no robust optimization layer with constraints
-4. the integrated portfolio-improvement workspace is now shipped in a narrow Workspace-owned form, but it is not yet the fully generalized primary product workflow
-5. insufficiently production-grade factor math, return-input guarantees, and reliability framing
-6. diagnostics panels still partly optimized for debug-style outputs rather than PM decision flow
-7. strategy research workflows are narrower than portfolio construction workflows
-
-## Required Financial Accuracy Work
-
-Before the quant lab can be treated as decision-grade, the project must harden the financial math behind the analytics.
-
-### Production-Grade Factor Math Hardening
-
-Required work:
-- guarantee adjusted-close or total-return-equivalent input series for benchmark and ETF factor returns
-- degrade explicitly when benchmark or factor histories are not total-return-aware
-- expose factor-model assumptions structurally:
-  - price basis
-  - orthogonalization order
-  - windows used
-  - ridge parameter
-- add stronger model reliability fields:
-  - factors used vs dropped
-  - observation count
-  - collinearity severity
-  - residual volatility / residual share
-  - current-window reliability status
-- make synthetic snapshot-history factor outputs visibly distinct from broker-truth historical diagnostics
-- expand tests around proxy overlap, missing adjusted-price histories, and degradation semantics
-
-Current status:
-- provenance, run-metadata, and replay/artifact integrity contracts have been materially hardened across diagnostics, exposure, dashboard-history, replay, saved proposals, and active thesis artifacts
-- these improvements reduce trust drift and artifact inconsistency, but they do not replace the remaining need for production-grade factor-math hardening
-- the first explicit degradation slice is now in place for diagnostics benchmark/factor histories: history-aware diagnostics no longer label those inputs as plain `live_market_data` when return-basis trust is unverified
-- diagnostics top-line run confidence now also degrades to `low` in that state, so metadata degradation and user-facing trust signals remain aligned
-- a narrow adjusted-close detection utility now exists for diagnostics inputs, but it only verifies the presence of explicit adjusted-close fields on loaded rows; broader total-return assurance is still not complete
-- diagnostics status semantics now reflect that limitation directly: factor-model, model-reliability, and risk-contribution outputs degrade explicitly when adjusted-close support is incomplete
-- the explicit series-selector helper now covers several benchmark/factor risk paths as well, reducing silent raw-close usage in diagnostics math without claiming full decision-grade total-return correctness
-- the deeper risk-contribution covariance helpers now use that selector too, which materially reduces implicit raw-price reads inside the factor-risk stack
-- dashboard-history benchmark return and benchmark comparison paths now use the same selector pattern too, shrinking residual raw-price dependence outside the diagnostics stack
-- a small centralized selector-policy helper now backs those entry points, so future raw-price return construction is easier to spot and harder to reintroduce accidentally
-- diagnostics now surface subsection trust explicitly, reducing reliance on only top-line confidence when some historical paths are verified and others remain degraded
-- dashboard-history now does the same in a compact form, so portfolio-path, benchmark-path, and monthly-return trust no longer collapse into one benchmark-history label
-- benchmark investor-return outputs in dashboard-history now refuse when the return basis is only price-return or an unverified adjusted proxy, preventing misleading benchmark/excess-return readouts
-- dashboard drawdown-loss outputs now refuse under the same unproven return-basis states, preventing misleading trough-depth readouts from non-total-return paths
-- dashboard compounded investor-return summaries now refuse under those same states too, preventing misleading cumulative/excess-return readouts from unverified compounding paths
-
-### Production-Grade Diagnostics Prioritization
-
-Diagnostics should prioritize:
-1. risk contribution
-2. concentration
-3. model reliability
-4. factor change monitoring
-
-Not:
-- biggest movers
-- heuristic flags as the main decision surface
-
-## Architecture Direction
-
-The project should remain engine-based, with product framing centered on a quant research lab.
-
-Target engine families:
-
-### Import / Truth Engines
-- import engine
-- history-context builder
-- benchmark service
-
-### Portfolio Intelligence Engines
-- exposure engine
-- diagnostics engine
-- dashboard history engine
-
-### Portfolio Construction Engines
-- portfolio allocation replay engine
-- portfolio improvement engine
-- later: construction / optimizer engine
-
-### Quant Research Engines
-- ranking engine
-- momentum engine
-- later: factor-composite engine
-- later: overlay engine
-
-The UI should consume narrow engine outputs rather than one broad analysis blob.
-
-## Execution Plan
-
-### Stage 1. Production-Grade Financial Core
+### 1. Ranking Expansion
 
 Goal:
-- make existing analytics trustworthy enough to serve as the base of a quant lab
+- make ranking a broader first-class platform capability
 
-Tasks:
-- complete production-grade factor math hardening
-- strengthen diagnostics ordering and reliability fields
-- keep truth classes explicit in payloads and UI
-- update financial methodology and inventory docs alongside code changes
+Remaining work:
+- persist ranking runs with stable lineage and reproducibility metadata
+- broaden beyond the current ETF-heavy slices and seeded replacement flows
+- support richer universes, eligibility filters, and reusable score configurations
 
-Exit criteria:
-- rolling factor and risk diagnostics are decision-grade or explicitly degraded
-- model reliability is visible anywhere factor outputs are shown
-
-### Stage 2. ETF / Instrument Ranking Engine
+### 2. Construction Expansion
 
 Goal:
-- make ranking a first-class product capability
+- extend the shipped persisted construction engine beyond its current narrow policy set
 
-Tasks:
-- define ranking request/response contracts
-- build ranking components such as:
-  - momentum
-  - realized volatility
-  - downside volatility
-  - drawdown
-  - benchmark-relative strength
-  - liquidity and implementation fit
-- support configurable composite weights
-- expose ranked universe and component scores to the UI
+Remaining work:
+- add more weighting policies beyond `top_n_equal_weight_v1`
+- add richer hard and soft constraint families
+- deepen ranking-to-construction handoff and implementation diagnostics
 
-Exit criteria:
-- the project can rank ETF universes systematically
-- ranked output is usable as input to construction workflows
-
-### Stage 3. Portfolio Construction Rules
+### 3. Portfolio Improvement Expansion
 
 Goal:
-- turn ranked or chosen assets into candidate portfolios using systematic rules
+- make baseline-vs-candidate review the clearest end-to-end product workflow
 
-Tasks:
-- implement rule-based weighting modes:
-  - equal weight
-  - capped score-weight
-  - volatility-scaled
-  - benchmark + tilt
-  - concentration-capped
-- expose hard constraints:
-  - max position weight
-  - max sleeve weight
-  - turnover guardrails
-  - concentration guardrails
+Remaining work:
+- broaden proposal review and comparison flows beyond the current narrow slices
+- improve PM-first summarization across replay, diagnostics deltas, and proposal artifacts
+- connect persisted construction and optimizer workflows more directly into Workspace review
 
-Exit criteria:
-- candidate portfolios can be built systematically rather than only manually
-
-### Stage 4. Portfolio Improvement Workspace
+### 4. Overlay and Monitoring Expansion
 
 Goal:
-- make current vs candidate the central product workflow
+- move from narrow replay-only overlays and review-scoped monitoring to broader ongoing discipline tools
 
-Tasks:
-- baseline seeding from current portfolio
-- candidate builder with fast editing
-- historical replay summary with baseline / candidate / delta
-- before/after diagnostics:
-  - factor exposure changes
-  - volatility and drawdown changes
-  - concentration changes
-  - risk contribution changes
-  - stress scenario changes
+Remaining work:
+- add more transparent overlay families
+- add persistent monitoring definitions, alerts, and review history
+- support broader benchmark-relative, factor-drift, and concentration-drift monitoring
 
-Current implemented Stage 4 slice:
-- ETF ranking can seed a draft-scoped candidate review workflow
-- Workspace now owns an explicit shell-first workflow order: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> saved proposal
-- explicit replacement intent can drive a hypothetical one-for-one replay preview
-- replay review now includes PM-first diagnostics delta review
-- hypothetical replay now preserves direct-preview vs constructed-candidate lineage, actual construction rule used, and echoed constraint-validation lineage
-- replay now rejects provable lineage mismatches between supplied review artifacts while still avoiding approval gating on validation status
-- replay-scoped Monitoring now lives inside Workspace as a narrow review surface, not as a broad continuous monitoring system
-- Monitoring can hand off back into Workspace workflow sections through an explicit user-initiated continuity path
-- diagnostics groups expose backend-ranked top callouts with visible selection-rule provenance and backend-provided rationale
-- reviewed hypothetical replay results can now be recorded as immutable local versioned proposal artifacts
-- saved proposals can now be inspected in a dedicated review/readout surface that uses persisted artifact data only rather than active draft state
-- immutable saved proposal artifacts and active thesis restore now fail on provable internal lineage contradictions rather than silently trusting inconsistent review artifacts
-- Workspace replay preview now surfaces artifact-specific backend replay failures directly in the existing error line
-- these callouts remain review support only and do not imply recommendation or applied portfolio change
-
-Exit criteria:
-- the user can tell whether a portfolio change is actually an improvement
-
-Current implemented pre-stage boundary:
-- ETF ranking can seed a draft-scoped candidate review artifact
-- that seed can persist locally and be restored deterministically
-- a draft-scoped replacement intent can be recorded explicitly
-- draft-scoped formed candidate, constructed candidate, selected-rule, and hypothetical replay artifacts also persist locally and are reset with draft lineage changes where appropriate
-- these artifacts remain review metadata only and do not mutate `PortfolioSnapshot`
-
-### Stage 5. Overlay and Monitoring System
+### 5. Optimizer Expansion
 
 Goal:
-- support disciplined ongoing management after portfolio construction
+- keep optimization bounded, explainable, and subordinate to rule-based construction
 
-Tasks:
-- trend filter overlay
-- volatility / regime state monitoring
-- drift alerts for exposures and concentration
-- benchmark-relative drift monitoring
+Remaining work:
+- add additional optimizer objectives and constraint families
+- compare optimizer candidates against persisted rule-based baselines more directly
+- expand optimizer workflows without blurring hypothetical outputs into applied portfolio truth
 
-Current shipped boundary before Stage 5:
-- a narrow overlay-aware hypothetical replay path exists for the benchmark-trend candidate-side review flow
-- Monitoring exists today only as a replay-scoped Workspace surface and should not be described as a continuous alerting system yet
-
-Exit criteria:
-- the project can monitor and maintain a systematic portfolio, not just analyze it once
-
-### Stage 6. Constrained Optimization
+### 6. Research Expansion
 
 Goal:
-- use optimization as a constrained refinement tool, not as a black-box portfolio generator
+- broaden the platform into a more complete personal quant research lab
 
-Tasks:
-- implement minimum-volatility / tracking-error-aware / turnover-aware optimizers
-- enforce strong constraints and regularization
-- keep rule-based construction available as the primary baseline
-
-Exit criteria:
-- optimization improves construction under clear guardrails
-
-### Stage 7. Strategy Research Expansion
-
-Goal:
-- broaden the strategy-lab side after portfolio construction workflows are strong
-
-Tasks:
-- expand universe presets
-- add reusable research templates
-- support richer ranking experiments
-- support walk-forward comparisons where realistic
-
-Exit criteria:
-- the project supports both portfolio construction research and selected strategy research workflows
+Remaining work:
+- expand reusable research templates and datasets
+- broaden universe coverage and cross-sectional research depth
+- support stronger validation and walk-forward style research where realistic
 
 ## Immediate Priorities
 
-1. finish production-grade factor math hardening and reliability semantics
-2. generalize construction and constraints beyond current single-replacement flows
-3. continue integrity enforcement across persisted review artifacts and replay handoffs
-4. generalize the ranking engine beyond the current ETF-focused slices
-5. broaden overlays and monitoring only after financial-core and construction correctness are stronger
+1. generalize ranking runs and persisted ranking lineage
+2. add more construction policies and richer constraints on top of the shipped persisted engine
+3. improve Workspace integration for persisted construction and optimizer handoff review
+4. expand overlays and monitoring after core workflow clarity stays intact
+5. grow optimizer breadth without weakening truth separation
 
-## Naming Direction
-
-Recommended product naming direction:
-- `Quant Research Lab`
-- `quant-research-lab`
-
-This naming should reflect the actual product direction:
-- systematic portfolio intelligence
-- ranking and construction
-- historical replay and improvement workflows
-- transparent, documented quant methodology
-
-## Documentation Rules
+## Documentation Rule
 
 Any financially meaningful change must update:
-- methodology strings in code
 - `docs/finance/financial-methodology.md`
 - relevant field inventory docs
-- tests that lock down formulas and degraded semantics
-
-This roadmap should remain focused on product direction and execution order.
-Detailed implementation plans should live in dedicated specs and technical roadmap files.
+- tests that lock down formulas, trust semantics, degradation, or withholding behavior

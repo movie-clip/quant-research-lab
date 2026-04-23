@@ -4,7 +4,7 @@ from typing import Iterable, Literal
 
 from app.core.symbols import canonicalize_symbol, resolve_etf_holdings_candidates, resolve_symbol_candidates
 from app.clients.fmp import FmpClient
-from app.schemas.return_basis import ReturnBasisEvidence
+from app.schemas.return_basis import ReturnBasisContract, ReturnBasisEvidence, ReturnBasisPathTrust
 from app.services.holdings_history import HoldingsHistoryStore
 
 
@@ -195,6 +195,24 @@ def build_histories_return_basis_evidence(
         source_price_field=source_fields.pop() if len(source_fields) == 1 else None,
         scope={},
     )
+
+
+def return_basis_contract_from_evidence(evidence: ReturnBasisEvidence) -> ReturnBasisContract:
+    if evidence.verification_status == "verified" and evidence.economic_basis == "total_return":
+        return "verified_total_return"
+    if evidence.verification_status == "proxy" and evidence.economic_basis == "adjusted_close_proxy":
+        return "unverified_adjusted_proxy"
+    if evidence.verification_status == "unverified" and evidence.economic_basis == "price_return_only":
+        return "price_return_only"
+    return "unavailable"
+
+
+def return_basis_path_trust_from_evidence(evidence: ReturnBasisEvidence) -> ReturnBasisPathTrust:
+    if evidence.verification_status == "verified":
+        return "verified_adjusted_close"
+    if evidence.verification_status in {"proxy", "unverified"}:
+        return "degraded_unverified_return_basis"
+    return "unavailable"
 
 
 class MarketDataService:

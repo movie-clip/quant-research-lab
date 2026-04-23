@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.construction import ConstructionSelectionRuleTrace
 from app.schemas.imports import StatementImporter
+from app.schemas.optimizer import OptimizerArtifactState, OptimizerBenchmarkAttestationType, OptimizerConstraintStatus, OptimizerPersistedArtifactReference, OptimizerReturnBasisAttestation, OptimizerReturnBasisSectionTrust
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.schemas.research import AllocationRebalanceFrequency, BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, InvestorEconomicsStatus, StrategyDefinition
 
@@ -159,6 +161,25 @@ class PortfolioAllocationBacktestRequest(BaseModel):
     portfolio_name: str | None = None
     weights: list[PortfolioWeightInput] = Field(default_factory=list)
     reference_weights: list[PortfolioWeightInput] | None = None
+    benchmark_symbol: str = "SPY"
+    start_date: date
+    end_date: date
+    initial_capital: float = 100_000.0
+    rebalance_frequency: AllocationRebalanceFrequency = "monthly"
+    base_currency: str = "USD"
+    commission_bps: float = 0.0
+    slippage_bps: float = 0.0
+    drift_tolerance_pct: float | None = None
+    price_basis: Literal["adjusted_close"] = "adjusted_close"
+    execution_price_field: Literal["close"] = "close"
+    execution_lag_days: int = 1
+    symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class ConstructionArtifactReplayRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    construction_artifact_id: str
     benchmark_symbol: str = "SPY"
     start_date: date
     end_date: date
@@ -414,6 +435,231 @@ class HypotheticalReplacementReplayResponse(BaseModel):
     candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     replay: PortfolioAllocationBacktestResponse
     warnings: list[str] = Field(default_factory=list)
+
+
+class ConstructionArtifactReplayTruthSeparation(BaseModel):
+    baseline_truth: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    candidate_truth: Literal["hypothetical_construction_artifact"] = "hypothetical_construction_artifact"
+    candidate_applied: Literal[False] = False
+    consumption_mode: Literal["explicit_reference_only"] = "explicit_reference_only"
+
+
+class ConstructionArtifactReplayProvenance(BaseModel):
+    source: Literal["construction_artifact_reference"] = "construction_artifact_reference"
+    construction_artifact_id: str
+    policy_id: str
+    ranked_universe_artifact_id: str | None = None
+    ranking_id: str | None = None
+    ranking_methodology_id: str | None = None
+    current_portfolio_artifact_id: str | None = None
+    baseline_input_source: Literal["normalized_inputs.current_portfolio_weights"] = "normalized_inputs.current_portfolio_weights"
+    candidate_input_source: Literal["final_target_weights"] = "final_target_weights"
+    selection_rule_trace: ConstructionSelectionRuleTrace
+
+
+class ConstructionArtifactReplayResponse(BaseModel):
+    construction_artifact_id: str
+    truth_separation: ConstructionArtifactReplayTruthSeparation = Field(default_factory=ConstructionArtifactReplayTruthSeparation)
+    replay_provenance: ConstructionArtifactReplayProvenance
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    replay: PortfolioAllocationBacktestResponse
+
+
+class OptimizerHandoffReplayTruthSeparation(BaseModel):
+    baseline_truth: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    candidate_truth: Literal["hypothetical_optimizer_handoff"] = "hypothetical_optimizer_handoff"
+    candidate_applied: Literal[False] = False
+    consumption_mode: Literal["explicit_reference_only"] = "explicit_reference_only"
+
+
+OptimizerHandoffReplayAnalyticsFamily = Literal[
+    "benchmark_relative_volatility_outputs",
+    "factor_exposure_outputs",
+    "stress_scenario_outputs",
+    "risk_contribution_outputs",
+    "concentration_outputs",
+]
+
+
+class OptimizerHandoffReplayOutputPolicy(BaseModel):
+    source: Literal["persisted_return_basis_attestation"] = "persisted_return_basis_attestation"
+    section_trust: OptimizerReturnBasisSectionTrust
+    eligible_families: list[OptimizerHandoffReplayAnalyticsFamily] = Field(default_factory=list)
+    withheld_families: list[OptimizerHandoffReplayAnalyticsFamily] = Field(default_factory=list)
+
+
+class OptimizerHandoffReplayProvenance(BaseModel):
+    source: Literal["optimizer_handoff_reference"] = "optimizer_handoff_reference"
+    benchmark_id: str
+    benchmark_version: str
+    benchmark_symbol: str
+    return_basis_attestation: OptimizerReturnBasisAttestation
+    replay_output_policy: OptimizerHandoffReplayOutputPolicy
+    artifact_state: OptimizerArtifactState
+    optimizer_status: Literal["feasible"] = "feasible"
+    constraint_set_fingerprint: str
+
+
+class OptimizerHandoffReplayOptimizerRunSummary(BaseModel):
+    engine_id: str
+    solver_id: str
+    methodology_id: str
+    risk_package_id: str | None = None
+    risk_package_version: str | None = None
+    alpha_package_id: str | None = None
+    alpha_package_version: str | None = None
+
+
+class OptimizerHandoffReplayOptimizerDiagnostics(BaseModel):
+    active_share: float | None = None
+    turnover: float | None = None
+    max_abs_active_weight: float | None = None
+    active_risk: float | None = None
+    effective_holdings: float | None = None
+    current_to_proposed_l2: float | None = None
+    benchmark_to_proposed_l2: float | None = None
+    risk_package_coverage_ratio: float | None = None
+    alpha_package_coverage_ratio: float | None = None
+
+
+class OptimizerHandoffReplayConstraintSummary(BaseModel):
+    constraint_id: str
+    status: OptimizerConstraintStatus
+    actual_value: float | None = None
+    limit_value: float | None = None
+    slack: float | None = None
+    message: str
+
+
+class OptimizerHandoffReplayBenchmarkAttestationSummary(BaseModel):
+    attestation_id: str
+    attestation_type: OptimizerBenchmarkAttestationType
+    status: OptimizerConstraintStatus | Literal["aligned", "misaligned"]
+    actual_value: float | None = None
+    limit_value: float | None = None
+    slack: float | None = None
+    message: str
+
+
+class OptimizerHandoffReplayOptimizerContext(BaseModel):
+    objective_id: str
+    penalty_ids: list[str] = Field(default_factory=list)
+    artifact_state: OptimizerArtifactState
+    stale_inputs: list[str] = Field(default_factory=list)
+    degraded_inputs: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    run_summary: OptimizerHandoffReplayOptimizerRunSummary
+    diagnostics: OptimizerHandoffReplayOptimizerDiagnostics
+    binding_constraints: list[str] = Field(default_factory=list)
+    violated_constraints: list[str] = Field(default_factory=list)
+    benchmark_relative_attestations: list[OptimizerHandoffReplayBenchmarkAttestationSummary] = Field(default_factory=list)
+    binding_constraint_evaluations: list[OptimizerHandoffReplayConstraintSummary] = Field(default_factory=list)
+
+
+class OptimizerHandoffValidationTruthSeparation(BaseModel):
+    source_truth: Literal["persisted_hypothetical_optimizer_handoff"] = "persisted_hypothetical_optimizer_handoff"
+    holdings_truth: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    optimizer_output_applied: Literal[False] = False
+    consumption_mode: Literal["explicit_reference_only"] = "explicit_reference_only"
+
+
+OptimizerHandoffValidationReasonFamily = Literal["schema", "benchmark_context", "constraint_violation", "provenance", "truth_separation"]
+OptimizerHandoffValidationPhase = Literal[
+    "raw_persisted_payload",
+    "model_validation",
+    "cross_file_invariants",
+    "benchmark_relative_checks",
+    "truth_separation_checks",
+]
+
+
+class OptimizerHandoffValidationEvaluation(BaseModel):
+    rule_id: str
+    phase: OptimizerHandoffValidationPhase
+    reason_family: OptimizerHandoffValidationReasonFamily
+    severity: Literal["hard_block", "warning"]
+    status: Literal["pass", "fail"]
+    message: str
+    rationale: str | None = None
+    actual_value: float | str | bool | None = None
+    expected_value: float | str | bool | None = None
+    operator: Literal["<=", ">=", "==", "!=", "in"] | None = None
+
+
+class OptimizerHandoffValidationProvenance(BaseModel):
+    source: Literal["optimizer_handoff_reference"] = "optimizer_handoff_reference"
+    benchmark_id: str | None = None
+    benchmark_version: str | None = None
+    benchmark_symbol: str | None = None
+    replay_output_policy: OptimizerHandoffReplayOutputPolicy | None = None
+    artifact_state: OptimizerArtifactState | None = None
+    constraint_set_fingerprint: str | None = None
+
+
+class OptimizerHandoffEligibleReplayWindow(BaseModel):
+    source: Literal["persisted_return_basis_attestation"] = "persisted_return_basis_attestation"
+    benchmark_symbol: str | None = None
+    as_of_date: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class OptimizerHandoffValidationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_reference: OptimizerPersistedArtifactReference
+    start_date: date | None = None
+    end_date: date | None = None
+
+    @model_validator(mode="after")
+    def _validate_candidate_window(self) -> "OptimizerHandoffValidationRequest":
+        if (self.start_date is None) != (self.end_date is None):
+            raise ValueError("start_date and end_date must be supplied together")
+        return self
+
+
+class OptimizerHandoffValidationResponse(BaseModel):
+    handoff_id: str | None = None
+    artifact_id: str | None = None
+    source_portfolio_snapshot_id: str | None = None
+    truth_separation: OptimizerHandoffValidationTruthSeparation = Field(default_factory=OptimizerHandoffValidationTruthSeparation)
+    eligible_replay_window: OptimizerHandoffEligibleReplayWindow | None = None
+    provenance: OptimizerHandoffValidationProvenance
+    validation_status: Literal["ok", "blocked", "rejected"]
+    evaluations: list[OptimizerHandoffValidationEvaluation] = Field(default_factory=list)
+    blocking_rule_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class OptimizerHandoffReplayRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_reference: OptimizerPersistedArtifactReference
+    start_date: date
+    end_date: date
+    initial_capital: float = 100_000.0
+    rebalance_frequency: AllocationRebalanceFrequency = "monthly"
+    base_currency: str = "USD"
+    commission_bps: float = 0.0
+    slippage_bps: float = 0.0
+    drift_tolerance_pct: float | None = None
+    price_basis: Literal["adjusted_close"] = "adjusted_close"
+    execution_price_field: Literal["close"] = "close"
+    execution_lag_days: int = 1
+    symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class OptimizerHandoffReplayResponse(BaseModel):
+    handoff_id: str
+    artifact_id: str
+    source_portfolio_snapshot_id: str
+    truth_separation: OptimizerHandoffReplayTruthSeparation = Field(default_factory=OptimizerHandoffReplayTruthSeparation)
+    replay_provenance: OptimizerHandoffReplayProvenance
+    optimizer_context: OptimizerHandoffReplayOptimizerContext | None = None
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    replay: PortfolioAllocationBacktestResponse
 
 
 class OverlayStateInput(BaseModel):

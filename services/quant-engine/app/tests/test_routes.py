@@ -1,4 +1,7 @@
 from pathlib import Path
+from types import SimpleNamespace
+from hashlib import sha256
+import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,6 +26,34 @@ def _require_path(path: str) -> None:
         pytest.skip(f"Missing local test fixture: {path}")
 
 
+def _mutate_persisted_json(path: str, mutator) -> None:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    mutator(payload)
+    Path(path).write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+
+def _rekey_persisted_handoff(reference: dict[str, str], manifest_mutator) -> dict[str, str]:
+    manifest_path = Path(reference["manifest_path"])
+    artifact_path = Path(reference["artifact_path"])
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    manifest_mutator(manifest_payload)
+    new_handoff_id = f"optimizer_handoff_{sha256(json.dumps({'artifact_id': artifact_payload['artifact_id'], 'return_basis_attestation': manifest_payload['return_basis_attestation']}, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('utf-8')).hexdigest()[:16]}"
+    handoff_dir = manifest_path.parent.parent / new_handoff_id
+    handoff_dir.mkdir(parents=True, exist_ok=True)
+    manifest_payload["handoff_id"] = new_handoff_id
+    new_manifest_path = handoff_dir / "manifest.json"
+    new_artifact_path = handoff_dir / "artifact.json"
+    new_manifest_path.write_text(json.dumps(manifest_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+    new_artifact_path.write_text(json.dumps(artifact_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+    return {
+        **reference,
+        "handoff_id": new_handoff_id,
+        "manifest_path": str(new_manifest_path),
+        "artifact_path": str(new_artifact_path),
+    }
+
+
 def test_health_route() -> None:
     client = TestClient(app)
 
@@ -30,6 +61,101 @@ def test_health_route() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_construction_route_is_registered(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "CCC", "weight": 0.5},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "feasible"
+    assert payload["artifact_id"].startswith("construction_artifact_")
+    assert payload["policy"]["policy_id"] == "top_n_equal_weight_v1"
+    assert payload["normalized_inputs"]["policy_id"] == "top_n_equal_weight_v1"
+
+
+def test_construction_artifact_route_is_registered(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    run_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-2",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "CCC", "weight": 0.5},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        },
+    )
+
+    assert run_response.status_code == 200
+    artifact_id = run_response.json()["artifact_id"]
+
+    response = client.get(f"/construction/artifacts/{artifact_id}")
+
+    assert response.status_code == 200
+    assert response.json()["artifact_id"] == artifact_id
 
 
 def test_import_route_returns_404_for_missing_statement() -> None:
@@ -65,6 +191,2360 @@ def test_cors_preflight_for_local_frontend() -> None:
 
     assert response.status_code == 200
     assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+def test_optimizer_preview_route_returns_hypothetical_preview_contract() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-1",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-04-15", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-04-15", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-04-15T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["optimizer_status"] == "feasible"
+    assert payload["truth_separation"] == {
+        "current_holdings_truth": "imported_portfolio_snapshot",
+        "optimized_output_truth": "hypothetical_optimizer_preview",
+        "optimized_output_applied": False,
+        "optimized_output_storage": "optimizer_artifact_only",
+        "replay_role": "downstream_evaluation_only",
+    }
+    assert payload["provenance"]["benchmark_trust_status"] == "trusted"
+    assert payload["provenance"]["return_basis_attestation"]["benchmark_symbol"] == "SPY"
+    assert payload["persisted_handoff"]["reference_kind"] == "optimizer_handoff_reference_v1"
+    assert payload["persisted_handoff"]["handoff_id"].startswith("optimizer_handoff_")
+    assert payload["optimizer_artifact"]["benchmark_id"] == "benchmark_spy_demo_v1"
+    assert payload["replay_handoff"]["status"] == "hypothetical_not_applied"
+    assert payload["replay_handoff"]["handoff_reference"] == payload["persisted_handoff"]
+    assert payload["replay_handoff"]["benchmark_version"] == "2024-04-15"
+
+
+def test_optimizer_preview_to_handoff_replay_routes_preserve_canonical_benchmark_symbol(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "CCC": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 104.0},
+            {"date": "2024-06-03", "price": 106.0},
+            {"date": "2024-12-31", "price": 109.0},
+        ],
+        "IWD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.3},
+            {"date": "2024-06-03", "price": 101.8},
+            {"date": "2024-12-31", "price": 104.5},
+        ],
+        "IWM": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.0},
+            {"date": "2024-02-01", "price": 98.7},
+            {"date": "2024-06-03", "price": 99.8},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "XLF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 103.2},
+            {"date": "2024-06-03", "price": 104.0},
+            {"date": "2024-12-31", "price": 107.0},
+        ],
+        "XLV": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.1},
+            {"date": "2024-12-31", "price": 103.5},
+        ],
+        "XLE": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 97.0},
+            {"date": "2024-02-01", "price": 97.2},
+            {"date": "2024-06-03", "price": 98.5},
+            {"date": "2024-12-31", "price": 101.0},
+        ],
+        "XLI": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.4},
+            {"date": "2024-06-03", "price": 103.2},
+            {"date": "2024-12-31", "price": 105.2},
+        ],
+        "IEF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.4},
+            {"date": "2024-02-01", "price": 100.5},
+            {"date": "2024-06-03", "price": 100.6},
+            {"date": "2024-12-31", "price": 101.2},
+        ],
+        "TLT": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.5},
+            {"date": "2024-02-01", "price": 99.0},
+            {"date": "2024-06-03", "price": 101.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "LQD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.8},
+            {"date": "2024-02-01", "price": 100.9},
+            {"date": "2024-06-03", "price": 101.2},
+            {"date": "2024-12-31", "price": 102.3},
+        ],
+        "GLD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.8},
+            {"date": "2024-12-31", "price": 104.1},
+        ],
+    }
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-canonical-benchmark",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-01-01", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-01-01", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": " spy ",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-12-31T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    assert preview_payload["replay_handoff"]["benchmark_symbol"] == "SPY"
+    assert preview_payload["persisted_handoff"] is not None
+
+    replay_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": preview_payload["persisted_handoff"],
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert replay_response.status_code == 200
+    replay_payload = replay_response.json()
+    assert replay_payload["replay_provenance"]["benchmark_symbol"] == "SPY"
+    assert replay_payload["replay_provenance"]["return_basis_attestation"]["benchmark_symbol"] == "SPY"
+    assert replay_payload["replay_provenance"]["replay_output_policy"] == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+    assert replay_payload["replay"]["reference_result"]["metrics"]["tracking_error_pct"] is None
+    assert replay_payload["replay"]["reference_result"]["metrics"]["beta_vs_benchmark"] is None
+    assert replay_payload["replay"]["reference_result"]["metrics"]["correlation_vs_benchmark"] is None
+    assert replay_payload["replay"]["candidate_result"]["metrics"]["tracking_error_pct"] is None
+    assert replay_payload["replay"]["candidate_result"]["metrics"]["beta_vs_benchmark"] is None
+    assert replay_payload["replay"]["candidate_result"]["metrics"]["correlation_vs_benchmark"] is None
+    assert replay_payload["replay"]["comparison"]["tracking_error_diff_pct"] is None
+    assert replay_payload["replay"]["comparison"]["beta_diff"] is None
+    assert replay_payload["replay"]["comparison"]["correlation_diff"] is None
+
+
+def test_construction_artifact_replay_route_uses_explicit_reference_only_lineage(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "QQQ": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 104.0},
+            {"date": "2024-02-01", "price": 104.5},
+            {"date": "2024-06-03", "price": 106.0},
+            {"date": "2024-12-31", "price": 112.0},
+        ],
+        "IWD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.3},
+            {"date": "2024-06-03", "price": 101.8},
+            {"date": "2024-12-31", "price": 104.5},
+        ],
+        "IWM": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.0},
+            {"date": "2024-02-01", "price": 98.7},
+            {"date": "2024-06-03", "price": 99.8},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "XLF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 103.2},
+            {"date": "2024-06-03", "price": 104.0},
+            {"date": "2024-12-31", "price": 107.0},
+        ],
+        "XLV": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.1},
+            {"date": "2024-12-31", "price": 103.5},
+        ],
+        "XLE": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 97.0},
+            {"date": "2024-02-01", "price": 97.2},
+            {"date": "2024-06-03", "price": 98.5},
+            {"date": "2024-12-31", "price": 101.0},
+        ],
+        "XLI": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.4},
+            {"date": "2024-06-03", "price": 103.2},
+            {"date": "2024-12-31", "price": 105.2},
+        ],
+        "IEF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.4},
+            {"date": "2024-02-01", "price": 100.5},
+            {"date": "2024-06-03", "price": 100.6},
+            {"date": "2024-12-31", "price": 101.2},
+        ],
+        "TLT": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.5},
+            {"date": "2024-02-01", "price": 99.0},
+            {"date": "2024-06-03", "price": 101.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "LQD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.8},
+            {"date": "2024-02-01", "price": 100.9},
+            {"date": "2024-06-03", "price": 101.2},
+            {"date": "2024-12-31", "price": 102.3},
+        ],
+        "GLD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.8},
+            {"date": "2024-12-31", "price": 104.1},
+        ],
+    }
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+
+    replay_response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert replay_response.status_code == 200
+    payload = replay_response.json()
+    assert payload["construction_artifact_id"] == artifact_id
+    assert payload["truth_separation"] == {
+        "baseline_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_construction_artifact",
+        "candidate_applied": False,
+        "consumption_mode": "explicit_reference_only",
+    }
+    assert payload["replay_provenance"] == {
+        "source": "construction_artifact_reference",
+        "construction_artifact_id": artifact_id,
+        "policy_id": "top_n_equal_weight_v1",
+        "ranked_universe_artifact_id": "ranking_artifact_1",
+        "ranking_id": "ranked_candidates_v1",
+        "ranking_methodology_id": "ranked_candidates_methodology_v1",
+        "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "baseline_input_source": "normalized_inputs.current_portfolio_weights",
+        "candidate_input_source": "final_target_weights",
+        "selection_rule_trace": {
+            "rule_ids": ["eligible_only", "take_top_n"],
+            "steps": [
+                {
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA", "BBB"],
+                    "output_candidate_symbols": ["AAA", "BBB"],
+                },
+                {
+                    "rule_id": "take_top_n",
+                    "rule_order": 2,
+                    "input_candidate_symbols": ["AAA", "BBB"],
+                    "output_candidate_symbols": ["AAA", "BBB"],
+                },
+            ],
+        },
+    }
+    assert payload["baseline_weights"] == [
+        {"symbol": "AAA", "target_weight": 0.6},
+        {"symbol": "BBB", "target_weight": 0.4},
+    ]
+    assert payload["candidate_weights"] == [
+        {"symbol": "AAA", "target_weight": 0.5},
+        {"symbol": "BBB", "target_weight": 0.5},
+    ]
+    assert payload["replay"]["reference_result"] is not None
+
+
+def test_construction_artifact_replay_route_rejects_missing_inline_weight_contract(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": "construction_artifact_1234567890abcdef",
+            "weights": [{"symbol": "AAA", "target_weight": 1.0}],
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_construction_artifact_replay_route_echoes_empty_selection_trace_for_legacy_artifact(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+    }
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-legacy-trace",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload.pop("selection_rule_trace")
+    payload_without_ids = {key: value for key, value in payload.items() if key not in {"artifact_id", "fingerprint"}}
+    fingerprint = sha256(
+        json.dumps(payload_without_ids, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    legacy_artifact_id = f"construction_artifact_{fingerprint[:16]}"
+    payload["fingerprint"] = fingerprint
+    payload["artifact_id"] = legacy_artifact_id
+    artifact_path.unlink()
+    legacy_path = tmp_path / f"{legacy_artifact_id}.json"
+    legacy_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": legacy_artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["replay_provenance"]["selection_rule_trace"] == {"rule_ids": [], "steps": []}
+
+
+def test_construction_artifact_replay_route_returns_404_for_missing_artifact(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": "construction_artifact_missing",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 404
+    assert "missing persisted construction artifact file" in response.json()["detail"]
+
+
+def test_construction_artifact_replay_route_returns_400_for_invalid_persisted_artifact_payload(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-invalid-payload",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload.pop("status")
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "persisted construction artifact failed schema validation" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "selection_rule_trace",
+    [
+        {
+            "steps": [
+                {
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA"],
+                    "output_candidate_symbols": ["AAA"],
+                }
+            ]
+        },
+        {
+            "rule_ids": [],
+            "steps": [
+                {
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA"],
+                    "output_candidate_symbols": ["AAA"],
+                }
+            ],
+        },
+    ],
+    ids=["missing_rule_ids", "empty_rule_ids"],
+)
+def test_construction_artifact_replay_route_returns_400_for_partial_malformed_selection_trace(
+    tmp_path,
+    mocker,
+    selection_rule_trace,
+) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-malformed-trace",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["selection_rule_trace"] = selection_rule_trace
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "persisted construction artifact failed schema validation" in response.json()["detail"]
+
+
+def test_construction_artifact_replay_route_returns_400_for_invalid_artifact_json(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-invalid-json",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    artifact_path.write_text("{not-json", encoding="utf-8")
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "invalid persisted construction artifact json" in response.json()["detail"]
+
+
+def test_construction_artifact_replay_route_returns_400_for_non_object_artifact_payload(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-non-object",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    artifact_path.write_text("[]", encoding="utf-8")
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "persisted construction artifact payload must be a json object" in response.json()["detail"]
+
+
+def test_construction_artifact_replay_route_returns_400_for_integrity_validation_failure(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-integrity",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["artifact_id"] = "construction_artifact_wrong"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "construction artifact_id does not match canonical artifact content" in response.json()["detail"]
+
+
+def test_construction_artifact_replay_route_returns_400_for_infeasible_artifact(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-infeasible",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "construction_artifact_id must reference a feasible construction artifact"}
+
+
+def test_construction_artifact_replay_route_returns_400_for_missing_replay_required_weights(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-missing-baseline",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "construction artifact replay requires normalized_inputs.current_portfolio_weights for the baseline replay path"
+    }
+
+
+def test_optimizer_handoff_replay_route_preserves_benchmark_relative_metrics_when_verified_adjusted_close(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "CCC": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 104.0},
+            {"date": "2024-06-03", "price": 106.0},
+            {"date": "2024-12-31", "price": 109.0},
+        ],
+        "IWD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.3},
+            {"date": "2024-06-03", "price": 101.8},
+            {"date": "2024-12-31", "price": 104.5},
+        ],
+        "IWM": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.0},
+            {"date": "2024-02-01", "price": 98.7},
+            {"date": "2024-06-03", "price": 99.8},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "XLF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 103.2},
+            {"date": "2024-06-03", "price": 104.0},
+            {"date": "2024-12-31", "price": 107.0},
+        ],
+        "XLV": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.1},
+            {"date": "2024-12-31", "price": 103.5},
+        ],
+        "XLE": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 97.0},
+            {"date": "2024-02-01", "price": 97.2},
+            {"date": "2024-06-03", "price": 98.5},
+            {"date": "2024-12-31", "price": 101.0},
+        ],
+        "XLI": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.4},
+            {"date": "2024-06-03", "price": 103.2},
+            {"date": "2024-12-31", "price": 105.2},
+        ],
+        "IEF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.4},
+            {"date": "2024-02-01", "price": 100.5},
+            {"date": "2024-06-03", "price": 100.6},
+            {"date": "2024-12-31", "price": 101.2},
+        ],
+        "TLT": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.5},
+            {"date": "2024-02-01", "price": 99.0},
+            {"date": "2024-06-03", "price": 101.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "LQD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.8},
+            {"date": "2024-02-01", "price": 100.9},
+            {"date": "2024-06-03", "price": 101.2},
+            {"date": "2024-12-31", "price": 102.3},
+        ],
+        "GLD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.8},
+            {"date": "2024-12-31", "price": 104.1},
+        ],
+    }
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-verified-benchmark-relative-replay-route",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-01-01", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-01-01", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-12-31T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    persisted_handoff = _rekey_persisted_handoff(
+        preview_response.json()["persisted_handoff"],
+        lambda payload: payload["return_basis_attestation"]["section_trust"].update(
+            {"benchmark_relative_path": "verified_adjusted_close"}
+        ),
+    )
+
+    replay_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": persisted_handoff,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert replay_response.status_code == 200
+    replay_payload = replay_response.json()
+    assert replay_payload["replay_provenance"]["replay_output_policy"] == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "verified_adjusted_close",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [
+            "benchmark_relative_volatility_outputs",
+        ],
+        "withheld_families": [
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+
+    for result_key in ("reference_result", "candidate_result"):
+        metrics = replay_payload["replay"][result_key]["metrics"]
+        assert metrics["tracking_error_pct"] is not None
+        assert metrics["beta_vs_benchmark"] is not None
+        assert metrics["correlation_vs_benchmark"] is not None
+        assert metrics["benchmark_return_pct"] is None
+        assert metrics["excess_return_pct"] is None
+        assert metrics["information_ratio"] is None
+
+    comparison = replay_payload["replay"]["comparison"]
+    assert comparison["tracking_error_diff_pct"] is not None
+    assert comparison["beta_diff"] is not None
+    assert comparison["correlation_diff"] is not None
+
+
+@pytest.mark.parametrize(
+    "legacy_manifest_mutator",
+    [
+        lambda payload: payload["return_basis_attestation"].pop("factor_basis_path", None),
+        lambda payload: payload["return_basis_attestation"].update({"factor_basis_path": None}),
+    ],
+    ids=["missing_factor_basis_path", "null_factor_basis_path"],
+)
+def test_optimizer_handoff_replay_route_normalizes_legacy_factor_basis_variants_with_canonical_parity(
+    tmp_path,
+    mocker,
+    legacy_manifest_mutator,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "CCC": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 104.0},
+            {"date": "2024-06-03", "price": 106.0},
+            {"date": "2024-12-31", "price": 109.0},
+        ],
+        "IWD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.3},
+            {"date": "2024-06-03", "price": 101.8},
+            {"date": "2024-12-31", "price": 104.5},
+        ],
+        "IWM": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.0},
+            {"date": "2024-02-01", "price": 98.7},
+            {"date": "2024-06-03", "price": 99.8},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "XLF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 103.2},
+            {"date": "2024-06-03", "price": 104.0},
+            {"date": "2024-12-31", "price": 107.0},
+        ],
+        "XLV": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.1},
+            {"date": "2024-12-31", "price": 103.5},
+        ],
+        "XLE": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 97.0},
+            {"date": "2024-02-01", "price": 97.2},
+            {"date": "2024-06-03", "price": 98.5},
+            {"date": "2024-12-31", "price": 101.0},
+        ],
+        "XLI": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.4},
+            {"date": "2024-06-03", "price": 103.2},
+            {"date": "2024-12-31", "price": 105.2},
+        ],
+        "IEF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.4},
+            {"date": "2024-02-01", "price": 100.5},
+            {"date": "2024-06-03", "price": 100.6},
+            {"date": "2024-12-31", "price": 101.2},
+        ],
+        "TLT": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.5},
+            {"date": "2024-02-01", "price": 99.0},
+            {"date": "2024-06-03", "price": 101.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "LQD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.8},
+            {"date": "2024-02-01", "price": 100.9},
+            {"date": "2024-06-03", "price": 101.2},
+            {"date": "2024-12-31", "price": 102.3},
+        ],
+        "GLD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.8},
+            {"date": "2024-12-31", "price": 104.1},
+        ],
+    }
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-legacy-factor-basis-route-parity",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-01-01", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-01-01", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-12-31T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    persisted_handoff = preview_payload["persisted_handoff"]
+
+    canonical_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": persisted_handoff,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert canonical_response.status_code == 200
+    canonical_payload = canonical_response.json()
+
+    _mutate_persisted_json(persisted_handoff["manifest_path"], legacy_manifest_mutator)
+
+    legacy_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": persisted_handoff,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert legacy_response.status_code == 200
+    legacy_payload = legacy_response.json()
+    assert (
+        legacy_payload["replay_provenance"]["return_basis_attestation"]
+        == canonical_payload["replay_provenance"]["return_basis_attestation"]
+    )
+    assert legacy_payload["replay_provenance"]["return_basis_attestation"]["factor_basis_path"] == "degraded_unverified_return_basis"
+    assert legacy_payload["replay_provenance"]["replay_output_policy"] == canonical_payload["replay_provenance"]["replay_output_policy"]
+    assert {
+        "benchmark_id": legacy_payload["replay_provenance"]["benchmark_id"],
+        "benchmark_version": legacy_payload["replay_provenance"]["benchmark_version"],
+        "benchmark_symbol": legacy_payload["replay_provenance"]["benchmark_symbol"],
+    } == {
+        "benchmark_id": canonical_payload["replay_provenance"]["benchmark_id"],
+        "benchmark_version": canonical_payload["replay_provenance"]["benchmark_version"],
+        "benchmark_symbol": canonical_payload["replay_provenance"]["benchmark_symbol"],
+    }
+    assert legacy_payload["replay"]["candidate_result"]["investor_economics_status"] == canonical_payload["replay"]["candidate_result"]["investor_economics_status"]
+    assert legacy_payload["replay"]["investor_economics_status"] == canonical_payload["replay"]["investor_economics_status"]
+    assert legacy_payload["replay"]["candidate_result"]["metrics"]["tracking_error_pct"] == canonical_payload["replay"]["candidate_result"]["metrics"]["tracking_error_pct"] == None
+    assert legacy_payload["replay"]["candidate_result"]["metrics"]["beta_vs_benchmark"] == canonical_payload["replay"]["candidate_result"]["metrics"]["beta_vs_benchmark"] == None
+    assert legacy_payload["replay"]["candidate_result"]["metrics"]["correlation_vs_benchmark"] == canonical_payload["replay"]["candidate_result"]["metrics"]["correlation_vs_benchmark"] == None
+    assert legacy_payload["replay"]["comparison"]["tracking_error_diff_pct"] == canonical_payload["replay"]["comparison"]["tracking_error_diff_pct"] == None
+    assert legacy_payload["replay"]["comparison"]["beta_diff"] == canonical_payload["replay"]["comparison"]["beta_diff"] == None
+    assert legacy_payload["replay"]["comparison"]["correlation_diff"] == canonical_payload["replay"]["comparison"]["correlation_diff"] == None
+    assert legacy_payload["replay"]["candidate_diagnostics"]["factor_snapshot"] == canonical_payload["replay"]["candidate_diagnostics"]["factor_snapshot"] == []
+    assert (
+        legacy_payload["replay"]["candidate_diagnostics"]["risk_contribution"]["factor_contributions"]
+        == canonical_payload["replay"]["candidate_diagnostics"]["risk_contribution"]["factor_contributions"]
+        == []
+    )
+    assert (
+        legacy_payload["replay"]["diagnostics_comparison"]["factor_exposure_changes"]
+        == canonical_payload["replay"]["diagnostics_comparison"]["factor_exposure_changes"]
+        == []
+    )
+
+
+def test_optimizer_handoff_replay_route_blocks_replay_window_outside_attested_coverage(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices.return_value = []
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {}
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-outside-attested-coverage",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-04-15", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-04-15", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-04-15T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    persisted_handoff = preview_response.json()["persisted_handoff"]
+    mock_service.reset_mock()
+
+    replay_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": persisted_handoff,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert replay_response.status_code == 400
+    payload = replay_response.json()["detail"]
+    assert payload["validation_status"] == "blocked"
+    assert "requested_replay_window_within_attested_return_basis_coverage" in payload["blocking_rule_ids"]
+    evaluation = next(item for item in payload["evaluations"] if item["rule_id"] == "requested_replay_window_within_attested_return_basis_coverage")
+    assert evaluation["status"] == "fail"
+    assert payload["eligible_replay_window"] == {
+        "source": "persisted_return_basis_attestation",
+        "benchmark_symbol": "SPY",
+        "as_of_date": "2024-04-15",
+        "start_date": "2024-04-15",
+        "end_date": "2024-04-15",
+    }
+    assert payload["provenance"]["replay_output_policy"] == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+    mock_service.return_value.get_historical_prices.assert_not_called()
+    mock_service.return_value.get_historical_prices_for_symbols.assert_not_called()
+
+
+def test_optimizer_handoff_constraints_route_surfaces_attested_window_and_candidate_window_validation(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices.return_value = []
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {}
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-constraints-attested-window",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-04-15", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-04-15", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-04-15T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    persisted_handoff = preview_response.json()["persisted_handoff"]
+    mock_service.reset_mock()
+
+    response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff/constraints",
+        json={
+            "handoff_reference": persisted_handoff,
+            "start_date": "2024-04-15",
+            "end_date": "2024-04-15",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["validation_status"] == "ok"
+    assert payload["eligible_replay_window"] == {
+        "source": "persisted_return_basis_attestation",
+        "benchmark_symbol": "SPY",
+        "as_of_date": "2024-04-15",
+        "start_date": "2024-04-15",
+        "end_date": "2024-04-15",
+    }
+    assert payload["provenance"]["replay_output_policy"] == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "degraded_unverified_return_basis",
+            "risk_contribution_path": "degraded_unverified_return_basis",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+    evaluation = next(item for item in payload["evaluations"] if item["rule_id"] == "requested_replay_window_within_attested_return_basis_coverage")
+    assert evaluation["status"] == "pass"
+    mock_service.return_value.get_historical_prices.assert_not_called()
+    mock_service.return_value.get_historical_prices_for_symbols.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "legacy_manifest_mutator",
+    [
+        lambda payload: payload["return_basis_attestation"].pop("factor_basis_path", None),
+        lambda payload: payload["return_basis_attestation"].update({"factor_basis_path": None}),
+    ],
+    ids=["missing_factor_basis_path", "null_factor_basis_path"],
+)
+def test_optimizer_handoff_constraints_route_normalizes_legacy_factor_basis_variants_with_canonical_parity(
+    tmp_path,
+    mocker,
+    legacy_manifest_mutator,
+) -> None:
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-legacy-factor-basis-constraints-route-parity",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-01-01", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-01-01", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-12-31T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    persisted_handoff = preview_response.json()["persisted_handoff"]
+
+    canonical_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff/constraints",
+        json={
+            "handoff_reference": persisted_handoff,
+        },
+    )
+
+    assert canonical_response.status_code == 200
+    canonical_payload = canonical_response.json()
+
+    _mutate_persisted_json(persisted_handoff["manifest_path"], legacy_manifest_mutator)
+
+    legacy_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff/constraints",
+        json={
+            "handoff_reference": persisted_handoff,
+        },
+    )
+
+    assert legacy_response.status_code == 200
+    legacy_payload = legacy_response.json()
+    assert legacy_payload["validation_status"] == canonical_payload["validation_status"] == "ok"
+    assert legacy_payload["blocking_rule_ids"] == canonical_payload["blocking_rule_ids"] == []
+    assert legacy_payload["provenance"]["replay_output_policy"] == canonical_payload["provenance"]["replay_output_policy"]
+    assert legacy_payload["provenance"]["replay_output_policy"]["section_trust"]["factor_model_path"] == "degraded_unverified_return_basis"
+    assert legacy_payload["provenance"]["replay_output_policy"]["section_trust"]["risk_contribution_path"] == "degraded_unverified_return_basis"
+
+
+@pytest.mark.parametrize(
+    "factor_basis_mutator",
+    [
+        lambda attestation: attestation.pop("factor_basis_path", None),
+        lambda attestation: attestation.update({"factor_basis_path": None}),
+    ],
+    ids=["missing_factor_basis_path", "null_factor_basis_path"],
+)
+@pytest.mark.parametrize(
+    "section_trust_mutator",
+    [
+        lambda attestation: attestation.pop("section_trust", None),
+        lambda attestation: attestation.update({"section_trust": {}}),
+    ],
+    ids=["missing_section_trust", "malformed_section_trust"],
+)
+def test_optimizer_handoff_constraints_route_stays_fail_closed_when_invalid_section_trust_cannot_recover_factor_trust(
+    tmp_path,
+    mocker,
+    factor_basis_mutator,
+    section_trust_mutator,
+) -> None:
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-invalid-section-trust-constraints-route",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-01-01", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-01-01", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-12-31T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    persisted_handoff = preview_response.json()["persisted_handoff"]
+
+    def _invalidate_legacy_factor_trust(payload: dict) -> None:
+        attestation = payload["return_basis_attestation"]
+        factor_basis_mutator(attestation)
+        section_trust_mutator(attestation)
+
+    _mutate_persisted_json(persisted_handoff["manifest_path"], _invalidate_legacy_factor_trust)
+
+    response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff/constraints",
+        json={
+            "handoff_reference": persisted_handoff,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["validation_status"] == "blocked"
+    assert "manifest_model_valid" in payload["blocking_rule_ids"]
+    assert payload["provenance"]["replay_output_policy"] is None
+    evaluation = next(item for item in payload["evaluations"] if item["rule_id"] == "manifest_model_valid")
+    assert evaluation["status"] == "fail"
+
+
+def test_optimizer_handoff_constraints_route_uses_load_normalized_attestation_for_policy_parity(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-normalized-load-boundary-constraints-route",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-01-01", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-01-01", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-12-31T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    persisted_handoff = preview_response.json()["persisted_handoff"]
+
+    _mutate_persisted_json(
+        persisted_handoff["manifest_path"],
+        lambda payload: payload["return_basis_attestation"].update(
+            {
+                "factor_basis_path": "unavailable",
+                "section_trust": {
+                    "benchmark_relative_path": "degraded_unverified_return_basis",
+                    "factor_model_path": "verified_adjusted_close",
+                    "risk_contribution_path": "verified_adjusted_close",
+                },
+            }
+        ),
+    )
+
+    response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff/constraints",
+        json={
+            "handoff_reference": persisted_handoff,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["validation_status"] == "blocked"
+    assert payload["blocking_rule_ids"] == ["manifest_artifact_consistent"]
+    assert payload["provenance"]["replay_output_policy"] == {
+        "source": "persisted_return_basis_attestation",
+        "section_trust": {
+            "benchmark_relative_path": "degraded_unverified_return_basis",
+            "factor_model_path": "unavailable",
+            "risk_contribution_path": "unavailable",
+        },
+        "eligible_families": [],
+        "withheld_families": [
+            "benchmark_relative_volatility_outputs",
+            "factor_exposure_outputs",
+            "stress_scenario_outputs",
+            "risk_contribution_outputs",
+            "concentration_outputs",
+        ],
+    }
+
+
+def test_optimizer_handoff_routes_reject_removed_request_benchmark_symbol(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "CCC": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 104.0},
+            {"date": "2024-06-03", "price": 106.0},
+            {"date": "2024-12-31", "price": 109.0},
+        ],
+    }
+    mocker.patch(
+        "app.services.optimizer_artifact_service.get_settings",
+        return_value=SimpleNamespace(optimizer_handoff_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    preview_response = client.post(
+        "/optimizer/preview",
+        json={
+            "request_id": "preview-removed-benchmark-request-field",
+            "universe_id": "optimizer_universe_large_cap_demo_v1",
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                    "account_id": "U1234567",
+                    "base_currency": "USD",
+                    "statement_period": "2024-04",
+                    "page_count": 4,
+                },
+                "statements": [
+                    {
+                        "importer": "interactive_brokers",
+                        "imported_at": "2024-04-15T09:30:00Z",
+                        "source_path": "IB2024.pdf",
+                        "detected_format": "statement_pdf",
+                        "account_id": "U1234567",
+                        "base_currency": "USD",
+                        "statement_period": "2024-04",
+                        "page_count": 4,
+                    }
+                ],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [{"currency": "USD", "ending_cash": 500.0}],
+                "positions": [
+                    {"as_of_date": "2024-04-15", "symbol": "AAA", "quantity": 10.0, "cost_basis": 60.0, "close_price": 6.0, "market_value": 60.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                    {"as_of_date": "2024-04-15", "symbol": "BBB", "quantity": 8.0, "cost_basis": 40.0, "close_price": 5.0, "market_value": 40.0, "unrealized_pnl": 0.0, "currency": "USD"},
+                ],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-04-15T09:30:00",
+                "trust_status": "trusted",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "universe": [
+                {"symbol": "AAA", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "BBB", "eligible": True, "taxonomy_labels": {}},
+                {"symbol": "CCC", "eligible": True, "taxonomy_labels": {}},
+            ],
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {"default_max_weight": 0.6},
+                "turnover": {"max_turnover": None},
+                "risk": {"max_active_risk": None},
+                "active_group_exposures": [],
+            },
+            "penalties": [],
+        },
+    )
+
+    assert preview_response.status_code == 200
+    persisted_handoff = preview_response.json()["persisted_handoff"]
+
+    replay_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff-preview",
+        json={
+            "handoff_reference": persisted_handoff,
+            "benchmark_symbol": "QQQ",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+    constraints_response = client.post(
+        "/backtests/portfolio-allocation/optimizer-handoff/constraints",
+        json={
+            "handoff_reference": persisted_handoff,
+            "benchmark_symbol": "QQQ",
+        },
+    )
+
+    assert replay_response.status_code == 422
+    assert constraints_response.status_code == 422
+
+
+def test_optimizer_preview_route_rejects_untrusted_benchmark() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/optimizer/preview",
+        json={
+            "snapshot": {
+                "statement": {
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "detected_format": "statement_pdf",
+                },
+                "statements": [],
+                "statement_totals": None,
+                "instruments": [],
+                "cash_balances": [],
+                "positions": [{"as_of_date": "2024-04-15", "symbol": "AAA", "quantity": 10.0, "cost_basis": 100.0, "close_price": 10.0, "market_value": 100.0, "unrealized_pnl": 0.0, "currency": "USD"}],
+                "ledger_entries": [],
+            },
+            "benchmark": {
+                "benchmark_id": "benchmark_spy_demo_v1",
+                "benchmark_version": "2024-04-15",
+                "source_name": "test_benchmark_contract",
+                "as_of_timestamp": "2024-04-15T09:30:00",
+                "trust_status": "untrusted",
+                "weights": [{"symbol": "AAA", "weight": 1.0}],
+            },
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "benchmark_relative": {"max_abs_active_weight": 0.1},
+                "position_limits": {},
+                "turnover": {},
+                "risk": {},
+                "active_group_exposures": [],
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "benchmark preview input must be trusted"}
 
 
 def test_upload_analyze_route_accepts_pdf_statement() -> None:

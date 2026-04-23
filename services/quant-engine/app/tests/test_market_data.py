@@ -228,3 +228,30 @@ def test_get_direct_verified_benchmark_history_rejects_non_allowlisted_symbols(m
     assert rows == []
     instance.get_historical_price_light.assert_not_called()
     assert service.get_last_fetch_meta("VOO") is None
+
+
+def test_fmp_client_exposes_statement_endpoints(mocker) -> None:
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = [{"symbol": "AAPL", "date": "2023-12-31"}]
+    response_mock.raise_for_status.return_value = None
+    client_get = mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    mocked_settings = mocker.patch("app.clients.fmp.get_settings")
+    mocked_settings.return_value.fmp_api_key = "test-key"
+    mocked_settings.return_value.fmp_base_url = "https://financialmodelingprep.com/stable"
+    mocked_settings.return_value.fmp_quote_cache_ttl_seconds = 300
+    mocked_settings.return_value.fmp_history_cache_ttl_seconds = 86400
+    mocked_settings.return_value.fmp_max_requests_per_minute = 0
+    mocked_settings.return_value.fmp_cache_enabled = False
+    mocked_settings.return_value.fmp_cache_dir = "unused"
+
+    from app.clients.fmp import FmpClient
+
+    client = FmpClient()
+    assert client.get_income_statements("AAPL", limit=4, period="quarter") == [{"symbol": "AAPL", "date": "2023-12-31"}]
+    assert client.get_balance_sheet_statements("AAPL", limit=4, period="quarter") == [{"symbol": "AAPL", "date": "2023-12-31"}]
+    assert client.get_cash_flow_statements("AAPL", limit=4, period="quarter") == [{"symbol": "AAPL", "date": "2023-12-31"}]
+
+    assert client_get.call_args_list[0].kwargs["params"] == {"symbol": "AAPL", "limit": 4, "period": "quarter", "apikey": "test-key"}
+    assert client_get.call_args_list[0].args[0].endswith("/income-statement")
+    assert client_get.call_args_list[1].args[0].endswith("/balance-sheet-statement")
+    assert client_get.call_args_list[2].args[0].endswith("/cash-flow-statement")

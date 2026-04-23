@@ -133,6 +133,30 @@ class FmpClient:
     def get_profile(self, symbol: str) -> list[dict[str, Any]]:
         return self._get("profile", "profile", {"symbol": symbol}, ttl_seconds=self.quote_ttl_seconds)
 
+    def get_income_statements(self, symbol: str, *, limit: int = 8, period: str = "quarter") -> list[dict[str, Any]]:
+        return self._get(
+            "fundamentals",
+            "income-statement",
+            {"symbol": symbol, "limit": limit, "period": period},
+            ttl_seconds=self.history_ttl_seconds,
+        )
+
+    def get_balance_sheet_statements(self, symbol: str, *, limit: int = 8, period: str = "quarter") -> list[dict[str, Any]]:
+        return self._get(
+            "fundamentals",
+            "balance-sheet-statement",
+            {"symbol": symbol, "limit": limit, "period": period},
+            ttl_seconds=self.history_ttl_seconds,
+        )
+
+    def get_cash_flow_statements(self, symbol: str, *, limit: int = 8, period: str = "quarter") -> list[dict[str, Any]]:
+        return self._get(
+            "fundamentals",
+            "cash-flow-statement",
+            {"symbol": symbol, "limit": limit, "period": period},
+            ttl_seconds=self.history_ttl_seconds,
+        )
+
     def get_etf_holders(self, symbol: str) -> list[dict[str, Any]]:
         if not self.api_key:
             raise ValueError("FMP_API_KEY is not configured")

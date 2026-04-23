@@ -3,6 +3,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+ReturnBasisContract = Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"]
+ReturnBasisPathTrust = Literal["verified_adjusted_close", "degraded_unverified_return_basis", "unavailable"]
 ReturnBasisVerificationStatus = Literal["verified", "proxy", "unverified", "unavailable"]
 ReturnBasisEconomicBasis = Literal["total_return", "adjusted_close_proxy", "price_return_only", "unavailable"]
 ReturnBasisConstructionMethod = Literal[

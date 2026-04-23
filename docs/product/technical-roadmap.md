@@ -1,540 +1,110 @@
 # Quant Research Lab Technical Roadmap
 
+This file is technical and future-looking only.
+Current shipped boundaries belong in `docs/product/current-product-state.md`.
+
 ## Goal
 
-Evolve the project into a local-first quant research lab for personal and systematic investing.
-
-Recommended naming direction:
-- product: `Quant Research Lab`
-- repo: `quant-research-lab`
-
-The target product is a deterministic research and decision platform for:
-- imported portfolio truth and reconciliation
-- systematic ranking and portfolio construction
-- historical portfolio-improvement workflows
-- overlay and monitoring systems
-- financially accurate, auditable analytics
-
-The product should optimize for disciplined portfolio decisions, not black-box prediction.
-
-## Consolidation Guidance
-
-Keep this file technical and future-looking.
-
-Retain in this file:
-- `## Goal`
-- `## Product Principles`
-- `## Target Architecture`
-- `## Canonical Data Model`
-- `## Ranking System Roadmap`
-- `## Portfolio Construction Roadmap`
-- `## Portfolio Improvement Workflow`
-- `## Overlay Roadmap`
-- `## Monitoring Roadmap`
-- `## Optimization Roadmap`
-- `## Financial Accuracy Requirements`
-- `## Delivery Plan`
-- `## Immediate Priorities`
-- `## Definition of Done for the Pivot`
-
-Trim or move into `docs/product/current-product-state.md` on the next pass:
-- `## Current State`
-- under `## Ranking System Roadmap`
-  - `Current implemented slice`
-- under `## Portfolio Construction Roadmap`
-  - `Current implemented slice`
-- under `## Portfolio Improvement Workflow`
-  - step 2 bullet `current implemented state`
-  - `Current implemented progress inside this flow`
-  - `Current boundary before replay/construction`
-- under `## Overlay Roadmap`
-  - `Current implemented slice`
-- under `## Delivery Plan`
-  - Stage 2 `Current partial state`
-  - Stage 3 `Current partial state`
-  - Stage 4 `Current partial state`
-  - Stage 5 `Current partial state`
-
-Working rule:
-- keep target engine families, target contracts, and staged delivery here
-- move shipped-route inventories, narrow implemented slices, and current-boundary notes into the canonical current-state doc
-
-## Current State
-
-The project already has strong foundations in:
-- local-first architecture with desktop UI plus Python quant engine
-- broker import and portfolio snapshot workflows
-- factor, exposure, overlap, and risk diagnostics
-- allocation replay / candidate-vs-baseline backtests
-- ETF ranking contracts, including intent-bound seeded replacement ranking
-- explicit single-replacement candidate formation and candidate construction flows
-- hypothetical replacement replay and overlay-aware hypothetical replay
-- PM-first replay review plus local proposal artifact persistence/readout
-- DuckDB / Parquet-friendly data direction
-- methodology documentation and truth-class awareness
-
-The main gap is not missing infrastructure. The main gap is product unification:
-- engines exist, but are not yet organized around a complete quant-research workflow
-- ranking exists today, but only in narrow ETF-oriented slices rather than as a generalized first-class engine family
-- portfolio construction exists today, but only in narrow single-replacement rule-based slices rather than as a generalized first-class engine family
-- improvement, overlay, monitoring, and optimization need explicit boundaries
-- replay/construction provenance needs tighter end-to-end contract consistency
-- financial-accuracy rules need to be elevated from good practice to hard platform requirements
+Continue evolving the repo into a local-first quant research lab for imported portfolio truth, systematic ranking, deterministic construction, hypothetical optimizer workflows, and financially auditable replay.
 
 ## Product Principles
 
-1. Deterministic calculations own all portfolio decisions and analytics.
-2. Every displayed metric must map to one engine output, one methodology, and one code path.
-3. Imported broker truth, current snapshot analytics, synthetic approximations, and hypothetical backtests must remain explicitly separated.
-4. Research outputs must be reproducible from versioned inputs, parameters, and dataset timestamps.
-5. Ranking and construction rules are primary; optimization is a constrained refinement layer.
-6. The frontend remains thin on finance logic and never becomes a second calculation engine.
-7. LLM features may explain, summarize, and suggest, but never authoritatively calculate.
+1. Deterministic engines own portfolio math and research outputs.
+2. Every material result must carry methodology, provenance, and truth separation.
+3. Persisted artifacts must be reproducible from versioned inputs and explicit references.
+4. The frontend stays thin on finance logic.
+5. Optimization remains constrained and explainable.
 
 ## Target Architecture
 
-### System shape
-
-Keep the local-first monorepo and harden the current split:
-- `apps/desktop`: workflow UI, workspace state, visualization, review flows
-- `services/quant-engine`: deterministic engines, datasets, portfolio truth, research computation
-- `data/curated`, `data/duckdb`, `data/exports`: local dataset and result persistence
-
 ### Backend engine families
 
-#### 1. Truth and Data Engines
-Own imported and market-data truth.
-- import engine
-- reconciliation engine
-- portfolio state engine
-- market data ingestion engine
-- dataset builder / catalog engine
-- benchmark and metadata service
+- truth and data engines
+- portfolio intelligence engines
+- ranking engines
+- construction and constraint engines
+- replay and improvement engines
+- optimizer preview and handoff engines
+- overlay and monitoring engines
 
-#### 2. Portfolio Intelligence Engines
-Own understanding of the current portfolio.
-- exposure engine
-- diagnostics engine
-- factor model engine
-- dashboard history engine
-- scenario engine
+### Canonical artifact expectations
 
-#### 3. Quant Research Engines
-Own universe evaluation and systematic research.
-- ranking engine
-- signal / factor composite engine
-- strategy research engine
-- cross-sectional analytics engine
+Persisted research and decision artifacts should converge on the same shape:
+- stable artifact identity
+- immutable payload semantics
+- explicit upstream references
+- methodology and policy ids
+- trust and return-basis attestation where financially required
+- validation and fail-closed loading behavior
 
-#### 4. Portfolio Construction Engines
-Own conversion of research into allocations.
-- candidate construction engine
-- constraint engine
-- turnover and implementation-cost engine
-- allocation replay engine
-- optimization engine
+## Remaining Technical Work
 
-#### 5. Portfolio Improvement Engines
-Own baseline-vs-candidate decision workflows.
-- improvement comparison engine
-- attribution and change engine
-- diagnostics delta engine
-- proposal persistence engine
+### 1. Ranking System Expansion
 
-#### 6. Overlay and Monitoring Engines
-Own ongoing portfolio discipline.
-- overlay engine
-- drift monitoring engine
-- regime / volatility monitor
-- alert and review engine
+Remaining work:
+- persist ranking runs with stable ids, reproducibility metadata, and artifact loading paths
+- generalize ranking inputs beyond the current ETF-focused and replacement-intent flows
+- support configurable but versioned component sets, filters, and composite weighting
 
-## Canonical Data Model
+### 2. Construction Engine Expansion
 
-### Domain entities that must become first-class
+Remaining work:
+- add more persisted construction policies beyond `top_n_equal_weight_v1`
+- add richer constraint models, turnover logic, and implementation diagnostics
+- standardize policy execution, provenance capture, and replay handoff across persisted and review-oriented construction paths
 
-#### Portfolio truth
-- `Portfolio`
-- `Account`
-- `ImportedStatement`
-- `Transaction`
-- `CashLedgerEntry`
-- `CorporateAction`
-- `TaxLot`
-- `Position`
-- `PortfolioSnapshot`
-- `DailyPortfolioState`
+### 3. Portfolio Improvement Workflow Expansion
 
-#### Market and research data
-- `Instrument`
-- `Listing`
-- `Benchmark`
-- `PriceBar`
-- `AdjustedPriceSeries`
-- `FundamentalPoint`
-- `ETFConstituentSnapshot`
-- `FactorDefinition`
-- `UniverseDefinition`
-- `DatasetVersion`
+Remaining work:
+- tighten Workspace integration across ranking, persisted construction, optimizer handoff, replay, and proposal artifacts
+- simplify review contracts so lineage, trust, and withholding remain visible without excessive payload noise
+- broaden saved proposal review and comparison beyond the current narrow slices
 
-#### Research and construction
-- `RankingSpec`
-- `RankingComponent`
-- `RankingRun`
-- `EligibilityFilter`
-- `ConstructionSpec`
-- `ConstraintSet`
-- `CandidatePortfolio`
-- `AllocationReplayRun`
-- `OptimizationRun`
+### 4. Overlay and Monitoring Expansion
 
-#### Improvement, overlay, monitoring
-- `ImprovementRun`
-- `OverlaySpec`
-- `OverlayRun`
-- `MonitorDefinition`
-- `MonitorObservation`
-- `AlertEvent`
+Remaining work:
+- add broader overlay specs beyond `benchmark_trend_overlay_v1`
+- persist monitor definitions, observations, and review history
+- formalize alert thresholds, hysteresis, and degraded/unavailable semantics across monitoring outputs
 
-### Data-model rules
+### 5. Optimizer Expansion
 
-- Portfolio truth and research outputs must never share the same truth class.
-- Every persisted result must include dataset version, parameter set, timestamps, and methodology id.
-- Any synthetic or replay-derived artifact must carry explicit provenance.
-- Instruments need stable canonical identity independent of broker naming or ETF aliases.
-- Benchmarks, factors, and proxies must be modeled explicitly rather than inferred ad hoc in UI code.
+Remaining work:
+- expand objective coverage beyond the current benchmark-distance-oriented path
+- add broader constraint and diagnostic coverage while preserving explicit handoff lineage
+- improve comparison between optimizer outputs and rule-based construction baselines
+- keep all optimizer outputs hypothetical unless and until a separate execution boundary exists
 
-## Ranking System Roadmap
+### 6. Research and Data Expansion
 
-Make ranking a first-class engine, not a side effect of backtests.
-
-Current implemented slice:
-- generic ETF ranking exists at `POST /strategy-lab/etf-ranking`
-- intent-bound seeded ETF replacement ranking exists at `POST /ranking/etf-replacements`
-- current ranking scope is deterministic and auditable, but still ETF-specific and not yet modeled as a generalized ranking-run platform across universes
-
-### Ranking engine responsibilities
-- define investable universes
-- apply eligibility filters
-- compute component scores
-- produce composite ranks
-- expose score breakdown and exclusion reasons
-- persist ranking runs for reproducibility
-
-### Initial ranking components
-- medium-term momentum
-- long-term momentum
-- realized volatility
-- downside volatility
-- max drawdown
-- trend confirmation
-- liquidity / tradability
-- expense ratio or implementation drag
-- benchmark-relative strength
-- mapping-fit score for proxy translation where relevant
-
-### Ranking design rules
-- each component must have economic meaning
-- all scores must define direction, normalization, and missing-data degradation
-- composite weights must be configurable but versioned
-- ranks must expose raw values, normalized values, and final score
-- no hidden winsorization, clipping, or proxy substitution without metadata
-
-## Portfolio Construction Roadmap
-
-Portfolio construction should become its own engine family with explicit rules.
-
-Current implemented slice:
-- candidate formation exists for review-only same-weight single replacement
-- candidate construction exists for explicit single-replacement rules at `POST /backtests/candidate-construction/replacement-intent`
-- currently supported rules are:
-  - `same_weight_substitution_v1`
-  - `fixed_split_50_50_substitution_v2`
-- current construction outputs are hypothetical candidate inputs only; they do not mutate portfolio truth or create optimizer-style allocations
-
-### Rule-based construction modes
-- equal weight
-- capped score weight
-- volatility-scaled weight
-- benchmark plus tilt
-- sleeve-budgeted construction
-- concentration-capped allocation
-- risk-budget-aware allocation
-
-### Constraint model
-Support explicit hard and soft constraints:
-- max position weight
-- min position weight
-- max sleeve weight
-- sector / factor exposure caps
-- benchmark deviation caps
-- turnover budget
-- liquidity guardrails
-- cash floor
-- tax-aware exclusions later
-
-### Construction outputs
-- target weights
-- constraint satisfaction report
-- turnover estimate
-- implementation assumptions
-- expected exposure profile
-- baseline-vs-candidate delta preview
-
-## Portfolio Improvement Workflow
-
-Make current-vs-candidate the core product workflow.
-
-### Target flow
-1. load imported or current portfolio baseline
-2. seed candidate from baseline or ranking output
-   - current implemented state: ETF ranking can seed draft-scoped candidate review metadata without mutating `PortfolioSnapshot`
-   - seed metadata persists locally per draft and has explicit no-propagation lifecycle rules
-   - replacement intent can now be recorded explicitly as a separate draft-scoped review object
-3. form candidate review artifact from the replacement intent
-4. select and run construction rule for a constructed candidate review artifact
-5. run historical allocation replay
-6. compare baseline, candidate, and delta
-7. inspect diagnostics changes
-8. save candidate as a versioned proposal
-
-Current implemented progress inside this flow:
-- replacement intent can now feed explicit candidate formation and candidate construction backend routes before replay
-- construction is backend-owned and deterministic; the desktop does not author finance logic for candidate weights
-- Workspace now owns an explicit shell-first workflow order: current portfolio, candidate idea, candidate formation, construction rule, hypothetical replay, diagnostics change, and saved proposal
-- hypothetical replacement replay now has a PM-first diagnostics delta review surface
-- hypothetical replay can consume either direct same-weight derivation or an accepted constructed candidate payload
-- Workspace replay preview now preserves artifact-specific backend replay failures in the active error surface, so lineage-integrity rejections remain reviewable without adding new UI chrome
-- diagnostics groups currently read in decision order: concentration, factor exposure, volatility/drawdown, risk contribution, stress/scenario
-- each diagnostics group can surface a backend-ranked top callout with explicit selection-rule provenance and rationale
-- desktop renders backend-ranked diagnostics callouts directly and does not infer salience from array order
-- a reviewed hypothetical replay can now be saved locally as an immutable versioned proposal artifact within the workspace
-- the latest saved proposal can now be reviewed in a proposal-specific readout that is rendered from saved artifact data only, without depending on active draft or live replay state
-- overlay-aware hypothetical replay now exists as a narrow backend slice for `benchmark_trend_overlay_v1` applied to the hypothetical candidate only
-- replay-scoped Monitoring now lives inside `Workspace`, after the shell and before the lower-level builder, and it is not a separate continuous monitoring system yet
-- Monitoring-to-Workspace continuity is currently a narrow explicit handoff into shell sections, not a persistent alert/review-history workflow
-
-### Required comparison surfaces
-- total and annualized return
-- volatility and downside volatility
-- drawdown profile
-- tracking error and information ratio
-- factor exposure change
-- risk contribution change
-- concentration change
-- overlap and active share change
-- scenario sensitivity change
-- turnover and implementation cost change
-
-### Product rule
-No candidate portfolio should be shown without:
-- implementation assumptions
-- truth-class label
-- replay methodology
-- risk and concentration delta
-
-Current boundary before replay/construction:
-- seeded candidates and replacement intents are metadata-only review objects
-- they must not be treated as candidate portfolio truth, replay output, or applied portfolio change
-- formed candidates, constructed candidates, and draft-scoped hypothetical replays are also review artifacts only until explicitly saved as immutable proposal artifacts
-
-## Overlay Roadmap
-
-Overlays should be treated as explicit, testable sleeves applied to a base portfolio.
-
-Current implemented slice:
-- overlay-aware hypothetical replay exists at `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
-- current overlay scope is intentionally narrow:
-  - only `benchmark_trend_overlay_v1`
-  - only one overlay at a time
-  - only replay integration, not execution or scheduling
-  - only candidate-side application, not baseline mutation
-  - `risk_reduced` scales risky candidate weights by `0.35` and sends residual weight to synthetic replay cash `__CASH__`
-- a legacy generic overlay preview path still exists separately and should not be treated as the canonical forward path without further cleanup
-
-### Initial overlay types
-- trend filter overlay
-- volatility-targeting overlay
-- risk-on / risk-off overlay
-- defensive benchmark substitution overlay
-- cash-raising overlay under risk triggers
-
-### Overlay engine responsibilities
-- accept a baseline portfolio and overlay spec
-- compute overlay-adjusted target weights
-- replay combined portfolio behavior
-- report risk, return, and exposure impact
-- isolate overlay contribution from base portfolio behavior
-
-### Overlay rules
-- overlays must be transparent, parameterized, and reversible
-- overlay effects must be attributable
-- overlays must not mutate imported portfolio truth
-
-## Monitoring Roadmap
-
-Monitoring should become a continuous review layer, not a dashboard afterthought.
-
-### First monitoring surfaces
-- factor drift
-- concentration drift
-- benchmark-relative drift
-- volatility regime change
-- drawdown escalation
-- turnover creep
-- unresolved data-quality degradation
-- overlay trigger state
-
-### Monitoring engine requirements
-- versioned monitor definitions
-- scheduled or on-demand evaluation
-- explicit thresholds and hysteresis rules
-- alert severity and confidence
-- clear unavailable / degraded semantics
-
-## Optimization Roadmap
-
-Optimization should be introduced only after rule-based construction is strong.
-
-### Allowed optimization uses
-- constrained minimum volatility
-- tracking-error-aware refinement
-- turnover-aware refinement
-- exposure target matching
-- risk-budget balancing
-
-### Non-goals
-- unconstrained mean-variance optimization
-- optimizer-generated portfolios without interpretable constraints
-- expected-return forecasting as a required input
-
-### Optimization rules
-- optimization must start from a candidate or benchmark anchor
-- every objective must be regularized and bounded
-- infeasible constraint sets must fail explicitly
-- optimizer outputs must include shadow diagnostics: turnover, concentration, exposure, and stability
+Remaining work:
+- broaden dataset coverage, universe definitions, and reusable templates
+- strengthen cross-sectional research infrastructure and validation tooling
+- expand PIT alpha inputs beyond the current narrow `alpha_quality_v1` coverage contract
 
 ## Financial Accuracy Requirements
 
-This is a gating layer, not a polish task.
-
-### Hard requirements
-- adjusted-close or total-return-aware inputs for all return-based analytics
-- explicit methodology strings for every economically meaningful engine
-- truth-class metadata on every analytics and backtest payload
-- provenance for benchmark, factor, and synthetic-history inputs
-- clear degraded semantics for missing, stale, unresolved, or proxy-based data
+These remain permanent technical requirements:
+- adjusted-close or stronger total-return-aware inputs for return-based analytics where required
+- explicit trust, degradation, withholding, and unavailability semantics on financially meaningful contracts
 - formula traceability from UI field to schema field to implementation
-
-### Validation requirements
-- lock formulas with tests
-- add dataset-quality assertions for price basis and date alignment
-- separate financially exact imported-history metrics from approximations
-- expose reliability metadata for factor and diagnostics outputs
-- persist versioned inputs for replay reproducibility
-
-### Minimum reliability fields
-- methodology id
-- price basis
-- observation count
-- lookback window
-- factors used vs dropped
-- missing-data coverage
-- model reliability status
-- provenance / truth class
-
-## Delivery Plan
-
-### Stage 1: Financial Core Hardening
-- harden adjusted-price and benchmark assumptions
-- normalize truth-class and provenance metadata
-- add reliability fields to diagnostics and factor outputs
-- update methodology docs and tests together
-
-Current partial state: provenance, reproducibility, and artifact-integrity contracts have been materially strengthened across diagnostics, exposure, dashboard-history, replay, saved proposals, and active thesis. The main unfinished Stage 1 risk is still factor-math correctness, return-input quality, and degradation semantics rather than contract shape alone.
-
-Latest Stage 1 slice completed:
-- diagnostics contracts now explicitly degrade benchmark/factor source semantics to `live_market_data_unverified_return_basis` when history-aware diagnostics depend on market histories whose adjusted-close / total-return trust is not yet proven in code
-- this hardens truthfulness immediately without pretending current factor/benchmark return inputs are already decision-grade
-- diagnostics run-level confidence now also degrades to `low` under that unverified return-basis state, so the contract no longer mixes degraded source truth with stronger top-line trust language
-- diagnostics now also have a narrow return-basis detection utility: only histories whose loaded rows all include explicit adjusted-close fields are marked `live_market_data_verified_adjusted_close`; everything else remains unverified or unavailable
-- diagnostics factor-model and risk-contribution statuses now degrade to `degraded_unverified_return_basis` when those verified adjusted-close conditions are not met
-- the explicit return-series selector in `risk.py` now also feeds benchmark-relative summaries, rolling volatility benchmark returns, and statistical factor-model return inputs for a narrow but meaningful migration beyond position-risk contributions
-- deeper covariance/contribution helper return builders in the risk-contribution stack now use the same selector as well, making the migration more internally consistent without pretending the system is fully decision-grade
-- the next residual migration slice now covers dashboard-history benchmark-return construction and benchmark comparison readouts, which removes another contract-visible raw-price path outside `risk.py`
-- a centralized return-basis selector policy helper now exists and is shared across risk, dashboard-history, benchmark comparison, and rebalance preview entry points to reduce future trust drift
-- diagnostics contracts now carry grouped subsection trust for benchmark-relative, factor-model, and risk-contribution paths so degraded sections are explicit without a broad schema rewrite
-- dashboard-history contracts now carry grouped subsection trust for portfolio, benchmark, and monthly-return paths, keeping historical readouts compact while exposing mixed trust more honestly
-- the first strict return-basis-contract slice now refuses dashboard benchmark investor-return outputs unless total-return verification exists; this is intentionally narrower than a full engine-wide refusal pass
-- dashboard-history drawdown-loss outputs now follow the same conservative rule in range metrics, refusing rather than emitting investor-loss depth from unverified return-basis paths
-- dashboard-history now also refuses its first compounded investor-return family slice in range summaries when total-return verification is absent, keeping canonical investor-performance outputs from silently compounding untrusted paths
-
-Exit: current analytics are decision-grade or explicitly degraded.
-
-### Stage 2: Ranking Engine
-- define universe, filter, component, and composite contracts
-- implement reproducible ranking runs
-- expose ranked universes and score breakdowns
-
-Current partial state: ETF ranking and intent-bound replacement ranking already exist; remaining work is generalization, persisted run identity, and broader universe support.
-
-Exit: rankings are first-class inputs to construction workflows.
-
-### Stage 3: Construction Engine
-- implement rule-based weight builders
-- add explicit constraint and turnover models
-- produce candidate portfolios from ranking outputs
-
-Current partial state: single-replacement formation/construction already exist; replay provenance for constructed candidates is now explicit, constraint-validation lineage is echoed, and basic lineage-integrity enforcement is in place for replay inputs. Remaining work is broader construction modes, richer constraints, and deeper enforcement/generalization beyond the current narrow single-replacement slice.
-
-Exit: candidate portfolios can be built systematically and audited.
-
-### Stage 4: Improvement Workspace
-- make baseline-vs-candidate the primary workflow
-- add replay, diagnostics delta, and proposal persistence
-- optimize UI around PM decisions rather than debug surfaces
-- add proposal-specific saved-artifact review/readout so recorded proposals remain inspectable after reload and outside active draft context
-
-Current partial state: replacement-intent replay, PM-first diagnostics review, proposal persistence/readout, overlay-aware replay, artifact-specific replay error surfacing, immutable saved-proposal integrity enforcement, and active-thesis integrity enforcement already exist in narrow form.
-
-Exit: users can decide whether a change improves the portfolio.
-
-### Stage 5: Overlay and Monitoring
-- implement transparent overlay specs
-- add drift, regime, and risk monitors
-- persist alerts and review history
-
-Current partial state: one transparent overlay-aware replay path exists; monitoring remains the larger unfinished slice.
-
-Exit: the platform supports ongoing portfolio discipline.
-
-### Stage 6: Constrained Optimization
-- add bounded optimizers behind rule-based baselines
-- keep optimization explainable and constraint-led
-- compare optimized vs rule-based candidates
-
-Exit: optimization improves candidates without becoming the product’s logic center.
-
-### Stage 7: Research Expansion
-- broaden ranking experiments, sleeves, and reusable templates
-- expand datasets and cross-sectional research depth
-- support more robust validation workflows
-
-Exit: the platform operates as a true personal quant research lab.
+- persisted return-basis evidence and replay-output suppression rules where trust is narrower than the computed engine surface
+- fail-closed behavior for malformed persisted artifacts or contradictory lineage
 
 ## Immediate Priorities
 
-1. finish production-grade factor-math hardening and degradation semantics
-2. generalize rule-based construction and constraint models beyond current single-replacement flows
-3. continue integrity enforcement across replay handoffs and persisted review artifacts where contradictions are still possible
-4. generalize the ranking engine beyond the current ETF-focused slices
-5. add broader overlays and monitoring only after financial-core and construction correctness are stronger
+1. persist generalized ranking runs and reproducibility metadata
+2. broaden persisted construction policies and constraints
+3. improve shared artifact-loading, validation, and provenance rules across construction and optimizer workflows
+4. expand monitoring persistence and alert semantics
+5. extend optimizer breadth without weakening truth separation or replay attestation rules
 
 ## Definition of Done for the Pivot
 
 The pivot is successful when the project can:
-- import and reconstruct true portfolio state reliably
-- rank a defined investable universe reproducibly
-- construct a candidate portfolio under explicit constraints
-- compare baseline vs candidate with historically replayed evidence
-- apply transparent overlays and monitor drift over time
-- explain every material metric with clear methodology and provenance
+- import and reconstruct portfolio truth reliably
+- rank a chosen universe reproducibly
+- construct candidate allocations from persisted rules and constraints
+- compare baseline vs candidate through replay with explicit provenance and trust semantics
+- evaluate optimizer outputs through explicit hypothetical handoff boundaries
+- monitor ongoing portfolio discipline with first-class persisted workflows
