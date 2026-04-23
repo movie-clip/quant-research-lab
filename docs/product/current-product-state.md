@@ -34,6 +34,7 @@ This document is the canonical source for what is actually shipped today, what i
 
 - construction is now a first-class persisted backend capability, not just an inline review helper
 - `POST /construction/run` persists canonical construction artifacts before returning them
+- `GET /construction/policies` exposes deterministic backend-owned read-only discovery for the shipped persisted policy catalog
 - `GET /construction/artifacts/{artifact_id}` reloads persisted artifacts, validates them on read, and fails closed on corruption or malformed payloads
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` replays persisted construction artifacts through an explicit artifact-reference boundary
 - current persisted construction policies are `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
@@ -70,7 +71,7 @@ This document is the canonical source for what is actually shipped today, what i
 
 - ranking is still narrow and ETF-heavy; it is not yet a generalized persisted ranking-run platform across broader universes
 - recent-run discovery and artifact reuse are shipped for ETF ranking specifically; what remains future is generalization beyond that narrow scope
-- persisted construction is shipped, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
+- persisted construction is shipped and now has read-only policy discovery, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
 - single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
 - optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`
 - overlays remain limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only

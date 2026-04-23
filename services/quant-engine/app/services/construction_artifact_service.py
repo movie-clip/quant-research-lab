@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.core.settings import get_settings
 from app.schemas.construction import ConstructionArtifact
+from app.services.construction_policy_catalog import get_construction_policy_definition
 
 
 class ConstructionArtifactPersistenceError(ValueError):
@@ -65,15 +66,16 @@ class ConstructionArtifactStore:
 
     def load(self, artifact_id: str) -> ConstructionArtifact:
         raw = self.load_raw(artifact_id)
+        normalized_payload = _normalize_legacy_construction_artifact_payload(raw.payload)
         try:
             artifact = ConstructionArtifact.model_validate(
-                _normalize_legacy_construction_artifact_payload(raw.payload)
+                _hydrate_legacy_construction_artifact_payload(normalized_payload)
             )
         except ValidationError as exc:
             raise ConstructionArtifactSchemaValidationError(
                 f"persisted construction artifact failed schema validation: {raw.artifact_path}"
             ) from exc
-        return validate_construction_artifact(artifact)
+        return _validate_loaded_construction_artifact(artifact, persisted_payload=normalized_payload)
 
     def load_raw(self, artifact_id: str) -> RawPersistedConstructionArtifact:
         path = self.artifact_path(artifact_id)
@@ -120,21 +122,41 @@ def load_construction_artifact(
 
 
 def validate_construction_artifact(artifact: ConstructionArtifact) -> ConstructionArtifact:
+    return _validate_loaded_construction_artifact(artifact)
+
+
+def _validate_loaded_construction_artifact(
+    artifact: ConstructionArtifact,
+    *,
+    persisted_payload: dict[str, Any] | None = None,
+) -> ConstructionArtifact:
     if artifact.schema_version != "construction_artifact_v1":
         raise ConstructionArtifactIntegrityValidationError("unsupported construction artifact schema_version")
     if not artifact.artifact_id.startswith("construction_artifact_"):
         raise ConstructionArtifactIntegrityValidationError(
             "construction artifact_id must use the stable construction_artifact_ prefix"
         )
-    expected_artifact_id = _canonical_artifact_id(artifact)
+    canonical_payload = (
+        _canonical_validation_payload_from_artifact(artifact)
+        if persisted_payload is None
+        else _canonical_validation_payload_from_persisted_payload(persisted_payload)
+    )
+    expected_artifact_id = _canonical_artifact_id_from_payload(canonical_payload)
     if artifact.artifact_id != expected_artifact_id:
         raise ConstructionArtifactIntegrityValidationError(
             "construction artifact_id does not match canonical artifact content"
         )
-    expected_fingerprint = _canonical_fingerprint(artifact)
+    expected_fingerprint = _fingerprint(canonical_payload)
     if artifact.fingerprint != expected_fingerprint:
         raise ConstructionArtifactIntegrityValidationError(
             "construction artifact fingerprint does not match canonical artifact content"
+        )
+    policy_definition = get_construction_policy_definition(artifact.policy.policy_id)
+    if policy_definition is None:
+        raise ConstructionArtifactIntegrityValidationError("construction artifact references unsupported construction policy")
+    if artifact.normalized_inputs.policy_definition_id != policy_definition.catalog_entry.policy_definition_id:
+        raise ConstructionArtifactIntegrityValidationError(
+            "construction artifact policy_definition_id does not match the resolved catalog policy definition"
         )
     if artifact.status == "feasible" and not artifact.final_target_weights:
         raise ConstructionArtifactIntegrityValidationError(
@@ -160,12 +182,23 @@ def _validated_artifact_id_key(artifact_id: str) -> str:
 
 
 def _canonical_artifact_id(artifact: ConstructionArtifact) -> str:
-    return f"construction_artifact_{_canonical_fingerprint(artifact)[:16]}"
+    return _canonical_artifact_id_from_payload(_canonical_validation_payload_from_artifact(artifact))
+
+
+def _canonical_artifact_id_from_payload(payload: object) -> str:
+    return f"construction_artifact_{_fingerprint(payload)[:16]}"
 
 
 def _canonical_fingerprint(artifact: ConstructionArtifact) -> str:
-    payload = artifact.model_dump(mode="json", exclude={"artifact_id", "fingerprint"})
-    return _fingerprint(payload)
+    return _fingerprint(_canonical_validation_payload_from_artifact(artifact))
+
+
+def _canonical_validation_payload_from_artifact(artifact: ConstructionArtifact) -> dict[str, Any]:
+    return artifact.model_dump(mode="json", exclude={"artifact_id", "fingerprint"})
+
+
+def _canonical_validation_payload_from_persisted_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in payload.items() if key not in {"artifact_id", "fingerprint"}}
 
 
 def _fingerprint(payload: object) -> str:
@@ -182,6 +215,8 @@ def _canonicalize_construction_artifact_payload(payload: object) -> object:
             key: _canonicalize_construction_artifact_payload(value)
             for key, value in payload.items()
         }
+        if canonical.get("max_turnover_weight") is None:
+            canonical.pop("max_turnover_weight", None)
         selection_rule_trace = canonical.get("selection_rule_trace")
         if selection_rule_trace in (None, {}, {"rule_ids": [], "steps": []}):
             canonical.pop("selection_rule_trace", None)
@@ -196,6 +231,30 @@ def _normalize_legacy_construction_artifact_payload(payload: dict[str, Any]) -> 
     if normalized.get("selection_rule_trace") in (None, {}):
         normalized["selection_rule_trace"] = {"rule_ids": [], "steps": []}
     return normalized
+
+
+def _hydrate_legacy_construction_artifact_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    normalized_inputs = payload.get("normalized_inputs")
+    if not isinstance(normalized_inputs, dict):
+        return payload
+    if "policy_definition_id" in normalized_inputs:
+        return payload
+
+    policy_id = normalized_inputs.get("policy_id")
+    if not isinstance(policy_id, str):
+        return payload
+
+    policy_definition = get_construction_policy_definition(policy_id)
+    if policy_definition is None:
+        raise ConstructionArtifactIntegrityValidationError(
+            "construction artifact references unsupported construction policy"
+        )
+
+    hydrated_normalized_inputs = dict(normalized_inputs)
+    hydrated_normalized_inputs["policy_definition_id"] = policy_definition.catalog_entry.policy_definition_id
+    hydrated_payload = dict(payload)
+    hydrated_payload["normalized_inputs"] = hydrated_normalized_inputs
+    return hydrated_payload
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:

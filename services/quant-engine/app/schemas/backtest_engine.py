@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.schemas.construction import ConstructionSelectionRuleTrace
+from app.schemas.construction import ConstructionPolicyDefinitionId, ConstructionSelectionRuleTrace
 from app.schemas.imports import StatementImporter
 from app.schemas.optimizer import OptimizerArtifactState, OptimizerBenchmarkAttestationType, OptimizerConstraintStatus, OptimizerPersistedArtifactReference, OptimizerReturnBasisAttestation, OptimizerReturnBasisSectionTrust
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
@@ -448,6 +448,7 @@ class ConstructionArtifactReplayProvenance(BaseModel):
     source: Literal["construction_artifact_reference"] = "construction_artifact_reference"
     construction_artifact_id: str
     policy_id: str
+    policy_definition_id: ConstructionPolicyDefinitionId
     ranked_universe_artifact_id: str | None = None
     ranking_id: str | None = None
     ranking_methodology_id: str | None = None

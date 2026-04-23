@@ -446,6 +446,7 @@ def build_construction_artifact_replay_preview(
         replay_provenance=ConstructionArtifactReplayProvenance(
             construction_artifact_id=artifact.artifact_id,
             policy_id=artifact.normalized_inputs.policy_id,
+            policy_definition_id=artifact.normalized_inputs.policy_definition_id,
             ranked_universe_artifact_id=artifact.normalized_inputs.ranked_universe_artifact_id,
             ranking_id=artifact.normalized_inputs.ranking_id,
             ranking_methodology_id=artifact.normalized_inputs.ranking_methodology_id,

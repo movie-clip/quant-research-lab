@@ -248,6 +248,7 @@ The codebase now has two shipped construction surfaces.
 ### Persisted construction engine
 
 - route: `POST /construction/run`
+- policy discovery route: `GET /construction/policies`
 - persisted load route: `GET /construction/artifacts/{artifact_id}`
 - current persisted policies: `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
 - current deterministic selection pipeline: `eligible_only` then `take_top_n`
@@ -256,9 +257,11 @@ The codebase now has two shipped construction surfaces.
 
 Current basis rules:
 - consumes ranked candidates plus current portfolio weights as explicit input artifacts
+- resolves shipped policy metadata and weighting behavior from a backend-owned catalog seam
 - keeps deterministic selection separate from weighting
 - `top_n_equal_weight_v1` seeds equal weights across selected names
 - `top_n_inverse_rank_weight_v1` assigns weights proportional to inverse selected-order rank and normalizes them to sum to `1.0`
+- policy discovery does not expand construction breadth; the shipped catalog still contains only those two policies
 - enforces only the shipped constraint family for this policy slice
 - evaluates constraints against the actual generated target weights for the selected policy
 - fails closed on infeasible requests rather than repairing or silently relaxing the policy

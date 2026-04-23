@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.services.construction_artifact_service import _canonical_json
 
 
 statement_path = Path(r"C:\projects\investments\portfolio\docs\2025.pdf")
@@ -32,6 +33,21 @@ def _mutate_persisted_json(path: str, mutator) -> None:
     Path(path).write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
 
 
+def _rekey_construction_artifact_payload(tmp_path: Path, artifact_id: str, payload_mutator) -> str:
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload_mutator(payload)
+    payload_without_ids = {key: value for key, value in payload.items() if key not in {"artifact_id", "fingerprint"}}
+    fingerprint = sha256(_canonical_json(payload_without_ids).encode("utf-8")).hexdigest()
+    legacy_artifact_id = f"construction_artifact_{fingerprint[:16]}"
+    payload["fingerprint"] = fingerprint
+    payload["artifact_id"] = legacy_artifact_id
+    artifact_path.unlink()
+    legacy_path = tmp_path / f"{legacy_artifact_id}.json"
+    legacy_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+    return legacy_artifact_id
+
+
 def _rekey_persisted_handoff(reference: dict[str, str], manifest_mutator) -> dict[str, str]:
     manifest_path = Path(reference["manifest_path"])
     artifact_path = Path(reference["artifact_path"])
@@ -51,6 +67,130 @@ def _rekey_persisted_handoff(reference: dict[str, str], manifest_mutator) -> dic
         "handoff_id": new_handoff_id,
         "manifest_path": str(new_manifest_path),
         "artifact_path": str(new_artifact_path),
+    }
+
+
+CONSTRUCTION_ARTIFACT_FIXTURE_DIR = Path(__file__).with_name("fixtures") / "construction_artifacts"
+
+
+def _persist_construction_artifact_fixture(tmp_path: Path, fixture_name: str) -> tuple[str, dict]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    payload = json.loads((CONSTRUCTION_ARTIFACT_FIXTURE_DIR / fixture_name).read_text(encoding="utf-8"))
+    artifact_path = tmp_path / f"{payload['artifact_id']}.json"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+    return payload["artifact_id"], payload
+
+
+def _construction_artifact_replay_histories() -> dict[str, list[dict]]:
+    return {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "QQQ": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 104.0},
+            {"date": "2024-02-01", "price": 104.5},
+            {"date": "2024-06-03", "price": 106.0},
+            {"date": "2024-12-31", "price": 112.0},
+        ],
+        "IWD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.3},
+            {"date": "2024-06-03", "price": 101.8},
+            {"date": "2024-12-31", "price": 104.5},
+        ],
+        "IWM": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.0},
+            {"date": "2024-02-01", "price": 98.7},
+            {"date": "2024-06-03", "price": 99.8},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "XLF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 103.2},
+            {"date": "2024-06-03", "price": 104.0},
+            {"date": "2024-12-31", "price": 107.0},
+        ],
+        "XLV": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.1},
+            {"date": "2024-12-31", "price": 103.5},
+        ],
+        "XLE": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 97.0},
+            {"date": "2024-02-01", "price": 97.2},
+            {"date": "2024-06-03", "price": 98.5},
+            {"date": "2024-12-31", "price": 101.0},
+        ],
+        "XLI": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.4},
+            {"date": "2024-06-03", "price": 103.2},
+            {"date": "2024-12-31", "price": 105.2},
+        ],
+        "IEF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.4},
+            {"date": "2024-02-01", "price": 100.5},
+            {"date": "2024-06-03", "price": 100.6},
+            {"date": "2024-12-31", "price": 101.2},
+        ],
+        "TLT": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.5},
+            {"date": "2024-02-01", "price": 99.0},
+            {"date": "2024-06-03", "price": 101.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "LQD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.8},
+            {"date": "2024-02-01", "price": 100.9},
+            {"date": "2024-06-03", "price": 101.2},
+            {"date": "2024-12-31", "price": 102.3},
+        ],
+        "GLD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.8},
+            {"date": "2024-12-31", "price": 104.1},
+        ],
+    }
+
+
+def _construction_artifact_preview_payload(artifact_id: str) -> dict[str, object]:
+    return {
+        "construction_artifact_id": artifact_id,
+        "start_date": "2024-01-01",
+        "end_date": "2024-12-31",
+        "initial_capital": 100000,
+        "execution_lag_days": 1,
     }
 
 
@@ -163,6 +303,61 @@ def test_construction_route_accepts_inverse_rank_weight_policy(tmp_path, mocker)
     ]
 
 
+def test_construction_route_returns_infeasible_artifact_for_turnover_cap(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-turnover-cap-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "BBB", "weight": 0.4},
+                    {"symbol": "CCC", "weight": 0.35},
+                    {"symbol": "EEE", "weight": 0.25},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "max_turnover_weight": 0.59,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "infeasible"
+    assert payload["failure_reasons"] == ["target turnover exceeds max_turnover_weight"]
+    assert payload["final_target_weights"] == []
+    assert next(item for item in payload["constraint_evaluations"] if item["constraint_id"] == "max_turnover_weight") == {
+        "constraint_id": "max_turnover_weight",
+        "status": "fail",
+        "actual_value": 0.6,
+        "limit_value": 0.59,
+        "message": "portfolio turnover must not exceed max_turnover_weight",
+    }
+
+
 def test_construction_artifact_route_is_registered(tmp_path, mocker) -> None:
     mocker.patch(
         "app.services.construction_artifact_service.get_settings",
@@ -209,6 +404,183 @@ def test_construction_artifact_route_is_registered(tmp_path, mocker) -> None:
 
     assert response.status_code == 200
     assert response.json()["artifact_id"] == artifact_id
+
+
+def test_construction_policy_catalog_route_returns_shipped_set() -> None:
+    client = TestClient(app)
+
+    response = client.get("/construction/policies")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "policy_id": "top_n_equal_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "name": "Top N Equal Weight v1",
+            "description": "Select eligible top-ranked names and assign equal target weights.",
+            "selection_rule_ids": ["eligible_only", "take_top_n"],
+        },
+        {
+            "policy_id": "top_n_inverse_rank_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_inverse_rank_weight_v1",
+            "name": "Top N Inverse Rank Weight v1",
+            "description": "Select eligible top-ranked names and weight them by inverse selected-order rank.",
+            "selection_rule_ids": ["eligible_only", "take_top_n"],
+        },
+    ]
+
+
+def test_construction_route_treats_missing_and_explicit_null_turnover_caps_the_same(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    omitted_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-turnover-omitted",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        },
+    )
+
+    null_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-turnover-null",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "max_turnover_weight": None,
+            },
+        },
+    )
+
+    assert omitted_response.status_code == 200
+    assert null_response.status_code == 200
+    omitted_payload = omitted_response.json()
+    null_payload = null_response.json()
+    assert omitted_payload["policy"] == null_payload["policy"]
+    assert omitted_payload["hard_constraints"] == null_payload["hard_constraints"]
+    assert omitted_payload["normalized_inputs"] == null_payload["normalized_inputs"]
+    assert omitted_payload["selected_names"] == null_payload["selected_names"]
+    assert omitted_payload["final_target_weights"] == null_payload["final_target_weights"]
+    assert omitted_payload["trade_intents"] == null_payload["trade_intents"]
+    assert omitted_payload["failure_reasons"] == null_payload["failure_reasons"]
+    assert next(item for item in omitted_payload["constraint_evaluations"] if item["constraint_id"] == "max_turnover_weight") == {
+        "constraint_id": "max_turnover_weight",
+        "status": "not_evaluated",
+        "actual_value": None,
+        "limit_value": None,
+        "message": "max_turnover_weight was not requested",
+    }
+    assert next(item for item in null_payload["constraint_evaluations"] if item["constraint_id"] == "max_turnover_weight") == {
+        "constraint_id": "max_turnover_weight",
+        "status": "not_evaluated",
+        "actual_value": None,
+        "limit_value": None,
+        "message": "max_turnover_weight was not requested",
+    }
+
+
+def test_construction_route_keeps_zero_turnover_cap_as_real_constraint(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-zero-cap",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "BBB", "weight": 0.4},
+                    {"symbol": "CCC", "weight": 0.35},
+                    {"symbol": "EEE", "weight": 0.25},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "max_turnover_weight": 0.0,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "infeasible"
+    assert payload["failure_reasons"] == ["target turnover exceeds max_turnover_weight"]
+    assert next(item for item in payload["constraint_evaluations"] if item["constraint_id"] == "max_turnover_weight") == {
+        "constraint_id": "max_turnover_weight",
+        "status": "fail",
+        "actual_value": 0.6,
+        "limit_value": 0.0,
+        "message": "portfolio turnover must not exceed max_turnover_weight",
+    }
 
 
 def test_import_route_returns_404_for_missing_statement() -> None:
@@ -728,6 +1100,7 @@ def test_construction_artifact_replay_route_uses_explicit_reference_only_lineage
         "source": "construction_artifact_reference",
         "construction_artifact_id": artifact_id,
         "policy_id": "top_n_equal_weight_v1",
+        "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
         "ranked_universe_artifact_id": "ranking_artifact_1",
         "ranking_id": "ranked_candidates_v1",
         "ranking_methodology_id": "ranked_candidates_methodology_v1",
@@ -1042,6 +1415,293 @@ def test_construction_artifact_replay_route_echoes_empty_selection_trace_for_leg
 
     assert response.status_code == 200
     assert response.json()["replay_provenance"]["selection_rule_trace"] == {"rule_ids": [], "steps": []}
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "expected_selection_rule_trace"),
+    [
+        ("construction_artifact_legacy_missing_selection_rule_trace.json", {"rule_ids": [], "steps": []}),
+        ("construction_artifact_legacy_null_selection_rule_trace.json", {"rule_ids": [], "steps": []}),
+        ("construction_artifact_legacy_empty_selection_rule_trace.json", {"rule_ids": [], "steps": []}),
+        ("construction_artifact_legacy_missing_policy_definition_id.json", None),
+        ("construction_artifact_legacy_missing_max_turnover_weight.json", None),
+        ("construction_artifact_reference.json", None),
+    ],
+    ids=[
+        "missing_selection_rule_trace",
+        "null_selection_rule_trace",
+        "empty_selection_rule_trace",
+        "missing_policy_definition_id",
+        "missing_max_turnover_weight",
+        "explicit_null_max_turnover_weight",
+    ],
+)
+def test_construction_artifact_replay_route_fixture_matrix_preserves_legacy_behavior(
+    tmp_path,
+    mocker,
+    fixture_name,
+    expected_selection_rule_trace,
+) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    client = TestClient(app)
+
+    reference_artifact_id, _ = _persist_construction_artifact_fixture(
+        tmp_path,
+        "construction_artifact_reference.json",
+    )
+    reference_response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json=_construction_artifact_preview_payload(reference_artifact_id),
+    )
+    assert reference_response.status_code == 200
+    reference_payload = reference_response.json()
+
+    artifact_id, _ = _persist_construction_artifact_fixture(tmp_path, fixture_name)
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json=_construction_artifact_preview_payload(artifact_id),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    expected_provenance = dict(reference_payload["replay_provenance"])
+    expected_provenance["construction_artifact_id"] = artifact_id
+    expected_provenance["selection_rule_trace"] = (
+        expected_selection_rule_trace
+        or reference_payload["replay_provenance"]["selection_rule_trace"]
+    )
+
+    assert payload["construction_artifact_id"] == artifact_id
+    assert payload["truth_separation"] == reference_payload["truth_separation"]
+    assert payload["baseline_weights"] == reference_payload["baseline_weights"]
+    assert payload["candidate_weights"] == reference_payload["candidate_weights"]
+    assert payload["replay"] == reference_payload["replay"]
+    assert payload["replay_provenance"] == expected_provenance
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "construction_artifact_malformed_partial_selection_trace_missing_rule_ids.json",
+        "construction_artifact_malformed_partial_selection_trace_empty_rule_ids.json",
+    ],
+    ids=["missing_rule_ids", "empty_rule_ids"],
+)
+def test_construction_artifact_replay_route_fixture_matrix_rejects_partial_malformed_selection_trace(
+    tmp_path,
+    mocker,
+    fixture_name,
+) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    client = TestClient(app)
+
+    artifact_id, _ = _persist_construction_artifact_fixture(tmp_path, fixture_name)
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json=_construction_artifact_preview_payload(artifact_id),
+    )
+
+    assert response.status_code == 400
+    assert "persisted construction artifact failed schema validation" in response.json()["detail"]
+
+
+def test_construction_artifact_replay_route_hydrates_missing_legacy_policy_definition_id(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+    }
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-legacy-policy-definition",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["normalized_inputs"].pop("policy_definition_id")
+    payload_without_ids = {key: value for key, value in payload.items() if key not in {"artifact_id", "fingerprint"}}
+    fingerprint = sha256(
+        json.dumps(payload_without_ids, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    legacy_artifact_id = f"construction_artifact_{fingerprint[:16]}"
+    payload["fingerprint"] = fingerprint
+    payload["artifact_id"] = legacy_artifact_id
+    artifact_path.unlink()
+    legacy_path = tmp_path / f"{legacy_artifact_id}.json"
+    legacy_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": legacy_artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["replay_provenance"]["policy_definition_id"] == "construction_policy_definition_top_n_equal_weight_v1"
+
+
+@pytest.mark.parametrize(
+    "turnover_mutator",
+    [
+        lambda payload: payload["hard_constraints"].pop("max_turnover_weight", None),
+        lambda payload: payload["hard_constraints"].__setitem__("max_turnover_weight", None),
+    ],
+    ids=["missing", "explicit_null"],
+)
+def test_construction_artifact_replay_route_treats_missing_and_explicit_null_turnover_caps_as_equivalent(
+    tmp_path,
+    mocker,
+    turnover_mutator,
+) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+    }
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-turnover-null-parity",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "max_turnover_weight": None,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+    legacy_artifact_id = _rekey_construction_artifact_payload(tmp_path, artifact_id, turnover_mutator)
+
+    response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": legacy_artifact_id,
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["construction_artifact_id"] == artifact_id
 
 
 def test_construction_artifact_replay_route_returns_404_for_missing_artifact(tmp_path, mocker) -> None:

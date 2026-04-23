@@ -8,6 +8,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 ConstructionRunStatus = Literal["feasible", "infeasible", "rejected"]
 ConstructionConstraintStatus = Literal["pass", "binding", "fail", "not_evaluated"]
 ConstructionPolicyId = Literal["top_n_equal_weight_v1", "top_n_inverse_rank_weight_v1"]
+ConstructionPolicyDefinitionId = Literal[
+    "construction_policy_definition_top_n_equal_weight_v1",
+    "construction_policy_definition_top_n_inverse_rank_weight_v1",
+]
 ConstructionArtifactSchemaVersion = Literal["construction_artifact_v1"]
 ConstructionTradeAction = Literal["buy", "sell", "hold", "initiate", "exit"]
 ConstructionSelectionRuleId = Literal["eligible_only", "take_top_n"]
@@ -62,11 +66,22 @@ class ConstructionPolicyInput(BaseModel):
     top_n: int = Field(ge=1)
 
 
+class ConstructionPolicyCatalogEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    policy_id: ConstructionPolicyId
+    policy_definition_id: ConstructionPolicyDefinitionId
+    name: str
+    description: str
+    selection_rule_ids: list[ConstructionSelectionRuleId] = Field(default_factory=list)
+
+
 class ConstructionHardConstraints(BaseModel):
     full_investment: Literal[True] = True
     long_only: Literal[True] = True
     eligible_ranked_universe_only: Literal[True] = True
     max_position_weight: float = Field(gt=0.0, le=1.0)
+    max_turnover_weight: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class ConstructionRunRequest(BaseModel):
@@ -96,6 +111,7 @@ class ConstructionConstraintEvaluation(BaseModel):
         "long_only",
         "eligible_ranked_universe_only",
         "max_position_weight",
+        "max_turnover_weight",
     ]
     status: ConstructionConstraintStatus
     actual_value: float | None = None
@@ -152,6 +168,7 @@ class ConstructionNormalizedInputs(BaseModel):
     current_portfolio_artifact_id: str | None = None
     current_portfolio_as_of_timestamp: str | None = None
     policy_id: ConstructionPolicyId = "top_n_equal_weight_v1"
+    policy_definition_id: ConstructionPolicyDefinitionId
     top_n: int = Field(ge=1)
     max_position_weight: float = Field(gt=0.0, le=1.0)
     current_portfolio_weights: list[ConstructionWeight] = Field(default_factory=list)
@@ -185,4 +202,6 @@ class ConstructionArtifact(BaseModel):
             raise ValueError("artifact_id must use the stable construction_artifact_ prefix")
         if len(self.fingerprint) != 64:
             raise ValueError("fingerprint must be a full sha256 hex digest")
+        if self.normalized_inputs.policy_id != self.policy.policy_id:
+            raise ValueError("normalized_inputs.policy_id must match policy.policy_id")
         return self

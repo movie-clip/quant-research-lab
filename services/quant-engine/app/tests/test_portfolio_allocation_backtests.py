@@ -1,5 +1,7 @@
 import json
+from dataclasses import replace
 from datetime import date, datetime
+from fractions import Fraction
 from hashlib import sha256
 from pathlib import Path
 
@@ -14,8 +16,9 @@ from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.schemas.return_basis import ReturnBasisEvidence
 from app.schemas.construction import ConstructionRunRequest
+from app.services import construction_policy_catalog
 from app.services.optimizer_artifact_service import OptimizerHandoffStore
-from app.services.construction_artifact_service import ConstructionArtifactStore
+from app.services.construction_artifact_service import ConstructionArtifactStore, _canonical_json
 from app.services.construction_run_service import build_construction_run
 from app.services.optimizer_handoff_constraints import OptimizerHandoffValidationBlockedError, validate_optimizer_handoff_constraints
 from app.services.optimizer_preview_service import build_optimizer_preview
@@ -106,6 +109,61 @@ def _mutate_persisted_json(path: str, mutator) -> None:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     mutator(payload)
     Path(path).write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+
+def _rewrite_construction_artifact_payload(tmp_path: Path, artifact_id: str, payload_mutator) -> str:
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload_mutator(payload)
+    payload_without_ids = {key: value for key, value in payload.items() if key not in {"artifact_id", "fingerprint"}}
+    fingerprint = sha256(_canonical_json(payload_without_ids).encode("utf-8")).hexdigest()
+    legacy_artifact_id = f"construction_artifact_{fingerprint[:16]}"
+    payload["fingerprint"] = fingerprint
+    payload["artifact_id"] = legacy_artifact_id
+    artifact_path.unlink()
+    legacy_path = tmp_path / f"{legacy_artifact_id}.json"
+    legacy_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+    return legacy_artifact_id
+
+
+CONSTRUCTION_ARTIFACT_FIXTURE_DIR = Path(__file__).with_name("fixtures") / "construction_artifacts"
+
+
+def _persist_construction_artifact_fixture(tmp_path: Path, fixture_name: str) -> tuple[str, dict]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    payload = json.loads((CONSTRUCTION_ARTIFACT_FIXTURE_DIR / fixture_name).read_text(encoding="utf-8"))
+    artifact_path = tmp_path / f"{payload['artifact_id']}.json"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+    return payload["artifact_id"], payload
+
+
+def _construction_artifact_replay_histories() -> dict[str, list[dict]]:
+    return {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+
+
+def _construction_artifact_replay_request(artifact_id: str) -> ConstructionArtifactReplayRequest:
+    return ConstructionArtifactReplayRequest(
+        construction_artifact_id=artifact_id,
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        initial_capital=100000,
+        execution_lag_days=1,
+    )
 
 
 def _update_constraint_evaluation(payload: dict, constraint_id: str, **updates) -> None:
@@ -1579,6 +1637,7 @@ def test_build_construction_artifact_replay_preview_uses_persisted_final_target_
         "source": "construction_artifact_reference",
         "construction_artifact_id": artifact.artifact_id,
         "policy_id": "top_n_equal_weight_v1",
+        "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
         "ranked_universe_artifact_id": "ranking_artifact_1",
         "ranking_id": "ranked_candidates_v1",
         "ranking_methodology_id": "ranked_candidates_methodology_v1",
@@ -1691,6 +1750,197 @@ def test_build_construction_artifact_replay_preview_uses_persisted_inverse_rank_
     ]
 
 
+def test_build_construction_artifact_replay_preview_remains_compatible_with_turnover_capped_artifact(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-turnover-cap-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "max_turnover_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=artifact.artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.construction_artifact_id == artifact.artifact_id
+    assert replay_response.replay_provenance.model_dump() == {
+        "source": "construction_artifact_reference",
+        "construction_artifact_id": artifact.artifact_id,
+        "policy_id": "top_n_equal_weight_v1",
+        "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+        "ranked_universe_artifact_id": "ranking_artifact_1",
+        "ranking_id": "ranked_candidates_v1",
+        "ranking_methodology_id": "ranked_candidates_methodology_v1",
+        "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "baseline_input_source": "normalized_inputs.current_portfolio_weights",
+        "candidate_input_source": "final_target_weights",
+        "selection_rule_trace": {
+            "rule_ids": ["eligible_only", "take_top_n"],
+            "steps": [
+                {
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA", "BBB"],
+                    "output_candidate_symbols": ["AAA", "BBB"],
+                },
+                {
+                    "rule_id": "take_top_n",
+                    "rule_order": 2,
+                    "input_candidate_symbols": ["AAA", "BBB"],
+                    "output_candidate_symbols": ["AAA", "BBB"],
+                },
+            ],
+        },
+    }
+    assert replay_response.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.5),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.5),
+    ]
+
+
+def test_build_construction_artifact_replay_preview_uses_persisted_artifact_weights_after_catalog_changes(
+    tmp_path,
+    mocker,
+    monkeypatch,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 100.2, 100.8, 101.4, 101.9),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-persisted-weights-only",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                    {"symbol": "CCC", "rank": 3, "eligible": True, "score": 0.7},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "policy": {"policy_id": "top_n_inverse_rank_weight_v1", "top_n": 3},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.55,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    original_definition = construction_policy_catalog.get_construction_policy_definition("top_n_inverse_rank_weight_v1")
+    assert original_definition is not None
+    monkeypatch.setitem(
+        construction_policy_catalog._POLICY_BY_ID,
+        "top_n_inverse_rank_weight_v1",
+        replace(
+            original_definition,
+            raw_weight_numerator_builder=lambda selected_count: [Fraction(1, 1)] * selected_count,
+            max_position_failure_reason="mutated catalog should not affect replay",
+            cutoff_exclusion_reason="mutated catalog should not affect replay",
+        ),
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=artifact.artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.replay_provenance.policy_id == "top_n_inverse_rank_weight_v1"
+    assert replay_response.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.54545455),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.27272727),
+        PortfolioWeightInput(symbol="CCC", target_weight=0.18181818),
+    ]
+
+
 def test_build_construction_artifact_replay_preview_requires_normalized_current_portfolio_weights(
     tmp_path,
 ) -> None:
@@ -1752,6 +2002,7 @@ def test_construction_artifact_replay_provenance_requires_explicit_selection_tra
     payload = {
         "construction_artifact_id": "construction_artifact_1234567890abcdef",
         "policy_id": "top_n_equal_weight_v1",
+        "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
         "selection_rule_trace": {"rule_ids": [], "steps": []},
     }
     trace_mutator(payload)
@@ -1765,6 +2016,7 @@ def test_construction_artifact_replay_provenance_accepts_explicit_empty_selectio
         {
             "construction_artifact_id": "construction_artifact_1234567890abcdef",
             "policy_id": "top_n_equal_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
             "selection_rule_trace": {"rule_ids": [], "steps": []},
         }
     )
@@ -1840,6 +2092,316 @@ def test_build_construction_artifact_replay_preview_echoes_empty_selection_trace
         "rule_ids": [],
         "steps": [],
     }
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "expected_selection_rule_trace"),
+    [
+        ("construction_artifact_legacy_missing_selection_rule_trace.json", {"rule_ids": [], "steps": []}),
+        ("construction_artifact_legacy_null_selection_rule_trace.json", {"rule_ids": [], "steps": []}),
+        ("construction_artifact_legacy_empty_selection_rule_trace.json", {"rule_ids": [], "steps": []}),
+        ("construction_artifact_legacy_missing_policy_definition_id.json", None),
+        ("construction_artifact_legacy_missing_max_turnover_weight.json", None),
+        ("construction_artifact_reference.json", None),
+    ],
+    ids=[
+        "missing_selection_rule_trace",
+        "null_selection_rule_trace",
+        "empty_selection_rule_trace",
+        "missing_policy_definition_id",
+        "missing_max_turnover_weight",
+        "explicit_null_max_turnover_weight",
+    ],
+)
+def test_build_construction_artifact_replay_preview_fixture_matrix_preserves_legacy_behavior(
+    tmp_path,
+    mocker,
+    fixture_name,
+    expected_selection_rule_trace,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+
+    reference_store = ConstructionArtifactStore(str(tmp_path / "reference"))
+    reference_artifact_id, _ = _persist_construction_artifact_fixture(
+        tmp_path / "reference",
+        "construction_artifact_reference.json",
+    )
+    reference = build_construction_artifact_replay_preview(
+        _construction_artifact_replay_request(reference_artifact_id),
+        artifact_store=reference_store,
+    )
+
+    artifact_store = ConstructionArtifactStore(str(tmp_path / "fixture"))
+    artifact_id, _ = _persist_construction_artifact_fixture(tmp_path / "fixture", fixture_name)
+    replay_response = build_construction_artifact_replay_preview(
+        _construction_artifact_replay_request(artifact_id),
+        artifact_store=artifact_store,
+    )
+
+    expected_provenance = reference.replay_provenance.model_dump(mode="json")
+    expected_provenance["construction_artifact_id"] = artifact_id
+    expected_provenance["selection_rule_trace"] = (
+        expected_selection_rule_trace
+        or reference.replay_provenance.selection_rule_trace.model_dump(mode="json")
+    )
+
+    assert replay_response.construction_artifact_id == artifact_id
+    assert replay_response.truth_separation.model_dump(mode="json") == reference.truth_separation.model_dump(mode="json")
+    assert [item.model_dump(mode="json") for item in replay_response.baseline_weights] == [
+        item.model_dump(mode="json") for item in reference.baseline_weights
+    ]
+    assert [item.model_dump(mode="json") for item in replay_response.candidate_weights] == [
+        item.model_dump(mode="json") for item in reference.candidate_weights
+    ]
+    assert replay_response.replay.model_dump(mode="json") == reference.replay.model_dump(mode="json")
+    assert replay_response.replay_provenance.model_dump(mode="json") == expected_provenance
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "construction_artifact_malformed_partial_selection_trace_missing_rule_ids.json",
+        "construction_artifact_malformed_partial_selection_trace_empty_rule_ids.json",
+    ],
+    ids=["missing_rule_ids", "empty_rule_ids"],
+)
+def test_build_construction_artifact_replay_preview_fixture_matrix_rejects_partial_malformed_selection_trace(
+    tmp_path,
+    mocker,
+    fixture_name,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact_id, _ = _persist_construction_artifact_fixture(tmp_path, fixture_name)
+
+    with pytest.raises(
+        ValueError,
+        match="persisted construction artifact failed schema validation",
+    ):
+        build_construction_artifact_replay_preview(
+            _construction_artifact_replay_request(artifact_id),
+            artifact_store=artifact_store,
+        )
+
+
+def test_build_construction_artifact_replay_preview_hydrates_missing_legacy_policy_definition_id(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-legacy-policy-definition",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    legacy_artifact_id = _rewrite_construction_artifact_payload(
+        tmp_path,
+        artifact.artifact_id,
+        lambda payload: payload["normalized_inputs"].pop("policy_definition_id"),
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=legacy_artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.construction_artifact_id == legacy_artifact_id
+    assert replay_response.replay_provenance.policy_definition_id == "construction_policy_definition_top_n_equal_weight_v1"
+
+
+def test_build_construction_artifact_replay_preview_accepts_legacy_artifact_without_max_turnover_weight(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-legacy-turnover-field",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    legacy_artifact_id = _rewrite_construction_artifact_payload(
+        tmp_path,
+        artifact.artifact_id,
+        lambda payload: payload["hard_constraints"].pop("max_turnover_weight", None),
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=legacy_artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.construction_artifact_id == legacy_artifact_id
+    assert replay_response.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.5),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.5),
+    ]
+
+
+@pytest.mark.parametrize(
+    "turnover_mutator",
+    [
+            lambda payload: payload["hard_constraints"].pop("max_turnover_weight", None),
+        lambda payload: payload["hard_constraints"].__setitem__("max_turnover_weight", None),
+    ],
+    ids=["missing", "explicit_null"],
+)
+def test_build_construction_artifact_replay_preview_treats_missing_and_explicit_null_turnover_caps_as_legacy_equivalent(
+    tmp_path,
+    mocker,
+    turnover_mutator,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-turnover-null-parity",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "max_turnover_weight": None,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    legacy_artifact_id = _rewrite_construction_artifact_payload(
+        tmp_path,
+        artifact.artifact_id,
+        turnover_mutator,
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=legacy_artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert legacy_artifact_id == artifact.artifact_id
+    assert replay_response.construction_artifact_id == artifact.artifact_id
+    assert replay_response.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.5),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.5),
+    ]
 
 
 @pytest.mark.parametrize(

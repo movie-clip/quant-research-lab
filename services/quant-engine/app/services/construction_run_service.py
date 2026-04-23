@@ -13,6 +13,7 @@ from app.schemas.construction import (
     ConstructionNormalizedInputs,
     ConstructionRankedCandidateInput,
     ConstructionRunRequest,
+    ConstructionSelectionRuleId,
     ConstructionSelectionRuleTrace,
     ConstructionSelectionRuleTraceStep,
     ConstructionSelectedName,
@@ -25,12 +26,15 @@ from app.services.construction_artifact_service import (
     build_stable_construction_artifact,
     persist_construction_artifact,
 )
+from app.services.construction_policy_catalog import (
+    ConstructionPolicyDefinition,
+    ELIGIBLE_ONLY_RULE_ID,
+    TAKE_TOP_N_RULE_ID,
+    build_policy_weights,
+    get_construction_policy_definition,
+    get_policy_cutoff_exclusion_reason,
+)
 
-EQUAL_WEIGHT_POLICY_ID = "top_n_equal_weight_v1"
-INVERSE_RANK_WEIGHT_POLICY_ID = "top_n_inverse_rank_weight_v1"
-ELIGIBLE_ONLY_RULE_ID = "eligible_only"
-TAKE_TOP_N_RULE_ID = "take_top_n"
-SELECTION_RULE_SEQUENCE = (ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID)
 EPSILON = 1e-8
 
 
@@ -48,14 +52,25 @@ class _WeightingResult:
     max_position_failure_reason: str | None = None
 
 
+TURNOVER_FAILURE_REASON = "target turnover exceeds max_turnover_weight"
+
+
 def build_construction_run(
     request: ConstructionRunRequest,
     *,
     artifact_store: ConstructionArtifactStore | None = None,
 ) -> ConstructionArtifact:
+    policy_definition = get_construction_policy_definition(request.policy.policy_id)
+    if policy_definition is None:
+        raise ValueError(f"unsupported construction policy: {request.policy.policy_id}")
+
     normalized_ranked = _normalize_ranked_candidates(request.ranked_universe.ranked_candidates)
     normalized_current = _normalize_current_weights(request.current_portfolio)
-    selection = _run_selection_rule_pipeline(normalized_ranked, top_n=request.policy.top_n)
+    selection = _run_selection_rule_pipeline(
+        normalized_ranked,
+        top_n=request.policy.top_n,
+        policy_definition=policy_definition,
+    )
     normalized_inputs = ConstructionNormalizedInputs(
         ranked_universe_artifact_id=request.ranked_universe.artifact_id,
         ranking_id=request.ranked_universe.ranking_id,
@@ -64,6 +79,7 @@ def build_construction_run(
         current_portfolio_artifact_id=request.current_portfolio.artifact_id,
         current_portfolio_as_of_timestamp=request.current_portfolio.as_of_timestamp,
         policy_id=request.policy.policy_id,
+        policy_definition_id=policy_definition.catalog_entry.policy_definition_id,
         top_n=request.policy.top_n,
         max_position_weight=request.hard_constraints.max_position_weight,
         current_portfolio_weights=normalized_current,
@@ -71,8 +87,6 @@ def build_construction_run(
     )
     failure_reasons: list[str] = []
 
-    if request.policy.policy_id not in {EQUAL_WEIGHT_POLICY_ID, INVERSE_RANK_WEIGHT_POLICY_ID}:
-        failure_reasons.append(f"unsupported construction policy: {request.policy.policy_id}")
     if not selection.eligible_candidates:
         failure_reasons.append("eligible ranked universe is empty")
     if len(selection.eligible_candidates) < request.policy.top_n:
@@ -80,12 +94,24 @@ def build_construction_run(
 
     selected = selection.selected_candidates
     weighting = _build_policy_weights(
-        request.policy.policy_id,
+        policy_definition,
         selected,
         max_position_weight=request.hard_constraints.max_position_weight,
     )
     if weighting.max_position_failure_reason is not None:
         failure_reasons.append(weighting.max_position_failure_reason)
+
+    generated_target_weights = weighting.final_target_weights
+    generated_turnover = (
+        _calculate_turnover(normalized_current, generated_target_weights) if generated_target_weights else None
+    )
+    max_turnover_weight = request.hard_constraints.max_turnover_weight
+    if (
+        generated_turnover is not None
+        and max_turnover_weight is not None
+        and generated_turnover > max_turnover_weight + EPSILON
+    ):
+        failure_reasons.append(TURNOVER_FAILURE_REASON)
 
     if failure_reasons:
         artifact = ConstructionArtifact(
@@ -100,15 +126,16 @@ def build_construction_run(
             excluded_names=_build_excluded_names(
                 normalized_ranked,
                 selected_symbols=[item.symbol for item in selected],
-                policy_id=request.policy.policy_id,
+                policy_definition=policy_definition,
             ),
             seed_weights=[],
             final_target_weights=[],
             trade_intents=[],
             constraint_evaluations=_evaluate_constraints(
                 request,
+                current_weights=normalized_current,
                 final_target_weights=[],
-                generated_target_weights=weighting.final_target_weights,
+                generated_target_weights=generated_target_weights,
                 selected=selected,
                 infeasible_reasons=failure_reasons,
             ),
@@ -123,7 +150,7 @@ def build_construction_run(
         return persist_construction_artifact(build_stable_construction_artifact(artifact), store=artifact_store)
 
     seed_weights = weighting.seed_weights
-    final_target_weights = weighting.final_target_weights
+    final_target_weights = generated_target_weights
     trade_intents = _build_trade_intents(normalized_current, final_target_weights)
     artifact = ConstructionArtifact(
         artifact_id="construction_artifact_pending",
@@ -137,13 +164,14 @@ def build_construction_run(
         excluded_names=_build_excluded_names(
             normalized_ranked,
             selected_symbols=[item.symbol for item in selected],
-            policy_id=request.policy.policy_id,
+            policy_definition=policy_definition,
         ),
         seed_weights=seed_weights,
         final_target_weights=final_target_weights,
         trade_intents=trade_intents,
         constraint_evaluations=_evaluate_constraints(
             request,
+            current_weights=normalized_current,
             final_target_weights=final_target_weights,
             generated_target_weights=final_target_weights,
             selected=selected,
@@ -172,11 +200,13 @@ def _run_selection_rule_pipeline(
     candidates: list[ConstructionRankedCandidateInput],
     *,
     top_n: int,
+    policy_definition: ConstructionPolicyDefinition,
 ) -> _SelectionPipelineResult:
     current = list(candidates)
     eligible_candidates = current
     trace_steps: list[ConstructionSelectionRuleTraceStep] = []
-    for rule_order, rule_id in enumerate(SELECTION_RULE_SEQUENCE, start=1):
+    selection_rule_ids = policy_definition.selection_rule_ids
+    for rule_order, rule_id in enumerate(selection_rule_ids, start=1):
         input_candidates = list(current)
         current = _apply_selection_rule(rule_id, input_candidates, top_n=top_n)
         trace_steps.append(
@@ -193,7 +223,7 @@ def _run_selection_rule_pipeline(
         eligible_candidates=eligible_candidates,
         selected_candidates=current,
         trace=ConstructionSelectionRuleTrace(
-            rule_ids=list(SELECTION_RULE_SEQUENCE),
+            rule_ids=[*selection_rule_ids],
             steps=trace_steps,
         ),
     )
@@ -221,38 +251,22 @@ def _normalized_exclusion_reason(candidate: ConstructionRankedCandidateInput) ->
 
 
 def _build_policy_weights(
-    policy_id: str,
+    policy_definition: ConstructionPolicyDefinition,
     selected: list[ConstructionRankedCandidateInput],
     *,
     max_position_weight: float,
 ) -> _WeightingResult:
-    if not selected:
-        return _WeightingResult(seed_weights=[], final_target_weights=[])
-    if policy_id == EQUAL_WEIGHT_POLICY_ID:
-        weights = _normalized_fractional_weights([Fraction(1, len(selected))] * len(selected))
-        failure_reason = None
-        if weights and max(weights) > max_position_weight + EPSILON:
-            failure_reason = "equal-weight seed exceeds max_position_weight"
-        return _WeightingResult(
-            seed_weights=_construction_weights_from_selected(selected, weights),
-            final_target_weights=_construction_weights_from_selected(selected, weights),
-            max_position_failure_reason=failure_reason,
-        )
-    if policy_id == INVERSE_RANK_WEIGHT_POLICY_ID:
-        inverse_rank_weights = [Fraction(1, selected_order_rank) for selected_order_rank in range(1, len(selected) + 1)]
-        weights = _normalized_fractional_weights(inverse_rank_weights)
-        failure_reason = None
-        if weights and max(weights) > max_position_weight + EPSILON:
-            failure_reason = "inverse-rank seed exceeds max_position_weight"
-        return _WeightingResult(
-            seed_weights=_construction_weights_from_selected(selected, weights),
-            final_target_weights=_construction_weights_from_selected(selected, weights),
-            max_position_failure_reason=failure_reason,
-        )
+    seed_weights, final_target_weights, max_position_failure_reason = build_policy_weights(
+        policy_definition,
+        selected,
+        max_position_weight=max_position_weight,
+        epsilon=EPSILON,
+        normalize_weights=_normalized_fractional_weights,
+    )
     return _WeightingResult(
-        seed_weights=[],
-        final_target_weights=[],
-        max_position_failure_reason=None,
+        seed_weights=seed_weights,
+        final_target_weights=final_target_weights,
+        max_position_failure_reason=max_position_failure_reason,
     )
 
 
@@ -265,16 +279,6 @@ def _normalized_fractional_weights(raw_weights: list[Fraction]) -> list[float]:
         return [1.0]
     normalized[-1] = round(1.0 - sum(normalized[:-1]), 8)
     return normalized
-
-
-def _construction_weights_from_selected(
-    selected: list[ConstructionRankedCandidateInput],
-    weights: list[float],
-) -> list[ConstructionWeight]:
-    return [
-        ConstructionWeight(symbol=item.symbol, weight=weight)
-        for item, weight in zip(selected, weights, strict=True)
-    ]
 
 
 def _normalize_current_weights(current_portfolio: ConstructionCurrentPortfolioInput) -> list[ConstructionWeight]:
@@ -292,11 +296,11 @@ def _build_excluded_names(
     candidates: list[ConstructionRankedCandidateInput],
     *,
     selected_symbols: list[str],
-    policy_id: str,
+    policy_definition: ConstructionPolicyDefinition,
 ) -> list[ConstructionExcludedName]:
     selected = set(selected_symbols)
     excluded: list[ConstructionExcludedName] = []
-    top_n_cutoff_reason = f"not selected by {policy_id} cutoff"
+    top_n_cutoff_reason = get_policy_cutoff_exclusion_reason(policy_definition)
     for item in candidates:
         if item.symbol in selected:
             continue
@@ -347,8 +351,16 @@ def _trade_action(current_weight: float, target_weight: float, delta_weight: flo
     return cast(ConstructionTradeAction, "sell")
 
 
+def _calculate_turnover(current_weights: list[ConstructionWeight], target_weights: list[ConstructionWeight]) -> float:
+    current_by_symbol = {item.symbol: item.weight for item in current_weights}
+    target_by_symbol = {item.symbol: item.weight for item in target_weights}
+    symbols = set(current_by_symbol) | set(target_by_symbol)
+    return round(0.5 * sum(abs(target_by_symbol.get(symbol, 0.0) - current_by_symbol.get(symbol, 0.0)) for symbol in symbols), 8)
+
+
 def _evaluate_constraints(
     request: ConstructionRunRequest,
+    current_weights: list[ConstructionWeight],
     final_target_weights: list[ConstructionWeight],
     generated_target_weights: list[ConstructionWeight],
     selected: list[ConstructionRankedCandidateInput],
@@ -364,6 +376,8 @@ def _evaluate_constraints(
     any_negative = any(item.weight < -EPSILON for item in constraint_weights)
     top_n_short = len(selected) < request.policy.top_n
     has_constraint_weights = bool(constraint_weights)
+    max_turnover_weight = request.hard_constraints.max_turnover_weight
+    turnover = _calculate_turnover(current_weights, constraint_weights) if has_constraint_weights else None
     return [
         ConstructionConstraintEvaluation(
             constraint_id="full_investment",
@@ -393,6 +407,21 @@ def _evaluate_constraints(
             limit_value=request.hard_constraints.max_position_weight,
             message="no target weight may exceed max_position_weight",
         ),
+        ConstructionConstraintEvaluation(
+            constraint_id="max_turnover_weight",
+            status=(
+                "not_evaluated"
+                if not has_constraint_weights or max_turnover_weight is None
+                else (
+                    "fail"
+                    if turnover is not None and turnover > max_turnover_weight + EPSILON
+                    else ("binding" if turnover is not None and abs(turnover - max_turnover_weight) <= 1e-6 else "pass")
+                )
+            ),
+            actual_value=turnover if has_constraint_weights and max_turnover_weight is not None else None,
+            limit_value=max_turnover_weight,
+            message="portfolio turnover must not exceed max_turnover_weight" if max_turnover_weight is not None else "max_turnover_weight was not requested",
+        ),
     ] if not infeasible_reasons or has_constraint_weights else [
         ConstructionConstraintEvaluation(
             constraint_id="full_investment",
@@ -421,5 +450,12 @@ def _evaluate_constraints(
             actual_value=None,
             limit_value=request.hard_constraints.max_position_weight,
             message="target weights were not produced because the request is infeasible",
+        ),
+        ConstructionConstraintEvaluation(
+            constraint_id="max_turnover_weight",
+            status="not_evaluated",
+            actual_value=None,
+            limit_value=max_turnover_weight,
+            message="target weights were not produced because the request is infeasible" if max_turnover_weight is not None else "max_turnover_weight was not requested",
         ),
     ]

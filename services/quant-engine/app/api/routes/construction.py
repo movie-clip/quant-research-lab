@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.construction import ConstructionArtifact, ConstructionRunRequest
+from app.schemas.construction import ConstructionArtifact, ConstructionPolicyCatalogEntry, ConstructionRunRequest
 from app.services.construction_artifact_service import (
     ConstructionArtifactIntegrityValidationError,
     ConstructionArtifactInvalidJsonError,
@@ -10,6 +10,7 @@ from app.services.construction_artifact_service import (
     ConstructionArtifactSchemaValidationError,
     load_construction_artifact,
 )
+from app.services.construction_policy_catalog import list_construction_policies
 from app.services.construction_run_service import build_construction_run
 
 
@@ -22,6 +23,11 @@ def run_construction(request: ConstructionRunRequest) -> ConstructionArtifact:
         return build_construction_run(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/policies", response_model=list[ConstructionPolicyCatalogEntry])
+def get_construction_policies() -> list[ConstructionPolicyCatalogEntry]:
+    return list_construction_policies()
 
 
 @router.get("/artifacts/{artifact_id}", response_model=ConstructionArtifact)
