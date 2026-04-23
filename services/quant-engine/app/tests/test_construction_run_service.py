@@ -21,7 +21,11 @@ from app.services.construction_artifact_service import (
 from app.services.construction_run_service import build_construction_run
 
 
-def _request(top_n: int = 2, max_position_weight: float = 0.6) -> ConstructionRunRequest:
+def _request(
+    top_n: int = 2,
+    max_position_weight: float = 0.6,
+    policy_id: str = "top_n_equal_weight_v1",
+) -> ConstructionRunRequest:
     return ConstructionRunRequest.model_validate(
         {
             "request_id": "construction-1",
@@ -46,7 +50,7 @@ def _request(top_n: int = 2, max_position_weight: float = 0.6) -> ConstructionRu
                     {"symbol": "eee", "weight": 0.25},
                 ],
             },
-            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": top_n},
+            "policy": {"policy_id": policy_id, "top_n": top_n},
             "hard_constraints": {
                 "full_investment": True,
                 "long_only": True,
@@ -116,6 +120,37 @@ def test_build_construction_run_returns_deterministic_equal_weight_artifact(tmp_
     ]
     assert result.constraint_evaluations[0].status == "binding"
     assert result.constraint_evaluations[3].status == "pass"
+
+
+def test_build_construction_run_returns_inverse_rank_weight_artifact(tmp_path: Path) -> None:
+    result = build_construction_run(
+        _request(top_n=3, max_position_weight=0.55, policy_id="top_n_inverse_rank_weight_v1"),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "feasible"
+    assert result.policy.policy_id == "top_n_inverse_rank_weight_v1"
+    assert [item.model_dump(mode="json") for item in result.selected_names] == [
+        {"symbol": "AAA", "rank": 1, "score": 9.5},
+        {"symbol": "BBB", "rank": 2, "score": 8.1},
+        {"symbol": "CCC", "rank": 3, "score": 7.0},
+    ]
+    assert [item.model_dump(mode="json") for item in result.seed_weights] == [
+        {"symbol": "AAA", "weight": 0.54545455},
+        {"symbol": "BBB", "weight": 0.27272727},
+        {"symbol": "CCC", "weight": 0.18181818},
+    ]
+    assert [item.model_dump(mode="json") for item in result.final_target_weights] == [
+        {"symbol": "AAA", "weight": 0.54545455},
+        {"symbol": "BBB", "weight": 0.27272727},
+        {"symbol": "CCC", "weight": 0.18181818},
+    ]
+    assert [item.model_dump(mode="json") for item in result.excluded_names] == [
+        {"symbol": "DDD", "rank": 4, "eligible": False, "reason": "liquidity_screen"},
+    ]
+    assert result.constraint_evaluations[0].status == "binding"
+    assert result.constraint_evaluations[3].status == "pass"
+    assert result.constraint_evaluations[3].actual_value == 0.54545455
 
 
 def test_build_construction_run_persists_feasible_artifact_by_artifact_id(tmp_path: Path) -> None:
@@ -259,6 +294,22 @@ def test_build_construction_run_fails_closed_when_equal_weight_breaks_max_positi
     assert constraint.limit_value == 0.49
 
 
+def test_build_construction_run_fails_closed_when_inverse_rank_weight_breaks_max_position_constraint(tmp_path: Path) -> None:
+    result = build_construction_run(
+        _request(top_n=3, max_position_weight=0.54, policy_id="top_n_inverse_rank_weight_v1"),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "infeasible"
+    assert result.final_target_weights == []
+    assert result.trade_intents == []
+    assert result.failure_reasons == ["inverse-rank seed exceeds max_position_weight"]
+    constraint = next(item for item in result.constraint_evaluations if item.constraint_id == "max_position_weight")
+    assert constraint.status == "fail"
+    assert constraint.actual_value == 0.54545455
+    assert constraint.limit_value == 0.54
+
+
 def test_build_construction_run_fails_closed_when_eligible_ranked_universe_is_too_small(tmp_path: Path) -> None:
     result = build_construction_run(
         _request(top_n=4, max_position_weight=0.5),
@@ -388,6 +439,21 @@ def test_build_construction_run_matches_legacy_top_n_equal_weight_selection(tmp_
         {"symbol": "AAA", "weight": 0.5},
         {"symbol": "BBB", "weight": 0.5},
     ]
+
+
+def test_build_construction_run_keeps_equal_weight_policy_weights_unchanged_after_weighting_refactor(tmp_path: Path) -> None:
+    result = build_construction_run(
+        _request(top_n=3, max_position_weight=0.34, policy_id="top_n_equal_weight_v1"),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "feasible"
+    assert [item.model_dump(mode="json") for item in result.final_target_weights] == [
+        {"symbol": "AAA", "weight": 0.33333333},
+        {"symbol": "BBB", "weight": 0.33333333},
+        {"symbol": "CCC", "weight": 0.33333334},
+    ]
+    assert next(item for item in result.constraint_evaluations if item.constraint_id == "max_position_weight").status == "pass"
 
 
 def test_build_construction_run_persists_infeasible_artifact_when_output_is_valid(tmp_path: Path) -> None:

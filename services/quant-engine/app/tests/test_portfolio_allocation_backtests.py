@@ -1615,6 +1615,82 @@ def test_build_construction_artifact_replay_preview_uses_persisted_final_target_
     assert replay_response.replay.candidate_result.portfolio_name == "Construction Artifact Candidate"
 
 
+def test_build_construction_artifact_replay_preview_uses_persisted_inverse_rank_weights(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 100.2, 100.8, 101.4, 101.9),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-inverse-rank-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                    {"symbol": "CCC", "rank": 3, "eligible": True, "score": 0.7},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "policy": {"policy_id": "top_n_inverse_rank_weight_v1", "top_n": 3},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.55,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=artifact.artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.replay_provenance.policy_id == "top_n_inverse_rank_weight_v1"
+    assert replay_response.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.54545455),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.27272727),
+        PortfolioWeightInput(symbol="CCC", target_weight=0.18181818),
+    ]
+
+
 def test_build_construction_artifact_replay_preview_requires_normalized_current_portfolio_weights(
     tmp_path,
 ) -> None:

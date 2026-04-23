@@ -2,7 +2,7 @@
 
 `construction/run` is the first-class persisted backend construction engine for deterministic target-weight artifacts.
 
-V1 is intentionally frozen to `top_n_equal_weight_v1` and consumes ranked candidates as an input artifact rather than re-ranking inside construction.
+V1 supports a narrow persisted policy set and consumes ranked candidates as an input artifact rather than re-ranking inside construction.
 
 ## Persistence
 
@@ -15,11 +15,15 @@ V1 is intentionally frozen to `top_n_equal_weight_v1` and consumes ranked candid
 ## Deterministic policy execution
 
 - normalizes ranked candidates and current portfolio weights into a stable auditable input payload
-- executes the internal deterministic selection pipeline for `top_n_equal_weight_v1` using `eligible_only` then `take_top_n`
+- executes the internal deterministic selection pipeline using `eligible_only` then `take_top_n`
 - captures the ordered `selection_rule_trace` during policy execution and persists that trace on the artifact
-- preserves the external route and artifact contract; `policy_id` remains `top_n_equal_weight_v1`
-- seeds final target weights as equal weight across the selected names
+- preserves the external route and artifact contract while persisting the requested `policy_id`
+- separates deterministic selection from policy-specific weighting
+- shipped weighting policies are:
+  - `top_n_equal_weight_v1`: equal weight across the selected names
+  - `top_n_inverse_rank_weight_v1`: weights proportional to `1 / selected_order_rank`, normalized to sum to `1.0`
 - enforces only the shipped V1 constraint family: `full_investment`, `long_only`, `eligible_ranked_universe_only`, and `max_position_weight`
+- evaluates constraints against the actual generated target weights for the chosen policy
 - fails closed on infeasible requests; no repair logic or fallback construction is applied
 
 ## Replay provenance

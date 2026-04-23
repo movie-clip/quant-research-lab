@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import type { EtfRankingResponse } from '../portfolio/types'
+import type { EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingResponse } from '../portfolio/types'
 import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, IntentBoundSeededEtfReplacementRankingCandidateSnapshot } from '../portfolio/workspaceTypes'
 
 const PEER_GROUP_OPTIONS = ['Sector UCITS ETF', 'Bond UCITS ETF', 'Broad Market UCITS ETF', 'Thematic UCITS ETF', 'Commodity UCITS ETF']
@@ -81,6 +81,14 @@ function rankingRequestedUniverse(result: EtfRankingResponse) {
   return result.effective_inputs.requested_universe
 }
 
+async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(typeof payload === 'object' && payload != null && 'detail' in payload && typeof payload.detail === 'string' ? payload.detail : fallbackMessage)
+  }
+  return payload as T
+}
+
 function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRankingResponse['ranked_universe'][number], baseSymbol: string): CandidateImprovementSeed {
   return {
     kind: 'etf_replacement_candidate',
@@ -158,13 +166,24 @@ type EtfRankingPanelProps = {
 
 export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: EtfRankingPanelProps) {
   const apiBase = useMemo(() => '/api', [])
+  const resultRequestOwnerRef = useRef(0)
   const [universe, setUniverse] = useState('IUFS,IUHC,VDST,VUAA')
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
   const [lookbackMonths, setLookbackMonths] = useState('6')
   const [peerGroup, setPeerGroup] = useState('Sector UCITS ETF')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<EtfRankingResponse | null>(null)
+  const [runLoading, setRunLoading] = useState(false)
+  const [runError, setRunError] = useState<string | null>(null)
+  const [result, setResult] = useState<EtfRankingArtifact | null>(null)
+  const [resultSource, setResultSource] = useState<'fresh' | 'recent' | null>(null)
+  const [recentMetadataLoading, setRecentMetadataLoading] = useState(false)
+  const [recentMetadataError, setRecentMetadataError] = useState<string | null>(null)
+  const [recentMetadata, setRecentMetadata] = useState<EtfRankingArtifactRecentMetadata | null>(null)
+  const [selectedRecentPeerGroup, setSelectedRecentPeerGroup] = useState('')
+  const [recentRunsLoading, setRecentRunsLoading] = useState(false)
+  const [recentRunsError, setRecentRunsError] = useState<string | null>(null)
+  const [recentRuns, setRecentRuns] = useState<EtfRankingArtifactRecentRow[]>([])
+  const [artifactLoadingId, setArtifactLoadingId] = useState<string | null>(null)
+  const [artifactLoadError, setArtifactLoadError] = useState<string | null>(null)
   const [seedTarget, setSeedTarget] = useState<EtfRankingResponse['ranked_universe'][number] | null>(null)
   const [selectedBaseSymbol, setSelectedBaseSymbol] = useState('')
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null)
@@ -178,9 +197,69 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
   const resolvedExcludedSymbols = result ? rankingExcludedSymbols(result) : []
   const incumbentOptions = useMemo(() => Array.from(new Set(draftSymbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))).sort(), [draftSymbols])
 
+  async function loadRecentMetadata() {
+    setRecentMetadataLoading(true)
+    setRecentMetadataError(null)
+    try {
+      const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/recent/metadata`)
+      const payload = await readJsonResponse<EtfRankingArtifactRecentMetadata>(response, 'Recent ETF ranking metadata is unavailable')
+      setRecentMetadata(payload)
+      if (selectedRecentPeerGroup && !payload.available_effective_peer_groups.includes(selectedRecentPeerGroup)) {
+        setSelectedRecentPeerGroup('')
+      }
+    } catch (caught) {
+      setRecentMetadata(null)
+      setRecentMetadataError(caught instanceof Error ? caught.message : 'Recent ETF ranking metadata is unavailable')
+    } finally {
+      setRecentMetadataLoading(false)
+    }
+  }
+
+  async function loadRecentRuns(effectivePeerGroup: string) {
+    setRecentRunsLoading(true)
+    setRecentRunsError(null)
+    try {
+      const search = new URLSearchParams()
+      if (effectivePeerGroup) search.set('effective_peer_group', effectivePeerGroup)
+      const query = search.toString()
+      const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/recent${query ? `?${query}` : ''}`)
+      const payload = await readJsonResponse<EtfRankingArtifactRecentRow[]>(response, 'Recent ETF ranking runs are unavailable')
+      setRecentRuns(payload)
+    } catch (caught) {
+      setRecentRuns([])
+      setRecentRunsError(caught instanceof Error ? caught.message : 'Recent ETF ranking runs are unavailable')
+    } finally {
+      setRecentRunsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadRecentMetadata()
+  }, [])
+
+  useEffect(() => {
+    void loadRecentRuns(selectedRecentPeerGroup)
+  }, [selectedRecentPeerGroup])
+
+  function beginResultRequest(nextSource: 'fresh' | 'recent', artifactId?: string) {
+    const owner = resultRequestOwnerRef.current + 1
+    resultRequestOwnerRef.current = owner
+    setRunLoading(nextSource === 'fresh')
+    setArtifactLoadingId(nextSource === 'recent' ? artifactId ?? null : null)
+    setRunError(null)
+    setArtifactLoadError(null)
+    setSeedTarget(null)
+    setSelectedBaseSymbol('')
+    setSeedSuccess(null)
+    return owner
+  }
+
+  function isActiveResultRequest(owner: number) {
+    return resultRequestOwnerRef.current === owner
+  }
+
   async function runRanking() {
-    setLoading(true)
-    setError(null)
+    const owner = beginResultRequest('fresh')
     try {
       const response = await fetch(`${apiBase}/strategy-lab/etf-ranking`, {
         method: 'POST',
@@ -192,19 +271,41 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
           peer_group: peerGroup || null,
         }),
       })
-      const payload = await response.json()
-      if (!response.ok) {
-        throw new Error(typeof payload?.detail === 'string' ? payload.detail : 'ETF ranking request failed')
-      }
-      setResult(payload as EtfRankingResponse)
-      setSeedTarget(null)
-      setSelectedBaseSymbol('')
-      setSeedSuccess(null)
+      const payload = await readJsonResponse<EtfRankingArtifact>(response, 'ETF ranking request failed')
+      if (!isActiveResultRequest(owner)) return
+      setResult(payload)
+      setResultSource('fresh')
+      setRunLoading(false)
+      void loadRecentMetadata()
+      void loadRecentRuns(selectedRecentPeerGroup)
     } catch (caught) {
-      setResult(null)
-      setError(caught instanceof Error ? caught.message : 'ETF ranking request failed')
+      if (!isActiveResultRequest(owner)) return
+      setRunError(caught instanceof Error ? caught.message : 'ETF ranking request failed')
+      setRunLoading(false)
     } finally {
-      setLoading(false)
+      if (isActiveResultRequest(owner)) {
+        setRunLoading(false)
+      }
+    }
+  }
+
+  async function loadRecentArtifact(artifactId: string) {
+    const owner = beginResultRequest('recent', artifactId)
+    try {
+      const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/${encodeURIComponent(artifactId)}`)
+      const payload = await readJsonResponse<EtfRankingArtifact>(response, 'ETF ranking artifact could not be loaded')
+      if (!isActiveResultRequest(owner)) return
+      setResult(payload)
+      setResultSource('recent')
+      setArtifactLoadingId(null)
+    } catch (caught) {
+      if (!isActiveResultRequest(owner)) return
+      setArtifactLoadError(caught instanceof Error ? caught.message : 'ETF ranking artifact could not be loaded')
+      setArtifactLoadingId(null)
+    } finally {
+      if (isActiveResultRequest(owner)) {
+        setArtifactLoadingId(null)
+      }
     }
   }
 
@@ -254,35 +355,137 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
         </div>
 
         <div className="dashboard-edit-actions dashboard-edit-actions-compact">
-          <button className={`primary-button${loading ? ' button-loading' : ''}`} type="button" onClick={() => void runRanking()} disabled={loading}>{loading ? 'Running...' : 'Run ETF Ranking'}</button>
+          <button className={`primary-button${runLoading ? ' button-loading' : ''}`} type="button" onClick={() => void runRanking()}>{runLoading ? 'Running...' : 'Run ETF Ranking'}</button>
         </div>
       </div>
 
-      {loading ? (
+      <section className="dashboard-bottom-grid">
+        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Recent Runs</p></div><p className="helper">Filter persisted ranking artifacts by discovered peer group and load one into the same review path.</p></div>
+        <div className="summary-card">
+          <div className="split-grid compact-split-grid strategy-lab-config-grid">
+            <label className="field-group">
+              <span className="field-label">Peer Group Filter</span>
+              <select className="path-input" value={selectedRecentPeerGroup} onChange={(event) => setSelectedRecentPeerGroup(event.target.value)} disabled={recentMetadataLoading}>
+                <option value="">All peer groups</option>
+                {(recentMetadata?.available_effective_peer_groups ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <div className="field-group">
+              <span className="field-label">Discovery Source</span>
+              <p className="helper">Backend metadata routes define the filter list and recent artifact availability.</p>
+            </div>
+          </div>
+          <div className="dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="secondary-button" type="button" onClick={() => { void loadRecentMetadata(); void loadRecentRuns(selectedRecentPeerGroup) }} disabled={recentMetadataLoading || recentRunsLoading}>Refresh Recent Runs</button>
+          </div>
+
+          {recentMetadataLoading && !recentMetadata ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Loading recent-run filters.</p>
+              <p className="helper">Requesting available peer groups from artifact discovery metadata.</p>
+            </div>
+          ) : null}
+
+          {recentMetadataError ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Recent-run filters are unavailable.</p>
+              <p className="helper">Artifact discovery metadata could not be loaded.</p>
+              <p className="helper">{recentMetadataError}</p>
+            </div>
+          ) : null}
+
+          {artifactLoadError ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Recent artifact load failed.</p>
+              <p className="helper">The selected persisted ranking artifact could not be opened.</p>
+              <p className="helper">{artifactLoadError}</p>
+            </div>
+          ) : null}
+
+          {recentRunsLoading ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Loading recent ETF ranking runs.</p>
+              <p className="helper">Reading persisted ranking artifact summaries from the backend discovery route.</p>
+            </div>
+          ) : null}
+
+          {!recentRunsLoading && recentRunsError ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Recent ETF ranking runs are unavailable.</p>
+              <p className="helper">The recent artifacts list could not be loaded.</p>
+              <p className="helper">{recentRunsError}</p>
+            </div>
+          ) : null}
+
+          {!recentRunsLoading && !recentRunsError && !recentRuns.length ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">No recent ETF ranking runs found.</p>
+              <p className="helper">Run a ranking pass or widen the peer-group filter to load a persisted artifact.</p>
+            </div>
+          ) : null}
+
+          {!recentRunsLoading && !recentRunsError && recentRuns.length ? (
+            <div className="factor-snapshot-table-wrap">
+              <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-rank-grid-wide">
+                <span>As Of</span>
+                <span>Peer Group</span>
+                <span>Benchmark</span>
+                <span>Lookback</span>
+                <span>Confidence</span>
+                <span>Universe</span>
+                <span>Evaluated</span>
+                <span>Artifact</span>
+                <span>Action</span>
+              </div>
+              {recentRuns.map((item) => {
+                const isLoaded = resultSource === 'recent' && result?.artifact_id === item.artifact_id
+                const isLoadingArtifact = artifactLoadingId === item.artifact_id
+                return (
+                  <div className={`risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide ${isLoaded ? 'strategy-ranking-row-top' : ''}`} key={item.artifact_id}>
+                    <span>{item.ranking_basis_date}</span>
+                    <span>{item.effective_peer_group ?? 'Unspecified'}</span>
+                    <span>{item.benchmark_symbol}</span>
+                    <span>{item.lookback_months}</span>
+                    <span>{item.confidence}</span>
+                    <span>{item.universe_size}</span>
+                    <span>{item.evaluated_universe_size}</span>
+                    <span>{item.artifact_id}</span>
+                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><small>Open persisted result.</small></span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {runLoading ? (
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">Running ETF ranking.</p>
           <p className="helper">Applying peer-group eligibility, deterministic exclusions, component scoring, and ranking warnings from the backend contract.</p>
         </div>
       ) : null}
 
-      {!loading && !result && !error ? (
+      {!runLoading && !result && !runError ? (
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">Run a ranking pass to review ETF peer-group results.</p>
           <p className="helper">Compare same-mandate substitutes before carrying one into a draft review.</p>
         </div>
       ) : null}
 
-      {error ? (
+      {runError ? (
         <div className="empty-state-panel compact-empty-state">
           <p className="empty-state-title">ETF ranking failed.</p>
           <p className="helper">The request did not return a usable ranking payload.</p>
-          <p className="helper">{error}</p>
+          <p className="helper">{runError}</p>
         </div>
       ) : null}
 
       {result ? (
         <>
           <div className="tab-bar" style={{ justifyContent: 'flex-start', margin: '8px 0 0' }}>
+            <span className="backtest-source-badge">Source: {resultSource === 'recent' ? 'Recent Artifact' : 'Fresh Run'}</span>
+            {result.artifact_id ? <span className="backtest-source-badge">Artifact: {result.artifact_id}</span> : null}
             <span className="backtest-source-badge">Peer Group: {resolvedPeerGroup ?? 'none'}</span>
             <span className="backtest-source-badge">Confidence: {resolvedConfidence}</span>
             <span className="backtest-source-badge">Holdings Support: {resolvedSourceStatus?.holdings_support}</span>

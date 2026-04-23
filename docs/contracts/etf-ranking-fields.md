@@ -1,6 +1,6 @@
 # ETF Ranking Field Inventory
 
-This document captures the current backend contract for ETF ranking outputs used by the quant framework work.
+This document captures the current backend contract for shipped ETF ranking outputs, persisted artifacts, and recent-run discovery.
 
 The preferred authoritative contract shape is now grouped into:
 - `request`
@@ -18,7 +18,22 @@ Contract intent:
 
 Reproducibility guardrail:
 - these fields describe only metadata that is truthfully authoritative at runtime today
-- they do not imply persisted run ids, dataset revision ids, holdings snapshot revision ids, execution timestamps, or code version pinning
+- they do not imply dataset revision ids, holdings snapshot revision ids, exact execution timestamps, or code version pinning
+
+## Persisted Artifact Surface
+
+Routes:
+- `POST /strategy-lab/etf-ranking`
+  - runs the ETF ranking analysis and persists an immutable artifact before returning it
+- `GET /strategy-lab/etf-ranking/artifacts/{artifact_id}`
+  - reloads one persisted ETF ranking artifact by stable `artifact_id`
+
+Current persisted artifact envelope:
+- `schema_version`
+  - current value: `etf_ranking_artifact_v1`
+- `artifact_id`
+  - stable persisted ETF ranking artifact identity
+  - current ids use the `etf_ranking_artifact_` prefix
 
 ## Core Request Fields
 
@@ -127,6 +142,12 @@ Source schema:
 - explicit audit-level copy of ranking confidence
 - mirrors `warnings.confidence` for grouped contract readability in slice one
 
+## Current Consumer Flow
+
+- the desktop `ETF Ranking` surface is a current consumer of the persisted artifact contract
+- current shipped behavior uses recent metadata discovery to populate available peer-group filters, recent artifact discovery to browse saved runs, and artifact loading to reopen one selected run
+- a loaded persisted ETF ranking artifact can also seed the current desktop draft-review replacement flow
+
 ## Compatibility Top-Level Response Fields
 
 The following top-level fields remain present for current consumers and must remain compatible in this slice:
@@ -144,6 +165,42 @@ The following top-level fields remain present for current consumers and must rem
 - `warnings`
 - `ranked_universe`
 - `excluded_symbols`
+
+## Recent Artifact Listing
+
+Route:
+- `GET /strategy-lab/etf-ranking/artifacts/recent`
+
+Query params:
+- `limit`
+  - optional
+  - current max: `100`
+  - applied after invalid-row skipping, exact-match filtering, newest-first traversal, and `artifact_id` dedupe
+- `effective_peer_group`
+  - optional exact-match discovery filter against stored recent index rows
+  - current values follow persisted artifact output, for example `Sector UCITS ETF`
+  - `null` / omitted preserves current unfiltered behavior
+
+Behavior rules:
+- listing remains index-backed from `recent.jsonl`
+- filtering is applied during the recent index scan before final dedupe/limit assembly
+- ordering remains newest-first
+- dedupe remains by `artifact_id`
+- invalid index rows are skipped
+- missing or corrupt artifact files do not affect recent listing because the index row is authoritative for this route
+
+## Recent Artifact Discovery Metadata
+
+Route:
+- `GET /strategy-lab/etf-ranking/artifacts/recent/metadata`
+
+Response fields:
+- `available_effective_peer_groups`
+  - unique non-null `effective_peer_group` values discovered from the same recent index scan used by the recent listing route
+  - derived from `recent.jsonl` only; persisted artifact file presence or integrity does not matter
+  - traversal remains newest-first and dedupe remains by `artifact_id` before value collection
+  - invalid index rows are skipped
+  - current response omits `null` values entirely
 
 ### `ranked_universe[]`
 - ranked eligible rows after deterministic exclusions

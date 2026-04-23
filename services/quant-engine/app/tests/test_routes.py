@@ -110,6 +110,59 @@ def test_construction_route_is_registered(tmp_path, mocker) -> None:
     assert payload["normalized_inputs"]["policy_id"] == "top_n_equal_weight_v1"
 
 
+def test_construction_route_accepts_inverse_rank_weight_policy(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-inverse-rank-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                    {"symbol": "CCC", "rank": 3, "eligible": True, "score": 0.7},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "policy": {"policy_id": "top_n_inverse_rank_weight_v1", "top_n": 3},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.55,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "feasible"
+    assert payload["policy"]["policy_id"] == "top_n_inverse_rank_weight_v1"
+    assert payload["normalized_inputs"]["policy_id"] == "top_n_inverse_rank_weight_v1"
+    assert payload["final_target_weights"] == [
+        {"symbol": "AAA", "weight": 0.54545455},
+        {"symbol": "BBB", "weight": 0.27272727},
+        {"symbol": "CCC", "weight": 0.18181818},
+    ]
+
+
 def test_construction_artifact_route_is_registered(tmp_path, mocker) -> None:
     mocker.patch(
         "app.services.construction_artifact_service.get_settings",
@@ -708,6 +761,180 @@ def test_construction_artifact_replay_route_uses_explicit_reference_only_lineage
         {"symbol": "BBB", "target_weight": 0.5},
     ]
     assert payload["replay"]["reference_result"] is not None
+
+
+def test_construction_artifact_replay_route_uses_persisted_inverse_rank_weights(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.5},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 108.0},
+        ],
+        "AAA": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 102.0},
+            {"date": "2024-06-03", "price": 103.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "BBB": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.5},
+            {"date": "2024-02-01", "price": 101.0},
+            {"date": "2024-06-03", "price": 101.5},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "CCC": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.2},
+            {"date": "2024-02-01", "price": 100.8},
+            {"date": "2024-06-03", "price": 101.4},
+            {"date": "2024-12-31", "price": 101.9},
+        ],
+        "QQQ": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 104.0},
+            {"date": "2024-02-01", "price": 104.5},
+            {"date": "2024-06-03", "price": 106.0},
+            {"date": "2024-12-31", "price": 112.0},
+        ],
+        "IWD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.3},
+            {"date": "2024-06-03", "price": 101.8},
+            {"date": "2024-12-31", "price": 104.5},
+        ],
+        "IWM": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.0},
+            {"date": "2024-02-01", "price": 98.7},
+            {"date": "2024-06-03", "price": 99.8},
+            {"date": "2024-12-31", "price": 102.0},
+        ],
+        "XLF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 103.0},
+            {"date": "2024-02-01", "price": 103.2},
+            {"date": "2024-06-03", "price": 104.0},
+            {"date": "2024-12-31", "price": 107.0},
+        ],
+        "XLV": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.1},
+            {"date": "2024-12-31", "price": 103.5},
+        ],
+        "XLE": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 97.0},
+            {"date": "2024-02-01", "price": 97.2},
+            {"date": "2024-06-03", "price": 98.5},
+            {"date": "2024-12-31", "price": 101.0},
+        ],
+        "XLI": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 102.0},
+            {"date": "2024-02-01", "price": 102.4},
+            {"date": "2024-06-03", "price": 103.2},
+            {"date": "2024-12-31", "price": 105.2},
+        ],
+        "IEF": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.4},
+            {"date": "2024-02-01", "price": 100.5},
+            {"date": "2024-06-03", "price": 100.6},
+            {"date": "2024-12-31", "price": 101.2},
+        ],
+        "TLT": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 99.5},
+            {"date": "2024-02-01", "price": 99.0},
+            {"date": "2024-06-03", "price": 101.0},
+            {"date": "2024-12-31", "price": 104.0},
+        ],
+        "LQD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 100.8},
+            {"date": "2024-02-01", "price": 100.9},
+            {"date": "2024-06-03", "price": 101.2},
+            {"date": "2024-12-31", "price": 102.3},
+        ],
+        "GLD": [
+            {"date": "2024-01-02", "price": 100.0},
+            {"date": "2024-01-31", "price": 101.0},
+            {"date": "2024-02-01", "price": 101.4},
+            {"date": "2024-06-03", "price": 102.8},
+            {"date": "2024-12-31", "price": 104.1},
+        ],
+    }
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    construction_response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-replay-route-inverse-rank",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                    {"symbol": "CCC", "rank": 3, "eligible": True, "score": 0.7},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "policy": {"policy_id": "top_n_inverse_rank_weight_v1", "top_n": 3},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.55,
+            },
+        },
+    )
+
+    assert construction_response.status_code == 200
+    artifact_id = construction_response.json()["artifact_id"]
+
+    replay_response = client.post(
+        "/backtests/portfolio-allocation/construction-artifact-preview",
+        json={
+            "construction_artifact_id": artifact_id,
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000,
+            "execution_lag_days": 1,
+        },
+    )
+
+    assert replay_response.status_code == 200
+    payload = replay_response.json()
+    assert payload["replay_provenance"]["policy_id"] == "top_n_inverse_rank_weight_v1"
+    assert payload["candidate_weights"] == [
+        {"symbol": "AAA", "target_weight": 0.54545455},
+        {"symbol": "BBB", "target_weight": 0.27272727},
+        {"symbol": "CCC", "target_weight": 0.18181818},
+    ]
 
 
 def test_construction_artifact_replay_route_rejects_missing_inline_weight_contract(tmp_path, mocker) -> None:

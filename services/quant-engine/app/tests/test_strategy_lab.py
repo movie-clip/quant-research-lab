@@ -1,10 +1,15 @@
 import math
+from pathlib import Path
+from types import SimpleNamespace
+import json
 
 from fastapi.testclient import TestClient
+import pytest
 from pytest import MonkeyPatch
 
 from app.api.main import app
 from app.schemas.research import BarRecord
+from app.services.etf_ranking_artifact_service import load_etf_ranking_artifact
 from app.services import strategy_lab as strategy_lab_module
 from app.services.strategy_lab import _blended_momentum, _median_dollar_volume, _normalize_fmp_holdings, _normalize_fmp_holdings_snapshot, _rows_to_monthly_bars, build_etf_ranking_analysis
 
@@ -24,6 +29,8 @@ def test_etf_ranking_route_returns_ranked_universe_and_component_scores() -> Non
     assert response.status_code == 200
     payload = response.json()
     assert payload["ranking_id"] == "etf_ranking_engine_v1"
+    assert payload["schema_version"] == "etf_ranking_artifact_v1"
+    assert payload["artifact_id"].startswith("etf_ranking_artifact_")
     assert payload["ranked_universe"]
     assert payload["ranked_universe"][0]["rank"] == 1
     assert payload["ranked_universe"][0]["component_scores"]["momentum"]["normalized_score"] is not None
@@ -47,6 +54,911 @@ def test_etf_ranking_route_returns_ranked_universe_and_component_scores() -> Non
     assert payload["run_metadata"]["price_basis"] == payload["price_basis"]
     assert payload["run_metadata"]["source_status"] == payload["source_status"]
     assert payload["run_metadata"]["confidence"] == payload["warnings"]["confidence"]
+
+
+def test_etf_ranking_post_persists_artifact_and_get_by_id_returns_same_payload(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    post_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert post_response.status_code == 200
+    post_payload = post_response.json()
+    artifact_id = post_payload["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    assert artifact_path.exists()
+
+    get_response = client.get(f"/strategy-lab/etf-ranking/artifacts/{artifact_id}")
+
+    assert get_response.status_code == 200
+    assert get_response.json() == post_payload
+
+
+def test_etf_ranking_artifact_id_is_stable_for_same_content(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    request_payload = {
+        "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+        "benchmark_symbol": "SPY",
+        "lookback_months": 6,
+    }
+
+    first = client.post("/strategy-lab/etf-ranking", json=request_payload)
+    second = client.post("/strategy-lab/etf-ranking", json=request_payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["artifact_id"] == second.json()["artifact_id"]
+    assert len(list(tmp_path.glob("*.json"))) == 1
+
+
+def test_etf_ranking_artifact_id_changes_when_content_changes(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    first = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    second = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["artifact_id"] != second.json()["artifact_id"]
+
+
+def test_load_etf_ranking_artifact_rejects_corrupted_payload(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert response.status_code == 200
+    artifact_id = response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["artifact_id"] = "etf_ranking_artifact_wrong"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="etf ranking artifact_id does not match canonical artifact content"):
+        load_etf_ranking_artifact(artifact_id)
+
+
+def test_etf_ranking_get_by_id_returns_400_for_corrupted_persisted_payload(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert response.status_code == 200
+    artifact_id = response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    artifact_path.write_text("{not-json", encoding="utf-8")
+
+    get_response = client.get(f"/strategy-lab/etf-ranking/artifacts/{artifact_id}")
+
+    assert get_response.status_code == 400
+    assert "invalid persisted etf ranking artifact json" in get_response.json()["detail"]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_returns_empty_state(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.get("/strategy-lab/etf-ranking/artifacts/recent")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_recent_etf_ranking_artifact_metadata_endpoint_returns_empty_state(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.get("/strategy-lab/etf-ranking/artifacts/recent/metadata")
+
+    assert response.status_code == 200
+    assert response.json() == {"available_effective_peer_groups": []}
+
+
+def test_recent_etf_ranking_artifacts_endpoint_orders_newest_first(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    first = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    second = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLE", "XLI", "XLB"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    recent_response = client.get("/strategy-lab/etf-ranking/artifacts/recent")
+
+    assert recent_response.status_code == 200
+    recent = recent_response.json()
+    assert [row["artifact_id"] for row in recent[:2]] == [
+        second.json()["artifact_id"],
+        first.json()["artifact_id"],
+    ]
+    assert recent[0]["ranking_id"] == second.json()["ranking_id"]
+    assert recent[0]["methodology_id"] == second.json()["run_metadata"]["methodology_id"]
+    assert recent[0]["as_of_date"] == second.json()["as_of_date"]
+    assert recent[0]["ranking_basis_date"] == second.json()["run_metadata"]["ranking_basis_date"]
+    assert recent[0]["benchmark_symbol"] == second.json()["benchmark_symbol"]
+    assert recent[0]["lookback_months"] == second.json()["lookback_months"]
+    assert recent[0]["universe_size"] == len(second.json()["universe"])
+    assert recent[0]["evaluated_universe_size"] == len(second.json()["ranked_universe"])
+    assert recent[0]["effective_peer_group"] == second.json()["effective_peer_group"]
+    assert recent[0]["confidence"] == second.json()["warnings"]["confidence"]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_applies_limit(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    responses = [
+        client.post(
+            "/strategy-lab/etf-ranking",
+            json={
+                "universe": universe,
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+        )
+        for universe in (["XLK", "XLF", "XLV"], ["XLE", "XLI", "XLB"], ["XLP", "XLU", "XLY"])
+    ]
+
+    assert all(response.status_code == 200 for response in responses)
+
+    recent_response = client.get("/strategy-lab/etf-ranking/artifacts/recent?limit=2")
+
+    assert recent_response.status_code == 200
+    recent = recent_response.json()
+    assert len(recent) == 2
+    assert [row["artifact_id"] for row in recent] == [
+        responses[2].json()["artifact_id"],
+        responses[1].json()["artifact_id"],
+    ]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_deduplicates_repeated_identical_runs(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    request_payload = {
+        "universe": ["XLK", "XLF", "XLV", "XLE", "XLI"],
+        "benchmark_symbol": "SPY",
+        "lookback_months": 6,
+    }
+
+    first = client.post("/strategy-lab/etf-ranking", json=request_payload)
+    second = client.post("/strategy-lab/etf-ranking", json=request_payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["artifact_id"] == second.json()["artifact_id"]
+
+    recent_response = client.get("/strategy-lab/etf-ranking/artifacts/recent")
+
+    assert recent_response.status_code == 200
+    recent = recent_response.json()
+    assert len(recent) == 1
+    assert recent[0]["artifact_id"] == first.json()["artifact_id"]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_uses_index_when_artifact_files_are_missing_or_corrupted(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    valid_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    missing_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLE", "XLI", "XLB"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    corrupted_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLP", "XLU", "XLY"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert valid_response.status_code == 200
+    assert missing_response.status_code == 200
+    assert corrupted_response.status_code == 200
+
+    missing_path = tmp_path / f"{missing_response.json()['artifact_id']}.json"
+    corrupted_path = tmp_path / f"{corrupted_response.json()['artifact_id']}.json"
+    missing_path.unlink()
+    corrupted_path.write_text("{not-json", encoding="utf-8")
+
+    recent_response = client.get("/strategy-lab/etf-ranking/artifacts/recent")
+
+    assert recent_response.status_code == 200
+    assert recent_response.json() == [
+        {
+            "artifact_id": corrupted_response.json()["artifact_id"],
+            "ranking_id": corrupted_response.json()["ranking_id"],
+            "methodology_id": corrupted_response.json()["run_metadata"]["methodology_id"],
+            "as_of_date": corrupted_response.json()["as_of_date"],
+            "ranking_basis_date": corrupted_response.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": corrupted_response.json()["benchmark_symbol"],
+            "lookback_months": corrupted_response.json()["lookback_months"],
+            "universe_size": len(corrupted_response.json()["universe"]),
+            "evaluated_universe_size": len(corrupted_response.json()["ranked_universe"]),
+            "effective_peer_group": corrupted_response.json()["effective_peer_group"],
+            "confidence": corrupted_response.json()["warnings"]["confidence"],
+        },
+        {
+            "artifact_id": missing_response.json()["artifact_id"],
+            "ranking_id": missing_response.json()["ranking_id"],
+            "methodology_id": missing_response.json()["run_metadata"]["methodology_id"],
+            "as_of_date": missing_response.json()["as_of_date"],
+            "ranking_basis_date": missing_response.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": missing_response.json()["benchmark_symbol"],
+            "lookback_months": missing_response.json()["lookback_months"],
+            "universe_size": len(missing_response.json()["universe"]),
+            "evaluated_universe_size": len(missing_response.json()["ranked_universe"]),
+            "effective_peer_group": missing_response.json()["effective_peer_group"],
+            "confidence": missing_response.json()["warnings"]["confidence"],
+        },
+        {
+            "artifact_id": valid_response.json()["artifact_id"],
+            "ranking_id": valid_response.json()["ranking_id"],
+            "methodology_id": valid_response.json()["run_metadata"]["methodology_id"],
+            "as_of_date": valid_response.json()["as_of_date"],
+            "ranking_basis_date": valid_response.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": valid_response.json()["benchmark_symbol"],
+            "lookback_months": valid_response.json()["lookback_months"],
+            "universe_size": len(valid_response.json()["universe"]),
+            "evaluated_universe_size": len(valid_response.json()["ranked_universe"]),
+            "effective_peer_group": valid_response.json()["effective_peer_group"],
+            "confidence": valid_response.json()["warnings"]["confidence"],
+        }
+    ]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_skips_invalid_index_rows(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert response.status_code == 200
+
+    index_path = tmp_path / "recent.jsonl"
+    with index_path.open("a", encoding="utf-8") as handle:
+        handle.write("not-json\n")
+        handle.write("[]\n")
+        handle.write(json.dumps({"artifact_id": 123}, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
+        handle.write(json.dumps({"artifact_id": "etf_ranking_artifact_broken"}, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
+
+    recent_response = client.get("/strategy-lab/etf-ranking/artifacts/recent")
+
+    assert recent_response.status_code == 200
+    assert recent_response.json() == [
+        {
+            "artifact_id": response.json()["artifact_id"],
+            "ranking_id": response.json()["ranking_id"],
+            "methodology_id": response.json()["run_metadata"]["methodology_id"],
+            "as_of_date": response.json()["as_of_date"],
+            "ranking_basis_date": response.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": response.json()["benchmark_symbol"],
+            "lookback_months": response.json()["lookback_months"],
+            "universe_size": len(response.json()["universe"]),
+            "evaluated_universe_size": len(response.json()["ranked_universe"]),
+            "effective_peer_group": response.json()["effective_peer_group"],
+            "confidence": response.json()["warnings"]["confidence"],
+        }
+    ]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_limit_counts_unique_valid_rows_only(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    first = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    second = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLE", "XLI", "XLB"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    duplicate_second = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLE", "XLI", "XLB"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert duplicate_second.status_code == 200
+    assert second.json()["artifact_id"] == duplicate_second.json()["artifact_id"]
+
+    index_path = tmp_path / "recent.jsonl"
+    with index_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"artifact_id": "broken-row"}, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
+
+    recent_response = client.get("/strategy-lab/etf-ranking/artifacts/recent?limit=2")
+
+    assert recent_response.status_code == 200
+    assert [row["artifact_id"] for row in recent_response.json()] == [
+        second.json()["artifact_id"],
+        first.json()["artifact_id"],
+    ]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_filters_by_effective_peer_group(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    unfiltered = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    sector = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["IUFS", "IUHC", "VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Sector UCITS ETF",
+        },
+    )
+    bond = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Bond UCITS ETF",
+        },
+    )
+
+    assert unfiltered.status_code == 200
+    assert sector.status_code == 200
+    assert bond.status_code == 200
+
+    recent_response = client.get(
+        "/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Sector%20UCITS%20ETF"
+    )
+
+    assert recent_response.status_code == 200
+    assert recent_response.json() == [
+        {
+            "artifact_id": sector.json()["artifact_id"],
+            "ranking_id": sector.json()["ranking_id"],
+            "methodology_id": sector.json()["run_metadata"]["methodology_id"],
+            "as_of_date": sector.json()["as_of_date"],
+            "ranking_basis_date": sector.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": sector.json()["benchmark_symbol"],
+            "lookback_months": sector.json()["lookback_months"],
+            "universe_size": len(sector.json()["universe"]),
+            "evaluated_universe_size": len(sector.json()["ranked_universe"]),
+            "effective_peer_group": sector.json()["effective_peer_group"],
+            "confidence": sector.json()["warnings"]["confidence"],
+        }
+    ]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_returns_empty_when_filter_has_no_matches(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert response.status_code == 200
+
+    recent_response = client.get(
+        "/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Sector%20UCITS%20ETF"
+    )
+
+    assert recent_response.status_code == 200
+    assert recent_response.json() == []
+
+
+def test_recent_etf_ranking_artifact_metadata_endpoint_excludes_nulls_and_deduplicates_duplicate_rows(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    unfiltered = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+    sector = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["IUFS", "IUHC", "VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Sector UCITS ETF",
+        },
+    )
+    duplicate_sector = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["IUFS", "IUHC", "VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Sector UCITS ETF",
+        },
+    )
+    bond = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Bond UCITS ETF",
+        },
+    )
+
+    assert unfiltered.status_code == 200
+    assert sector.status_code == 200
+    assert duplicate_sector.status_code == 200
+    assert bond.status_code == 200
+    assert sector.json()["artifact_id"] == duplicate_sector.json()["artifact_id"]
+
+    response = client.get("/strategy-lab/etf-ranking/artifacts/recent/metadata")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "available_effective_peer_groups": [
+            bond.json()["effective_peer_group"],
+            sector.json()["effective_peer_group"],
+        ]
+    }
+
+
+def test_recent_etf_ranking_artifact_metadata_endpoint_skips_invalid_index_rows(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["IUFS", "IUHC", "VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Sector UCITS ETF",
+        },
+    )
+
+    assert response.status_code == 200
+
+    index_path = tmp_path / "recent.jsonl"
+    with index_path.open("a", encoding="utf-8") as handle:
+        handle.write("not-json\n")
+        handle.write("[]\n")
+        handle.write(json.dumps({"artifact_id": 123}, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
+        handle.write(json.dumps({"artifact_id": "etf_ranking_artifact_broken"}, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
+
+    metadata_response = client.get("/strategy-lab/etf-ranking/artifacts/recent/metadata")
+
+    assert metadata_response.status_code == 200
+    assert metadata_response.json() == {
+        "available_effective_peer_groups": [response.json()["effective_peer_group"]]
+    }
+
+
+def test_recent_etf_ranking_artifact_metadata_endpoint_uses_index_when_artifact_files_are_missing_or_corrupted(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    missing_sector = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["IUFS", "IUHC", "VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Sector UCITS ETF",
+        },
+    )
+    corrupted_bond = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Bond UCITS ETF",
+        },
+    )
+
+    assert missing_sector.status_code == 200
+    assert corrupted_bond.status_code == 200
+
+    missing_path = tmp_path / f"{missing_sector.json()['artifact_id']}.json"
+    corrupted_path = tmp_path / f"{corrupted_bond.json()['artifact_id']}.json"
+    missing_path.unlink()
+    corrupted_path.write_text("{not-json", encoding="utf-8")
+
+    metadata_response = client.get("/strategy-lab/etf-ranking/artifacts/recent/metadata")
+
+    assert metadata_response.status_code == 200
+    assert metadata_response.json() == {
+        "available_effective_peer_groups": [
+            corrupted_bond.json()["effective_peer_group"],
+            missing_sector.json()["effective_peer_group"],
+        ]
+    }
+
+
+def test_recent_etf_ranking_artifact_metadata_endpoint_aligns_with_recent_listing_filters(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    responses = [
+        client.post(
+            "/strategy-lab/etf-ranking",
+            json={
+                "universe": universe,
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "peer_group": peer_group,
+            },
+        )
+        for universe, peer_group in (
+            (["IUFS", "IUHC", "VDST"], "Sector UCITS ETF"),
+            (["VDST"], "Bond UCITS ETF"),
+            (["VUAA"], "Broad Market UCITS ETF"),
+        )
+    ]
+    unfiltered = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert all(response.status_code == 200 for response in responses)
+    assert unfiltered.status_code == 200
+
+    metadata_response = client.get("/strategy-lab/etf-ranking/artifacts/recent/metadata")
+    recent_response = client.get("/strategy-lab/etf-ranking/artifacts/recent")
+
+    assert metadata_response.status_code == 200
+    assert recent_response.status_code == 200
+
+    expected_effective_peer_groups = []
+    for row in recent_response.json():
+        effective_peer_group = row["effective_peer_group"]
+        if effective_peer_group is None or effective_peer_group in expected_effective_peer_groups:
+            continue
+        expected_effective_peer_groups.append(effective_peer_group)
+
+    assert metadata_response.json() == {
+        "available_effective_peer_groups": expected_effective_peer_groups
+    }
+
+    for effective_peer_group in expected_effective_peer_groups:
+        filtered_response = client.get(
+            f"/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group={effective_peer_group.replace(' ', '%20')}"
+        )
+        assert filtered_response.status_code == 200
+        assert filtered_response.json()
+        assert all(row["effective_peer_group"] == effective_peer_group for row in filtered_response.json())
+
+
+def test_recent_etf_ranking_artifacts_endpoint_applies_limit_after_effective_peer_group_filter(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    responses = [
+        client.post(
+            "/strategy-lab/etf-ranking",
+            json={
+                "universe": universe,
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "peer_group": "Sector UCITS ETF",
+            },
+        )
+        for universe in (["IUFS", "IUHC"], ["BTEC", "IUHC"], ["IUFS", "BTEC"])
+    ]
+    unfiltered = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert all(response.status_code == 200 for response in responses)
+    assert unfiltered.status_code == 200
+
+    recent_response = client.get(
+        "/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Sector%20UCITS%20ETF&limit=2"
+    )
+
+    assert recent_response.status_code == 200
+    assert [row["artifact_id"] for row in recent_response.json()] == [
+        responses[2].json()["artifact_id"],
+        responses[1].json()["artifact_id"],
+    ]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_deduplicates_after_effective_peer_group_filter(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    request_payload = {
+        "universe": ["IUFS", "IUHC", "VDST"],
+        "benchmark_symbol": "SPY",
+        "lookback_months": 6,
+        "peer_group": "Sector UCITS ETF",
+    }
+
+    first = client.post("/strategy-lab/etf-ranking", json=request_payload)
+    second = client.post("/strategy-lab/etf-ranking", json=request_payload)
+    other = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Bond UCITS ETF",
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert other.status_code == 200
+    assert first.json()["artifact_id"] == second.json()["artifact_id"]
+
+    recent_response = client.get(
+        "/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Sector%20UCITS%20ETF"
+    )
+
+    assert recent_response.status_code == 200
+    assert recent_response.json() == [
+        {
+            "artifact_id": first.json()["artifact_id"],
+            "ranking_id": first.json()["ranking_id"],
+            "methodology_id": first.json()["run_metadata"]["methodology_id"],
+            "as_of_date": first.json()["as_of_date"],
+            "ranking_basis_date": first.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": first.json()["benchmark_symbol"],
+            "lookback_months": first.json()["lookback_months"],
+            "universe_size": len(first.json()["universe"]),
+            "evaluated_universe_size": len(first.json()["ranked_universe"]),
+            "effective_peer_group": first.json()["effective_peer_group"],
+            "confidence": first.json()["warnings"]["confidence"],
+        }
+    ]
+
+
+def test_recent_etf_ranking_artifacts_endpoint_filter_uses_index_when_artifact_files_are_missing_or_corrupted(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    valid_sector = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["IUFS", "IUHC", "VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Sector UCITS ETF",
+        },
+    )
+    missing_sector = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["BTEC", "IUFS"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Sector UCITS ETF",
+        },
+    )
+    corrupted_bond = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["VDST"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "peer_group": "Bond UCITS ETF",
+        },
+    )
+
+    assert valid_sector.status_code == 200
+    assert missing_sector.status_code == 200
+    assert corrupted_bond.status_code == 200
+
+    missing_path = tmp_path / f"{missing_sector.json()['artifact_id']}.json"
+    corrupted_path = tmp_path / f"{corrupted_bond.json()['artifact_id']}.json"
+    missing_path.unlink()
+    corrupted_path.write_text("{not-json", encoding="utf-8")
+
+    recent_response = client.get(
+        "/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Sector%20UCITS%20ETF"
+    )
+
+    assert recent_response.status_code == 200
+    assert recent_response.json() == [
+        {
+            "artifact_id": missing_sector.json()["artifact_id"],
+            "ranking_id": missing_sector.json()["ranking_id"],
+            "methodology_id": missing_sector.json()["run_metadata"]["methodology_id"],
+            "as_of_date": missing_sector.json()["as_of_date"],
+            "ranking_basis_date": missing_sector.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": missing_sector.json()["benchmark_symbol"],
+            "lookback_months": missing_sector.json()["lookback_months"],
+            "universe_size": len(missing_sector.json()["universe"]),
+            "evaluated_universe_size": len(missing_sector.json()["ranked_universe"]),
+            "effective_peer_group": missing_sector.json()["effective_peer_group"],
+            "confidence": missing_sector.json()["warnings"]["confidence"],
+        },
+        {
+            "artifact_id": valid_sector.json()["artifact_id"],
+            "ranking_id": valid_sector.json()["ranking_id"],
+            "methodology_id": valid_sector.json()["run_metadata"]["methodology_id"],
+            "as_of_date": valid_sector.json()["as_of_date"],
+            "ranking_basis_date": valid_sector.json()["run_metadata"]["ranking_basis_date"],
+            "benchmark_symbol": valid_sector.json()["benchmark_symbol"],
+            "lookback_months": valid_sector.json()["lookback_months"],
+            "universe_size": len(valid_sector.json()["universe"]),
+            "evaluated_universe_size": len(valid_sector.json()["ranked_universe"]),
+            "effective_peer_group": valid_sector.json()["effective_peer_group"],
+            "confidence": valid_sector.json()["warnings"]["confidence"],
+        },
+    ]
 
 
 def test_etf_ranking_route_supports_custom_weights() -> None:

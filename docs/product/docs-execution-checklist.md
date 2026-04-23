@@ -31,7 +31,10 @@ Rule:
 ## Pass 4: Contracts and accuracy follow-through
 
 - [ ] Contracts owner: cross-check `docs/contracts/backtest-fields.md`, `docs/contracts/dashboard-fields.md`, and `docs/contracts/exposure-fields.md` against the canonical current-state doc
-- [ ] Architecture owner: confirm `docs/architecture/system-architecture.md` still cleanly separates current seams from future normalized architecture
+- [ ] Contracts owner: verify `docs/contracts/etf-ranking-fields.md` still matches shipped ETF ranking artifact creation, artifact reload, recent listing, and recent metadata discovery seams
+- [ ] Architecture owner: confirm `docs/architecture/system-architecture.md` states the shipped ETF ranking artifact seam explicitly as `POST /strategy-lab/etf-ranking`, `GET /strategy-lab/etf-ranking/artifacts/{artifact_id}`, `GET /strategy-lab/etf-ranking/artifacts/recent`, and `GET /strategy-lab/etf-ranking/artifacts/recent/metadata`
+- [ ] Architecture owner: confirm `docs/architecture/system-architecture.md` describes ranking as a narrow ETF-specific shipped seam, not a generalized persisted ranking platform
+- [ ] Product docs owner: verify wording for ETF ranking artifact reuse, recent-run discovery, and `effective_peer_group` filtering stays aligned between `docs/product/current-product-state.md` and `docs/contracts/etf-ranking-fields.md`
 - [ ] Quant / methodology owner: update `docs/finance/financial-methodology.md` if any current-state wording exposes undocumented finance behavior
 
 ## Ready-for-next-specialists handoff

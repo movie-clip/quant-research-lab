@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 ConstructionRunStatus = Literal["feasible", "infeasible", "rejected"]
 ConstructionConstraintStatus = Literal["pass", "binding", "fail", "not_evaluated"]
-ConstructionPolicyId = Literal["top_n_equal_weight_v1"]
+ConstructionPolicyId = Literal["top_n_equal_weight_v1", "top_n_inverse_rank_weight_v1"]
 ConstructionArtifactSchemaVersion = Literal["construction_artifact_v1"]
 ConstructionTradeAction = Literal["buy", "sell", "hold", "initiate", "exit"]
 ConstructionSelectionRuleId = Literal["eligible_only", "take_top_n"]

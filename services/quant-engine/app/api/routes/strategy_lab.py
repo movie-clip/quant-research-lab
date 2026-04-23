@@ -1,10 +1,22 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingRequest, EtfRankingResponse, IntentBoundEtfReplacementRankingRequest, IntentBoundEtfReplacementRankingResponse
+from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingRequest, IntentBoundEtfReplacementRankingRequest, IntentBoundEtfReplacementRankingResponse
 from app.services.market_data import MarketDataService
+from app.services.etf_ranking_artifact_service import (
+    EtfRankingArtifactIntegrityValidationError,
+    EtfRankingArtifactInvalidJsonError,
+    EtfRankingArtifactMissingFileError,
+    EtfRankingArtifactNonObjectPayloadError,
+    EtfRankingArtifactPersistenceError,
+    EtfRankingArtifactSchemaValidationError,
+    get_recent_etf_ranking_artifact_metadata,
+    list_recent_etf_ranking_artifacts,
+    load_etf_ranking_artifact,
+    persist_etf_ranking_artifact,
+)
 from app.services.replacement_ranking import build_intent_bound_etf_replacement_ranking
 from app.services.strategy_lab import DEFAULT_ETF_ROTATION_BENCHMARK, DEFAULT_ETF_ROTATION_UNIVERSE, build_etf_momentum_strategy_analysis, build_etf_ranking_analysis
 
@@ -28,15 +40,15 @@ class HoldingsRefreshResponse(BaseModel):
     refreshed: list[dict[str, int | str | None]] = Field(default_factory=list)
 
 
-@router.post("/strategy-lab/etf-ranking", response_model=EtfRankingResponse)
-def run_etf_ranking(request: EtfRankingRequest) -> EtfRankingResponse:
+@router.post("/strategy-lab/etf-ranking", response_model=EtfRankingArtifact)
+def run_etf_ranking(request: EtfRankingRequest) -> EtfRankingArtifact:
     if request.lookback_months < 1:
         raise HTTPException(status_code=400, detail="lookback_months must be at least 1")
     if not request.universe:
         raise HTTPException(status_code=400, detail="universe must include at least one symbol")
 
     try:
-        return build_etf_ranking_analysis(
+        ranking = build_etf_ranking_analysis(
             universe=request.universe,
             benchmark_symbol=request.benchmark_symbol,
             lookback_months=request.lookback_months,
@@ -44,7 +56,37 @@ def run_etf_ranking(request: EtfRankingRequest) -> EtfRankingResponse:
             peer_group=request.peer_group,
             weights=request.weights,
         )
+        return persist_etf_ranking_artifact(ranking)
     except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/strategy-lab/etf-ranking/artifacts/recent", response_model=list[EtfRankingArtifactRecentRow])
+def get_recent_etf_ranking_artifacts(
+    limit: int = Query(20, ge=1, le=100),
+    effective_peer_group: str | None = Query(None),
+) -> list[EtfRankingArtifactRecentRow]:
+    return list_recent_etf_ranking_artifacts(limit=limit, effective_peer_group=effective_peer_group)
+
+
+@router.get("/strategy-lab/etf-ranking/artifacts/recent/metadata", response_model=EtfRankingArtifactRecentMetadata)
+def get_recent_etf_ranking_artifact_filters_metadata() -> EtfRankingArtifactRecentMetadata:
+    return get_recent_etf_ranking_artifact_metadata()
+
+
+@router.get("/strategy-lab/etf-ranking/artifacts/{artifact_id}", response_model=EtfRankingArtifact)
+def get_etf_ranking_artifact(artifact_id: str) -> EtfRankingArtifact:
+    try:
+        return load_etf_ranking_artifact(artifact_id)
+    except EtfRankingArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        EtfRankingArtifactInvalidJsonError,
+        EtfRankingArtifactNonObjectPayloadError,
+        EtfRankingArtifactSchemaValidationError,
+        EtfRankingArtifactIntegrityValidationError,
+        EtfRankingArtifactPersistenceError,
+    ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

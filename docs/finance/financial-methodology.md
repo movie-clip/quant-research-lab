@@ -249,15 +249,18 @@ The codebase now has two shipped construction surfaces.
 
 - route: `POST /construction/run`
 - persisted load route: `GET /construction/artifacts/{artifact_id}`
-- current persisted policy: `top_n_equal_weight_v1`
+- current persisted policies: `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
 - current deterministic selection pipeline: `eligible_only` then `take_top_n`
 - policy execution captures and persists `selection_rule_trace` provenance
 - replay consumption happens through `POST /backtests/portfolio-allocation/construction-artifact-preview`
 
 Current basis rules:
 - consumes ranked candidates plus current portfolio weights as explicit input artifacts
-- seeds equal weights across selected names
+- keeps deterministic selection separate from weighting
+- `top_n_equal_weight_v1` seeds equal weights across selected names
+- `top_n_inverse_rank_weight_v1` assigns weights proportional to inverse selected-order rank and normalizes them to sum to `1.0`
 - enforces only the shipped constraint family for this policy slice
+- evaluates constraints against the actual generated target weights for the selected policy
 - fails closed on infeasible requests rather than repairing or silently relaxing the policy
 
 ### Review-oriented single-replacement construction

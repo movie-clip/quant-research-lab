@@ -56,16 +56,25 @@ The desktop app should treat the quant engine as the source of truth for portfol
 ### Ranking and optimizer seams
 
 - `POST /strategy-lab/etf-ranking`
-  - generic ETF ranking
+  - narrow shipped ETF-specific ranking seam that persists an immutable artifact before returning it
+- `GET /strategy-lab/etf-ranking/artifacts/{artifact_id}`
+  - narrow ETF-specific persisted artifact load by stable `artifact_id`
+- `GET /strategy-lab/etf-ranking/artifacts/recent`
+  - narrow ETF-specific recent persisted artifact discovery seam with newest-first listing and optional `effective_peer_group` filtering
+- `GET /strategy-lab/etf-ranking/artifacts/recent/metadata`
+  - narrow ETF-specific recent discovery metadata seam for current consumers
 - `POST /ranking/etf-replacements`
   - intent-bound ETF replacement ranking
 - `POST /optimizer/preview`
   - hypothetical optimizer preview that can persist an explicit replay handoff reference
 
+Ranking remains intentionally narrow in current architecture docs: this shipped seam is ETF-specific persisted artifact creation and reuse, not yet a generalized ranking platform across broader universes or methodologies.
+
 ### Important implementation reality
 
 - `services/quant-engine/app/services/portfolio_backtest_engine.py` is the current integration seam for replay, replay diagnostics, construction-artifact replay, optimizer-handoff replay, and overlay-aware replay
 - `services/quant-engine/app/services/construction_run_service.py` and `services/quant-engine/app/services/construction_artifact_service.py` are the current persisted construction seams
+- `services/quant-engine/app/services/strategy_lab.py` is the current narrow shipped ETF ranking seam for persisted artifact creation, artifact reload, and recent discovery metadata
 - `services/quant-engine/app/services/optimizer_preview_service.py` and `services/quant-engine/app/services/optimizer_handoff_constraints.py` are the current optimizer preview and persisted-handoff seams
 - docs should describe these as real current boundaries until they are split further
 
@@ -116,11 +125,17 @@ Future normalized API groups should preserve, not hide, the current artifact sea
 ### Ranking, construction, optimizer, and replay
 
 1. define universe or review intent
-2. compute ranking output or accept explicit candidate inputs
+2. compute ETF ranking output and persist an immutable ranking artifact, or accept explicit candidate inputs through other narrow review seams
 3. construct candidate weights through either review-oriented construction or persisted construction policies
 4. optionally produce a hypothetical optimizer preview and persist a handoff reference
 5. replay baseline vs candidate through explicit artifact or handoff references
 6. emit replay metrics, diagnostics comparison, and provenance
+
+### Persisted ETF ranking artifact rule
+
+- ETF ranking persists an immutable artifact before return on the shipped `POST /strategy-lab/etf-ranking` seam
+- downstream ETF consumers can reopen one artifact by `artifact_id`, browse recent artifacts, and discover current `effective_peer_group` metadata from the recent index
+- docs must describe this as a current ETF-specific artifact seam only; they must not overstate it as a generalized ranking-run platform
 
 ### Persisted construction artifact rule
 

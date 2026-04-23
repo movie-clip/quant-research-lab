@@ -1443,6 +1443,29 @@ export type EtfRankingResponse = {
   }>
 }
 
+export type EtfRankingArtifact = EtfRankingResponse & {
+  schema_version: 'etf_ranking_artifact_v1'
+  artifact_id: string
+}
+
+export type EtfRankingArtifactRecentRow = {
+  artifact_id: string
+  ranking_id: string
+  methodology_id: string
+  as_of_date: string
+  ranking_basis_date: string
+  benchmark_symbol: string
+  lookback_months: number
+  universe_size: number
+  evaluated_universe_size: number
+  effective_peer_group: string | null
+  confidence: 'high' | 'medium' | 'low'
+}
+
+export type EtfRankingArtifactRecentMetadata = {
+  available_effective_peer_groups: string[]
+}
+
 export type AllocationBacktestWeight = {
   symbol: string
   target_weight: number

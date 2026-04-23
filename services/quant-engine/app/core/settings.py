@@ -10,6 +10,7 @@ DEFAULT_FMP_HOLDINGS_SNAPSHOT_DIR = str(Path(__file__).resolve().parents[4] / "d
 DEFAULT_FMP_ALPHA_PIT_SNAPSHOT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "raw" / "fmp-alpha-pit")
 DEFAULT_OPTIMIZER_HANDOFF_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "optimizer-handoffs")
 DEFAULT_CONSTRUCTION_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "construction-artifacts")
+DEFAULT_ETF_RANKING_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "etf-ranking-artifacts")
 
 
 class Settings(BaseSettings):
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     fmp_alpha_pit_snapshot_dir: str = Field(default=DEFAULT_FMP_ALPHA_PIT_SNAPSHOT_DIR)
     optimizer_handoff_dir: str = Field(default=DEFAULT_OPTIMIZER_HANDOFF_DIR)
     construction_artifact_dir: str = Field(default=DEFAULT_CONSTRUCTION_ARTIFACT_DIR)
+    etf_ranking_artifact_dir: str = Field(default=DEFAULT_ETF_RANKING_ARTIFACT_DIR)
     fmp_quote_cache_ttl_seconds: int = Field(default=300)
     fmp_history_cache_ttl_seconds: int = Field(default=86400)
     fmp_max_requests_per_minute: int = Field(default=250)

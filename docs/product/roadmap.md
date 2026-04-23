@@ -25,15 +25,15 @@ The product should stay focused on transparent, auditable investing workflows ra
 
 ## Remaining Milestones
 
-### 1. Ranking Expansion
+### 1. Generalized Ranking Platform Expansion
 
 Goal:
-- make ranking a broader first-class platform capability
+- extend the shipped ETF ranking artifact flow into a broader first-class ranking platform capability
 
 Remaining work:
-- persist ranking runs with stable lineage and reproducibility metadata
 - broaden beyond the current ETF-heavy slices and seeded replacement flows
 - support richer universes, eligibility filters, and reusable score configurations
+- standardize generalized ranking workflows without treating the shipped ETF artifact/discovery path as still pending
 
 ### 2. Construction Expansion
 
@@ -87,7 +87,7 @@ Remaining work:
 
 ## Immediate Priorities
 
-1. generalize ranking runs and persisted ranking lineage
+1. generalize ranking beyond the shipped ETF artifact and discovery flow
 2. add more construction policies and richer constraints on top of the shipped persisted engine
 3. improve Workspace integration for persisted construction and optimizer handoff review
 4. expand overlays and monitoring after core workflow clarity stays intact

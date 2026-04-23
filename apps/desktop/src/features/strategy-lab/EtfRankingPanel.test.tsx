@@ -1,7 +1,149 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { EtfRankingPanel } from './EtfRankingPanel'
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+}
+
+function buildRankingArtifact(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: 'etf_ranking_artifact_v1',
+    artifact_id: 'etf_ranking_artifact_sector_1',
+    ranking_id: 'etf_ranking_engine_v1',
+    title: 'ETF Ranking Engine',
+    as_of_date: '2026-04-15',
+    benchmark_symbol: 'SPY',
+    universe: ['IUFS', 'IUHC', 'VDST'],
+    lookback_months: 6,
+    price_basis: 'close',
+    methodology: 'm',
+    effective_peer_group: 'Sector UCITS ETF',
+    effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+    source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+    warnings: {
+      confidence: 'medium',
+      warnings: ['Implementation-fit support is not complete across the ranked universe.'],
+      unknown_metadata_symbols: [],
+      peer_group_unclassified_symbols: [],
+    },
+    request: {
+      peer_group: 'Sector UCITS ETF',
+      universe: ['IUFS', 'IUHC', 'VDST'],
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+    },
+    effective_inputs: {
+      effective_peer_group: 'Sector UCITS ETF',
+      effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+      requested_universe: ['IUFS', 'IUHC', 'VDST'],
+      evaluated_universe: ['IUFS', 'IUHC'],
+      excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+    },
+    run_metadata: {
+      ranking_id: 'etf_ranking_engine_v1',
+      methodology_id: 'etf_ranking_methodology_v1',
+      methodology: 'm',
+      as_of_date: '2026-04-15',
+      ranking_basis_date: '2026-04-15',
+      price_basis: 'close',
+      source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+      confidence: 'medium',
+    },
+    ranked_universe: [
+      {
+        rank: 1,
+        symbol: 'IUFS',
+        composite_score: 0.8123,
+        instrument: { symbol: 'IUFS', name: 'iShares S&P 500 Financials Sector UCITS ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' },
+        component_scores: {
+          momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 },
+          benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 4.2, raw_unit: 'pct', normalized_score: 1, weight: 0.2, weighted_score: 0.2 },
+          realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 14.4, raw_unit: 'pct', normalized_score: 0.7, weight: 0.15, weighted_score: 0.105 },
+          max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 8.1, raw_unit: 'pct', normalized_score: 0.75, weight: 0.1, weighted_score: 0.075 },
+          liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 13.1, raw_unit: 'score', normalized_score: 0.8, weight: 0.1, weighted_score: 0.08 },
+          implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
+        },
+      },
+      {
+        rank: 2,
+        symbol: 'IUHC',
+        composite_score: 0.7345,
+        instrument: { symbol: 'IUHC', name: 'iShares S&P 500 Health Care Sector UCITS ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' },
+        component_scores: {
+          momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 },
+          benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 2.7, raw_unit: 'pct', normalized_score: 0.7, weight: 0.2, weighted_score: 0.14 },
+          realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 15.8, raw_unit: 'pct', normalized_score: 0.6, weight: 0.15, weighted_score: 0.09 },
+          max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 9.5, raw_unit: 'pct', normalized_score: 0.65, weight: 0.1, weighted_score: 0.065 },
+          liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 12.3, raw_unit: 'score', normalized_score: 0.7, weight: 0.1, weighted_score: 0.07 },
+          implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
+        },
+      },
+    ],
+    excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+    ...overrides,
+  }
+}
+
+function installFetchRouter(options: {
+  metadata?: { available_effective_peer_groups: string[] }
+  recentRuns?: Array<Record<string, unknown>>
+  recentArtifact?: Record<string, unknown>
+  runArtifact?: Record<string, unknown>
+  recentMetadataStatus?: number
+  recentRunsStatus?: number
+  runStatus?: number
+  artifactStatus?: number
+  runErrorBody?: unknown
+  artifactErrorBody?: unknown
+}) {
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    const url = String(input)
+    if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+      return jsonResponse(options.metadata ?? { available_effective_peer_groups: ['Sector UCITS ETF'] }, options.recentMetadataStatus ?? 200)
+    }
+    if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+      return jsonResponse(options.recentRuns ?? [], options.recentRunsStatus ?? 200)
+    }
+    if (url.includes('/strategy-lab/etf-ranking/artifacts/')) {
+      return jsonResponse(options.artifactErrorBody ?? options.recentArtifact ?? buildRankingArtifact(), options.artifactStatus ?? 200)
+    }
+    if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+      return jsonResponse(options.runErrorBody ?? options.runArtifact ?? buildRankingArtifact(), options.runStatus ?? 200)
+    }
+    throw new Error(`Unhandled fetch: ${url}`)
+  })
+
+  return fetchSpy
+}
+
+function buildRecentRun(overrides: Record<string, unknown> = {}) {
+  return {
+    artifact_id: 'etf_ranking_artifact_sector_1',
+    ranking_id: 'etf_ranking_engine_v1',
+    methodology_id: 'etf_ranking_methodology_v1',
+    as_of_date: '2026-04-15',
+    ranking_basis_date: '2026-04-15',
+    benchmark_symbol: 'SPY',
+    lookback_months: 6,
+    universe_size: 3,
+    evaluated_universe_size: 2,
+    effective_peer_group: 'Sector UCITS ETF',
+    confidence: 'medium',
+    ...overrides,
+  }
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
 
 afterEach(() => {
   cleanup()
@@ -10,11 +152,14 @@ afterEach(() => {
 
 describe('EtfRankingPanel', () => {
   it('renders a stable pre-run empty state', () => {
+    installFetchRouter({ recentRuns: [] })
+
     render(<EtfRankingPanel />)
 
     expect(screen.getByText('Rank same-mandate ETF substitutes and review whether the current holding has a stronger replacement candidate.')).toBeTruthy()
     expect(screen.getByText('Run a ranking pass to review ETF peer-group results.')).toBeTruthy()
     expect(screen.getByText('Compare same-mandate substitutes before carrying one into a draft review.')).toBeTruthy()
+    expect(screen.getByText('Recent Runs')).toBeTruthy()
     expect(screen.getByText('Benchmark')).toBeTruthy()
     expect(screen.getByText('Lookback (months)')).toBeTruthy()
     expect(screen.queryByText('What This Tool Does')).toBeNull()
@@ -24,88 +169,18 @@ describe('EtfRankingPanel', () => {
   })
 
   it('renders ranking results with peer-group, warnings, and exclusions', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({
-        ranking_id: 'etf_ranking_engine_v1',
-        title: 'ETF Ranking Engine',
-        as_of_date: '2026-04-15',
-        benchmark_symbol: 'SPY',
-        universe: ['IUFS', 'IUHC', 'VDST'],
-        lookback_months: 6,
-        price_basis: 'close',
-        methodology: 'm',
-        effective_peer_group: 'Sector UCITS ETF',
-        effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-        source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-        warnings: {
-          confidence: 'medium',
-          warnings: ['Implementation-fit support is not complete across the ranked universe.'],
-          unknown_metadata_symbols: [],
-          peer_group_unclassified_symbols: [],
-        },
-        request: {
-          peer_group: 'Sector UCITS ETF',
-          universe: ['IUFS', 'IUHC', 'VDST'],
-          benchmark_symbol: 'SPY',
-          lookback_months: 6,
-        },
-        effective_inputs: {
-          effective_peer_group: 'Sector UCITS ETF',
-          effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-          requested_universe: ['IUFS', 'IUHC', 'VDST'],
-          evaluated_universe: ['IUFS', 'IUHC'],
-          excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-        },
-        run_metadata: {
-          ranking_id: 'etf_ranking_engine_v1',
-          methodology_id: 'etf_ranking_methodology_v1',
-          methodology: 'm',
-          as_of_date: '2026-04-15',
-          ranking_basis_date: '2026-04-15',
-          price_basis: 'close',
-          source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-          confidence: 'medium',
-        },
-        ranked_universe: [
-          {
-            rank: 1,
-            symbol: 'IUFS',
-            composite_score: 0.8123,
-            instrument: { symbol: 'IUFS', name: 'iShares S&P 500 Financials Sector UCITS ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' },
-            component_scores: {
-              momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 },
-              benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 4.2, raw_unit: 'pct', normalized_score: 1, weight: 0.2, weighted_score: 0.2 },
-              realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 14.4, raw_unit: 'pct', normalized_score: 0.7, weight: 0.15, weighted_score: 0.105 },
-              max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 8.1, raw_unit: 'pct', normalized_score: 0.75, weight: 0.1, weighted_score: 0.075 },
-              liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 13.1, raw_unit: 'score', normalized_score: 0.8, weight: 0.1, weighted_score: 0.08 },
-              implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
-            },
-          },
-          {
-            rank: 2,
-            symbol: 'IUHC',
-            composite_score: 0.7345,
-            instrument: { symbol: 'IUHC', name: 'iShares S&P 500 Health Care Sector UCITS ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' },
-            component_scores: {
-              momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 },
-              benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 2.7, raw_unit: 'pct', normalized_score: 0.7, weight: 0.2, weighted_score: 0.14 },
-              realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 15.8, raw_unit: 'pct', normalized_score: 0.6, weight: 0.15, weighted_score: 0.09 },
-              max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 9.5, raw_unit: 'pct', normalized_score: 0.65, weight: 0.1, weighted_score: 0.065 },
-              liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 12.3, raw_unit: 'score', normalized_score: 0.7, weight: 0.1, weighted_score: 0.07 },
-              implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
-            },
-          },
-        ],
-        excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
-    )
+    const fetchSpy = installFetchRouter({
+      recentRuns: [buildRecentRun()],
+      runArtifact: buildRankingArtifact(),
+    })
 
     render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
 
     fireEvent.click(screen.getByText('Run ETF Ranking'))
 
     await waitFor(() => expect(screen.getByText('Ranked Universe')).toBeTruthy())
-    const payload = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body)) as { peer_group: string }
+    const runCall = fetchSpy.mock.calls.find(([, init]) => String(init?.method) === 'POST')
+    const payload = JSON.parse(String(runCall?.[1]?.body)) as { peer_group: string }
     expect(payload.peer_group).toBe('Sector UCITS ETF')
     const headings = [
       'Replacement Decision',
@@ -134,6 +209,8 @@ describe('EtfRankingPanel', () => {
     expect(screen.getByText('Peer Group: Sector UCITS ETF')).toBeTruthy()
     expect(screen.getByText('Confidence: medium')).toBeTruthy()
     expect(screen.getByText('Holdings Support: mixed')).toBeTruthy()
+    expect(screen.getByText('Source: Fresh Run')).toBeTruthy()
+    expect(screen.getByText('Artifact: etf_ranking_artifact_sector_1')).toBeTruthy()
     expect(screen.getAllByText('IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('IUHC').length).toBeGreaterThan(0)
     expect(screen.getAllByText('0.8123').length).toBeGreaterThan(0)
@@ -150,8 +227,8 @@ describe('EtfRankingPanel', () => {
   })
 
   it('prefers grouped metadata over request and run metadata paths when both exist', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({
+    installFetchRouter({
+      runArtifact: buildRankingArtifact({
         ranking_id: 'etf_ranking_engine_v1',
         title: 'ETF Ranking Engine',
         as_of_date: '2026-04-15',
@@ -223,8 +300,8 @@ describe('EtfRankingPanel', () => {
           },
         ],
         excluded_symbols: [{ symbol: 'LEGACY', reason: 'Legacy exclusion reason' }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
-    )
+      }),
+    })
 
     render(<EtfRankingPanel draftSymbols={['VUAA']} />)
 
@@ -241,81 +318,7 @@ describe('EtfRankingPanel', () => {
   it('creates a candidate improvement draft only after explicit incumbent selection', async () => {
     const onSeedCandidateDraft = vi.fn()
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({
-        ranking_id: 'etf_ranking_engine_v1',
-        title: 'ETF Ranking Engine',
-        as_of_date: '2026-04-15',
-        benchmark_symbol: 'SPY',
-        universe: ['IUFS', 'IUHC', 'VDST'],
-        lookback_months: 6,
-        price_basis: 'close',
-        methodology: 'm',
-        effective_peer_group: 'Sector UCITS ETF',
-        effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-        source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-        warnings: {
-          confidence: 'medium',
-          warnings: ['Implementation-fit support is not complete across the ranked universe.'],
-          unknown_metadata_symbols: [],
-          peer_group_unclassified_symbols: [],
-        },
-        request: {
-          peer_group: 'Sector UCITS ETF',
-          universe: ['IUFS', 'IUHC', 'VDST'],
-          benchmark_symbol: 'SPY',
-          lookback_months: 6,
-        },
-        effective_inputs: {
-          effective_peer_group: 'Sector UCITS ETF',
-          effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-          requested_universe: ['IUFS', 'IUHC', 'VDST'],
-          evaluated_universe: ['IUFS', 'IUHC'],
-          excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-        },
-        run_metadata: {
-          ranking_id: 'etf_ranking_engine_v1',
-          methodology_id: 'etf_ranking_methodology_v1',
-          methodology: 'm',
-          as_of_date: '2026-04-15',
-          ranking_basis_date: '2026-04-15',
-          price_basis: 'close',
-          source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-          confidence: 'medium',
-        },
-        ranked_universe: [
-          {
-            rank: 1,
-            symbol: 'IUFS',
-            composite_score: 0.8123,
-            instrument: { symbol: 'IUFS', name: 'iShares S&P 500 Financials Sector UCITS ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' },
-            component_scores: {
-              momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 },
-              benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 4.2, raw_unit: 'pct', normalized_score: 1, weight: 0.2, weighted_score: 0.2 },
-              realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 14.4, raw_unit: 'pct', normalized_score: 0.7, weight: 0.15, weighted_score: 0.105 },
-              max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 8.1, raw_unit: 'pct', normalized_score: 0.75, weight: 0.1, weighted_score: 0.075 },
-              liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 13.1, raw_unit: 'score', normalized_score: 0.8, weight: 0.1, weighted_score: 0.08 },
-              implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
-            },
-          },
-          {
-            rank: 2,
-            symbol: 'IUHC',
-            composite_score: 0.7345,
-            instrument: { symbol: 'IUHC', name: 'iShares S&P 500 Health Care Sector UCITS ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' },
-            component_scores: {
-              momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 },
-              benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 2.7, raw_unit: 'pct', normalized_score: 0.7, weight: 0.2, weighted_score: 0.14 },
-              realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 15.8, raw_unit: 'pct', normalized_score: 0.6, weight: 0.15, weighted_score: 0.09 },
-              max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 9.5, raw_unit: 'pct', normalized_score: 0.65, weight: 0.1, weighted_score: 0.065 },
-              liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 12.3, raw_unit: 'score', normalized_score: 0.7, weight: 0.1, weighted_score: 0.07 },
-              implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
-            },
-          },
-        ],
-        excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
-    )
+    installFetchRouter({ runArtifact: buildRankingArtifact() })
 
     render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} onSeedCandidateDraft={onSeedCandidateDraft} />)
 
@@ -386,8 +389,8 @@ describe('EtfRankingPanel', () => {
   it('blocks confirm when incumbent equals selected candidate', async () => {
     const onSeedCandidateDraft = vi.fn()
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({
+    installFetchRouter({
+      runArtifact: buildRankingArtifact({
         ranking_id: 'etf_ranking_engine_v1',
         title: 'ETF Ranking Engine',
         as_of_date: '2026-04-15',
@@ -405,8 +408,8 @@ describe('EtfRankingPanel', () => {
         run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
         ranked_universe: [{ rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }],
         excluded_symbols: [],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
-    )
+      }),
+    })
 
     render(<EtfRankingPanel draftSymbols={['IUFS']} onSeedCandidateDraft={onSeedCandidateDraft} />)
 
@@ -422,9 +425,21 @@ describe('EtfRankingPanel', () => {
 
   it('marks Run ETF Ranking as loading-only while Create Draft stays validation-disabled', async () => {
     let resolveFetch!: (value: Response | PromiseLike<Response>) => void
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise<Response>((resolve) => {
-      resolveFetch = resolve
-    }))
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
+      }
+      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+        return new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
 
     render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
 
@@ -433,25 +448,14 @@ describe('EtfRankingPanel', () => {
 
     await waitFor(() => expect((screen.getByText('Running...') as HTMLButtonElement).className.includes('button-loading')).toBe(true))
 
-    resolveFetch(new Response(JSON.stringify({
-      ranking_id: 'etf_ranking_engine_v1',
-      title: 'ETF Ranking Engine',
-      as_of_date: '2026-04-15',
-      benchmark_symbol: 'SPY',
+    resolveFetch(jsonResponse(buildRankingArtifact({
       universe: ['IUFS', 'IUHC'],
-      lookback_months: 6,
-      price_basis: 'close',
-      methodology: 'm',
-      effective_peer_group: 'Sector UCITS ETF',
-      effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-      source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-      warnings: { confidence: 'medium', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
       request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC'], benchmark_symbol: 'SPY', lookback_months: 6 },
       effective_inputs: { effective_peer_group: 'Sector UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['IUFS', 'IUHC'], evaluated_universe: ['IUFS', 'IUHC'], excluded_symbols: [] },
-      run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
+      warnings: { confidence: 'medium', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
       ranked_universe: [{ rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }],
       excluded_symbols: [],
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    })))
 
     await waitFor(() => expect(screen.getByText('Ranked Universe')).toBeTruthy())
     fireEvent.click(screen.getByText('Seed Candidate Draft'))
@@ -462,9 +466,7 @@ describe('EtfRankingPanel', () => {
   })
 
   it('renders a structured error state when the ranking request fails', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ detail: 'lookback_months must be at least 1' }), { status: 400, headers: { 'Content-Type': 'application/json' } }),
-    )
+    installFetchRouter({ runStatus: 400, runErrorBody: { detail: 'lookback_months must be at least 1' } })
 
     render(<EtfRankingPanel />)
 
@@ -474,5 +476,429 @@ describe('EtfRankingPanel', () => {
     await waitFor(() => expect(screen.getByText('ETF ranking failed.')).toBeTruthy())
     expect(screen.getByText('The request did not return a usable ranking payload.')).toBeTruthy()
     expect(screen.getByText('lookback_months must be at least 1')).toBeTruthy()
+  })
+
+  it('loads recent runs from discovery metadata, filters them, and reuses the ranking view', async () => {
+    const sectorRun = buildRecentRun()
+    const bondRun = buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', confidence: 'high', benchmark_symbol: 'AGG' })
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] })
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return jsonResponse([sectorRun, bondRun])
+      }
+      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Bond+UCITS+ETF')) {
+        return jsonResponse([bondRun])
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
+        return jsonResponse(buildRankingArtifact({
+          artifact_id: 'etf_ranking_artifact_bond_1',
+          benchmark_symbol: 'AGG',
+          effective_peer_group: 'Bond UCITS ETF',
+          request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 },
+          effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] },
+          run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' },
+          warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
+          ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }],
+          excluded_symbols: [],
+        }))
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
+
+    await waitFor(() => expect(screen.getAllByText('Load Run').length).toBe(2))
+    expect(screen.getByText('All peer groups')).toBeTruthy()
+    expect(screen.getByText('etf_ranking_artifact_sector_1')).toBeTruthy()
+    expect(screen.getByText('etf_ranking_artifact_bond_1')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Peer Group Filter'), { target: { value: 'Bond UCITS ETF' } })
+
+    await waitFor(() => expect(screen.queryByText('etf_ranking_artifact_sector_1')).toBeNull())
+    expect(screen.getByText('etf_ranking_artifact_bond_1')).toBeTruthy()
+
+    await waitFor(() => expect(screen.getAllByText('Load Run').length).toBe(1))
+    fireEvent.click(screen.getByText('Load Run'))
+
+    await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
+    expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy()
+    expect(screen.getByText('Peer Group: Bond UCITS ETF')).toBeTruthy()
+    expect(screen.getByText('Confidence: high')).toBeTruthy()
+    expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it('seeds a draft from a loaded recent artifact the same way as a fresh run', async () => {
+    const onSeedCandidateDraft = vi.fn()
+
+    installFetchRouter({
+      recentRuns: [buildRecentRun()],
+      recentArtifact: buildRankingArtifact(),
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} onSeedCandidateDraft={onSeedCandidateDraft} />)
+
+    await waitFor(() => expect(screen.getByText('Load Run')).toBeTruthy())
+    fireEvent.click(screen.getByText('Load Run'))
+
+    await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
+    fireEvent.click(screen.getAllByText('Seed Candidate Draft')[0])
+    fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'VUAA' } })
+    fireEvent.click(screen.getByText('Create Draft'))
+
+    expect(onSeedCandidateDraft).toHaveBeenCalledTimes(1)
+    expect(onSeedCandidateDraft.mock.calls[0]?.[0]).toMatchObject({
+      seed: {
+        kind: 'etf_replacement_candidate',
+        source: 'etf_ranking',
+        baseSymbol: 'VUAA',
+        candidateSymbol: 'IUFS',
+        rankingId: 'etf_ranking_engine_v1',
+      },
+      rankingArtifact: {
+        kind: 'intent_bound_seeded_etf_replacement_ranking',
+        source: 'etf_ranking',
+        baseSymbol: 'VUAA',
+        candidateSymbol: 'IUFS',
+        rankingId: 'etf_ranking_engine_v1',
+      },
+    })
+  })
+
+  it('keeps the newest fresh run when two runs resolve out of order', async () => {
+    const runRequests: Array<ReturnType<typeof createDeferred<Response>>> = []
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
+      }
+      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+        const request = createDeferred<Response>()
+        runRequests.push(request)
+        return request.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    const runButton = screen.getByText('Run ETF Ranking')
+    await act(async () => {
+      fireEvent.click(runButton)
+      fireEvent.click(runButton)
+    })
+
+    await waitFor(() => expect(runRequests).toHaveLength(2))
+
+    runRequests[1]?.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_second_run', effective_peer_group: 'Broad Market UCITS ETF', request: { peer_group: 'Broad Market UCITS ETF', universe: ['VUAA'], benchmark_symbol: 'SPY', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Broad Market UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VUAA'], evaluated_universe: ['VUAA'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'complete' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VUAA', composite_score: 0.9555, instrument: { symbol: 'VUAA', name: 'ETF', asset_class: 'etf', sector: 'Broad Market', category: 'Broad Market UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 12.3, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_second_run')).toBeTruthy())
+    expect(screen.getByText('Source: Fresh Run')).toBeTruthy()
+    expect(screen.getByText('Peer Group: Broad Market UCITS ETF')).toBeTruthy()
+
+    runRequests[0]?.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_first_run' })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_second_run')).toBeTruthy())
+    expect(screen.queryByText('Artifact: etf_ranking_artifact_first_run')).toBeNull()
+  })
+
+  it('keeps the newest artifact load when a stale run fails later and clears seed confirmation immediately', async () => {
+    const onSeedCandidateDraft = vi.fn()
+    let runCount = 0
+    const firstRunResponse = jsonResponse(buildRankingArtifact())
+    const runRequest = createDeferred<Response>()
+    const artifactRequest = createDeferred<Response>()
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+        runCount += 1
+        if (runCount === 1) return Promise.resolve(firstRunResponse)
+        return runRequest.promise
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
+        return artifactRequest.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} onSeedCandidateDraft={onSeedCandidateDraft} />)
+
+    fireEvent.click(screen.getByText('Run ETF Ranking'))
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_sector_1')).toBeTruthy())
+
+    fireEvent.click(screen.getAllByText('Seed Candidate Draft')[0])
+    fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'VUAA' } })
+    fireEvent.click(screen.getByText('Create Draft'))
+    expect(screen.getByText('Candidate draft created for review.')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('Run ETF Ranking'))
+
+    expect(screen.queryByText('Candidate draft created for review.')).toBeNull()
+    expect(screen.getByText('Artifact: etf_ranking_artifact_sector_1')).toBeTruthy()
+
+    await waitFor(() => expect(screen.getByText('Load Run')).toBeTruthy())
+    fireEvent.click(screen.getByText('Load Run'))
+
+    artifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
+    expect(screen.getByText('Source: Recent Artifact')).toBeTruthy()
+
+    runRequest.resolve(jsonResponse({ detail: 'stale run failure' }, 400))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
+    expect(screen.queryByText('ETF ranking failed.')).toBeNull()
+    expect(screen.queryByText('stale run failure')).toBeNull()
+  })
+
+  it('keeps the newest fresh run when a stale artifact resolves later', async () => {
+    const artifactRequest = createDeferred<Response>()
+    const runRequest = createDeferred<Response>()
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([buildRecentRun()]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+        return artifactRequest.promise
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+        return runRequest.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    await waitFor(() => expect(screen.getAllByText('Load Run').length).toBe(1))
+    fireEvent.click(screen.getAllByText('Load Run')[0])
+    fireEvent.click(screen.getByText('Run ETF Ranking'))
+
+    runRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_fresh_run', effective_peer_group: 'Commodity UCITS ETF', request: { peer_group: 'Commodity UCITS ETF', universe: ['GLD'], benchmark_symbol: 'GLD', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Commodity UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['GLD'], evaluated_universe: ['GLD'], excluded_symbols: [] }, warnings: { confidence: 'medium', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, ranked_universe: [{ rank: 1, symbol: 'GLD', composite_score: 0.8111, instrument: { symbol: 'GLD', name: 'ETF', asset_class: 'etf', sector: 'Commodity', category: 'Commodity UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 7.7, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_fresh_run')).toBeTruthy())
+    expect(screen.getByText('Source: Fresh Run')).toBeTruthy()
+
+    artifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_fresh_run')).toBeTruthy())
+    expect(screen.queryByText('Source: Recent Artifact')).toBeNull()
+  })
+
+  it('keeps the newest artifact load when an older artifact fails later', async () => {
+    const firstArtifactRequest = createDeferred<Response>()
+    const secondArtifactRequest = createDeferred<Response>()
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([
+          buildRecentRun({ artifact_id: 'etf_ranking_artifact_sector_1' }),
+          buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
+        ]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+        return firstArtifactRequest.promise
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
+        return secondArtifactRequest.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    const initialLoadButtons = await screen.findAllByRole('button', { name: 'Load Run' })
+    fireEvent.click(initialLoadButtons[0])
+    fireEvent.click(initialLoadButtons[1])
+
+    secondArtifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
+    expect(screen.getByText('Source: Recent Artifact')).toBeTruthy()
+
+    firstArtifactRequest.resolve(jsonResponse({ detail: 'stale artifact failure' }, 404))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
+    expect(screen.queryByText('Recent artifact load failed.')).toBeNull()
+    expect(screen.queryByText('stale artifact failure')).toBeNull()
+  })
+
+  it('ignores a stale failed run after a newer run succeeds', async () => {
+    const runRequests: Array<ReturnType<typeof createDeferred<Response>>> = []
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
+      }
+      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+        const request = createDeferred<Response>()
+        runRequests.push(request)
+        return request.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    const runButton = screen.getByText('Run ETF Ranking')
+    await act(async () => {
+      fireEvent.click(runButton)
+      fireEvent.click(runButton)
+    })
+
+    await waitFor(() => expect(runRequests).toHaveLength(2))
+
+    runRequests[1]?.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_second_run_success' })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_second_run_success')).toBeTruthy())
+
+    runRequests[0]?.resolve(jsonResponse({ detail: 'older run failed' }, 400))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_second_run_success')).toBeTruthy())
+    expect(screen.queryByText('ETF ranking failed.')).toBeNull()
+    expect(screen.queryByText('older run failed')).toBeNull()
+  })
+
+  it('keeps the newest artifact result when a stale run resolves later', async () => {
+    const runRequest = createDeferred<Response>()
+    const artifactRequest = createDeferred<Response>()
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([buildRecentRun(), buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+        return runRequest.promise
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+        return artifactRequest.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    fireEvent.click(screen.getByText('Run ETF Ranking'))
+    await waitFor(() => expect(screen.getAllByText('Load Run').length).toBe(2))
+    fireEvent.click(screen.getAllByText('Load Run')[0])
+
+    artifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })))
+
+    await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
+
+    runRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_stale_run_success', effective_peer_group: 'Commodity UCITS ETF', request: { peer_group: 'Commodity UCITS ETF', universe: ['GLD'], benchmark_symbol: 'GLD', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Commodity UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['GLD'], evaluated_universe: ['GLD'], excluded_symbols: [] }, warnings: { confidence: 'medium', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, ranked_universe: [{ rank: 1, symbol: 'GLD', composite_score: 0.8111, instrument: { symbol: 'GLD', name: 'ETF', asset_class: 'etf', sector: 'Commodity', category: 'Commodity UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 7.7, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_sector_1')).toBeTruthy())
+    expect(screen.getByText('Source: Recent Artifact')).toBeTruthy()
+    expect(screen.queryByText('Artifact: etf_ranking_artifact_stale_run_success')).toBeNull()
+  })
+
+  it('keeps the newest fresh run when a stale artifact fails later', async () => {
+    const artifactRequest = createDeferred<Response>()
+    const runRequest = createDeferred<Response>()
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([buildRecentRun()]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+        return artifactRequest.promise
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
+        return runRequest.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    await waitFor(() => expect(screen.getByText('Load Run')).toBeTruthy())
+    fireEvent.click(screen.getByText('Load Run'))
+    fireEvent.click(screen.getByText('Run ETF Ranking'))
+
+    runRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_fresh_run_after_stale_artifact' })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_fresh_run_after_stale_artifact')).toBeTruthy())
+    expect(screen.getByText('Source: Fresh Run')).toBeTruthy()
+
+    artifactRequest.resolve(jsonResponse({ detail: 'older artifact failed' }, 404))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_fresh_run_after_stale_artifact')).toBeTruthy())
+    expect(screen.queryByText('Recent artifact load failed.')).toBeNull()
+    expect(screen.queryByText('older artifact failed')).toBeNull()
+  })
+
+  it('keeps the newest artifact result when an older artifact resolves later', async () => {
+    const firstArtifactRequest = createDeferred<Response>()
+    const secondArtifactRequest = createDeferred<Response>()
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return Promise.resolve(jsonResponse([
+          buildRecentRun({ artifact_id: 'etf_ranking_artifact_sector_1' }),
+          buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
+        ]))
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+        return firstArtifactRequest.promise
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
+        return secondArtifactRequest.promise
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    const initialLoadButtons = await screen.findAllByRole('button', { name: 'Load Run' })
+    fireEvent.click(initialLoadButtons[0])
+    fireEvent.click(initialLoadButtons[1])
+
+    secondArtifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
+
+    firstArtifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
+    expect(screen.queryByText('Artifact: etf_ranking_artifact_sector_1')).toBeNull()
   })
 })

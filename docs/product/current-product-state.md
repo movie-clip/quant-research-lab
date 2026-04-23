@@ -36,9 +36,18 @@ This document is the canonical source for what is actually shipped today, what i
 - `POST /construction/run` persists canonical construction artifacts before returning them
 - `GET /construction/artifacts/{artifact_id}` reloads persisted artifacts, validates them on read, and fails closed on corruption or malformed payloads
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` replays persisted construction artifacts through an explicit artifact-reference boundary
-- current persisted construction policy is `top_n_equal_weight_v1`
+- current persisted construction policies are `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
 - persisted construction execution is deterministic and records an ordered `selection_rule_trace` as provenance
 - replay echoes the persisted `selection_rule_trace`; it is descriptive lineage only and must not drive replay math
+
+### ETF ranking artifacts and discovery
+
+- `POST /strategy-lab/etf-ranking` persists immutable ETF ranking artifacts as shipped backend behavior
+- `GET /strategy-lab/etf-ranking/artifacts/{artifact_id}` reloads persisted ETF ranking artifacts through an explicit artifact boundary
+- `GET /strategy-lab/etf-ranking/artifacts/recent` exposes newest-first recent artifact discovery with optional `effective_peer_group` filtering
+- `GET /strategy-lab/etf-ranking/artifacts/recent/metadata` exposes discovered recent-run filter metadata for current consumers
+- shipped ETF ranking artifacts already carry persisted artifact identity, grouped request/effective-inputs metadata, and run-basis metadata for audit and reuse
+- the desktop `ETF Ranking` flow can reopen recent persisted runs and carry a selected ranking artifact into draft review as a current shipped workflow
 
 ### Optimizer preview, handoff, and replay workflow
 
@@ -60,7 +69,8 @@ This document is the canonical source for what is actually shipped today, what i
 ## Narrow boundaries docs should still state explicitly
 
 - ranking is still narrow and ETF-heavy; it is not yet a generalized persisted ranking-run platform across broader universes
-- persisted construction is shipped, but the persisted policy set is still narrow; today it is frozen to `top_n_equal_weight_v1`
+- recent-run discovery and artifact reuse are shipped for ETF ranking specifically; what remains future is generalization beyond that narrow scope
+- persisted construction is shipped, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
 - single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
 - optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`
 - overlays remain limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only
@@ -75,7 +85,7 @@ This document is the canonical source for what is actually shipped today, what i
 
 ## What is future, not current
 
-- broader ranking engines with persisted runs across wider universes and non-ETF scopes
+- broader ranking engines across wider universes and non-ETF scopes, using generalized ranking-platform contracts rather than the current ETF-specific path
 - more persisted construction policies, richer constraints, turnover models, and broader ranking-to-construction integration
 - broader overlay families beyond the current benchmark-trend replay path
 - continuous monitoring, alerts, and review history as first-class product capabilities

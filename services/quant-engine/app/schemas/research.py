@@ -198,6 +198,7 @@ class EtfMomentumStrategyResponse(BaseModel):
 
 RankingDirection = Literal["higher_is_better", "lower_is_better"]
 RankingUnit = Literal["pct", "volume", "score"]
+EtfRankingArtifactSchemaVersion = Literal["etf_ranking_artifact_v1"]
 
 
 class EtfRankingComponentWeights(BaseModel):
@@ -350,6 +351,35 @@ class EtfRankingResponse(BaseModel):
     run_metadata: EtfRankingRunMetadata
     ranked_universe: list[EtfRankingRow] = Field(default_factory=list)
     excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)
+
+
+class EtfRankingArtifact(EtfRankingResponse):
+    schema_version: EtfRankingArtifactSchemaVersion = "etf_ranking_artifact_v1"
+    artifact_id: str
+
+    @model_validator(mode="after")
+    def _validate_artifact_identifier(self) -> "EtfRankingArtifact":
+        if not self.artifact_id.startswith("etf_ranking_artifact_"):
+            raise ValueError("artifact_id must use the stable etf_ranking_artifact_ prefix")
+        return self
+
+
+class EtfRankingArtifactRecentRow(BaseModel):
+    artifact_id: str
+    ranking_id: str
+    methodology_id: str
+    as_of_date: str
+    ranking_basis_date: str
+    benchmark_symbol: str
+    lookback_months: int
+    universe_size: int
+    evaluated_universe_size: int
+    effective_peer_group: str | None = None
+    confidence: Literal["high", "medium", "low"]
+
+
+class EtfRankingArtifactRecentMetadata(BaseModel):
+    available_effective_peer_groups: list[str] = Field(default_factory=list)
 
 
 class IntentBoundReplacementIntent(BaseModel):
