@@ -79,6 +79,7 @@ class _ActiveGroupConstraint:
 @dataclass(frozen=True)
 class _NormalizedProblem:
     assets: tuple[_ProblemAsset, ...]
+    objective_id: str
     turnover_cap: float | None
     active_risk_cap: float | None
     active_group_constraints: tuple[_ActiveGroupConstraint, ...]
@@ -98,10 +99,12 @@ class _NormalizedProblem:
 
 
 def run_optimizer(request: OptimizationRequest) -> OptimizationResult:
-    validation_issues = _validate_request(request)
+    uses_alpha_objective = request.objective.objective_id == "maximize_alpha_quality_v1"
+    effective_request = request if uses_alpha_objective else request.model_copy(update={"alpha_package": None})
+    validation_issues = _validate_request(effective_request)
     if validation_issues:
         return _build_terminal_result(
-            request,
+            effective_request,
             status="rejected",
             issues=validation_issues,
             proposed_weights=[],
@@ -110,15 +113,15 @@ def run_optimizer(request: OptimizationRequest) -> OptimizationResult:
             constraint_residual=None,
         )
 
-    if request.risk_package is not None:
+    if effective_request.risk_package is not None:
         risk_package_issues = validate_optimizer_risk_package(
-            request.risk_package,
-            expected_symbols=[item.symbol for item in request.universe] + [item.symbol for item in request.current_portfolio_weights] + [item.symbol for item in request.benchmark_weights],
-            benchmark_weights=request.benchmark_weights,
+            effective_request.risk_package,
+            expected_symbols=[item.symbol for item in effective_request.universe] + [item.symbol for item in effective_request.current_portfolio_weights] + [item.symbol for item in effective_request.benchmark_weights],
+            benchmark_weights=effective_request.benchmark_weights,
         )
         if risk_package_issues:
             return _build_terminal_result(
-                request,
+                effective_request,
                 status="rejected",
                 issues=risk_package_issues,
                 proposed_weights=[],
@@ -127,14 +130,14 @@ def run_optimizer(request: OptimizationRequest) -> OptimizationResult:
                 constraint_residual=None,
             )
 
-    if request.alpha_package is not None:
+    if uses_alpha_objective and effective_request.alpha_package is not None:
         alpha_package_issues = validate_optimizer_alpha_package(
-            request.alpha_package,
-            expected_symbols=[item.symbol for item in request.universe] + [item.symbol for item in request.current_portfolio_weights] + [item.symbol for item in request.benchmark_weights],
+            effective_request.alpha_package,
+            expected_symbols=[item.symbol for item in effective_request.universe] + [item.symbol for item in effective_request.current_portfolio_weights] + [item.symbol for item in effective_request.benchmark_weights],
         )
         if alpha_package_issues:
             return _build_terminal_result(
-                request,
+                effective_request,
                 status="rejected",
                 issues=alpha_package_issues,
                 proposed_weights=[],
@@ -142,12 +145,36 @@ def run_optimizer(request: OptimizationRequest) -> OptimizationResult:
                 iteration_count=0,
                 constraint_residual=None,
             )
-
-    problem = _normalize_problem(request)
-    feasibility_issues = _preflight_feasibility(problem, request.hard_constraints)
+        if effective_request.alpha_package.diagnostics.status != "ok":
+            return _build_terminal_result(
+                effective_request,
+                status="rejected",
+                issues=[
+                    OptimizationIssue(
+                        code="alpha_package_inputs_invalid",
+                        message="alpha_quality_v1 objective requires an optimizer alpha package with complete, fresh, non-fallback coverage.",
+                        actual_value=effective_request.alpha_package.diagnostics.status,
+                        required_value="ok",
+                        symbols=sorted(
+                            set(
+                                effective_request.alpha_package.diagnostics.missing_snapshot_symbols
+                                + effective_request.alpha_package.diagnostics.stale_symbols
+                                + effective_request.alpha_package.diagnostics.lag_blocked_symbols
+                                + effective_request.alpha_package.diagnostics.fallback_symbols
+                            )
+                        ),
+                    )
+                ],
+                proposed_weights=[],
+                converged=False,
+                iteration_count=0,
+                constraint_residual=None,
+            )
+    problem = _normalize_problem(effective_request)
+    feasibility_issues = _preflight_feasibility(problem, effective_request.hard_constraints)
     if feasibility_issues:
         return _build_terminal_result(
-            request,
+            effective_request,
             status="infeasible",
             issues=feasibility_issues,
             proposed_weights=[],
@@ -166,9 +193,9 @@ def run_optimizer(request: OptimizationRequest) -> OptimizationResult:
     converged = True
     proposed, iterations, converged = _solve_problem(problem, target)
 
-    evaluations = _build_constraint_evaluations(proposed, problem, request.hard_constraints)
+    evaluations = _build_constraint_evaluations(proposed, problem, effective_request.hard_constraints)
     violated = [item.constraint_id for item in evaluations if item.status == "violated"]
-    residual = _constraint_residual(proposed, problem, request.hard_constraints)
+    residual = _constraint_residual(proposed, problem, effective_request.hard_constraints)
     if violated or not converged:
         issues = [
             OptimizationIssue(
@@ -182,7 +209,7 @@ def run_optimizer(request: OptimizationRequest) -> OptimizationResult:
             )
         ]
         return _build_terminal_result(
-            request,
+            effective_request,
             status="infeasible",
             issues=issues,
             proposed_weights=[],
@@ -193,7 +220,7 @@ def run_optimizer(request: OptimizationRequest) -> OptimizationResult:
         )
 
     return _build_terminal_result(
-        request,
+        effective_request,
         status="feasible",
         issues=[],
         proposed_weights=proposed,
@@ -361,6 +388,15 @@ def _validate_request(request: OptimizationRequest) -> list[OptimizationIssue]:
             )
         )
 
+    if request.objective.objective_id == "maximize_alpha_quality_v1" and request.alpha_package is None:
+        issues.append(
+            OptimizationIssue(
+                code="missing_alpha_package",
+                message="alpha_quality_v1 objective requires a deterministic optimizer alpha package aligned to the optimizer universe.",
+                required_value="alpha_package",
+            )
+        )
+
     supported_penalties = {"l2_distance_to_current"}
     unsupported_penalties = sorted({item.penalty_id for item in request.penalties if item.penalty_id not in supported_penalties})
     if unsupported_penalties:
@@ -402,7 +438,7 @@ def _normalize_problem(request: OptimizationRequest) -> _NormalizedProblem:
     alpha_package_coverage_ratio: float | None = None
     alpha_preference_l1_budget: float | None = None
     alpha_preference_map: dict[str, float] = {symbol: 0.0 for symbol in all_symbols}
-    if request.alpha_package is not None:
+    if request.objective.objective_id == "maximize_alpha_quality_v1" and request.alpha_package is not None:
         alpha_package_id = request.alpha_package.package_id
         alpha_package_version = request.alpha_package.version
         alpha_package_rebalance_date = request.alpha_package.rebalance_date
@@ -468,6 +504,7 @@ def _normalize_problem(request: OptimizationRequest) -> _NormalizedProblem:
 
     return _NormalizedProblem(
         assets=tuple(assets),
+        objective_id=request.objective.objective_id,
         turnover_cap=turnover_cap,
         active_risk_cap=active_risk_cap,
         active_group_constraints=active_group_constraints,
@@ -903,6 +940,7 @@ def _normalize_problem_for_replay(request: OptimizationRequest) -> _NormalizedPr
     except Exception:
         return _NormalizedProblem(
             assets=tuple(),
+            objective_id=request.objective.objective_id,
             turnover_cap=request.hard_constraints.turnover.max_turnover,
             active_risk_cap=request.hard_constraints.risk.max_active_risk,
             active_group_constraints=tuple(),
@@ -1246,6 +1284,8 @@ def _weight_map(weights: list[OptimizerWeight]) -> dict[str, float]:
 
 def _stability_penalty_weight(penalties: list[OptimizerPenalty]) -> float:
     return sum(item.penalty_weight for item in penalties if item.penalty_id == "l2_distance_to_current")
+
+
 
 
 def _turnover(left: list[float], right: list[float]) -> float:

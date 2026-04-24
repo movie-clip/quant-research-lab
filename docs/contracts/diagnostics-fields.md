@@ -48,6 +48,7 @@ Diagnostics now expose explicit grouped run metadata:
 - `run_metadata.price_basis`
 - `run_metadata.source_status`
 - `run_metadata.investor_economics_status`
+- `run_metadata.investor_economics_partial_unlock`
 - `run_metadata.confidence`
 - `run_metadata.factor_model_parameters`
 - `run_metadata.reproducibility`
@@ -84,6 +85,38 @@ Diagnostics now expose explicit grouped run metadata:
 Contract rule:
 - treat `withheld` as deliberate output suppression, not as a synonym for `availability.status = unavailable`
 - use the explicit status and reason to interpret `null` history-derived fields
+
+### `run_metadata.investor_economics_partial_unlock`
+
+- explicit narrow exception contract that can be present while `run_metadata.investor_economics_status = withheld`
+- current fields:
+  - `mode`
+    - `allowlisted_exact_slice_scalars_only`
+    - only the named exact-slice scalars are admitted; broader investor-economics families remain withheld
+  - `exact_slice_scalar_allowlist`
+    - `range_metrics[*].summary.time_weighted_return_pct`
+      - `unlock_condition = identical_admitted_exact_slice_only`
+    - `range_metrics[*].summary.benchmark_return_pct`
+      - `unlock_condition = identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only`
+    - `range_metrics[*].summary.excess_return_pct`
+      - `unlock_condition = identical_admitted_exact_slice_pair_only`
+    - `runtime_enabled` is authoritative per allowlisted scalar
+  - `client_derivation_rule`
+    - `server_side_scalar_only_no_daily_series_subtraction_equivalence`
+    - clients must not derive benchmark-relative or other path-derived outputs from daily series, local subtraction, rewindowing, or rebucketing
+  - `withheld_families`
+    - `benchmark_relative_series`
+    - `benchmark_relative_path_derived_outputs`
+    - `drawdown_family`
+    - `rebucketed_window_summaries`
+    - `rewindowed_range_summaries`
+    - `diagnostics_benchmark_relative_outputs`
+    - `replay_benchmark_relative_outputs`
+    - `strategy_lab_benchmark_relative_outputs`
+
+Contract rule:
+- `run_metadata.investor_economics_status = withheld` remains the overall investor-economics state even when this partial unlock admits one or more exact-slice scalars
+- clients must treat server-emitted allowlisted scalars as scalar-only exceptions and must not derive benchmark-relative, drawdown, or other path-derived outputs from daily series or from combinations of emitted fields
 
 Contract rule:
 - downstream consumers should treat `run_metadata` plus `provenance` as the authoritative interpretation layer for diagnostics availability and reliability
@@ -124,7 +157,7 @@ Contract rule:
 - availability and provenance are separate dimensions and must not be conflated
 - desktop review flows must not infer broker-truth history from `historical_sections_available = true` alone
 - `historical_basis = market_data_history` must be treated as downgraded synthetic history, not as imported-history equivalence
-- diagnostics can have `availability.status = ok` while `run_metadata.investor_economics_status = withheld`; this means historical sections exist, but some investor-economics outputs are intentionally refused
+- diagnostics can have `availability.status = ok` while `run_metadata.investor_economics_status = withheld`; this can coexist with `run_metadata.investor_economics_partial_unlock` for the narrow exact-slice scalar exception, while broader investor-economics families remain intentionally refused
 
 ## Unavailable-Path Messaging Rules
 

@@ -29,3 +29,5 @@ This repo uses a local skill-library convention for reusable OpenCode task guida
 ## Available Skills
 
 - `portfolio-analytics-guard.md`
+- `artifact-workflow-guard.md`
+- `quant-contract-sync.md`

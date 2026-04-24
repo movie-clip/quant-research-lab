@@ -24,12 +24,16 @@
   - accrual_quality `0.20`
   - leverage_discipline `0.15`
 - Trusted PIT output can now be attached to optimizer preview request assembly when the preview requests `pit_alpha`.
+- The optimizer contract now supports one additive hypothetical objective, `maximize_alpha_quality_v1`, which reuses this package as an additive objective target while preserving the existing solver family, projection path, normalization, and hard constraints.
+- The legacy benchmark-distance objective remains the default for backward compatibility.
+- If the alpha objective is selected, missing, malformed, quarantined, unsupported, stale, lag-blocked, or fallback-dependent alpha inputs fail closed instead of degrading into a weaker objective.
 
 ## Current shipped boundary
 
 - The attachment path is still narrow to the shipped optimizer preview workflow.
 - Coverage remains limited to `U.S.` `USD` operating equities.
 - The package remains fixed to `alpha_quality_v1`; it is not yet a broader alpha platform.
+- The alpha objective remains hypothetical and artifact-backed only; it does not apply portfolio changes and does not add a new replay endpoint.
 
 ## What the PIT path does not yet guarantee
 

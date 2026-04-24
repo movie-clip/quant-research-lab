@@ -29,6 +29,7 @@ from app.services.market_data import (
     return_basis_contract_from_evidence,
     return_basis_path_trust_from_evidence,
 )
+from app.services.optimizer_alpha_fundamentals import AlphaQualityPitIngestionError, AlphaQualityPitTrustError
 from app.services.optimizer_service import assemble_optimizer_request_with_trusted_pit_alpha, run_optimizer
 
 
@@ -50,12 +51,16 @@ def build_optimizer_preview(
     risk_input_status: Literal["not_requested", "provided", "required_but_missing", "invalid"] = _risk_input_status(request)
     alpha_input_status: Literal["not_requested", "trusted_pit_attached", "trusted_pit_degraded"] = "not_requested"
     if request.pit_alpha is not None:
-        optimization_request = assemble_optimizer_request_with_trusted_pit_alpha(
-            optimization_request,
-            alpha_as_of_date=request.pit_alpha.as_of_date,
-            ingestion_service=ingestion_service,
-            trust_gate=trust_gate,
-        )
+        try:
+            optimization_request = assemble_optimizer_request_with_trusted_pit_alpha(
+                optimization_request,
+                alpha_as_of_date=request.pit_alpha.as_of_date,
+                ingestion_service=ingestion_service,
+                trust_gate=trust_gate,
+            )
+        except (AlphaQualityPitIngestionError, AlphaQualityPitTrustError, ValueError) as exc:
+            if request.objective.requires_alpha_package:
+                raise ValueError(str(exc)) from exc
         alpha_input_status = (
             "trusted_pit_attached"
             if optimization_request.alpha_package is not None and optimization_request.alpha_package.diagnostics.status == "ok"
@@ -122,6 +127,7 @@ def _build_optimization_request(request: OptimizerPreviewRequest) -> Optimizatio
         current_portfolio_weights=current_weights,
         benchmark_weights=request.benchmark.weights,
         universe=universe,
+        objective=request.objective,
         hard_constraints=request.hard_constraints,
         penalties=request.penalties,
         risk_package=request.risk_package,

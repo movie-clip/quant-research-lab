@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, ConstructionArtifactPreviewOpenRequest, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
 from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, StrategyDefinition
 from app.services.backtest_engine_service import BacktestAnalysisResult, build_backtest_analysis
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
@@ -17,7 +17,7 @@ from app.services.construction_artifact_service import (
     ConstructionArtifactSchemaValidationError,
 )
 from app.services.optimizer_handoff_constraints import OptimizerHandoffValidationBlockedError, validate_optimizer_handoff_constraints
-from app.services.portfolio_backtest_engine import build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_overlay_aware_hypothetical_replay_preview, build_portfolio_allocation_backtest_analysis
+from app.services.portfolio_backtest_engine import build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_overlay_aware_hypothetical_replay_preview, build_portfolio_allocation_backtest_analysis, validate_construction_artifact_replay_params
 
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
@@ -105,16 +105,27 @@ def run_optimizer_handoff_replay_preview(request: OptimizerHandoffReplayRequest)
 
 
 @router.post("/portfolio-allocation/construction-artifact-preview", response_model=ConstructionArtifactReplayResponse)
-def run_construction_artifact_replay_preview(request: ConstructionArtifactReplayRequest) -> ConstructionArtifactReplayResponse:
-    if request.end_date < request.start_date:
-        raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
-    if request.initial_capital <= 0:
-        raise HTTPException(status_code=400, detail="initial_capital must be positive")
-    if request.execution_lag_days < 1:
-        raise HTTPException(status_code=400, detail="execution_lag_days must be at least 1")
-
+def run_construction_artifact_replay_preview(request: ConstructionArtifactPreviewOpenRequest) -> ConstructionArtifactReplayResponse:
     try:
-        return build_construction_artifact_replay_preview(request)
+        return build_construction_artifact_replay_preview(request.root)
+    except ConstructionArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        ConstructionArtifactInvalidJsonError,
+        ConstructionArtifactNonObjectPayloadError,
+        ConstructionArtifactSchemaValidationError,
+        ConstructionArtifactIntegrityValidationError,
+        ConstructionArtifactPersistenceError,
+    ) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/portfolio-allocation/construction-artifact-validation", response_model=ConstructionArtifactReplayValidationResponse)
+def run_construction_artifact_replay_validation(request: ConstructionArtifactReplayRequest) -> ConstructionArtifactReplayValidationResponse:
+    try:
+        return validate_construction_artifact_replay_params(request)
     except ConstructionArtifactMissingFileError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (

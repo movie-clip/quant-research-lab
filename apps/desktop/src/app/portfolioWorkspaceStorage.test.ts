@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createImportedBootstrapResponseFixture } from '../test/portfolioFixtures'
 import * as portfolioDb from './portfolioDb'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { buildPersistedImportedSource } from './portfolioWorkspaceStorage'
-import type { ImportedHistoryContext, PortfolioWorkspace } from '../features/portfolio/workspaceTypes'
+import type { ConstructionArtifactReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference } from '../features/portfolio/types'
+import type { ImportedHistoryContext, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace } from '../features/portfolio/workspaceTypes'
 
 const availableInvestorEconomicsStatus = { status: 'available' as const, reason: null }
 
@@ -21,6 +22,252 @@ function createHistoryContext(): ImportedHistoryContext {
     historyEndDate: '2025-03-03',
   }
 }
+
+function createConstructionArtifactReplayResponse(): ConstructionArtifactReplayResponse {
+  return {
+    construction_artifact_id: 'artifact-123',
+    truth_separation: {
+      baseline_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_construction_artifact',
+      candidate_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    replay_provenance: {
+      source: 'construction_artifact_reference',
+      construction_artifact_id: 'artifact-123',
+      policy_id: 'policy-1',
+      policy_definition_id: 'policy-def-1',
+      ranked_universe_artifact_id: 'ranked-1',
+      ranking_id: 'ranking-1',
+      ranking_methodology_id: 'method-1',
+      current_portfolio_artifact_id: 'portfolio-1',
+      baseline_input_source: 'normalized_inputs.current_portfolio_weights',
+      candidate_input_source: 'final_target_weights',
+      selection_rule_trace: {
+        rule_ids: ['rule-1'],
+        steps: [
+          {
+            rule_id: 'rule-1',
+            rule_order: 1,
+            input_candidate_symbols: ['AAPL'],
+            output_candidate_symbols: ['MSFT'],
+          },
+        ],
+      },
+    },
+    baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+    candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+    effective_replay_params: {
+      benchmark_symbol: 'SPY',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+      initial_capital: 100000,
+      rebalance_frequency: 'monthly',
+      base_currency: 'USD',
+      commission_bps: 0,
+      slippage_bps: 0,
+      drift_tolerance_pct: null,
+      price_basis: 'adjusted_close',
+      execution_price_field: 'close',
+      execution_lag_days: 1,
+      symbol_overrides: {},
+    },
+    replay: {
+      methodology: 'm',
+      investor_economics_status: { status: 'available', reason: null },
+      reference_result: null,
+      candidate_result: {
+        portfolio_name: 'Candidate',
+        benchmark_symbol: 'SPY',
+        start_date: '2024-01-01',
+        end_date: '2024-12-31',
+        observation_count: 2,
+        rebalance_frequency: 'monthly',
+        commission_bps: 0,
+        slippage_bps: 0,
+        drift_tolerance_pct: null,
+        assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
+        status: 'ok',
+        investor_economics_status: { status: 'available', reason: null },
+        instrument_metadata: [],
+        starting_weights: [],
+        ending_weights: [],
+        metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
+        equity_curve: [],
+        rebalance_events: [],
+        trades: [],
+      },
+      comparison: null,
+      reference_diagnostics: null,
+      candidate_diagnostics: null,
+      diagnostics_comparison: null,
+    },
+  }
+}
+
+function createOptimizerHandoffReference(): OptimizerPersistedArtifactReference {
+  return {
+    reference_kind: 'optimizer_handoff_reference_v1',
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+    artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+  }
+}
+
+function createOptimizerHandoffValidationResponse(): OptimizerHandoffValidationResponse {
+  return {
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    source_portfolio_snapshot_id: 'portfolio_snapshot_123',
+    truth_separation: {
+      source_truth: 'persisted_hypothetical_optimizer_handoff',
+      holdings_truth: 'imported_portfolio_snapshot',
+      optimizer_output_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    eligible_replay_window: {
+      source: 'persisted_return_basis_attestation',
+      benchmark_symbol: 'SPY',
+      as_of_date: '2024-12-31',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+    },
+    provenance: {
+      source: 'optimizer_handoff_reference',
+      benchmark_id: 'benchmark_spy_demo_v1',
+      benchmark_version: '2024-04-15',
+      benchmark_symbol: 'SPY',
+      objective: {
+        objective_id: 'minimize_l2_distance_to_benchmark',
+        benchmark_relative: true,
+        description: 'Minimize squared distance to benchmark weights inside the hard-constraint set.',
+        alpha_signal_id: null,
+        requires_alpha_package: false,
+      },
+      replay_output_policy: {
+        source: 'persisted_return_basis_attestation',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        eligible_families: [],
+        withheld_families: ['benchmark_relative_volatility_outputs', 'factor_exposure_outputs'],
+      },
+      artifact_state: 'fresh',
+      constraint_set_fingerprint: 'constraint-fingerprint-1',
+    },
+    validation_status: 'ok',
+    evaluations: [],
+    blocking_rule_ids: [],
+    warnings: [],
+  }
+}
+
+function createOptimizerHandoffReplayResponse(): OptimizerHandoffReplayResponse {
+  return {
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    source_portfolio_snapshot_id: 'portfolio_snapshot_123',
+    truth_separation: {
+      baseline_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_optimizer_handoff',
+      candidate_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    replay_provenance: {
+      source: 'optimizer_handoff_reference',
+      benchmark_id: 'benchmark_spy_demo_v1',
+      benchmark_version: '2024-04-15',
+      benchmark_symbol: 'SPY',
+      return_basis_attestation: {
+        benchmark_symbol: 'SPY',
+        as_of_date: '2024-12-31',
+        history_start_date: '2024-01-01',
+        history_end_date: '2024-12-31',
+        factor_proxy_symbols: ['QQQ'],
+        benchmark_return_basis_contract: 'unverified_adjusted_proxy',
+        factor_return_basis_contract: 'unverified_adjusted_proxy',
+        factor_basis_path: 'degraded_unverified_return_basis',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        evidence: {
+          benchmark_history: { verification_status: 'unverified', economic_basis: 'adjusted_close_proxy', construction_method: 'vendor_adjusted_close', disqualifiers: [], fallbacks_used: [], source_price_field: 'adj_close' },
+          factor_history: { verification_status: 'unverified', economic_basis: 'adjusted_close_proxy', construction_method: 'vendor_adjusted_close', disqualifiers: [], fallbacks_used: [], source_price_field: 'adj_close' },
+        },
+      },
+      replay_output_policy: {
+        source: 'persisted_return_basis_attestation',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        eligible_families: [],
+        withheld_families: ['benchmark_relative_volatility_outputs', 'factor_exposure_outputs'],
+      },
+      artifact_state: 'fresh',
+      optimizer_status: 'feasible',
+      constraint_set_fingerprint: 'constraint-fingerprint-1',
+    },
+    optimizer_context: {
+      objective: {
+        objective_id: 'minimize_l2_distance_to_benchmark',
+        benchmark_relative: true,
+        description: 'Minimize squared distance to benchmark weights inside the hard-constraint set.',
+        alpha_signal_id: null,
+        requires_alpha_package: false,
+      },
+      penalty_ids: [],
+      artifact_state: 'fresh',
+      stale_inputs: [],
+      degraded_inputs: [],
+      reasons: [],
+      run_summary: { engine_id: 'optimizer_engine_v1', solver_id: 'solver_v1', methodology_id: 'optimizer_methodology_v1' },
+      diagnostics: { turnover: 0.2, active_share: 0.1 },
+      binding_constraints: [],
+      violated_constraints: [],
+      benchmark_relative_attestations: [],
+      binding_constraint_evaluations: [],
+    },
+    baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+    candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+    replay: createConstructionArtifactReplayResponse().replay,
+  }
+}
+
+function createPersistedOptimizerHandoffWorkspaceReview(overrides: Partial<PersistedOptimizerHandoffWorkspaceReview> = {}): PersistedOptimizerHandoffWorkspaceReview {
+  return {
+    workspaceId: 'workspace-optimizer',
+    handoffReference: createOptimizerHandoffReference(),
+    openedAt: '2026-04-24T00:00:00Z',
+    validation: createOptimizerHandoffValidationResponse(),
+    replay: createOptimizerHandoffReplayResponse(),
+    ...overrides,
+  }
+}
+
+function createOptimizerHandoffWorkspaceReviewBasisFixture() {
+  return {
+    basisVersion: 1 as const,
+    basisKind: 'persisted_optimizer_handoff_review' as const,
+    handoffReference: createOptimizerHandoffReference(),
+    openedAt: '2026-04-24T00:00:00Z',
+    benchmarkSymbol: 'SPY',
+    baseCurrency: 'USD',
+    replayWindow: { startDate: '2024-01-01', endDate: '2024-12-31' },
+    baselineWeights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+    candidateWeights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+  }
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('portfolioWorkspaceStorage', () => {
   it('builds persisted sources with historySource only', () => {
@@ -66,7 +313,924 @@ describe('portfolioWorkspaceStorage', () => {
       }),
     }
 
-    expect(cleanWorkspace.source.historySource.kind).toBe('imported_replay')
+    expect('historySource' in cleanWorkspace.source && cleanWorkspace.source.historySource.kind).toBe('imported_replay')
+  })
+
+  it('creates and restores persisted construction artifact workspace reviews', async () => {
+    const replay = createConstructionArtifactReplayResponse()
+    const persisted = new Map<string, unknown>()
+    const withStoresSpy = vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string; workspaceId?: string }).workspaceId ?? (value as { id?: string }).id
+              if (key) persisted.set(`${name}:${key}`, value)
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+    const withStoreSpy = vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
+      if (storeName === portfolioDb.persistedConstructionArtifactReviewStoreName) {
+        const store = {
+          get(key: string) {
+            const request = { ...requestTemplate, result: persisted.get(`${storeName}:${key}`) }
+            queueMicrotask(() => request.onsuccess?.())
+            return request
+          },
+        } as unknown as IDBObjectStore
+        return new Promise((resolve, reject) => handler(store, resolve, reject))
+      }
+      return Promise.resolve(null as never)
+    })
+
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromPersistedConstructionArtifact({
+      constructionArtifactId: 'artifact-123',
+      openedAt: '2026-04-23T00:00:00Z',
+      replay,
+    })
+
+    expect(created.workspace.source).toEqual({
+      kind: 'persisted_construction_artifact',
+      constructionArtifactId: 'artifact-123',
+      openedAt: '2026-04-23T00:00:00Z',
+      reviewBasis: {
+        basisVersion: 1,
+        basisKind: 'persisted_construction_artifact_review',
+        constructionArtifactId: 'artifact-123',
+        openedAt: '2026-04-23T00:00:00Z',
+        benchmarkSymbol: 'SPY',
+        baseCurrency: 'USD',
+        replayWindow: {
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+        },
+        baselineWeights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+        candidateWeights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+      },
+    })
+    expect(created.draft).toBeNull()
+    expect(created.rootNode.name).toBe('Artifact Review Basis')
+    expect(created.rootNode.kind).toBe('artifact_review_basis')
+    expect(created.rootNode.portfolioSnapshot).toBeNull()
+    expect(created.rootNode.artifactReviewBasis).toMatchObject({
+      constructionArtifactId: 'artifact-123',
+      basisKind: 'persisted_construction_artifact_review',
+    })
+    expect(created.review).toMatchObject({
+      workspaceId: created.workspace.id,
+      constructionArtifactId: 'artifact-123',
+      replay,
+    })
+
+    await expect(portfolioWorkspaceStorage.getPersistedConstructionArtifactWorkspaceReview(created.workspace.id)).resolves.toMatchObject({
+      workspaceId: created.workspace.id,
+      constructionArtifactId: 'artifact-123',
+      replay,
+    })
+    expect(withStoresSpy).toHaveBeenCalled()
+    expect(withStoreSpy).toHaveBeenCalled()
+  })
+
+  it('hydrates effective replay params for older cached construction artifact reviews', async () => {
+    const legacyReplay = createConstructionArtifactReplayResponse()
+    delete (legacyReplay as { effective_replay_params?: unknown }).effective_replay_params
+    const review = {
+      workspaceId: 'workspace-artifact',
+      constructionArtifactId: 'artifact-123',
+      openedAt: '2026-04-23T00:00:00Z',
+      replay: legacyReplay,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
+      const store = {
+        get(_key: string) {
+          const request = { ...requestTemplate, result: storeName === portfolioDb.persistedConstructionArtifactReviewStoreName ? review : undefined }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getPersistedConstructionArtifactWorkspaceReview('workspace-artifact')).resolves.toMatchObject({
+      replay: {
+        effective_replay_params: {
+          benchmark_symbol: 'SPY',
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          initial_capital: 100000,
+          rebalance_frequency: 'monthly',
+          base_currency: 'USD',
+          commission_bps: 0,
+          slippage_bps: 0,
+          drift_tolerance_pct: null,
+          price_basis: 'adjusted_close',
+          execution_price_field: 'close',
+          execution_lag_days: 1,
+          symbol_overrides: {},
+        },
+      },
+    })
+  })
+
+  it('normalizes legacy cached artifact review workspaces to review-basis records', async () => {
+    const review = {
+      workspaceId: 'workspace-artifact',
+      constructionArtifactId: 'artifact-123',
+      openedAt: '2026-04-23T00:00:00Z',
+      replay: createConstructionArtifactReplayResponse(),
+    }
+    const writes = new Map<string, unknown>()
+    vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string }).id
+              if (key) writes.set(`${name}:${key}`, value)
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+
+    const workspace = {
+      id: 'workspace-artifact',
+      name: 'Construction Artifact artifact-123',
+      createdAt: '2026-04-23T00:00:00Z',
+      updatedAt: '2026-04-23T00:00:00Z',
+      rootNodeId: 'node-artifact',
+      activeNodeId: 'node-artifact',
+      source: {
+        kind: 'persisted_construction_artifact' as const,
+        constructionArtifactId: 'artifact-123',
+        openedAt: '2026-04-23T00:00:00Z',
+      },
+    } satisfies PortfolioWorkspace
+    const node = {
+      id: 'node-artifact',
+      workspaceId: 'workspace-artifact',
+      parentId: null,
+      kind: 'imported_base' as const,
+      name: 'Construction Artifact Review',
+      createdAt: '2026-04-23T00:00:00Z',
+      changeSummary: { label: 'Construction Artifact Review', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: {
+        snapshotVersion: 1 as const,
+        baseCurrency: 'USD',
+        importedMeta: { importer: null, statementPeriod: '2024-01-01 - 2024-12-31', importedAt: '2026-04-23T00:00:00Z', sourceFileNames: ['artifact-123'] },
+        positions: [{ symbol: 'AAPL', marketValue: 0.6, quantity: null, currency: null, sector: null, sourceType: 'other' as const }],
+        cashBalances: [],
+        metadata: { benchmarkSymbol: 'SPY', notes: null, tags: ['persisted_construction_artifact_review'] },
+      },
+    } satisfies PortfolioNode
+
+    const normalized = await portfolioWorkspaceStorage.normalizeLegacyPersistedConstructionArtifactWorkspaceCache({ workspace, node, review })
+
+    expect(normalized.workspace.source).toMatchObject({
+      kind: 'persisted_construction_artifact',
+      reviewBasis: {
+        basisKind: 'persisted_construction_artifact_review',
+      },
+    })
+    expect(normalized.node).toMatchObject({
+      kind: 'artifact_review_basis',
+      name: 'Artifact Review Basis',
+      portfolioSnapshot: null,
+    })
+    expect(writes.get(`${portfolioDb.workspaceStoreName}:workspace-artifact`)).toBeTruthy()
+    expect(writes.get(`${portfolioDb.portfolioNodeStoreName}:node-artifact`)).toBeTruthy()
+  })
+
+  it('creates and restores persisted optimizer handoff workspace reviews', async () => {
+    const validation = createOptimizerHandoffValidationResponse()
+    const replay = createOptimizerHandoffReplayResponse()
+    const handoffReference = createOptimizerHandoffReference()
+    const persisted = new Map<string, unknown>()
+    vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string; workspaceId?: string }).workspaceId ?? (value as { id?: string }).id
+              if (key) persisted.set(`${name}:${key}`, value)
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
+      if (storeName === portfolioDb.persistedOptimizerHandoffReviewStoreName) {
+        const store = {
+          get(key: string) {
+            const request = { ...requestTemplate, result: persisted.get(`${storeName}:${key}`) }
+            queueMicrotask(() => request.onsuccess?.())
+            return request
+          },
+        } as unknown as IDBObjectStore
+        return new Promise((resolve, reject) => handler(store, resolve, reject))
+      }
+      return Promise.resolve(null as never)
+    })
+
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromPersistedOptimizerHandoff({ handoffReference, validation, replay, openedAt: '2026-04-24T00:00:00Z' })
+
+    expect(created.workspace.source).toMatchObject({
+      kind: 'persisted_optimizer_handoff',
+      handoffReference,
+      reviewBasis: {
+        basisKind: 'persisted_optimizer_handoff_review',
+        handoffReference,
+      },
+    })
+    expect('handoffId' in created.workspace.source).toBe(false)
+    expect('artifactId' in created.workspace.source).toBe(false)
+    if (created.workspace.source.reviewBasis) {
+      expect('handoffId' in created.workspace.source.reviewBasis).toBe(false)
+      expect('artifactId' in created.workspace.source.reviewBasis).toBe(false)
+    }
+    expect(created.rootNode.kind).toBe('artifact_review_basis')
+    expect(created.rootNode.portfolioSnapshot).toBeNull()
+    expect(created.review.validation.validation_status).toBe('ok')
+    expect('handoffId' in created.review).toBe(false)
+    expect('artifactId' in created.review).toBe(false)
+    await expect(portfolioWorkspaceStorage.getPersistedOptimizerHandoffWorkspaceReview(created.workspace.id)).resolves.toMatchObject({
+      workspaceId: created.workspace.id,
+      handoffReference,
+      validation: { validation_status: 'ok' },
+      replay: { handoff_id: 'optimizer_handoff_123' },
+    })
+    const persistedReview = persisted.get(`${portfolioDb.persistedOptimizerHandoffReviewStoreName}:${created.workspace.id}`) as Record<string, unknown>
+    expect(persistedReview).toBeTruthy()
+    expect('handoffId' in persistedReview).toBe(false)
+    expect('artifactId' in persistedReview).toBe(false)
+  })
+
+  it('uses the same canonical optimizer handoff contract across create and save writes', async () => {
+    const persisted = new Map<string, unknown>()
+    vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string; workspaceId?: string }).workspaceId ?? (value as { id?: string }).id
+              if (key) persisted.set(`${name}:${key}`, structuredClone(value))
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const store = {
+        put(value: unknown) {
+          const key = (value as { workspaceId?: string }).workspaceId
+          if (key) persisted.set(`${storeName}:${key}`, structuredClone(value))
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromPersistedOptimizerHandoff({
+      handoffReference: createOptimizerHandoffReference(),
+      validation: { ...createOptimizerHandoffValidationResponse(), artifact_id: null },
+      replay: createOptimizerHandoffReplayResponse(),
+      openedAt: '2026-04-24T00:00:00Z',
+    })
+    const createdPersistedReview = structuredClone(
+      persisted.get(`${portfolioDb.persistedOptimizerHandoffReviewStoreName}:${created.workspace.id}`),
+    )
+
+    await portfolioWorkspaceStorage.savePersistedOptimizerHandoffWorkspaceReview({
+      ...created.review,
+      validation: { ...created.review.validation, artifact_id: null },
+      handoffId: created.review.handoffReference.handoff_id,
+      artifactId: created.review.handoffReference.artifact_id,
+    } as PersistedOptimizerHandoffWorkspaceReview)
+
+    expect(persisted.get(`${portfolioDb.persistedOptimizerHandoffReviewStoreName}:${created.workspace.id}`)).toEqual(createdPersistedReview)
+    expect(createdPersistedReview).toEqual({
+      workspaceId: created.workspace.id,
+      handoffReference: createOptimizerHandoffReference(),
+      openedAt: '2026-04-24T00:00:00Z',
+      validation: { ...createOptimizerHandoffValidationResponse(), artifact_id: null },
+      replay: createOptimizerHandoffReplayResponse(),
+    })
+  })
+
+  it('repairs legacy optimizer handoff cache identities at load time only', async () => {
+    const legacyReview = {
+      workspaceId: 'workspace-optimizer',
+      handoffId: 'optimizer_handoff_123',
+      artifactId: 'optimizer_artifact_123',
+      handoffReference: createOptimizerHandoffReference(),
+      openedAt: '2026-04-24T00:00:00Z',
+      validation: { ...createOptimizerHandoffValidationResponse(), artifact_id: null },
+      replay: createOptimizerHandoffReplayResponse(),
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: legacyReview as unknown }
+      const store = {
+        get(_key: string) {
+          const request = { ...requestTemplate }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getPersistedOptimizerHandoffWorkspaceReview('workspace-optimizer')).resolves.toMatchObject({
+      handoffReference: { handoff_id: 'optimizer_handoff_123', artifact_id: 'optimizer_artifact_123' },
+      validation: { artifact_id: null },
+    })
+    const restored = await portfolioWorkspaceStorage.getPersistedOptimizerHandoffWorkspaceReview('workspace-optimizer')
+    expect(restored).toBeTruthy()
+    expect(restored && 'handoffId' in restored).toBe(false)
+    expect(restored && 'artifactId' in restored).toBe(false)
+  })
+
+  it('fails closed when persisted optimizer handoff cache is missing a valid canonical handoff reference', async () => {
+    const badReview = {
+      workspaceId: 'workspace-optimizer',
+      handoffReference: {
+        reference_kind: 'optimizer_handoff_reference_v1',
+        handoff_id: 'optimizer_handoff_123',
+        artifact_id: '',
+        manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+        artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+      },
+      openedAt: '2026-04-24T00:00:00Z',
+      validation: createOptimizerHandoffValidationResponse(),
+      replay: createOptimizerHandoffReplayResponse(),
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badReview as unknown }
+      const store = {
+        get(_key: string) {
+          const request = { ...requestTemplate }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getPersistedOptimizerHandoffWorkspaceReview('workspace-optimizer')).rejects.toThrow(
+      'Persisted optimizer handoff review cache is missing or invalid handoff reference',
+    )
+  })
+
+  it('fails closed when persisted optimizer handoff cache replay identity mismatches the reference', async () => {
+    const badReview = {
+      workspaceId: 'workspace-optimizer',
+      handoffReference: createOptimizerHandoffReference(),
+      openedAt: '2026-04-24T00:00:00Z',
+      validation: createOptimizerHandoffValidationResponse(),
+      replay: { ...createOptimizerHandoffReplayResponse(), handoff_id: 'optimizer_handoff_other' },
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badReview as unknown }
+      const store = {
+        get(_key: string) {
+          const request = { ...requestTemplate }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getPersistedOptimizerHandoffWorkspaceReview('workspace-optimizer')).rejects.toThrow(
+      'Persisted optimizer handoff review cache is inconsistent with replay identity',
+    )
+  })
+
+  it('fails closed before saving optimizer handoff reviews when validation artifact identity mismatches', async () => {
+    const persisted = new Map<string, unknown>()
+    const withStoreSpy = vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const store = {
+        put(value: unknown) {
+          const key = (value as { workspaceId?: string }).workspaceId
+          if (key) persisted.set(`${storeName}:${key}`, value)
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.savePersistedOptimizerHandoffWorkspaceReview(
+      createPersistedOptimizerHandoffWorkspaceReview({
+        validation: { ...createOptimizerHandoffValidationResponse(), artifact_id: 'optimizer_artifact_other' },
+      }),
+    )).rejects.toThrow('Persisted optimizer handoff review cache is inconsistent with validation artifact identity')
+
+    expect(withStoreSpy).not.toHaveBeenCalled()
+    expect(persisted.size).toBe(0)
+  })
+
+  it('fails closed when persisted optimizer handoff cache is missing the canonical replay objective', async () => {
+    const badReview = {
+      workspaceId: 'workspace-optimizer',
+      handoffReference: createOptimizerHandoffReference(),
+      openedAt: '2026-04-24T00:00:00Z',
+      validation: createOptimizerHandoffValidationResponse(),
+      replay: {
+        ...createOptimizerHandoffReplayResponse(),
+        optimizer_context: {
+          ...createOptimizerHandoffReplayResponse().optimizer_context!,
+          objective: null,
+        },
+      },
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badReview as unknown }
+      const store = {
+        get(_key: string) {
+          const request = { ...requestTemplate }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getPersistedOptimizerHandoffWorkspaceReview('workspace-optimizer')).rejects.toThrow(
+      'Persisted optimizer handoff review cache is missing replay optimizer objective',
+    )
+  })
+
+  it('fails closed before creating optimizer handoff workspaces when replay identity mismatches', async () => {
+    const persisted = new Map<string, unknown>()
+    const withStoresSpy = vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string; workspaceId?: string }).workspaceId ?? (value as { id?: string }).id
+              if (key) persisted.set(`${name}:${key}`, value)
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.createWorkspaceFromPersistedOptimizerHandoff({
+      handoffReference: createOptimizerHandoffReference(),
+      validation: createOptimizerHandoffValidationResponse(),
+      replay: { ...createOptimizerHandoffReplayResponse(), handoff_id: 'optimizer_handoff_other' },
+      openedAt: '2026-04-24T00:00:00Z',
+    })).rejects.toThrow('Persisted optimizer handoff review cache is inconsistent with replay identity')
+
+    expect(withStoresSpy).not.toHaveBeenCalled()
+    expect(persisted.size).toBe(0)
+  })
+
+  it('normalizes legacy cached optimizer handoff workspaces to handoff-centric review records', async () => {
+    const review = {
+      workspaceId: 'workspace-optimizer',
+      handoffId: 'optimizer_handoff_123',
+      artifactId: 'optimizer_artifact_123',
+      handoffReference: createOptimizerHandoffReference(),
+      openedAt: '2026-04-24T00:00:00Z',
+      validation: { ...createOptimizerHandoffValidationResponse(), artifact_id: null },
+      replay: createOptimizerHandoffReplayResponse(),
+    }
+    const writes = new Map<string, unknown>()
+    vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string; workspaceId?: string }).workspaceId ?? (value as { id?: string }).id
+              if (key) writes.set(`${name}:${key}`, value)
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+
+    const workspace = {
+      id: 'workspace-optimizer',
+      name: 'Optimizer Handoff optimizer_handoff_123',
+      createdAt: '2026-04-24T00:00:00Z',
+      updatedAt: '2026-04-24T00:00:00Z',
+      rootNodeId: 'node-optimizer',
+      activeNodeId: 'node-optimizer',
+      source: {
+        kind: 'persisted_optimizer_handoff' as const,
+        handoffId: 'optimizer_handoff_123',
+        artifactId: 'optimizer_artifact_123',
+        handoffReference: createOptimizerHandoffReference(),
+        openedAt: '2026-04-24T00:00:00Z',
+        reviewBasis: {
+          basisVersion: 1 as const,
+          basisKind: 'persisted_optimizer_handoff_review' as const,
+          handoffId: 'optimizer_handoff_123',
+          artifactId: 'optimizer_artifact_123',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+          benchmarkSymbol: 'SPY',
+          baseCurrency: 'USD',
+          replayWindow: { startDate: '2024-01-01', endDate: '2024-12-31' },
+          baselineWeights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+          candidateWeights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+        },
+      },
+    } satisfies PortfolioWorkspace
+    const node = {
+      id: 'node-optimizer',
+      workspaceId: 'workspace-optimizer',
+      parentId: null,
+      kind: 'imported_base' as const,
+      name: 'Optimizer Handoff Review',
+      createdAt: '2026-04-24T00:00:00Z',
+      changeSummary: { label: 'Optimizer Handoff Review', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: {
+        basisVersion: 1 as const,
+        basisKind: 'persisted_optimizer_handoff_review' as const,
+        handoffId: 'optimizer_handoff_123',
+        artifactId: 'optimizer_artifact_123',
+        handoffReference: createOptimizerHandoffReference(),
+        openedAt: '2026-04-24T00:00:00Z',
+        benchmarkSymbol: 'SPY',
+        baseCurrency: 'USD',
+        replayWindow: { startDate: '2024-01-01', endDate: '2024-12-31' },
+        baselineWeights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+        candidateWeights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+      },
+    } satisfies PortfolioNode
+
+    const normalized = await portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({ workspace, node, review })
+
+    expect(normalized.workspace.source).toMatchObject({
+      kind: 'persisted_optimizer_handoff',
+      handoffReference: { handoff_id: 'optimizer_handoff_123', artifact_id: 'optimizer_artifact_123' },
+      reviewBasis: {
+        basisKind: 'persisted_optimizer_handoff_review',
+        handoffReference: { handoff_id: 'optimizer_handoff_123', artifact_id: 'optimizer_artifact_123' },
+      },
+    })
+    expect(normalized.node).toMatchObject({
+      kind: 'artifact_review_basis',
+      name: 'Artifact Review Basis',
+      portfolioSnapshot: null,
+      artifactReviewBasis: {
+        basisKind: 'persisted_optimizer_handoff_review',
+        handoffReference: { handoff_id: 'optimizer_handoff_123', artifact_id: 'optimizer_artifact_123' },
+      },
+    })
+    expect(normalized.review).toMatchObject({
+      handoffReference: { handoff_id: 'optimizer_handoff_123', artifact_id: 'optimizer_artifact_123' },
+    })
+    expect('handoffId' in normalized.workspace.source).toBe(false)
+    expect('artifactId' in normalized.workspace.source).toBe(false)
+    expect(normalized.workspace.source.reviewBasis && 'handoffId' in normalized.workspace.source.reviewBasis).toBe(false)
+    expect(normalized.workspace.source.reviewBasis && 'artifactId' in normalized.workspace.source.reviewBasis).toBe(false)
+    expect(normalized.node.artifactReviewBasis && 'handoffId' in normalized.node.artifactReviewBasis).toBe(false)
+    expect(normalized.node.artifactReviewBasis && 'artifactId' in normalized.node.artifactReviewBasis).toBe(false)
+    expect(writes.get(`${portfolioDb.workspaceStoreName}:workspace-optimizer`)).toBeTruthy()
+    expect(writes.get(`${portfolioDb.portfolioNodeStoreName}:workspace-optimizer`)).toBeTruthy()
+  })
+
+  it('repairs missing optimizer handoff reviewBasis but only for documented legacy cache cases', async () => {
+    const review = createPersistedOptimizerHandoffWorkspaceReview({
+      validation: { ...createOptimizerHandoffValidationResponse(), artifact_id: null },
+    })
+    const writes = new Map<string, unknown>()
+    vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string; workspaceId?: string }).workspaceId ?? (value as { id?: string }).id
+              if (key) writes.set(`${name}:${key}`, value)
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+
+    const normalized = await portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+        artifactReviewBasis: null,
+      } as PortfolioNode,
+      review,
+    })
+
+    expect(normalized.workspace.source).toMatchObject({
+      kind: 'persisted_optimizer_handoff',
+      reviewBasis: {
+        basisKind: 'persisted_optimizer_handoff_review',
+        handoffReference: createOptimizerHandoffReference(),
+      },
+    })
+    expect(normalized.node.artifactReviewBasis).toMatchObject({
+      basisKind: 'persisted_optimizer_handoff_review',
+      handoffReference: createOptimizerHandoffReference(),
+    })
+    expect(writes.get(`${portfolioDb.workspaceStoreName}:workspace-optimizer`)).toBeTruthy()
+    expect(writes.get(`${portfolioDb.portfolioNodeStoreName}:workspace-optimizer`)).toBeTruthy()
+  })
+
+  it('fails closed when present optimizer workspace reviewBasis has the wrong basis kind', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+          reviewBasis: {
+            ...createOptimizerHandoffWorkspaceReviewBasisFixture(),
+            basisKind: 'persisted_construction_artifact_review',
+          },
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as PortfolioNode,
+      review: createPersistedOptimizerHandoffWorkspaceReview(),
+    })).rejects.toThrow('Persisted optimizer handoff workspace review basis has unsupported basis kind')
+  })
+
+  it('fails closed when present optimizer workspace reviewBasis has the wrong basis version', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+          reviewBasis: {
+            ...createOptimizerHandoffWorkspaceReviewBasisFixture(),
+            basisVersion: 2,
+          },
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as PortfolioNode,
+      review: createPersistedOptimizerHandoffWorkspaceReview(),
+    })).rejects.toThrow('Persisted optimizer handoff workspace review basis has unsupported basis version')
+  })
+
+  it('fails closed when present optimizer workspace reviewBasis has an invalid handoff reference', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+          reviewBasis: {
+            ...createOptimizerHandoffWorkspaceReviewBasisFixture(),
+            handoffReference: {
+              ...createOptimizerHandoffReference(),
+              artifact_id: '',
+            },
+          },
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as PortfolioNode,
+      review: createPersistedOptimizerHandoffWorkspaceReview(),
+    })).rejects.toThrow('Persisted optimizer handoff workspace review basis is missing or invalid handoff reference')
+  })
+
+  it('fails closed when present optimizer workspace reviewBasis mixes canonical and partial legacy identity fields', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+          reviewBasis: {
+            ...createOptimizerHandoffWorkspaceReviewBasisFixture(),
+            handoffId: 'optimizer_handoff_123',
+          },
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as PortfolioNode,
+      review: createPersistedOptimizerHandoffWorkspaceReview(),
+    })).rejects.toThrow('Persisted optimizer handoff workspace review basis has partial legacy identity fields')
+  })
+
+  it('fails closed when present optimizer workspace reviewBasis conflicts with canonical persisted review data', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+          reviewBasis: {
+            ...createOptimizerHandoffWorkspaceReviewBasisFixture(),
+            benchmarkSymbol: 'QQQ',
+          },
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as PortfolioNode,
+      review: createPersistedOptimizerHandoffWorkspaceReview(),
+    })).rejects.toThrow('Persisted optimizer handoff workspace review basis conflicts with canonical persisted review')
+  })
+
+  it('fails closed when present optimizer node reviewBasis conflicts with canonical persisted review data', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+        artifactReviewBasis: {
+          ...createOptimizerHandoffWorkspaceReviewBasisFixture(),
+          candidateWeights: [{ symbol: 'DDD', target_weight: 0.2 }],
+        },
+      } as PortfolioNode,
+      review: createPersistedOptimizerHandoffWorkspaceReview(),
+    })).rejects.toThrow('Persisted optimizer handoff node review basis conflicts with canonical persisted review')
+  })
+
+  it('fails closed when legacy optimizer workspace source identity conflicts with the handoff reference', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({
+      workspace: {
+        id: 'workspace-optimizer',
+        name: 'Optimizer Handoff optimizer_handoff_123',
+        createdAt: '2026-04-24T00:00:00Z',
+        updatedAt: '2026-04-24T00:00:00Z',
+        rootNodeId: 'node-optimizer',
+        activeNodeId: 'node-optimizer',
+        source: {
+          kind: 'persisted_optimizer_handoff',
+          handoffId: 'optimizer_handoff_other',
+          handoffReference: createOptimizerHandoffReference(),
+          openedAt: '2026-04-24T00:00:00Z',
+        },
+      } as PortfolioWorkspace,
+      node: {
+        id: 'node-optimizer',
+        workspaceId: 'workspace-optimizer',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-24T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as PortfolioNode,
+      review: {
+        workspaceId: 'workspace-optimizer',
+        handoffReference: createOptimizerHandoffReference(),
+        openedAt: '2026-04-24T00:00:00Z',
+        validation: createOptimizerHandoffValidationResponse(),
+        replay: createOptimizerHandoffReplayResponse(),
+      },
+    })).rejects.toThrow('Persisted optimizer handoff workspace source has partial legacy identity fields')
   })
 
   it('persists and overwrites candidate improvement draft annotations by draft id', async () => {

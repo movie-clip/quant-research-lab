@@ -347,6 +347,7 @@ def build_optimizer_handoff_manifest(
             as_of_timestamp=benchmark.as_of_timestamp,
         ),
         return_basis_attestation=return_basis_attestation,
+        objective=validated_artifact.objective,
         optimizer_input_provenance=validated_artifact.input_fingerprints,
         constraint_set=OptimizerHandoffConstraintSet(
             constraint_set_version=HANDOFF_CONSTRAINT_SET_VERSION,
@@ -453,6 +454,8 @@ def validate_optimizer_handoff_manifest(
         raise OptimizationArtifactPersistenceError("optimizer handoff manifest requires persisted return_basis_attestation history window metadata")
     if manifest.return_basis_attestation.benchmark_symbol != manifest.benchmark.benchmark_symbol:
         raise OptimizationArtifactPersistenceError("optimizer handoff manifest return_basis_attestation benchmark_symbol does not match manifest benchmark")
+    if manifest.objective != artifact.objective:
+        raise OptimizationArtifactPersistenceError("optimizer handoff manifest objective does not match artifact")
     if manifest.handoff_id != _handoff_id_for_payload(artifact, manifest.return_basis_attestation):
         raise OptimizationArtifactPersistenceError("optimizer handoff manifest handoff_id does not match artifact")
     if manifest.optimizer_input_provenance != artifact.input_fingerprints:

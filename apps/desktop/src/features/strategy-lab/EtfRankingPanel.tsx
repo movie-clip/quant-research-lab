@@ -15,8 +15,9 @@ function formatCountLabel(value: number, singular: string, plural: string) {
 }
 
 function whyWinnerRows(result: EtfRankingResponse | null) {
-  const winner = result?.ranked_universe[0]
-  const runnerUp = result?.ranked_universe[1] ?? null
+  const rankedUniverse = result?.ranked_universe ?? []
+  const winner = rankedUniverse[0] ?? null
+  const runnerUp = rankedUniverse[1] ?? null
   if (!winner || !runnerUp) return []
 
   return COMPONENT_ORDER.map((key) => {
@@ -54,31 +55,31 @@ function metricTone(value: number | null | undefined, baseline: number | null | 
 }
 
 function rankingPeerGroup(result: EtfRankingResponse) {
-  return result.effective_inputs.effective_peer_group
+  return result.effective_inputs?.effective_peer_group ?? null
 }
 
 function rankingConfidence(result: EtfRankingResponse) {
-  return result.run_metadata.confidence
+  return result.run_metadata?.confidence ?? null
 }
 
 function rankingSourceStatus(result: EtfRankingResponse) {
-  return result.run_metadata.source_status
+  return result.run_metadata?.source_status ?? null
 }
 
 function rankingExcludedSymbols(result: EtfRankingResponse) {
-  return result.effective_inputs.excluded_symbols
+  return result.effective_inputs?.excluded_symbols ?? []
 }
 
 function rankingBenchmarkSymbol(result: EtfRankingResponse) {
-  return result.request.benchmark_symbol
+  return result.request?.benchmark_symbol ?? 'n/a'
 }
 
 function rankingLookbackMonths(result: EtfRankingResponse) {
-  return result.request.lookback_months
+  return result.request?.lookback_months ?? 'n/a'
 }
 
 function rankingRequestedUniverse(result: EtfRankingResponse) {
-  return result.effective_inputs.requested_universe
+  return result.effective_inputs?.requested_universe ?? []
 }
 
 async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
@@ -90,6 +91,7 @@ async function readJsonResponse<T>(response: Response, fallbackMessage: string) 
 }
 
 function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRankingResponse['ranked_universe'][number], baseSymbol: string): CandidateImprovementSeed {
+  const warnings = result.warnings ?? { warnings: [] as string[] }
   return {
     kind: 'etf_replacement_candidate',
     source: 'etf_ranking',
@@ -107,7 +109,7 @@ function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRanki
     holdingsSupport: result.run_metadata.source_status.holdings_support,
     requestUniverse: rankingRequestedUniverse(result),
     evaluatedUniverse: result.effective_inputs.evaluated_universe,
-    warningCount: result.warnings.warnings.length,
+    warningCount: warnings.warnings.length,
     excludedSymbolsCount: result.effective_inputs.excluded_symbols.length,
   }
 }
@@ -151,7 +153,7 @@ function buildIntentBoundSeededRankingArtifact(
     holdingsSupport: result.run_metadata.source_status.holdings_support,
     requestUniverse: rankingRequestedUniverse(result),
     evaluatedUniverse: result.effective_inputs.evaluated_universe,
-    warnings: result.warnings.warnings,
+    warnings: result.warnings?.warnings ?? [],
     excludedSymbols: result.effective_inputs.excluded_symbols,
     selectedCandidate: buildRankingCandidateSnapshot(row),
     topCandidate: topCandidate ? buildRankingCandidateSnapshot(topCandidate) : null,
@@ -188,8 +190,9 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
   const [selectedBaseSymbol, setSelectedBaseSymbol] = useState('')
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null)
 
-  const winner = result?.ranked_universe[0] ?? null
-  const runnerUp = result?.ranked_universe[1] ?? null
+  const rankedUniverse = result?.ranked_universe ?? []
+  const winner = rankedUniverse[0] ?? null
+  const runnerUp = rankedUniverse[1] ?? null
   const winnerExplanation = whyWinnerRows(result)
   const resolvedPeerGroup = result ? rankingPeerGroup(result) : null
   const resolvedConfidence = result ? rankingConfidence(result) : null
@@ -517,7 +520,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                   <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{rankingBenchmarkSymbol(result)}</p></div>
                   <div className="summary-card"><p className="stat-label">Lookback</p><p className="summary-value">{rankingLookbackMonths(result)}</p></div>
                   <div className="summary-card"><p className="stat-label">Confidence</p><p className="summary-value">{resolvedConfidence}</p></div>
-                  <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{result.warnings.warnings.length}</p></div>
+                  <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{result.warnings?.warnings.length ?? 0}</p></div>
                   <div className="summary-card"><p className="stat-label">Exclusions</p><p className="summary-value">{resolvedExcludedSymbols.length}</p></div>
                 </div>
                 <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
@@ -549,8 +552,8 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
               </div>
               <div className="strategy-summary-card">
                 <p className="stat-label">Ranked</p>
-                <p className="summary-value">{result.ranked_universe.length}</p>
-                <p className="helper">{formatCountLabel(result.ranked_universe.length, 'eligible ETF', 'eligible ETFs')}</p>
+                <p className="summary-value">{rankedUniverse.length}</p>
+                <p className="helper">{formatCountLabel(rankedUniverse.length, 'eligible ETF', 'eligible ETFs')}</p>
               </div>
               <div className="strategy-summary-card strategy-summary-card-risk">
                 <p className="stat-label">Excluded</p>
@@ -575,13 +578,13 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
           <section className="dashboard-bottom-grid">
             <div className="section-header-inline sector-list-header"><div><p className="panel-label">Trust Checks</p></div><p className="helper">Review confidence, metadata gaps, and warnings before treating the ranking as decision-grade.</p></div>
             <div className="dashboard-summary">
-              <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{result.warnings.warnings.length}</p></div>
-              <div className="summary-card"><p className="stat-label">Unknown Metadata</p><p className="summary-value">{result.warnings.unknown_metadata_symbols.length}</p></div>
-              <div className="summary-card"><p className="stat-label">Unclassified Peer Group</p><p className="summary-value">{result.warnings.peer_group_unclassified_symbols.length}</p></div>
+              <div className="summary-card"><p className="stat-label">Warnings</p><p className="summary-value">{result.warnings?.warnings.length ?? 0}</p></div>
+              <div className="summary-card"><p className="stat-label">Unknown Metadata</p><p className="summary-value">{result.warnings?.unknown_metadata_symbols.length ?? 0}</p></div>
+              <div className="summary-card"><p className="stat-label">Unclassified Peer Group</p><p className="summary-value">{result.warnings?.peer_group_unclassified_symbols.length ?? 0}</p></div>
               <div className="summary-card"><p className="stat-label">Holdings Support</p><p className="summary-value">{resolvedSourceStatus?.holdings_support}</p></div>
             </div>
             <div className="list-table">
-              {result.warnings.warnings.length ? result.warnings.warnings.map((warning) => <div className="list-row list-row-wide" key={warning}><span>{warning}</span></div>) : <div className="list-row"><span>No active ranking warnings.</span></div>}
+              {result.warnings?.warnings.length ? result.warnings.warnings.map((warning) => <div className="list-row list-row-wide" key={warning}><span>{warning}</span></div>) : <div className="list-row"><span>No active ranking warnings.</span></div>}
             </div>
           </section>
 
@@ -624,7 +627,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                 <span>Liquidity</span>
                 <span>Impl. Fit</span>
               </div>
-              {result.ranked_universe.map((item) => (
+              {rankedUniverse.map((item) => (
                 <div className={`risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide ${item.rank === 1 ? 'strategy-ranking-row-top' : ''}`} key={item.symbol}>
                   <span>{item.rank}</span>
                   <span className="strategy-ranking-symbol-cell"><strong>{item.symbol}</strong><small>{item.instrument.sector ?? 'Unknown sector'}</small><button className="secondary-button" type="button" onClick={() => openSeedDraftConfirmation(item)} disabled={!incumbentOptions.length}>Seed Candidate Draft</button><small>Carry into draft review.</small></span>

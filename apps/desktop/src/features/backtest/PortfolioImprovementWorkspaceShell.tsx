@@ -3,10 +3,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { MonitoringResearchHandoff, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 import { MonitoringPanel } from './MonitoringPanel'
 import { MONITORING_RESEARCH_TARGET_IDS, monitoringResearchTargetLabel } from './monitoringResearchHandoff'
+
+function formatReplayWindow(startDate: string | null | undefined, endDate: string | null | undefined) {
+  if (!startDate || !endDate) return 'n/a'
+  return `${startDate} -> ${endDate}`
+}
 
 function formatValue(value: string | number | null | undefined) {
   if (value == null) return 'n/a'
@@ -571,6 +576,9 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
 type Props = {
   analysis: PortfolioBaselineView | null
   draftSnapshot: PortfolioSnapshot | null
+  workspaceSource?: PortfolioWorkspaceSource | null
+  persistedConstructionArtifactReview?: PersistedConstructionArtifactWorkspaceReview | null
+  persistedOptimizerHandoffReview?: PersistedOptimizerHandoffWorkspaceReview | null
   candidateImprovementDraft: CandidateImprovementDraftArtifact | null
   intentBoundSeededEtfReplacementRankingDraft: IntentBoundSeededEtfReplacementRankingDraftArtifact | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
@@ -599,6 +607,18 @@ type Props = {
   onReviewInResearch?: (handoff: MonitoringResearchHandoff) => void
 }
 
+function isPersistedConstructionArtifactMode(props: Props) {
+  return Boolean(props.workspaceSource && 'kind' in props.workspaceSource && props.workspaceSource.kind === 'persisted_construction_artifact')
+}
+
+function isPersistedOptimizerHandoffMode(props: Props) {
+  return Boolean(props.workspaceSource && 'kind' in props.workspaceSource && props.workspaceSource.kind === 'persisted_optimizer_handoff')
+}
+
+function isArtifactReviewMode(props: Props) {
+  return isPersistedConstructionArtifactMode(props) || isPersistedOptimizerHandoffMode(props)
+}
+
 function formatOverviewSource(analysis: PortfolioBaselineView | null, draftSnapshot: PortfolioSnapshot | null) {
   return draftSnapshot?.importedMeta.importer ?? analysis?.snapshot.statement.importer ?? null
 }
@@ -607,9 +627,29 @@ function formatOverviewPeriod(analysis: PortfolioBaselineView | null, draftSnaps
   return draftSnapshot?.importedMeta.statementPeriod ?? analysis?.snapshot.statement.statement_period ?? null
 }
 
+function formatArtifactReviewBasisLabel(source: Extract<PortfolioWorkspaceSource, { kind: 'persisted_construction_artifact' }> | null | undefined) {
+  return source?.reviewBasis?.basisKind === 'persisted_construction_artifact_review' ? 'Artifact review basis' : 'Artifact review'
+}
+
+function formatArtifactReviewBasisDetail(source: Extract<PortfolioWorkspaceSource, { kind: 'persisted_construction_artifact' }> | null | undefined) {
+  return source?.reviewBasis?.constructionArtifactId ?? source?.constructionArtifactId ?? 'n/a'
+}
+
+function optimizerHandoffReviewBasisId(props: Props) {
+  if (props.persistedOptimizerHandoffReview?.handoffReference.handoff_id) return props.persistedOptimizerHandoffReview.handoffReference.handoff_id
+  if (props.workspaceSource && 'handoffReference' in props.workspaceSource) return props.workspaceSource.handoffReference.handoff_id
+  return 'n/a'
+}
+
 function OverviewSection(props: Props) {
+  const artifactMode = isPersistedConstructionArtifactMode(props)
+  const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
   const positionsCount = props.draftSnapshot?.positions.length ?? props.analysis?.snapshot.positions.length ?? null
-  const benchmarkSymbol = props.draftSnapshot?.metadata.benchmarkSymbol ?? 'SPY'
+  const benchmarkSymbol = artifactMode
+    ? props.persistedConstructionArtifactReview?.replay.replay.candidate_result.benchmark_symbol ?? 'SPY'
+    : optimizerHandoffMode
+      ? props.persistedOptimizerHandoffReview?.replay.replay.candidate_result.benchmark_symbol ?? 'SPY'
+    : props.draftSnapshot?.metadata.benchmarkSymbol ?? 'SPY'
 
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-overview">
@@ -630,9 +670,9 @@ function OverviewSection(props: Props) {
           <p className="summary-value">{formatValue(benchmarkSymbol)}</p>
         </div>
         <div className="summary-card">
-          <p className="stat-label">Imported Basis</p>
-          <p className="summary-value">{formatValue(formatOverviewSource(props.analysis, props.draftSnapshot))}</p>
-          <p className="helper">{formatValue(formatOverviewPeriod(props.analysis, props.draftSnapshot))}</p>
+          <p className="stat-label">Review Basis</p>
+          <p className="summary-value">{artifactMode ? formatArtifactReviewBasisLabel((props.workspaceSource && 'kind' in props.workspaceSource && props.workspaceSource.kind === 'persisted_construction_artifact') ? props.workspaceSource : null) : optimizerHandoffMode ? 'Optimizer handoff reference review basis' : formatValue(formatOverviewSource(props.analysis, props.draftSnapshot))}</p>
+          <p className="helper">{artifactMode ? formatArtifactReviewBasisDetail((props.workspaceSource && 'kind' in props.workspaceSource && props.workspaceSource.kind === 'persisted_construction_artifact') ? props.workspaceSource : null) : optimizerHandoffMode ? optimizerHandoffReviewBasisId(props) : formatValue(formatOverviewPeriod(props.analysis, props.draftSnapshot))}</p>
         </div>
       </div>
       <MonitoringPanel result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} onReviewInResearch={props.onReviewInResearch} />
@@ -642,6 +682,9 @@ function OverviewSection(props: Props) {
 }
 
 function CandidateWorkspaceSection(props: Props) {
+  if (isArtifactReviewMode(props)) {
+    return null
+  }
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-candidate">
       <div className="section-header-inline sector-list-header">
@@ -682,6 +725,8 @@ function CandidateWorkspaceSection(props: Props) {
 function CompareWorkspaceSection(props: Props) {
   const handleAllocationBacktestResult = props.onAllocationBacktestResult ?? (() => undefined)
   const replayLineageHelper = formatReplayLineageHelper(props.hypotheticalReplayResult)
+  const artifactMode = isPersistedConstructionArtifactMode(props)
+  const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
 
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-compare">
@@ -698,6 +743,9 @@ function CompareWorkspaceSection(props: Props) {
           constructionConstraintValidationArtifact={props.constructionConstraintValidationArtifact}
           selectedConstructionRuleId={props.selectedConstructionRuleId}
           hypotheticalReplayResult={props.hypotheticalReplayResult}
+          workspaceSource={props.workspaceSource}
+          persistedConstructionArtifactReview={props.persistedConstructionArtifactReview}
+          persistedOptimizerHandoffReview={props.persistedOptimizerHandoffReview}
           savedProposalCount={props.savedProposals.length}
           onSaveProposal={props.onSaveProposal}
           onHypotheticalReplayResult={props.onHypotheticalReplayResult}
@@ -713,16 +761,23 @@ function CompareWorkspaceSection(props: Props) {
         </section>
         <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
       </div>
-      <div className="summary-card">
-        <p className="panel-label">Legacy Replay Builder</p>
-        <p className="helper">Temporary bridge while replay work finishes moving into the workspace.</p>
-      </div>
-      <PortfolioAllocationBacktestPanel result={props.allocationBacktestResult} onResult={handleAllocationBacktestResult} analysis={props.analysis} />
+      {artifactMode || optimizerHandoffMode ? null : (
+        <>
+          <div className="summary-card">
+            <p className="panel-label">Legacy Replay Builder</p>
+            <p className="helper">Temporary bridge while replay work finishes moving into the workspace.</p>
+          </div>
+          <PortfolioAllocationBacktestPanel result={props.allocationBacktestResult} onResult={handleAllocationBacktestResult} analysis={props.analysis} />
+        </>
+      )}
     </section>
   )
 }
 
 function ProposalWorkspaceSection(props: Props) {
+  if (isArtifactReviewMode(props)) {
+    return null
+  }
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-proposal">
       <div className="section-header-inline sector-list-header">
@@ -770,6 +825,7 @@ function workflowStatusCardClass(status: WorkflowSectionStatus) {
 
 function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
   const hasCurrentPortfolio = Boolean(props.analysis || props.draftSnapshot)
+  const artifactMode = isArtifactReviewMode(props)
   const hasCandidateSeed = Boolean(props.candidateImprovementDraft || props.intentBoundSeededEtfReplacementRankingDraft)
   const hasReplacementIntent = Boolean(props.replacementIntentDraft)
   const hasFormedCandidate = Boolean(
@@ -838,14 +894,16 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
       title: 'Current Portfolio',
       value: workflowStatusLabel(hasCurrentPortfolio ? 'ready' : 'blocked'),
       detail: hasCurrentPortfolio
-        ? 'Portfolio basis is available.'
+        ? artifactMode ? 'Artifact review basis is available.' : 'Portfolio basis is available.'
         : 'Import or restore a portfolio basis.',
     },
     {
       key: 'candidate-idea-status',
       title: 'Candidate Idea',
-      value: workflowStatusLabel(hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked'),
-      detail: hasReplacementIntent
+      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked'),
+      detail: artifactMode
+         ? isPersistedOptimizerHandoffMode(props) ? 'Candidate review comes from the persisted optimizer handoff reopened by handoff reference.' : 'Candidate review comes from the persisted construction artifact payload.'
+        : hasReplacementIntent
         ? 'A replacement intent is attached and ready for replay.'
         : hasCandidateSeed
           ? 'A candidate seed exists; promote it into an explicit replacement intent next.'
@@ -854,8 +912,10 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
     {
       key: 'candidate-formation-status',
       title: 'Candidate Formation',
-      value: workflowStatusLabel(hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked'),
-      detail: hasFormedCandidate
+      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked'),
+      detail: artifactMode
+         ? isPersistedOptimizerHandoffMode(props) ? 'Formation is already embedded in the persisted optimizer handoff review lineage reopened by handoff reference.' : 'Formation is already embedded in the persisted construction artifact review lineage.'
+        : hasFormedCandidate
         ? 'A formed candidate artifact is available for review-only replay handoff.'
         : hasRejectedFormation
           ? 'Candidate formation rejected the active replacement intent.'
@@ -866,8 +926,10 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
     {
       key: 'construction-rule-status',
       title: 'Construction Rule',
-      value: workflowStatusLabel(hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked'),
-      detail: hasConstructedCandidate
+      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked'),
+      detail: artifactMode
+         ? isPersistedOptimizerHandoffMode(props) ? 'The persisted optimizer handoff reference is the replay handoff under review.' : 'The persisted construction artifact is the replay handoff under review.'
+        : hasConstructedCandidate
         ? `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`
         : hasRejectedConstruction
           ? 'Construction rule rejected the active replacement intent.'
@@ -880,8 +942,10 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
     {
       key: 'construction-constraints-status',
       title: 'Construction Constraints',
-      value: workflowStatusLabel(hasPassingConstraintValidation ? 'ready' : hasBlockedConstraintValidation || hasRejectedConstraintValidation ? 'blocked' : hasConstructedCandidate ? 'in_progress' : 'blocked'),
-      detail: hasPassingConstraintValidation
+      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasPassingConstraintValidation ? 'ready' : hasBlockedConstraintValidation || hasRejectedConstraintValidation ? 'blocked' : hasConstructedCandidate ? 'in_progress' : 'blocked'),
+      detail: artifactMode
+         ? 'Truth-separation and persisted replay provenance are available for review from the artifact payload.'
+        : hasPassingConstraintValidation
         ? 'Constraint validation passed for the current constructed candidate and replay can use that handoff.'
         : hasBlockedConstraintValidation
           ? 'Constraint validation blocked the current constructed candidate, so replay remains unavailable.'
@@ -894,8 +958,10 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
     {
       key: 'hypothetical-replay-status',
       title: 'Hypothetical Replay',
-      value: workflowStatusLabel(props.hypotheticalReplayResult ? 'ready' : hasPassingConstraintValidation ? 'in_progress' : 'blocked'),
-      detail: props.hypotheticalReplayResult
+      value: workflowStatusLabel((artifactMode || props.hypotheticalReplayResult) ? 'ready' : hasPassingConstraintValidation ? 'in_progress' : 'blocked'),
+      detail: artifactMode
+         ? 'Replay evidence is loaded from the artifact review basis.'
+        : props.hypotheticalReplayResult
         ? 'A draft-only hypothetical replay is available for review.'
         : hasPassingConstraintValidation
           ? 'The workflow can run a hypothetical replay next from the validated construction handoff.'
@@ -904,8 +970,10 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
     {
       key: 'diagnostics-change-status',
       title: 'Diagnostics Change',
-      value: workflowStatusLabel(hasDiagnostics ? 'ready' : hasReplay ? 'in_progress' : 'blocked'),
-      detail: hasDiagnostics
+      value: workflowStatusLabel((artifactMode || hasDiagnostics) ? 'ready' : hasReplay ? 'in_progress' : 'blocked'),
+      detail: artifactMode
+         ? 'Diagnostics change comes from the replay attached to the artifact review basis.'
+        : hasDiagnostics
         ? 'Diagnostics delta review is available from the active replay.'
         : hasReplay
           ? 'Replay exists, but diagnostics comparison is not available yet.'
@@ -914,8 +982,10 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
     {
       key: 'saved-proposal-status',
       title: 'Saved Proposal',
-      value: workflowStatusLabel(hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked'),
-      detail: hasSavedProposal
+      value: artifactMode ? workflowStatusLabel('blocked') : workflowStatusLabel(hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked'),
+      detail: artifactMode
+         ? isPersistedOptimizerHandoffMode(props) ? 'Saved proposal flows are not exposed in persisted optimizer handoff review mode.' : 'Saved proposal flows are not exposed in persisted construction artifact review mode.'
+        : hasSavedProposal
         ? 'An immutable proposal artifact has been recorded for this workflow.'
         : props.hypotheticalReplayResult
           ? 'A replay review is available; save it to record a proposal artifact.'
@@ -946,7 +1016,10 @@ function PortfolioImprovementDecisionSummary({ props }: { props: Props }) {
   )
 }
 
-function CurrentPortfolioSection({ analysis, draftSnapshot }: { analysis: PortfolioBaselineView | null; draftSnapshot: PortfolioSnapshot | null }) {
+function CurrentPortfolioSection({ analysis, draftSnapshot, persistedConstructionArtifactReview = null, persistedOptimizerHandoffReview = null }: { analysis: PortfolioBaselineView | null; draftSnapshot: PortfolioSnapshot | null; persistedConstructionArtifactReview?: PersistedConstructionArtifactWorkspaceReview | null; persistedOptimizerHandoffReview?: PersistedOptimizerHandoffWorkspaceReview | null }) {
+  const artifactReplay = persistedConstructionArtifactReview?.replay.replay ?? null
+  const optimizerReplay = persistedOptimizerHandoffReview?.replay.replay ?? null
+  const artifactMode = Boolean(persistedConstructionArtifactReview || persistedOptimizerHandoffReview)
   const basisLabel = draftSnapshot ? 'Draft snapshot' : analysis ? 'Imported snapshot' : null
 
   return (
@@ -956,10 +1029,10 @@ function CurrentPortfolioSection({ analysis, draftSnapshot }: { analysis: Portfo
         <p className="helper">Current portfolio truth.</p>
       </div>
       <div className="dashboard-summary compact-summary-grid">
-        <div className="summary-card"><p className="stat-label">Basis</p><p className="summary-value">{formatValue(basisLabel)}</p></div>
-        <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">{formatValue(draftSnapshot?.importedMeta.importer ?? analysis?.snapshot.statement.importer ?? null)}</p></div>
-        <div className="summary-card"><p className="stat-label">Period</p><p className="summary-value">{formatValue(draftSnapshot?.importedMeta.statementPeriod ?? analysis?.snapshot.statement.statement_period ?? null)}</p></div>
-        <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{formatValue(draftSnapshot?.metadata.benchmarkSymbol ?? null)}</p></div>
+        <div className="summary-card"><p className="stat-label">Basis</p><p className="summary-value">{formatValue(artifactMode ? 'Artifact review basis' : basisLabel)}</p></div>
+        <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">{formatValue(persistedOptimizerHandoffReview ? 'optimizer_handoff_review' : artifactMode ? 'construction_artifact_review' : draftSnapshot?.importedMeta.importer ?? analysis?.snapshot.statement.importer ?? null)}</p></div>
+        <div className="summary-card"><p className="stat-label">Period</p><p className="summary-value">{formatValue(artifactMode ? formatReplayWindow((artifactReplay ?? optimizerReplay)?.candidate_result.start_date, (artifactReplay ?? optimizerReplay)?.candidate_result.end_date) : draftSnapshot?.importedMeta.statementPeriod ?? analysis?.snapshot.statement.statement_period ?? null)}</p></div>
+        <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{formatValue(artifactMode ? (artifactReplay ?? optimizerReplay)?.candidate_result.benchmark_symbol ?? null : draftSnapshot?.metadata.benchmarkSymbol ?? null)}</p></div>
       </div>
     </section>
   )
@@ -1262,13 +1335,24 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
           </div>
         </section>
       ) : null}
+      {isArtifactReviewMode(props) ? (
+        <section className="dashboard-bottom-grid" data-testid="persisted-construction-artifact-banner">
+          <div className="summary-card">
+            <p className="panel-label">Artifact Review Mode</p>
+            <p className="helper">{isPersistedOptimizerHandoffMode(props) ? 'This workspace reopens a hypothetical artifact-backed optimizer review by persisted handoff reference while keeping replay review surfaces intact.' : 'This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.'}</p>
+            <p className="helper">Review basis: {isPersistedOptimizerHandoffMode(props) ? optimizerHandoffReviewBasisId(props) : props.persistedConstructionArtifactReview?.constructionArtifactId ?? ((props.workspaceSource && 'constructionArtifactId' in props.workspaceSource) ? props.workspaceSource.constructionArtifactId : 'n/a')}</p>
+          </div>
+        </section>
+      ) : null}
       <OverviewSection {...props} />
       <div id={WORKFLOW_SECTION_IDS.currentPortfolio} data-testid="workspace-section-current-portfolio">
-        <CurrentPortfolioSection analysis={props.analysis} draftSnapshot={props.draftSnapshot} />
+        <CurrentPortfolioSection analysis={props.analysis} draftSnapshot={props.draftSnapshot} persistedConstructionArtifactReview={props.persistedConstructionArtifactReview} persistedOptimizerHandoffReview={props.persistedOptimizerHandoffReview} />
       </div>
-      <div id={WORKFLOW_SECTION_IDS.candidateIdea}>
-        <CandidateWorkspaceSection {...props} />
-      </div>
+      {isArtifactReviewMode(props) ? null : (
+        <div id={WORKFLOW_SECTION_IDS.candidateIdea}>
+          <CandidateWorkspaceSection {...props} />
+        </div>
+      )}
       <div id={WORKFLOW_SECTION_IDS.constructionConstraints} />
       <CompareWorkspaceSection {...props} />
       <ProposalWorkspaceSection {...props} />

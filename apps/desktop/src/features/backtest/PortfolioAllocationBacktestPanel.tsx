@@ -2,8 +2,8 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
-import type { CandidateConstructionRuleInput, HypotheticalReplayResponse, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PortfolioSnapshot, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { CandidateConstructionRuleInput, ConstructionArtifactReplayResponse, HypotheticalReplayResponse, OptimizerHandoffReplayResponse, OptimizerObjective, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { formatReplayHistoricalBasisLabel, formatSnapshotBasisLabel } from '../portfolio/historyTruth'
 
 type AllocationWeightRow = {
@@ -29,6 +29,9 @@ type HypotheticalReplaySectionProps = {
   savedProposalCount: number
   onSaveProposal: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplayResponse) => void
+  workspaceSource?: PortfolioWorkspaceSource | null
+  persistedConstructionArtifactReview?: PersistedConstructionArtifactWorkspaceReview | null
+  persistedOptimizerHandoffReview?: PersistedOptimizerHandoffWorkspaceReview | null
 }
 
 type ReplayBasisMode = 'standard' | 'overlay_aware'
@@ -261,6 +264,20 @@ function sectionCardClass(kind: 'baseline' | 'candidate') {
 function formatReplayWindow(startDate: string | null | undefined, endDate: string | null | undefined) {
   if (!startDate || !endDate) return 'N/A'
   return `${startDate} -> ${endDate}`
+}
+
+function formatOptimizerObjectiveLabel(objective: OptimizerObjective) {
+  const objectiveId = objective.objective_id
+  if (objectiveId === 'maximize_alpha_quality_v1') return 'maximize alpha quality v1'
+  if (objectiveId === 'minimize_l2_distance_to_benchmark') return 'minimize benchmark distance'
+  return objectiveId.replace(/_/g, ' ')
+}
+
+function formatOptimizerObjectiveDetails(objective: OptimizerObjective) {
+  if (objective.objective_id === 'maximize_alpha_quality_v1') {
+    return `Alpha signal: ${objective.alpha_signal_id ?? 'n/a'} · requires alpha package: ${objective.requires_alpha_package ? 'yes' : 'no'}`
+  }
+  return `Benchmark-relative: ${String(objective.benchmark_relative)} · requires alpha package: ${objective.requires_alpha_package ? 'yes' : 'no'}`
 }
 
 function replayHistoryTruthLabel(replay: PortfolioAllocationBacktestResponse) {
@@ -1163,6 +1180,183 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
   )
 }
 
+export function PersistedConstructionArtifactReviewSection({ review }: { review: PersistedConstructionArtifactWorkspaceReview }) {
+  const replay = review.replay.replay
+  const summaryRows = buildSummaryRows(replay)
+  const replayDeltaCallouts = buildReplayDeltaCallouts(summaryRows)
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="persisted-construction-artifact-review">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Artifact Review Replay</p></div>
+        <p className="helper">Read-only replay review reopened from a persisted construction artifact review basis.</p>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Review Basis Id</p>
+          <p className="summary-value">{review.constructionArtifactId}</p>
+          <p className="helper">Reopened from local workspace pointer only.</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Truth Separation</p>
+          <p className="summary-value">{review.replay.truth_separation.candidate_truth}</p>
+          <p className="helper">Baseline {review.replay.truth_separation.baseline_truth} · candidate applied {String(review.replay.truth_separation.candidate_applied)}.</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Consumption Mode</p>
+          <p className="summary-value">{review.replay.truth_separation.consumption_mode}</p>
+          <p className="helper">Review uses the artifact review replay path only.</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Replay Status</p>
+          <p className="summary-value">{replay.candidate_result.status}</p>
+          <p className="helper">{formatReplayWindow(replay.candidate_result.start_date, replay.candidate_result.end_date)}</p>
+        </div>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Replay Provenance</p>
+        <p className="helper">Source: {review.replay.replay_provenance.source} · Policy: {review.replay.replay_provenance.policy_id} · Definition: {review.replay.replay_provenance.policy_definition_id}</p>
+        <p className="helper">Ranking artifact: {review.replay.replay_provenance.ranked_universe_artifact_id ?? 'n/a'} · Ranking id: {review.replay.replay_provenance.ranking_id ?? 'n/a'} · Methodology: {review.replay.replay_provenance.ranking_methodology_id ?? 'n/a'}</p>
+        <p className="helper">Current portfolio artifact: {review.replay.replay_provenance.current_portfolio_artifact_id ?? 'n/a'} · Baseline input: {review.replay.replay_provenance.baseline_input_source} · Candidate input: {review.replay.replay_provenance.candidate_input_source}</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Selection Rule Trace</p>
+        <div className="list-table">
+          <div className="list-row list-row-wide">
+            <span>Rule</span>
+            <span>Order</span>
+            <span>Input</span>
+            <span>Output</span>
+          </div>
+          {review.replay.replay_provenance.selection_rule_trace.steps.map((step) => (
+            <div className="list-row list-row-wide" key={`${step.rule_id}-${step.rule_order}`}>
+              <span>{step.rule_id}</span>
+              <span>{step.rule_order}</span>
+              <span>{step.input_candidate_symbols.join(', ') || 'n/a'}</span>
+              <span>{step.output_candidate_symbols.join(', ') || 'n/a'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {replayDeltaCallouts.length ? (
+        <div className="dashboard-summary compact-summary-grid">
+          {replayDeltaCallouts.map((callout) => (
+            <div className="summary-card" key={`artifact-callout-${callout.key}`}>
+              <p className="stat-label">{callout.label}</p>
+              <p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p>
+              <p className="helper">Replay summary</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {summaryRows.length ? <ComparisonTable rows={summaryRows} /> : null}
+      <div className="split-grid dashboard-bottom-grid">
+        <section>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div>
+          <div className="list-table">{review.replay.baseline_weights.map((row) => <div className="list-row" key={`artifact-baseline-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
+        </section>
+        <section>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Weights</p></div></div>
+          <div className="list-table">{review.replay.candidate_weights.map((row) => <div className="list-row" key={`artifact-candidate-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
+        </section>
+      </div>
+    </section>
+  )
+}
+
+export function PersistedOptimizerHandoffReviewSection({ review }: { review: PersistedOptimizerHandoffWorkspaceReview }) {
+  const replay = review.replay.replay
+  const summaryRows = buildSummaryRows(replay)
+  const replayDeltaCallouts = buildReplayDeltaCallouts(summaryRows)
+  const outputPolicy = review.replay.replay_provenance.replay_output_policy
+
+  if (review.replay.optimizer_context && !review.replay.optimizer_context.objective) {
+    throw new Error('Persisted optimizer handoff review is missing replay optimizer objective')
+  }
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="persisted-optimizer-handoff-review">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Optimizer Handoff Review Replay</p></div>
+        <p className="helper">Read-only replay review reopened by persisted optimizer handoff reference, with the artifact kept as backing lineage only.</p>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Review Basis Id</p>
+          <p className="summary-value">{review.handoffReference.handoff_id}</p>
+          <p className="helper">Canonical reopen identity for this hypothetical review.</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Artifact Lineage Id</p>
+          <p className="summary-value">{review.handoffReference.artifact_id}</p>
+          <p className="helper">Artifact-backed lineage and integrity reference only.</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Truth Separation</p>
+          <p className="summary-value">{review.replay.truth_separation.candidate_truth}</p>
+          <p className="helper">Baseline {review.replay.truth_separation.baseline_truth} · candidate applied {String(review.replay.truth_separation.candidate_applied)}.</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Replay Status</p>
+          <p className="summary-value">{replay.candidate_result.status}</p>
+          <p className="helper">{formatReplayWindow(replay.candidate_result.start_date, replay.candidate_result.end_date)}</p>
+        </div>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Review Framing</p>
+        <p className="helper">Truth class: optimizer-handoff-derived hypothetical evidence only. Review this as persisted optimizer output, not imported or applied portfolio truth.</p>
+        <p className="helper">Validation status: {review.validation.validation_status} · consumption mode: {review.validation.truth_separation.consumption_mode} · reopen identity: {review.handoffReference.handoff_id}</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Replay Provenance</p>
+        <p className="helper">Source: {review.replay.replay_provenance.source} · Benchmark: {review.replay.replay_provenance.benchmark_symbol} · Constraint fingerprint: {review.replay.replay_provenance.constraint_set_fingerprint}</p>
+        <p className="helper">Artifact state: {review.replay.replay_provenance.artifact_state} · Optimizer status: {review.replay.replay_provenance.optimizer_status}</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Replay Output Policy</p>
+        <p className="helper">Benchmark-relative path: {outputPolicy.section_trust.benchmark_relative_path} · factor path: {outputPolicy.section_trust.factor_model_path} · risk path: {outputPolicy.section_trust.risk_contribution_path}</p>
+        <p className="helper">Eligible families: {outputPolicy.eligible_families.join(', ') || 'none'} · withheld families: {outputPolicy.withheld_families.join(', ') || 'none'}</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Return Basis Attestation</p>
+        <p className="helper">Benchmark symbol: {review.replay.replay_provenance.return_basis_attestation.benchmark_symbol} · attested window: {formatReplayWindow(review.replay.replay_provenance.return_basis_attestation.history_start_date, review.replay.replay_provenance.return_basis_attestation.history_end_date)}</p>
+        <p className="helper">Benchmark contract: {review.replay.replay_provenance.return_basis_attestation.benchmark_return_basis_contract} · factor contract: {review.replay.replay_provenance.return_basis_attestation.factor_return_basis_contract}</p>
+      </div>
+      {review.replay.optimizer_context ? (
+        <div className="summary-card">
+          <p className="panel-label">Optimizer Context</p>
+          <p className="helper">Objective: {formatOptimizerObjectiveLabel(review.replay.optimizer_context.objective)} · solver: {review.replay.optimizer_context.run_summary.solver_id} · methodology: {review.replay.optimizer_context.run_summary.methodology_id}</p>
+          <p className="helper">{review.replay.optimizer_context.objective.description ?? 'Canonical objective description unavailable.'}</p>
+          <p className="helper">{formatOptimizerObjectiveDetails(review.replay.optimizer_context.objective)}</p>
+          <p className="helper">Reasons: {review.replay.optimizer_context.reasons.join(', ') || 'none'} · stale inputs: {review.replay.optimizer_context.stale_inputs.join(', ') || 'none'} · degraded inputs: {review.replay.optimizer_context.degraded_inputs.join(', ') || 'none'}</p>
+        </div>
+      ) : null}
+      {replayDeltaCallouts.length ? (
+        <div className="dashboard-summary compact-summary-grid">
+          {replayDeltaCallouts.map((callout) => (
+            <div className="summary-card" key={`optimizer-handoff-callout-${callout.key}`}>
+              <p className="stat-label">{callout.label}</p>
+              <p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p>
+              <p className="helper">Replay summary</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {summaryRows.length ? <ComparisonTable rows={summaryRows} /> : null}
+      <div className="split-grid dashboard-bottom-grid">
+        <section>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Baseline Weights</p></div></div>
+          <div className="list-table">{review.replay.baseline_weights.map((row) => <div className="list-row" key={`optimizer-handoff-baseline-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
+        </section>
+        <section>
+          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Candidate Weights</p></div></div>
+          <div className="list-table">{review.replay.candidate_weights.map((row) => <div className="list-row" key={`optimizer-handoff-candidate-${row.symbol}`}><span>{row.symbol}</span><span>{formatPct(row.target_weight * 100)}</span></div>)}</div>
+        </section>
+      </div>
+    </section>
+  )
+}
+
 export function DiagnosticsChangeSection({ result, hypotheticalReplayResult }: { result: PortfolioAllocationBacktestResponse | null; hypotheticalReplayResult: HypotheticalReplayResponse | null }) {
   const activeReplay = activeReplayFromHypothetical(hypotheticalReplayResult) ?? result
 
@@ -1184,8 +1378,10 @@ export function DiagnosticsChangeSection({ result, hypotheticalReplayResult }: {
   )
 }
 
-export function HypotheticalReplaySection({ result, draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposalCount, onSaveProposal, onHypotheticalReplayResult }: HypotheticalReplaySectionProps) {
+export function HypotheticalReplaySection({ result, draftSnapshot, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, savedProposalCount, onSaveProposal, onHypotheticalReplayResult, workspaceSource = null, persistedConstructionArtifactReview = null, persistedOptimizerHandoffReview = null }: HypotheticalReplaySectionProps) {
   const apiBase = useMemo(() => '/api', [])
+  const isPersistedConstructionArtifactMode = Boolean(workspaceSource && 'kind' in workspaceSource && workspaceSource.kind === 'persisted_construction_artifact')
+  const isPersistedOptimizerHandoffMode = Boolean(workspaceSource && 'kind' in workspaceSource && workspaceSource.kind === 'persisted_optimizer_handoff')
   const [startDate, setStartDate] = useState('2024-01-01')
   const [endDate, setEndDate] = useState('2024-12-31')
   const [initialCapital, setInitialCapital] = useState('100000')
@@ -1319,7 +1515,13 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
   return (
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header"><div><p className="panel-label">Hypothetical Replay</p></div><p className="helper">Truth class: replay-derived hypothetical evidence only. Review this as a draft-only comparison built from one explicit construction output handoff.</p></div>
-      {replacementIntentDraft ? (
+      {isPersistedConstructionArtifactMode && persistedConstructionArtifactReview ? (
+        <PersistedConstructionArtifactReviewSection review={persistedConstructionArtifactReview} />
+      ) : null}
+      {isPersistedOptimizerHandoffMode && persistedOptimizerHandoffReview ? (
+        <PersistedOptimizerHandoffReviewSection review={persistedOptimizerHandoffReview} />
+      ) : null}
+      {isPersistedConstructionArtifactMode || isPersistedOptimizerHandoffMode ? null : replacementIntentDraft ? (
         <>
             <div className="summary-card">
               <p className="panel-label">Replay Preflight</p>
@@ -1395,7 +1597,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
             </>
           ) : null}
         </>
-      ) : (
+      ) : isPersistedConstructionArtifactMode || isPersistedOptimizerHandoffMode ? null : (
         <p className="helper">An explicit replacement intent is required before a hypothetical replay can run.</p>
       )}
     </section>

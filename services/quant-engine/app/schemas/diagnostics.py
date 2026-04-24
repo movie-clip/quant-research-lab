@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.dashboard_history import DashboardHistoryInvestorEconomicsPartialUnlock
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest, PortfolioHistoryContext
 from app.schemas.return_basis import PortfolioProofMetadata, ReturnBasisEvidence
@@ -80,6 +81,7 @@ class DiagnosticsRunMetadata(BaseModel):
     return_basis_evidence: ReturnBasisEvidenceBundle
     portfolio_proof: PortfolioProofMetadata
     investor_economics_status: InvestorEconomicsStatus
+    investor_economics_partial_unlock: DashboardHistoryInvestorEconomicsPartialUnlock
     confidence: Literal["high", "medium", "low"]
     factor_model_parameters: FactorModelParameters
     reproducibility: ReproducibilityMetadata

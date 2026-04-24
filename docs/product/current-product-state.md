@@ -54,11 +54,13 @@ This document is the canonical source for what is actually shipped today, what i
 
 - optimizer preview is shipped as a hypothetical workflow at `POST /optimizer/preview`
 - feasible previews can persist an immutable explicit handoff reference with benchmark, snapshot, optimizer artifact, and return-basis attestation lineage
+- persisted optimizer handoff review reopens by persisted `handoffReference`; `handoffReference.handoff_id` is the canonical identity and `handoffReference.artifact_id` remains persisted lineage and integrity metadata only
 - persisted handoffs replay through `POST /backtests/portfolio-allocation/optimizer-handoff-preview`
-- persisted handoffs validate through `POST /backtests/portfolio-allocation/optimizer-handoff/constraints`
+- persisted handoffs validate through `POST /backtests/portfolio-allocation/optimizer-handoff/constraints`, which remains a validation/preflight boundary rather than a replay-open route
 - optimizer replay truth is explicit: hypothetical output only, not applied portfolio truth
 - optimizer handoff replay uses persisted lineage and return-basis attestation to control benchmark-relative output suppression
 - trusted PIT alpha attachment is shipped for the narrow `alpha_quality_v1` path when requested by optimizer preview
+- optimizer objective selection is now additive: default benchmark-distance remains backward compatible, and hypothetical artifact-backed preview/replay can also persist and replay `maximize_alpha_quality_v1`
 
 ### Desktop workflow ownership
 
@@ -74,6 +76,7 @@ This document is the canonical source for what is actually shipped today, what i
 - persisted construction is shipped and now has read-only policy discovery, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
 - single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
 - optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`
+- optimizer alpha-objective support remains narrow: one additive `alpha_quality_v1` objective only, artifact-backed only, fail-closed on missing, malformed, quarantined, unsupported, stale, or degraded alpha inputs
 - overlays remain limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only
 - monitoring remains a replay-scoped Workspace review surface, not a continuous alerting and review-history system
 
@@ -82,6 +85,7 @@ This document is the canonical source for what is actually shipped today, what i
 - workspace state restores on launch from local persistence when available
 - saved nodes are immutable portfolio-truth snapshots; review artifacts are separate from those snapshots
 - seeded candidate metadata, replacement intent, formed candidates, constructed candidates, selected construction rules, hypothetical replays, persisted construction references, optimizer handoffs, and saved proposals all preserve explicit lineage boundaries
+- desktop persisted optimizer handoff review state now writes canonical `handoffReference` reopen state only; any legacy cache repair is limited to load-time normalization
 - recreating a draft from a node clears dependent draft-scoped review artifacts so stale review state does not silently cross lineage changes
 
 ## What is future, not current

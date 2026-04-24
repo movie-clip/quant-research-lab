@@ -605,6 +605,7 @@ def _build_response(state: _ValidationState) -> OptimizerHandoffValidationRespon
             benchmark_id=manifest.benchmark.benchmark_id if manifest is not None else None,
             benchmark_version=manifest.benchmark.benchmark_version if manifest is not None else None,
             benchmark_symbol=state.benchmark_symbol,
+            objective=manifest.objective if manifest is not None else None,
             replay_output_policy=build_optimizer_handoff_replay_output_policy(manifest.return_basis_attestation) if manifest is not None else None,
             artifact_state=artifact.artifact_state.artifact_state if artifact is not None else None,
             constraint_set_fingerprint=manifest.constraint_set.constraint_set_fingerprint if manifest is not None else None,

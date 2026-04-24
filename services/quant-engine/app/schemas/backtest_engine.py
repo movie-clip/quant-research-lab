@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
 
 from app.schemas.construction import ConstructionPolicyDefinitionId, ConstructionSelectionRuleTrace
 from app.schemas.imports import StatementImporter
-from app.schemas.optimizer import OptimizerArtifactState, OptimizerBenchmarkAttestationType, OptimizerConstraintStatus, OptimizerPersistedArtifactReference, OptimizerReturnBasisAttestation, OptimizerReturnBasisSectionTrust
+from app.schemas.optimizer import OptimizerArtifactState, OptimizerBenchmarkAttestationType, OptimizerConstraintStatus, OptimizerObjective, OptimizerObjectiveId, OptimizerPersistedArtifactReference, OptimizerReturnBasisAttestation, OptimizerReturnBasisSectionTrust
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.schemas.research import AllocationRebalanceFrequency, BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, InvestorEconomicsStatus, StrategyDefinition
 
@@ -180,9 +180,27 @@ class ConstructionArtifactReplayRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     construction_artifact_id: str
+    benchmark_symbol: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    initial_capital: float | None = None
+    rebalance_frequency: AllocationRebalanceFrequency | None = None
+    base_currency: str | None = None
+    commission_bps: float | None = None
+    slippage_bps: float | None = None
+    drift_tolerance_pct: float | None = None
+    price_basis: Literal["adjusted_close"] | None = None
+    execution_price_field: Literal["close"] | None = None
+    execution_lag_days: int | None = None
+    symbol_overrides: dict[str, list[str]] | None = None
+
+
+class ConstructionArtifactReplayEffectiveParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     benchmark_symbol: str = "SPY"
-    start_date: date
-    end_date: date
+    start_date: date = date(2024, 1, 1)
+    end_date: date = date(2024, 12, 31)
     initial_capital: float = 100_000.0
     rebalance_frequency: AllocationRebalanceFrequency = "monthly"
     base_currency: str = "USD"
@@ -193,6 +211,16 @@ class ConstructionArtifactReplayRequest(BaseModel):
     execution_price_field: Literal["close"] = "close"
     execution_lag_days: int = 1
     symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_effective_replay_params(self) -> "ConstructionArtifactReplayEffectiveParams":
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date")
+        if self.initial_capital <= 0:
+            raise ValueError("initial_capital must be positive")
+        if self.execution_lag_days < 1:
+            raise ValueError("execution_lag_days must be at least 1")
+        return self
 
 
 class HypotheticalReplayProposal(BaseModel):
@@ -464,7 +492,44 @@ class ConstructionArtifactReplayResponse(BaseModel):
     replay_provenance: ConstructionArtifactReplayProvenance
     baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    effective_replay_params: ConstructionArtifactReplayEffectiveParams
     replay: PortfolioAllocationBacktestResponse
+
+
+class ConstructionArtifactPreviewHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: Literal["construction_artifact_preview_handoff_v1"] = "construction_artifact_preview_handoff_v1"
+    construction_artifact_id: str
+    effective_replay_params: ConstructionArtifactReplayEffectiveParams
+
+
+class ConstructionArtifactReplayValidationResponse(BaseModel):
+    construction_artifact_id: str
+    effective_replay_params: ConstructionArtifactReplayEffectiveParams
+    preview_handoff: ConstructionArtifactPreviewHandoff
+    open_payload: ConstructionArtifactReplayResponse | None = Field(default=None, deprecated=True)
+
+
+ConstructionArtifactPreviewRequest: TypeAlias = ConstructionArtifactPreviewHandoff | ConstructionArtifactReplayRequest
+
+
+class ConstructionArtifactPreviewOpenRequest(RootModel[ConstructionArtifactPreviewRequest]):
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_preview_request_shape(cls, value):
+        if not isinstance(value, dict):
+            return value
+        if "handoff_kind" not in value and "effective_replay_params" not in value:
+            return value
+        if "handoff_kind" not in value:
+            raise ValueError("preview_handoff.handoff_kind is required")
+        if value["handoff_kind"] != "construction_artifact_preview_handoff_v1":
+            raise ValueError(f"unsupported preview_handoff.handoff_kind: {value['handoff_kind']}")
+        mixed_legacy_fields = set(value) - {"handoff_kind", "construction_artifact_id", "effective_replay_params"}
+        if mixed_legacy_fields:
+            raise ValueError("preview_handoff request must not mix legacy replay override fields")
+        return value
 
 
 class OptimizerHandoffReplayTruthSeparation(BaseModel):
@@ -544,7 +609,7 @@ class OptimizerHandoffReplayBenchmarkAttestationSummary(BaseModel):
 
 
 class OptimizerHandoffReplayOptimizerContext(BaseModel):
-    objective_id: str
+    objective: OptimizerObjective
     penalty_ids: list[str] = Field(default_factory=list)
     artifact_state: OptimizerArtifactState
     stale_inputs: list[str] = Field(default_factory=list)
@@ -593,6 +658,7 @@ class OptimizerHandoffValidationProvenance(BaseModel):
     benchmark_id: str | None = None
     benchmark_version: str | None = None
     benchmark_symbol: str | None = None
+    objective: OptimizerObjective | None = None
     replay_output_policy: OptimizerHandoffReplayOutputPolicy | None = None
     artifact_state: OptimizerArtifactState | None = None
     constraint_set_fingerprint: str | None = None
@@ -622,7 +688,7 @@ class OptimizerHandoffValidationRequest(BaseModel):
 
 class OptimizerHandoffValidationResponse(BaseModel):
     handoff_id: str | None = None
-    artifact_id: str | None = None
+    artifact_id: str | None = Field(default=None, deprecated=True)
     source_portfolio_snapshot_id: str | None = None
     truth_separation: OptimizerHandoffValidationTruthSeparation = Field(default_factory=OptimizerHandoffValidationTruthSeparation)
     eligible_replay_window: OptimizerHandoffEligibleReplayWindow | None = None
@@ -653,7 +719,7 @@ class OptimizerHandoffReplayRequest(BaseModel):
 
 class OptimizerHandoffReplayResponse(BaseModel):
     handoff_id: str
-    artifact_id: str
+    artifact_id: str = Field(deprecated=True)
     source_portfolio_snapshot_id: str
     truth_separation: OptimizerHandoffReplayTruthSeparation = Field(default_factory=OptimizerHandoffReplayTruthSeparation)
     replay_provenance: OptimizerHandoffReplayProvenance

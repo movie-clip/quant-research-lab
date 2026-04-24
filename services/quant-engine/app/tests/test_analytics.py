@@ -721,6 +721,70 @@ def test_run_dashboard_history_engine_returns_unavailable_for_snapshot_only_requ
     market_data.assert_not_called()
 
 
+def test_run_diagnostics_engine_returns_unavailable_for_snapshot_only_requests(mocker) -> None:
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    request = DiagnosticsEngineRequest(
+        benchmark_symbol="SPY",
+        base_currency="USD",
+        statement_period="2026-04-10 - 2026-04-11",
+        imported_at=datetime(2026, 4, 10),
+        importer="interactive_brokers",
+        source_file_names=["snapshot.json"],
+        positions=[PortfolioPositionSnapshot(symbol="AAPL", market_value=1000.0, quantity=10.0, currency="USD")],
+        cash_balances=[PortfolioCashBalanceSnapshot(currency="USD", amount=100.0)],
+    )
+
+    result = run_diagnostics_engine(request)
+
+    assert result.availability.historical_sections_available is False
+    assert result.availability.history_context_required is True
+    assert result.availability.status == "unavailable"
+    assert result.availability.note == "Historical diagnostics are unavailable from snapshot-only input. Attach PortfolioHistoryContext to run rolling diagnostics accurately."
+    assert result.provenance.snapshot_basis == "snapshot_request"
+    assert result.provenance.historical_basis == "unavailable"
+    assert result.run_metadata.source_status.model_dump() == {
+        "portfolio_history": "unavailable",
+        "benchmark_history": "unavailable",
+        "factor_history": "unavailable",
+    }
+    assert result.run_metadata.investor_economics_status.model_dump() == {
+        "status": "withheld",
+        "reason": "withheld_unverified_total_return_equivalence",
+    }
+    assert result.run_metadata.investor_economics_partial_unlock.model_dump() == {
+        "mode": "allowlisted_exact_slice_scalars_only",
+        "exact_slice_scalar_allowlist": [
+            {
+                "field": "range_metrics[*].summary.time_weighted_return_pct",
+                "unlock_condition": "identical_admitted_exact_slice_only",
+                "runtime_enabled": True,
+            },
+            {
+                "field": "range_metrics[*].summary.benchmark_return_pct",
+                "unlock_condition": "identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+                "runtime_enabled": True,
+            },
+            {
+                "field": "range_metrics[*].summary.excess_return_pct",
+                "unlock_condition": "identical_admitted_exact_slice_pair_only",
+                "runtime_enabled": True,
+            },
+        ],
+        "client_derivation_rule": "server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        "withheld_families": [
+            "benchmark_relative_series",
+            "benchmark_relative_path_derived_outputs",
+            "drawdown_family",
+            "rebucketed_window_summaries",
+            "rewindowed_range_summaries",
+            "diagnostics_benchmark_relative_outputs",
+            "replay_benchmark_relative_outputs",
+            "strategy_lab_benchmark_relative_outputs",
+        ],
+    }
+    market_data.assert_not_called()
+
+
 def test_run_diagnostics_engine_uses_history_context_for_snapshot_requests(mocker) -> None:
     market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
     service = market_data.return_value

@@ -16,6 +16,7 @@ from app.schemas.optimizer import (
     OptimizerPreviewPitAlphaInput,
     OptimizerPreviewRequest,
     OptimizationRequest,
+    OptimizerObjective,
     OptimizerBenchmarkRelativeConstraint,
     OptimizerHardConstraints,
     OptimizerPenalty,
@@ -515,7 +516,7 @@ def test_run_optimizer_rejects_invalid_risk_package_inputs() -> None:
     assert result.feasibility.issues[0].symbols == ["CCC"]
 
 
-def test_run_optimizer_consumes_alpha_package_as_modest_preference_only() -> None:
+def test_run_optimizer_ignores_alpha_package_under_default_benchmark_distance_objective() -> None:
     request = _base_request()
     request.alpha_package = _alpha_package()
 
@@ -523,22 +524,99 @@ def test_run_optimizer_consumes_alpha_package_as_modest_preference_only() -> Non
 
     assert result.feasibility.status == "feasible"
     assert result.proposed_weights == [
+        OptimizerWeight(symbol="AAA", weight=0.5),
+        OptimizerWeight(symbol="BBB", weight=0.3),
+        OptimizerWeight(symbol="CCC", weight=0.2),
+    ]
+    assert result.run_metadata.alpha_package_id is None
+    assert result.run_metadata.alpha_package_version is None
+    assert result.run_metadata.alpha_preference_l1_budget is None
+    assert result.ex_ante_diagnostics.alpha_package_version is None
+    assert result.ex_ante_diagnostics.alpha_package_coverage_ratio is None
+    assert result.ex_ante_diagnostics.alpha_preference_applied is False
+    assert result.ex_ante_diagnostics.alpha_preference_l1_budget is None
+    assert result.replay.alpha_package_id is None
+
+
+def test_run_optimizer_defaults_to_benchmark_distance_objective_for_backward_compatibility() -> None:
+    request = _base_request()
+
+    result = run_optimizer(request)
+
+    assert result.objective.model_dump() == {
+        "objective_id": "minimize_l2_distance_to_benchmark",
+        "benchmark_relative": True,
+        "description": "Minimize squared distance to benchmark weights inside the hard-constraint set.",
+        "alpha_signal_id": None,
+        "requires_alpha_package": False,
+    }
+    assert result.proposed_weights == [
+        OptimizerWeight(symbol="AAA", weight=0.5),
+        OptimizerWeight(symbol="BBB", weight=0.3),
+        OptimizerWeight(symbol="CCC", weight=0.2),
+    ]
+
+
+def test_run_optimizer_supports_alpha_quality_objective_when_valid_alpha_package_is_present() -> None:
+    request = _base_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
+    request.alpha_package = _alpha_package()
+
+    result = run_optimizer(request)
+
+    assert result.feasibility.status == "feasible"
+    assert result.objective.objective_id == "maximize_alpha_quality_v1"
+    assert result.objective.alpha_signal_id == "alpha_quality_v1"
+    assert result.objective.requires_alpha_package is True
+    assert result.proposed_weights == [
         OptimizerWeight(symbol="AAA", weight=0.52),
         OptimizerWeight(symbol="BBB", weight=0.29711203),
         OptimizerWeight(symbol="CCC", weight=0.18288797),
     ]
-    assert max(abs(item.weight) for item in result.active_weights) <= 0.100001
-    assert any(item.constraint_id == "benchmark_relative_max_abs_active_weight" and item.status in {"binding", "pass"} for item in result.constraint_evaluations)
     assert result.run_metadata.alpha_package_id == request.alpha_package.package_id
     assert result.run_metadata.alpha_package_version == "alpha_quality_v1"
-    assert result.run_metadata.alpha_package_rebalance_date == "2024-04-15"
-    assert result.run_metadata.alpha_package_coverage_ratio == 1.0
     assert result.run_metadata.alpha_preference_l1_budget == 0.04
-    assert result.ex_ante_diagnostics.alpha_package_version == "alpha_quality_v1"
-    assert result.ex_ante_diagnostics.alpha_package_coverage_ratio == 1.0
+    assert result.artifact is not None
+    assert result.artifact.objective.objective_id == "maximize_alpha_quality_v1"
     assert result.ex_ante_diagnostics.alpha_preference_applied is True
-    assert result.ex_ante_diagnostics.alpha_preference_l1_budget == 0.04
-    assert result.replay.alpha_package_id == request.alpha_package.package_id
+
+
+def test_run_optimizer_rejects_alpha_quality_objective_without_alpha_package() -> None:
+    request = _base_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
+
+    result = run_optimizer(request)
+
+    assert result.feasibility.status == "rejected"
+    assert result.feasibility.issues[0].code == "missing_alpha_package"
+
+
+def test_run_optimizer_rejects_alpha_quality_objective_with_degraded_alpha_package() -> None:
+    request = _base_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
+    request.alpha_package = _pit_alpha_package("2024-03-15")
+
+    result = run_optimizer(request)
+
+    assert request.alpha_package is not None
+    assert request.alpha_package.diagnostics.status == "invalid"
+    assert result.feasibility.status == "rejected"
+    assert result.feasibility.issues[0].code == "alpha_package_inputs_invalid"
+    assert result.feasibility.issues[0].symbols == ["CCC"]
+
+
+def test_run_optimizer_rejects_alpha_quality_objective_with_stale_alpha_package() -> None:
+    request = _base_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
+    request.alpha_package = _alpha_package(rebalance_date="2025-08-01")
+
+    result = run_optimizer(request)
+
+    assert request.alpha_package is not None
+    assert request.alpha_package.diagnostics.status == "invalid"
+    assert result.feasibility.status == "rejected"
+    assert result.feasibility.issues[0].code == "alpha_package_inputs_invalid"
+    assert sorted(result.feasibility.issues[0].symbols) == ["AAA", "BBB", "CCC"]
 
 
 def test_run_optimizer_allows_invalid_alpha_package_to_degrade_conservatively() -> None:
@@ -550,15 +628,16 @@ def test_run_optimizer_allows_invalid_alpha_package_to_degrade_conservatively() 
     assert request.alpha_package is not None
     assert request.alpha_package.diagnostics.status == "invalid"
     assert result.feasibility.status == "feasible"
-    assert result.run_metadata.alpha_package_version == "alpha_quality_v1"
+    assert result.run_metadata.alpha_package_version is None
     assert max(abs(item.weight) for item in result.active_weights) <= 0.100001
     assert result.artifact is not None
-    assert result.artifact.artifact_state.artifact_state == "stale"
-    assert "alpha_package" in result.artifact.artifact_state.stale_inputs
+    assert result.artifact.artifact_state.artifact_state == "complete"
+    assert result.artifact.artifact_state.stale_inputs == []
 
 
 def test_run_optimizer_consumes_replayable_pit_alpha_package_without_lookahead() -> None:
     request = _base_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
     request.alpha_package = _pit_alpha_package("2024-04-15")
 
     result = run_optimizer(request)
@@ -580,6 +659,7 @@ def test_run_optimizer_consumes_replayable_pit_alpha_package_without_lookahead()
 
 def test_run_optimizer_pit_alpha_package_historical_as_of_blocks_unavailable_records() -> None:
     request = _base_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
     request.alpha_package = _pit_alpha_package("2024-03-15")
 
     result = run_optimizer(request)
@@ -588,12 +668,9 @@ def test_run_optimizer_pit_alpha_package_historical_as_of_blocks_unavailable_rec
     assert request.alpha_package.diagnostics.status == "invalid"
     assert request.alpha_package.diagnostics.lag_blocked_symbols == ["CCC"]
     assert request.alpha_package.diagnostics.fallback_symbols == ["CCC"]
-    assert result.feasibility.status == "feasible"
-    assert result.run_metadata.alpha_package_version == "alpha_quality_v1"
-    assert result.artifact is not None
-    assert result.artifact.artifact_state.artifact_state == "degraded"
-    assert "alpha_package" in result.artifact.artifact_state.degraded_inputs
-    assert any(reason.startswith("alpha_package_lag_blocked:") for reason in result.artifact.artifact_state.reasons)
+    assert result.feasibility.status == "rejected"
+    assert result.feasibility.issues[0].code == "alpha_package_inputs_invalid"
+    assert result.feasibility.issues[0].symbols == ["CCC"]
 
 
 def test_assemble_optimizer_request_with_trusted_pit_alpha_happy_path(tmp_path: Path) -> None:
@@ -916,7 +993,48 @@ def test_build_optimizer_preview_attaches_trusted_pit_alpha_when_requested(tmp_p
 
     assert response.optimizer_status == "feasible"
     assert response.provenance.alpha_input_status == "trusted_pit_attached"
-    assert response.optimizer_artifact.run_metadata.alpha_package_id is not None
+    assert response.optimizer_artifact.run_metadata.alpha_package_id is None
+
+
+def test_build_optimizer_preview_rejects_alpha_objective_when_trusted_pit_alpha_is_unavailable(tmp_path: Path) -> None:
+    from typing import Any, cast
+
+    from app.services.optimizer_alpha_fundamentals import AlphaQualityPitIngestionService, AlphaQualityPitSnapshotStore
+    from app.tests.test_optimizer_alpha_fundamentals import FakeFmpClient, _balance_sheet, _cash_flow, _income_statement, _profile
+
+    request = _preview_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
+    request.snapshot.positions = [
+        request.snapshot.positions[0].model_copy(update={"symbol": "AAPL", "market_value": 60.0}),
+        request.snapshot.positions[1].model_copy(update={"symbol": "MSFT", "market_value": 40.0}),
+    ]
+    request.benchmark.weights = [
+        OptimizerWeight(symbol="AAPL", weight=0.50),
+        OptimizerWeight(symbol="MSFT", weight=0.30),
+        OptimizerWeight(symbol="GOOG", weight=0.20),
+    ]
+    request.universe = [
+        OptimizerUniverseAsset(symbol="AAPL", eligible=True),
+        OptimizerUniverseAsset(symbol="MSFT", eligible=True),
+        OptimizerUniverseAsset(symbol="GOOG", eligible=True),
+    ]
+    request.pit_alpha = OptimizerPreviewPitAlphaInput(as_of_date="2024-04-15")
+    client = FakeFmpClient()
+    client.profiles["AAPL"] = [_profile("AAPL")]
+    client.income_statements["AAPL"] = [_income_statement("AAPL")]
+    client.balance_sheets["AAPL"] = [_balance_sheet("AAPL")]
+    client.cash_flows["AAPL"] = [_cash_flow("AAPL")]
+    client.profiles["MSFT"] = [_profile("MSFT")]
+    client.income_statements["MSFT"] = [_income_statement("MSFT")]
+    client.balance_sheets["MSFT"] = [_balance_sheet("MSFT")]
+    client.cash_flows["MSFT"] = [_cash_flow("MSFT")]
+    snapshot_store = AlphaQualityPitSnapshotStore(str(tmp_path))
+    ingestion_service = AlphaQualityPitIngestionService(client=cast(Any, client), snapshot_store=snapshot_store)
+
+    with pytest.raises(ValueError) as exc_info:
+        build_optimizer_preview(request, ingestion_service=ingestion_service)
+
+    assert "failed closed" in str(exc_info.value)
 
 
 def test_optimizer_preview_persists_immutable_explicit_handoff_reference(tmp_path: Path) -> None:
@@ -938,9 +1056,31 @@ def test_optimizer_preview_persists_immutable_explicit_handoff_reference(tmp_pat
     assert loaded.manifest.hypothetical is True
     assert loaded.manifest.preview_only is True
     assert loaded.manifest.replay_consumption_mode == "explicit_reference_only"
+    assert loaded.manifest.objective == response.optimizer_artifact.objective
     assert loaded.manifest.optimizer_output_target_weights == response.optimizer_artifact.proposed_weights
     assert Path(response.persisted_handoff.manifest_path).exists()
     assert Path(response.persisted_handoff.artifact_path).exists()
+
+
+def test_optimizer_preview_handoff_roundtrip_persists_alpha_objective_metadata(tmp_path: Path) -> None:
+    request = _base_request()
+    request.objective = OptimizerObjective(objective_id="maximize_alpha_quality_v1")
+    request.alpha_package = _alpha_package()
+    result = run_optimizer(request)
+
+    assert result.artifact is not None
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    reference = handoff_store.persist_handoff(
+        artifact=result.artifact,
+        snapshot_reference=_snapshot_reference_for_test(),
+        benchmark=_preview_request().benchmark,
+        return_basis_attestation=_return_basis_attestation_for_test(),
+    )
+    loaded = load_optimizer_handoff_by_reference(reference, store=handoff_store)
+
+    assert loaded.artifact.objective.objective_id == "maximize_alpha_quality_v1"
+    assert loaded.manifest.objective.objective_id == "maximize_alpha_quality_v1"
+    assert loaded.manifest.objective.alpha_signal_id == "alpha_quality_v1"
 
 
 def test_optimizer_preview_persists_canonical_benchmark_symbol_at_handoff_boundary(tmp_path: Path) -> None:

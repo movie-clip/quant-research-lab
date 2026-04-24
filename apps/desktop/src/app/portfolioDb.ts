@@ -1,5 +1,5 @@
 const databaseName = 'portfolio-workstation'
-const databaseVersion = 13
+const databaseVersion = 16
 
 export const appStateStoreName = 'app-state'
 export const workspaceStoreName = 'workspaces'
@@ -16,6 +16,8 @@ export const selectedConstructionRuleStoreName = 'selected_construction_rule_dra
 export const hypotheticalReplacementReplayDraftStoreName = 'hypothetical_replacement_replay_drafts'
 export const versionedProposalStoreName = 'versioned_proposals'
 export const activeThesisStoreName = 'active_thesis'
+export const persistedConstructionArtifactReviewStoreName = 'persisted_construction_artifact_reviews'
+export const persistedOptimizerHandoffReviewStoreName = 'persisted_optimizer_handoff_reviews'
 
 let databasePromise: Promise<IDBDatabase> | null = null
 let openDatabaseHandle: IDBDatabase | null = null
@@ -58,6 +60,8 @@ export function openPortfolioDatabase() {
             hypotheticalReplacementReplayDraftStoreName,
             versionedProposalStoreName,
             activeThesisStoreName,
+            persistedConstructionArtifactReviewStoreName,
+            persistedOptimizerHandoffReviewStoreName,
           ]
 
           for (const storeName of storeNames) {
@@ -123,6 +127,15 @@ export function openPortfolioDatabase() {
         }
         if (!database.objectStoreNames.contains(activeThesisStoreName)) {
           database.createObjectStore(activeThesisStoreName, { keyPath: 'workspaceId' })
+        }
+        if (!database.objectStoreNames.contains(persistedConstructionArtifactReviewStoreName)) {
+          const store = database.createObjectStore(persistedConstructionArtifactReviewStoreName, { keyPath: 'workspaceId' })
+          store.createIndex('constructionArtifactId', 'constructionArtifactId', { unique: false })
+        }
+        if (!database.objectStoreNames.contains(persistedOptimizerHandoffReviewStoreName)) {
+          const store = database.createObjectStore(persistedOptimizerHandoffReviewStoreName, { keyPath: 'workspaceId' })
+          store.createIndex('handoffId', 'handoffReference.handoff_id', { unique: false })
+          store.createIndex('artifactId', 'handoffReference.artifact_id', { unique: false })
         }
       }
 

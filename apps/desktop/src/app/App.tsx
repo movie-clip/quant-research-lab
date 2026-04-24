@@ -9,9 +9,9 @@ import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/por
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { desktopFeatureFlags } from './featureFlags'
-import type { HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import type { ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
+import { buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 
 
@@ -27,6 +27,129 @@ const EtfRankingPanel = lazy(async () => ({ default: (await import('../features/
 const defaultSymbolOverrides = '{}'
 type ImportMode = 'replace' | 'add_snapshot'
 const defaultConstructionRuleId: SingleReplacementConstructionRuleId = 'same_weight_substitution_v1'
+const persistedConstructionArtifactQueryKey = 'construction_artifact_id'
+const persistedOptimizerHandoffReferenceQueryKey = 'optimizer_handoff_reference'
+const missingPersistedOptimizerHandoffReviewRestoreMessage = 'Unable to restore previous portfolio workspace: persisted optimizer handoff review is missing'
+
+function isImportedWorkspaceSource(source: PortfolioWorkspace['source'] | null | undefined): source is Extract<PortfolioWorkspace['source'], { importedFileNames: string[] }> {
+  return Boolean(source && 'importedFileNames' in source)
+}
+
+function isPersistedConstructionArtifactWorkspaceSource(
+  source: PortfolioWorkspace['source'] | null | undefined,
+): source is Extract<PortfolioWorkspace['source'], { kind: 'persisted_construction_artifact' }> {
+  return Boolean(source && 'kind' in source && source.kind === 'persisted_construction_artifact')
+}
+
+function isPersistedOptimizerHandoffWorkspaceSource(
+  source: PortfolioWorkspace['source'] | null | undefined,
+): source is Extract<PortfolioWorkspace['source'], { kind: 'persisted_optimizer_handoff' }> {
+  return Boolean(source && 'kind' in source && source.kind === 'persisted_optimizer_handoff')
+}
+
+function resolveConstructionArtifactPreviewHandoff(
+  validation: ConstructionArtifactReplayValidationResponse,
+  expectedArtifactId: string,
+): ConstructionArtifactPreviewHandoff {
+  if (!validation.preview_handoff) {
+    throw new Error('Unable to open persisted construction artifact review: validation response missing preview handoff')
+  }
+  if (validation.preview_handoff.handoff_kind !== 'construction_artifact_preview_handoff_v1') {
+    throw new Error('Unable to open persisted construction artifact review: unsupported preview handoff kind')
+  }
+  if (validation.preview_handoff.construction_artifact_id !== expectedArtifactId) {
+    throw new Error('Unable to open persisted construction artifact review: preview handoff artifact mismatch')
+  }
+  return validation.preview_handoff
+}
+
+function parseOptimizerHandoffReferenceParam(search: string): OptimizerPersistedArtifactReference | null {
+  const raw = new URLSearchParams(search).get(persistedOptimizerHandoffReferenceQueryKey)
+  if (!raw) return null
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error('Unable to open persisted optimizer handoff review: invalid handoff reference query payload')
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Unable to open persisted optimizer handoff review: invalid handoff reference query payload')
+  }
+
+  const reference = parsed as Partial<OptimizerPersistedArtifactReference>
+  if (
+    reference.reference_kind !== 'optimizer_handoff_reference_v1'
+    || !reference.handoff_id
+    || !reference.artifact_id
+    || !reference.manifest_path
+    || !reference.artifact_path
+  ) {
+    throw new Error('Unable to open persisted optimizer handoff review: incomplete handoff reference query payload')
+  }
+
+  return {
+    reference_kind: 'optimizer_handoff_reference_v1',
+    handoff_id: reference.handoff_id,
+    artifact_id: reference.artifact_id,
+    manifest_path: reference.manifest_path,
+    artifact_path: reference.artifact_path,
+  }
+}
+
+function assertOptimizerHandoffValidationMatchesReference(
+  validation: OptimizerHandoffValidationResponse,
+  handoffReference: OptimizerPersistedArtifactReference,
+) {
+  if (!validation.handoff_id || validation.handoff_id !== handoffReference.handoff_id) {
+    throw new Error('Unable to open persisted optimizer handoff review: validation handoff mismatch')
+  }
+  if (validation.artifact_id && validation.artifact_id !== handoffReference.artifact_id) {
+    throw new Error('Unable to open persisted optimizer handoff review: validation artifact mismatch')
+  }
+}
+
+function assertOptimizerHandoffReplayMatchesReference(
+  replay: OptimizerHandoffReplayResponse,
+  handoffReference: OptimizerPersistedArtifactReference,
+) {
+  if (replay.handoff_id !== handoffReference.handoff_id) {
+    throw new Error('Unable to open persisted optimizer handoff review: replay handoff mismatch')
+  }
+  if (replay.artifact_id !== handoffReference.artifact_id) {
+    throw new Error('Unable to open persisted optimizer handoff review: replay artifact mismatch')
+  }
+  if (!replay.optimizer_context) {
+    throw new Error('Unable to open persisted optimizer handoff review: replay optimizer context missing')
+  }
+  if (!replay.optimizer_context.objective) {
+    throw new Error('Unable to open persisted optimizer handoff review: replay optimizer objective missing')
+  }
+}
+
+function getWorkspaceImportedFileNames(workspace: PortfolioWorkspace | null, node: PortfolioNode | null) {
+  if (!workspace) return []
+  const nodeSource = getNodeImportSource(node, workspace)
+  if (nodeSource) return nodeSource.importedFileNames
+  return isImportedWorkspaceSource(workspace.source) ? workspace.source.importedFileNames : []
+}
+
+function getWorkspaceHistorySource(workspace: PortfolioWorkspace | null) {
+  return workspace && isImportedWorkspaceSource(workspace.source) ? workspace.source.historySource : null
+}
+
+function getNodeHistorySource(source: Extract<PortfolioWorkspace['source'], { importedFileNames: string[] }> | null | undefined) {
+  return source?.historySource ?? null
+}
+
+function isPersistedConstructionArtifactWorkspace(workspace: PortfolioWorkspace | null | undefined) {
+  return isPersistedConstructionArtifactWorkspaceSource(workspace?.source)
+}
+
+function isPersistedOptimizerHandoffWorkspace(workspace: PortfolioWorkspace | null | undefined) {
+  return isPersistedOptimizerHandoffWorkspaceSource(workspace?.source)
+}
 
 function formatShortBrokerName(importer: ImportedStatementImporter | null | undefined) {
   if (importer === 'freedom24') return 'FF'
@@ -62,11 +185,14 @@ function buildImportedSnapshotName(snapshot: ImportedSnapshot) {
 
 function getNodeImportSource(node: PortfolioNode | null, workspace: PortfolioWorkspace | null) {
   if (!node) return null
+  if (isPersistedConstructionArtifactWorkspace(workspace) || isPersistedOptimizerHandoffWorkspace(workspace)) {
+    return null
+  }
   if (node.kind === 'imported_snapshot') {
     return node.source ?? null
   }
   if (node.kind === 'imported_base') {
-    return workspace?.source ?? null
+    return isImportedWorkspaceSource(workspace?.source) ? workspace.source : null
   }
   return null
 }
@@ -130,7 +256,7 @@ function resolveSelectedSnapshot(
 
   if (selectedSnapshotId) {
     const node = nodes.find((item) => item.id === selectedSnapshotId) ?? (activeNode?.id === selectedSnapshotId ? activeNode : null)
-    if (node) {
+    if (node?.portfolioSnapshot) {
       return { id: node.id, snapshot: node.portfolioSnapshot }
     }
   }
@@ -139,7 +265,7 @@ function resolveSelectedSnapshot(
     return { id: 'draft', snapshot: workingDraft.portfolioSnapshot }
   }
 
-  if (activeNode) {
+  if (activeNode?.portfolioSnapshot) {
     return { id: activeNode.id, snapshot: activeNode.portfolioSnapshot }
   }
 
@@ -332,7 +458,7 @@ async function loadActiveThesisForWorkspace(workspace: PortfolioWorkspace | null
 export function App() {
   const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'workspace' | 'backtest' | 'strategy_lab' | 'etf_ranking'>('workspace')
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null)
-  const [baselineAnalysis, setBaselineAnalysis] = useState<PortfolioBaselineView | null>(null)
+  const [baselineAnalysis, setBaselineAnalysis] = useState<ReturnType<typeof buildPortfolioBaselineView> | null>(null)
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
   const [diagnosticsAnalysis, setDiagnosticsAnalysis] = useState<DiagnosticsEngineResponse | null>(null)
   const [exposureFactorModel, setExposureFactorModel] = useState<ExposureFactorModelResponse | null>(null)
@@ -362,8 +488,12 @@ export function App() {
   const [activeThesis, setActiveThesis] = useState<ActiveThesisArtifact | null>(null)
   const [monitoringResearchHandoff, setMonitoringResearchHandoff] = useState<MonitoringResearchHandoff | null>(null)
   const [monitoringResearchHandoffDismissed, setMonitoringResearchHandoffDismissed] = useState(false)
+  const [persistedConstructionArtifactReview, setPersistedConstructionArtifactReview] = useState<PersistedConstructionArtifactWorkspaceReview | null>(null)
+  const [persistedOptimizerHandoffReview, setPersistedOptimizerHandoffReview] = useState<PersistedOptimizerHandoffWorkspaceReview | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const importModeRef = useRef<ImportMode>('replace')
+  const artifactReviewMode = isPersistedConstructionArtifactWorkspace(activeWorkspace) || isPersistedOptimizerHandoffWorkspace(activeWorkspace)
+  const dashboardSnapshot = workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null
   const workflowState = activeWorkspace && backtestRun ? 'Portfolio + Backtest Loaded' : activeWorkspace ? 'Portfolio Loaded' : backtestRun ? 'Backtest Loaded' : 'Workspace Empty'
 
   async function analyzeExposureSnapshot(
@@ -377,9 +507,9 @@ export function App() {
   ) {
     const [exposure, diagnostics] = await Promise.all([
       runExposureEngine(snapshot),
-        options?.historySource?.kind === 'imported_replay'
-          ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
-          : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? activeWorkspace?.source.historySource?.historyContext ?? null),
+      options?.historySource?.kind === 'imported_replay'
+        ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
+        : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? getWorkspaceHistorySource(activeWorkspace)?.historyContext ?? null),
     ])
     const exposureView = composeExposureView(exposure, diagnostics)
     setExposureAnalysis(exposureView)
@@ -443,6 +573,152 @@ export function App() {
     let active = true
 
     void (async () => {
+      const search = globalThis.location?.search ?? ''
+      const constructionArtifactId = new URLSearchParams(search).get(persistedConstructionArtifactQueryKey)
+      if (constructionArtifactId) {
+        try {
+          const validationResponse = await fetch('/api/backtests/portfolio-allocation/construction-artifact-validation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              construction_artifact_id: constructionArtifactId,
+            }),
+          })
+          if (!validationResponse.ok) {
+            const payload = (await validationResponse.json()) as { detail?: string }
+            throw new Error(payload.detail ?? 'Unable to open persisted construction artifact review')
+          }
+          const validation = (await validationResponse.json()) as ConstructionArtifactReplayValidationResponse
+          const previewHandoff = resolveConstructionArtifactPreviewHandoff(validation, constructionArtifactId)
+          const previewResponse = await fetch('/api/backtests/portfolio-allocation/construction-artifact-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(previewHandoff),
+          })
+          if (!previewResponse.ok) {
+            const payload = (await previewResponse.json()) as { detail?: string }
+            throw new Error(payload.detail ?? 'Unable to open persisted construction artifact review')
+          }
+          const artifactReplay = (await previewResponse.json()) as ConstructionArtifactReplayResponse
+          const created = await createWorkspaceFromPersistedConstructionArtifact({ constructionArtifactId, replay: artifactReplay })
+          if (!active) return
+          setActiveWorkspace(created.workspace)
+          setActiveNode(created.rootNode)
+          setWorkingDraft(null)
+          setWorkspaceNodes([created.rootNode])
+          setPersistedConstructionArtifactReview(created.review)
+          setHypotheticalReplacementReplay(null)
+          setProposalArtifacts([])
+          setActiveThesis(null)
+          setCandidateImprovementDraft(null)
+          setIntentBoundSeededEtfReplacementRankingDraft(null)
+          setReplacementIntentDraft(null)
+          setFormedCandidateArtifact(null)
+          setConstructedCandidateArtifact(null)
+          setConstructionConstraintValidationArtifact(null)
+          setSelectedConstructionRuleId(defaultConstructionRuleId)
+          setAnalysis(null)
+          setBaselineAnalysis(null)
+          setAllocationBacktestRun(artifactReplay.replay)
+          setSelectedExposureSnapshotId(created.rootNode.id)
+          setLastImportedFileNames([])
+          setTab('workspace')
+          setRestoredSession(true)
+          setRestoringPortfolio(false)
+          return
+        } catch (caughtError) {
+          if (active) {
+            setImportError(caughtError instanceof Error ? caughtError.message : 'Unable to open persisted construction artifact review')
+          }
+          setRestoringPortfolio(false)
+          return
+        }
+      }
+
+      const optimizerHandoffReference = parseOptimizerHandoffReferenceParam(search)
+      if (optimizerHandoffReference) {
+        try {
+          const validationResponse = await fetch('/api/backtests/portfolio-allocation/optimizer-handoff/constraints', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              handoff_reference: optimizerHandoffReference,
+            }),
+          })
+          if (!validationResponse.ok) {
+            const payload = (await validationResponse.json()) as { detail?: string }
+            throw new Error(payload.detail ?? 'Unable to open persisted optimizer handoff review')
+          }
+          const validation = (await validationResponse.json()) as OptimizerHandoffValidationResponse
+          if (validation.validation_status !== 'ok') {
+            throw new Error(`Unable to open persisted optimizer handoff review: validation ${validation.validation_status}`)
+          }
+          assertOptimizerHandoffValidationMatchesReference(validation, optimizerHandoffReference)
+          const eligibleWindow = validation.eligible_replay_window
+          if (!eligibleWindow?.start_date || !eligibleWindow?.end_date) {
+            throw new Error('Unable to open persisted optimizer handoff review: eligible replay window missing')
+          }
+          const previewResponse = await fetch('/api/backtests/portfolio-allocation/optimizer-handoff-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              handoff_reference: optimizerHandoffReference,
+              start_date: eligibleWindow.start_date,
+              end_date: eligibleWindow.end_date,
+              initial_capital: 100000,
+              rebalance_frequency: 'monthly',
+              base_currency: 'USD',
+              commission_bps: 0,
+              slippage_bps: 0,
+              drift_tolerance_pct: null,
+              price_basis: 'adjusted_close',
+              execution_price_field: 'close',
+              execution_lag_days: 1,
+              symbol_overrides: {},
+            }),
+          })
+          if (!previewResponse.ok) {
+            const payload = (await previewResponse.json()) as { detail?: string }
+            throw new Error(payload.detail ?? 'Unable to open persisted optimizer handoff review')
+          }
+          const handoffReplay = (await previewResponse.json()) as OptimizerHandoffReplayResponse
+          assertOptimizerHandoffReplayMatchesReference(handoffReplay, optimizerHandoffReference)
+          const created = await createWorkspaceFromPersistedOptimizerHandoff({ handoffReference: optimizerHandoffReference, validation, replay: handoffReplay })
+          if (!active) return
+          setActiveWorkspace(created.workspace)
+          setActiveNode(created.rootNode)
+          setWorkingDraft(null)
+          setWorkspaceNodes([created.rootNode])
+          setPersistedConstructionArtifactReview(null)
+          setPersistedOptimizerHandoffReview(created.review)
+          setHypotheticalReplacementReplay(null)
+          setProposalArtifacts([])
+          setActiveThesis(null)
+          setCandidateImprovementDraft(null)
+          setIntentBoundSeededEtfReplacementRankingDraft(null)
+          setReplacementIntentDraft(null)
+          setFormedCandidateArtifact(null)
+          setConstructedCandidateArtifact(null)
+          setConstructionConstraintValidationArtifact(null)
+          setSelectedConstructionRuleId(defaultConstructionRuleId)
+          setAnalysis(null)
+          setBaselineAnalysis(null)
+          setAllocationBacktestRun(handoffReplay.replay)
+          setSelectedExposureSnapshotId(created.rootNode.id)
+          setLastImportedFileNames([])
+          setTab('workspace')
+          setRestoredSession(true)
+          setRestoringPortfolio(false)
+          return
+        } catch (caughtError) {
+          if (active) {
+            setImportError(caughtError instanceof Error ? caughtError.message : 'Unable to open persisted optimizer handoff review')
+          }
+          setRestoringPortfolio(false)
+          return
+        }
+      }
+
       const restoredWorkspaceState = await getLastOpenedWorkspaceState()
 
       if (!active || !restoredWorkspaceState) {
@@ -459,10 +735,88 @@ export function App() {
         return
       }
 
+      if (isPersistedConstructionArtifactWorkspaceSource(workspace.source)) {
+        const review = await getPersistedConstructionArtifactWorkspaceReview(workspace.id)
+        if (!active || !review) {
+          return
+        }
+        const normalizedWorkspaceState = await normalizeLegacyPersistedConstructionArtifactWorkspaceCache({ workspace, node, review })
+        if (!active) {
+          return
+        }
+        const normalizedNodes = await getWorkspaceNodes(workspace.id).catch(() => [normalizedWorkspaceState.node])
+        setActiveWorkspace(normalizedWorkspaceState.workspace)
+        setActiveNode(normalizedWorkspaceState.node)
+        setWorkingDraft(null)
+        setWorkspaceNodes(normalizedNodes)
+        setPersistedConstructionArtifactReview(normalizedWorkspaceState.review)
+        setLastImportedFileNames([])
+        setRestoredSession(true)
+        setRestoringPortfolio(false)
+        setAnalysis(null)
+        setBaselineAnalysis(null)
+        setAllocationBacktestRun(normalizedWorkspaceState.review.replay.replay)
+        setHypotheticalReplacementReplay(null)
+        setProposalArtifacts([])
+        setActiveThesis(null)
+        setCandidateImprovementDraft(null)
+        setIntentBoundSeededEtfReplacementRankingDraft(null)
+        setReplacementIntentDraft(null)
+        setFormedCandidateArtifact(null)
+        setConstructedCandidateArtifact(null)
+        setConstructionConstraintValidationArtifact(null)
+        setSelectedConstructionRuleId(defaultConstructionRuleId)
+        setSelectedExposureSnapshotId(normalizedWorkspaceState.node.id)
+        return
+      }
+
+      if (isPersistedOptimizerHandoffWorkspaceSource(workspace.source)) {
+        const review = await getPersistedOptimizerHandoffWorkspaceReview(workspace.id)
+        if (!active) {
+          return
+        }
+        if (!review) {
+          setImportError(missingPersistedOptimizerHandoffReviewRestoreMessage)
+          setRestoringPortfolio(false)
+          return
+        }
+        const normalizedWorkspaceState = await normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({ workspace, node, review })
+        if (!active) {
+          return
+        }
+        const normalizedNodes = await getWorkspaceNodes(workspace.id).catch(() => [normalizedWorkspaceState.node])
+        setActiveWorkspace(normalizedWorkspaceState.workspace)
+        setActiveNode(normalizedWorkspaceState.node)
+        setWorkingDraft(null)
+        setWorkspaceNodes(normalizedNodes)
+        setPersistedConstructionArtifactReview(null)
+        setPersistedOptimizerHandoffReview(normalizedWorkspaceState.review)
+        setLastImportedFileNames([])
+        setRestoredSession(true)
+        setRestoringPortfolio(false)
+        setAnalysis(null)
+        setBaselineAnalysis(null)
+        setAllocationBacktestRun(normalizedWorkspaceState.review.replay.replay)
+        setHypotheticalReplacementReplay(null)
+        setProposalArtifacts([])
+        setActiveThesis(null)
+        setCandidateImprovementDraft(null)
+        setIntentBoundSeededEtfReplacementRankingDraft(null)
+        setReplacementIntentDraft(null)
+        setFormedCandidateArtifact(null)
+        setConstructedCandidateArtifact(null)
+        setConstructionConstraintValidationArtifact(null)
+        setSelectedConstructionRuleId(defaultConstructionRuleId)
+        setSelectedExposureSnapshotId(normalizedWorkspaceState.node.id)
+        return
+      }
+
       const nodes = await getWorkspaceNodes(workspace.id)
       setActiveWorkspace(workspace)
       setActiveNode(node)
       setWorkingDraft(draft)
+      setPersistedConstructionArtifactReview(null)
+      setPersistedOptimizerHandoffReview(null)
       await loadWorkspaceProposalArtifacts(workspace, setProposalArtifacts)
       await loadActiveThesisForWorkspace(workspace, setActiveThesis)
       await loadCandidateImprovementDraftForCurrentDraft(draft, setCandidateImprovementDraft)
@@ -475,7 +829,7 @@ export function App() {
       await loadConstructionConstraintValidationArtifactForCurrentDraft(draft, restoredReplacementIntentDraft, restoredSelectedConstructionRuleId, setConstructionConstraintValidationArtifact)
       await loadHypotheticalReplacementReplayForCurrentDraft(draft, restoredReplacementIntentDraft, setHypotheticalReplacementReplay)
       setWorkspaceNodes(nodes)
-      setLastImportedFileNames(getNodeImportSource(node, workspace)?.importedFileNames ?? workspace.source.importedFileNames)
+      setLastImportedFileNames(getWorkspaceImportedFileNames(workspace, node))
       setRestoredSession(true)
 
       const resolvedSnapshot = resolveSelectedSnapshot(restoredWorkspaceState.selectedExposureSnapshotId, nodes, node, draft)
@@ -492,7 +846,7 @@ export function App() {
           await analyzeRestoredSnapshot(
             resolvedSnapshot.snapshot,
             resolvedSnapshot.id,
-            resolveEffectiveHistorySource(selectedSource, selectedDirectSource) ?? workspace.source.historySource ?? null,
+            resolveEffectiveHistorySource(selectedSource, selectedDirectSource) ?? getWorkspaceHistorySource(workspace) ?? null,
             workspace.id,
           )
           if (!active) return
@@ -546,6 +900,8 @@ export function App() {
     setActiveThesis(null)
     setMonitoringResearchHandoff(null)
     setMonitoringResearchHandoffDismissed(false)
+    setPersistedConstructionArtifactReview(null)
+    setPersistedOptimizerHandoffReview(null)
     setTab('dashboard')
     void clearPortfolioWorkspaceState()
   }
@@ -577,6 +933,8 @@ export function App() {
     setActiveThesis(null)
     setMonitoringResearchHandoff(null)
     setMonitoringResearchHandoffDismissed(false)
+    setPersistedConstructionArtifactReview(null)
+    setPersistedOptimizerHandoffReview(null)
     setTab('dashboard')
     await resetLocalPortfolioDatabase()
   }
@@ -721,6 +1079,7 @@ export function App() {
 
   async function handleDraftSnapshotChange(snapshot: WorkingDraft['portfolioSnapshot']) {
     if (!workingDraft || !activeNode) return
+    if (!activeNode.portfolioSnapshot) return
     const nextDraft: WorkingDraft = {
       ...workingDraft,
       updatedAt: new Date().toISOString(),
@@ -799,7 +1158,9 @@ export function App() {
     await loadConstructedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setConstructedCandidateArtifact)
     await loadConstructionConstraintValidationArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, nextSelectedConstructionRuleId, setConstructionConstraintValidationArtifact)
     await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
-    setLastImportedFileNames(getEffectiveNodeImportSource(nextNode, nextNodes, nextWorkspace ?? activeWorkspace)?.importedFileNames ?? activeWorkspace.source.importedFileNames)
+    setPersistedConstructionArtifactReview(null)
+    setPersistedOptimizerHandoffReview(null)
+    setLastImportedFileNames(getWorkspaceImportedFileNames(nextWorkspace ?? activeWorkspace, nextNode))
     const dashboardSnapshot = nextDraft?.portfolioSnapshot ?? nextNode?.portfolioSnapshot ?? null
     const dashboardSnapshotId = nextDraft ? 'draft' : nextNode?.id ?? null
     if (dashboardSnapshot && dashboardSnapshotId) {
@@ -843,8 +1204,9 @@ export function App() {
       const importedViews = projectImportedBootstrap(nextAnalysis)
       const importedFileNames = files.map((file) => file.name)
       const importedSnapshot = buildPortfolioSnapshotFromAnalysis(importedViews.workspace, importedFileNames)
-      const analysisSnapshot = importModeRef.current === 'add_snapshot' && (workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot)
-        ? overlayImportedSnapshot(workingDraft?.portfolioSnapshot ?? activeNode!.portfolioSnapshot, importedSnapshot)
+      const activeSnapshot = workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null
+      const analysisSnapshot = importModeRef.current === 'add_snapshot' && activeSnapshot
+        ? overlayImportedSnapshot(activeSnapshot, importedSnapshot)
         : importedSnapshot
       if (importModeRef.current === 'add_snapshot') {
         if (!activeWorkspace) {
@@ -860,7 +1222,7 @@ export function App() {
           ? (workspaceNodes.find((item) => item.id === workingDraft.baseNodeId) ?? activeNode)
           : activeNode
         const baseSource = getEffectiveNodeImportSource(baseNode, workspaceNodes, activeWorkspace)
-        const mergedHistoryContext = mergeHistoryContext(baseSource?.historySource.historyContext ?? null, importedViews.historyContext)
+        const mergedHistoryContext = mergeHistoryContext(getNodeHistorySource(baseSource)?.historyContext ?? null, importedViews.historyContext)
 
         const savedNode = await saveImportedSnapshotNode({
           workspaceId: activeWorkspace.id,
@@ -882,6 +1244,8 @@ export function App() {
         setActiveWorkspace(savedNode.workspace)
         setActiveNode(nextNode ?? savedNode.node)
         setWorkingDraft(nextDraft)
+        setPersistedConstructionArtifactReview(null)
+        setPersistedOptimizerHandoffReview(null)
         await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
         await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
         const nextSelectedConstructionRuleId = await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
@@ -909,7 +1273,7 @@ export function App() {
                   importedHistorySnapshot: null,
                 }
               : null,
-            activeWorkspace.id,
+            savedNode.workspace.id,
           )
         } else {
           setSelectedExposureSnapshotId(dashboardSnapshotId)
@@ -952,6 +1316,8 @@ export function App() {
       setActiveWorkspace(workspaceResult.workspace)
       setActiveNode(workspaceResult.rootNode)
       setWorkingDraft(normalizedDraft)
+      setPersistedConstructionArtifactReview(null)
+      setPersistedOptimizerHandoffReview(null)
       await loadCandidateImprovementDraftForCurrentDraft(normalizedDraft, setCandidateImprovementDraft)
       await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(normalizedDraft, setIntentBoundSeededEtfReplacementRankingDraft)
       await loadSelectedConstructionRuleForCurrentDraft(normalizedDraft, setSelectedConstructionRuleId)
@@ -959,10 +1325,10 @@ export function App() {
       setFormedCandidateArtifact(null)
       setConstructedCandidateArtifact(null)
       setConstructionConstraintValidationArtifact(null)
-        setHypotheticalReplacementReplay(null)
-        setProposalArtifacts([])
-        setActiveThesis(null)
-        setWorkspaceNodes([workspaceResult.rootNode])
+      setHypotheticalReplacementReplay(null)
+      setProposalArtifacts([])
+      setActiveThesis(null)
+      setWorkspaceNodes([workspaceResult.rootNode])
       setSelectedExposureSnapshotId('draft')
       setRestoredSession(false)
       try {
@@ -1010,21 +1376,21 @@ export function App() {
               result={analysis}
               exposureResult={exposureAnalysis}
               factorModel={exposureFactorModel}
-              draftSnapshot={workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null}
+              draftSnapshot={dashboardSnapshot}
               activeNodeName={activeNode?.name ?? null}
               draftStatus={workingDraft?.status ?? null}
               importing={importingPortfolio || restoringPortfolio}
               importError={importError}
               lastImportedFileNames={lastImportedFileNames}
               restoredSession={restoredSession}
-              onImportPortfolio={() => openImportPicker('replace')}
-              onAppendStatement={analysis && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
-              onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
+              onImportPortfolio={artifactReviewMode ? undefined : () => openImportPicker('replace')}
+              onAppendStatement={artifactReviewMode ? undefined : dashboardSnapshot && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
+              onClearImportedSession={artifactReviewMode ? undefined : activeWorkspace ? handleClearImportedSession : undefined}
               onResetLocalDatabase={handleResetLocalDatabase}
-              onPreviewExposure={handlePreviewExposure}
-              onDraftSnapshotChange={handleDraftSnapshotChange}
-              onDiscardDraft={handleDiscardDraft}
-              onSaveVariant={handleSaveVariant}
+              onPreviewExposure={artifactReviewMode ? undefined : handlePreviewExposure}
+              onDraftSnapshotChange={artifactReviewMode ? undefined : handleDraftSnapshotChange}
+              onDiscardDraft={artifactReviewMode ? undefined : handleDiscardDraft}
+              onSaveVariant={artifactReviewMode ? undefined : handleSaveVariant}
             />
           </Suspense>
           <VariantList nodes={workspaceNodes} activeNodeId={activeNode?.id ?? null} onOpenNode={handleOpenNode} />
@@ -1051,7 +1417,7 @@ export function App() {
                     const selectedBaseDirectSource = getDirectNodeImportSource(selectedBaseNode, activeWorkspace)
                     await analyzeExposureSnapshot(workingDraft.portfolioSnapshot, 'draft', activeWorkspace.id, {
                       historySource: canUseImportedReplay(selectedBaseDirectSource) && workingDraft.status === 'clean'
-                        ? (selectedBaseDirectSource?.historySource ?? null)
+                        ? (getNodeHistorySource(selectedBaseDirectSource) ?? null)
                         : collapseToHistoryContextSource(selectedBaseSource),
                       preserveDashboardAnalysis: true,
                     })
@@ -1060,6 +1426,7 @@ export function App() {
 
                   const node = workspaceNodes.find((item) => item.id === snapshotId) ?? await getNode(snapshotId)
                   if (!node) return
+                  if (!node.portfolioSnapshot) return
                   const nodeSource = getEffectiveNodeImportSource(node, workspaceNodes, activeWorkspace)
                   const directNodeSource = getDirectNodeImportSource(node, activeWorkspace)
                   await analyzeExposureSnapshot(node.portfolioSnapshot, snapshotId, activeWorkspace.id, {
@@ -1091,6 +1458,9 @@ export function App() {
               onAllocationBacktestResult={setAllocationBacktestRun}
               analysis={baselineAnalysis}
               draftSnapshot={workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null}
+              workspaceSource={activeWorkspace?.source ?? null}
+              persistedConstructionArtifactReview={persistedConstructionArtifactReview}
+              persistedOptimizerHandoffReview={persistedOptimizerHandoffReview}
               candidateImprovementDraft={candidateImprovementDraft}
               intentBoundSeededEtfReplacementRankingDraft={desktopFeatureFlags.intentBoundSeededEtfReplacementRanking ? intentBoundSeededEtfReplacementRankingDraft : null}
               replacementIntentDraft={replacementIntentDraft}

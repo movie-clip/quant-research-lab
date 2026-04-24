@@ -12,6 +12,7 @@ OptimizerConstraintStatus = Literal["pass", "binding", "violated", "not_applicab
 OptimizerArtifactSchemaVersion = Literal["optimizer_artifact_v1"]
 OptimizerHandoffSchemaVersion = Literal["optimizer_handoff_manifest_v1"]
 OptimizerArtifactState = Literal["complete", "degraded", "stale", "infeasible", "rejected"]
+OptimizerObjectiveId = Literal["minimize_l2_distance_to_benchmark", "maximize_alpha_quality_v1"]
 OptimizerArtifactInputKind = Literal["request", "universe", "benchmark", "constraints", "solver", "alpha_package", "risk_package"]
 OptimizerBenchmarkAttestationType = Literal["max_abs_active_weight", "active_group_exposure", "benchmark_alignment"]
 OptimizerTradeIntentAction = Literal["buy", "sell", "hold", "initiate", "exit"]
@@ -59,9 +60,56 @@ class OptimizerUniverseAsset(BaseModel):
 
 
 class OptimizerObjective(BaseModel):
-    objective_id: Literal["minimize_l2_distance_to_benchmark"] = "minimize_l2_distance_to_benchmark"
+    objective_id: OptimizerObjectiveId = "minimize_l2_distance_to_benchmark"
     benchmark_relative: Literal[True] = True
-    description: str = "Minimize squared distance to benchmark weights inside the hard-constraint set."
+    description: str | None = None
+    alpha_signal_id: OptimizerAlphaPackageVersion | None = None
+    requires_alpha_package: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_objective_defaults(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        objective_id = value.get("objective_id", "minimize_l2_distance_to_benchmark")
+        defaults_by_objective = {
+            "minimize_l2_distance_to_benchmark": {
+                "description": "Minimize squared distance to benchmark weights inside the hard-constraint set.",
+                "alpha_signal_id": None,
+                "requires_alpha_package": False,
+            },
+            "maximize_alpha_quality_v1": {
+                "description": "Maximize the additive alpha_quality_v1 preference vector inside the unchanged hard-constraint set.",
+                "alpha_signal_id": "alpha_quality_v1",
+                "requires_alpha_package": True,
+            },
+        }
+        defaults = defaults_by_objective.get(objective_id)
+        if defaults is None:
+            return value
+        normalized = dict(value)
+        normalized.setdefault("description", defaults["description"])
+        normalized.setdefault("alpha_signal_id", defaults["alpha_signal_id"])
+        normalized.setdefault("requires_alpha_package", defaults["requires_alpha_package"])
+        return normalized
+
+    @model_validator(mode="after")
+    def _validate_objective_metadata(self) -> "OptimizerObjective":
+        if self.objective_id == "minimize_l2_distance_to_benchmark":
+            if self.alpha_signal_id is not None:
+                raise ValueError("benchmark-distance objective must not declare alpha_signal_id")
+            if self.requires_alpha_package:
+                raise ValueError("benchmark-distance objective must not require alpha_package")
+            if self.description is None:
+                raise ValueError("benchmark-distance objective requires description")
+            return self
+        if self.alpha_signal_id != "alpha_quality_v1":
+            raise ValueError("alpha objective must declare alpha_signal_id=alpha_quality_v1")
+        if not self.requires_alpha_package:
+            raise ValueError("alpha objective must require alpha_package")
+        if self.description is None:
+            raise ValueError("alpha objective requires description")
+        return self
 
 
 class OptimizerPenalty(BaseModel):
@@ -599,7 +647,7 @@ class OptimizationArtifact(BaseModel):
     input_fingerprints: list[OptimizationInputFingerprint] = Field(default_factory=list)
     package_stamps: list[OptimizationPackageStamp] = Field(default_factory=list)
     artifact_state: OptimizationArtifactStateSummary
-    objective: OptimizerObjective
+    objective: OptimizerObjective = Field(default_factory=OptimizerObjective)
     hard_constraints: OptimizerHardConstraints
     penalties: list[OptimizerPenalty] = Field(default_factory=list)
     run_metadata: OptimizationRunMetadata
@@ -659,6 +707,7 @@ class OptimizerPreviewRequest(BaseModel):
     universe_id: str | None = None
     snapshot: ImportedPortfolioSnapshot
     benchmark: OptimizerPreviewBenchmarkInput
+    objective: OptimizerObjective = Field(default_factory=OptimizerObjective)
     hard_constraints: OptimizerHardConstraints
     penalties: list[OptimizerPenalty] = Field(default_factory=list)
     universe: list[OptimizerUniverseAsset] | None = None
@@ -722,6 +771,7 @@ class OptimizerHandoffManifest(BaseModel):
     source_portfolio_snapshot: OptimizerPreviewSnapshotReference
     benchmark: OptimizerHandoffBenchmarkReference
     return_basis_attestation: OptimizerReturnBasisAttestation
+    objective: OptimizerObjective
     optimizer_input_provenance: list[OptimizationInputFingerprint] = Field(default_factory=list)
     constraint_set: OptimizerHandoffConstraintSet
     package_stamps: list[OptimizationPackageStamp] = Field(default_factory=list)

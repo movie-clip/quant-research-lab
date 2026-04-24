@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Literal
 
+from pydantic import ValidationError
+
 from app.analytics.risk import build_factor_registry, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload
+from app.schemas.construction import ConstructionArtifact
 from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, SnapshotItem
 from app.backtests.portfolio_engine import PortfolioAllocationBacktestEngine
@@ -14,9 +17,13 @@ from app.schemas.backtest_engine import (
     AllocationBacktestInstrumentMeta,
     AllocationBacktestResult,
     AllocationBacktestStatus,
+    ConstructionArtifactReplayEffectiveParams,
+    ConstructionArtifactPreviewRequest,
     ConstructionArtifactReplayProvenance,
     ConstructionArtifactReplayRequest,
     ConstructionArtifactReplayResponse,
+    ConstructionArtifactReplayValidationResponse,
+    ConstructionArtifactPreviewHandoff,
     DistributionPolicy,
     HypotheticalReplayDerivation,
     HypotheticalReplayProvenance,
@@ -402,42 +409,33 @@ def build_optimizer_handoff_replay_preview(
 
 
 def build_construction_artifact_replay_preview(
-    request: ConstructionArtifactReplayRequest,
+    request: ConstructionArtifactPreviewRequest,
     *,
     artifact_store=None,
 ) -> ConstructionArtifactReplayResponse:
-    artifact = load_construction_artifact(request.construction_artifact_id, store=artifact_store)
-    if artifact.status != "feasible":
-        raise ValueError("construction_artifact_id must reference a feasible construction artifact")
-    if not artifact.final_target_weights:
-        raise ValueError("construction_artifact_id must reference an artifact with final_target_weights")
-    if not artifact.normalized_inputs.current_portfolio_weights:
-        raise ValueError(
-            "construction artifact replay requires normalized_inputs.current_portfolio_weights for the baseline replay path"
-        )
-
-    baseline_weights = _portfolio_weight_inputs_from_construction_weights(
-        artifact.normalized_inputs.current_portfolio_weights
-    )
-    candidate_weights = _portfolio_weight_inputs_from_construction_weights(artifact.final_target_weights)
+    preflight = preflight_construction_artifact_replay(request, artifact_store=artifact_store)
+    artifact = preflight.artifact
+    baseline_weights = preflight.baseline_weights
+    candidate_weights = preflight.candidate_weights
+    effective_params = preflight.effective_replay_params
     replay = build_portfolio_allocation_backtest_analysis(
         PortfolioAllocationBacktestRequest(
             portfolio_name="Construction Artifact Candidate",
             weights=candidate_weights,
             reference_weights=baseline_weights,
-            benchmark_symbol=request.benchmark_symbol,
-            start_date=request.start_date,
-            end_date=request.end_date,
-            initial_capital=request.initial_capital,
-            rebalance_frequency=request.rebalance_frequency,
-            base_currency=request.base_currency,
-            commission_bps=request.commission_bps,
-            slippage_bps=request.slippage_bps,
-            drift_tolerance_pct=request.drift_tolerance_pct,
-            price_basis=request.price_basis,
-            execution_price_field=request.execution_price_field,
-            execution_lag_days=request.execution_lag_days,
-            symbol_overrides=request.symbol_overrides,
+            benchmark_symbol=effective_params.benchmark_symbol,
+            start_date=effective_params.start_date,
+            end_date=effective_params.end_date,
+            initial_capital=effective_params.initial_capital,
+            rebalance_frequency=effective_params.rebalance_frequency,
+            base_currency=effective_params.base_currency,
+            commission_bps=effective_params.commission_bps,
+            slippage_bps=effective_params.slippage_bps,
+            drift_tolerance_pct=effective_params.drift_tolerance_pct,
+            price_basis=effective_params.price_basis,
+            execution_price_field=effective_params.execution_price_field,
+            execution_lag_days=effective_params.execution_lag_days,
+            symbol_overrides=effective_params.symbol_overrides,
         )
     )
 
@@ -455,8 +453,114 @@ def build_construction_artifact_replay_preview(
         ),
         baseline_weights=baseline_weights,
         candidate_weights=candidate_weights,
+        effective_replay_params=effective_params,
         replay=replay,
     )
+
+
+@dataclass(frozen=True)
+class ConstructionArtifactReplayPreflight:
+    artifact: ConstructionArtifact
+    baseline_weights: list[PortfolioWeightInput]
+    candidate_weights: list[PortfolioWeightInput]
+    effective_replay_params: ConstructionArtifactReplayEffectiveParams
+
+
+def validate_construction_artifact_replay_params(
+    request: ConstructionArtifactReplayRequest,
+    *,
+    artifact_store=None,
+) -> ConstructionArtifactReplayValidationResponse:
+    preflight = preflight_construction_artifact_replay(
+        request,
+        artifact_store=artifact_store,
+    )
+    return ConstructionArtifactReplayValidationResponse(
+        construction_artifact_id=preflight.artifact.artifact_id,
+        effective_replay_params=preflight.effective_replay_params,
+        preview_handoff=ConstructionArtifactPreviewHandoff(
+            construction_artifact_id=preflight.artifact.artifact_id,
+            effective_replay_params=preflight.effective_replay_params,
+        ),
+    )
+
+
+def preflight_construction_artifact_replay(
+    request: ConstructionArtifactPreviewRequest,
+    *,
+    artifact_store=None,
+) -> ConstructionArtifactReplayPreflight:
+    preview_handoff = resolve_construction_artifact_preview_handoff(request)
+    artifact = load_construction_artifact(preview_handoff.construction_artifact_id, store=artifact_store)
+    if artifact.status != "feasible":
+        raise ValueError("construction_artifact_id must reference a feasible construction artifact")
+    if not artifact.final_target_weights:
+        raise ValueError("construction_artifact_id must reference an artifact with final_target_weights")
+    if not artifact.normalized_inputs.current_portfolio_weights:
+        raise ValueError(
+            "construction artifact replay requires normalized_inputs.current_portfolio_weights for the baseline replay path"
+        )
+
+    return ConstructionArtifactReplayPreflight(
+        artifact=artifact,
+        baseline_weights=_portfolio_weight_inputs_from_construction_weights(
+            artifact.normalized_inputs.current_portfolio_weights
+        ),
+        candidate_weights=_portfolio_weight_inputs_from_construction_weights(artifact.final_target_weights),
+        effective_replay_params=preview_handoff.effective_replay_params,
+    )
+
+
+def resolve_construction_artifact_preview_handoff(
+    request: ConstructionArtifactPreviewRequest,
+) -> ConstructionArtifactPreviewHandoff:
+    if isinstance(request, ConstructionArtifactPreviewHandoff):
+        return request
+    return ConstructionArtifactPreviewHandoff(
+        construction_artifact_id=request.construction_artifact_id,
+        effective_replay_params=resolve_and_validate_construction_artifact_replay_params(request),
+    )
+
+
+def resolve_and_validate_construction_artifact_replay_params(
+    request: ConstructionArtifactReplayRequest,
+) -> ConstructionArtifactReplayEffectiveParams:
+    return _validate_effective_construction_artifact_replay_params(
+        resolve_construction_artifact_replay_params(request)
+    )
+
+
+def resolve_construction_artifact_replay_params(
+    request: ConstructionArtifactReplayRequest,
+) -> ConstructionArtifactReplayEffectiveParams:
+    defaults = ConstructionArtifactReplayEffectiveParams()
+    return ConstructionArtifactReplayEffectiveParams.model_construct(
+        benchmark_symbol=request.benchmark_symbol if request.benchmark_symbol is not None else defaults.benchmark_symbol,
+        start_date=request.start_date if request.start_date is not None else defaults.start_date,
+        end_date=request.end_date if request.end_date is not None else defaults.end_date,
+        initial_capital=request.initial_capital if request.initial_capital is not None else defaults.initial_capital,
+        rebalance_frequency=request.rebalance_frequency if request.rebalance_frequency is not None else defaults.rebalance_frequency,
+        base_currency=request.base_currency if request.base_currency is not None else defaults.base_currency,
+        commission_bps=request.commission_bps if request.commission_bps is not None else defaults.commission_bps,
+        slippage_bps=request.slippage_bps if request.slippage_bps is not None else defaults.slippage_bps,
+        drift_tolerance_pct=request.drift_tolerance_pct,
+        price_basis=request.price_basis if request.price_basis is not None else defaults.price_basis,
+        execution_price_field=request.execution_price_field if request.execution_price_field is not None else defaults.execution_price_field,
+        execution_lag_days=request.execution_lag_days if request.execution_lag_days is not None else defaults.execution_lag_days,
+        symbol_overrides=request.symbol_overrides if request.symbol_overrides is not None else defaults.symbol_overrides,
+    )
+
+
+def _validate_effective_construction_artifact_replay_params(
+    effective_params: ConstructionArtifactReplayEffectiveParams,
+) -> ConstructionArtifactReplayEffectiveParams:
+    try:
+        return ConstructionArtifactReplayEffectiveParams.model_validate(effective_params.model_dump())
+    except ValidationError as exc:
+        message = exc.errors()[0]["msg"]
+        if message.startswith("Value error, "):
+            message = message.removeprefix("Value error, ")
+        raise ValueError(message) from exc
 
 
 def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypotheticalReplayRequest) -> OverlayAwareHypotheticalReplayResponse:
@@ -609,7 +713,7 @@ def _portfolio_weight_inputs_from_construction_weights(weights) -> list[Portfoli
 
 def _build_optimizer_handoff_context(artifact) -> OptimizerHandoffReplayOptimizerContext:
     return OptimizerHandoffReplayOptimizerContext(
-        objective_id=artifact.objective.objective_id,
+        objective=artifact.objective,
         penalty_ids=[penalty.penalty_id for penalty in artifact.penalties],
         artifact_state=artifact.artifact_state.artifact_state,
         stale_inputs=artifact.artifact_state.stale_inputs,

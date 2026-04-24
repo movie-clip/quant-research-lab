@@ -34,8 +34,8 @@ The portfolio-allocation workflow currently renders from these root inputs:
    - backend review-oriented candidate construction for single-replacement flows
 
 5. `constructionArtifactReplay: ConstructionArtifactReplayResponse | null`
-   - returned by `POST /backtests/portfolio-allocation/construction-artifact-preview`
-   - replay from an explicit persisted construction artifact reference
+    - returned by `POST /backtests/portfolio-allocation/construction-artifact-preview`
+    - replay from the typed validation-produced `preview_handoff` for an explicit persisted construction artifact reference
 
 6. `optimizerPreview: OptimizerPreviewResponse | null`
    - returned by `POST /optimizer/preview`
@@ -93,6 +93,10 @@ This means replay diagnostics are built from:
 
 ### Construction artifact replay provenance
 
+- `POST /backtests/portfolio-allocation/construction-artifact-validation` is the canonical producer of `preview_handoff`
+- `preview_handoff` is the authoritative validation-to-preview boundary; desktop persisted open posts it verbatim to `POST /backtests/portfolio-allocation/construction-artifact-preview`
+- the preview route may accept the legacy request shape for compatibility, but handoff-shaped payloads must be complete, supported handoffs and mixed handoff-plus-legacy payloads are rejected
+- handoff consumption fails closed on missing or unsupported `handoff_kind` and on persisted artifact integrity mismatches, including construction artifact id mismatch
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` echoes lineage from the persisted construction artifact
 - `replay_provenance.selection_rule_trace` must be echoed from persisted artifact provenance only
 - the trace is descriptive provenance and must not drive replay math
@@ -101,7 +105,10 @@ This means replay diagnostics are built from:
 ### Optimizer handoff provenance
 
 - `POST /optimizer/preview` can persist an immutable handoff reference for feasible hypothetical previews
+- the persisted optimizer handoff reopen identity is `handoffReference`; `handoffReference.handoff_id` remains the canonical identity and `handoffReference.artifact_id` remains lineage and integrity metadata only
 - `POST /backtests/portfolio-allocation/optimizer-handoff-preview` consumes that explicit persisted reference only
+- `POST /backtests/portfolio-allocation/optimizer-handoff/constraints` remains validation/preflight only; it does not open replay by itself
+- desktop persisted review writes persist `handoffReference` as the only reopen identity object, and any repair of older cache rows is load-only
 - optimizer handoff replay carries persisted `return_basis_attestation` and `replay_output_policy`
 - benchmark-relative replay fields may be suppressed from the top-level replay payload when attested trust is narrower than the computed engine surface
 
@@ -153,15 +160,25 @@ Implementation:
 - `optimizerPreview.truth_separation`
   - makes explicit that preview output is hypothetical optimizer output only
 - `optimizerPreview.persisted_handoff`
-  - immutable explicit reference for downstream replay and validation when preview is feasible
+   - immutable explicit reference for downstream replay and validation when preview is feasible; `handoffReference` is the canonical desktop reopen identity object, `handoffReference.handoff_id` is its canonical identity field, and `handoffReference.artifact_id` is lineage only
 - `optimizerPreview.replay_handoff`
-  - downstream hypothetical replay handoff metadata; still not applied portfolio truth
+   - downstream hypothetical replay handoff metadata; still not applied portfolio truth
+- `optimizerPreview.objective` / persisted handoff `objective`
+     - canonical optimizer objective metadata now persists across preview, artifact, validation, and replay; replay reads persisted objective truth rather than reconstructing client request state
+- `optimizerHandoffValidation.provenance.objective`
+     - canonical persisted objective metadata for validation/preflight semantics only; validation does not supply the live review/display contract
 - `optimizerHandoffReplay.truth_separation`
-  - explicit baseline-vs-hypothetical optimizer candidate separation
+      - explicit baseline-vs-hypothetical optimizer candidate separation
+- `optimizerHandoffReplay.handoff_id`
+     - echoed canonical identity field inside the persisted `handoffReference` object used for desktop reopen
+- `optimizerHandoffReplay.artifact_id`
+    - deprecated reopen input; still echoed for lineage and integrity cross-checks only
 - `optimizerHandoffReplay.replay_provenance.return_basis_attestation`
-  - persisted benchmark and factor trust evidence used for replay-output suppression policy
+    - persisted benchmark and factor trust evidence used for replay-output suppression policy
+- `optimizerHandoffReplay.optimizer_context.objective`
+     - live review/display contract for replay surfaces; desktop review reads this nested object only and does not fall back to validation provenance or scalar replay ids
 - `optimizerHandoffValidation.replay_output_policy`
-  - validation-time mapping of attested trust into allowed vs withheld replay output families
+     - validation-time mapping of attested trust into allowed vs withheld replay output families
 
 ### Replay summary metrics
 

@@ -55,6 +55,7 @@ from app.schemas.reconciliation import (
     RegimeAssessment,
 )
 from app.services.exposure_engine import build_snapshot_from_exposure_request
+from app.services.dashboard_history_engine import _build_dashboard_investor_economics_partial_unlock
 from app.services.market_data import (
     MarketDataService,
     build_histories_return_basis_evidence,
@@ -454,6 +455,7 @@ def build_historical_diagnostics_result(
                 allow_drawdown_outputs=allow_drawdown_outputs,
                 allow_relative_return_outputs=allow_relative_return_outputs,
             ),
+            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
             confidence=diagnostics_confidence,
             factor_model_parameters=_build_factor_model_parameters(),
             reproducibility=_build_reproducibility_metadata(
@@ -538,6 +540,7 @@ def build_unavailable_diagnostics_result(
                 allow_drawdown_outputs=False,
                 allow_relative_return_outputs=False,
             ),
+            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
             confidence="low",
             factor_model_parameters=_build_factor_model_parameters(),
             reproducibility=_build_reproducibility_metadata(snapshot, history_start_date=None, history_end_date=None),

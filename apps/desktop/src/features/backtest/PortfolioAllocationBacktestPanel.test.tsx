@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createImportedBaselineFixture } from '../../test/portfolioFixtures'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
-import type { HypotheticalReplayResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { HypotheticalReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
 const legacyMockAnalysis = {
   snapshot: {
@@ -319,6 +319,211 @@ const savedProposal: VersionedProposalArtifact = {
   reviewSnapshot: hypotheticalResponse,
 }
 
+const persistedConstructionArtifactReview: PersistedConstructionArtifactWorkspaceReview = {
+  workspaceId: 'workspace-artifact',
+  constructionArtifactId: 'artifact-123',
+  openedAt: '2026-04-23T00:00:00Z',
+  replay: {
+    construction_artifact_id: 'artifact-123',
+    truth_separation: {
+      baseline_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_construction_artifact',
+      candidate_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    replay_provenance: {
+      source: 'construction_artifact_reference',
+      construction_artifact_id: 'artifact-123',
+      policy_id: 'policy-1',
+      policy_definition_id: 'policy-def-1',
+      ranked_universe_artifact_id: 'ranked-1',
+      ranking_id: 'ranking-1',
+      ranking_methodology_id: 'method-1',
+      current_portfolio_artifact_id: 'portfolio-1',
+      baseline_input_source: 'normalized_inputs.current_portfolio_weights',
+      candidate_input_source: 'final_target_weights',
+      selection_rule_trace: {
+        rule_ids: ['rule-1'],
+        steps: [{ rule_id: 'rule-1', rule_order: 1, input_candidate_symbols: ['AAPL'], output_candidate_symbols: ['MSFT'] }],
+      },
+    },
+    baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+    candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+    replay: mockResponse,
+  },
+}
+
+const persistedConstructionArtifactWorkspaceSource = {
+  kind: 'persisted_construction_artifact' as const,
+  constructionArtifactId: 'artifact-123',
+  openedAt: '2026-04-23T00:00:00Z',
+  reviewBasis: {
+    basisVersion: 1 as const,
+    basisKind: 'persisted_construction_artifact_review' as const,
+    constructionArtifactId: 'artifact-123',
+    openedAt: '2026-04-23T00:00:00Z',
+    benchmarkSymbol: 'SPY',
+    baseCurrency: 'USD',
+    replayWindow: {
+      startDate: '2024-01-01',
+      endDate: '2024-12-31',
+    },
+    baselineWeights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+    candidateWeights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+  },
+}
+
+const persistedOptimizerHandoffReview: PersistedOptimizerHandoffWorkspaceReview = {
+  workspaceId: 'workspace-optimizer',
+  handoffReference: {
+    reference_kind: 'optimizer_handoff_reference_v1',
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+    artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+  },
+  openedAt: '2026-04-24T00:00:00Z',
+  validation: {
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    source_portfolio_snapshot_id: 'portfolio_snapshot_123',
+    truth_separation: {
+      source_truth: 'persisted_hypothetical_optimizer_handoff',
+      holdings_truth: 'imported_portfolio_snapshot',
+      optimizer_output_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    eligible_replay_window: {
+      source: 'persisted_return_basis_attestation',
+      benchmark_symbol: 'SPY',
+      as_of_date: '2024-12-31',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+    },
+    provenance: {
+      source: 'optimizer_handoff_reference',
+      benchmark_id: 'benchmark_spy_demo_v1',
+      benchmark_version: '2024-04-15',
+      benchmark_symbol: 'SPY',
+      objective: {
+        objective_id: 'minimize_l2_distance_to_benchmark',
+        benchmark_relative: true,
+        description: 'Minimize squared distance to benchmark weights inside the hard-constraint set.',
+        alpha_signal_id: null,
+        requires_alpha_package: false,
+      },
+      replay_output_policy: {
+        source: 'persisted_return_basis_attestation',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        eligible_families: [],
+        withheld_families: ['benchmark_relative_volatility_outputs', 'factor_exposure_outputs'],
+      },
+      artifact_state: 'fresh',
+      constraint_set_fingerprint: 'constraint-fingerprint-1',
+    },
+    validation_status: 'ok',
+    evaluations: [],
+    blocking_rule_ids: [],
+    warnings: [],
+  } satisfies OptimizerHandoffValidationResponse,
+  replay: {
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    source_portfolio_snapshot_id: 'portfolio_snapshot_123',
+    truth_separation: {
+      baseline_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_optimizer_handoff',
+      candidate_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    replay_provenance: {
+      source: 'optimizer_handoff_reference',
+      benchmark_id: 'benchmark_spy_demo_v1',
+      benchmark_version: '2024-04-15',
+      benchmark_symbol: 'SPY',
+      return_basis_attestation: {
+        benchmark_symbol: 'SPY',
+        as_of_date: '2024-12-31',
+        history_start_date: '2024-01-01',
+        history_end_date: '2024-12-31',
+        factor_proxy_symbols: ['QQQ'],
+        benchmark_return_basis_contract: 'unverified_adjusted_proxy',
+        factor_return_basis_contract: 'unverified_adjusted_proxy',
+        factor_basis_path: 'degraded_unverified_return_basis',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        evidence: {
+          benchmark_history: { verification_status: 'unverified', economic_basis: 'adjusted_close_proxy', construction_method: 'vendor_adjusted_close', disqualifiers: [], fallbacks_used: [], source_price_field: 'adj_close' },
+          factor_history: { verification_status: 'unverified', economic_basis: 'adjusted_close_proxy', construction_method: 'vendor_adjusted_close', disqualifiers: [], fallbacks_used: [], source_price_field: 'adj_close' },
+        },
+      },
+      replay_output_policy: {
+        source: 'persisted_return_basis_attestation',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        eligible_families: [],
+        withheld_families: ['benchmark_relative_volatility_outputs', 'factor_exposure_outputs'],
+      },
+      artifact_state: 'fresh',
+      optimizer_status: 'feasible',
+      constraint_set_fingerprint: 'constraint-fingerprint-1',
+    },
+    optimizer_context: {
+      objective: {
+        objective_id: 'minimize_l2_distance_to_benchmark',
+        benchmark_relative: true,
+        description: 'Minimize squared distance to benchmark weights inside the hard-constraint set.',
+        alpha_signal_id: null,
+        requires_alpha_package: false,
+      },
+      penalty_ids: [],
+      artifact_state: 'fresh',
+      stale_inputs: [],
+      degraded_inputs: [],
+      reasons: [],
+      run_summary: { engine_id: 'optimizer_engine_v1', solver_id: 'solver_v1', methodology_id: 'optimizer_methodology_v1' },
+      diagnostics: { turnover: 0.2, active_share: 0.1 },
+      binding_constraints: [],
+      violated_constraints: [],
+      benchmark_relative_attestations: [],
+      binding_constraint_evaluations: [],
+    },
+    baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+    candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+    replay: mockResponse,
+  } satisfies OptimizerHandoffReplayResponse,
+}
+
+const persistedOptimizerHandoffWorkspaceSource = {
+  kind: 'persisted_optimizer_handoff' as const,
+  handoffReference: persistedOptimizerHandoffReview.handoffReference,
+  openedAt: '2026-04-24T00:00:00Z',
+  reviewBasis: {
+    basisVersion: 1 as const,
+    basisKind: 'persisted_optimizer_handoff_review' as const,
+    handoffReference: persistedOptimizerHandoffReview.handoffReference,
+    openedAt: '2026-04-24T00:00:00Z',
+    benchmarkSymbol: 'SPY',
+    baseCurrency: 'USD',
+    replayWindow: {
+      startDate: '2024-01-01',
+      endDate: '2024-12-31',
+    },
+    baselineWeights: [{ symbol: 'AAA', target_weight: 0.6 }],
+    candidateWeights: [{ symbol: 'CCC', target_weight: 0.2 }],
+  },
+}
+
 describe('PortfolioAllocationBacktestPanel', () => {
   afterEach(() => {
     cleanup()
@@ -463,6 +668,126 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText('Blocked before preview')).toBeTruthy()
     expect(screen.getByText('A constructed candidate review artifact must exist before hypothetical replay can run.')).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Preview Hypothetical Replay' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('renders read-only persisted construction artifact review instead of preview controls', () => {
+    render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        workspaceSource={persistedConstructionArtifactWorkspaceSource}
+        persistedConstructionArtifactReview={persistedConstructionArtifactReview}
+        persistedOptimizerHandoffReview={null}
+      />,
+    )
+
+    expect(screen.getByText('Review Basis Id')).toBeTruthy()
+    expect(screen.getByText('artifact-123')).toBeTruthy()
+    expect(screen.getByText('Selection Rule Trace')).toBeTruthy()
+    expect(screen.getByText('Consumption Mode')).toBeTruthy()
+    expect(screen.queryByText('Preview Hypothetical Replay')).toBeNull()
+    expect(screen.queryByText('Run Preview')).toBeNull()
+  })
+
+  it('renders read-only persisted optimizer handoff review instead of preview controls', () => {
+    render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        workspaceSource={persistedOptimizerHandoffWorkspaceSource}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={persistedOptimizerHandoffReview}
+      />,
+    )
+
+    expect(screen.getByText('Optimizer Handoff Review Replay')).toBeTruthy()
+    expect(screen.getByText('Review Basis Id')).toBeTruthy()
+    expect(screen.getByText('Artifact Lineage Id')).toBeTruthy()
+    expect(screen.getByText('optimizer_handoff_123')).toBeTruthy()
+    expect(screen.getByText('optimizer_artifact_123')).toBeTruthy()
+    expect(screen.getByText('Optimizer Context')).toBeTruthy()
+    expect(screen.getByText(/Objective: minimize benchmark distance/i)).toBeTruthy()
+    expect(screen.getByText(/Minimize squared distance to benchmark weights inside the hard-constraint set\./i)).toBeTruthy()
+    expect(screen.getByText(/withheld families: benchmark_relative_volatility_outputs, factor_exposure_outputs/i)).toBeTruthy()
+    expect(screen.queryByText('Preview Hypothetical Replay')).toBeNull()
+    expect(screen.queryByText('Run Preview')).toBeNull()
+  })
+
+  it('fails closed for legacy replay payloads missing the canonical nested objective', () => {
+    const legacyReview = {
+      ...persistedOptimizerHandoffReview,
+      replay: {
+        ...persistedOptimizerHandoffReview.replay,
+        optimizer_context: {
+          ...persistedOptimizerHandoffReview.replay.optimizer_context!,
+          objective: null as never,
+        },
+      },
+    } satisfies PersistedOptimizerHandoffWorkspaceReview
+
+    expect(() => render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        workspaceSource={persistedOptimizerHandoffWorkspaceSource}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={legacyReview}
+      />,
+    )).toThrow()
+  })
+
+  it('renders optimizer handoff review ids from handoffReference only', () => {
+    render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        workspaceSource={persistedOptimizerHandoffWorkspaceSource}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={persistedOptimizerHandoffReview}
+      />,
+    )
+
+    const reviewBasisId = screen.getByText('Review Basis Id').closest('.summary-card')
+    const artifactLineageId = screen.getByText('Artifact Lineage Id').closest('.summary-card')
+    expect(reviewBasisId?.textContent).toContain('optimizer_handoff_123')
+    expect(artifactLineageId?.textContent).toContain('optimizer_artifact_123')
+    expect(reviewBasisId?.textContent).not.toContain('undefined')
   })
 
   it('renders hypothetical replay provenance and interpretation notes after a preview run', () => {

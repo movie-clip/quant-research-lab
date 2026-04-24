@@ -11,13 +11,39 @@ import {
 import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
-import type { HypotheticalReplayResponse, ImportedSnapshot, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
+import type { ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
 const diagnosticsPayload = createDiagnosticsEngineFixture()
 const bootstrapPayload = createImportedBootstrapResponseFixture()
 const dashboardHistoryPayload = createImportedDashboardHistoryFixture()
+
+function jsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function requestPathname(input: RequestInfo | URL) {
+  const rawUrl = typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : input.url
+  return new URL(rawUrl, 'http://localhost').pathname
+}
+
+function requestMethod(input: RequestInfo | URL, init?: RequestInit) {
+  if (init?.method) return init.method.toUpperCase()
+  if (typeof input !== 'string' && !(input instanceof URL) && input.method) return input.method.toUpperCase()
+  return 'GET'
+}
+
+function installFetchMock(handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>) {
+  return vi.stubGlobal('fetch', vi.fn(handler))
+}
 
 function cloneMutable<T>(value: unknown): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -290,6 +316,60 @@ function buildImportedSource(input: {
   }
 }
 
+function buildArtifactReviewSource(constructionArtifactId: string, openedAt: string) {
+  return {
+    kind: 'persisted_construction_artifact' as const,
+    constructionArtifactId,
+    openedAt,
+    reviewBasis: {
+      basisVersion: 1 as const,
+      basisKind: 'persisted_construction_artifact_review' as const,
+      constructionArtifactId,
+      openedAt,
+      benchmarkSymbol: 'SPY',
+      baseCurrency: 'USD',
+      replayWindow: {
+        startDate: '2024-01-01',
+        endDate: '2024-12-31',
+      },
+      baselineWeights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+      candidateWeights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+    },
+  }
+}
+
+function buildOptimizerHandoffReviewSource(handoffReference: OptimizerPersistedArtifactReference, openedAt: string) {
+  return {
+    kind: 'persisted_optimizer_handoff' as const,
+    handoffReference,
+    openedAt,
+    reviewBasis: {
+      basisVersion: 1 as const,
+      basisKind: 'persisted_optimizer_handoff_review' as const,
+      handoffReference,
+      openedAt,
+      benchmarkSymbol: 'SPY',
+      baseCurrency: 'USD',
+      replayWindow: {
+        startDate: '2024-01-01',
+        endDate: '2024-12-31',
+      },
+      baselineWeights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+      candidateWeights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+    },
+  }
+}
+
+function makeOptimizerHandoffReference(): OptimizerPersistedArtifactReference {
+  return {
+    reference_kind: 'optimizer_handoff_reference_v1',
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+    artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+  }
+}
+
 const ib2026HistoryContext = mapImportedHistoryContextToWorkspace(ib2026BootstrapPayload.history_context)
 const ff2026HistoryContext = mapImportedHistoryContextToWorkspace(ff2026BootstrapPayload.history_context)
 
@@ -397,6 +477,299 @@ function makeSelectedConstructionRuleArtifact(selectedRuleId: 'same_weight_subst
     baseNodeId: 'node-1',
     selectedRuleId,
   }
+}
+
+function makeConstructionArtifactReplayResponse() {
+  return {
+    construction_artifact_id: 'artifact-123',
+    truth_separation: {
+      baseline_truth: 'imported_portfolio_snapshot' as const,
+      candidate_truth: 'hypothetical_construction_artifact' as const,
+      candidate_applied: false as const,
+      consumption_mode: 'explicit_reference_only' as const,
+    },
+    replay_provenance: {
+      source: 'construction_artifact_reference' as const,
+      construction_artifact_id: 'artifact-123',
+      policy_id: 'policy-1',
+      policy_definition_id: 'policy-def-1',
+      ranked_universe_artifact_id: 'ranked-1',
+      ranking_id: 'ranking-1',
+      ranking_methodology_id: 'method-1',
+      current_portfolio_artifact_id: 'portfolio-1',
+      baseline_input_source: 'normalized_inputs.current_portfolio_weights' as const,
+      candidate_input_source: 'final_target_weights' as const,
+      selection_rule_trace: {
+        rule_ids: ['rule-1'],
+        steps: [{
+          rule_id: 'rule-1',
+          rule_order: 1,
+          input_candidate_symbols: ['AAPL'],
+          output_candidate_symbols: ['MSFT'],
+        }],
+      },
+    },
+    baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+    candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+    effective_replay_params: {
+      benchmark_symbol: 'SPY' as const,
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+      initial_capital: 100000,
+      rebalance_frequency: 'monthly' as const,
+      base_currency: 'USD',
+      commission_bps: 0,
+      slippage_bps: 0,
+      drift_tolerance_pct: null,
+      price_basis: 'adjusted_close' as const,
+      execution_price_field: 'close' as const,
+      execution_lag_days: 1,
+      symbol_overrides: {},
+    },
+    replay: allocationBacktestPayload,
+  }
+}
+
+function makeConstructionArtifactReplayValidationResponse(overrides: Partial<ConstructionArtifactReplayValidationResponse> = {}): ConstructionArtifactReplayValidationResponse {
+  return {
+    construction_artifact_id: 'artifact-123',
+    effective_replay_params: {
+      benchmark_symbol: 'SPY',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+      initial_capital: 100000,
+      rebalance_frequency: 'monthly',
+      base_currency: 'USD',
+      commission_bps: 0,
+      slippage_bps: 0,
+      drift_tolerance_pct: null,
+      price_basis: 'adjusted_close',
+      execution_price_field: 'close',
+      execution_lag_days: 1,
+      symbol_overrides: {},
+    },
+    preview_handoff: {
+      handoff_kind: 'construction_artifact_preview_handoff_v1',
+      construction_artifact_id: 'artifact-123',
+      effective_replay_params: {
+        benchmark_symbol: 'SPY',
+        start_date: '2024-01-01',
+        end_date: '2024-12-31',
+        initial_capital: 100000,
+        rebalance_frequency: 'monthly',
+        base_currency: 'USD',
+        commission_bps: 0,
+        slippage_bps: 0,
+        drift_tolerance_pct: null,
+        price_basis: 'adjusted_close',
+        execution_price_field: 'close',
+        execution_lag_days: 1,
+        symbol_overrides: {},
+      },
+    },
+    open_payload: null,
+    ...overrides,
+  }
+}
+
+function makeOptimizerHandoffValidationResponse(overrides: Partial<OptimizerHandoffValidationResponse> = {}): OptimizerHandoffValidationResponse {
+  return {
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    source_portfolio_snapshot_id: 'portfolio_snapshot_123',
+    truth_separation: {
+      source_truth: 'persisted_hypothetical_optimizer_handoff',
+      holdings_truth: 'imported_portfolio_snapshot',
+      optimizer_output_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    eligible_replay_window: {
+      source: 'persisted_return_basis_attestation',
+      benchmark_symbol: 'SPY',
+      as_of_date: '2024-12-31',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+    },
+    provenance: {
+      source: 'optimizer_handoff_reference',
+      benchmark_id: 'benchmark_spy_demo_v1',
+      benchmark_version: '2024-04-15',
+      benchmark_symbol: 'SPY',
+      objective: {
+        objective_id: 'minimize_l2_distance_to_benchmark',
+        benchmark_relative: true,
+        description: 'Minimize squared distance to benchmark weights inside the hard-constraint set.',
+        alpha_signal_id: null,
+        requires_alpha_package: false,
+      },
+      replay_output_policy: {
+        source: 'persisted_return_basis_attestation',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        eligible_families: [],
+        withheld_families: ['benchmark_relative_volatility_outputs', 'factor_exposure_outputs'],
+      },
+      artifact_state: 'fresh',
+      constraint_set_fingerprint: 'constraint-fingerprint-1',
+    },
+    validation_status: 'ok',
+    evaluations: [],
+    blocking_rule_ids: [],
+    warnings: [],
+    ...overrides,
+  }
+}
+
+function makeOptimizerHandoffReplayResponse(): OptimizerHandoffReplayResponse {
+  return {
+    handoff_id: 'optimizer_handoff_123',
+    artifact_id: 'optimizer_artifact_123',
+    source_portfolio_snapshot_id: 'portfolio_snapshot_123',
+    truth_separation: {
+      baseline_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_optimizer_handoff',
+      candidate_applied: false,
+      consumption_mode: 'explicit_reference_only',
+    },
+    replay_provenance: {
+      source: 'optimizer_handoff_reference',
+      benchmark_id: 'benchmark_spy_demo_v1',
+      benchmark_version: '2024-04-15',
+      benchmark_symbol: 'SPY',
+      return_basis_attestation: {
+        benchmark_symbol: 'SPY',
+        as_of_date: '2024-12-31',
+        history_start_date: '2024-01-01',
+        history_end_date: '2024-12-31',
+        factor_proxy_symbols: ['QQQ'],
+        benchmark_return_basis_contract: 'unverified_adjusted_proxy',
+        factor_return_basis_contract: 'unverified_adjusted_proxy',
+        factor_basis_path: 'degraded_unverified_return_basis',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        evidence: {
+          benchmark_history: { verification_status: 'unverified', economic_basis: 'adjusted_close_proxy', construction_method: 'vendor_adjusted_close', disqualifiers: [], fallbacks_used: [], source_price_field: 'adj_close' },
+          factor_history: { verification_status: 'unverified', economic_basis: 'adjusted_close_proxy', construction_method: 'vendor_adjusted_close', disqualifiers: [], fallbacks_used: [], source_price_field: 'adj_close' },
+        },
+      },
+      replay_output_policy: {
+        source: 'persisted_return_basis_attestation',
+        section_trust: {
+          benchmark_relative_path: 'degraded_unverified_return_basis',
+          factor_model_path: 'degraded_unverified_return_basis',
+          risk_contribution_path: 'degraded_unverified_return_basis',
+        },
+        eligible_families: [],
+        withheld_families: ['benchmark_relative_volatility_outputs', 'factor_exposure_outputs'],
+      },
+      artifact_state: 'fresh',
+      optimizer_status: 'feasible',
+      constraint_set_fingerprint: 'constraint-fingerprint-1',
+    },
+    optimizer_context: {
+      objective: {
+        objective_id: 'minimize_l2_distance_to_benchmark',
+        benchmark_relative: true,
+        description: 'Minimize squared distance to benchmark weights inside the hard-constraint set.',
+        alpha_signal_id: null,
+        requires_alpha_package: false,
+      },
+      penalty_ids: [],
+      artifact_state: 'fresh',
+      stale_inputs: [],
+      degraded_inputs: [],
+      reasons: [],
+      run_summary: { engine_id: 'optimizer_engine_v1', solver_id: 'solver_v1', methodology_id: 'optimizer_methodology_v1' },
+      diagnostics: { turnover: 0.2, active_share: 0.1 },
+      binding_constraints: [],
+      violated_constraints: [],
+      benchmark_relative_attestations: [],
+      binding_constraint_evaluations: [],
+    },
+    baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+    candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+    replay: allocationBacktestPayload,
+  }
+}
+
+function makeEtfRankingPayload() {
+  return {
+    ranking_id: 'etf_ranking_engine_v1',
+    title: 'ETF Ranking Engine',
+    as_of_date: '2026-04-15',
+    benchmark_symbol: 'SPY',
+    universe: ['IUFS', 'IUHC', 'VDST'],
+    lookback_months: 6,
+    price_basis: 'close',
+    methodology: 'm',
+    effective_peer_group: 'Sector UCITS ETF',
+    effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+    source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+    warnings: { confidence: 'medium', warnings: ['Implementation-fit support is not complete across the ranked universe.'], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
+    request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC', 'VDST'], benchmark_symbol: 'SPY', lookback_months: 6 },
+    effective_inputs: {
+      effective_peer_group: 'Sector UCITS ETF',
+      effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
+      requested_universe: ['IUFS', 'IUHC', 'VDST'],
+      evaluated_universe: ['IUFS', 'IUHC'],
+      excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+    },
+    run_metadata: {
+      ranking_id: 'etf_ranking_engine_v1',
+      methodology_id: 'etf_ranking_methodology_v1',
+      methodology: 'm',
+      as_of_date: '2026-04-15',
+      ranking_basis_date: '2026-04-15',
+      price_basis: 'close',
+      source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
+      confidence: 'medium',
+    },
+    ranked_universe: [
+      {
+        rank: 1,
+        symbol: 'IUFS',
+        composite_score: 0.8123,
+        instrument: { symbol: 'IUFS', name: 'iShares S&P 500 Financials Sector UCITS ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' },
+        component_scores: {
+          momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 },
+          benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 4.2, raw_unit: 'pct', normalized_score: 1, weight: 0.2, weighted_score: 0.2 },
+          realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 14.4, raw_unit: 'pct', normalized_score: 0.7, weight: 0.15, weighted_score: 0.105 },
+          max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 8.1, raw_unit: 'pct', normalized_score: 0.75, weight: 0.1, weighted_score: 0.075 },
+          liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 13.1, raw_unit: 'score', normalized_score: 0.8, weight: 0.1, weighted_score: 0.08 },
+          implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
+        },
+      },
+      {
+        rank: 2,
+        symbol: 'IUHC',
+        composite_score: 0.7345,
+        instrument: { symbol: 'IUHC', name: 'iShares S&P 500 Health Care Sector UCITS ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' },
+        component_scores: {
+          momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 },
+          benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 2.7, raw_unit: 'pct', normalized_score: 0.7, weight: 0.2, weighted_score: 0.14 },
+          realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 15.8, raw_unit: 'pct', normalized_score: 0.6, weight: 0.15, weighted_score: 0.09 },
+          max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 9.5, raw_unit: 'pct', normalized_score: 0.65, weight: 0.1, weighted_score: 0.065 },
+          liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 12.3, raw_unit: 'score', normalized_score: 0.7, weight: 0.1, weighted_score: 0.07 },
+          implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 },
+        },
+      },
+    ],
+    excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+  }
+}
+
+function makeEtfRankingMetadataPayload() {
+  return { available_effective_peer_groups: ['Sector UCITS ETF'] }
+}
+
+function makeEtfRankingRecentRunsPayload() {
+  return []
 }
 
 function sectorPositionsByName(overview: PortfolioOverview): Record<string, Array<{ symbol: string; market_value: number; weight: number }>> {
@@ -688,6 +1061,760 @@ describe('App', () => {
     expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
   })
 
+  it('opens persisted construction artifact review from query param on startup', async () => {
+    const originalLocation = globalThis.location
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: '?construction_artifact_id=artifact-123' },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(makeConstructionArtifactReplayValidationResponse()))
+        .mockResolvedValueOnce(jsonResponse(makeConstructionArtifactReplayResponse()))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(createWorkspaceSpy).toHaveBeenCalledWith(expect.objectContaining({ constructionArtifactId: 'artifact-123' })))
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+      expect(createWorkspaceSpy).toHaveBeenCalledTimes(1)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(requestPathname(fetchMock.mock.calls[0]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/construction-artifact-validation')
+      expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? '{}'))).toEqual({ construction_artifact_id: 'artifact-123' })
+      expect(requestPathname(fetchMock.mock.calls[1]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/construction-artifact-preview')
+      expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body ?? '{}'))).toEqual(makeConstructionArtifactReplayValidationResponse().preview_handoff)
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted construction artifact open when preview handoff kind is unsupported', async () => {
+    const originalLocation = globalThis.location
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: '?construction_artifact_id=artifact-123' },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+      const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(makeConstructionArtifactReplayValidationResponse({
+        preview_handoff: {
+          ...makeConstructionArtifactReplayValidationResponse().preview_handoff,
+          handoff_kind: 'construction_artifact_preview_handoff_v0',
+        } as unknown as ConstructionArtifactReplayValidationResponse['preview_handoff'],
+      })))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted construction artifact review: unsupported preview handoff kind')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted construction artifact open when preview handoff artifact mismatches query artifact', async () => {
+    const originalLocation = globalThis.location
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: '?construction_artifact_id=artifact-123' },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+      const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(makeConstructionArtifactReplayValidationResponse({
+        preview_handoff: {
+          ...makeConstructionArtifactReplayValidationResponse().preview_handoff,
+          construction_artifact_id: 'artifact-other',
+        },
+      })))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted construction artifact review: preview handoff artifact mismatch')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted construction artifact open when preflight validation fails', async () => {
+    const originalLocation = globalThis.location
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: '?construction_artifact_id=artifact-123' },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+      const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({ detail: 'validation failed' }, 400))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('validation failed')).toBeTruthy())
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(requestPathname(fetchMock.mock.calls[0]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/construction-artifact-validation')
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted construction artifact open when preview fails after preflight succeeds', async () => {
+    const originalLocation = globalThis.location
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: '?construction_artifact_id=artifact-123' },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(makeConstructionArtifactReplayValidationResponse()))
+        .mockResolvedValueOnce(jsonResponse({ detail: 'preview failed' }, 400))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('preview failed')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted construction artifact open when preview handoff is missing', async () => {
+    const originalLocation = globalThis.location
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: '?construction_artifact_id=artifact-123' },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+      const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
+        ...makeConstructionArtifactReplayValidationResponse(),
+        preview_handoff: undefined,
+      }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted construction artifact review: validation response missing preview handoff')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('restores persisted construction artifact review state on startup', async () => {
+    const replay = makeConstructionArtifactReplayResponse()
+    const workspace = {
+      id: 'workspace-artifact',
+      name: 'Construction Artifact artifact-123',
+      createdAt: '2026-04-23T00:00:00Z',
+      updatedAt: '2026-04-23T00:00:00Z',
+      rootNodeId: 'node-artifact',
+      activeNodeId: 'node-artifact',
+      source: buildArtifactReviewSource('artifact-123', '2026-04-23T00:00:00Z'),
+    }
+    const node = {
+      id: 'node-artifact',
+      workspaceId: 'workspace-artifact',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-23T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: {
+        basisVersion: 1 as const,
+        basisKind: 'persisted_construction_artifact_review' as const,
+        constructionArtifactId: 'artifact-123',
+        openedAt: '2026-04-23T00:00:00Z',
+        benchmarkSymbol: 'SPY',
+        baseCurrency: 'USD',
+        replayWindow: { startDate: '2024-01-01', endDate: '2024-12-31' },
+        baselineWeights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+        candidateWeights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+      },
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-artifact', activeNodeId: 'node-artifact', activeDraftId: null, selectedExposureSnapshotId: 'node-artifact', lastOpenedAt: '2026-04-23T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedConstructionArtifactWorkspaceReview').mockResolvedValue({ workspaceId: 'workspace-artifact', constructionArtifactId: 'artifact-123', openedAt: '2026-04-23T00:00:00Z', replay })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByTestId('persisted-construction-artifact-banner')).toBeTruthy())
+    expect(screen.getAllByText('artifact-123').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Proposal')).toBeNull()
+    expect(screen.getByText('Review basis: artifact-123')).toBeTruthy()
+  })
+
+  it('opens persisted optimizer handoff review from query param on startup', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff').mockResolvedValue({
+        workspace: {
+          id: 'workspace-optimizer',
+          name: 'Optimizer Handoff optimizer_handoff_123',
+          createdAt: '2026-04-24T00:00:00Z',
+          updatedAt: '2026-04-24T00:00:00Z',
+          rootNodeId: 'node-optimizer',
+          activeNodeId: 'node-optimizer',
+          source: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z'),
+        } as PortfolioWorkspace,
+        rootNode: {
+          id: 'node-optimizer',
+          workspaceId: 'workspace-optimizer',
+          parentId: null,
+          kind: 'artifact_review_basis',
+          name: 'Artifact Review Basis',
+          createdAt: '2026-04-24T00:00:00Z',
+          changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+          portfolioSnapshot: null,
+          artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+        } as PortfolioNode,
+        draft: null,
+        workspaceState: {
+          workspaceId: 'workspace-optimizer',
+          activeNodeId: 'node-optimizer',
+          activeDraftId: null,
+          selectedExposureSnapshotId: 'node-optimizer',
+          lastOpenedAt: '2026-04-24T00:00:00Z',
+        },
+        review: {
+          workspaceId: 'workspace-optimizer',
+          handoffReference,
+          openedAt: '2026-04-24T00:00:00Z',
+          validation: makeOptimizerHandoffValidationResponse(),
+          replay: makeOptimizerHandoffReplayResponse(),
+        },
+      })
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse()))
+        .mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffReplayResponse()))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(createWorkspaceSpy).toHaveBeenCalledWith(expect.objectContaining({ handoffReference })))
+      await waitFor(() => expect(screen.getByTestId('persisted-construction-artifact-banner')).toBeTruthy())
+      expect(requestPathname(fetchMock.mock.calls[0]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/optimizer-handoff/constraints')
+      expect(requestPathname(fetchMock.mock.calls[1]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/optimizer-handoff-preview')
+      expect(screen.getByText('Review basis: optimizer_handoff_123')).toBeTruthy()
+      expect(screen.getByText('This workspace reopens a hypothetical artifact-backed optimizer review by persisted handoff reference while keeping replay review surfaces intact.')).toBeTruthy()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted optimizer handoff open when validation is blocked', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse({ validation_status: 'blocked', blocking_rule_ids: ['persisted_payload_accessible'] }))))
+
+      render(<App />)
+
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation blocked')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted optimizer handoff open when validation handoff mismatches query reference', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse({ handoff_id: 'optimizer_handoff_other' }))))
+
+      render(<App />)
+
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation handoff mismatch')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted optimizer handoff open when validation artifact mismatches query reference', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse({ artifact_id: 'optimizer_artifact_other' }))))
+
+      render(<App />)
+
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation artifact mismatch')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('allows persisted optimizer handoff open when validation omits artifact id', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff').mockResolvedValue({
+        workspace: {
+          id: 'workspace-optimizer',
+          name: 'Optimizer Handoff optimizer_handoff_123',
+          createdAt: '2026-04-24T00:00:00Z',
+          updatedAt: '2026-04-24T00:00:00Z',
+          rootNodeId: 'node-optimizer',
+          activeNodeId: 'node-optimizer',
+          source: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z'),
+        } as PortfolioWorkspace,
+        rootNode: {
+          id: 'node-optimizer',
+          workspaceId: 'workspace-optimizer',
+          parentId: null,
+          kind: 'artifact_review_basis',
+          name: 'Artifact Review Basis',
+          createdAt: '2026-04-24T00:00:00Z',
+          changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+          portfolioSnapshot: null,
+          artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+        } as PortfolioNode,
+        draft: null,
+        workspaceState: { workspaceId: 'workspace-optimizer', activeNodeId: 'node-optimizer', activeDraftId: null, selectedExposureSnapshotId: 'node-optimizer', lastOpenedAt: '2026-04-24T00:00:00Z' },
+        review: {
+          workspaceId: 'workspace-optimizer',
+          handoffReference,
+          openedAt: '2026-04-24T00:00:00Z',
+          validation: makeOptimizerHandoffValidationResponse({ artifact_id: null }),
+          replay: makeOptimizerHandoffReplayResponse(),
+        },
+      })
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse({ artifact_id: null })))
+        .mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffReplayResponse()))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(createWorkspaceSpy).toHaveBeenCalled())
+      expect(screen.getByText('Review basis: optimizer_handoff_123')).toBeTruthy()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted optimizer handoff open when replay artifact mismatches query reference', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff')
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse()))
+        .mockResolvedValueOnce(jsonResponse({ ...makeOptimizerHandoffReplayResponse(), artifact_id: 'optimizer_artifact_other' }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: replay artifact mismatch')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted optimizer handoff open when replay omits the canonical objective block', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff')
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse()))
+        .mockResolvedValueOnce(jsonResponse({
+          ...makeOptimizerHandoffReplayResponse(),
+          optimizer_context: {
+            ...makeOptimizerHandoffReplayResponse().optimizer_context!,
+            objective: null,
+          },
+        }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: replay optimizer objective missing')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('restores persisted optimizer handoff review state on startup', async () => {
+    const handoffReference = makeOptimizerHandoffReference()
+    const replay = makeOptimizerHandoffReplayResponse()
+    const validation = makeOptimizerHandoffValidationResponse()
+    const workspace = {
+      id: 'workspace-optimizer',
+      name: 'Optimizer Handoff optimizer_handoff_123',
+      createdAt: '2026-04-24T00:00:00Z',
+      updatedAt: '2026-04-24T00:00:00Z',
+      rootNodeId: 'node-optimizer',
+      activeNodeId: 'node-optimizer',
+      source: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z'),
+    }
+    const node = {
+      id: 'node-optimizer',
+      workspaceId: 'workspace-optimizer',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-24T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-optimizer', activeNodeId: 'node-optimizer', activeDraftId: null, selectedExposureSnapshotId: 'node-optimizer', lastOpenedAt: '2026-04-24T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace as PortfolioWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node as PortfolioNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node as PortfolioNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'normalizeLegacyPersistedOptimizerHandoffWorkspaceCache').mockResolvedValue({
+      workspace: workspace as PortfolioWorkspace,
+      node: {
+        ...node,
+        artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+      } as PortfolioNode,
+      review: { workspaceId: 'workspace-optimizer', handoffReference, openedAt: '2026-04-24T00:00:00Z', validation, replay },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedOptimizerHandoffWorkspaceReview').mockResolvedValue({ workspaceId: 'workspace-optimizer', handoffReference, openedAt: '2026-04-24T00:00:00Z', validation, replay })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Review basis: optimizer_handoff_123')).toBeTruthy())
+    expect(screen.getByText('Review basis: optimizer_handoff_123')).toBeTruthy()
+    expect(screen.getByText('Optimizer Handoff Review Replay')).toBeTruthy()
+  })
+
+  it('fails closed when restored persisted optimizer workspace is missing its authoritative persisted review row', async () => {
+    const handoffReference = makeOptimizerHandoffReference()
+    const workspace = {
+      id: 'workspace-optimizer',
+      name: 'Optimizer Handoff optimizer_handoff_123',
+      createdAt: '2026-04-24T00:00:00Z',
+      updatedAt: '2026-04-24T00:00:00Z',
+      rootNodeId: 'node-optimizer',
+      activeNodeId: 'node-optimizer',
+      source: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z'),
+    }
+    const node = {
+      id: 'node-optimizer',
+      workspaceId: 'workspace-optimizer',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-24T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-optimizer', activeNodeId: 'node-optimizer', activeDraftId: null, selectedExposureSnapshotId: 'node-optimizer', lastOpenedAt: '2026-04-24T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace as PortfolioWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node as PortfolioNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node as PortfolioNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    const normalizeSpy = vi.spyOn(portfolioWorkspaceStorage, 'normalizeLegacyPersistedOptimizerHandoffWorkspaceCache')
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedOptimizerHandoffWorkspaceReview').mockResolvedValue(null)
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Dashboard'))
+    await waitFor(() => expect(screen.getByText('Unable to restore previous portfolio workspace: persisted optimizer handoff review is missing')).toBeTruthy())
+    expect(normalizeSpy).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when restored persisted optimizer workspace source conflicts with handoffReference identity', async () => {
+    const handoffReference = makeOptimizerHandoffReference()
+    const validation = makeOptimizerHandoffValidationResponse()
+    const replay = makeOptimizerHandoffReplayResponse()
+    const workspace = {
+      id: 'workspace-optimizer',
+      name: 'Optimizer Handoff optimizer_handoff_123',
+      createdAt: '2026-04-24T00:00:00Z',
+      updatedAt: '2026-04-24T00:00:00Z',
+      rootNodeId: 'node-optimizer',
+      activeNodeId: 'node-optimizer',
+      source: {
+        ...buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z'),
+        handoffId: 'optimizer_handoff_other',
+      },
+    }
+    const node = {
+      id: 'node-optimizer',
+      workspaceId: 'workspace-optimizer',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-24T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-optimizer', activeNodeId: 'node-optimizer', activeDraftId: null, selectedExposureSnapshotId: 'node-optimizer', lastOpenedAt: '2026-04-24T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace as PortfolioWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node as PortfolioNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node as PortfolioNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedOptimizerHandoffWorkspaceReview').mockResolvedValue({ workspaceId: 'workspace-optimizer', handoffReference, openedAt: '2026-04-24T00:00:00Z', validation, replay })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Dashboard'))
+    await waitFor(() => expect(screen.getByText('Unable to restore previous portfolio workspace')).toBeTruthy())
+  })
+
+  it('fails closed when restored persisted optimizer workspace has a malformed cached reviewBasis envelope', async () => {
+    const handoffReference = makeOptimizerHandoffReference()
+    const validation = makeOptimizerHandoffValidationResponse()
+    const replay = makeOptimizerHandoffReplayResponse()
+    const workspace = {
+      id: 'workspace-optimizer',
+      name: 'Optimizer Handoff optimizer_handoff_123',
+      createdAt: '2026-04-24T00:00:00Z',
+      updatedAt: '2026-04-24T00:00:00Z',
+      rootNodeId: 'node-optimizer',
+      activeNodeId: 'node-optimizer',
+      source: {
+        ...buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z'),
+        reviewBasis: {
+          ...buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+          basisKind: 'persisted_construction_artifact_review',
+        },
+      },
+    }
+    const node = {
+      id: 'node-optimizer',
+      workspaceId: 'workspace-optimizer',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-24T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-optimizer', activeNodeId: 'node-optimizer', activeDraftId: null, selectedExposureSnapshotId: 'node-optimizer', lastOpenedAt: '2026-04-24T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace as PortfolioWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node as PortfolioNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node as PortfolioNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedOptimizerHandoffWorkspaceReview').mockResolvedValue({ workspaceId: 'workspace-optimizer', handoffReference, openedAt: '2026-04-24T00:00:00Z', validation, replay })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Dashboard'))
+    await waitFor(() => expect(screen.getByText('Unable to restore previous portfolio workspace')).toBeTruthy())
+  })
+
+  it('restores persisted optimizer handoff review state when cached reviewBasis is missing as a documented legacy case', async () => {
+    const handoffReference = makeOptimizerHandoffReference()
+    const replay = makeOptimizerHandoffReplayResponse()
+    const validation = makeOptimizerHandoffValidationResponse()
+    const workspace = {
+      id: 'workspace-optimizer',
+      name: 'Optimizer Handoff optimizer_handoff_123',
+      createdAt: '2026-04-24T00:00:00Z',
+      updatedAt: '2026-04-24T00:00:00Z',
+      rootNodeId: 'node-optimizer',
+      activeNodeId: 'node-optimizer',
+      source: {
+        kind: 'persisted_optimizer_handoff' as const,
+        handoffReference,
+        openedAt: '2026-04-24T00:00:00Z',
+      },
+    }
+    const node = {
+      id: 'node-optimizer',
+      workspaceId: 'workspace-optimizer',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-24T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: null,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-optimizer', activeNodeId: 'node-optimizer', activeDraftId: null, selectedExposureSnapshotId: 'node-optimizer', lastOpenedAt: '2026-04-24T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace as PortfolioWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node as PortfolioNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node as PortfolioNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'normalizeLegacyPersistedOptimizerHandoffWorkspaceCache').mockResolvedValue({
+      workspace: {
+        ...workspace,
+        source: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z'),
+      } as PortfolioWorkspace,
+      node: {
+        ...node,
+        artifactReviewBasis: buildOptimizerHandoffReviewSource(handoffReference, '2026-04-24T00:00:00Z').reviewBasis,
+      } as PortfolioNode,
+      review: { workspaceId: 'workspace-optimizer', handoffReference, openedAt: '2026-04-24T00:00:00Z', validation, replay },
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedOptimizerHandoffWorkspaceReview').mockResolvedValue({ workspaceId: 'workspace-optimizer', handoffReference, openedAt: '2026-04-24T00:00:00Z', validation, replay })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Review basis: optimizer_handoff_123')).toBeTruthy())
+    expect(screen.getByText('Review basis: optimizer_handoff_123')).toBeTruthy()
+    expect(screen.getByText('Optimizer Handoff Review Replay')).toBeTruthy()
+  })
+
+  it('normalizes legacy cached artifact review workspaces during restore', async () => {
+    const replay = makeConstructionArtifactReplayResponse()
+    const workspace = {
+      id: 'workspace-artifact',
+      name: 'Construction Artifact artifact-123',
+      createdAt: '2026-04-23T00:00:00Z',
+      updatedAt: '2026-04-23T00:00:00Z',
+      rootNodeId: 'node-artifact',
+      activeNodeId: 'node-artifact',
+      source: {
+        kind: 'persisted_construction_artifact' as const,
+        constructionArtifactId: 'artifact-123',
+        openedAt: '2026-04-23T00:00:00Z',
+      },
+    }
+    const node = {
+      id: 'node-artifact',
+      workspaceId: 'workspace-artifact',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-23T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: {
+        basisVersion: 1 as const,
+        basisKind: 'persisted_construction_artifact_review' as const,
+        constructionArtifactId: 'artifact-123',
+        openedAt: '2026-04-23T00:00:00Z',
+        benchmarkSymbol: 'SPY',
+        baseCurrency: 'USD',
+        replayWindow: { startDate: '2024-01-01', endDate: '2024-12-31' },
+        baselineWeights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+        candidateWeights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+      },
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-artifact', activeNodeId: 'node-artifact', activeDraftId: null, selectedExposureSnapshotId: 'node-artifact', lastOpenedAt: '2026-04-23T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace as PortfolioWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node as PortfolioNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node as PortfolioNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedConstructionArtifactWorkspaceReview').mockResolvedValue({ workspaceId: 'workspace-artifact', constructionArtifactId: 'artifact-123', openedAt: '2026-04-23T00:00:00Z', replay })
+    const normalizeSpy = vi.spyOn(portfolioWorkspaceStorage, 'normalizeLegacyPersistedConstructionArtifactWorkspaceCache').mockResolvedValue({
+      workspace: {
+        ...workspace,
+        source: buildArtifactReviewSource('artifact-123', '2026-04-23T00:00:00Z'),
+      },
+      node: {
+        id: 'node-artifact',
+        workspaceId: 'workspace-artifact',
+        parentId: null,
+        kind: 'artifact_review_basis' as const,
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-23T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+        artifactReviewBasis: buildArtifactReviewSource('artifact-123', '2026-04-23T00:00:00Z').reviewBasis,
+      },
+      review: { workspaceId: 'workspace-artifact', constructionArtifactId: 'artifact-123', openedAt: '2026-04-23T00:00:00Z', replay },
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(normalizeSpy).toHaveBeenCalled())
+    expect(screen.getByTestId('persisted-construction-artifact-banner')).toBeTruthy()
+  })
+
   it('restores IB2026 dashboard values consistently from persisted imported state', async () => {
     const snapshot = {
       snapshotVersion: 1 as const,
@@ -927,32 +2054,17 @@ describe('App', () => {
     const saveRankingArtifactSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveIntentBoundSeededEtfReplacementRankingDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
 
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        ranking_id: 'etf_ranking_engine_v1',
-        title: 'ETF Ranking Engine',
-        as_of_date: '2026-04-15',
-        benchmark_symbol: 'SPY',
-        universe: ['IUFS', 'IUHC', 'VDST'],
-        lookback_months: 6,
-        price_basis: 'close',
-        methodology: 'm',
-        effective_peer_group: 'Sector UCITS ETF',
-        effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-        source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-        warnings: { confidence: 'medium', warnings: ['Implementation-fit support is not complete across the ranked universe.'], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
-        request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC', 'VDST'], benchmark_symbol: 'SPY', lookback_months: 6 },
-        effective_inputs: { effective_peer_group: 'Sector UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['IUFS', 'IUHC', 'VDST'], evaluated_universe: ['IUFS', 'IUHC'], excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }] },
-        run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
-        ranked_universe: [
-          { rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'iShares S&P 500 Financials Sector UCITS ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 }, benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 4.2, raw_unit: 'pct', normalized_score: 1, weight: 0.2, weighted_score: 0.2 }, realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 14.4, raw_unit: 'pct', normalized_score: 0.7, weight: 0.15, weighted_score: 0.105 }, max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 8.1, raw_unit: 'pct', normalized_score: 0.75, weight: 0.1, weighted_score: 0.075 }, liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 13.1, raw_unit: 'score', normalized_score: 0.8, weight: 0.1, weighted_score: 0.08 }, implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 } } },
-          { rank: 2, symbol: 'IUHC', composite_score: 0.7345, instrument: { symbol: 'IUHC', name: 'iShares S&P 500 Health Care Sector UCITS ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 }, benchmark_relative_strength: { label: 'Benchmark-relative strength', direction: 'higher_is_better', raw_value: 2.7, raw_unit: 'pct', normalized_score: 0.7, weight: 0.2, weighted_score: 0.14 }, realized_volatility: { label: 'Realized volatility', direction: 'lower_is_better', raw_value: 15.8, raw_unit: 'pct', normalized_score: 0.6, weight: 0.15, weighted_score: 0.09 }, max_drawdown: { label: 'Max drawdown', direction: 'lower_is_better', raw_value: 9.5, raw_unit: 'pct', normalized_score: 0.65, weight: 0.1, weighted_score: 0.065 }, liquidity: { label: 'Median dollar volume', direction: 'higher_is_better', raw_value: 12.3, raw_unit: 'score', normalized_score: 0.7, weight: 0.1, weighted_score: 0.07 }, implementation_fit: { label: 'Implementation fit', direction: 'higher_is_better', raw_value: 1, raw_unit: 'score', normalized_score: 1, weight: 0.05, weighted_score: 0.05 } } },
-        ],
-        excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
+      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
+      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -1234,32 +2346,17 @@ describe('App', () => {
     const saveReplacementIntentSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveReplacementIntentDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
 
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        ranking_id: 'etf_ranking_engine_v1',
-        title: 'ETF Ranking Engine',
-        as_of_date: '2026-04-15',
-        benchmark_symbol: 'SPY',
-        universe: ['IUFS', 'IUHC', 'VDST'],
-        lookback_months: 6,
-        price_basis: 'close',
-        methodology: 'm',
-        effective_peer_group: 'Sector UCITS ETF',
-        effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-        source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-        warnings: { confidence: 'medium', warnings: ['Implementation-fit support is not complete across the ranked universe.'], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
-        request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC', 'VDST'], benchmark_symbol: 'SPY', lookback_months: 6 },
-        effective_inputs: { effective_peer_group: 'Sector UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['IUFS', 'IUHC', 'VDST'], evaluated_universe: ['IUFS', 'IUHC'], excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }] },
-        run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
-        ranked_universe: [
-          { rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } },
-          { rank: 2, symbol: 'IUHC', composite_score: 0.7345, instrument: { symbol: 'IUHC', name: 'ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 } } },
-        ],
-        excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
+      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
+      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -1785,35 +2882,21 @@ describe('App', () => {
     })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockImplementation(async () => [importedWorkspace.rootNode, variantNode])
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:10:00Z' })
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        ranking_id: 'etf_ranking_engine_v1',
-        title: 'ETF Ranking Engine',
-        as_of_date: '2026-04-15',
-        benchmark_symbol: 'SPY',
-        universe: ['IUFS', 'IUHC', 'VDST'],
-        lookback_months: 6,
-        price_basis: 'close',
-        methodology: 'm',
-        effective_peer_group: 'Sector UCITS ETF',
-        effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 },
-        source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' },
-        warnings: { confidence: 'medium', warnings: ['Implementation-fit support is not complete across the ranked universe.'], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
-        request: { peer_group: 'Sector UCITS ETF', universe: ['IUFS', 'IUHC', 'VDST'], benchmark_symbol: 'SPY', lookback_months: 6 },
-        effective_inputs: { effective_peer_group: 'Sector UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['IUFS', 'IUHC', 'VDST'], evaluated_universe: ['IUFS', 'IUHC'], excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }] },
-        run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'medium' },
-        ranked_universe: [
-          { rank: 1, symbol: 'IUFS', composite_score: 0.8123, instrument: { symbol: 'IUFS', name: 'ETF', asset_class: 'etf', sector: 'Financials', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 11.2, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } },
-          { rank: 2, symbol: 'IUHC', composite_score: 0.7345, instrument: { symbol: 'IUHC', name: 'ETF', asset_class: 'etf', sector: 'Health Care', category: 'Sector UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 9.8, raw_unit: 'pct', normalized_score: 0.8, weight: 0.3, weighted_score: 0.24 } } },
-        ],
-        excluded_symbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run-imported' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
+      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
+      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 

@@ -43,7 +43,10 @@ V1 supports a narrow persisted policy set and consumes ranked candidates as an i
 
 ## Replay provenance
 
-- `POST /backtests/portfolio-allocation/construction-artifact-preview` consumes the persisted artifact through an explicit artifact-reference boundary
+- `POST /backtests/portfolio-allocation/construction-artifact-validation` is the canonical producer of the typed `preview_handoff` boundary for downstream open/preview
+- `POST /backtests/portfolio-allocation/construction-artifact-preview` consumes that `preview_handoff` as the authoritative validation-to-preview contract
+- compatibility with the legacy preview request shape remains additive only; when a payload presents the handoff shape it must validate as a complete supported handoff, and mixed handoff-plus-legacy payloads fail closed
+- handoff consumption fails closed on missing or unsupported `handoff_kind` and on any construction artifact id mismatch surfaced by persisted artifact integrity validation
 - replay provenance requires the persisted `selection_rule_trace` from the referenced artifact
 - the trace is descriptive provenance only and does not drive replay weights or math
 

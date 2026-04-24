@@ -10,19 +10,21 @@ from types import SimpleNamespace
 from typing import Literal, cast
 from pydantic import ValidationError
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, OptimizerHandoffReplayRequest, OptimizerHandoffValidationRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
-from app.schemas.optimizer import OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, OptimizerHandoffReplayRequest, OptimizerHandoffValidationRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.optimizer import OptimizationRequest, OptimizerAlphaFundamentalSnapshot, OptimizerObjective, OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerPreviewSnapshotReference, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
 from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.schemas.return_basis import ReturnBasisEvidence
 from app.schemas.construction import ConstructionRunRequest
 from app.services import construction_policy_catalog
 from app.services.optimizer_artifact_service import OptimizerHandoffStore
-from app.services.construction_artifact_service import ConstructionArtifactStore, _canonical_json
+from app.services.construction_artifact_service import ConstructionArtifactMissingFileError, ConstructionArtifactStore, _canonical_json
 from app.services.construction_run_service import build_construction_run
 from app.services.optimizer_handoff_constraints import OptimizerHandoffValidationBlockedError, validate_optimizer_handoff_constraints
+from app.services.optimizer_alpha_service import build_alpha_quality_package
 from app.services.optimizer_preview_service import build_optimizer_preview
-from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview
+from app.services.optimizer_service import run_optimizer
+from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -105,6 +107,18 @@ def _optimizer_preview_request() -> OptimizerPreviewRequest:
     )
 
 
+def _optimizer_alpha_package():
+    return build_alpha_quality_package(
+        rebalance_date="2024-04-15",
+        universe_symbols=["AAA", "BBB", "CCC"],
+        fundamental_snapshots=[
+            OptimizerAlphaFundamentalSnapshot(symbol="AAA", statement_date="2023-12-31", period_type="annual", total_revenue=1000.0, cost_of_revenue=400.0, ebit=200.0, total_assets=800.0, operating_cash_flow=180.0, free_cash_flow=120.0, net_income=150.0, total_debt=160.0, cash_and_equivalents=60.0),
+            OptimizerAlphaFundamentalSnapshot(symbol="BBB", statement_date="2023-12-31", period_type="annual", total_revenue=950.0, cost_of_revenue=500.0, ebit=150.0, total_assets=900.0, operating_cash_flow=110.0, free_cash_flow=80.0, net_income=120.0, total_debt=260.0, cash_and_equivalents=30.0),
+            OptimizerAlphaFundamentalSnapshot(symbol="CCC", statement_date="2023-12-31", period_type="annual", total_revenue=700.0, cost_of_revenue=420.0, ebit=90.0, total_assets=850.0, operating_cash_flow=70.0, free_cash_flow=40.0, net_income=115.0, total_debt=320.0, cash_and_equivalents=20.0),
+        ],
+    )
+
+
 def _mutate_persisted_json(path: str, mutator) -> None:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     mutator(payload)
@@ -164,6 +178,84 @@ def _construction_artifact_replay_request(artifact_id: str) -> ConstructionArtif
         initial_capital=100000,
         execution_lag_days=1,
     )
+
+
+def test_resolve_construction_artifact_replay_params_uses_backend_defaults_when_request_omits_frontend_defaults() -> None:
+    effective = resolve_construction_artifact_replay_params(
+        ConstructionArtifactReplayRequest(construction_artifact_id="artifact-123")
+    )
+
+    assert effective.model_dump(mode="json") == {
+        "benchmark_symbol": "SPY",
+        "start_date": "2024-01-01",
+        "end_date": "2024-12-31",
+        "initial_capital": 100000.0,
+        "rebalance_frequency": "monthly",
+        "base_currency": "USD",
+        "commission_bps": 0.0,
+        "slippage_bps": 0.0,
+        "drift_tolerance_pct": None,
+        "price_basis": "adjusted_close",
+        "execution_price_field": "close",
+        "execution_lag_days": 1,
+        "symbol_overrides": {},
+    }
+
+
+def test_resolve_construction_artifact_replay_params_prefers_explicit_request_overrides() -> None:
+    effective = resolve_construction_artifact_replay_params(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id="artifact-123",
+            benchmark_symbol="QQQ",
+            start_date=date(2023, 1, 1),
+            end_date=date(2023, 12, 31),
+            initial_capital=250000,
+            rebalance_frequency="quarterly",
+            base_currency="EUR",
+            commission_bps=4.5,
+            slippage_bps=6.5,
+            drift_tolerance_pct=2.0,
+            execution_lag_days=3,
+            symbol_overrides={"AAA": ["QQQ"]},
+        )
+    )
+
+    assert effective.model_dump(mode="json") == {
+        "benchmark_symbol": "QQQ",
+        "start_date": "2023-01-01",
+        "end_date": "2023-12-31",
+        "initial_capital": 250000.0,
+        "rebalance_frequency": "quarterly",
+        "base_currency": "EUR",
+        "commission_bps": 4.5,
+        "slippage_bps": 6.5,
+        "drift_tolerance_pct": 2.0,
+        "price_basis": "adjusted_close",
+        "execution_price_field": "close",
+        "execution_lag_days": 3,
+        "symbol_overrides": {"AAA": ["QQQ"]},
+    }
+
+
+def test_resolve_and_validate_construction_artifact_replay_params_rejects_invalid_resolved_defaults() -> None:
+    with pytest.raises(ValueError, match="end_date must be on or after start_date"):
+        resolve_and_validate_construction_artifact_replay_params(
+            ConstructionArtifactReplayRequest(
+                construction_artifact_id="artifact-123",
+                start_date=date(2024, 12, 31),
+                end_date=date(2024, 1, 1),
+            )
+        )
+
+
+def test_validate_construction_artifact_replay_params_requires_openable_artifact(tmp_path) -> None:
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+
+    with pytest.raises(ConstructionArtifactMissingFileError, match="missing persisted construction artifact file"):
+        validate_construction_artifact_replay_params(
+            _construction_artifact_replay_request("construction_artifact_missing"),
+            artifact_store=artifact_store,
+        )
 
 
 def _update_constraint_evaluation(payload: dict, constraint_id: str, **updates) -> None:
@@ -1481,7 +1573,9 @@ def test_build_optimizer_handoff_replay_preview_runs_from_explicit_persisted_ref
     assert replay_response.replay.reference_result is not None
     assert replay_response.replay.comparison is not None
     assert replay_response.optimizer_context is not None
-    assert replay_response.optimizer_context.objective_id == "minimize_l2_distance_to_benchmark"
+    assert "objective_id" not in replay_response.optimizer_context.model_dump()
+    assert replay_response.optimizer_context.objective is not None
+    assert replay_response.optimizer_context.objective.objective_id == "minimize_l2_distance_to_benchmark"
     assert replay_response.optimizer_context.run_summary.solver_id == "deterministic_projected_dykstra_v1"
     assert replay_response.optimizer_context.diagnostics.turnover == 0.2
     assert replay_response.optimizer_context.diagnostics.active_share == 0.0
@@ -1670,8 +1764,562 @@ def test_build_construction_artifact_replay_preview_uses_persisted_final_target_
         PortfolioWeightInput(symbol="AAA", target_weight=0.5),
         PortfolioWeightInput(symbol="BBB", target_weight=0.5),
     ]
+    assert replay_response.effective_replay_params.model_dump(mode="json") == {
+        "benchmark_symbol": "SPY",
+        "start_date": "2024-01-01",
+        "end_date": "2024-12-31",
+        "initial_capital": 100000.0,
+        "rebalance_frequency": "monthly",
+        "base_currency": "USD",
+        "commission_bps": 0.0,
+        "slippage_bps": 0.0,
+        "drift_tolerance_pct": None,
+        "price_basis": "adjusted_close",
+        "execution_price_field": "close",
+        "execution_lag_days": 1,
+        "symbol_overrides": {},
+    }
     assert replay_response.replay.reference_result is not None
     assert replay_response.replay.candidate_result.portfolio_name == "Construction Artifact Candidate"
+
+
+def test_build_construction_artifact_replay_preview_applies_override_precedence_and_echoes_effective_params(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "QQQ": _history(100.0, 101.0, 102.0, 103.0, 110.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-override-precedence",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=artifact.artifact_id,
+            benchmark_symbol="QQQ",
+            start_date=date(2023, 1, 1),
+            end_date=date(2023, 12, 31),
+            initial_capital=250000,
+            rebalance_frequency="quarterly",
+            base_currency="EUR",
+            commission_bps=4.5,
+            slippage_bps=6.5,
+            drift_tolerance_pct=2.0,
+            execution_lag_days=3,
+            symbol_overrides={"AAA": ["QQQ"]},
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.effective_replay_params.model_dump(mode="json") == {
+        "benchmark_symbol": "QQQ",
+        "start_date": "2023-01-01",
+        "end_date": "2023-12-31",
+        "initial_capital": 250000.0,
+        "rebalance_frequency": "quarterly",
+        "base_currency": "EUR",
+        "commission_bps": 4.5,
+        "slippage_bps": 6.5,
+        "drift_tolerance_pct": 2.0,
+        "price_basis": "adjusted_close",
+        "execution_price_field": "close",
+        "execution_lag_days": 3,
+        "symbol_overrides": {"AAA": ["QQQ"]},
+    }
+    mock_service.return_value.get_historical_prices_for_symbols.assert_called_once()
+    call_args = mock_service.return_value.get_historical_prices_for_symbols.call_args
+    assert call_args.args[1] == "2023-01-01"
+    assert call_args.args[2] == "2023-12-31"
+    assert replay_response.replay.candidate_result.benchmark_symbol == "QQQ"
+    assert replay_response.replay.candidate_result.rebalance_frequency == "quarterly"
+    assert replay_response.replay.candidate_result.commission_bps == 4.5
+    assert replay_response.replay.candidate_result.slippage_bps == 6.5
+    assert replay_response.replay.candidate_result.assumptions.execution_lag_days == 3
+    assert replay_response.replay.candidate_result.assumptions.investor_base_currency == "EUR"
+
+
+def test_construction_artifact_preview_and_validation_share_effective_param_resolution(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-validation-parity",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    request = ConstructionArtifactReplayRequest(
+        construction_artifact_id=artifact.artifact_id,
+        benchmark_symbol="QQQ",
+        start_date=date(2023, 1, 1),
+        end_date=date(2023, 12, 31),
+        initial_capital=250000,
+        rebalance_frequency="quarterly",
+        base_currency="EUR",
+        commission_bps=4.5,
+        slippage_bps=6.5,
+        drift_tolerance_pct=2.0,
+        execution_lag_days=3,
+        symbol_overrides={"AAA": ["QQQ"]},
+    )
+
+    preview_response = build_construction_artifact_replay_preview(request, artifact_store=artifact_store)
+    validation_response = validate_construction_artifact_replay_params(request, artifact_store=artifact_store)
+
+    assert validation_response.effective_replay_params == preview_response.effective_replay_params
+    assert validation_response.preview_handoff.model_dump(mode="json") == {
+        "handoff_kind": "construction_artifact_preview_handoff_v1",
+        "construction_artifact_id": artifact.artifact_id,
+        "effective_replay_params": preview_response.effective_replay_params.model_dump(mode="json"),
+    }
+    assert validation_response.open_payload is None
+
+
+def test_construction_artifact_preview_uses_validation_preview_handoff_as_exact_contract(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-handoff-contract",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    validation_request = ConstructionArtifactReplayRequest(
+        construction_artifact_id=artifact.artifact_id,
+        benchmark_symbol="QQQ",
+        start_date=date(2023, 1, 1),
+        end_date=date(2023, 12, 31),
+        initial_capital=250000,
+        rebalance_frequency="quarterly",
+        base_currency="EUR",
+        commission_bps=4.5,
+        slippage_bps=6.5,
+        drift_tolerance_pct=2.0,
+        execution_lag_days=3,
+        symbol_overrides={"AAA": ["QQQ"]},
+    )
+
+    validation_response = validate_construction_artifact_replay_params(validation_request, artifact_store=artifact_store)
+    preview_from_handoff = build_construction_artifact_replay_preview(validation_response.preview_handoff, artifact_store=artifact_store)
+    preview_from_request = build_construction_artifact_replay_preview(validation_request, artifact_store=artifact_store)
+
+    assert preview_from_handoff.model_dump(mode="json") == preview_from_request.model_dump(mode="json")
+
+
+def test_construction_artifact_preview_handoff_model_rejects_unsupported_kind() -> None:
+    with pytest.raises(ValidationError):
+        ConstructionArtifactPreviewHandoff.model_validate({
+            "handoff_kind": "construction_artifact_preview_handoff_v0",
+            "construction_artifact_id": "artifact-123",
+            "effective_replay_params": {
+                "benchmark_symbol": "SPY",
+                "start_date": "2024-01-01",
+                "end_date": "2024-12-31",
+                "initial_capital": 100000.0,
+                "rebalance_frequency": "monthly",
+                "base_currency": "USD",
+                "commission_bps": 0.0,
+                "slippage_bps": 0.0,
+                "drift_tolerance_pct": None,
+                "price_basis": "adjusted_close",
+                "execution_price_field": "close",
+                "execution_lag_days": 1,
+                "symbol_overrides": {},
+            },
+        })
+
+
+@pytest.mark.parametrize(
+    ("payload_mutator", "expected_error", "preserve_integrity"),
+    [
+        (
+            lambda payload: payload.__setitem__("artifact_id", "construction_artifact_wrong"),
+            "construction artifact_id does not match canonical artifact content",
+            False,
+        ),
+        (
+            lambda payload: payload["normalized_inputs"].__setitem__("current_portfolio_weights", []),
+            "construction artifact replay requires normalized_inputs.current_portfolio_weights for the baseline replay path",
+            True,
+        ),
+    ],
+    ids=["integrity_failure", "missing_baseline_weights"],
+)
+def test_validate_construction_artifact_replay_params_matches_preview_openability_gate(
+    tmp_path,
+    mocker,
+    payload_mutator,
+    expected_error,
+    preserve_integrity,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-validation-openability-gate",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    artifact_id = artifact.artifact_id
+    if preserve_integrity:
+        artifact_id = _rewrite_construction_artifact_payload(tmp_path, artifact.artifact_id, payload_mutator)
+    else:
+        artifact_path = tmp_path / f"{artifact.artifact_id}.json"
+        payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+        payload_mutator(payload)
+        artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=expected_error):
+        validate_construction_artifact_replay_params(
+            _construction_artifact_replay_request(artifact_id),
+            artifact_store=artifact_store,
+        )
+
+
+def test_validate_construction_artifact_replay_params_rejects_infeasible_artifact(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-validation-infeasible-artifact",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 1.0},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 1.0,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    with pytest.raises(ValueError, match="construction_artifact_id must reference a feasible construction artifact"):
+        validate_construction_artifact_replay_params(
+            _construction_artifact_replay_request(artifact.artifact_id),
+            artifact_store=artifact_store,
+        )
+
+
+def test_validate_construction_artifact_replay_params_succeeds_for_openable_artifact(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-validation-valid-success",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    request = _construction_artifact_replay_request(artifact.artifact_id)
+
+    preview_response = build_construction_artifact_replay_preview(request, artifact_store=artifact_store)
+    validation_response = validate_construction_artifact_replay_params(request, artifact_store=artifact_store)
+
+    assert validation_response.model_dump(mode="json") == {
+        "construction_artifact_id": artifact.artifact_id,
+        "effective_replay_params": preview_response.effective_replay_params.model_dump(mode="json"),
+        "preview_handoff": {
+            "handoff_kind": "construction_artifact_preview_handoff_v1",
+            "construction_artifact_id": artifact.artifact_id,
+            "effective_replay_params": preview_response.effective_replay_params.model_dump(mode="json"),
+        },
+        "open_payload": None,
+    }
+
+
+def test_preflight_construction_artifact_replay_is_lightweight_and_matches_preview_inputs(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-preflight-lightweight",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    request = _construction_artifact_replay_request(artifact.artifact_id)
+
+    preflight = preflight_construction_artifact_replay(request, artifact_store=artifact_store)
+
+    assert preflight.artifact.artifact_id == artifact.artifact_id
+    assert preflight.baseline_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.6),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.4),
+    ]
+    assert preflight.candidate_weights == [
+        PortfolioWeightInput(symbol="AAA", target_weight=0.5),
+        PortfolioWeightInput(symbol="BBB", target_weight=0.5),
+    ]
+    assert preflight.effective_replay_params.model_dump(mode="json") == {
+        "benchmark_symbol": "SPY",
+        "start_date": "2024-01-01",
+        "end_date": "2024-12-31",
+        "initial_capital": 100000.0,
+        "rebalance_frequency": "monthly",
+        "base_currency": "USD",
+        "commission_bps": 0.0,
+        "slippage_bps": 0.0,
+        "drift_tolerance_pct": None,
+        "price_basis": "adjusted_close",
+        "execution_price_field": "close",
+        "execution_lag_days": 1,
+        "symbol_overrides": {},
+    }
+    mock_service.return_value.get_historical_prices.assert_not_called()
+    mock_service.return_value.get_historical_prices_for_symbols.assert_not_called()
+
+
+def test_preflight_does_not_change_construction_artifact_preview_output(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-preflight-parity",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    request = ConstructionArtifactReplayRequest(
+        construction_artifact_id=artifact.artifact_id,
+        benchmark_symbol="QQQ",
+        start_date=date(2023, 1, 1),
+        end_date=date(2023, 12, 31),
+        initial_capital=250000,
+        rebalance_frequency="quarterly",
+        base_currency="EUR",
+        commission_bps=4.5,
+        slippage_bps=6.5,
+        drift_tolerance_pct=2.0,
+        execution_lag_days=3,
+        symbol_overrides={"AAA": ["QQQ"]},
+    )
+
+    preflight = preflight_construction_artifact_replay(request, artifact_store=artifact_store)
+    preview_response = build_construction_artifact_replay_preview(request, artifact_store=artifact_store)
+
+    assert preview_response.construction_artifact_id == preflight.artifact.artifact_id
+    assert preview_response.baseline_weights == preflight.baseline_weights
+    assert preview_response.candidate_weights == preflight.candidate_weights
+    assert preview_response.effective_replay_params == preflight.effective_replay_params
 
 
 def test_build_construction_artifact_replay_preview_uses_persisted_inverse_rank_weights(
@@ -2676,7 +3324,8 @@ def test_optimizer_handoff_replay_route_returns_explicit_reference_contract(tmp_
             "concentration_outputs",
         ],
     }
-    assert payload["optimizer_context"]["objective_id"] == "minimize_l2_distance_to_benchmark"
+    assert "objective_id" not in payload["optimizer_context"]
+    assert payload["optimizer_context"]["objective"]["objective_id"] == "minimize_l2_distance_to_benchmark"
     assert payload["optimizer_context"]["run_summary"]["solver_id"] == "deterministic_projected_dykstra_v1"
     assert payload["optimizer_context"]["diagnostics"]["turnover"] == 0.2
     assert payload["optimizer_context"]["benchmark_relative_attestations"][0]["attestation_id"] == "benchmark_relative_max_abs_active_weight"
@@ -2744,6 +3393,8 @@ def test_validate_optimizer_handoff_constraints_returns_ok_with_explicit_referen
     assert response.provenance.benchmark_symbol == "SPY"
     assert response.provenance.benchmark_id == "benchmark_spy_demo_v1"
     assert response.provenance.benchmark_version == "2024-04-15"
+    assert response.provenance.objective is not None
+    assert response.provenance.objective.objective_id == "minimize_l2_distance_to_benchmark"
     assert response.eligible_replay_window is not None
     assert response.eligible_replay_window.model_dump() == {
         "source": "persisted_return_basis_attestation",
@@ -2771,6 +3422,136 @@ def test_validate_optimizer_handoff_constraints_returns_ok_with_explicit_referen
     }
     assert any(item.phase == "raw_persisted_payload" for item in response.evaluations)
     assert any(item.rule_id == "artifact_feasible" and item.status == "pass" for item in response.evaluations)
+
+
+def test_optimizer_handoff_roundtrip_preserves_alpha_objective_metadata_in_validation_and_replay(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 103.0, 104.0, 106.0, 109.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+    result = run_optimizer(
+        OptimizationRequest(
+            request_id="alpha-handoff-roundtrip",
+            as_of_timestamp="2024-04-15T09:30:00",
+            effective_timestamp="2024-04-15T09:30:00",
+            universe_id="optimizer_universe_large_cap_demo_v1",
+            benchmark_id="benchmark_spy_demo_v1",
+            current_portfolio_weights=[OptimizerWeight(symbol="AAA", weight=0.6), OptimizerWeight(symbol="BBB", weight=0.4)],
+            benchmark_weights=[OptimizerWeight(symbol="AAA", weight=0.5), OptimizerWeight(symbol="BBB", weight=0.3), OptimizerWeight(symbol="CCC", weight=0.2)],
+            universe=[OptimizerUniverseAsset(symbol="AAA", eligible=True), OptimizerUniverseAsset(symbol="BBB", eligible=True), OptimizerUniverseAsset(symbol="CCC", eligible=True)],
+            objective=OptimizerObjective(objective_id="maximize_alpha_quality_v1"),
+            hard_constraints=_optimizer_preview_request().hard_constraints,
+            alpha_package=_optimizer_alpha_package(),
+        )
+    )
+    assert result.artifact is not None
+    handoff_reference = handoff_store.persist_handoff(
+        artifact=result.artifact,
+        snapshot_reference=OptimizerPreviewSnapshotReference(
+            snapshot_id="portfolio_snapshot_alpha_roundtrip",
+            account_id="U1234567",
+            importer="interactive_brokers",
+            imported_at="2024-04-15T09:30:00+00:00",
+            statement_period="2024-04",
+            source_files=["IB2024.pdf"],
+        ),
+        benchmark=_optimizer_preview_request().benchmark,
+        return_basis_attestation=preview_response.provenance.return_basis_attestation,
+    )
+
+    validation = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=handoff_reference),
+        handoff_store=handoff_store,
+    )
+    replay_response = build_optimizer_handoff_replay_preview(
+        OptimizerHandoffReplayRequest(
+            handoff_reference=handoff_reference,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert validation.validation_status == "ok"
+    assert validation.provenance.objective is not None
+    assert validation.provenance.objective.objective_id == "maximize_alpha_quality_v1"
+    assert replay_response.optimizer_context is not None
+    assert "objective_id" not in replay_response.optimizer_context.model_dump()
+    assert replay_response.optimizer_context.objective is not None
+    assert replay_response.optimizer_context.objective.alpha_signal_id == "alpha_quality_v1"
+
+
+def test_validate_optimizer_handoff_constraints_allows_missing_validation_artifact_id_when_handoff_matches(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=preview_response.persisted_handoff),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "ok"
+    assert response.handoff_id == preview_response.persisted_handoff.handoff_id
+    assert response.artifact_id == preview_response.persisted_handoff.artifact_id
+
+
+def test_validate_optimizer_handoff_constraints_blocks_handoff_reference_artifact_mismatch_even_when_handoff_path_resolves(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    bad_reference = preview_response.persisted_handoff.model_copy(update={"artifact_id": "opt_artifact_wrong"})
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(handoff_reference=bad_reference),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "blocked"
+    assert "artifact_reference_matches_artifact" in response.blocking_rule_ids
+    assert response.handoff_id == preview_response.persisted_handoff.handoff_id
+    assert response.artifact_id == preview_response.persisted_handoff.artifact_id
+
+
+def test_build_optimizer_handoff_replay_preview_blocks_reference_artifact_mismatch_before_market_data(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    bad_reference = preview_response.persisted_handoff.model_copy(update={"artifact_id": "opt_artifact_wrong"})
+    with pytest.raises(OptimizerHandoffValidationBlockedError) as exc_info:
+        build_optimizer_handoff_replay_preview(
+            OptimizerHandoffReplayRequest(
+                handoff_reference=bad_reference,
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 12, 31),
+                initial_capital=100000,
+                execution_lag_days=1,
+            ),
+            handoff_store=handoff_store,
+        )
+
+    assert exc_info.value.response.validation_status == "blocked"
+    assert "artifact_reference_matches_artifact" in exc_info.value.response.blocking_rule_ids
+    mock_service.assert_not_called()
 
 
 @pytest.mark.parametrize(

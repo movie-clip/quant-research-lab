@@ -1672,6 +1672,275 @@ export type HypotheticalReplacementReplayResponse = {
   warnings: string[]
 }
 
+export type ConstructionArtifactReplayTruthSeparation = {
+  baseline_truth: 'imported_portfolio_snapshot'
+  candidate_truth: 'hypothetical_construction_artifact'
+  candidate_applied: false
+  consumption_mode: 'explicit_reference_only'
+}
+
+export type ConstructionArtifactReplayProvenance = {
+  source: 'construction_artifact_reference'
+  construction_artifact_id: string
+  policy_id: string
+  policy_definition_id: string
+  ranked_universe_artifact_id: string | null
+  ranking_id: string | null
+  ranking_methodology_id: string | null
+  current_portfolio_artifact_id: string | null
+  baseline_input_source: 'normalized_inputs.current_portfolio_weights'
+  candidate_input_source: 'final_target_weights'
+  selection_rule_trace: {
+    rule_ids: string[]
+    steps: Array<{
+      rule_id: string
+      rule_order: number
+      input_candidate_symbols: string[]
+      output_candidate_symbols: string[]
+    }>
+  }
+}
+
+export type ConstructionArtifactReplayEffectiveParams = {
+  benchmark_symbol: string
+  start_date: string
+  end_date: string
+  initial_capital: number
+  rebalance_frequency: 'none' | 'monthly' | 'quarterly'
+  base_currency: string
+  commission_bps: number
+  slippage_bps: number
+  drift_tolerance_pct: number | null
+  price_basis: 'adjusted_close'
+  execution_price_field: 'close'
+  execution_lag_days: number
+  symbol_overrides: Record<string, string[]>
+}
+
+export type ConstructionArtifactPreviewHandoff = {
+  handoff_kind: 'construction_artifact_preview_handoff_v1'
+  construction_artifact_id: string
+  effective_replay_params: ConstructionArtifactReplayEffectiveParams
+}
+
+export type ConstructionArtifactReplayValidationResponse = {
+  construction_artifact_id: string
+  effective_replay_params: ConstructionArtifactReplayEffectiveParams
+  preview_handoff: ConstructionArtifactPreviewHandoff
+  open_payload?: ConstructionArtifactReplayResponse | null
+}
+
+export type ConstructionArtifactReplayResponse = {
+  construction_artifact_id: string
+  truth_separation: ConstructionArtifactReplayTruthSeparation
+  replay_provenance: ConstructionArtifactReplayProvenance
+  baseline_weights: AllocationBacktestWeight[]
+  candidate_weights: AllocationBacktestWeight[]
+  effective_replay_params?: ConstructionArtifactReplayEffectiveParams
+  replay: PortfolioAllocationBacktestResponse
+}
+
+export type OptimizerPersistedArtifactReference = {
+  reference_kind: 'optimizer_handoff_reference_v1'
+  handoff_id: string
+  artifact_id: string
+  manifest_path: string
+  artifact_path: string
+}
+
+export type OptimizerReturnBasisPathTrust = 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
+export type OptimizerReturnBasisContract = 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
+
+export type OptimizerReturnBasisSectionTrust = {
+  benchmark_relative_path: OptimizerReturnBasisPathTrust
+  factor_model_path: OptimizerReturnBasisPathTrust
+  risk_contribution_path: OptimizerReturnBasisPathTrust
+}
+
+export type OptimizerObjectiveId = 'minimize_l2_distance_to_benchmark' | 'maximize_alpha_quality_v1'
+
+export type OptimizerObjective = {
+  objective_id: OptimizerObjectiveId
+  benchmark_relative: true
+  description?: string | null
+  alpha_signal_id?: 'alpha_quality_v1' | null
+  requires_alpha_package: boolean
+}
+
+export type OptimizerReturnBasisAttestation = {
+  benchmark_symbol: string
+  as_of_date: string
+  history_start_date: string
+  history_end_date: string
+  factor_proxy_symbols: string[]
+  benchmark_return_basis_contract: OptimizerReturnBasisContract
+  factor_return_basis_contract: OptimizerReturnBasisContract
+  factor_basis_path?: OptimizerReturnBasisPathTrust | null
+  section_trust: OptimizerReturnBasisSectionTrust
+  evidence: {
+    benchmark_history: ReturnBasisEvidence
+    factor_history: ReturnBasisEvidence
+  }
+}
+
+export type OptimizerHandoffReplayAnalyticsFamily =
+  | 'benchmark_relative_volatility_outputs'
+  | 'factor_exposure_outputs'
+  | 'stress_scenario_outputs'
+  | 'risk_contribution_outputs'
+  | 'concentration_outputs'
+
+export type OptimizerHandoffReplayOutputPolicy = {
+  source: 'persisted_return_basis_attestation'
+  section_trust: OptimizerReturnBasisSectionTrust
+  eligible_families: OptimizerHandoffReplayAnalyticsFamily[]
+  withheld_families: OptimizerHandoffReplayAnalyticsFamily[]
+}
+
+export type OptimizerArtifactState = string
+export type OptimizerConstraintStatus = 'pass' | 'fail' | 'not_applicable' | 'aligned' | 'misaligned' | string
+
+export type OptimizerHandoffReplayProvenance = {
+  source: 'optimizer_handoff_reference'
+  benchmark_id: string
+  benchmark_version: string
+  benchmark_symbol: string
+  return_basis_attestation: OptimizerReturnBasisAttestation
+  replay_output_policy: OptimizerHandoffReplayOutputPolicy
+  artifact_state: OptimizerArtifactState
+  optimizer_status: 'feasible'
+  constraint_set_fingerprint: string
+}
+
+export type OptimizerHandoffReplayOptimizerRunSummary = {
+  engine_id: string
+  solver_id: string
+  methodology_id: string
+  risk_package_id?: string | null
+  risk_package_version?: string | null
+  alpha_package_id?: string | null
+  alpha_package_version?: string | null
+}
+
+export type OptimizerHandoffReplayOptimizerDiagnostics = {
+  active_share?: number | null
+  turnover?: number | null
+  max_abs_active_weight?: number | null
+  active_risk?: number | null
+  effective_holdings?: number | null
+  current_to_proposed_l2?: number | null
+  benchmark_to_proposed_l2?: number | null
+  risk_package_coverage_ratio?: number | null
+  alpha_package_coverage_ratio?: number | null
+}
+
+export type OptimizerHandoffReplayConstraintSummary = {
+  constraint_id: string
+  status: OptimizerConstraintStatus
+  actual_value?: number | null
+  limit_value?: number | null
+  slack?: number | null
+  message: string
+}
+
+export type OptimizerHandoffReplayBenchmarkAttestationSummary = {
+  attestation_id: string
+  attestation_type: string
+  status: OptimizerConstraintStatus
+  actual_value?: number | null
+  limit_value?: number | null
+  slack?: number | null
+  message: string
+}
+
+export type OptimizerHandoffReplayOptimizerContext = {
+  objective: OptimizerObjective
+  penalty_ids: string[]
+  artifact_state: OptimizerArtifactState
+  stale_inputs: string[]
+  degraded_inputs: string[]
+  reasons: string[]
+  run_summary: OptimizerHandoffReplayOptimizerRunSummary
+  diagnostics: OptimizerHandoffReplayOptimizerDiagnostics
+  binding_constraints: string[]
+  violated_constraints: string[]
+  benchmark_relative_attestations: OptimizerHandoffReplayBenchmarkAttestationSummary[]
+  binding_constraint_evaluations: OptimizerHandoffReplayConstraintSummary[]
+}
+
+export type OptimizerHandoffReplayTruthSeparation = {
+  baseline_truth: 'imported_portfolio_snapshot'
+  candidate_truth: 'hypothetical_optimizer_handoff'
+  candidate_applied: false
+  consumption_mode: 'explicit_reference_only'
+}
+
+export type OptimizerHandoffValidationTruthSeparation = {
+  source_truth: 'persisted_hypothetical_optimizer_handoff'
+  holdings_truth: 'imported_portfolio_snapshot'
+  optimizer_output_applied: false
+  consumption_mode: 'explicit_reference_only'
+}
+
+export type OptimizerHandoffValidationEvaluation = {
+  rule_id: string
+  phase: 'raw_persisted_payload' | 'model_validation' | 'cross_file_invariants' | 'benchmark_relative_checks' | 'truth_separation_checks'
+  reason_family: 'schema' | 'benchmark_context' | 'constraint_violation' | 'provenance' | 'truth_separation'
+  severity: 'hard_block' | 'warning'
+  status: 'pass' | 'fail'
+  message: string
+  rationale?: string | null
+  actual_value?: number | string | boolean | null
+  expected_value?: number | string | boolean | null
+  operator?: '<=' | '>=' | '==' | '!=' | 'in' | null
+}
+
+export type OptimizerHandoffValidationProvenance = {
+  source: 'optimizer_handoff_reference'
+  benchmark_id?: string | null
+  benchmark_version?: string | null
+  benchmark_symbol?: string | null
+  objective?: OptimizerObjective | null
+  replay_output_policy?: OptimizerHandoffReplayOutputPolicy | null
+  artifact_state?: OptimizerArtifactState | null
+  constraint_set_fingerprint?: string | null
+}
+
+export type OptimizerHandoffEligibleReplayWindow = {
+  source: 'persisted_return_basis_attestation'
+  benchmark_symbol?: string | null
+  as_of_date?: string | null
+  start_date?: string | null
+  end_date?: string | null
+}
+
+export type OptimizerHandoffValidationResponse = {
+  handoff_id?: string | null
+  /** @deprecated Use handoff_id for reopen identity; artifact_id is lineage only. */
+  artifact_id?: string | null
+  source_portfolio_snapshot_id?: string | null
+  truth_separation: OptimizerHandoffValidationTruthSeparation
+  eligible_replay_window?: OptimizerHandoffEligibleReplayWindow | null
+  provenance: OptimizerHandoffValidationProvenance
+  validation_status: 'ok' | 'blocked' | 'rejected'
+  evaluations: OptimizerHandoffValidationEvaluation[]
+  blocking_rule_ids: string[]
+  warnings: string[]
+}
+
+export type OptimizerHandoffReplayResponse = {
+  handoff_id: string
+  /** @deprecated Use handoff_id for reopen identity; artifact_id is lineage only. */
+  artifact_id: string
+  source_portfolio_snapshot_id: string
+  truth_separation: OptimizerHandoffReplayTruthSeparation
+  replay_provenance: OptimizerHandoffReplayProvenance
+  optimizer_context?: OptimizerHandoffReplayOptimizerContext | null
+  baseline_weights: AllocationBacktestWeight[]
+  candidate_weights: AllocationBacktestWeight[]
+  replay: PortfolioAllocationBacktestResponse
+}
+
 export type OverlayStateInput = {
   overlay_id: 'benchmark_trend_overlay_v1'
   status: 'risk_on' | 'risk_reduced' | 'unconfirmed' | 'unavailable'

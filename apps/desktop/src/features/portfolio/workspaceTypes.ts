@@ -1,4 +1,4 @@
-import type { HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
+import type { ConstructionArtifactReplayResponse, HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -72,6 +72,46 @@ export type ImportedNodeSource = {
   historySource: ImportedHistorySource
 }
 
+export type DesktopArtifactReviewBasis = {
+  basisVersion: 1
+  basisKind: 'persisted_construction_artifact_review' | 'persisted_optimizer_handoff_review'
+  openedAt: string
+  benchmarkSymbol: string | null
+  baseCurrency: string | null
+  replayWindow: {
+    startDate: string | null
+    endDate: string | null
+  }
+  baselineWeights: ConstructionArtifactReplayResponse['baseline_weights'] | OptimizerHandoffReplayResponse['baseline_weights']
+  candidateWeights: ConstructionArtifactReplayResponse['candidate_weights'] | OptimizerHandoffReplayResponse['candidate_weights']
+}
+
+export type PersistedConstructionArtifactReviewBasis = DesktopArtifactReviewBasis & {
+  basisKind: 'persisted_construction_artifact_review'
+  constructionArtifactId: string
+}
+
+export type PersistedOptimizerHandoffReviewBasis = DesktopArtifactReviewBasis & {
+  basisKind: 'persisted_optimizer_handoff_review'
+  handoffReference: OptimizerPersistedArtifactReference
+}
+
+export type PersistedConstructionArtifactWorkspaceSource = {
+  kind: 'persisted_construction_artifact'
+  constructionArtifactId: string
+  openedAt: string
+  reviewBasis?: PersistedConstructionArtifactReviewBasis
+}
+
+export type PersistedOptimizerHandoffWorkspaceSource = {
+  kind: 'persisted_optimizer_handoff'
+  handoffReference: OptimizerPersistedArtifactReference
+  openedAt: string
+  reviewBasis?: PersistedOptimizerHandoffReviewBasis
+}
+
+export type PortfolioWorkspaceSource = ImportedNodeSource | PersistedConstructionArtifactWorkspaceSource | PersistedOptimizerHandoffWorkspaceSource
+
 export type PortfolioWorkspace = {
   id: PortfolioWorkspaceId
   name: string
@@ -79,10 +119,10 @@ export type PortfolioWorkspace = {
   updatedAt: string
   rootNodeId: PortfolioNodeId
   activeNodeId: PortfolioNodeId
-  source: ImportedNodeSource
+  source: PortfolioWorkspaceSource
 }
 
-export type PortfolioNodeKind = 'imported_base' | 'imported_snapshot' | 'variant'
+export type PortfolioNodeKind = 'imported_base' | 'imported_snapshot' | 'variant' | 'artifact_review_basis'
 
 export type PortfolioNode = {
   id: PortfolioNodeId
@@ -99,7 +139,8 @@ export type PortfolioNode = {
     grossExposureDelta?: number | null
     netCapitalDelta?: number | null
   }
-  portfolioSnapshot: PortfolioSnapshot
+  portfolioSnapshot: PortfolioSnapshot | null
+  artifactReviewBasis?: PersistedConstructionArtifactReviewBasis | PersistedOptimizerHandoffReviewBasis | null
   source?: ImportedNodeSource | null
 }
 
@@ -299,4 +340,19 @@ export type WorkspaceState = {
   activeDraftId: PortfolioDraftId | null
   selectedExposureSnapshotId?: string | null
   lastOpenedAt: string
+}
+
+export type PersistedConstructionArtifactWorkspaceReview = {
+  workspaceId: PortfolioWorkspaceId
+  constructionArtifactId: string
+  openedAt: string
+  replay: ConstructionArtifactReplayResponse
+}
+
+export type PersistedOptimizerHandoffWorkspaceReview = {
+  workspaceId: PortfolioWorkspaceId
+  handoffReference: OptimizerPersistedArtifactReference
+  openedAt: string
+  validation: OptimizerHandoffValidationResponse
+  replay: OptimizerHandoffReplayResponse
 }
