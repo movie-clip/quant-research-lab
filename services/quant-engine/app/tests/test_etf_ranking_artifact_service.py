@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from app.schemas.ranking import RankingEffectiveInputsBase, RankingRequestContextBase, RankingRunMetadataBase
@@ -10,7 +13,14 @@ from app.schemas.research import (
     EtfRankingSourceStatus,
     EtfRankingWarnings,
 )
-from app.services.etf_ranking_artifact_service import build_stable_etf_ranking_artifact
+from app.services.etf_ranking_artifact_service import (
+    EtfRankingArtifactRecentIndexInvalidJsonError,
+    EtfRankingArtifactRecentIndexNonObjectPayloadError,
+    EtfRankingArtifactRecentIndexSchemaValidationError,
+    EtfRankingArtifactStore,
+    build_stable_etf_ranking_artifact,
+    list_recent_etf_ranking_artifacts_strict,
+)
 
 
 def _build_response() -> EtfRankingResponse:
@@ -227,4 +237,81 @@ def test_etf_ranking_run_metadata_requires_close_price_basis() -> None:
                 holdings_support="sample",
             ),
             confidence="high",
+        )
+
+
+def test_strict_recent_etf_listing_rejects_invalid_json_index_rows(tmp_path: Path) -> None:
+    store = EtfRankingArtifactStore(base_dir=str(tmp_path))
+    store.recent_index_path().write_text("not-json\n", encoding="utf-8")
+
+    with pytest.raises(EtfRankingArtifactRecentIndexInvalidJsonError):
+        list_recent_etf_ranking_artifacts_strict(limit=10, store=store)
+
+
+def test_strict_recent_etf_listing_rejects_non_object_index_rows(tmp_path: Path) -> None:
+    store = EtfRankingArtifactStore(base_dir=str(tmp_path))
+    store.recent_index_path().write_text("[]\n", encoding="utf-8")
+
+    with pytest.raises(EtfRankingArtifactRecentIndexNonObjectPayloadError):
+        list_recent_etf_ranking_artifacts_strict(limit=10, store=store)
+
+
+def test_strict_recent_etf_listing_rejects_schema_invalid_index_rows(tmp_path: Path) -> None:
+    store = EtfRankingArtifactStore(base_dir=str(tmp_path))
+    store.recent_index_path().write_text(
+        json.dumps({"artifact_id": 123}, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(EtfRankingArtifactRecentIndexSchemaValidationError):
+        list_recent_etf_ranking_artifacts_strict(limit=10, store=store)
+
+
+def test_etf_ranking_catalog_row_contract_rejects_kind_summary_mismatch() -> None:
+    artifact = build_stable_etf_ranking_artifact(_build_response())
+
+    with pytest.raises(ValueError, match="etf_ranking rows must populate only etf_summary"):
+        from app.schemas.research import RankingArtifactCatalogReplacementSummary, RankingArtifactCatalogRow, RankingArtifactCatalogRowMetadata
+
+        RankingArtifactCatalogRow(
+            artifact_kind="etf_ranking",
+            artifact_id=artifact.artifact_id,
+            schema_version=artifact.schema_version,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.run_metadata.methodology_id,
+            as_of_date=artifact.as_of_date,
+            ranking_basis_date=artifact.run_metadata.ranking_basis_date,
+            recent_order_primary_date=artifact.run_metadata.ranking_basis_date,
+            recent_order_secondary_date=artifact.as_of_date,
+            recent_order_artifact_id=artifact.artifact_id,
+            metadata=RankingArtifactCatalogRowMetadata(
+                metadata_provenance="persisted_artifact_body",
+                matched_metadata_provenance="persisted_artifact_body",
+                recency_same_day_provenance="etf_recent_index",
+            ),
+            etf_summary=None,
+            replacement_summary=RankingArtifactCatalogReplacementSummary(
+                basis_date="2026-01-31",
+                status="ok",
+                base_symbol="BASE",
+                candidate_symbol="ETF1",
+                peer_group="Sector UCITS ETF",
+                eligible_count=1,
+                excluded_count=0,
+                confidence="high",
+            ),
+        )
+
+
+def test_etf_ranking_catalog_row_metadata_rejects_recent_index_provenance_mismatch() -> None:
+    from app.schemas.research import RankingArtifactCatalogRowMetadata
+
+    with pytest.raises(
+        ValueError,
+        match="matched_metadata_provenance must remain persisted_etf_recent_index",
+    ):
+        RankingArtifactCatalogRowMetadata(
+            metadata_provenance="persisted_etf_recent_index",
+            matched_metadata_provenance="persisted_artifact_body",
+            recency_same_day_provenance="etf_recent_index",
         )

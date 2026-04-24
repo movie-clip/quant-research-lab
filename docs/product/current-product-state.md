@@ -50,11 +50,16 @@ This document is the canonical source for what is actually shipped today, what i
 - `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}` reloads persisted intent-bound ETF replacement ranking artifacts through the same explicit artifact boundary
 - `POST /ranking/etf-replacements` preserves the legacy non-artifact response shape while still persisting the canonical replacement-ranking artifact internally
 - `GET /ranking/etf-replacements/artifacts/{artifact_id}` remains a shipped compatibility alias for artifact reload by id
+- `GET /strategy-lab/ranking-artifacts/catalog` exposes additive backend-only generalized catalog discovery across the supported persisted ETF ranking and intent-bound ETF replacement artifact kinds
+- `GET /strategy-lab/ranking-artifacts/recent` exposes additive backend-only generalized recent discovery across the same supported persisted artifact kinds
 - `GET /strategy-lab/etf-ranking/artifacts/recent` exposes newest-first recent artifact discovery with optional `effective_peer_group` filtering
 - `GET /strategy-lab/etf-ranking/artifacts/recent/metadata` exposes discovered recent-run filter metadata for current consumers
 - shipped ETF ranking artifacts already carry persisted artifact identity, grouped request/effective-inputs metadata, and run-basis metadata for audit and reuse
 - the desktop `ETF Ranking` flow can reopen recent persisted runs and carry a selected ranking artifact into draft review as a current shipped workflow
 - persisted intent-bound ETF replacement ranking artifacts are the authoritative downstream truth for replacement review and reload in the shipped slice
+- generalized discovery is additive only; existing ETF-native and replacement routes stay unchanged
+- generalized recent discovery is now fail-closed on malformed ETF recent-index state, malformed artifact payloads, unsupported artifact kinds, unsupported schema versions, and provable identity contradictions
+- ETF `recent.jsonl` remains internal operational state for ETF discovery ordering only; it is not a shipped artifact output or generalized reusable contract payload
 
 ### Optimizer preview, handoff, and replay workflow
 
@@ -78,7 +83,8 @@ This document is the canonical source for what is actually shipped today, what i
 ## Narrow boundaries docs should still state explicitly
 
 - ranking is still narrow and ETF-heavy; it is not yet a generalized persisted ranking-run platform across broader universes
-- recent-run discovery and artifact reuse are shipped for ETF ranking specifically; what remains future is generalization beyond that narrow scope
+- generalized persisted artifact discovery is now shipped only for the supported ETF ranking and intent-bound ETF replacement artifact kinds; broader ranking engines and broader artifact-kind support remain future work
+- generalized discovery support remains strict: it does not silently widen to malformed, partially valid, or undocumented artifact states
 - persisted construction is shipped and now has read-only policy discovery, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
 - single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
 - optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`

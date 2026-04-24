@@ -63,6 +63,10 @@ The desktop app should treat the quant engine as the source of truth for portfol
   - narrow ETF-specific recent persisted artifact discovery seam with newest-first listing and optional `effective_peer_group` filtering
 - `GET /strategy-lab/etf-ranking/artifacts/recent/metadata`
   - narrow ETF-specific recent discovery metadata seam for current consumers
+- `GET /strategy-lab/ranking-artifacts/catalog`
+  - additive backend-only generalized persisted ranking artifact catalog across supported ranking artifact kinds
+- `GET /strategy-lab/ranking-artifacts/recent`
+  - additive backend-only generalized recent discovery across supported ranking artifact kinds
 - `POST /strategy-lab/etf-ranking/replacements`
   - additive strategy-lab route that persists and returns the immutable intent-bound ETF replacement ranking artifact envelope
 - `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}`
@@ -74,7 +78,7 @@ The desktop app should treat the quant engine as the source of truth for portfol
 - `POST /optimizer/preview`
   - hypothetical optimizer preview that can persist an explicit replay handoff reference
 
-Ranking remains intentionally narrow in current architecture docs: this shipped seam is ETF-specific persisted artifact creation and reuse, not yet a generalized ranking platform across broader universes or methodologies.
+Ranking remains intentionally narrow in current architecture docs: shipped generalized discovery now unifies the supported persisted ETF and intent-bound ETF replacement artifacts, but ranking generation itself is still ETF-scoped rather than a broad cross-universe ranking platform.
 
 ### Important implementation reality
 
@@ -142,7 +146,8 @@ Future normalized API groups should preserve, not hide, the current artifact sea
 
 - ETF ranking persists an immutable artifact before return on the shipped `POST /strategy-lab/etf-ranking` seam
 - downstream ETF consumers can reopen one artifact by `artifact_id`, browse recent artifacts, and discover current `effective_peer_group` metadata from the recent index
-- docs must describe this as a current ETF-specific artifact seam only; they must not overstate it as a generalized ranking-run platform
+- generalized discovery may also surface ETF artifacts through additive backend-only catalog/recent routes
+- docs must describe generation as a current ETF-specific artifact seam only; they must not overstate it as a generalized ranking-run platform
 
 ### Persisted intent-bound ETF replacement ranking artifact rule
 
@@ -155,6 +160,17 @@ Future normalized API groups should preserve, not hide, the current artifact sea
 - reload remains an artifact-id load boundary only; it does not reconstruct request state or perform validation/preflight side effects
 - validation/open/review semantics remain unchanged in this slice; persistence does not widen those boundaries
 - load semantics fail closed on missing file (`404`), invalid json (`400`), non-object payload (`400`), schema failure (`400`), lineage contradiction (`400`), or canonical identity mismatch (`400`)
+
+### Generalized ranking artifact discovery rule
+
+- generalized ranking discovery reads only persisted authoritative artifacts and persisted authoritative indexes
+- ETF discovery reuses the ETF recent index where present, but only as an internal ETF discovery aid for recent-list ordering
+- ETF same-day recent ties preserve persisted `recent.jsonl` sequence as the authoritative order; generalized discovery must not re-sort those ETF ties by `artifact_id`
+- supported kinds without a recent index derive deterministic recent ordering from persisted authoritative metadata only, never by recomputing rankings
+- malformed json, non-object payloads, unsupported schema versions, and provable identity or integrity contradictions fail closed instead of being skipped or repaired
+- unsupported artifact kinds or unsupported persisted schema states fail closed instead of silently widening support
+- the ETF `recent.jsonl` file is not a reusable artifact payload or external contract surface; it remains internal operational state for ETF discovery only
+- additive generalized discovery does not change current ETF-native or replacement execution and load routes
 
 ### Persisted construction artifact rule
 

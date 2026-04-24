@@ -6,12 +6,30 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.ranking import (
+    ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
+    EtfRankingArtifactSchemaVersion,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
+    IntentBoundEtfReplacementRankingArtifactSchemaVersion,
     PersistedRankingArtifactEnvelope,
     RankingArtifactConfidence,
+    RankingArtifactDiscoveryContractVersion,
+    RankingArtifactDiscoveryFilterName,
+    RankingArtifactKind,
+    RankingArtifactKindRegistryVersion,
     RankingEffectiveInputsBase,
+    RANKING_ARTIFACT_KIND_REGISTRY_VERSION,
+    RankingArtifactMetadataProvenance,
+    RankingArtifactSchemaVersion,
+    RankingArtifactMetadataTruth,
+    RankingArtifactRecencySameDayProvenance,
     RankingRequestContextBase,
     RankingRunMetadataBase,
     RankingSourceStatus,
+    RANKING_ARTIFACT_KIND_REGISTRY,
+    SUPPORTED_RANKING_ARTIFACT_KINDS,
+    SUPPORTED_RANKING_ARTIFACT_DISCOVERY_FILTERS,
+    SUPPORTED_RANKING_ARTIFACT_METADATA_PROVENANCE,
+    validate_ranking_artifact_discovery_filters,
 )
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 
@@ -206,8 +224,6 @@ class EtfMomentumStrategyResponse(BaseModel):
 
 RankingDirection = Literal["higher_is_better", "lower_is_better"]
 RankingUnit = Literal["pct", "volume", "score"]
-EtfRankingArtifactSchemaVersion = Literal["etf_ranking_artifact_v1"]
-IntentBoundEtfReplacementRankingArtifactSchemaVersion = Literal["intent_bound_etf_replacement_ranking_artifact_v1"]
 
 
 class EtfRankingComponentWeights(BaseModel):
@@ -381,7 +397,7 @@ class EtfRankingResponse(BaseModel):
 
 
 class EtfRankingArtifact(EtfRankingResponse, PersistedRankingArtifactEnvelope):
-    schema_version: EtfRankingArtifactSchemaVersion = "etf_ranking_artifact_v1"
+    schema_version: EtfRankingArtifactSchemaVersion = ETF_RANKING_ARTIFACT_SCHEMA_VERSION
     artifact_id: str
 
     @model_validator(mode="after")
@@ -407,6 +423,152 @@ class EtfRankingArtifactRecentRow(BaseModel):
 
 class EtfRankingArtifactRecentMetadata(BaseModel):
     available_effective_peer_groups: list[str] = Field(default_factory=list)
+
+
+class RankingArtifactCatalogEtfSummary(BaseModel):
+    benchmark_symbol: str
+    lookback_months: int
+    effective_peer_group: str | None = None
+    universe_size: int
+    evaluated_universe_size: int
+    confidence: RankingArtifactConfidence
+
+
+class RankingArtifactCatalogReplacementSummary(BaseModel):
+    basis_date: str
+    status: Literal["ok", "unavailable"]
+    base_symbol: str
+    candidate_symbol: str
+    peer_group: str
+    eligible_count: int
+    excluded_count: int
+    confidence: RankingArtifactConfidence
+
+
+class RankingArtifactDiscoveryFilters(BaseModel):
+    artifact_kind: str | None = None
+    schema_version: str | None = None
+    metadata_truth: RankingArtifactMetadataTruth | None = None
+    metadata_provenance: RankingArtifactMetadataProvenance | None = None
+    recency_same_day_provenance: RankingArtifactRecencySameDayProvenance | None = None
+    methodology_id: str | None = None
+    benchmark_symbol: str | None = None
+    effective_peer_group: str | None = None
+    base_symbol: str | None = None
+    candidate_symbol: str | None = None
+    peer_group: str | None = None
+    confidence: RankingArtifactConfidence | None = None
+    status: Literal["ok", "unavailable"] | None = None
+    as_of_date: str | None = None
+    ranking_basis_date: str | None = None
+    basis_date: str | None = None
+
+    @model_validator(mode="after")
+    def validate_supported_contract_state(self) -> "RankingArtifactDiscoveryFilters":
+        try:
+            validate_ranking_artifact_discovery_filters(
+                artifact_kind=self.artifact_kind,
+                schema_version=self.schema_version,
+                applied_filters=tuple(
+                    field_name
+                    for field_name, value in self.model_dump().items()
+                    if value is not None
+                ),
+            )
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return self
+
+
+class RankingArtifactCatalogRowMetadata(BaseModel):
+    metadata_truth: RankingArtifactMetadataTruth = "authoritative_persisted_metadata"
+    metadata_provenance: RankingArtifactMetadataProvenance
+    matched_metadata_provenance: RankingArtifactMetadataProvenance
+    recency_same_day_provenance: RankingArtifactRecencySameDayProvenance
+
+    @model_validator(mode="after")
+    def validate_provenance_state(self) -> "RankingArtifactCatalogRowMetadata":
+        if (
+            self.metadata_provenance == "persisted_etf_recent_index"
+            and self.matched_metadata_provenance != "persisted_etf_recent_index"
+        ):
+            raise ValueError(
+                "matched_metadata_provenance must remain persisted_etf_recent_index when row metadata_provenance uses the etf recent index"
+            )
+        return self
+
+
+class RankingArtifactCatalogRow(BaseModel):
+    artifact_kind: RankingArtifactKind
+    artifact_id: str
+    schema_version: RankingArtifactSchemaVersion
+    ranking_id: str
+    methodology_id: str
+    as_of_date: str
+    ranking_basis_date: str
+    recent_order_primary_date: str
+    recent_order_secondary_date: str
+    recent_order_artifact_id: str
+    metadata: RankingArtifactCatalogRowMetadata
+    etf_summary: RankingArtifactCatalogEtfSummary | None = None
+    replacement_summary: RankingArtifactCatalogReplacementSummary | None = None
+
+    @model_validator(mode="after")
+    def validate_kind_specific_contract(self) -> "RankingArtifactCatalogRow":
+        if self.artifact_kind == "etf_ranking":
+            if self.schema_version != ETF_RANKING_ARTIFACT_SCHEMA_VERSION:
+                raise ValueError("unsupported ranking artifact schema_version")
+            if self.etf_summary is None or self.replacement_summary is not None:
+                raise ValueError("etf_ranking rows must populate only etf_summary")
+            return self
+
+        if self.artifact_kind == "intent_bound_etf_replacement_ranking":
+            if self.schema_version != INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION:
+                raise ValueError("unsupported ranking artifact schema_version")
+            if self.replacement_summary is None or self.etf_summary is not None:
+                raise ValueError(
+                    "intent_bound_etf_replacement_ranking rows must populate only replacement_summary"
+                )
+            return self
+
+        raise ValueError("unsupported ranking artifact kind")
+
+
+class RankingArtifactKindCapabilities(BaseModel):
+    artifact_kind: RankingArtifactKind
+    supported_schema_versions: list[str] = Field(default_factory=list)
+    supported_filters: list[RankingArtifactDiscoveryFilterName] = Field(default_factory=list)
+
+
+class RankingArtifactCatalogMetadata(BaseModel):
+    contract_version: RankingArtifactDiscoveryContractVersion = "ranking_artifact_discovery_v1"
+    supported_artifact_kinds: list[RankingArtifactKind] = Field(
+        default_factory=lambda: list(SUPPORTED_RANKING_ARTIFACT_KINDS)
+    )
+    metadata_truth: RankingArtifactMetadataTruth = "authoritative_persisted_metadata"
+    supported_metadata_provenance: list[RankingArtifactMetadataProvenance] = Field(
+        default_factory=lambda: list(SUPPORTED_RANKING_ARTIFACT_METADATA_PROVENANCE)
+    )
+    artifact_kind_registry_version: RankingArtifactKindRegistryVersion = RANKING_ARTIFACT_KIND_REGISTRY_VERSION
+    supported_filters: list[RankingArtifactDiscoveryFilterName] = Field(
+        default_factory=lambda: list(SUPPORTED_RANKING_ARTIFACT_DISCOVERY_FILTERS)
+    )
+    artifact_kind_registry: list["RankingArtifactKindCapabilities"] = Field(
+        default_factory=lambda: [
+            RankingArtifactKindCapabilities(
+                artifact_kind=entry.artifact_kind,
+                supported_schema_versions=list(entry.supported_schema_versions),
+                supported_filters=list(entry.supported_filters),
+            )
+            for entry in RANKING_ARTIFACT_KIND_REGISTRY
+        ]
+    )
+    applied_filters: RankingArtifactDiscoveryFilters = Field(default_factory=RankingArtifactDiscoveryFilters)
+
+
+class RankingArtifactCatalogListResponse(BaseModel):
+    items: list[RankingArtifactCatalogRow] = Field(default_factory=list)
+    metadata: RankingArtifactCatalogMetadata = Field(default_factory=RankingArtifactCatalogMetadata)
 
 
 class IntentBoundReplacementIntent(BaseModel):
@@ -581,7 +743,9 @@ class IntentBoundEtfReplacementRankingResponse(BaseModel):
 
 
 class IntentBoundEtfReplacementRankingArtifact(PersistedRankingArtifactEnvelope, BaseModel):
-    schema_version: IntentBoundEtfReplacementRankingArtifactSchemaVersion = "intent_bound_etf_replacement_ranking_artifact_v1"
+    schema_version: IntentBoundEtfReplacementRankingArtifactSchemaVersion = (
+        INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION
+    )
     artifact_id: str
     ranking_id: str
     methodology_id: str

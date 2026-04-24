@@ -192,3 +192,40 @@ def test_load_replacement_ranking_artifact_rejects_lineage_mismatch(tmp_path: Pa
 
     with pytest.raises(ValueError, match="lineage.base_symbol must match request_context.base_symbol"):
         load_replacement_ranking_artifact(artifact.artifact_id, store=store)
+
+
+def test_replacement_ranking_catalog_row_contract_rejects_kind_summary_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    artifact = build_stable_replacement_ranking_artifact(_build_response(monkeypatch))
+
+    with pytest.raises(
+        ValueError,
+        match="intent_bound_etf_replacement_ranking rows must populate only replacement_summary",
+    ):
+        from app.schemas.research import RankingArtifactCatalogEtfSummary, RankingArtifactCatalogRow, RankingArtifactCatalogRowMetadata
+
+        RankingArtifactCatalogRow(
+            artifact_kind="intent_bound_etf_replacement_ranking",
+            artifact_id=artifact.artifact_id,
+            schema_version=artifact.schema_version,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.methodology_id,
+            as_of_date=artifact.run_metadata.as_of_date,
+            ranking_basis_date=artifact.run_metadata.ranking_basis_date,
+            recent_order_primary_date=artifact.run_metadata.ranking_basis_date,
+            recent_order_secondary_date=artifact.run_metadata.as_of_date,
+            recent_order_artifact_id=artifact.artifact_id,
+            metadata=RankingArtifactCatalogRowMetadata(
+                metadata_provenance="persisted_artifact_body",
+                matched_metadata_provenance="persisted_artifact_body",
+                recency_same_day_provenance="artifact_id",
+            ),
+            etf_summary=RankingArtifactCatalogEtfSummary(
+                benchmark_symbol="SPY",
+                lookback_months=6,
+                effective_peer_group="Sector UCITS ETF",
+                universe_size=3,
+                evaluated_universe_size=2,
+                confidence="high",
+            ),
+            replacement_summary=None,
+        )

@@ -1,9 +1,28 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from typing import Literal
 
-from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingRequest, IntentBoundEtfReplacementRankingArtifact, IntentBoundEtfReplacementRankingRequest, IntentBoundEtfReplacementRankingResponse
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field, ValidationError
+
+from app.schemas.ranking import (
+    RankingArtifactConfidence,
+    RankingArtifactMetadataProvenance,
+    RankingArtifactMetadataTruth,
+    RankingArtifactRecencySameDayProvenance,
+)
+from app.schemas.research import (
+    EtfMomentumStrategyResponse,
+    EtfRankingArtifact,
+    EtfRankingArtifactRecentMetadata,
+    EtfRankingArtifactRecentRow,
+    EtfRankingRequest,
+    IntentBoundEtfReplacementRankingArtifact,
+    IntentBoundEtfReplacementRankingRequest,
+    IntentBoundEtfReplacementRankingResponse,
+    RankingArtifactCatalogListResponse,
+    RankingArtifactDiscoveryFilters,
+)
 from app.services.market_data import MarketDataService
 from app.services.etf_ranking_artifact_service import (
     EtfRankingArtifactIntegrityValidationError,
@@ -11,11 +30,21 @@ from app.services.etf_ranking_artifact_service import (
     EtfRankingArtifactMissingFileError,
     EtfRankingArtifactNonObjectPayloadError,
     EtfRankingArtifactPersistenceError,
+    EtfRankingArtifactRecentIndexInvalidJsonError,
+    EtfRankingArtifactRecentIndexNonObjectPayloadError,
+    EtfRankingArtifactRecentIndexSchemaValidationError,
     EtfRankingArtifactSchemaValidationError,
     get_recent_etf_ranking_artifact_metadata,
     list_recent_etf_ranking_artifacts,
     load_etf_ranking_artifact,
     persist_etf_ranking_artifact,
+)
+from app.services.ranking_artifact_catalog_service import (
+    RankingArtifactCatalogMalformedMetadataError,
+    RankingArtifactCatalogServiceError,
+    RankingArtifactCatalogUnsupportedStateError,
+    list_ranking_artifact_catalog,
+    list_recent_ranking_artifacts,
 )
 from app.services.replacement_ranking import build_intent_bound_etf_replacement_ranking
 from app.services.replacement_ranking_artifact_service import (
@@ -29,10 +58,62 @@ from app.services.replacement_ranking_artifact_service import (
     load_replacement_ranking_artifact,
     persist_replacement_ranking_artifact,
 )
-from app.services.strategy_lab import DEFAULT_ETF_ROTATION_BENCHMARK, DEFAULT_ETF_ROTATION_UNIVERSE, build_etf_momentum_strategy_analysis, build_etf_ranking_analysis
+from app.services.strategy_lab import (
+    DEFAULT_ETF_ROTATION_BENCHMARK,
+    DEFAULT_ETF_ROTATION_UNIVERSE,
+    build_etf_momentum_strategy_analysis,
+    build_etf_ranking_analysis,
+)
 
 
 router = APIRouter(tags=["strategy-lab"])
+
+
+def _build_ranking_artifact_discovery_filters(
+    *,
+    artifact_kind: str | None,
+    schema_version: str | None,
+    metadata_truth: RankingArtifactMetadataTruth | None,
+    metadata_provenance: RankingArtifactMetadataProvenance | None,
+    recency_same_day_provenance: RankingArtifactRecencySameDayProvenance | None,
+    methodology_id: str | None,
+    benchmark_symbol: str | None,
+    effective_peer_group: str | None,
+    base_symbol: str | None,
+    candidate_symbol: str | None,
+    peer_group: str | None,
+    confidence: RankingArtifactConfidence | None,
+    status: Literal["ok", "unavailable"] | None,
+    as_of_date: str | None,
+    ranking_basis_date: str | None,
+    basis_date: str | None,
+) -> RankingArtifactDiscoveryFilters:
+    try:
+        return RankingArtifactDiscoveryFilters(
+            artifact_kind=artifact_kind,
+            schema_version=schema_version,
+            metadata_truth=metadata_truth,
+            metadata_provenance=metadata_provenance,
+            recency_same_day_provenance=recency_same_day_provenance,
+            methodology_id=methodology_id,
+            benchmark_symbol=benchmark_symbol,
+            effective_peer_group=effective_peer_group,
+            base_symbol=base_symbol,
+            candidate_symbol=candidate_symbol,
+            peer_group=peer_group,
+            confidence=confidence,
+            status=status,
+            as_of_date=as_of_date,
+            ranking_basis_date=ranking_basis_date,
+            basis_date=basis_date,
+        )
+    except ValidationError as exc:
+        detail = exc.errors()[0].get("msg", "invalid ranking artifact discovery filters") if exc.errors() else (
+            "invalid ranking artifact discovery filters"
+        )
+        if isinstance(detail, str) and detail.startswith("Value error, "):
+            detail = detail[len("Value error, ") :]
+        raise HTTPException(status_code=400, detail=detail) from exc
 
 
 class EtfMomentumRequest(BaseModel):
@@ -101,6 +182,132 @@ def get_etf_ranking_artifact(artifact_id: str) -> EtfRankingArtifact:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/strategy-lab/ranking-artifacts/catalog", response_model=RankingArtifactCatalogListResponse)
+def get_ranking_artifact_catalog(
+    artifact_kind: str | None = Query(None),
+    schema_version: str | None = Query(None),
+    metadata_truth: RankingArtifactMetadataTruth | None = Query(None),
+    metadata_provenance: RankingArtifactMetadataProvenance | None = Query(None),
+    recency_same_day_provenance: RankingArtifactRecencySameDayProvenance | None = Query(None),
+    methodology_id: str | None = Query(None),
+    benchmark_symbol: str | None = Query(None),
+    effective_peer_group: str | None = Query(None),
+    base_symbol: str | None = Query(None),
+    candidate_symbol: str | None = Query(None),
+    peer_group: str | None = Query(None),
+    confidence: RankingArtifactConfidence | None = Query(None),
+    status: Literal["ok", "unavailable"] | None = Query(None),
+    as_of_date: str | None = Query(None),
+    ranking_basis_date: str | None = Query(None),
+    basis_date: str | None = Query(None),
+) -> RankingArtifactCatalogListResponse:
+    try:
+        return list_ranking_artifact_catalog(
+            filters=_build_ranking_artifact_discovery_filters(
+                artifact_kind=artifact_kind,
+                schema_version=schema_version,
+                metadata_truth=metadata_truth,
+                metadata_provenance=metadata_provenance,
+                recency_same_day_provenance=recency_same_day_provenance,
+                methodology_id=methodology_id,
+                benchmark_symbol=benchmark_symbol,
+                effective_peer_group=effective_peer_group,
+                base_symbol=base_symbol,
+                candidate_symbol=candidate_symbol,
+                peer_group=peer_group,
+                confidence=confidence,
+                status=status,
+                as_of_date=as_of_date,
+                ranking_basis_date=ranking_basis_date,
+                basis_date=basis_date,
+            )
+        )
+    except (
+        RankingArtifactCatalogMalformedMetadataError,
+        RankingArtifactCatalogUnsupportedStateError,
+        RankingArtifactCatalogServiceError,
+        EtfRankingArtifactInvalidJsonError,
+        EtfRankingArtifactNonObjectPayloadError,
+        EtfRankingArtifactRecentIndexInvalidJsonError,
+        EtfRankingArtifactRecentIndexNonObjectPayloadError,
+        EtfRankingArtifactRecentIndexSchemaValidationError,
+        EtfRankingArtifactSchemaValidationError,
+        EtfRankingArtifactIntegrityValidationError,
+        EtfRankingArtifactPersistenceError,
+        ReplacementRankingArtifactInvalidJsonError,
+        ReplacementRankingArtifactNonObjectPayloadError,
+        ReplacementRankingArtifactSchemaValidationError,
+        ReplacementRankingArtifactIntegrityValidationError,
+        ReplacementRankingArtifactPersistenceError,
+    ) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/strategy-lab/ranking-artifacts/recent", response_model=RankingArtifactCatalogListResponse)
+def get_recent_ranking_artifact_catalog(
+    limit: int = Query(20, ge=1, le=100),
+    artifact_kind: str | None = Query(None),
+    schema_version: str | None = Query(None),
+    metadata_truth: RankingArtifactMetadataTruth | None = Query(None),
+    metadata_provenance: RankingArtifactMetadataProvenance | None = Query(None),
+    recency_same_day_provenance: RankingArtifactRecencySameDayProvenance | None = Query(None),
+    methodology_id: str | None = Query(None),
+    benchmark_symbol: str | None = Query(None),
+    effective_peer_group: str | None = Query(None),
+    base_symbol: str | None = Query(None),
+    candidate_symbol: str | None = Query(None),
+    peer_group: str | None = Query(None),
+    confidence: RankingArtifactConfidence | None = Query(None),
+    status: Literal["ok", "unavailable"] | None = Query(None),
+    as_of_date: str | None = Query(None),
+    ranking_basis_date: str | None = Query(None),
+    basis_date: str | None = Query(None),
+) -> RankingArtifactCatalogListResponse:
+    try:
+        return list_recent_ranking_artifacts(
+            limit=limit,
+            filters=_build_ranking_artifact_discovery_filters(
+                artifact_kind=artifact_kind,
+                schema_version=schema_version,
+                metadata_truth=metadata_truth,
+                metadata_provenance=metadata_provenance,
+                recency_same_day_provenance=recency_same_day_provenance,
+                methodology_id=methodology_id,
+                benchmark_symbol=benchmark_symbol,
+                effective_peer_group=effective_peer_group,
+                base_symbol=base_symbol,
+                candidate_symbol=candidate_symbol,
+                peer_group=peer_group,
+                confidence=confidence,
+                status=status,
+                as_of_date=as_of_date,
+                ranking_basis_date=ranking_basis_date,
+                basis_date=basis_date,
+            ),
+        )
+    except (
+        RankingArtifactCatalogMalformedMetadataError,
+        RankingArtifactCatalogUnsupportedStateError,
+        RankingArtifactCatalogServiceError,
+        EtfRankingArtifactMissingFileError,
+        EtfRankingArtifactInvalidJsonError,
+        EtfRankingArtifactNonObjectPayloadError,
+        EtfRankingArtifactRecentIndexInvalidJsonError,
+        EtfRankingArtifactRecentIndexNonObjectPayloadError,
+        EtfRankingArtifactRecentIndexSchemaValidationError,
+        EtfRankingArtifactSchemaValidationError,
+        EtfRankingArtifactIntegrityValidationError,
+        EtfRankingArtifactPersistenceError,
+        ReplacementRankingArtifactMissingFileError,
+        ReplacementRankingArtifactInvalidJsonError,
+        ReplacementRankingArtifactNonObjectPayloadError,
+        ReplacementRankingArtifactSchemaValidationError,
+        ReplacementRankingArtifactIntegrityValidationError,
+        ReplacementRankingArtifactPersistenceError,
+    ) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/strategy-lab/etf-cross-sectional-momentum", response_model=EtfMomentumStrategyResponse)
 def run_etf_cross_sectional_momentum(request: EtfMomentumRequest) -> EtfMomentumStrategyResponse:
     if request.lookback_months < 1:
@@ -152,7 +359,9 @@ def run_legacy_intent_bound_etf_replacement_ranking(
 
 
 @router.post("/strategy-lab/etf-ranking/replacements", response_model=IntentBoundEtfReplacementRankingArtifact)
-def run_intent_bound_etf_replacement_ranking(request: IntentBoundEtfReplacementRankingRequest) -> IntentBoundEtfReplacementRankingArtifact:
+def run_intent_bound_etf_replacement_ranking(
+    request: IntentBoundEtfReplacementRankingRequest,
+) -> IntentBoundEtfReplacementRankingArtifact:
     try:
         ranking = build_intent_bound_etf_replacement_ranking(request)
         return persist_replacement_ranking_artifact(ranking)

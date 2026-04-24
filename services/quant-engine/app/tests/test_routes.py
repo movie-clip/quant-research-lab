@@ -437,6 +437,81 @@ def test_strategy_lab_replacement_ranking_artifact_routes_are_registered(tmp_pat
     assert legacy_response.json()["artifact_id"] == artifact_id
 
 
+def test_generalized_ranking_artifact_catalog_routes_are_registered(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    etf_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert etf_response.status_code == 200
+
+    catalog_response = client.get("/strategy-lab/ranking-artifacts/catalog")
+    recent_response = client.get("/strategy-lab/ranking-artifacts/recent")
+
+    assert catalog_response.status_code == 200
+    assert recent_response.status_code == 200
+    assert catalog_response.json()["items"][0]["artifact_kind"] == "etf_ranking"
+    assert recent_response.json()["items"][0]["artifact_kind"] == "etf_ranking"
+    assert catalog_response.json()["metadata"]["artifact_kind_registry_version"] == "ranking_artifact_kind_registry_v1"
+    assert catalog_response.json()["metadata"]["artifact_kind_registry"][0]["artifact_kind"] == "etf_ranking"
+    assert "benchmark_symbol" in catalog_response.json()["metadata"]["artifact_kind_registry"][0]["supported_filters"]
+
+
+def test_generalized_ranking_artifact_recent_route_returns_400_for_malformed_etf_recent_index(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert response.status_code == 200
+    (tmp_path / "etf" / "recent.jsonl").write_text("not-json\n", encoding="utf-8")
+
+    recent_response = client.get("/strategy-lab/ranking-artifacts/recent")
+
+    assert recent_response.status_code == 400
+    assert "invalid persisted etf ranking recent index json" in recent_response.json()["detail"]
+
+
 def test_legacy_replacement_ranking_post_preserves_non_artifact_response_shape(tmp_path, mocker) -> None:
     mocker.patch(
         "app.services.replacement_ranking_artifact_service.get_settings",

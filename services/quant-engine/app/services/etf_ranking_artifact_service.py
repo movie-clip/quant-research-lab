@@ -41,6 +41,22 @@ class EtfRankingArtifactIntegrityValidationError(EtfRankingArtifactReadError):
     pass
 
 
+class EtfRankingArtifactRecentIndexError(EtfRankingArtifactReadError):
+    pass
+
+
+class EtfRankingArtifactRecentIndexInvalidJsonError(EtfRankingArtifactRecentIndexError):
+    pass
+
+
+class EtfRankingArtifactRecentIndexNonObjectPayloadError(EtfRankingArtifactRecentIndexError):
+    pass
+
+
+class EtfRankingArtifactRecentIndexSchemaValidationError(EtfRankingArtifactRecentIndexError):
+    pass
+
+
 @dataclass(frozen=True)
 class RawPersistedEtfRankingArtifact:
     artifact_path: Path
@@ -50,6 +66,7 @@ class RawPersistedEtfRankingArtifact:
 @dataclass(frozen=True)
 class RawPersistedEtfRankingRecentRow:
     payload: dict[str, Any]
+    line_number: int
 
 
 class EtfRankingArtifactStore:
@@ -77,6 +94,7 @@ class EtfRankingArtifactStore:
 
     def load(self, artifact_id: str) -> EtfRankingArtifact:
         raw = self.load_raw(artifact_id)
+        _validate_raw_etf_ranking_artifact_schema_version(raw.payload)
         try:
             artifact = EtfRankingArtifact.model_validate(raw.payload)
         except ValidationError as exc:
@@ -137,7 +155,7 @@ class EtfRankingArtifactStore:
             return []
 
         rows: list[RawPersistedEtfRankingRecentRow] = []
-        for line in lines:
+        for line_number, line in enumerate(lines, start=1):
             if not line.strip():
                 continue
             try:
@@ -146,7 +164,31 @@ class EtfRankingArtifactStore:
                 continue
             if not isinstance(payload, dict):
                 continue
-            rows.append(RawPersistedEtfRankingRecentRow(payload=payload))
+            rows.append(RawPersistedEtfRankingRecentRow(payload=payload, line_number=line_number))
+        return rows
+
+    def _load_recent_index_rows_strict(self) -> list[RawPersistedEtfRankingRecentRow]:
+        path = self.recent_index_path()
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except FileNotFoundError:
+            return []
+
+        rows: list[RawPersistedEtfRankingRecentRow] = []
+        for line_number, line in enumerate(lines, start=1):
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise EtfRankingArtifactRecentIndexInvalidJsonError(
+                    f"invalid persisted etf ranking recent index json: {path}: line {line_number}"
+                ) from exc
+            if not isinstance(payload, dict):
+                raise EtfRankingArtifactRecentIndexNonObjectPayloadError(
+                    f"persisted etf ranking recent index payload must be a json object: {path}: line {line_number}"
+                )
+            rows.append(RawPersistedEtfRankingRecentRow(payload=payload, line_number=line_number))
         return rows
 
     def _iter_recent_rows(
@@ -161,6 +203,49 @@ class EtfRankingArtifactStore:
                 recent_row = EtfRankingArtifactRecentRow.model_validate(raw_row.payload)
             except ValidationError:
                 continue
+
+            if effective_peer_group is not None and recent_row.effective_peer_group != effective_peer_group:
+                continue
+
+            if recent_row.artifact_id in seen_artifact_ids:
+                continue
+
+            seen_artifact_ids.add(recent_row.artifact_id)
+            recent_rows.append(recent_row)
+        return recent_rows
+
+    def list_recent_strict(
+        self,
+        *,
+        limit: int,
+        effective_peer_group: str | None = None,
+    ) -> list[EtfRankingArtifactRecentRow]:
+        if limit < 1:
+            return []
+
+        recent_rows: list[EtfRankingArtifactRecentRow] = []
+        for recent_row in self._iter_recent_rows_strict(effective_peer_group=effective_peer_group):
+            recent_rows.append(recent_row)
+            if len(recent_rows) >= limit:
+                break
+        return recent_rows
+
+    def _iter_recent_rows_strict(
+        self,
+        *,
+        effective_peer_group: str | None = None,
+    ) -> list[EtfRankingArtifactRecentRow]:
+        recent_rows: list[EtfRankingArtifactRecentRow] = []
+        seen_artifact_ids: set[str] = set()
+        for raw_row in reversed(self._load_recent_index_rows_strict()):
+            try:
+                recent_row = EtfRankingArtifactRecentRow.model_validate(raw_row.payload)
+            except ValidationError as exc:
+                detail = exc.errors()[0].get("msg", "schema validation error") if exc.errors() else "schema validation error"
+                raise EtfRankingArtifactRecentIndexSchemaValidationError(
+                    "persisted etf ranking recent index row failed schema validation: "
+                    f"{self.recent_index_path()}: line {raw_row.line_number}: {detail}"
+                ) from exc
 
             if effective_peer_group is not None and recent_row.effective_peer_group != effective_peer_group:
                 continue
@@ -214,6 +299,18 @@ def list_recent_etf_ranking_artifacts(
     store: EtfRankingArtifactStore | None = None,
 ) -> list[EtfRankingArtifactRecentRow]:
     return (store or EtfRankingArtifactStore()).list_recent(
+        limit=limit,
+        effective_peer_group=effective_peer_group,
+    )
+
+
+def list_recent_etf_ranking_artifacts_strict(
+    *,
+    limit: int,
+    effective_peer_group: str | None = None,
+    store: EtfRankingArtifactStore | None = None,
+) -> list[EtfRankingArtifactRecentRow]:
+    return (store or EtfRankingArtifactStore()).list_recent_strict(
         limit=limit,
         effective_peer_group=effective_peer_group,
     )
@@ -277,6 +374,11 @@ def _read_json_object(path: Path) -> dict[str, Any]:
             f"persisted etf ranking artifact payload must be a json object: {path}"
         )
     return payload
+
+
+def _validate_raw_etf_ranking_artifact_schema_version(payload: dict[str, Any]) -> None:
+    if payload.get("schema_version") != "etf_ranking_artifact_v1":
+        raise EtfRankingArtifactSchemaValidationError("unsupported etf ranking schema_version")
 
 
 def _build_recent_index_entry(artifact: EtfRankingArtifact) -> dict[str, Any]:

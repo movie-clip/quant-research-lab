@@ -79,6 +79,7 @@ class ReplacementRankingArtifactStore:
 
     def load(self, artifact_id: str) -> IntentBoundEtfReplacementRankingArtifact:
         raw = self.load_raw(artifact_id)
+        _validate_raw_replacement_ranking_artifact_schema_version(raw.payload)
         try:
             artifact = IntentBoundEtfReplacementRankingArtifact.model_validate(raw.payload)
         except ValidationError as exc:
@@ -237,3 +238,8 @@ def _read_json_object(path: Path) -> dict[str, Any]:
             f"persisted replacement ranking artifact payload must be a json object: {path}"
         )
     return payload
+
+
+def _validate_raw_replacement_ranking_artifact_schema_version(payload: dict[str, Any]) -> None:
+    if payload.get("schema_version") != "intent_bound_etf_replacement_ranking_artifact_v1":
+        raise ReplacementRankingArtifactSchemaValidationError("unsupported replacement ranking schema_version")

@@ -42,9 +42,9 @@ Persisted research and decision artifacts should converge on the same shape:
 ### 1. Generalized Ranking System Expansion
 
 Remaining work:
-- generalize ranking inputs beyond the current ETF-focused and replacement-intent flows
+- generalize ranking inputs beyond the currently shipped ETF ranking and intent-bound ETF replacement artifact/discovery slice
 - support configurable but versioned component sets, filters, and composite weighting
-- converge future non-ETF ranking families on shared artifact, validation, and loading rules beyond the shipped ETF-specific path
+- converge future non-ETF ranking families on shared artifact, validation, loading, and discovery rules beyond the current ETF-only shipped boundary
 
 ### 2. Construction Engine Expansion
 
@@ -93,7 +93,7 @@ These remain permanent technical requirements:
 
 ## Immediate Priorities
 
-1. generalize ranking infrastructure beyond the shipped ETF artifact and discovery path
+1. generalize ranking infrastructure beyond the currently shipped ETF-only artifact persistence and additive backend discovery path
 2. broaden persisted construction policies and constraints
 3. improve shared artifact-loading, validation, and provenance rules across construction and optimizer workflows
 4. expand monitoring persistence and alert semantics

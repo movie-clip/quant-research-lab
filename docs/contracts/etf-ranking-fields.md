@@ -2,6 +2,11 @@
 
 This document captures the current backend contract for shipped ETF ranking outputs, persisted artifacts, and recent-run discovery.
 
+Additive rollout note:
+- existing ETF-native ranking routes and replacement routes remain unchanged
+- backend-only generalized ranking artifact discovery is now also shipped on additive strategy-lab routes
+- persisted artifacts are the authoritative source for catalog and recent discovery; discovery does not recompute rankings
+
 The preferred authoritative contract shape is now grouped into:
 - `request`
 - `effective_inputs`
@@ -34,6 +39,9 @@ Current persisted artifact envelope:
 - `artifact_id`
   - stable persisted ETF ranking artifact identity
   - current ids use the `etf_ranking_artifact_` prefix
+- `recent.jsonl`
+  - internal ETF-only operational index used to preserve ETF recent-listing discovery order
+  - not part of the artifact payload contract, generalized artifact output, or deliverable surface
 
 ## Intent-Bound ETF Replacement Ranking Artifact v1
 
@@ -62,6 +70,206 @@ Authoritative boundary rules:
 - validation/open/review semantics are intentionally unchanged in this slice
 - new writes are strict and canonical; no silent repair is performed for malformed present values
 - load failures remain fail-closed on missing file (`404`) and invalid json, non-object payload, schema failure, lineage contradiction, or canonical id mismatch (`400`)
+
+## Generalized Ranking Artifact Catalog And Recent Discovery v1
+
+Routes:
+- `GET /strategy-lab/ranking-artifacts/catalog`
+  - additive backend-only catalog over supported persisted ranking artifact kinds
+- `GET /strategy-lab/ranking-artifacts/recent`
+  - additive backend-only recent discovery over supported persisted ranking artifact kinds
+
+Request filter fields shared by both routes:
+- `artifact_kind`
+- `schema_version`
+- `metadata_truth`
+  - current supported value: `authoritative_persisted_metadata`
+- `metadata_provenance`
+  - supported values:
+    - `persisted_artifact_body`
+    - `persisted_etf_recent_index`
+- `recency_same_day_provenance`
+  - supported values:
+    - `artifact_id`
+    - `etf_recent_index`
+- `methodology_id`
+- `benchmark_symbol`
+  - ETF-family only
+- `effective_peer_group`
+  - ETF-family only
+- `base_symbol`
+  - replacement-family only
+- `candidate_symbol`
+  - replacement-family only
+- `peer_group`
+  - replacement-family only
+- `confidence`
+- `status`
+  - replacement-family only
+- `as_of_date`
+- `ranking_basis_date`
+- `basis_date`
+  - replacement-family only
+
+Response metadata additions:
+- `metadata.artifact_kind_registry_version`
+  - current value: `ranking_artifact_kind_registry_v1`
+  - explicit version for the backend-owned artifact-kind capability registry
+- `metadata.supported_filters`
+  - additive inventory of all discovery filter names recognized by the generalized discovery contract
+- `metadata.artifact_kind_registry[].supported_schema_versions`
+  - backend-owned closed enum sourced from a single canonical allowlist at the contract root
+  - registry declarations must use explicit allowlisted values only; unknown, malformed, duplicate, or deprecated values fail closed before capabilities are advertised
+  - expanding supported schema versions requires an explicit backend allowlist update; docs and tests must ship in the same change
+- `metadata.artifact_kind_registry[]`
+  - one entry per supported artifact kind
+  - each entry declares:
+    - `artifact_kind`
+    - `supported_schema_versions`
+    - `supported_filters`
+  - this registry is discovery metadata only; it does not change persisted artifact truth, ranking behavior, replay behavior, or row payload derivation
+
+Filter semantics:
+- filters are additive exact-match constraints over authoritative persisted metadata only
+- unsupported or malformed metadata states fail closed
+- if a caller supplies `artifact_kind`, only the registry-declared filters for that kind are allowed; unsupported kind/filter combinations fail closed with `400`
+- family-specific filters do not fabricate cross-family meanings; they simply exclude rows from other families
+
+Supported kinds:
+- `etf_ranking`
+  - sourced from persisted ETF ranking artifacts
+  - supported schema versions:
+    - `etf_ranking_artifact_v1`
+  - supported discovery filters:
+    - `artifact_kind`
+    - `schema_version`
+    - `metadata_truth`
+    - `metadata_provenance`
+    - `recency_same_day_provenance`
+    - `methodology_id`
+    - `confidence`
+    - `as_of_date`
+    - `ranking_basis_date`
+    - `benchmark_symbol`
+    - `effective_peer_group`
+- `intent_bound_etf_replacement_ranking`
+  - sourced from persisted intent-bound ETF replacement ranking artifacts
+  - supported schema versions:
+    - `intent_bound_etf_replacement_ranking_artifact_v1`
+  - supported discovery filters:
+    - `artifact_kind`
+    - `schema_version`
+    - `metadata_truth`
+    - `metadata_provenance`
+    - `recency_same_day_provenance`
+    - `methodology_id`
+    - `confidence`
+    - `as_of_date`
+    - `ranking_basis_date`
+    - `base_symbol`
+    - `candidate_symbol`
+    - `peer_group`
+    - `status`
+    - `basis_date`
+
+Generalized row identity and ordering fields:
+- `artifact_kind`
+  - stable supported kind discriminator
+- `artifact_id`
+  - stable persisted artifact identity
+- `schema_version`
+  - persisted artifact schema version; unsupported versions fail closed
+- `ranking_id`
+- `methodology_id`
+- `as_of_date`
+- `ranking_basis_date`
+- `recent_order_primary_date`
+  - deterministic primary recent-order key
+- `recent_order_secondary_date`
+  - deterministic secondary recent-order key
+- `recent_order_artifact_id`
+  - deterministic final tie-break key
+- `metadata`
+  - `metadata_truth`
+    - current shipped value: `authoritative_persisted_metadata`
+  - `metadata_provenance`
+    - labels the provenance of the returned row body metadata: `persisted_artifact_body` or fallback `persisted_etf_recent_index`
+  - `matched_metadata_provenance`
+    - additive rollout field; coexists with `metadata_provenance` during discovery-contract migration
+    - labels the provenance that satisfied ETF recent discovery filtering/selection
+    - for ETF recent rows enriched from the persisted artifact body after a recent-index match, this remains `persisted_etf_recent_index` while `metadata_provenance` remains `persisted_artifact_body`
+  - `recency_same_day_provenance`
+    - labels whether same-day ordering truth comes from `artifact_id` ordering or `etf_recent_index`
+
+Kind-specific shallow summaries:
+- ETF rows populate `etf_summary`
+  - `benchmark_symbol`
+  - `lookback_months`
+  - `effective_peer_group`
+  - `universe_size`
+  - `evaluated_universe_size`
+  - `confidence`
+- replacement rows populate `replacement_summary`
+  - `basis_date`
+  - `status`
+  - `base_symbol`
+  - `candidate_symbol`
+  - `peer_group`
+  - `eligible_count`
+  - `excluded_count`
+  - `confidence`
+
+Authoritative persisted metadata inventory:
+- common authoritative metadata fields:
+  - `artifact_kind`
+  - `artifact_id`
+  - `schema_version`
+  - `ranking_id`
+  - `methodology_id`
+  - `as_of_date`
+  - `ranking_basis_date`
+  - `recent_order_primary_date`
+  - `recent_order_secondary_date`
+  - `recent_order_artifact_id`
+  - `metadata.*`
+- ETF authoritative metadata fields:
+  - `etf_summary.benchmark_symbol`
+  - `etf_summary.lookback_months`
+  - `etf_summary.effective_peer_group`
+  - `etf_summary.universe_size`
+  - `etf_summary.evaluated_universe_size`
+  - `etf_summary.confidence`
+- replacement authoritative metadata fields:
+  - `replacement_summary.basis_date`
+  - `replacement_summary.status`
+  - `replacement_summary.base_symbol`
+  - `replacement_summary.candidate_symbol`
+  - `replacement_summary.peer_group`
+  - `replacement_summary.eligible_count`
+  - `replacement_summary.excluded_count`
+  - `replacement_summary.confidence`
+
+Family-specific summaries:
+- `etf_summary` and `replacement_summary` are shallow family-specific metadata summaries for discovery
+- they are authoritative for the listed persisted metadata fields only
+- they are not a substitute for loading the full artifact body when consumers need full ranking payloads
+
+Recent discovery ordering rules:
+- ETF recent discovery reuses the persisted ETF `recent.jsonl` index as the authoritative same-day ordering source; within the same `ranking_basis_date` and `as_of_date`, generalized recent preserves the persisted index sequence instead of re-sorting ETF ties by `artifact_id`
+- replacement recent discovery derives ordering from authoritative persisted artifact metadata only: `ranking_basis_date`, then `as_of_date`, then `artifact_id`, descending
+- generalized recent results merge supported kinds and apply deterministic descending ordering by `recent_order_primary_date` then `recent_order_secondary_date`; non-ETF kinds keep their explicit persisted metadata tie-breakers, while ETF same-day ties keep the ETF recent-index sequence
+- generalized catalog uses persisted authoritative metadata only and does not recompute ranking outputs
+- generalized recent evaluates ETF filters from persisted recent-index metadata first and only loads ETF artifact bodies where the existing response contract already requires row enrichment
+- `metadata.applied_filters` is unchanged in this additive rollout; the new provenance field is row metadata only
+
+Failure behavior:
+- malformed persisted artifact json, non-object payloads, schema failures, unsupported schema versions, or canonical integrity mismatches fail closed
+- malformed ETF recent-index json, non-object ETF recent-index rows, and ETF recent-index schema-invalid rows also fail closed on generalized catalog/recent discovery instead of being skipped
+- unsupported artifact kinds or unsupported persisted schema states fail closed instead of being silently skipped or coerced
+- unsupported `artifact_kind` and `schema_version` combinations also fail closed before discovery execution; callers cannot pair a kind with another kind's schema version
+- malformed ranking artifact registry declarations also fail closed before discovery capability metadata is returned; this includes empty `supported_schema_versions`, misspelled values, unknown values, duplicates, and deprecated versions
+- generalized ETF recent discovery remains index-backed for ordering and ETF filter narrowing only; when the shipped response contract requires enriched ETF row metadata, missing ETF artifact files fail closed rather than falling back to partial recent-index summaries
+- ETF recent-index metadata is never allowed to contradict persisted ETF artifact identity or shallow summary fields; contradictions fail closed
 
 Grouped artifact fields:
 - `request`
@@ -255,6 +463,7 @@ Behavior rules:
 - dedupe remains by `artifact_id`
 - invalid index rows are skipped
 - missing or corrupt artifact files do not affect recent listing because the index row is authoritative for this route
+- this ETF-native route is intentionally narrower than generalized discovery: it treats `recent.jsonl` as ephemeral operational state and does not widen generalized artifact-contract guarantees
 
 ## Recent Artifact Discovery Metadata
 
