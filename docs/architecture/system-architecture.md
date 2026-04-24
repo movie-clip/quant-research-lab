@@ -63,8 +63,14 @@ The desktop app should treat the quant engine as the source of truth for portfol
   - narrow ETF-specific recent persisted artifact discovery seam with newest-first listing and optional `effective_peer_group` filtering
 - `GET /strategy-lab/etf-ranking/artifacts/recent/metadata`
   - narrow ETF-specific recent discovery metadata seam for current consumers
+- `POST /strategy-lab/etf-ranking/replacements`
+  - additive strategy-lab route that persists and returns the immutable intent-bound ETF replacement ranking artifact envelope
+- `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}`
+  - additive strategy-lab artifact load route for the same persisted intent-bound ETF replacement ranking artifact
 - `POST /ranking/etf-replacements`
-  - intent-bound ETF replacement ranking
+  - compatibility route for the same persisted intent-bound ETF replacement ranking flow that returns the legacy non-artifact POST contract
+- `GET /ranking/etf-replacements/artifacts/{artifact_id}`
+  - compatibility alias for immutable intent-bound ETF replacement ranking artifact load by stable `artifact_id`
 - `POST /optimizer/preview`
   - hypothetical optimizer preview that can persist an explicit replay handoff reference
 
@@ -75,6 +81,7 @@ Ranking remains intentionally narrow in current architecture docs: this shipped 
 - `services/quant-engine/app/services/portfolio_backtest_engine.py` is the current integration seam for replay, replay diagnostics, construction-artifact replay, optimizer-handoff replay, and overlay-aware replay
 - `services/quant-engine/app/services/construction_run_service.py` and `services/quant-engine/app/services/construction_artifact_service.py` are the current persisted construction seams
 - `services/quant-engine/app/services/strategy_lab.py` is the current narrow shipped ETF ranking seam for persisted artifact creation, artifact reload, and recent discovery metadata
+- `services/quant-engine/app/services/replacement_ranking.py` and `services/quant-engine/app/services/replacement_ranking_artifact_service.py` are the current intent-bound ETF replacement ranking build and persisted-artifact seams
 - `services/quant-engine/app/services/optimizer_preview_service.py` and `services/quant-engine/app/services/optimizer_handoff_constraints.py` are the current optimizer preview and persisted-handoff seams
 - docs should describe these as real current boundaries until they are split further
 
@@ -136,6 +143,18 @@ Future normalized API groups should preserve, not hide, the current artifact sea
 - ETF ranking persists an immutable artifact before return on the shipped `POST /strategy-lab/etf-ranking` seam
 - downstream ETF consumers can reopen one artifact by `artifact_id`, browse recent artifacts, and discover current `effective_peer_group` metadata from the recent index
 - docs must describe this as a current ETF-specific artifact seam only; they must not overstate it as a generalized ranking-run platform
+
+### Persisted intent-bound ETF replacement ranking artifact rule
+
+- intent-bound ETF replacement ranking now persists an immutable artifact before return on both `POST /strategy-lab/etf-ranking/replacements` and `POST /ranking/etf-replacements`
+- the persisted artifact is the authoritative internal handoff after execution on both routes
+- `POST /ranking/etf-replacements` maps that canonical persisted result back to the legacy response shape instead of exposing the artifact envelope
+- artifact-backed response access remains additive on `POST /strategy-lab/etf-ranking/replacements` and the artifact GET routes
+- downstream consumers can reload that artifact only by explicit `artifact_id` on either route family
+- persistence is the authoritative downstream truth for this slice
+- reload remains an artifact-id load boundary only; it does not reconstruct request state or perform validation/preflight side effects
+- validation/open/review semantics remain unchanged in this slice; persistence does not widen those boundaries
+- load semantics fail closed on missing file (`404`), invalid json (`400`), non-object payload (`400`), schema failure (`400`), lineage contradiction (`400`), or canonical identity mismatch (`400`)
 
 ### Persisted construction artifact rule
 

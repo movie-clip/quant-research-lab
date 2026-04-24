@@ -83,6 +83,12 @@ def _persist_construction_artifact_fixture(tmp_path: Path, fixture_name: str) ->
     return payload["artifact_id"], payload
 
 
+def _single_artifact_id(tmp_path: Path) -> str:
+    artifact_paths = list(tmp_path.glob("*.json"))
+    assert len(artifact_paths) == 1
+    return artifact_paths[0].stem
+
+
 def _construction_artifact_replay_histories() -> dict[str, list[dict]]:
     return {
         "SPY": [
@@ -333,6 +339,147 @@ def test_health_route() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_replacement_ranking_artifact_route_is_registered(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    run_response = client.post(
+        "/ranking/etf-replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+            },
+        },
+    )
+
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert "artifact_id" not in payload
+    assert payload["ranking_id"] == "intent_bound_etf_replacement_ranking_v1"
+    artifact_id = _single_artifact_id(tmp_path)
+
+    response = client.get(f"/ranking/etf-replacements/artifacts/{artifact_id}")
+
+    assert response.status_code == 200
+    assert response.json()["artifact_id"] == artifact_id
+
+
+def test_strategy_lab_replacement_ranking_artifact_routes_are_registered(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    run_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+            },
+        },
+    )
+
+    assert run_response.status_code == 200
+    strategy_lab_payload = run_response.json()
+    assert strategy_lab_payload["artifact_id"].startswith("intent_bound_etf_replacement_ranking_artifact_")
+    artifact_id = strategy_lab_payload["artifact_id"]
+
+    strategy_lab_response = client.get(f"/strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}")
+    legacy_response = client.get(f"/ranking/etf-replacements/artifacts/{artifact_id}")
+
+    assert strategy_lab_response.status_code == 200
+    assert legacy_response.status_code == 200
+    assert strategy_lab_response.json()["artifact_id"] == artifact_id
+    assert legacy_response.json()["artifact_id"] == artifact_id
+
+
+def test_legacy_replacement_ranking_post_preserves_non_artifact_response_shape(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/ranking/etf-replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ranking_id"] == "intent_bound_etf_replacement_ranking_v1"
+    assert "artifact_id" not in payload
+    assert "schema_version" not in payload
+    assert "lineage" not in payload
+    assert payload["request_context"]["benchmark_symbol"] == "SPY"
+    assert _single_artifact_id(tmp_path).startswith("intent_bound_etf_replacement_ranking_artifact_")
 
 
 def test_construction_route_is_registered(tmp_path, mocker) -> None:

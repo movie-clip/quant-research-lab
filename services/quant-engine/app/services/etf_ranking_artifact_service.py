@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.core.settings import get_settings
+from app.schemas.ranking import validate_ranking_artifact_identity, validate_ranking_artifact_storage_key
 from app.schemas.research import EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingResponse
 
 
@@ -226,30 +227,29 @@ def get_recent_etf_ranking_artifact_metadata(
 
 
 def validate_etf_ranking_artifact(artifact: EtfRankingArtifact) -> EtfRankingArtifact:
-    if artifact.schema_version != "etf_ranking_artifact_v1":
-        raise EtfRankingArtifactIntegrityValidationError("unsupported etf ranking artifact schema_version")
-    if not artifact.artifact_id.startswith("etf_ranking_artifact_"):
-        raise EtfRankingArtifactIntegrityValidationError(
-            "etf ranking artifact_id must use the stable etf_ranking_artifact_ prefix"
+    try:
+        validate_ranking_artifact_identity(
+            schema_version=artifact.schema_version,
+            expected_schema_version="etf_ranking_artifact_v1",
+            artifact_id=artifact.artifact_id,
+            artifact_id_prefix="etf_ranking_artifact_",
+            expected_artifact_id=_canonical_artifact_id(artifact),
+            artifact_label="etf ranking",
         )
-    expected_artifact_id = _canonical_artifact_id(artifact)
-    if artifact.artifact_id != expected_artifact_id:
-        raise EtfRankingArtifactIntegrityValidationError(
-            "etf ranking artifact_id does not match canonical artifact content"
-        )
+    except ValueError as exc:
+        raise EtfRankingArtifactIntegrityValidationError(str(exc)) from exc
     return artifact
 
 
 def _validated_artifact_id_key(artifact_id: str) -> str:
-    if not artifact_id.startswith("etf_ranking_artifact_"):
-        raise EtfRankingArtifactIntegrityValidationError(
-            "etf ranking artifact_id must use the stable etf_ranking_artifact_ prefix"
+    try:
+        return validate_ranking_artifact_storage_key(
+            artifact_id=artifact_id,
+            artifact_id_prefix="etf_ranking_artifact_",
+            artifact_label="etf ranking",
         )
-    if any(separator in artifact_id for separator in ("/", "\\")):
-        raise EtfRankingArtifactIntegrityValidationError(
-            "etf ranking artifact_id must be a stable storage key"
-        )
-    return artifact_id
+    except ValueError as exc:
+        raise EtfRankingArtifactIntegrityValidationError(str(exc)) from exc
 
 
 def _canonical_artifact_id(artifact: EtfRankingArtifact) -> str:

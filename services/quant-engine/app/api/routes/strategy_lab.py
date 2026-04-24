@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingRequest, IntentBoundEtfReplacementRankingRequest, IntentBoundEtfReplacementRankingResponse
+from app.schemas.research import EtfMomentumStrategyResponse, EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingRequest, IntentBoundEtfReplacementRankingArtifact, IntentBoundEtfReplacementRankingRequest, IntentBoundEtfReplacementRankingResponse
 from app.services.market_data import MarketDataService
 from app.services.etf_ranking_artifact_service import (
     EtfRankingArtifactIntegrityValidationError,
@@ -18,6 +18,17 @@ from app.services.etf_ranking_artifact_service import (
     persist_etf_ranking_artifact,
 )
 from app.services.replacement_ranking import build_intent_bound_etf_replacement_ranking
+from app.services.replacement_ranking_artifact_service import (
+    ReplacementRankingArtifactIntegrityValidationError,
+    ReplacementRankingArtifactInvalidJsonError,
+    ReplacementRankingArtifactMissingFileError,
+    ReplacementRankingArtifactNonObjectPayloadError,
+    ReplacementRankingArtifactPersistenceError,
+    ReplacementRankingArtifactSchemaValidationError,
+    build_legacy_replacement_ranking_response,
+    load_replacement_ranking_artifact,
+    persist_replacement_ranking_artifact,
+)
 from app.services.strategy_lab import DEFAULT_ETF_ROTATION_BENCHMARK, DEFAULT_ETF_ROTATION_UNIVERSE, build_etf_momentum_strategy_analysis, build_etf_ranking_analysis
 
 
@@ -129,8 +140,44 @@ def refresh_strategy_lab_holdings(request: HoldingsRefreshRequest) -> HoldingsRe
 
 
 @router.post("/ranking/etf-replacements", response_model=IntentBoundEtfReplacementRankingResponse)
-def run_intent_bound_etf_replacement_ranking(request: IntentBoundEtfReplacementRankingRequest) -> IntentBoundEtfReplacementRankingResponse:
+def run_legacy_intent_bound_etf_replacement_ranking(
+    request: IntentBoundEtfReplacementRankingRequest,
+) -> IntentBoundEtfReplacementRankingResponse:
     try:
-        return build_intent_bound_etf_replacement_ranking(request)
+        ranking = build_intent_bound_etf_replacement_ranking(request)
+        artifact = persist_replacement_ranking_artifact(ranking)
+        return build_legacy_replacement_ranking_response(artifact)
     except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/strategy-lab/etf-ranking/replacements", response_model=IntentBoundEtfReplacementRankingArtifact)
+def run_intent_bound_etf_replacement_ranking(request: IntentBoundEtfReplacementRankingRequest) -> IntentBoundEtfReplacementRankingArtifact:
+    try:
+        ranking = build_intent_bound_etf_replacement_ranking(request)
+        return persist_replacement_ranking_artifact(ranking)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/ranking/etf-replacements/artifacts/{artifact_id}",
+    response_model=IntentBoundEtfReplacementRankingArtifact,
+)
+@router.get(
+    "/strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}",
+    response_model=IntentBoundEtfReplacementRankingArtifact,
+)
+def get_intent_bound_etf_replacement_ranking_artifact(artifact_id: str) -> IntentBoundEtfReplacementRankingArtifact:
+    try:
+        return load_replacement_ranking_artifact(artifact_id)
+    except ReplacementRankingArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        ReplacementRankingArtifactInvalidJsonError,
+        ReplacementRankingArtifactNonObjectPayloadError,
+        ReplacementRankingArtifactSchemaValidationError,
+        ReplacementRankingArtifactIntegrityValidationError,
+        ReplacementRankingArtifactPersistenceError,
+    ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

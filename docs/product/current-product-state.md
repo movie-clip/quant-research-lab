@@ -44,11 +44,17 @@ This document is the canonical source for what is actually shipped today, what i
 ### ETF ranking artifacts and discovery
 
 - `POST /strategy-lab/etf-ranking` persists immutable ETF ranking artifacts as shipped backend behavior
+- shipped ETF ranking request defaults still allow omitted `benchmark_symbol` -> `SPY` and omitted `lookback_months` -> `3` on existing ETF ranking routes
 - `GET /strategy-lab/etf-ranking/artifacts/{artifact_id}` reloads persisted ETF ranking artifacts through an explicit artifact boundary
+- `POST /strategy-lab/etf-ranking/replacements` persists intent-bound ETF replacement ranking artifacts on the additive strategy-lab route surface and returns the artifact envelope
+- `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}` reloads persisted intent-bound ETF replacement ranking artifacts through the same explicit artifact boundary
+- `POST /ranking/etf-replacements` preserves the legacy non-artifact response shape while still persisting the canonical replacement-ranking artifact internally
+- `GET /ranking/etf-replacements/artifacts/{artifact_id}` remains a shipped compatibility alias for artifact reload by id
 - `GET /strategy-lab/etf-ranking/artifacts/recent` exposes newest-first recent artifact discovery with optional `effective_peer_group` filtering
 - `GET /strategy-lab/etf-ranking/artifacts/recent/metadata` exposes discovered recent-run filter metadata for current consumers
 - shipped ETF ranking artifacts already carry persisted artifact identity, grouped request/effective-inputs metadata, and run-basis metadata for audit and reuse
 - the desktop `ETF Ranking` flow can reopen recent persisted runs and carry a selected ranking artifact into draft review as a current shipped workflow
+- persisted intent-bound ETF replacement ranking artifacts are the authoritative downstream truth for replacement review and reload in the shipped slice
 
 ### Optimizer preview, handoff, and replay workflow
 

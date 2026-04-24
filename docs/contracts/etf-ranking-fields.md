@@ -35,6 +35,65 @@ Current persisted artifact envelope:
   - stable persisted ETF ranking artifact identity
   - current ids use the `etf_ranking_artifact_` prefix
 
+## Intent-Bound ETF Replacement Ranking Artifact v1
+
+Routes:
+- `POST /strategy-lab/etf-ranking/replacements`
+  - additive strategy-lab alias that runs the same intent-bound ETF replacement ranking, persists the same immutable artifact, and returns the same persisted artifact contract
+- `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}`
+  - additive strategy-lab alias that reloads the same persisted replacement ranking artifact by stable `artifact_id`
+- `POST /ranking/etf-replacements`
+  - compatibility route that runs the same persisted intent-bound ETF replacement ranking flow but maps the canonical persisted result back into the legacy non-artifact POST response shape
+- `GET /ranking/etf-replacements/artifacts/{artifact_id}`
+  - compatibility alias that reloads the same persisted replacement ranking artifact by stable `artifact_id`
+
+Current persisted artifact envelope:
+- `schema_version`
+  - current value: `intent_bound_etf_replacement_ranking_artifact_v1`
+- `artifact_id`
+  - stable persisted replacement ranking artifact identity
+  - current ids use the `intent_bound_etf_replacement_ranking_artifact_` prefix
+
+Authoritative boundary rules:
+- persisted replacement artifacts are now the authoritative downstream truth for this ranking slice
+- `POST /ranking/etf-replacements` preserves the legacy external response shape; artifact identity remains an internal persistence handoff on that route
+- artifact-backed response access remains additive on `POST /strategy-lab/etf-ranking/replacements` and both artifact-load routes
+- reload is artifact-id based only; it does not reconstruct request state, run preflight validation, or perform preview/open side effects
+- validation/open/review semantics are intentionally unchanged in this slice
+- new writes are strict and canonical; no silent repair is performed for malformed present values
+- load failures remain fail-closed on missing file (`404`) and invalid json, non-object payload, schema failure, lineage contradiction, or canonical id mismatch (`400`)
+
+Grouped artifact fields:
+- `request`
+  - persisted request envelope for intent binding
+  - current fields:
+    - `replacement_intent`
+    - `seed_context`
+    - `prefer_live_data`
+    - `normalized_request`
+- `effective_inputs`
+  - canonical evaluated ranking inputs actually used by the engine
+- `run_metadata`
+  - deterministic methodology, date basis, source status, confidence, tie-break, and factor-weight metadata
+
+Intent-binding lineage fields:
+- `lineage.draft_id`
+- `lineage.workspace_id`
+- `lineage.base_node_id`
+- `lineage.base_symbol`
+- `lineage.candidate_symbol`
+- `lineage.seed_ranking_id`
+- `lineage.seed_methodology_id`
+- `lineage.seed_ranking_basis_date`
+- `lineage.peer_group`
+- `lineage.benchmark_symbol`
+- `lineage.lookback_months`
+
+Candidate payload rules:
+- `ranked_candidates[]` persists the full eligible ranked payload, including raw factors, normalized scores, and seeded lineage references
+- `excluded_candidates[]` persists the full excluded payload with explicit exclusion reasons
+- both candidate groups remain explicit; excluded names are not silently dropped
+
 ## Core Request Fields
 
 Source schema:
@@ -46,10 +105,14 @@ Source schema:
 
 ### `benchmark_symbol`
 - benchmark used for benchmark-relative strength and aligned ranking windows
+- ETF ranking routes preserve the shipped default of `SPY` when omitted
+- intent-bound replacement ranking requests remain strict and require explicit seeded benchmark agreement
 
 ### `lookback_months`
 - ranking lookback window in monthly bars
 - must be at least `1`
+- ETF ranking routes preserve the shipped default of `3` when omitted
+- intent-bound replacement ranking requests remain strict and require explicit seeded lookback agreement
 
 ### `peer_group`
 - optional request-level eligibility filter
@@ -67,6 +130,7 @@ Source schema:
 
 Source schema:
 - `services/quant-engine/app/schemas/research.py`
+- ETF-specific grouped models now compose shared ranking base contracts from `services/quant-engine/app/schemas/ranking.py`
 
 ### `request`
 - normalized request intent fields preserved for audit and downstream presentation
@@ -123,6 +187,9 @@ Source schema:
   - `price_basis`
   - `source_status`
   - `confidence`
+
+#### `run_metadata.price_basis`
+- current value is always `close` for shipped ETF ranking outputs and persisted artifacts
 
 #### `run_metadata.methodology_id`
 - stable methodology identifier for contract/audit use

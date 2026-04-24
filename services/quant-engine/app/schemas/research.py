@@ -5,6 +5,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.ranking import (
+    PersistedRankingArtifactEnvelope,
+    RankingArtifactConfidence,
+    RankingEffectiveInputsBase,
+    RankingRequestContextBase,
+    RankingRunMetadataBase,
+    RankingSourceStatus,
+)
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 
 
@@ -199,6 +207,7 @@ class EtfMomentumStrategyResponse(BaseModel):
 RankingDirection = Literal["higher_is_better", "lower_is_better"]
 RankingUnit = Literal["pct", "volume", "score"]
 EtfRankingArtifactSchemaVersion = Literal["etf_ranking_artifact_v1"]
+IntentBoundEtfReplacementRankingArtifactSchemaVersion = Literal["intent_bound_etf_replacement_ranking_artifact_v1"]
 
 
 class EtfRankingComponentWeights(BaseModel):
@@ -251,7 +260,7 @@ class EtfRankingComponentWeights(BaseModel):
 class EtfRankingRequest(BaseModel):
     universe: list[str] = Field(default_factory=list)
     benchmark_symbol: str = "SPY"
-    lookback_months: int = 6
+    lookback_months: int = Field(3, ge=1)
     prefer_live_data: bool = False
     peer_group: str | None = None
     weights: EtfRankingComponentWeights = Field(default_factory=EtfRankingComponentWeights)
@@ -302,35 +311,53 @@ class EtfRankingWarnings(BaseModel):
     peer_group_unclassified_symbols: list[str] = Field(default_factory=list)
 
 
-class EtfRankingRequestContext(BaseModel):
-    universe: list[str] = Field(default_factory=list)
-    benchmark_symbol: str
-    lookback_months: int
-    prefer_live_data: bool = False
+class EtfRankingRequestContext(RankingRequestContextBase):
+    benchmark_symbol: str | None = None
+    lookback_months: int | None = None
     peer_group: str | None = None
     weights: EtfRankingComponentWeights
 
+    @model_validator(mode="after")
+    def validate_strict_fields(self) -> "EtfRankingRequestContext":
+        if self.benchmark_symbol is None:
+            raise ValueError("benchmark_symbol is required")
+        if self.lookback_months is None:
+            raise ValueError("lookback_months is required")
+        if self.lookback_months < 1:
+            raise ValueError("lookback_months must be at least 1")
+        return self
 
-class EtfRankingEffectiveInputs(BaseModel):
-    benchmark_symbol: str
-    lookback_months: int
-    price_basis: Literal["close"] = "close"
-    requested_universe: list[str] = Field(default_factory=list)
-    evaluated_universe: list[str] = Field(default_factory=list)
+
+class EtfRankingEffectiveInputs(RankingEffectiveInputsBase):
+    benchmark_symbol: str | None = None
+    lookback_months: int | None = None
+    price_basis: str | None = "close"
     effective_peer_group: str | None = None
     effective_component_weights: EtfRankingComponentWeights
     excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def validate_strict_fields(self) -> "EtfRankingEffectiveInputs":
+        if self.benchmark_symbol is None:
+            raise ValueError("benchmark_symbol is required")
+        if self.lookback_months is None:
+            raise ValueError("lookback_months is required")
+        if self.lookback_months < 1:
+            raise ValueError("lookback_months must be at least 1")
+        if self.price_basis != "close":
+            raise ValueError("price_basis must be close")
+        return self
 
-class EtfRankingRunMetadata(BaseModel):
-    ranking_id: str
-    methodology_id: str
-    methodology: str
-    as_of_date: str
-    ranking_basis_date: str
-    price_basis: Literal["close"] = "close"
+
+class EtfRankingRunMetadata(RankingRunMetadataBase):
+    price_basis: str | None = "close"
     source_status: EtfRankingSourceStatus
-    confidence: Literal["high", "medium", "low"]
+
+    @model_validator(mode="after")
+    def validate_close_price_basis(self) -> "EtfRankingRunMetadata":
+        if self.price_basis != "close":
+            raise ValueError("price_basis must be close")
+        return self
 
 
 class EtfRankingResponse(BaseModel):
@@ -353,7 +380,7 @@ class EtfRankingResponse(BaseModel):
     excluded_symbols: list[EtfRankingExcludedSymbol] = Field(default_factory=list)
 
 
-class EtfRankingArtifact(EtfRankingResponse):
+class EtfRankingArtifact(EtfRankingResponse, PersistedRankingArtifactEnvelope):
     schema_version: EtfRankingArtifactSchemaVersion = "etf_ranking_artifact_v1"
     artifact_id: str
 
@@ -392,6 +419,8 @@ class IntentBoundReplacementIntent(BaseModel):
     seed_methodology_id: str
     seed_ranking_basis_date: str
     peer_group: str
+    benchmark_symbol: str
+    lookback_months: int = Field(..., ge=1)
 
 
 class IntentBoundSeedContext(BaseModel):
@@ -399,6 +428,8 @@ class IntentBoundSeedContext(BaseModel):
     methodology_id: str
     ranking_basis_date: str
     peer_group: str
+    benchmark_symbol: str
+    lookback_months: int = Field(..., ge=1)
     seeded_symbols: list[str] = Field(default_factory=list)
 
 
@@ -414,6 +445,51 @@ class IntentBoundEtfReplacementNormalizedRequest(BaseModel):
     seeded_symbols: list[str] = Field(default_factory=list)
     peer_group: str
     ranking_basis_date: str
+    benchmark_symbol: str
+    lookback_months: int = Field(..., ge=1)
+
+
+class IntentBoundEtfReplacementRequestContext(RankingRequestContextBase):
+    benchmark_symbol: str | None = None
+    lookback_months: int | None = None
+    base_symbol: str
+    candidate_symbol: str
+    peer_group: str
+    ranking_basis_date: str
+    seed_ranking_id: str
+    seed_methodology_id: str
+
+    @model_validator(mode="after")
+    def validate_strict_fields(self) -> "IntentBoundEtfReplacementRequestContext":
+        if self.benchmark_symbol is None:
+            raise ValueError("benchmark_symbol is required")
+        if self.lookback_months is None:
+            raise ValueError("lookback_months is required")
+        if self.lookback_months < 1:
+            raise ValueError("lookback_months must be at least 1")
+        return self
+
+
+class IntentBoundEtfReplacementEffectiveInputs(RankingEffectiveInputsBase):
+    benchmark_symbol: str | None = None
+    lookback_months: int | None = None
+    price_basis: str | None = "close"
+    base_symbol: str
+    candidate_symbol: str
+    peer_group: str
+    ranking_basis_date: str
+
+    @model_validator(mode="after")
+    def validate_strict_fields(self) -> "IntentBoundEtfReplacementEffectiveInputs":
+        if self.benchmark_symbol is None:
+            raise ValueError("benchmark_symbol is required")
+        if self.lookback_months is None:
+            raise ValueError("lookback_months is required")
+        if self.lookback_months < 1:
+            raise ValueError("lookback_months must be at least 1")
+        if self.price_basis != "close":
+            raise ValueError("price_basis must be close")
+        return self
 
 
 class IntentBoundEtfReplacementRawFactors(BaseModel):
@@ -448,14 +524,40 @@ class IntentBoundEtfReplacementCandidateRow(BaseModel):
     seed_methodology_id: str
 
 
-class IntentBoundEtfReplacementRankingRunMetadata(BaseModel):
-    ranking_id: str
-    methodology_id: str
+class IntentBoundEtfReplacementIntentLineage(BaseModel):
+    draft_id: str
+    workspace_id: str
+    base_node_id: str
+    base_symbol: str
+    candidate_symbol: str
+    seed_ranking_id: str
+    seed_methodology_id: str
+    seed_ranking_basis_date: str
+    peer_group: str
+    benchmark_symbol: str
+    lookback_months: int = Field(..., ge=1)
+
+
+class IntentBoundEtfReplacementArtifactRequest(BaseModel):
+    replacement_intent: IntentBoundReplacementIntent
+    seed_context: IntentBoundSeedContext
+    prefer_live_data: bool = False
+    normalized_request: IntentBoundEtfReplacementNormalizedRequest
+
+
+class IntentBoundEtfReplacementRankingRunMetadata(RankingRunMetadataBase):
     basis_date: str
     request_hash: str
-    source_status: Literal["sample", "live", "mixed"]
+    price_basis: str | None = "close"
+    source_status: RankingSourceStatus
     tie_break_order: list[str] = Field(default_factory=list)
     factor_weights: dict[str, float] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_close_price_basis(self) -> "IntentBoundEtfReplacementRankingRunMetadata":
+        if self.price_basis != "close":
+            raise ValueError("price_basis must be close")
+        return self
 
 
 class IntentBoundEtfReplacementRankingResponse(BaseModel):
@@ -463,8 +565,11 @@ class IntentBoundEtfReplacementRankingResponse(BaseModel):
     methodology_id: str
     basis_date: str
     status: Literal["ok", "unavailable"]
-    request: IntentBoundEtfReplacementRankingRequest
+    request: IntentBoundEtfReplacementRequestContext
+    request_context: IntentBoundEtfReplacementRequestContext
+    submitted_request: IntentBoundEtfReplacementRankingRequest
     normalized_request: IntentBoundEtfReplacementNormalizedRequest
+    effective_inputs: IntentBoundEtfReplacementEffectiveInputs
     request_hash: str
     run_metadata: IntentBoundEtfReplacementRankingRunMetadata
     eligible_count: int
@@ -473,3 +578,48 @@ class IntentBoundEtfReplacementRankingResponse(BaseModel):
     excluded_candidates: list[IntentBoundEtfReplacementCandidateRow] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     unavailable_reason: str | None = None
+
+
+class IntentBoundEtfReplacementRankingArtifact(PersistedRankingArtifactEnvelope, BaseModel):
+    schema_version: IntentBoundEtfReplacementRankingArtifactSchemaVersion = "intent_bound_etf_replacement_ranking_artifact_v1"
+    artifact_id: str
+    ranking_id: str
+    methodology_id: str
+    basis_date: str
+    status: Literal["ok", "unavailable"]
+    request: IntentBoundEtfReplacementArtifactRequest
+    request_context: IntentBoundEtfReplacementRequestContext
+    submitted_request: IntentBoundEtfReplacementRankingRequest
+    normalized_request: IntentBoundEtfReplacementNormalizedRequest
+    effective_inputs: IntentBoundEtfReplacementEffectiveInputs
+    request_hash: str
+    run_metadata: IntentBoundEtfReplacementRankingRunMetadata
+    eligible_count: int
+    excluded_count: int
+    ranked_candidates: list[IntentBoundEtfReplacementCandidateRow] = Field(default_factory=list)
+    excluded_candidates: list[IntentBoundEtfReplacementCandidateRow] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    unavailable_reason: str | None = None
+    lineage: IntentBoundEtfReplacementIntentLineage
+
+    @model_validator(mode="after")
+    def _validate_artifact_identifier(self) -> "IntentBoundEtfReplacementRankingArtifact":
+        if not self.artifact_id.startswith("intent_bound_etf_replacement_ranking_artifact_"):
+            raise ValueError(
+                "artifact_id must use the stable intent_bound_etf_replacement_ranking_artifact_ prefix"
+            )
+        if self.request.normalized_request != self.normalized_request:
+            raise ValueError("request.normalized_request must match the persisted normalized_request")
+        if self.request_context.base_symbol != self.lineage.base_symbol:
+            raise ValueError("lineage.base_symbol must match request_context.base_symbol")
+        if self.request_context.candidate_symbol != self.lineage.candidate_symbol:
+            raise ValueError("lineage.candidate_symbol must match request_context.candidate_symbol")
+        if self.request_context.seed_ranking_id != self.lineage.seed_ranking_id:
+            raise ValueError("lineage.seed_ranking_id must match request_context.seed_ranking_id")
+        if self.request_context.seed_methodology_id != self.lineage.seed_methodology_id:
+            raise ValueError("lineage.seed_methodology_id must match request_context.seed_methodology_id")
+        if self.effective_inputs.base_symbol != self.lineage.base_symbol:
+            raise ValueError("lineage.base_symbol must match effective_inputs.base_symbol")
+        if self.effective_inputs.candidate_symbol != self.lineage.candidate_symbol:
+            raise ValueError("lineage.candidate_symbol must match effective_inputs.candidate_symbol")
+        return self

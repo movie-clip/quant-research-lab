@@ -56,6 +56,26 @@ def test_etf_ranking_route_returns_ranked_universe_and_component_scores() -> Non
     assert payload["run_metadata"]["confidence"] == payload["warnings"]["confidence"]
 
 
+def test_etf_ranking_route_defaults_benchmark_symbol_and_lookback_months_when_omitted() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["benchmark_symbol"] == "SPY"
+    assert payload["lookback_months"] == 3
+    assert payload["request"]["benchmark_symbol"] == "SPY"
+    assert payload["request"]["lookback_months"] == 3
+    assert payload["effective_inputs"]["benchmark_symbol"] == "SPY"
+    assert payload["effective_inputs"]["lookback_months"] == 3
+
+
 def test_etf_ranking_post_persists_artifact_and_get_by_id_returns_same_payload(tmp_path: Path, mocker) -> None:
     mocker.patch(
         "app.services.etf_ranking_artifact_service.get_settings",
@@ -1147,6 +1167,181 @@ def test_etf_cross_sectional_momentum_route_returns_rankings_and_curve() -> None
     assert payload["leader_internals"][0]["leader_symbol"] in {"XLK", "XLI", "XLV", "XLF", "XLE"}
     assert payload["leader_internals"][0]["constituents"][0]["weighted_contribution_pct"] is not None
     assert payload["leader_internals"][0]["snapshot_date"] is not None
+
+
+def test_strategy_lab_replacement_artifact_get_returns_404_for_missing_file(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.get("/strategy-lab/etf-ranking/replacements/artifacts/intent_bound_etf_replacement_ranking_artifact_missing")
+
+    assert response.status_code == 404
+    assert "missing persisted replacement ranking artifact file" in response.json()["detail"]
+
+
+def test_strategy_lab_replacement_post_keeps_artifact_envelope_additively(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json=_replacement_ranking_request_payload(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["artifact_id"].startswith("intent_bound_etf_replacement_ranking_artifact_")
+    assert payload["schema_version"] == "intent_bound_etf_replacement_ranking_artifact_v1"
+    assert payload["lineage"]["candidate_symbol"] == "ETF1"
+
+
+def test_legacy_replacement_post_maps_persisted_artifact_back_to_legacy_shape(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/ranking/etf-replacements",
+        json=_replacement_ranking_request_payload(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ranking_id"] == "intent_bound_etf_replacement_ranking_v1"
+    assert payload["methodology_id"] == "intent_bound_etf_replacement_ranking_methodology_v1"
+    assert "artifact_id" not in payload
+    assert "schema_version" not in payload
+    assert "lineage" not in payload
+    assert payload["request_context"]["candidate_symbol"] == "ETF1"
+    assert payload["request_hash"]
+    persisted_artifacts = list(tmp_path.glob("*.json"))
+    assert len(persisted_artifacts) == 1
+    assert persisted_artifacts[0].stem.startswith("intent_bound_etf_replacement_ranking_artifact_")
+
+
+def _replacement_ranking_request_payload() -> dict[str, object]:
+    return {
+        "replacement_intent": {
+            "draft_id": "draft-1",
+            "workspace_id": "workspace-1",
+            "base_node_id": "node-1",
+            "base_symbol": "BASE",
+            "candidate_symbol": "ETF1",
+            "seed_ranking_id": "etf_ranking_engine_v1",
+            "seed_methodology_id": "etf_ranking_methodology_v1",
+            "seed_ranking_basis_date": "2025-12-31",
+            "peer_group": "Sector UCITS ETF",
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+        "seed_context": {
+            "ranking_id": "etf_ranking_engine_v1",
+            "methodology_id": "etf_ranking_methodology_v1",
+            "ranking_basis_date": "2025-12-31",
+            "peer_group": "Sector UCITS ETF",
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+            "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+        },
+    }
+
+
+def test_strategy_lab_replacement_artifact_get_returns_400_for_invalid_json(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    post_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json=_replacement_ranking_request_payload(),
+    )
+    assert post_response.status_code == 200
+    artifact_id = post_response.json()["artifact_id"]
+    (tmp_path / f"{artifact_id}.json").write_text("{not-json", encoding="utf-8")
+
+    response = client.get(f"/strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}")
+
+    assert response.status_code == 400
+    assert "invalid persisted replacement ranking artifact json" in response.json()["detail"]
+
+
+def test_strategy_lab_replacement_artifact_get_returns_400_for_non_object_payload(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    post_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json=_replacement_ranking_request_payload(),
+    )
+    assert post_response.status_code == 200
+    artifact_id = post_response.json()["artifact_id"]
+    (tmp_path / f"{artifact_id}.json").write_text("[]", encoding="utf-8")
+
+    response = client.get(f"/strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}")
+
+    assert response.status_code == 400
+    assert "payload must be a json object" in response.json()["detail"]
+
+
+def test_strategy_lab_replacement_artifact_get_returns_400_for_schema_failure(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    post_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json=_replacement_ranking_request_payload(),
+    )
+    assert post_response.status_code == 200
+    artifact_id = post_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload.pop("status")
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    response = client.get(f"/strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}")
+
+    assert response.status_code == 400
+    assert "failed schema validation" in response.json()["detail"]
+
+
+def test_strategy_lab_replacement_artifact_get_returns_400_for_integrity_failure(tmp_path: Path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    post_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json=_replacement_ranking_request_payload(),
+    )
+    assert post_response.status_code == 200
+    artifact_id = post_response.json()["artifact_id"]
+    artifact_path = tmp_path / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["artifact_id"] = "intent_bound_etf_replacement_ranking_artifact_wrong"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    response = client.get(f"/strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}")
+
+    assert response.status_code == 400
+    assert "replacement ranking artifact_id does not match canonical artifact content" in response.json()["detail"]
 
 
 def test_dashboard_exact_slice_policy_does_not_change_strategy_lab_payloads() -> None:
