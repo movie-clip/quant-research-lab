@@ -1,7 +1,19 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
-import type { EtfMomentumStrategyResponse as EtfMomentumResponse } from '../portfolio/types'
+import type {
+  CrossSectionalResearchArtifact,
+  CrossSectionalResearchArtifactProvenance,
+  CrossSectionalResearchBenchmark,
+  CrossSectionalResearchCompactSummary,
+  CrossSectionalResearchDiscoveryFilters,
+  CrossSectionalResearchRecentResponse,
+  CrossSectionalResearchRecentRow,
+  CrossSectionalResearchReloadResponse,
+  CrossSectionalResearchRequest,
+  EtfMomentumStrategyResponse as EtfMomentumResponse,
+  OptimizerAlphaFundamentalSnapshot,
+} from '../portfolio/types'
 
 const UNIVERSE_PRESETS = {
   sectors: {
@@ -26,6 +38,558 @@ type UniversePresetKey = keyof typeof UNIVERSE_PRESETS
 type LookbackUnit = 'months' | 'quarters'
 type ConstituentHeatmapMetric = 'contribution' | 'return'
 type ConstituentHistoryMode = 'selected_etf' | 'leaders_only'
+type ResearchFilterKey = keyof CrossSectionalResearchDiscoveryFilters
+
+const CROSS_SECTIONAL_RESEARCH_ARTIFACT_KIND = 'cross_sectional_research_run'
+const CROSS_SECTIONAL_RESEARCH_ARTIFACT_SCHEMA_VERSION = 'cross_sectional_research_artifact_v1'
+const CROSS_SECTIONAL_RESEARCH_RELOAD_CONTRACT_VERSION = 'cross_sectional_research_reload_v1'
+const CROSS_SECTIONAL_RESEARCH_DISCOVERY_CONTRACT_VERSION = 'cross_sectional_research_discovery_v1'
+const CROSS_SECTIONAL_RESEARCH_METHODOLOGY_ID = 'alpha_quality_v1'
+const CROSS_SECTIONAL_RESEARCH_METHODOLOGY_FAMILY_ID = 'cross_sectional_research_family_v1'
+const CROSS_SECTIONAL_RESEARCH_METHODOLOGY_VERSION = 'v1'
+const CROSS_SECTIONAL_RESEARCH_ALPHA_PACKAGE_VERSION = 'alpha_quality_v1'
+const CROSS_SECTIONAL_RESEARCH_ALPHA_METHODOLOGY_ID = 'alpha_quality_v1_methodology'
+const CROSS_SECTIONAL_RESEARCH_ALPHA_INPUT_CONTRACT_ID = 'alpha_quality_v1_pit_fundamentals_v1'
+const CROSS_SECTIONAL_RESEARCH_SCORE_BASIS = 'optimizer_alpha_package.final_score'
+const CROSS_SECTIONAL_RESEARCH_BENCHMARK_ROLE = 'descriptive_reference_only'
+const CROSS_SECTIONAL_RESEARCH_PARTITION_RULE = 'effective_date_before_holdout_start_else_holdout'
+const CROSS_SECTIONAL_RESEARCH_OUTPUT_SHAPE = 'compact_summary_only'
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_FILTER_NAMES = [
+  'artifact_kind',
+  'schema_version',
+  'methodology_id',
+  'dataset_version',
+  'universe_definition',
+  'benchmark_symbol',
+  'rebalance_date',
+  'as_of_date',
+  'holdout_start_date',
+  'methodology_family_id',
+  'methodology_family_version',
+  'active_methodology_version',
+  'alpha_package_version',
+  'alpha_methodology_id',
+  'alpha_input_contract_id',
+  'score_basis',
+  'benchmark_role',
+  'partition_rule',
+  'output_shape',
+  'artifact_status',
+  'diagnostics_status',
+  'coverage_status',
+  'input_source_kind',
+  'replay_provenance_status',
+  'benchmark_source_kind',
+  'alpha_source_kind',
+] as const satisfies CrossSectionalResearchRecentResponse['metadata']['supported_filters']
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_COMPONENT_SIGNAL_IDS = [
+  'profitability',
+  'cash_generation',
+  'accrual_quality',
+  'leverage_discipline',
+] as const satisfies CrossSectionalResearchArtifact['methodology_metadata_v1']['component_signal_ids']
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_ARTIFACT_STATUS = [
+  'complete',
+  'degraded',
+  'unknown',
+  'unsupported',
+] as const satisfies readonly CrossSectionalResearchArtifact['status_metadata_v1']['artifact_status'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_COVERAGE_STATUS = [
+  'complete',
+  'partial',
+  'unknown',
+  'unsupported',
+] as const satisfies readonly CrossSectionalResearchArtifact['status_metadata_v1']['coverage_status'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_DIAGNOSTICS_STATUS = [
+  'ok',
+  'invalid',
+  'unknown',
+  'unsupported',
+] as const satisfies readonly CrossSectionalResearchArtifact['status_metadata_v1']['diagnostics_status'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_INPUT_SOURCE_KIND = [
+  'direct_snapshot_input',
+  'replay_snapshot_input',
+  'backend_owned_other',
+  'unknown',
+  'unsupported',
+] as const satisfies readonly CrossSectionalResearchArtifact['provenance_metadata_v1']['input_source_kind'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_REPLAY_PROVENANCE_STATUS = [
+  'present',
+  'absent',
+  'unknown',
+  'unsupported',
+] as const satisfies readonly CrossSectionalResearchArtifact['provenance_metadata_v1']['replay_provenance_status'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_BENCHMARK_SOURCE_KIND = [
+  'request_benchmark_reference',
+  'unknown',
+  'unsupported',
+] as const satisfies readonly CrossSectionalResearchArtifact['provenance_metadata_v1']['benchmark_source_kind'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_ALPHA_SOURCE_KIND = [
+  'optimizer_alpha_package',
+  'unknown',
+  'unsupported',
+] as const satisfies readonly CrossSectionalResearchArtifact['provenance_metadata_v1']['alpha_source_kind'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_BENCHMARK_KIND = [
+  'reference_index',
+  'etf_proxy',
+  'custom',
+] as const satisfies readonly CrossSectionalResearchBenchmark['benchmark_kind'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_SPLIT_LABEL = [
+  'walk_forward',
+  'holdout',
+] as const satisfies readonly CrossSectionalResearchCompactSummary['split_label'][]
+
+const OPTIMIZER_ALPHA_ALLOWED_PERIOD_TYPES = [
+  'quarterly',
+  'annual',
+] as const satisfies readonly OptimizerAlphaFundamentalSnapshot['period_type'][]
+
+const OPTIMIZER_ALPHA_ALLOWED_AVAILABILITY_SEMANTICS = [
+  'available_date',
+  'publication_date',
+  'filing_date',
+  'derived_reporting_lag',
+] as const satisfies readonly NonNullable<OptimizerAlphaFundamentalSnapshot['availability_semantics']>[]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_METADATA_TRUTH = [
+  'authoritative_persisted_artifact_metadata',
+] as const satisfies readonly CrossSectionalResearchRecentResponse['metadata']['metadata_truth'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_RECENT_ORDER_BASIS = [
+  'persisted_artifact.persisted_at_then_artifact_id',
+] as const satisfies readonly CrossSectionalResearchRecentResponse['metadata']['recent_order_basis'][]
+
+const CROSS_SECTIONAL_RESEARCH_ALLOWED_METADATA_SEMANTICS = [
+  'descriptive_only',
+] as const satisfies readonly CrossSectionalResearchRecentResponse['metadata']['methodology_metadata_v1_semantics'][]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value != null && !Array.isArray(value)
+}
+
+function readRecord(value: unknown, label: string) {
+  if (!isRecord(value)) {
+    throw new Error(`${label} must be an object`)
+  }
+  return value
+}
+
+function readString(value: unknown, label: string) {
+  if (typeof value !== 'string') {
+    throw new Error(`${label} must be a string`)
+  }
+  return value
+}
+
+function readOptionalString(value: unknown, label: string) {
+  if (value == null) return null
+  return readString(value, label)
+}
+
+function readNumber(value: unknown, label: string) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new Error(`${label} must be a number`)
+  }
+  return value
+}
+
+function readOptionalNumber(value: unknown, label: string) {
+  if (value === undefined) return undefined
+  if (value == null) return null
+  return readNumber(value, label)
+}
+
+function readOptionalNullableString(value: unknown, label: string) {
+  if (value === undefined) return undefined
+  if (value == null) return null
+  return readString(value, label)
+}
+
+function readBoolean(value: unknown, label: string) {
+  if (typeof value !== 'boolean') {
+    throw new Error(`${label} must be a boolean`)
+  }
+  return value
+}
+
+function readStringArray(value: unknown, label: string) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    throw new Error(`${label} must be a string array`)
+  }
+  return value
+}
+
+function readLiteral<T extends string>(value: unknown, allowedValues: readonly T[], label: string): T {
+  const stringValue = readString(value, label)
+  if (!allowedValues.includes(stringValue as T)) {
+    throw new Error(`${label} must be one of: ${allowedValues.join(', ')}`)
+  }
+  return stringValue as T
+}
+
+function readOptionalLiteral<T extends string>(value: unknown, allowedValues: readonly T[], label: string) {
+  if (value == null) return null
+  return readLiteral(value, allowedValues, label)
+}
+
+function readOptionalNullableLiteral<T extends string>(value: unknown, allowedValues: readonly T[], label: string) {
+  if (value === undefined) return undefined
+  if (value == null) return null
+  return readLiteral(value, allowedValues, label)
+}
+
+function readLiteralArray<T extends string>(value: unknown, allowedValues: readonly T[], label: string): T[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be a string array`)
+  }
+  return value.map((item, index) => readLiteral(item, allowedValues, `${label}[${index}]`))
+}
+
+function readObjectArray(value: unknown, label: string) {
+  if (!Array.isArray(value) || value.some((item) => !isRecord(item))) {
+    throw new Error(`${label} must be an object array`)
+  }
+  return value
+}
+
+function readFundamentalSnapshot(value: unknown, label: string): OptimizerAlphaFundamentalSnapshot {
+  const record = readRecord(value, label)
+  return {
+    source_dataset: readOptionalNullableString(record.source_dataset, `${label}.source_dataset`),
+    source_record_id: readOptionalNullableString(record.source_record_id, `${label}.source_record_id`),
+    symbol: readString(record.symbol, `${label}.symbol`),
+    issuer_id: readOptionalNullableString(record.issuer_id, `${label}.issuer_id`),
+    statement_date: readString(record.statement_date, `${label}.statement_date`),
+    period_type: readLiteral(record.period_type, OPTIMIZER_ALPHA_ALLOWED_PERIOD_TYPES, `${label}.period_type`),
+    publication_date: readOptionalNullableString(record.publication_date, `${label}.publication_date`),
+    filing_date: readOptionalNullableString(record.filing_date, `${label}.filing_date`),
+    available_date: readOptionalNullableString(record.available_date, `${label}.available_date`),
+    availability_semantics: readOptionalNullableLiteral(record.availability_semantics, OPTIMIZER_ALPHA_ALLOWED_AVAILABILITY_SEMANTICS, `${label}.availability_semantics`),
+    currency: readOptionalNullableString(record.currency, `${label}.currency`),
+    total_revenue: readOptionalNumber(record.total_revenue, `${label}.total_revenue`),
+    cost_of_revenue: readOptionalNumber(record.cost_of_revenue, `${label}.cost_of_revenue`),
+    ebit: readOptionalNumber(record.ebit, `${label}.ebit`),
+    total_assets: readOptionalNumber(record.total_assets, `${label}.total_assets`),
+    operating_cash_flow: readOptionalNumber(record.operating_cash_flow, `${label}.operating_cash_flow`),
+    free_cash_flow: readOptionalNumber(record.free_cash_flow, `${label}.free_cash_flow`),
+    net_income: readOptionalNumber(record.net_income, `${label}.net_income`),
+    total_debt: readOptionalNumber(record.total_debt, `${label}.total_debt`),
+    cash_and_equivalents: readOptionalNumber(record.cash_and_equivalents, `${label}.cash_and_equivalents`),
+  }
+}
+
+function readFundamentalSnapshots(value: unknown, label: string): OptimizerAlphaFundamentalSnapshot[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`)
+  }
+  return value.map((item, index) => readFundamentalSnapshot(item, `${label}[${index}]`))
+}
+
+function readRecentMethodologyId(
+  value: unknown,
+  label: string,
+): CrossSectionalResearchRecentRow['methodology_id'] {
+  return readLiteral(value, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_ID] as const, label)
+}
+
+function readDiscoveryFilters(value: unknown, label: string): CrossSectionalResearchDiscoveryFilters {
+  const record = readRecord(value, label)
+  const artifactKind = readOptionalLiteral(record.artifact_kind, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_KIND] as const, `${label}.artifact_kind`)
+  const schemaVersion = readOptionalLiteral(record.schema_version, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_SCHEMA_VERSION] as const, `${label}.schema_version`)
+  const methodologyId = readOptionalLiteral(record.methodology_id, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_ID] as const, `${label}.methodology_id`)
+  const datasetVersion = record.dataset_version == null ? null : readString(record.dataset_version, `${label}.dataset_version`)
+  const universeDefinition = record.universe_definition == null ? null : readString(record.universe_definition, `${label}.universe_definition`)
+  const benchmarkSymbol = record.benchmark_symbol == null ? null : readString(record.benchmark_symbol, `${label}.benchmark_symbol`)
+  const rebalanceDate = record.rebalance_date == null ? null : readString(record.rebalance_date, `${label}.rebalance_date`)
+  const asOfDate = record.as_of_date == null ? null : readString(record.as_of_date, `${label}.as_of_date`)
+  const holdoutStartDate = record.holdout_start_date == null ? null : readString(record.holdout_start_date, `${label}.holdout_start_date`)
+  const methodologyFamilyId = readOptionalLiteral(record.methodology_family_id, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_FAMILY_ID] as const, `${label}.methodology_family_id`)
+  const methodologyFamilyVersion = readOptionalLiteral(record.methodology_family_version, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_VERSION] as const, `${label}.methodology_family_version`)
+  const activeMethodologyVersion = readOptionalLiteral(record.active_methodology_version, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_VERSION] as const, `${label}.active_methodology_version`)
+  const alphaPackageVersion = readOptionalLiteral(record.alpha_package_version, [CROSS_SECTIONAL_RESEARCH_ALPHA_PACKAGE_VERSION] as const, `${label}.alpha_package_version`)
+  const alphaMethodologyId = readOptionalLiteral(record.alpha_methodology_id, [CROSS_SECTIONAL_RESEARCH_ALPHA_METHODOLOGY_ID] as const, `${label}.alpha_methodology_id`)
+  const alphaInputContractId = readOptionalLiteral(record.alpha_input_contract_id, [CROSS_SECTIONAL_RESEARCH_ALPHA_INPUT_CONTRACT_ID] as const, `${label}.alpha_input_contract_id`)
+  const scoreBasis = readOptionalLiteral(record.score_basis, [CROSS_SECTIONAL_RESEARCH_SCORE_BASIS] as const, `${label}.score_basis`)
+  const benchmarkRole = readOptionalLiteral(record.benchmark_role, [CROSS_SECTIONAL_RESEARCH_BENCHMARK_ROLE] as const, `${label}.benchmark_role`)
+  const partitionRule = readOptionalLiteral(record.partition_rule, [CROSS_SECTIONAL_RESEARCH_PARTITION_RULE] as const, `${label}.partition_rule`)
+  const outputShape = readOptionalLiteral(record.output_shape, [CROSS_SECTIONAL_RESEARCH_OUTPUT_SHAPE] as const, `${label}.output_shape`)
+  const artifactStatus = readOptionalLiteral(record.artifact_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_ARTIFACT_STATUS, `${label}.artifact_status`)
+  const diagnosticsStatus = readOptionalLiteral(record.diagnostics_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_DIAGNOSTICS_STATUS, `${label}.diagnostics_status`)
+  const coverageStatus = readOptionalLiteral(record.coverage_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_COVERAGE_STATUS, `${label}.coverage_status`)
+  const inputSourceKind = readOptionalLiteral(record.input_source_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_INPUT_SOURCE_KIND, `${label}.input_source_kind`)
+  const replayProvenanceStatus = readOptionalLiteral(record.replay_provenance_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_REPLAY_PROVENANCE_STATUS, `${label}.replay_provenance_status`)
+  const benchmarkSourceKind = readOptionalLiteral(record.benchmark_source_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_BENCHMARK_SOURCE_KIND, `${label}.benchmark_source_kind`)
+  const alphaSourceKind = readOptionalLiteral(record.alpha_source_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_ALPHA_SOURCE_KIND, `${label}.alpha_source_kind`)
+  return {
+    artifact_kind: artifactKind,
+    schema_version: schemaVersion,
+    methodology_id: methodologyId,
+    dataset_version: datasetVersion,
+    universe_definition: universeDefinition,
+    benchmark_symbol: benchmarkSymbol,
+    rebalance_date: rebalanceDate,
+    as_of_date: asOfDate,
+    holdout_start_date: holdoutStartDate,
+    methodology_family_id: methodologyFamilyId,
+    methodology_family_version: methodologyFamilyVersion,
+    active_methodology_version: activeMethodologyVersion,
+    alpha_package_version: alphaPackageVersion,
+    alpha_methodology_id: alphaMethodologyId,
+    alpha_input_contract_id: alphaInputContractId,
+    score_basis: scoreBasis,
+    benchmark_role: benchmarkRole,
+    partition_rule: partitionRule,
+    output_shape: outputShape,
+    artifact_status: artifactStatus,
+    diagnostics_status: diagnosticsStatus,
+    coverage_status: coverageStatus,
+    input_source_kind: inputSourceKind,
+    replay_provenance_status: replayProvenanceStatus,
+    benchmark_source_kind: benchmarkSourceKind,
+    alpha_source_kind: alphaSourceKind,
+  }
+}
+
+function readMethodologyMetadata(value: unknown, label: string) {
+  const record = readRecord(value, label)
+  return {
+    methodology_family_id: readLiteral(record.methodology_family_id, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_FAMILY_ID] as const, `${label}.methodology_family_id`),
+    methodology_family_version: readLiteral(record.methodology_family_version, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_VERSION] as const, `${label}.methodology_family_version`),
+    active_methodology_id: readLiteral(record.active_methodology_id, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_ID] as const, `${label}.active_methodology_id`),
+    active_methodology_version: readLiteral(record.active_methodology_version, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_VERSION] as const, `${label}.active_methodology_version`),
+    alpha_package_version: readLiteral(record.alpha_package_version, [CROSS_SECTIONAL_RESEARCH_ALPHA_PACKAGE_VERSION] as const, `${label}.alpha_package_version`),
+    alpha_methodology_id: readLiteral(record.alpha_methodology_id, [CROSS_SECTIONAL_RESEARCH_ALPHA_METHODOLOGY_ID] as const, `${label}.alpha_methodology_id`),
+    alpha_input_contract_id: readLiteral(record.alpha_input_contract_id, [CROSS_SECTIONAL_RESEARCH_ALPHA_INPUT_CONTRACT_ID] as const, `${label}.alpha_input_contract_id`),
+    score_basis: readLiteral(record.score_basis, [CROSS_SECTIONAL_RESEARCH_SCORE_BASIS] as const, `${label}.score_basis`),
+    benchmark_role: readLiteral(record.benchmark_role, [CROSS_SECTIONAL_RESEARCH_BENCHMARK_ROLE] as const, `${label}.benchmark_role`),
+    partition_rule: readLiteral(record.partition_rule, [CROSS_SECTIONAL_RESEARCH_PARTITION_RULE] as const, `${label}.partition_rule`),
+    output_shape: readLiteral(record.output_shape, [CROSS_SECTIONAL_RESEARCH_OUTPUT_SHAPE] as const, `${label}.output_shape`),
+    component_signal_ids: readLiteralArray(record.component_signal_ids, CROSS_SECTIONAL_RESEARCH_ALLOWED_COMPONENT_SIGNAL_IDS, `${label}.component_signal_ids`),
+  }
+}
+
+function readStatusMetadata(value: unknown, label: string) {
+  const record = readRecord(value, label)
+  return {
+    artifact_status: readLiteral(record.artifact_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_ARTIFACT_STATUS, `${label}.artifact_status`),
+    diagnostics_status: readLiteral(record.diagnostics_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_DIAGNOSTICS_STATUS, `${label}.diagnostics_status`),
+    coverage_status: readLiteral(record.coverage_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_COVERAGE_STATUS, `${label}.coverage_status`),
+  }
+}
+
+function readProvenanceMetadata(value: unknown, label: string) {
+  const record = readRecord(value, label)
+  return {
+    input_source_kind: readLiteral(record.input_source_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_INPUT_SOURCE_KIND, `${label}.input_source_kind`),
+    replay_provenance_status: readLiteral(record.replay_provenance_status, CROSS_SECTIONAL_RESEARCH_ALLOWED_REPLAY_PROVENANCE_STATUS, `${label}.replay_provenance_status`),
+    benchmark_source_kind: readLiteral(record.benchmark_source_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_BENCHMARK_SOURCE_KIND, `${label}.benchmark_source_kind`),
+    alpha_source_kind: readLiteral(record.alpha_source_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_ALPHA_SOURCE_KIND, `${label}.alpha_source_kind`),
+  }
+}
+
+function readResearchBenchmark(value: unknown, label: string): CrossSectionalResearchBenchmark {
+  const record = readRecord(value, label)
+  return {
+    benchmark_symbol: readString(record.benchmark_symbol, `${label}.benchmark_symbol`),
+    benchmark_name: readOptionalString(record.benchmark_name, `${label}.benchmark_name`),
+    benchmark_kind: readLiteral(record.benchmark_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_BENCHMARK_KIND, `${label}.benchmark_kind`),
+  }
+}
+
+function readSummaryProvenance(value: unknown, label: string): CrossSectionalResearchCompactSummary['provenance'] {
+  const record = readRecord(value, label)
+  return {
+    alpha_package_id: readString(record.alpha_package_id, `${label}.alpha_package_id`),
+    alpha_package_version: readString(record.alpha_package_version, `${label}.alpha_package_version`),
+    alpha_methodology_id: readString(record.alpha_methodology_id, `${label}.alpha_methodology_id`),
+    input_digest: readString(record.input_digest, `${label}.input_digest`),
+    source_name: readString(record.source_name, `${label}.source_name`),
+    as_of_date: readString(record.as_of_date, `${label}.as_of_date`),
+    rebalance_date: readString(record.rebalance_date, `${label}.rebalance_date`),
+    holdout_start_date: readString(record.holdout_start_date, `${label}.holdout_start_date`),
+    benchmark_symbol: readString(record.benchmark_symbol, `${label}.benchmark_symbol`),
+    benchmark_kind: readLiteral(record.benchmark_kind, CROSS_SECTIONAL_RESEARCH_ALLOWED_BENCHMARK_KIND, `${label}.benchmark_kind`),
+    partition_rule: readString(record.partition_rule, `${label}.partition_rule`),
+  }
+}
+
+function readCompactSummary(value: unknown, label: string): CrossSectionalResearchCompactSummary {
+  const record = readRecord(value, label)
+  return {
+    split_label: readLiteral(record.split_label, CROSS_SECTIONAL_RESEARCH_ALLOWED_SPLIT_LABEL, `${label}.split_label`),
+    sample_count: readNumber(record.sample_count, `${label}.sample_count`),
+    universe_size: readNumber(record.universe_size, `${label}.universe_size`),
+    coverage_ratio: readNumber(record.coverage_ratio, `${label}.coverage_ratio`),
+    complete_coverage_ratio: readNumber(record.complete_coverage_ratio, `${label}.complete_coverage_ratio`),
+    mean_score: record.mean_score == null ? null : readNumber(record.mean_score, `${label}.mean_score`),
+    median_score: record.median_score == null ? null : readNumber(record.median_score, `${label}.median_score`),
+    positive_score_share: record.positive_score_share == null ? null : readNumber(record.positive_score_share, `${label}.positive_score_share`),
+    top_ranked_symbols: readStringArray(record.top_ranked_symbols, `${label}.top_ranked_symbols`),
+    effective_start_date: readOptionalString(record.effective_start_date, `${label}.effective_start_date`),
+    effective_end_date: readOptionalString(record.effective_end_date, `${label}.effective_end_date`),
+    provenance: readSummaryProvenance(record.provenance, `${label}.provenance`),
+  }
+}
+
+function readArtifactProvenance(value: unknown, label: string): CrossSectionalResearchArtifactProvenance {
+  const record = readRecord(value, label)
+  return {
+    source_name: readString(record.source_name, `${label}.source_name`),
+    replay_id: readOptionalString(record.replay_id, `${label}.replay_id`),
+    input_digest: readString(record.input_digest, `${label}.input_digest`),
+    alpha_input_contract_id: readLiteral(record.alpha_input_contract_id, [CROSS_SECTIONAL_RESEARCH_ALPHA_INPUT_CONTRACT_ID] as const, `${label}.alpha_input_contract_id`),
+    point_in_time_only: readBoolean(record.point_in_time_only, `${label}.point_in_time_only`),
+    alpha_package_id: readString(record.alpha_package_id, `${label}.alpha_package_id`),
+    alpha_package_version: readString(record.alpha_package_version, `${label}.alpha_package_version`),
+    alpha_diagnostics_status: readLiteral(record.alpha_diagnostics_status, ['ok', 'invalid'] as const, `${label}.alpha_diagnostics_status`),
+    coverage_ratio: readNumber(record.coverage_ratio, `${label}.coverage_ratio`),
+    complete_coverage_ratio: readNumber(record.complete_coverage_ratio, `${label}.complete_coverage_ratio`),
+    missing_snapshot_symbols: readStringArray(record.missing_snapshot_symbols, `${label}.missing_snapshot_symbols`),
+    stale_symbols: readStringArray(record.stale_symbols, `${label}.stale_symbols`),
+    lag_blocked_symbols: readStringArray(record.lag_blocked_symbols, `${label}.lag_blocked_symbols`),
+    fallback_symbols: readStringArray(record.fallback_symbols, `${label}.fallback_symbols`),
+  }
+}
+
+function readResearchRequest(value: unknown, label: string): CrossSectionalResearchRequest {
+  const record = readRecord(value, label)
+  return {
+    methodology_id: readLiteral(record.methodology_id, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_ID] as const, `${label}.methodology_id`),
+    rebalance_date: readString(record.rebalance_date, `${label}.rebalance_date`),
+    as_of_date: readString(record.as_of_date, `${label}.as_of_date`),
+    holdout_start_date: readString(record.holdout_start_date, `${label}.holdout_start_date`),
+    dataset_version: readString(record.dataset_version, `${label}.dataset_version`),
+    universe_definition: readString(record.universe_definition, `${label}.universe_definition`),
+    benchmark: readResearchBenchmark(record.benchmark, `${label}.benchmark`),
+    universe_symbols: readStringArray(record.universe_symbols, `${label}.universe_symbols`),
+    fundamental_snapshots: readFundamentalSnapshots(record.fundamental_snapshots, `${label}.fundamental_snapshots`),
+    source_name: readString(record.source_name, `${label}.source_name`),
+    replay_id: readOptionalString(record.replay_id, `${label}.replay_id`),
+    top_ranked_count: readNumber(record.top_ranked_count, `${label}.top_ranked_count`),
+  }
+}
+
+function parseCrossSectionalResearchRecentResponse(payload: unknown): CrossSectionalResearchRecentResponse {
+  const record = readRecord(payload, 'cross-sectional research recent response')
+  const metadata = readRecord(record.metadata, 'cross-sectional research recent response.metadata')
+  readLiteral(
+    metadata.contract_version,
+    [CROSS_SECTIONAL_RESEARCH_DISCOVERY_CONTRACT_VERSION] as const,
+    'cross-sectional research recent response.metadata.contract_version',
+  )
+  const appliedFilters = readDiscoveryFilters(record.applied_filters, 'cross-sectional research recent response.applied_filters')
+  const metadataAppliedFilters = readDiscoveryFilters(metadata.applied_filters, 'cross-sectional research recent response.metadata.applied_filters')
+  if (JSON.stringify(appliedFilters) !== JSON.stringify(metadataAppliedFilters)) {
+    throw new Error('Research discovery metadata applied_filters mismatch')
+  }
+  const items = readObjectArray(record.items, 'cross-sectional research recent response.items').map((item, index) => {
+    const artifactId = readString(item.artifact_id, `cross-sectional research recent response.items[${index}].artifact_id`)
+    const recentOrderArtifactId = readString(item.recent_order_artifact_id, `cross-sectional research recent response.items[${index}].recent_order_artifact_id`)
+    if (artifactId !== recentOrderArtifactId) {
+      throw new Error('Research recent row identity mismatch')
+    }
+    return {
+      artifact_id: artifactId,
+      fingerprint: readString(item.fingerprint, `cross-sectional research recent response.items[${index}].fingerprint`),
+      methodology_id: readRecentMethodologyId(item.methodology_id, `cross-sectional research recent response.items[${index}].methodology_id`),
+      methodology_metadata_v1: readMethodologyMetadata(item.methodology_metadata_v1, `cross-sectional research recent response.items[${index}].methodology_metadata_v1`),
+      status_metadata_v1: readStatusMetadata(item.status_metadata_v1, `cross-sectional research recent response.items[${index}].status_metadata_v1`),
+      provenance_metadata_v1: readProvenanceMetadata(item.provenance_metadata_v1, `cross-sectional research recent response.items[${index}].provenance_metadata_v1`),
+      dataset_version: readString(item.dataset_version, `cross-sectional research recent response.items[${index}].dataset_version`),
+      universe_definition: readString(item.universe_definition, `cross-sectional research recent response.items[${index}].universe_definition`),
+      benchmark_symbol: readString(item.benchmark_symbol, `cross-sectional research recent response.items[${index}].benchmark_symbol`),
+      recent_order_persisted_at: readString(item.recent_order_persisted_at, `cross-sectional research recent response.items[${index}].recent_order_persisted_at`),
+      recent_order_artifact_id: recentOrderArtifactId,
+      rebalance_date: readString(item.rebalance_date, `cross-sectional research recent response.items[${index}].rebalance_date`),
+      as_of_date: readString(item.as_of_date, `cross-sectional research recent response.items[${index}].as_of_date`),
+      holdout_start_date: readString(item.holdout_start_date, `cross-sectional research recent response.items[${index}].holdout_start_date`),
+      universe_size: readNumber(item.universe_size, `cross-sectional research recent response.items[${index}].universe_size`),
+      walk_forward_sample_count: readNumber(item.walk_forward_sample_count, `cross-sectional research recent response.items[${index}].walk_forward_sample_count`),
+      holdout_sample_count: readNumber(item.holdout_sample_count, `cross-sectional research recent response.items[${index}].holdout_sample_count`),
+    }
+  })
+  return {
+    items,
+    applied_filters: appliedFilters,
+    metadata: {
+      contract_version: CROSS_SECTIONAL_RESEARCH_DISCOVERY_CONTRACT_VERSION,
+      metadata_truth: readLiteral(metadata.metadata_truth, CROSS_SECTIONAL_RESEARCH_ALLOWED_METADATA_TRUTH, 'cross-sectional research recent response.metadata.metadata_truth'),
+      recent_order_basis: readLiteral(metadata.recent_order_basis, CROSS_SECTIONAL_RESEARCH_ALLOWED_RECENT_ORDER_BASIS, 'cross-sectional research recent response.metadata.recent_order_basis'),
+      supported_filters: readLiteralArray(metadata.supported_filters, CROSS_SECTIONAL_RESEARCH_ALLOWED_FILTER_NAMES, 'cross-sectional research recent response.metadata.supported_filters'),
+      methodology_metadata_v1_semantics: readLiteral(metadata.methodology_metadata_v1_semantics, CROSS_SECTIONAL_RESEARCH_ALLOWED_METADATA_SEMANTICS, 'cross-sectional research recent response.metadata.methodology_metadata_v1_semantics'),
+      status_metadata_v1_semantics: readLiteral(metadata.status_metadata_v1_semantics, CROSS_SECTIONAL_RESEARCH_ALLOWED_METADATA_SEMANTICS, 'cross-sectional research recent response.metadata.status_metadata_v1_semantics'),
+      provenance_metadata_v1_semantics: readLiteral(metadata.provenance_metadata_v1_semantics, CROSS_SECTIONAL_RESEARCH_ALLOWED_METADATA_SEMANTICS, 'cross-sectional research recent response.metadata.provenance_metadata_v1_semantics'),
+      applied_filters: metadataAppliedFilters,
+    },
+  }
+}
+
+function parseCrossSectionalResearchArtifact(value: unknown): CrossSectionalResearchArtifact {
+  const record = readRecord(value, 'cross-sectional research artifact')
+  const artifactKind = readLiteral(record.artifact_kind, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_KIND] as const, 'cross-sectional research artifact.artifact_kind')
+  const schemaVersion = readLiteral(record.schema_version, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_SCHEMA_VERSION] as const, 'cross-sectional research artifact.schema_version')
+  const request = readResearchRequest(record.request, 'cross-sectional research artifact.request')
+  const provenance = readArtifactProvenance(record.provenance, 'cross-sectional research artifact.provenance')
+  return {
+    schema_version: schemaVersion,
+    artifact_kind: artifactKind,
+    artifact_id: readString(record.artifact_id, 'cross-sectional research artifact.artifact_id'),
+    fingerprint: readString(record.fingerprint, 'cross-sectional research artifact.fingerprint'),
+    run_id: readString(record.run_id, 'cross-sectional research artifact.run_id'),
+    persisted_at: readString(record.persisted_at, 'cross-sectional research artifact.persisted_at'),
+    methodology_id: readLiteral(record.methodology_id, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_ID] as const, 'cross-sectional research artifact.methodology_id'),
+    request,
+    methodology: readString(record.methodology, 'cross-sectional research artifact.methodology'),
+    methodology_metadata_v1: readMethodologyMetadata(record.methodology_metadata_v1, 'cross-sectional research artifact.methodology_metadata_v1'),
+    status_metadata_v1: readStatusMetadata(record.status_metadata_v1, 'cross-sectional research artifact.status_metadata_v1'),
+    provenance_metadata_v1: readProvenanceMetadata(record.provenance_metadata_v1, 'cross-sectional research artifact.provenance_metadata_v1'),
+    assumptions: readStringArray(record.assumptions, 'cross-sectional research artifact.assumptions'),
+    dataset_version: readString(record.dataset_version, 'cross-sectional research artifact.dataset_version'),
+    universe_definition: readString(record.universe_definition, 'cross-sectional research artifact.universe_definition'),
+    benchmark: readResearchBenchmark(record.benchmark, 'cross-sectional research artifact.benchmark'),
+    walk_forward_summary: readCompactSummary(record.walk_forward_summary, 'cross-sectional research artifact.walk_forward_summary'),
+    holdout_summary: readCompactSummary(record.holdout_summary, 'cross-sectional research artifact.holdout_summary'),
+    provenance,
+  }
+}
+
+function parseCrossSectionalResearchReloadResponse(
+  payload: unknown,
+  requestedArtifactId: string,
+): CrossSectionalResearchReloadResponse {
+  const record = readRecord(payload, 'cross-sectional research reload response')
+  const contractVersion = readLiteral(record.contract_version, [CROSS_SECTIONAL_RESEARCH_RELOAD_CONTRACT_VERSION] as const, 'cross-sectional research reload response.contract_version')
+  const artifactId = readString(record.artifact_id, 'cross-sectional research reload response.artifact_id')
+  const requestedId = readString(record.requested_artifact_id, 'cross-sectional research reload response.requested_artifact_id')
+  const artifactKind = readLiteral(record.artifact_kind, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_KIND] as const, 'cross-sectional research reload response.artifact_kind')
+  const schemaVersion = readLiteral(record.schema_version, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_SCHEMA_VERSION] as const, 'cross-sectional research reload response.schema_version')
+  const artifact = parseCrossSectionalResearchArtifact(record.artifact)
+  if (requestedId !== requestedArtifactId || artifactId !== requestedArtifactId || artifact.artifact_id !== requestedArtifactId) {
+    throw new Error('Research artifact response identity mismatch')
+  }
+  if (artifactKind !== artifact.artifact_kind || schemaVersion !== artifact.schema_version) {
+    throw new Error('Research artifact response contract mismatch')
+  }
+  return {
+    contract_version: contractVersion,
+    requested_artifact_id: requestedId,
+    artifact_id: artifactId,
+    artifact_kind: artifactKind as CrossSectionalResearchReloadResponse['artifact_kind'],
+    schema_version: schemaVersion as CrossSectionalResearchReloadResponse['schema_version'],
+    artifact,
+  }
+}
 
 function formatPct(value: number | null | undefined) {
   return value == null ? 'N/A' : `${value.toFixed(2)}%`
@@ -172,6 +736,44 @@ function investorEconomicsHelper(
   return 'Investor-economics outputs are available on this surface.'
 }
 
+function researchStatusLabel(status: CrossSectionalResearchArtifact['status_metadata_v1']['artifact_status']) {
+  if (status === 'complete') return 'Complete'
+  if (status === 'degraded') return 'Degraded'
+  if (status === 'unknown') return 'Unknown'
+  return 'Unsupported'
+}
+
+function researchCoverageLabel(status: CrossSectionalResearchArtifact['status_metadata_v1']['coverage_status']) {
+  if (status === 'complete') return 'Coverage complete'
+  if (status === 'partial') return 'Coverage partial'
+  if (status === 'unknown') return 'Coverage unknown'
+  return 'Coverage unsupported'
+}
+
+function researchReplayLabel(status: CrossSectionalResearchArtifact['provenance_metadata_v1']['replay_provenance_status']) {
+  if (status === 'present') return 'Replay provenance present'
+  if (status === 'absent') return 'Replay provenance absent'
+  if (status === 'unknown') return 'Replay provenance unknown'
+  return 'Replay provenance unsupported'
+}
+
+function buildResearchArtifactQuery(filters: CrossSectionalResearchDiscoveryFilters) {
+  const params = new URLSearchParams({ limit: '5' })
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value == null) return
+    params.set(key, value)
+  })
+  return params.toString()
+}
+
+async function readJsonResponse<T>(response: Response, fallbackMessage: string) {
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(typeof payload === 'object' && payload != null && 'detail' in payload && typeof payload.detail === 'string' ? payload.detail : fallbackMessage)
+  }
+  return payload as T
+}
+
 function leaderCheckpointSourceLabel(status: string, snapshotDate: string | null) {
   if (status === 'live-dated') {
     return snapshotDate ? `FMP ${snapshotDate}` : 'FMP snapshot'
@@ -203,6 +805,49 @@ export function StrategyLabPanel() {
   const [refreshingHoldings, setRefreshingHoldings] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<EtfMomentumResponse | null>(null)
+  const [researchRecentLoading, setResearchRecentLoading] = useState(false)
+  const [researchRecentError, setResearchRecentError] = useState<string | null>(null)
+  const [researchRecent, setResearchRecent] = useState<CrossSectionalResearchRecentResponse | null>(null)
+  const [researchArtifactLoadingId, setResearchArtifactLoadingId] = useState<string | null>(null)
+  const [researchArtifactError, setResearchArtifactError] = useState<string | null>(null)
+  const [researchArtifact, setResearchArtifact] = useState<CrossSectionalResearchArtifact | null>(null)
+  const [researchFilters, setResearchFilters] = useState<CrossSectionalResearchDiscoveryFilters>({
+    artifact_kind: null,
+    schema_version: null,
+    methodology_id: null,
+    dataset_version: null,
+    universe_definition: null,
+    benchmark_symbol: null,
+    rebalance_date: null,
+    as_of_date: null,
+    holdout_start_date: null,
+    methodology_family_id: null,
+    methodology_family_version: null,
+    active_methodology_version: null,
+    alpha_package_version: null,
+    alpha_methodology_id: null,
+    alpha_input_contract_id: null,
+    score_basis: null,
+    benchmark_role: null,
+    partition_rule: null,
+    output_shape: null,
+    artifact_status: null,
+    diagnostics_status: null,
+    coverage_status: null,
+    input_source_kind: null,
+    replay_provenance_status: null,
+    benchmark_source_kind: null,
+    alpha_source_kind: null,
+  })
+
+  function updateResearchFilter(key: ResearchFilterKey, value: string) {
+    const normalizedValue = value.trim()
+    const nextValue = normalizedValue ? (key === 'benchmark_symbol' ? normalizedValue.toUpperCase() : normalizedValue) : null
+    setResearchFilters((current) => ({
+      ...current,
+      [key]: nextValue,
+    }))
+  }
 
   function togglePreset(key: UniversePresetKey) {
     const nextSelected = selectedPresets.includes(key)
@@ -256,6 +901,42 @@ export function StrategyLabPanel() {
     [constituentHeatmapMetric, visibleLeaderInternalsSeries],
   )
   const investorEconomicsWithheld = result?.investor_economics_status.status === 'withheld'
+
+  const activeResearchRecentRow = useMemo(() => {
+    if (!researchArtifact) return null
+    return researchRecent?.items.find((item) => item.artifact_id === researchArtifact.artifact_id) ?? null
+  }, [researchArtifact, researchRecent?.items])
+
+  async function loadRecentResearchArtifacts() {
+    setResearchRecentLoading(true)
+    setResearchRecentError(null)
+    try {
+      const response = await fetch(`${apiBase}/strategy-lab/cross-sectional-research/recent?${buildResearchArtifactQuery(researchFilters)}`)
+      const payload = await readJsonResponse<unknown>(response, 'Research recent artifacts are unavailable')
+      setResearchRecent(parseCrossSectionalResearchRecentResponse(payload))
+    } catch (caughtError) {
+      setResearchRecent(null)
+      setResearchRecentError(caughtError instanceof Error ? caughtError.message : 'Research recent artifacts are unavailable')
+    } finally {
+      setResearchRecentLoading(false)
+    }
+  }
+
+  async function loadResearchArtifact(artifactId: string) {
+    setResearchArtifactLoadingId(artifactId)
+    setResearchArtifactError(null)
+    try {
+      const response = await fetch(`${apiBase}/strategy-lab/cross-sectional-research/artifacts/${artifactId}`)
+      const payload = await readJsonResponse<unknown>(response, 'Research artifact reload failed')
+      const parsed = parseCrossSectionalResearchReloadResponse(payload, artifactId)
+      setResearchArtifact(parsed.artifact)
+    } catch (caughtError) {
+      setResearchArtifactError(caughtError instanceof Error ? caughtError.message : 'Research artifact reload failed')
+      setResearchArtifact(null)
+    } finally {
+      setResearchArtifactLoadingId(null)
+    }
+  }
 
   async function runStrategy() {
     const parsedUniverse = universe.split(',').map((item) => item.trim().toUpperCase()).filter(Boolean)
@@ -408,6 +1089,164 @@ export function StrategyLabPanel() {
         </div>
         {error ? <p className="error">{error}</p> : null}
       </div>
+
+      <section className="workspace-section">
+        <div className="section-header-inline sector-list-header">
+          <div>
+            <p className="panel-label">Research Artifacts</p>
+            <p className="helper">Recent and reload paths consume persisted artifacts only.</p>
+          </div>
+          <button className="secondary-button" type="button" onClick={() => void loadRecentResearchArtifacts()} disabled={researchRecentLoading}>
+            {researchRecentLoading ? 'Loading research artifacts...' : 'Load Research Artifacts'}
+          </button>
+        </div>
+        <div className="split-grid compact-split-grid strategy-lab-top-grid">
+          <label className="field-group">
+            <span className="field-label">Artifact Status</span>
+            <select className="path-input strategy-select" value={researchFilters.artifact_status ?? ''} onChange={(event) => updateResearchFilter('artifact_status', event.target.value)}>
+              <option value="">Any</option>
+              {CROSS_SECTIONAL_RESEARCH_ALLOWED_ARTIFACT_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="field-group">
+            <span className="field-label">Diagnostics</span>
+            <select className="path-input strategy-select" value={researchFilters.diagnostics_status ?? ''} onChange={(event) => updateResearchFilter('diagnostics_status', event.target.value)}>
+              <option value="">Any</option>
+              {CROSS_SECTIONAL_RESEARCH_ALLOWED_DIAGNOSTICS_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="field-group">
+            <span className="field-label">Coverage</span>
+            <select className="path-input strategy-select" value={researchFilters.coverage_status ?? ''} onChange={(event) => updateResearchFilter('coverage_status', event.target.value)}>
+              <option value="">Any</option>
+              {CROSS_SECTIONAL_RESEARCH_ALLOWED_COVERAGE_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="field-group">
+            <span className="field-label">Input Source</span>
+            <select className="path-input strategy-select" value={researchFilters.input_source_kind ?? ''} onChange={(event) => updateResearchFilter('input_source_kind', event.target.value)}>
+              <option value="">Any</option>
+              {CROSS_SECTIONAL_RESEARCH_ALLOWED_INPUT_SOURCE_KIND.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="field-group">
+            <span className="field-label">Replay Provenance</span>
+            <select className="path-input strategy-select" value={researchFilters.replay_provenance_status ?? ''} onChange={(event) => updateResearchFilter('replay_provenance_status', event.target.value)}>
+              <option value="">Any</option>
+              {CROSS_SECTIONAL_RESEARCH_ALLOWED_REPLAY_PROVENANCE_STATUS.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="field-group">
+            <span className="field-label">Benchmark Symbol</span>
+            <input className="path-input" value={researchFilters.benchmark_symbol ?? ''} onChange={(event) => updateResearchFilter('benchmark_symbol', event.target.value)} placeholder="SPY" />
+          </label>
+          <label className="field-group">
+            <span className="field-label">Dataset Version</span>
+            <input className="path-input" value={researchFilters.dataset_version ?? ''} onChange={(event) => updateResearchFilter('dataset_version', event.target.value)} placeholder="alpha_quality_dataset_demo_v1" />
+          </label>
+          <label className="field-group">
+            <span className="field-label">Methodology Family</span>
+            <select className="path-input strategy-select" value={researchFilters.methodology_family_id ?? ''} onChange={(event) => updateResearchFilter('methodology_family_id', event.target.value)}>
+              <option value="">Any</option>
+              <option value={CROSS_SECTIONAL_RESEARCH_METHODOLOGY_FAMILY_ID}>{CROSS_SECTIONAL_RESEARCH_METHODOLOGY_FAMILY_ID}</option>
+            </select>
+          </label>
+          <label className="field-group">
+            <span className="field-label">Alpha Package</span>
+            <select className="path-input strategy-select" value={researchFilters.alpha_package_version ?? ''} onChange={(event) => updateResearchFilter('alpha_package_version', event.target.value)}>
+              <option value="">Any</option>
+              <option value={CROSS_SECTIONAL_RESEARCH_ALPHA_PACKAGE_VERSION}>{CROSS_SECTIONAL_RESEARCH_ALPHA_PACKAGE_VERSION}</option>
+            </select>
+          </label>
+          <label className="field-group">
+            <span className="field-label">Score Basis</span>
+            <select className="path-input strategy-select" value={researchFilters.score_basis ?? ''} onChange={(event) => updateResearchFilter('score_basis', event.target.value)}>
+              <option value="">Any</option>
+              <option value={CROSS_SECTIONAL_RESEARCH_SCORE_BASIS}>{CROSS_SECTIONAL_RESEARCH_SCORE_BASIS}</option>
+            </select>
+          </label>
+        </div>
+        {researchRecentError ? <p className="error">{researchRecentError}</p> : null}
+        {researchArtifactError ? <p className="error">{researchArtifactError}</p> : null}
+        {researchRecent ? (
+          <div className="factor-snapshot-table-wrap" data-testid="research-artifact-list">
+            <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-rank-grid-wide">
+              <span>Artifact</span>
+              <span>Status</span>
+              <span>Coverage</span>
+              <span>Dataset</span>
+              <span>Persisted</span>
+              <span>Open</span>
+            </div>
+            {researchRecent.items.length ? researchRecent.items.map((item) => (
+              <div className="risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide" key={item.artifact_id}>
+                <span className="factor-snapshot-primary">{item.artifact_id}</span>
+                <span>{researchStatusLabel(item.status_metadata_v1.artifact_status)}</span>
+                <span>{researchCoverageLabel(item.status_metadata_v1.coverage_status)}</span>
+                <span>{item.dataset_version}</span>
+                <span>{item.recent_order_persisted_at}</span>
+                <span>
+                  <button
+                    className={`secondary-button${researchArtifactLoadingId === item.artifact_id ? ' button-loading' : ''}`}
+                    type="button"
+                    onClick={() => void loadResearchArtifact(item.artifact_id)}
+                    disabled={researchArtifactLoadingId === item.artifact_id}
+                  >
+                    {researchArtifactLoadingId === item.artifact_id ? 'Loading...' : researchArtifact?.artifact_id === item.artifact_id ? 'Loaded' : 'Open Artifact'}
+                  </button>
+                </span>
+              </div>
+            )) : <p className="helper">No persisted research artifacts found.</p>}
+          </div>
+        ) : null}
+        {researchArtifact ? (
+          <div className="strategy-detail-stack" data-testid="research-artifact-detail">
+            <div className="summary-card strategy-summary-card strategy-summary-card-primary">
+              <p className="stat-label">Research Status</p>
+              <p className="summary-value">{researchStatusLabel(researchArtifact.status_metadata_v1.artifact_status)}</p>
+              <p className="helper">{researchCoverageLabel(researchArtifact.status_metadata_v1.coverage_status)} · {researchReplayLabel(researchArtifact.provenance_metadata_v1.replay_provenance_status)}</p>
+            </div>
+            <div className="factor-snapshot-table-wrap">
+              <div className="section-header-inline sector-list-header strategy-detail-subheader">
+                <div>
+                  <p className="panel-label">Persisted Research Contract</p>
+                  <p className="helper">Backend-owned labels and metadata are rendered directly from the persisted artifact.</p>
+                </div>
+              </div>
+              <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-history-grid">
+                <span>Methodology</span>
+                <span>Benchmark</span>
+                <span>Input Source</span>
+                <span>Diagnostics</span>
+                <span>Persisted</span>
+              </div>
+              <div className="risk-contrib-table-grid factor-shift-data-row strategy-lab-history-grid">
+                <span>{researchArtifact.methodology_metadata_v1.active_methodology_id}</span>
+                <span>{researchArtifact.benchmark.benchmark_symbol}</span>
+                <span>{researchArtifact.provenance_metadata_v1.input_source_kind}</span>
+                <span>{researchArtifact.status_metadata_v1.diagnostics_status}</span>
+                <span>{activeResearchRecentRow?.recent_order_persisted_at ?? researchArtifact.persisted_at}</span>
+              </div>
+            </div>
+            <div className="factor-snapshot-table-wrap">
+              <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-history-grid">
+                <span>Walk-Forward</span>
+                <span>Holdout</span>
+                <span>Dataset</span>
+                <span>Universe</span>
+                <span>Artifact Kind</span>
+              </div>
+              <div className="risk-contrib-table-grid factor-shift-data-row strategy-lab-history-grid">
+                <span>{researchArtifact.walk_forward_summary.sample_count}</span>
+                <span>{researchArtifact.holdout_summary.sample_count}</span>
+                <span>{researchArtifact.dataset_version}</span>
+                <span>{researchArtifact.universe_definition}</span>
+                <span>{researchArtifact.artifact_kind}</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       {result ? (
         <>

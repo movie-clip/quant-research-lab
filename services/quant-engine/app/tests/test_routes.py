@@ -455,6 +455,69 @@ def _monitor_definition_boundary_response(client: TestClient, boundary: str, mon
     raise AssertionError(f"unsupported boundary: {boundary}")
 
 
+def _cross_sectional_research_request_payload() -> dict[str, object]:
+    return {
+        "methodology_id": "alpha_quality_v1",
+        "rebalance_date": "2024-04-15",
+        "as_of_date": "2024-04-15",
+        "holdout_start_date": "2024-01-01",
+        "dataset_version": "alpha_quality_dataset_demo_v1",
+        "universe_definition": "us_large_cap_demo_v1",
+        "benchmark": {
+            "benchmark_symbol": "SPY",
+            "benchmark_name": "SPDR S&P 500 ETF Trust",
+            "benchmark_kind": "etf_proxy",
+        },
+        "universe_symbols": ["AAA", "BBB", "CCC"],
+        "source_name": "direct_snapshot_input",
+        "fundamental_snapshots": [
+            {
+                "symbol": "AAA",
+                "statement_date": "2023-12-31",
+                "period_type": "annual",
+                "total_revenue": 1000.0,
+                "cost_of_revenue": 400.0,
+                "ebit": 200.0,
+                "total_assets": 800.0,
+                "operating_cash_flow": 180.0,
+                "free_cash_flow": 120.0,
+                "net_income": 150.0,
+                "total_debt": 160.0,
+                "cash_and_equivalents": 60.0,
+            },
+            {
+                "symbol": "BBB",
+                "statement_date": "2023-12-31",
+                "period_type": "annual",
+                "total_revenue": 950.0,
+                "cost_of_revenue": 500.0,
+                "ebit": 150.0,
+                "total_assets": 900.0,
+                "operating_cash_flow": 110.0,
+                "free_cash_flow": 80.0,
+                "net_income": 120.0,
+                "total_debt": 260.0,
+                "cash_and_equivalents": 30.0,
+            },
+            {
+                "symbol": "CCC",
+                "statement_date": "2023-12-31",
+                "period_type": "annual",
+                "total_revenue": 700.0,
+                "cost_of_revenue": 420.0,
+                "ebit": 90.0,
+                "total_assets": 850.0,
+                "operating_cash_flow": 70.0,
+                "free_cash_flow": 40.0,
+                "net_income": 115.0,
+                "total_debt": 320.0,
+                "cash_and_equivalents": 20.0,
+            },
+        ],
+        "top_ranked_count": 2,
+    }
+
+
 def test_health_route() -> None:
     client = TestClient(app)
 
@@ -1621,6 +1684,125 @@ def test_generalized_ranking_artifact_recent_route_returns_400_for_malformed_etf
 
     assert recent_response.status_code == 400
     assert "invalid persisted etf ranking recent index json" in recent_response.json()["detail"]
+
+
+def test_cross_sectional_research_routes_are_registered(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.cross_sectional_research_artifact_service.get_settings",
+        return_value=SimpleNamespace(cross_sectional_research_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    validate_response = client.post(
+        "/strategy-lab/cross-sectional-research/validate",
+        json=_cross_sectional_research_request_payload(),
+    )
+    run_response = client.post(
+        "/strategy-lab/cross-sectional-research/run",
+        json=_cross_sectional_research_request_payload(),
+    )
+
+    assert validate_response.status_code == 200
+    assert run_response.status_code == 200
+    artifact_id = run_response.json()["artifact_id"]
+
+    get_response = client.get(f"/strategy-lab/cross-sectional-research/artifacts/{artifact_id}")
+    catalog_response = client.get("/strategy-lab/cross-sectional-research/catalog")
+    recent_response = client.get("/strategy-lab/cross-sectional-research/recent")
+
+    assert get_response.status_code == 200
+    assert catalog_response.status_code == 200
+    assert recent_response.status_code == 200
+    assert get_response.json()["contract_version"] == "cross_sectional_research_reload_v1"
+    assert get_response.json()["requested_artifact_id"] == artifact_id
+    assert get_response.json()["artifact_id"] == artifact_id
+    assert get_response.json()["artifact"]["artifact_id"] == artifact_id
+    assert catalog_response.json()["items"][0]["artifact_id"] == artifact_id
+    assert recent_response.json()["items"][0]["artifact_id"] == artifact_id
+    assert catalog_response.json()["metadata"]["contract_version"] == "cross_sectional_research_discovery_v1"
+    assert recent_response.json()["metadata"]["contract_version"] == "cross_sectional_research_discovery_v1"
+    assert catalog_response.json()["metadata"]["recent_order_basis"] == "persisted_artifact.persisted_at_then_artifact_id"
+    assert catalog_response.json()["metadata"]["supported_filters"] == [
+        "artifact_kind",
+        "schema_version",
+        "methodology_id",
+        "dataset_version",
+        "universe_definition",
+        "benchmark_symbol",
+        "rebalance_date",
+        "as_of_date",
+        "holdout_start_date",
+        "methodology_family_id",
+        "methodology_family_version",
+        "active_methodology_version",
+        "alpha_package_version",
+        "alpha_methodology_id",
+        "alpha_input_contract_id",
+        "score_basis",
+        "benchmark_role",
+        "partition_rule",
+        "output_shape",
+        "artifact_status",
+        "diagnostics_status",
+        "coverage_status",
+        "input_source_kind",
+        "replay_provenance_status",
+        "benchmark_source_kind",
+        "alpha_source_kind",
+    ]
+    assert catalog_response.json()["metadata"]["methodology_metadata_v1_semantics"] == "descriptive_only"
+    assert catalog_response.json()["metadata"]["status_metadata_v1_semantics"] == "descriptive_only"
+    assert catalog_response.json()["metadata"]["provenance_metadata_v1_semantics"] == "descriptive_only"
+    assert get_response.json()["artifact"]["methodology_metadata_v1"]["active_methodology_id"] == "alpha_quality_v1"
+    assert get_response.json()["artifact"]["status_metadata_v1"] == {
+        "artifact_status": "complete",
+        "diagnostics_status": "ok",
+        "coverage_status": "complete",
+    }
+    assert set(get_response.json()["artifact"]["status_metadata_v1"]) == {
+        "artifact_status",
+        "diagnostics_status",
+        "coverage_status",
+    }
+    assert get_response.json()["artifact"]["provenance_metadata_v1"] == {
+        "input_source_kind": "direct_snapshot_input",
+        "replay_provenance_status": "absent",
+        "benchmark_source_kind": "request_benchmark_reference",
+        "alpha_source_kind": "optimizer_alpha_package",
+    }
+    assert catalog_response.json()["items"][0]["methodology_metadata_v1"]["benchmark_role"] == "descriptive_reference_only"
+    assert catalog_response.json()["items"][0]["status_metadata_v1"]["diagnostics_status"] == "ok"
+    assert catalog_response.json()["items"][0]["provenance_metadata_v1"]["benchmark_source_kind"] == "request_benchmark_reference"
+    assert recent_response.json()["items"][0]["methodology_metadata_v1"]["output_shape"] == "compact_summary_only"
+    assert recent_response.json()["items"][0]["status_metadata_v1"]["coverage_status"] == "complete"
+    assert recent_response.json()["items"][0]["provenance_metadata_v1"]["alpha_source_kind"] == "optimizer_alpha_package"
+    assert recent_response.json()["items"][0]["recent_order_artifact_id"] == artifact_id
+    assert validate_response.json()["status_metadata_v1"] == {
+        "artifact_status": "complete",
+        "diagnostics_status": "ok",
+        "coverage_status": "complete",
+    }
+    assert validate_response.json()["provenance_metadata_v1"] == {
+        "input_source_kind": "direct_snapshot_input",
+        "replay_provenance_status": "absent",
+        "benchmark_source_kind": "request_benchmark_reference",
+        "alpha_source_kind": "optimizer_alpha_package",
+    }
+
+
+def test_cross_sectional_research_missing_reload_route_returns_404(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.cross_sectional_research_artifact_service.get_settings",
+        return_value=SimpleNamespace(cross_sectional_research_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.get(
+        "/strategy-lab/cross-sectional-research/artifacts/cross_sectional_research_artifact_missing"
+    )
+
+    assert response.status_code == 404
+    assert "missing persisted cross-sectional research artifact file" in response.json()["detail"]
 
 
 def test_legacy_replacement_ranking_post_preserves_non_artifact_response_shape(tmp_path, mocker) -> None:

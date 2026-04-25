@@ -1730,6 +1730,339 @@ export type ConstructionArtifactReplayValidationResponse = {
   open_payload?: ConstructionArtifactReplayResponse | null
 }
 
+export type OptimizerAlphaPackageStatus = 'ok' | 'invalid'
+export type OptimizerAlphaFundamentalSnapshotPeriodType = 'quarterly' | 'annual'
+export type OptimizerAlphaAvailabilitySemantics = 'available_date' | 'publication_date' | 'filing_date' | 'derived_reporting_lag'
+
+export type OptimizerAlphaFundamentalSnapshot = {
+  source_dataset?: string | null
+  source_record_id?: string | null
+  symbol: string
+  issuer_id?: string | null
+  statement_date: string
+  period_type: OptimizerAlphaFundamentalSnapshotPeriodType
+  publication_date?: string | null
+  filing_date?: string | null
+  available_date?: string | null
+  availability_semantics?: OptimizerAlphaAvailabilitySemantics | null
+  currency?: string | null
+  total_revenue?: number | null
+  cost_of_revenue?: number | null
+  ebit?: number | null
+  total_assets?: number | null
+  operating_cash_flow?: number | null
+  free_cash_flow?: number | null
+  net_income?: number | null
+  total_debt?: number | null
+  cash_and_equivalents?: number | null
+}
+
+export type CrossSectionalResearchArtifactKind = 'cross_sectional_research_run'
+export type CrossSectionalResearchArtifactSchemaVersion = 'cross_sectional_research_artifact_v1'
+export type CrossSectionalResearchReloadContractVersion = 'cross_sectional_research_reload_v1'
+export type CrossSectionalResearchDiscoveryContractVersion = 'cross_sectional_research_discovery_v1'
+export type CrossSectionalResearchMethodologyId = 'alpha_quality_v1'
+export type CrossSectionalResearchRecentMethodologyId = CrossSectionalResearchMethodologyId
+export type CrossSectionalResearchMethodologyFamilyId = 'cross_sectional_research_family_v1'
+export type CrossSectionalResearchMethodologyFamilyVersion = 'v1'
+export type CrossSectionalResearchMethodologyVersion = 'v1'
+export type CrossSectionalResearchAlphaPackageVersion = 'alpha_quality_v1'
+export type CrossSectionalResearchAlphaMethodologyId = 'alpha_quality_v1_methodology'
+export type CrossSectionalResearchAlphaInputContractId = 'alpha_quality_v1_pit_fundamentals_v1'
+export type CrossSectionalResearchScoreBasis = 'optimizer_alpha_package.final_score'
+export type CrossSectionalResearchBenchmarkRole = 'descriptive_reference_only'
+export type CrossSectionalResearchPartitionRule = 'effective_date_before_holdout_start_else_holdout'
+export type CrossSectionalResearchOutputShape = 'compact_summary_only'
+export type CrossSectionalResearchArtifactStatus = 'complete' | 'degraded' | 'unknown' | 'unsupported'
+export type CrossSectionalResearchCoverageStatus = 'complete' | 'partial' | 'unknown' | 'unsupported'
+export type CrossSectionalResearchInputSourceKind =
+  | 'direct_snapshot_input'
+  | 'replay_snapshot_input'
+  | 'backend_owned_other'
+  | 'unknown'
+  | 'unsupported'
+export type CrossSectionalResearchReplayProvenanceStatus = 'present' | 'absent' | 'unknown' | 'unsupported'
+export type CrossSectionalResearchBenchmarkSourceKind = 'request_benchmark_reference' | 'unknown' | 'unsupported'
+export type CrossSectionalResearchAlphaSourceKind = 'optimizer_alpha_package' | 'unknown' | 'unsupported'
+export type CrossSectionalResearchBenchmarkKind = 'reference_index' | 'etf_proxy' | 'custom'
+export type CrossSectionalResearchSplitLabel = 'walk_forward' | 'holdout'
+export type CrossSectionalResearchMetadataTruth = 'authoritative_persisted_artifact_metadata'
+export type CrossSectionalResearchRecentOrderBasis = 'persisted_artifact.persisted_at_then_artifact_id'
+export type CrossSectionalResearchMetadataSemantics = 'descriptive_only'
+export type CrossSectionalResearchDiscoveryFilterName =
+  | 'artifact_kind'
+  | 'schema_version'
+  | 'methodology_id'
+  | 'dataset_version'
+  | 'universe_definition'
+  | 'benchmark_symbol'
+  | 'rebalance_date'
+  | 'as_of_date'
+  | 'holdout_start_date'
+  | 'methodology_family_id'
+  | 'methodology_family_version'
+  | 'active_methodology_version'
+  | 'alpha_package_version'
+  | 'alpha_methodology_id'
+  | 'alpha_input_contract_id'
+  | 'score_basis'
+  | 'benchmark_role'
+  | 'partition_rule'
+  | 'output_shape'
+  | 'artifact_status'
+  | 'diagnostics_status'
+  | 'coverage_status'
+  | 'input_source_kind'
+  | 'replay_provenance_status'
+  | 'benchmark_source_kind'
+  | 'alpha_source_kind'
+export type CrossSectionalResearchMethodologyComponentId =
+  | 'profitability'
+  | 'cash_generation'
+  | 'accrual_quality'
+  | 'leverage_discipline'
+
+export type CrossSectionalResearchMethodologyMetadataV1 = {
+  methodology_family_id: CrossSectionalResearchMethodologyFamilyId
+  methodology_family_version: CrossSectionalResearchMethodologyFamilyVersion
+  active_methodology_id: CrossSectionalResearchMethodologyId
+  active_methodology_version: CrossSectionalResearchMethodologyVersion
+  alpha_package_version: CrossSectionalResearchAlphaPackageVersion
+  alpha_methodology_id: CrossSectionalResearchAlphaMethodologyId
+  alpha_input_contract_id: CrossSectionalResearchAlphaInputContractId
+  score_basis: CrossSectionalResearchScoreBasis
+  benchmark_role: CrossSectionalResearchBenchmarkRole
+  partition_rule: CrossSectionalResearchPartitionRule
+  output_shape: CrossSectionalResearchOutputShape
+  component_signal_ids: CrossSectionalResearchMethodologyComponentId[]
+}
+
+export type CrossSectionalResearchBenchmark = {
+  benchmark_symbol: string
+  benchmark_name: string | null
+  benchmark_kind: CrossSectionalResearchBenchmarkKind
+}
+
+export type CrossSectionalResearchRequest = {
+  methodology_id: CrossSectionalResearchMethodologyId
+  rebalance_date: string
+  as_of_date: string
+  holdout_start_date: string
+  dataset_version: string
+  universe_definition: string
+  benchmark: CrossSectionalResearchBenchmark
+  universe_symbols: string[]
+  fundamental_snapshots: OptimizerAlphaFundamentalSnapshot[]
+  source_name: string
+  replay_id: string | null
+  top_ranked_count: number
+}
+
+export type CrossSectionalResearchSummaryProvenance = {
+  alpha_package_id: string
+  alpha_package_version: string
+  alpha_methodology_id: string
+  input_digest: string
+  source_name: string
+  as_of_date: string
+  rebalance_date: string
+  holdout_start_date: string
+  benchmark_symbol: string
+  benchmark_kind: CrossSectionalResearchBenchmarkKind
+  partition_rule: string
+}
+
+export type CrossSectionalResearchCompactSummary = {
+  split_label: CrossSectionalResearchSplitLabel
+  sample_count: number
+  universe_size: number
+  coverage_ratio: number
+  complete_coverage_ratio: number
+  mean_score: number | null
+  median_score: number | null
+  positive_score_share: number | null
+  top_ranked_symbols: string[]
+  effective_start_date: string | null
+  effective_end_date: string | null
+  provenance: CrossSectionalResearchSummaryProvenance
+}
+
+export type CrossSectionalResearchArtifactProvenance = {
+  source_name: string
+  replay_id: string | null
+  input_digest: string
+  alpha_input_contract_id: CrossSectionalResearchAlphaInputContractId
+  point_in_time_only: boolean
+  alpha_package_id: string
+  alpha_package_version: string
+  alpha_diagnostics_status: OptimizerAlphaPackageStatus
+  coverage_ratio: number
+  complete_coverage_ratio: number
+  missing_snapshot_symbols: string[]
+  stale_symbols: string[]
+  lag_blocked_symbols: string[]
+  fallback_symbols: string[]
+}
+
+export type CrossSectionalResearchStatusMetadataV1 = {
+  artifact_status: CrossSectionalResearchArtifactStatus
+  diagnostics_status: OptimizerAlphaPackageStatus | 'unknown' | 'unsupported'
+  coverage_status: CrossSectionalResearchCoverageStatus
+}
+
+export type CrossSectionalResearchProvenanceMetadataV1 = {
+  input_source_kind: CrossSectionalResearchInputSourceKind
+  replay_provenance_status: CrossSectionalResearchReplayProvenanceStatus
+  benchmark_source_kind: CrossSectionalResearchBenchmarkSourceKind
+  alpha_source_kind: CrossSectionalResearchAlphaSourceKind
+}
+
+export type CrossSectionalResearchValidationResponse = {
+  valid: true
+  artifact_kind: CrossSectionalResearchArtifactKind
+  schema_version: CrossSectionalResearchArtifactSchemaVersion
+  would_persist_artifact_id: string
+  would_persist_fingerprint: string
+  normalized_request: CrossSectionalResearchRequest
+  methodology: string
+  methodology_metadata_v1: CrossSectionalResearchMethodologyMetadataV1
+  status_metadata_v1: CrossSectionalResearchStatusMetadataV1
+  provenance_metadata_v1: CrossSectionalResearchProvenanceMetadataV1
+  assumptions: string[]
+  dataset_version: string
+  universe_definition: string
+  benchmark: CrossSectionalResearchBenchmark
+  walk_forward_summary: CrossSectionalResearchCompactSummary
+  holdout_summary: CrossSectionalResearchCompactSummary
+  provenance: CrossSectionalResearchArtifactProvenance
+}
+
+export type CrossSectionalResearchArtifact = {
+  schema_version: CrossSectionalResearchArtifactSchemaVersion
+  artifact_kind: CrossSectionalResearchArtifactKind
+  artifact_id: string
+  fingerprint: string
+  run_id: string
+  persisted_at: string
+  methodology_id: CrossSectionalResearchMethodologyId
+  request: CrossSectionalResearchRequest
+  methodology: string
+  methodology_metadata_v1: CrossSectionalResearchMethodologyMetadataV1
+  status_metadata_v1: CrossSectionalResearchStatusMetadataV1
+  provenance_metadata_v1: CrossSectionalResearchProvenanceMetadataV1
+  assumptions: string[]
+  dataset_version: string
+  universe_definition: string
+  benchmark: CrossSectionalResearchBenchmark
+  walk_forward_summary: CrossSectionalResearchCompactSummary
+  holdout_summary: CrossSectionalResearchCompactSummary
+  provenance: CrossSectionalResearchArtifactProvenance
+}
+
+export type CrossSectionalResearchReloadResponse = {
+  contract_version: CrossSectionalResearchReloadContractVersion
+  requested_artifact_id: string
+  artifact_id: string
+  artifact_kind: CrossSectionalResearchArtifactKind
+  schema_version: CrossSectionalResearchArtifactSchemaVersion
+  artifact: CrossSectionalResearchArtifact
+}
+
+export type CrossSectionalResearchCatalogRow = {
+  artifact_id: string
+  fingerprint: string
+  artifact_kind: CrossSectionalResearchArtifactKind
+  schema_version: CrossSectionalResearchArtifactSchemaVersion
+  methodology_id: CrossSectionalResearchMethodologyId
+  methodology_metadata_v1: CrossSectionalResearchMethodologyMetadataV1
+  status_metadata_v1: CrossSectionalResearchStatusMetadataV1
+  provenance_metadata_v1: CrossSectionalResearchProvenanceMetadataV1
+  dataset_version: string
+  universe_definition: string
+  benchmark_symbol: string
+  as_of_date: string
+  rebalance_date: string
+  holdout_start_date: string
+  recent_order_persisted_at: string
+  recent_order_artifact_id: string
+  universe_size: number
+  walk_forward_sample_count: number
+  holdout_sample_count: number
+  alpha_diagnostics_status: OptimizerAlphaPackageStatus
+}
+
+export type CrossSectionalResearchRecentRow = {
+  artifact_id: string
+  fingerprint: string
+  methodology_id: CrossSectionalResearchRecentMethodologyId
+  methodology_metadata_v1: CrossSectionalResearchMethodologyMetadataV1
+  status_metadata_v1: CrossSectionalResearchStatusMetadataV1
+  provenance_metadata_v1: CrossSectionalResearchProvenanceMetadataV1
+  dataset_version: string
+  universe_definition: string
+  benchmark_symbol: string
+  recent_order_persisted_at: string
+  recent_order_artifact_id: string
+  rebalance_date: string
+  as_of_date: string
+  holdout_start_date: string
+  universe_size: number
+  walk_forward_sample_count: number
+  holdout_sample_count: number
+}
+
+export type CrossSectionalResearchDiscoveryFilters = {
+  artifact_kind: CrossSectionalResearchArtifactKind | null
+  schema_version: CrossSectionalResearchArtifactSchemaVersion | null
+  methodology_id: CrossSectionalResearchMethodologyId | null
+  dataset_version: string | null
+  universe_definition: string | null
+  benchmark_symbol: string | null
+  rebalance_date: string | null
+  as_of_date: string | null
+  holdout_start_date: string | null
+  methodology_family_id: CrossSectionalResearchMethodologyFamilyId | null
+  methodology_family_version: CrossSectionalResearchMethodologyFamilyVersion | null
+  active_methodology_version: CrossSectionalResearchMethodologyVersion | null
+  alpha_package_version: CrossSectionalResearchAlphaPackageVersion | null
+  alpha_methodology_id: CrossSectionalResearchAlphaMethodologyId | null
+  alpha_input_contract_id: CrossSectionalResearchAlphaInputContractId | null
+  score_basis: CrossSectionalResearchScoreBasis | null
+  benchmark_role: CrossSectionalResearchBenchmarkRole | null
+  partition_rule: CrossSectionalResearchPartitionRule | null
+  output_shape: CrossSectionalResearchOutputShape | null
+  artifact_status: CrossSectionalResearchArtifactStatus | null
+  diagnostics_status: OptimizerAlphaPackageStatus | 'unknown' | 'unsupported' | null
+  coverage_status: CrossSectionalResearchCoverageStatus | null
+  input_source_kind: CrossSectionalResearchInputSourceKind | null
+  replay_provenance_status: CrossSectionalResearchReplayProvenanceStatus | null
+  benchmark_source_kind: CrossSectionalResearchBenchmarkSourceKind | null
+  alpha_source_kind: CrossSectionalResearchAlphaSourceKind | null
+}
+
+export type CrossSectionalResearchDiscoveryMetadata = {
+  contract_version: CrossSectionalResearchDiscoveryContractVersion
+  metadata_truth: CrossSectionalResearchMetadataTruth
+  recent_order_basis: CrossSectionalResearchRecentOrderBasis
+  supported_filters: CrossSectionalResearchDiscoveryFilterName[]
+  methodology_metadata_v1_semantics: CrossSectionalResearchMetadataSemantics
+  status_metadata_v1_semantics: CrossSectionalResearchMetadataSemantics
+  provenance_metadata_v1_semantics: CrossSectionalResearchMetadataSemantics
+  applied_filters: CrossSectionalResearchDiscoveryFilters
+}
+
+export type CrossSectionalResearchCatalogResponse = {
+  items: CrossSectionalResearchCatalogRow[]
+  applied_filters: CrossSectionalResearchDiscoveryFilters
+  metadata: CrossSectionalResearchDiscoveryMetadata
+}
+
+export type CrossSectionalResearchRecentResponse = {
+  items: CrossSectionalResearchRecentRow[]
+  applied_filters: CrossSectionalResearchDiscoveryFilters
+  metadata: CrossSectionalResearchDiscoveryMetadata
+}
+
 export type ConstructionArtifactReplayResponse = {
   construction_artifact_id: string
   truth_separation: ConstructionArtifactReplayTruthSeparation

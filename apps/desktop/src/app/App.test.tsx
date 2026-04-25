@@ -891,6 +891,57 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('ETF ranking workspace')).toBeTruthy())
   })
 
+  it('shows the strategy lab research artifact consumer workspace', async () => {
+    installFetchMock(async (input) => {
+      const pathname = requestPathname(input)
+      if (pathname === '/api/strategy-lab/cross-sectional-research/recent') {
+        return jsonResponse({
+          items: [],
+          applied_filters: {
+            artifact_kind: null,
+            schema_version: null,
+            methodology_id: null,
+            dataset_version: null,
+            universe_definition: null,
+            benchmark_symbol: null,
+            rebalance_date: null,
+            as_of_date: null,
+            holdout_start_date: null,
+          },
+          metadata: {
+            contract_version: 'cross_sectional_research_discovery_v1',
+            metadata_truth: 'authoritative_persisted_artifact_metadata',
+            recent_order_basis: 'persisted_artifact.persisted_at_then_artifact_id',
+            supported_filters: ['artifact_kind', 'schema_version', 'methodology_id', 'dataset_version', 'universe_definition', 'benchmark_symbol', 'rebalance_date', 'as_of_date', 'holdout_start_date'],
+            methodology_metadata_v1_semantics: 'descriptive_only',
+            status_metadata_v1_semantics: 'descriptive_only',
+            provenance_metadata_v1_semantics: 'descriptive_only',
+            applied_filters: {
+              artifact_kind: null,
+              schema_version: null,
+              methodology_id: null,
+              dataset_version: null,
+              universe_definition: null,
+              benchmark_symbol: null,
+              rebalance_date: null,
+              as_of_date: null,
+              holdout_start_date: null,
+            },
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch ${pathname}`)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Strategy Lab'))
+
+    await waitFor(() => expect(screen.getByText('ETF cross-sectional momentum')).toBeTruthy())
+    fireEvent.click(screen.getByText('Load Research Artifacts'))
+    await waitFor(() => expect(screen.getByText('No persisted research artifacts found.')).toBeTruthy())
+  })
+
   it('shows trend and risk overlays above diagnostics on the diagnostics tab', async () => {
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))

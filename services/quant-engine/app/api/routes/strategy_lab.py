@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, NoReturn
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, ValidationError
@@ -12,6 +12,13 @@ from app.schemas.ranking import (
     RankingArtifactRecencySameDayProvenance,
 )
 from app.schemas.research import (
+    CrossSectionalResearchArtifact,
+    CrossSectionalResearchCatalogResponse,
+    CrossSectionalResearchDiscoveryFilters,
+    CrossSectionalResearchRecentResponse,
+    CrossSectionalResearchReloadResponse,
+    CrossSectionalResearchRequest,
+    CrossSectionalResearchValidationResponse,
     EtfMomentumStrategyResponse,
     EtfRankingArtifact,
     EtfRankingArtifactRecentMetadata,
@@ -22,6 +29,22 @@ from app.schemas.research import (
     IntentBoundEtfReplacementRankingResponse,
     RankingArtifactCatalogListResponse,
     RankingArtifactDiscoveryFilters,
+)
+from app.services.cross_sectional_research_artifact_service import (
+    CrossSectionalResearchArtifactIntegrityValidationError,
+    CrossSectionalResearchArtifactInvalidJsonError,
+    CrossSectionalResearchArtifactMissingFileError,
+    CrossSectionalResearchArtifactNonObjectPayloadError,
+    CrossSectionalResearchArtifactPersistenceError,
+    CrossSectionalResearchArtifactSchemaValidationError,
+    list_cross_sectional_research_catalog,
+    list_recent_cross_sectional_research_artifacts,
+    load_cross_sectional_research_artifact,
+    persist_cross_sectional_research_artifact,
+)
+from app.services.cross_sectional_research_service import (
+    build_cross_sectional_research_artifact,
+    build_cross_sectional_research_validation,
 )
 from app.services.market_data import MarketDataService
 from app.services.etf_ranking_artifact_service import (
@@ -69,6 +92,19 @@ from app.services.strategy_lab import (
 router = APIRouter(tags=["strategy-lab"])
 
 
+def _validation_error_detail(exc: ValidationError, fallback: str) -> str:
+    detail = exc.errors()[0].get("msg", fallback) if exc.errors() else fallback
+    if isinstance(detail, str) and detail.startswith("Value error, "):
+        return detail[len("Value error, ") :]
+    return str(detail)
+
+
+def _raise_cross_sectional_research_http_error(exc: Exception, *, fallback: str) -> NoReturn:
+    if isinstance(exc, ValidationError):
+        raise HTTPException(status_code=400, detail=_validation_error_detail(exc, fallback)) from exc
+    raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 def _build_ranking_artifact_discovery_filters(
     *,
     artifact_kind: str | None,
@@ -108,12 +144,84 @@ def _build_ranking_artifact_discovery_filters(
             basis_date=basis_date,
         )
     except ValidationError as exc:
-        detail = exc.errors()[0].get("msg", "invalid ranking artifact discovery filters") if exc.errors() else (
-            "invalid ranking artifact discovery filters"
+        raise HTTPException(
+            status_code=400,
+            detail=_validation_error_detail(exc, "invalid ranking artifact discovery filters"),
+        ) from exc
+
+
+def _build_cross_sectional_research_filters(
+    *,
+    artifact_kind: str | None,
+    schema_version: str | None,
+    methodology_id: str | None,
+    dataset_version: str | None,
+    universe_definition: str | None,
+    benchmark_symbol: str | None,
+    rebalance_date: str | None,
+    as_of_date: str | None,
+    holdout_start_date: str | None,
+    methodology_family_id: str | None,
+    methodology_family_version: str | None,
+    active_methodology_version: str | None,
+    alpha_package_version: str | None,
+    alpha_methodology_id: str | None,
+    alpha_input_contract_id: str | None,
+    score_basis: str | None,
+    benchmark_role: str | None,
+    partition_rule: str | None,
+    output_shape: str | None,
+    artifact_status: Literal["complete", "degraded", "unknown", "unsupported"] | None,
+    diagnostics_status: Literal["ok", "invalid", "unknown", "unsupported"] | None,
+    coverage_status: Literal["complete", "partial", "unknown", "unsupported"] | None,
+    input_source_kind: Literal[
+        "direct_snapshot_input",
+        "replay_snapshot_input",
+        "backend_owned_other",
+        "unknown",
+        "unsupported",
+    ]
+    | None,
+    replay_provenance_status: Literal["present", "absent", "unknown", "unsupported"] | None,
+    benchmark_source_kind: Literal["request_benchmark_reference", "unknown", "unsupported"] | None,
+    alpha_source_kind: Literal["optimizer_alpha_package", "unknown", "unsupported"] | None,
+) -> CrossSectionalResearchDiscoveryFilters:
+    try:
+        return CrossSectionalResearchDiscoveryFilters.model_validate(
+            {
+                "artifact_kind": artifact_kind,
+                "schema_version": schema_version,
+                "methodology_id": methodology_id,
+                "dataset_version": dataset_version,
+                "universe_definition": universe_definition,
+                "benchmark_symbol": benchmark_symbol,
+                "rebalance_date": rebalance_date,
+                "as_of_date": as_of_date,
+                "holdout_start_date": holdout_start_date,
+                "methodology_family_id": methodology_family_id,
+                "methodology_family_version": methodology_family_version,
+                "active_methodology_version": active_methodology_version,
+                "alpha_package_version": alpha_package_version,
+                "alpha_methodology_id": alpha_methodology_id,
+                "alpha_input_contract_id": alpha_input_contract_id,
+                "score_basis": score_basis,
+                "benchmark_role": benchmark_role,
+                "partition_rule": partition_rule,
+                "output_shape": output_shape,
+                "artifact_status": artifact_status,
+                "diagnostics_status": diagnostics_status,
+                "coverage_status": coverage_status,
+                "input_source_kind": input_source_kind,
+                "replay_provenance_status": replay_provenance_status,
+                "benchmark_source_kind": benchmark_source_kind,
+                "alpha_source_kind": alpha_source_kind,
+            }
         )
-        if isinstance(detail, str) and detail.startswith("Value error, "):
-            detail = detail[len("Value error, ") :]
-        raise HTTPException(status_code=400, detail=detail) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=_validation_error_detail(exc, "invalid cross-sectional research discovery filters"),
+        ) from exc
 
 
 class EtfMomentumRequest(BaseModel):
@@ -130,6 +238,233 @@ class HoldingsRefreshRequest(BaseModel):
 
 class HoldingsRefreshResponse(BaseModel):
     refreshed: list[dict[str, int | str | None]] = Field(default_factory=list)
+
+
+@router.post(
+    "/strategy-lab/cross-sectional-research/validate",
+    response_model=CrossSectionalResearchValidationResponse,
+)
+def validate_cross_sectional_research_run(
+    request: CrossSectionalResearchRequest,
+) -> CrossSectionalResearchValidationResponse:
+    try:
+        return build_cross_sectional_research_validation(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/strategy-lab/cross-sectional-research/run",
+    response_model=CrossSectionalResearchArtifact,
+)
+def run_cross_sectional_research(request: CrossSectionalResearchRequest) -> CrossSectionalResearchArtifact:
+    try:
+        artifact = build_cross_sectional_research_artifact(request)
+        return persist_cross_sectional_research_artifact(artifact)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/strategy-lab/cross-sectional-research/artifacts/{artifact_id}",
+    response_model=CrossSectionalResearchReloadResponse,
+)
+def get_cross_sectional_research_artifact(artifact_id: str) -> CrossSectionalResearchReloadResponse:
+    try:
+        artifact = load_cross_sectional_research_artifact(artifact_id)
+        return CrossSectionalResearchReloadResponse(
+            requested_artifact_id=artifact_id,
+            artifact_id=artifact.artifact_id,
+            artifact_kind=artifact.artifact_kind,
+            schema_version=artifact.schema_version,
+            artifact=artifact,
+        )
+    except CrossSectionalResearchArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        ValidationError,
+        CrossSectionalResearchArtifactInvalidJsonError,
+        CrossSectionalResearchArtifactNonObjectPayloadError,
+        CrossSectionalResearchArtifactSchemaValidationError,
+        CrossSectionalResearchArtifactIntegrityValidationError,
+        CrossSectionalResearchArtifactPersistenceError,
+    ) as exc:
+        _raise_cross_sectional_research_http_error(
+            exc,
+            fallback="invalid cross-sectional research reload response",
+        )
+
+
+@router.get(
+    "/strategy-lab/cross-sectional-research/catalog",
+    response_model=CrossSectionalResearchCatalogResponse,
+)
+def get_cross_sectional_research_catalog(
+    artifact_kind: str | None = Query(None),
+    schema_version: str | None = Query(None),
+    methodology_id: str | None = Query(None),
+    dataset_version: str | None = Query(None),
+    universe_definition: str | None = Query(None),
+    benchmark_symbol: str | None = Query(None),
+    rebalance_date: str | None = Query(None),
+    as_of_date: str | None = Query(None),
+    holdout_start_date: str | None = Query(None),
+    methodology_family_id: str | None = Query(None),
+    methodology_family_version: str | None = Query(None),
+    active_methodology_version: str | None = Query(None),
+    alpha_package_version: str | None = Query(None),
+    alpha_methodology_id: str | None = Query(None),
+    alpha_input_contract_id: str | None = Query(None),
+    score_basis: str | None = Query(None),
+    benchmark_role: str | None = Query(None),
+    partition_rule: str | None = Query(None),
+    output_shape: str | None = Query(None),
+    artifact_status: Literal["complete", "degraded", "unknown", "unsupported"] | None = Query(None),
+    diagnostics_status: Literal["ok", "invalid", "unknown", "unsupported"] | None = Query(None),
+    coverage_status: Literal["complete", "partial", "unknown", "unsupported"] | None = Query(None),
+    input_source_kind: Literal[
+        "direct_snapshot_input",
+        "replay_snapshot_input",
+        "backend_owned_other",
+        "unknown",
+        "unsupported",
+    ]
+    | None = Query(None),
+    replay_provenance_status: Literal["present", "absent", "unknown", "unsupported"] | None = Query(None),
+    benchmark_source_kind: Literal["request_benchmark_reference", "unknown", "unsupported"] | None = Query(None),
+    alpha_source_kind: Literal["optimizer_alpha_package", "unknown", "unsupported"] | None = Query(None),
+) -> CrossSectionalResearchCatalogResponse:
+    filters = _build_cross_sectional_research_filters(
+        artifact_kind=artifact_kind,
+        schema_version=schema_version,
+        methodology_id=methodology_id,
+        dataset_version=dataset_version,
+        universe_definition=universe_definition,
+        benchmark_symbol=benchmark_symbol,
+        rebalance_date=rebalance_date,
+        as_of_date=as_of_date,
+        holdout_start_date=holdout_start_date,
+        methodology_family_id=methodology_family_id,
+        methodology_family_version=methodology_family_version,
+        active_methodology_version=active_methodology_version,
+        alpha_package_version=alpha_package_version,
+        alpha_methodology_id=alpha_methodology_id,
+        alpha_input_contract_id=alpha_input_contract_id,
+        score_basis=score_basis,
+        benchmark_role=benchmark_role,
+        partition_rule=partition_rule,
+        output_shape=output_shape,
+        artifact_status=artifact_status,
+        diagnostics_status=diagnostics_status,
+        coverage_status=coverage_status,
+        input_source_kind=input_source_kind,
+        replay_provenance_status=replay_provenance_status,
+        benchmark_source_kind=benchmark_source_kind,
+        alpha_source_kind=alpha_source_kind,
+    )
+    try:
+        return list_cross_sectional_research_catalog(
+            filters=filters
+        )
+    except (
+        ValidationError,
+        CrossSectionalResearchArtifactInvalidJsonError,
+        CrossSectionalResearchArtifactNonObjectPayloadError,
+        CrossSectionalResearchArtifactSchemaValidationError,
+        CrossSectionalResearchArtifactIntegrityValidationError,
+        CrossSectionalResearchArtifactPersistenceError,
+    ) as exc:
+        _raise_cross_sectional_research_http_error(
+            exc,
+            fallback="invalid cross-sectional research catalog response",
+        )
+
+
+@router.get(
+    "/strategy-lab/cross-sectional-research/recent",
+    response_model=CrossSectionalResearchRecentResponse,
+)
+def get_recent_cross_sectional_research_runs(
+    limit: int = Query(20, ge=1, le=100),
+    artifact_kind: str | None = Query(None),
+    schema_version: str | None = Query(None),
+    methodology_id: str | None = Query(None),
+    dataset_version: str | None = Query(None),
+    universe_definition: str | None = Query(None),
+    benchmark_symbol: str | None = Query(None),
+    rebalance_date: str | None = Query(None),
+    as_of_date: str | None = Query(None),
+    holdout_start_date: str | None = Query(None),
+    methodology_family_id: str | None = Query(None),
+    methodology_family_version: str | None = Query(None),
+    active_methodology_version: str | None = Query(None),
+    alpha_package_version: str | None = Query(None),
+    alpha_methodology_id: str | None = Query(None),
+    alpha_input_contract_id: str | None = Query(None),
+    score_basis: str | None = Query(None),
+    benchmark_role: str | None = Query(None),
+    partition_rule: str | None = Query(None),
+    output_shape: str | None = Query(None),
+    artifact_status: Literal["complete", "degraded", "unknown", "unsupported"] | None = Query(None),
+    diagnostics_status: Literal["ok", "invalid", "unknown", "unsupported"] | None = Query(None),
+    coverage_status: Literal["complete", "partial", "unknown", "unsupported"] | None = Query(None),
+    input_source_kind: Literal[
+        "direct_snapshot_input",
+        "replay_snapshot_input",
+        "backend_owned_other",
+        "unknown",
+        "unsupported",
+    ]
+    | None = Query(None),
+    replay_provenance_status: Literal["present", "absent", "unknown", "unsupported"] | None = Query(None),
+    benchmark_source_kind: Literal["request_benchmark_reference", "unknown", "unsupported"] | None = Query(None),
+    alpha_source_kind: Literal["optimizer_alpha_package", "unknown", "unsupported"] | None = Query(None),
+) -> CrossSectionalResearchRecentResponse:
+    filters = _build_cross_sectional_research_filters(
+        artifact_kind=artifact_kind,
+        schema_version=schema_version,
+        methodology_id=methodology_id,
+        dataset_version=dataset_version,
+        universe_definition=universe_definition,
+        benchmark_symbol=benchmark_symbol,
+        rebalance_date=rebalance_date,
+        as_of_date=as_of_date,
+        holdout_start_date=holdout_start_date,
+        methodology_family_id=methodology_family_id,
+        methodology_family_version=methodology_family_version,
+        active_methodology_version=active_methodology_version,
+        alpha_package_version=alpha_package_version,
+        alpha_methodology_id=alpha_methodology_id,
+        alpha_input_contract_id=alpha_input_contract_id,
+        score_basis=score_basis,
+        benchmark_role=benchmark_role,
+        partition_rule=partition_rule,
+        output_shape=output_shape,
+        artifact_status=artifact_status,
+        diagnostics_status=diagnostics_status,
+        coverage_status=coverage_status,
+        input_source_kind=input_source_kind,
+        replay_provenance_status=replay_provenance_status,
+        benchmark_source_kind=benchmark_source_kind,
+        alpha_source_kind=alpha_source_kind,
+    )
+    try:
+        return list_recent_cross_sectional_research_artifacts(
+            limit=limit,
+            filters=filters,
+        )
+    except (
+        ValidationError,
+        CrossSectionalResearchArtifactInvalidJsonError,
+        CrossSectionalResearchArtifactNonObjectPayloadError,
+        CrossSectionalResearchArtifactSchemaValidationError,
+        CrossSectionalResearchArtifactIntegrityValidationError,
+        CrossSectionalResearchArtifactPersistenceError,
+    ) as exc:
+        _raise_cross_sectional_research_http_error(
+            exc,
+            fallback="invalid cross-sectional research recent response",
+        )
 
 
 @router.post("/strategy-lab/etf-ranking", response_model=EtfRankingArtifact)

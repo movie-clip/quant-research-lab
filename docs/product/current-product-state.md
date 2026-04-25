@@ -61,6 +61,15 @@ This document is the canonical source for what is actually shipped today, what i
 - generalized recent discovery is now fail-closed on malformed ETF recent-index state, malformed artifact payloads, unsupported artifact kinds, unsupported schema versions, and provable identity contradictions
 - ETF `recent.jsonl` remains internal operational state for ETF discovery ordering only; it is not a shipped artifact output or generalized reusable contract payload
 
+### Cross-sectional research artifacts
+
+- `POST /strategy-lab/cross-sectional-research/validate` is shipped as a validation-only backend boundary for one persisted cross-sectional research family slice
+- `POST /strategy-lab/cross-sectional-research/run` persists immutable cross-sectional research artifacts before returning them
+- `GET /strategy-lab/cross-sectional-research/artifacts/{artifact_id}` reloads persisted research artifacts, validates them on read, and fails closed on missing file, invalid json, non-object payload, schema mismatch, and integrity mismatch
+- `GET /strategy-lab/cross-sectional-research/catalog` and `GET /strategy-lab/cross-sectional-research/recent` are sourced from persisted artifacts only; validate does not populate discovery state
+- backend schema and serialization are the contract root for this research family; shipped output is a hypothetical research artifact and not portfolio or execution truth
+- the first shipped family is narrow: one canonical `cross_sectional_research_run` artifact kind and `cross_sectional_research_artifact_v1` schema with `alpha_quality_v1` represented as a methodology inside that family plus compact provenance-rich `walk_forward_summary` and `holdout_summary` only
+
 ### Optimizer preview, handoff, and replay workflow
 
 - optimizer preview is shipped as a hypothetical workflow at `POST /optimizer/preview`
@@ -90,6 +99,7 @@ This document is the canonical source for what is actually shipped today, what i
 - single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
 - optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`
 - optimizer alpha-objective support remains narrow: one additive `alpha_quality_v1` objective only, artifact-backed only, fail-closed on missing, malformed, quarantined, unsupported, stale, or degraded alpha inputs
+- cross-sectional research remains narrow: one backend-first persisted research family slice only, one methodology (`alpha_quality_v1`) only, compact summary outputs only, and no portfolio, execution, or realized-performance truth claims
 - overlays remain limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only
 - monitoring remains a replay-scoped Workspace review surface, not a continuous alerting and review-history system
 - monitoring persistence is still narrow: only canonical monitor-definition artifacts for `benchmark_trend_overlay_v1` are shipped, list remains the narrow artifact inventory view, catalog/recent discovery is read-only and additive on top of the create/get/evaluate surface, discovery reads latest status only from the canonical latest-snapshot sidecar and never reconstructs it from history, evaluation-history inspection is read-only and newest-first only, history reads only append-only persisted entries, discovery filters remain limited to low-cardinality persisted metadata, latest-evaluation snapshot metadata is surfaced only when a canonical persisted snapshot sidecar is present and valid, recency is derived strictly from persisted `evaluated_at`, successful evaluation appends one canonical persisted history entry while preserving the latest-snapshot sidecar, and evaluation is review-only with explicit `ok` / `threshold_breach` / `degraded` / `unavailable` outcomes

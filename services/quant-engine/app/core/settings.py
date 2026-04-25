@@ -13,6 +13,9 @@ DEFAULT_CONSTRUCTION_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "d
 DEFAULT_MONITOR_DEFINITION_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "monitor-definitions")
 DEFAULT_ETF_RANKING_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "etf-ranking-artifacts")
 DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "etf-replacement-ranking-artifacts")
+DEFAULT_CROSS_SECTIONAL_RESEARCH_ARTIFACT_DIR = str(
+    Path(__file__).resolve().parents[4] / "data" / "artifacts" / "cross-sectional-research-artifacts"
+)
 
 
 class Settings(BaseSettings):
@@ -29,6 +32,7 @@ class Settings(BaseSettings):
     monitor_definition_artifact_dir: str = Field(default=DEFAULT_MONITOR_DEFINITION_ARTIFACT_DIR)
     etf_ranking_artifact_dir: str = Field(default=DEFAULT_ETF_RANKING_ARTIFACT_DIR)
     replacement_ranking_artifact_dir: str = Field(default=DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR)
+    cross_sectional_research_artifact_dir: str = Field(default=DEFAULT_CROSS_SECTIONAL_RESEARCH_ARTIFACT_DIR)
     fmp_quote_cache_ttl_seconds: int = Field(default=300)
     fmp_history_cache_ttl_seconds: int = Field(default=86400)
     fmp_max_requests_per_minute: int = Field(default=250)
