@@ -58,12 +58,12 @@ Remaining work:
 ### 4. Overlay and Monitoring Expansion
 
 Goal:
-- move from narrow replay-only overlays and review-scoped monitoring to broader ongoing discipline tools
+- extend the shipped `benchmark_trend_overlay_v1` overlay and persisted monitor-definition slice into broader ongoing discipline tools
 
 Remaining work:
-- add more transparent overlay families
-- add persistent monitoring definitions, alerts, and review history
-- support broader benchmark-relative, factor-drift, and concentration-drift monitoring
+- add alerts plus persisted observations and review history on top of the shipped monitor-definition artifact boundary
+- formalize hysteresis and degraded-monitor semantics beyond the current narrow evaluation outcomes
+- support broader overlay and monitor families, including benchmark-relative, factor-drift, and concentration-drift coverage
 
 ### 5. Optimizer Expansion
 

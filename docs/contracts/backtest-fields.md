@@ -49,11 +49,50 @@ The portfolio-allocation workflow currently renders from these root inputs:
    - returned by `POST /backtests/portfolio-allocation/optimizer-handoff/constraints`
    - validation and replay-output policy surface for persisted optimizer handoffs
 
+9. `monitorDefinitionCreateRequest: CreateMonitorDefinitionRequest`
+   - posted to `POST /backtests/monitor-definitions`
+   - canonical write contract for creating immutable `benchmark_trend_overlay_v1` monitor-definition artifacts
+
+10. `monitorDefinition: MonitorDefinitionArtifact | null`
+   - returned by `POST /backtests/monitor-definitions` and `GET /backtests/monitor-definitions/{monitor_definition_id}`
+   - canonical persisted review-only monitor definition artifact for `benchmark_trend_overlay_v1`
+
+11. `monitorDefinitionList: MonitorDefinitionArtifactListResponse | null`
+   - returned by `GET /backtests/monitor-definitions`
+   - additive read-only artifact inventory with narrow identity fields only
+
+12. `monitorDefinitionCatalog: MonitorDefinitionCatalogResponse | null`
+    - returned by `GET /backtests/monitor-definitions/catalog`
+    - additive read-only discovery catalog for persisted `benchmark_trend_overlay_v1` monitor-definition artifacts, including typed row provenance, lifecycle/review-support status metadata, and optional latest-evaluation snapshot summary only when the canonical persisted latest-snapshot sidecar exists, is structurally complete, and validates against the persisted monitor definition
+
+13. `monitorDefinitionRecent: MonitorDefinitionRecentResponse | null`
+    - returned by `GET /backtests/monitor-definitions/recent`
+    - additive read-only newest-first discovery for persisted `benchmark_trend_overlay_v1` monitor-definition artifacts, derived from authoritative persisted artifact metadata plus the canonical persisted latest-snapshot sidecar only, carrying typed recent-order provenance, and exposing optional persisted latest-evaluation snapshot summary metadata without synthesizing history when absent
+
+14. `monitorEvaluationRequest: EvaluateMonitorDefinitionObservationRequest`
+   - posted to `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations`
+   - canonical read-only evaluation input combining current imported portfolio truth with explicit benchmark observation lineage
+
+15. `monitorEvaluation: MonitorDefinitionObservationEvaluationResponse | null`
+      - returned by `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations`
+      - review-only evaluation of a persisted monitor definition against current portfolio truth and required benchmark observation input; on success it overwrites the one canonical latest-evaluation snapshot sidecar for discovery and appends one canonical persisted evaluation-history entry for append-only inspection
+
+16. `monitorEvaluationHistory: MonitorDefinitionEvaluationHistoryResponse | null`
+    - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history`
+    - additive read-only newest-first inspection list for canonical persisted monitor-definition evaluation-history entries only; no rollups, analytics, or synthesized history
+
+17. `monitorEvaluationHistoryEntry: MonitorDefinitionEvaluationHistoryEntryResponse | null`
+    - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry_id}`
+    - additive read-only inspection payload for one canonical persisted evaluation-history entry scoped to the persisted monitor definition
+
 Important rules:
 - imported holdings may seed workflows, but replay outputs remain hypothetical and must never be confused with imported broker-truth history
 - replacement-intent, construction-artifact, and optimizer-handoff replay weights are backend-owned; desktop must not synthesize candidate weights locally for those workflows
 - backtest diagnostics are synthetic replay diagnostics with explicit provenance, not imported portfolio diagnostics
 - persisted construction artifacts and optimizer handoffs are lineage-bearing hypothetical artifacts, not applied portfolio truth
+- persisted monitor definitions are immutable review artifacts; evaluation is read-only and consumes current imported portfolio truth plus explicit benchmark observation lineage
+- monitor-definition catalog/recent discovery is additive and read-only; it does not change create/get/evaluate responsibilities and it must surface typed provenance/status metadata from persisted backend sources rather than desktop-reconstructed metadata or evaluation-history reconstruction
+- monitor-definition evaluation history is additive and read-only; clients inspect canonical persisted history entries by `monitor_definition_id` and `history_entry_id` rather than reconstructing history from the latest-snapshot sidecar
 
 ## Truth and Trust Semantics
 
@@ -178,7 +217,45 @@ Implementation:
 - `optimizerHandoffReplay.optimizer_context.objective`
      - live review/display contract for replay surfaces; desktop review reads this nested object only and does not fall back to validation provenance or scalar replay ids
 - `optimizerHandoffValidation.replay_output_policy`
-     - validation-time mapping of attested trust into allowed vs withheld replay output families
+      - validation-time mapping of attested trust into allowed vs withheld replay output families
+
+### Monitor definition provenance
+
+- the shipped monitor-definition contract family is `create -> get/list -> catalog/recent -> evaluate`
+- the additive shipped inspection extension is `evaluation-history -> evaluation-history/{history_entry_id}` and both routes are read-only persisted-history boundaries only
+- `POST /backtests/monitor-definitions` persists canonical monitor-definition artifacts for `benchmark_trend_overlay_v1` only
+- persisted monitor definitions are the authoritative downstream input for monitor review; clients reopen by `monitor_definition_id`, not by reconstructing thresholds locally
+- `GET /backtests/monitor-definitions` returns the shipped narrow artifact inventory view with identity-only list items
+- `GET /backtests/monitor-definitions/catalog` returns an additive read-only catalog discovery slice and each row carries typed provenance `persisted_monitor_definition_artifact`
+- `GET /backtests/monitor-definitions/catalog` and `GET /backtests/monitor-definitions/recent` accept additive low-cardinality filters only: `overlay_family`, `monitor_id`, `review_support_status`, `lifecycle_status`, `latest_evaluation_snapshot_status`, and `latest_evaluation_snapshot_recency`
+- `GET /backtests/monitor-definitions/recent` returns an additive read-only newest-first discovery slice and each row carries typed provenance `persisted_monitor_definition_artifact` plus typed recent-order provenance `persisted_artifact_file_mtime`
+- `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` persists exactly one authoritative latest-snapshot sidecar per monitor definition at `{monitor_definition_id}.latest_evaluation.json`; this sidecar is the only shipped discovery source for latest evaluation status
+- `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` also appends exactly one canonical persisted history entry per successful evaluation under `{monitor_definition_id}.history/*.json`; history is append-only and the latest-snapshot sidecar remains the authoritative latest-status sidecar for discovery surfaces
+- `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history` returns newest-first persisted history entries only and its response metadata echoes authoritative monitor-definition identity, fingerprint, schema version, inspection order, returned limit, and total persisted entry count
+- `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry_id}` returns exactly one persisted history entry plus inspection metadata; it does not accept alternate lookup semantics or synthesize fallback rows
+- discovery `metadata.status.lifecycle` is authoritative persisted backend status metadata for review support and lifecycle and is distinct from latest evaluation outcome
+- discovery `metadata.status.latest_evaluation_snapshot_status` is explicit `present` or `absent`; if the canonical sidecar is absent, discovery returns `absent` plus `latest_evaluation_snapshot = null` rather than inferring prior evaluations
+- the persisted latest-snapshot sidecar is strict `monitor_definition_latest_evaluation_snapshot_v1` and carries only monitor-definition identity, benchmark symbol, evaluated timestamp, outcome/significance, explicit benchmark-observation lineage, and imported portfolio truth-basis fields
+- when persisted latest evaluation snapshot metadata is present, discovery returns `evaluated_at`, `outcome_status`, `significance_status`, and backend-derived `recency_status`; `recency_status` is computed strictly from the persisted sidecar `evaluated_at`, never from sidecar file mtime, route time, lifecycle metadata, or review-support metadata; `outcome_status` and `significance_status` remain separate fields and are not overloaded into lifecycle metadata
+- malformed, schema-invalid, structurally incomplete, or monitor-definition-mismatched present latest-evaluation snapshot sidecars fail closed for discovery routes; absent snapshot metadata remains a valid explicit absence state
+- malformed, schema-invalid, structurally incomplete, identity-mismatched, fingerprint-mismatched, schema-version-mismatched, or benchmark-mismatched present evaluation-history entries fail closed for history retrieval and inspection routes; history does not auto-repair malformed present payloads and does not fall back to latest-snapshot reconstruction
+- monitor definition writes are strict and canonical; compatibility is load-only and limited to documented persisted omissions of `observation_statuses` and `source_lineage_requirements`
+- monitor definition load integrity validates raw persisted `fingerprint` and `monitor_definition_id` against stored payload content before any legacy hydration runs
+- present-but-noncanonical or partially conflicting legacy-shaped values are rejected; load does not auto-repair malformed, ambiguous, or mismatched persisted fields
+- `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` is evaluation-only with respect to portfolio truth and review history; it persists the canonical latest-snapshot sidecar plus one append-only history entry, and it does not infer benchmark observations
+- list, catalog, recent, retrieval, and evaluation accept only the documented legacy omissions and otherwise fail closed on missing persisted artifacts, malformed JSON, non-object or schema-invalid payloads, non-canonical artifact identity, contradictory benchmark lineage states, blank benchmark symbols, and missing required imported-portfolio statement lineage
+- monitor evaluation surfaces `benchmark_observation`, `portfolio_observation`, and `active_observation` separately so benchmark truth, current portfolio truth, and threshold application do not collapse into one field bundle
+
+### Monitor observation statuses
+
+- `ok`
+  - current portfolio truth is consistent with the persisted monitor thresholds for the supplied benchmark overlay observation
+- `threshold_breach`
+  - current portfolio truth is available and benchmark observation is valid, but one or more canonical thresholds are breached
+- `degraded`
+  - evaluation remained read-only but benchmark observation is not fully actionable, such as `unconfirmed`
+- `unavailable`
+  - required benchmark observation or current portfolio truth basis is unavailable, so threshold evaluation does not run
 
 ### Replay summary metrics
 

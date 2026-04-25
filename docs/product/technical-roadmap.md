@@ -63,9 +63,9 @@ Remaining work:
 ### 4. Overlay and Monitoring Expansion
 
 Remaining work:
-- add broader overlay specs beyond `benchmark_trend_overlay_v1`
-- persist monitor definitions, observations, and review history
-- formalize alert thresholds, hysteresis, and degraded/unavailable semantics across monitoring outputs
+- add broader overlay specs and monitor families beyond the shipped `benchmark_trend_overlay_v1` monitor-definition artifact path
+- persist monitor observations and review history on top of the shipped monitor-definition create/get/list/catalog/recent/evaluate contract family
+- formalize alert thresholds, hysteresis, and degraded/unavailable semantics across monitoring outputs without widening the current review-only evaluation boundary
 
 ### 5. Optimizer Expansion
 
@@ -96,7 +96,7 @@ These remain permanent technical requirements:
 1. generalize ranking infrastructure beyond the currently shipped ETF-only artifact persistence and additive backend discovery path
 2. broaden persisted construction policies and constraints
 3. improve shared artifact-loading, validation, and provenance rules across construction and optimizer workflows
-4. expand monitoring persistence and alert semantics
+4. expand monitoring observations, alerts, and degraded-state semantics on top of shipped monitor-definition persistence
 5. extend optimizer breadth without weakening truth separation or replay attestation rules
 
 ## Definition of Done for the Pivot
@@ -107,4 +107,4 @@ The pivot is successful when the project can:
 - construct candidate allocations from persisted rules and constraints
 - compare baseline vs candidate through replay with explicit provenance and trust semantics
 - evaluate optimizer outputs through explicit hypothetical handoff boundaries
-- monitor ongoing portfolio discipline with first-class persisted workflows
+- monitor ongoing portfolio discipline with first-class persisted workflows that extend the shipped monitor-definition artifact boundary

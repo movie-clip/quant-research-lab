@@ -1976,6 +1976,280 @@ export type OverlayAwareHypotheticalReplayResponse = {
 
 export type HypotheticalReplayResponse = HypotheticalReplacementReplayResponse | OverlayAwareHypotheticalReplayResponse
 
+export type MonitorDefinitionId = string
+export type MonitorDefinitionFingerprint = string
+export type MonitorDefinitionSchemaVersion = 'monitor_definition_artifact_v1'
+export type MonitorDefinitionReviewScope = 'current_portfolio_truth_only'
+export type MonitorDefinitionEvaluationMode = 'review_only_observation_evaluation'
+export type MonitorDefinitionDiscoveryContractVersion = 'monitor_definition_discovery_v1'
+export type MonitorDefinitionDiscoveryMetadataTruth = 'authoritative_persisted_artifact_metadata'
+export type MonitorDefinitionDiscoveryRowProvenance = 'persisted_monitor_definition_artifact'
+export type MonitorDefinitionRecentOrderProvenance = 'persisted_artifact_file_mtime'
+export type MonitorDefinitionMonitorId = 'benchmark_trend_overlay_v1'
+export type MonitorDefinitionObservationStatus = 'ok' | 'threshold_breach' | 'degraded' | 'unavailable'
+export type MonitorDefinitionOverlayFamily = 'benchmark_trend'
+export type MonitorDefinitionDiscoveryReviewSupportStatus = 'review_supported'
+export type MonitorDefinitionDiscoveryLifecycleStatus = 'enabled' | 'disabled'
+export type MonitorDefinitionLatestEvaluationSnapshotStatus = 'present' | 'absent'
+export type MonitorDefinitionLatestEvaluationSnapshotRecency = 'recent' | 'stale'
+export type MonitorDefinitionLatestEvaluationSignificanceStatus =
+  | 'informational'
+  | 'action_required'
+  | 'degraded'
+  | 'unavailable'
+
+export type MonitorDefinitionDiscoveryFilters = {
+  overlay_family: MonitorDefinitionOverlayFamily | null
+  monitor_id: MonitorDefinitionMonitorId | null
+  review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | null
+  lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | null
+  latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus | null
+  latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | null
+}
+
+export type MonitorDefinitionLifecycleStatusMetadata = {
+  overlay_family: MonitorDefinitionOverlayFamily
+  review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus
+  lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus
+}
+
+export type MonitorDefinitionLatestEvaluationSnapshotSummary = {
+  evaluated_at: string
+  outcome_status: MonitorDefinitionObservationStatus
+  significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+  recency_status: MonitorDefinitionLatestEvaluationSnapshotRecency
+}
+
+export type MonitorDefinitionStatusMetadata = {
+  lifecycle: MonitorDefinitionLifecycleStatusMetadata
+  latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus
+  latest_evaluation_snapshot: MonitorDefinitionLatestEvaluationSnapshotSummary | null
+}
+
+export type BenchmarkTrendOverlayMonitorThresholds = {
+  minimum_confirmation_count: number
+  risk_on_min_risky_weight: number
+  risk_on_max_cash_weight: number
+  risk_reduced_max_risky_weight: number
+  risk_reduced_min_cash_weight: number
+}
+
+export type BenchmarkTrendOverlayMonitorSourceLineageRequirements = {
+  benchmark_source_kind: 'benchmark_overlay_signal'
+  portfolio_truth_basis: 'imported_portfolio_snapshot'
+  required_portfolio_statement_fields: string[]
+  required_benchmark_observation_fields: string[]
+}
+
+export type MonitorDefinitionArtifact = {
+  schema_version: MonitorDefinitionSchemaVersion
+  monitor_definition_id: MonitorDefinitionId
+  fingerprint: MonitorDefinitionFingerprint
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  review_scope: MonitorDefinitionReviewScope
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  observation_statuses: MonitorDefinitionObservationStatus[]
+  thresholds: BenchmarkTrendOverlayMonitorThresholds
+  source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements
+}
+
+export type CreateMonitorDefinitionRequest = {
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+}
+
+export type MonitorDefinitionArtifactListItem = Pick<
+  MonitorDefinitionArtifact,
+  'monitor_definition_id' | 'monitor_id' | 'benchmark_symbol' | 'schema_version' | 'fingerprint'
+>
+
+export type MonitorDefinitionArtifactListResponse = {
+  items: MonitorDefinitionArtifactListItem[]
+}
+
+export type MonitorDefinitionCatalogRowMetadata = {
+  metadata_truth: MonitorDefinitionDiscoveryMetadataTruth
+  row_provenance: MonitorDefinitionDiscoveryRowProvenance
+  status: MonitorDefinitionStatusMetadata
+}
+
+export type MonitorDefinitionCatalogRow = MonitorDefinitionArtifact & {
+  metadata: MonitorDefinitionCatalogRowMetadata
+}
+
+export type MonitorDefinitionCatalogResponse = {
+  items: MonitorDefinitionCatalogRow[]
+  metadata: {
+    contract_version: MonitorDefinitionDiscoveryContractVersion
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth
+    row_provenance: MonitorDefinitionDiscoveryRowProvenance
+    supported_monitor_ids: MonitorDefinitionMonitorId[]
+    supported_overlay_families: MonitorDefinitionOverlayFamily[]
+    applied_filters: MonitorDefinitionDiscoveryFilters
+  }
+}
+
+export type MonitorDefinitionRecentRowMetadata = MonitorDefinitionCatalogRowMetadata & {
+  recent_order_provenance: MonitorDefinitionRecentOrderProvenance
+}
+
+export type MonitorDefinitionRecentRow = MonitorDefinitionArtifact & {
+  artifact_last_modified_at: string
+  metadata: MonitorDefinitionRecentRowMetadata
+}
+
+export type MonitorDefinitionRecentResponse = {
+  items: MonitorDefinitionRecentRow[]
+  metadata: {
+    contract_version: MonitorDefinitionDiscoveryContractVersion
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth
+    row_provenance: MonitorDefinitionDiscoveryRowProvenance
+    recent_order_provenance: MonitorDefinitionRecentOrderProvenance
+    supported_monitor_ids: MonitorDefinitionMonitorId[]
+    supported_overlay_families: MonitorDefinitionOverlayFamily[]
+    applied_filters: MonitorDefinitionDiscoveryFilters
+  }
+}
+
+export type BenchmarkTrendOverlayObservationSourceLineage = {
+  source_kind: 'benchmark_overlay_signal'
+  source_id: string
+  observed_at: string
+}
+
+export type BenchmarkTrendOverlayMonitorBenchmarkObservationInput = {
+  overlay_id: MonitorDefinitionMonitorId
+  status: 'risk_on' | 'risk_reduced' | 'unconfirmed' | 'unavailable'
+  as_of_month_end: string
+  benchmark_symbol: string
+  signal_basis: '10_month_sma_month_end'
+  confirmation_count: number
+  rule_version: string
+  source_lineage: BenchmarkTrendOverlayObservationSourceLineage
+}
+
+export type EvaluateMonitorDefinitionObservationRequest = {
+  current_portfolio: ImportedSnapshot
+  benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+}
+
+export type CurrentPortfolioTruthLineage = {
+  truth_basis: 'imported_portfolio_snapshot'
+  importer: ImportedStatementImporter
+  imported_at: string
+  statement_period: string
+  source_paths: string[]
+}
+
+export type BenchmarkTrendOverlayMonitorPortfolioObservation = {
+  total_portfolio_value: number
+  risky_value: number
+  cash_value: number
+  risky_weight?: number | null
+  cash_weight?: number | null
+  position_count: number
+  source_lineage: CurrentPortfolioTruthLineage
+}
+
+export type MonitorThresholdTrigger = {
+  threshold_id:
+    | 'risk_on_min_risky_weight'
+    | 'risk_on_max_cash_weight'
+    | 'risk_reduced_max_risky_weight'
+    | 'risk_reduced_min_cash_weight'
+  operator: '>=' | '<='
+  threshold_value: number
+  actual_value: number
+  breach_amount: number
+}
+
+export type BenchmarkTrendOverlayMonitorActiveObservation = {
+  required_overlay_status: 'risk_on' | 'risk_reduced' | 'unconfirmed' | 'unavailable'
+  threshold_evaluation_performed: boolean
+  required_min_risky_weight?: number | null
+  required_max_risky_weight?: number | null
+  required_min_cash_weight?: number | null
+  required_max_cash_weight?: number | null
+  actual_risky_weight?: number | null
+  actual_cash_weight?: number | null
+  risky_weight_gap?: number | null
+  cash_weight_gap?: number | null
+  triggered_thresholds: MonitorThresholdTrigger[]
+}
+
+export type MonitorDefinitionObservationEvaluationResponse = {
+  monitor_definition_id: MonitorDefinitionId
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  observation_status: MonitorDefinitionObservationStatus
+  reason?: string | null
+  thresholds: BenchmarkTrendOverlayMonitorThresholds
+  benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+  portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+  active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+}
+
+export type MonitorDefinitionEvaluationHistorySchemaVersion =
+  'monitor_definition_evaluation_history_entry_v1'
+export type MonitorDefinitionEvaluationHistoryContractVersion =
+  'monitor_definition_evaluation_history_v1'
+export type MonitorDefinitionEvaluationHistoryTruth =
+  'authoritative_persisted_monitor_definition_evaluation_history'
+export type MonitorDefinitionEvaluationHistoryRowProvenance =
+  'persisted_monitor_definition_evaluation_history_entry'
+export type MonitorDefinitionEvaluationHistoryOrder = 'newest_first_evaluated_at'
+
+export type MonitorDefinitionEvaluationHistoryEntryArtifact = {
+  schema_version: MonitorDefinitionEvaluationHistorySchemaVersion
+  history_entry_id: string
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  evaluated_at: string
+  observation_status: MonitorDefinitionObservationStatus
+  significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+  reason: string | null
+  thresholds: BenchmarkTrendOverlayMonitorThresholds
+  benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+  portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+  active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+}
+
+export type MonitorDefinitionEvaluationHistoryRow =
+  MonitorDefinitionEvaluationHistoryEntryArtifact & {
+    metadata: {
+      history_truth: MonitorDefinitionEvaluationHistoryTruth
+      row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance
+    }
+  }
+
+export type MonitorDefinitionEvaluationHistoryResponse = {
+  items: MonitorDefinitionEvaluationHistoryRow[]
+  metadata: {
+    contract_version: MonitorDefinitionEvaluationHistoryContractVersion
+    history_truth: MonitorDefinitionEvaluationHistoryTruth
+    row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance
+    inspection_order: MonitorDefinitionEvaluationHistoryOrder
+    monitor_definition_id: MonitorDefinitionId
+    monitor_definition_fingerprint: MonitorDefinitionFingerprint
+    monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+    returned_limit: number | null
+    total_entries: number
+  }
+}
+
+export type MonitorDefinitionEvaluationHistoryEntryResponse = {
+  item: MonitorDefinitionEvaluationHistoryRow
+  metadata: MonitorDefinitionEvaluationHistoryResponse['metadata'] & {
+    retrieved_history_entry_id: string
+  }
+}
+
 export type MonitoringResearchHandoffTarget = 'hypothetical_replay' | 'diagnostics_change'
 
 export type MonitoringResearchHandoff = {

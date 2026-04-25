@@ -79,6 +79,7 @@ This document is the canonical source for what is actually shipped today, what i
 - `Workspace` owns the portfolio-improvement shell, replay review, replay-scoped Monitoring, and proposal review
 - Workspace workflow order is explicit: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> saved proposal
 - Monitoring can hand off back into Workspace through an explicit review action; it is still review-scoped rather than continuous monitoring infrastructure
+- persisted monitor definitions now exist for the narrow `benchmark_trend_overlay_v1` path, with a shipped create/get/list/catalog/recent/evaluate contract family plus additive read-only evaluation-history inspection routes, low-cardinality discovery filters, explicit lifecycle/review-support status metadata, optional definition-scoped latest-evaluation snapshot summary metadata only from the canonical persisted latest-snapshot sidecar that validates structurally and by monitor-definition identity, and append-only canonical persisted evaluation-history entries for successful evaluations
 
 ## Narrow boundaries docs should still state explicitly
 
@@ -91,6 +92,7 @@ This document is the canonical source for what is actually shipped today, what i
 - optimizer alpha-objective support remains narrow: one additive `alpha_quality_v1` objective only, artifact-backed only, fail-closed on missing, malformed, quarantined, unsupported, stale, or degraded alpha inputs
 - overlays remain limited to `benchmark_trend_overlay_v1`, one overlay at a time, candidate-side application only, and replay preview only
 - monitoring remains a replay-scoped Workspace review surface, not a continuous alerting and review-history system
+- monitoring persistence is still narrow: only canonical monitor-definition artifacts for `benchmark_trend_overlay_v1` are shipped, list remains the narrow artifact inventory view, catalog/recent discovery is read-only and additive on top of the create/get/evaluate surface, discovery reads latest status only from the canonical latest-snapshot sidecar and never reconstructs it from history, evaluation-history inspection is read-only and newest-first only, history reads only append-only persisted entries, discovery filters remain limited to low-cardinality persisted metadata, latest-evaluation snapshot metadata is surfaced only when a canonical persisted snapshot sidecar is present and valid, recency is derived strictly from persisted `evaluated_at`, successful evaluation appends one canonical persisted history entry while preserving the latest-snapshot sidecar, and evaluation is review-only with explicit `ok` / `threshold_breach` / `degraded` / `unavailable` outcomes
 
 ## Local workspace and artifact behavior that matters to docs
 
@@ -106,6 +108,7 @@ This document is the canonical source for what is actually shipped today, what i
 - more persisted construction policies, richer constraints, turnover models, and broader ranking-to-construction integration
 - broader overlay families beyond the current benchmark-trend replay path
 - continuous monitoring, alerts, and review history as first-class product capabilities
+- persisted monitoring observations, alerts, and review history beyond the current read-only monitor-definition evaluation seam
 - optimizer expansion beyond the current hypothetical preview and handoff workflow
 - fuller end-to-end quant research workflows that unify ranking, construction, replay, monitoring, and execution planning
 

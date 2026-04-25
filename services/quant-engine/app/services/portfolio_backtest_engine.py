@@ -17,6 +17,9 @@ from app.schemas.backtest_engine import (
     AllocationBacktestInstrumentMeta,
     AllocationBacktestResult,
     AllocationBacktestStatus,
+    BenchmarkTrendOverlayMonitorActiveObservation,
+    BenchmarkTrendOverlayMonitorBenchmarkObservationInput,
+    BenchmarkTrendOverlayMonitorPortfolioObservation,
     ConstructionArtifactReplayEffectiveParams,
     ConstructionArtifactPreviewRequest,
     ConstructionArtifactReplayProvenance,
@@ -24,11 +27,19 @@ from app.schemas.backtest_engine import (
     ConstructionArtifactReplayResponse,
     ConstructionArtifactReplayValidationResponse,
     ConstructionArtifactPreviewHandoff,
+    CurrentPortfolioTruthLineage,
+    EvaluateMonitorDefinitionObservationRequest,
     DistributionPolicy,
     HypotheticalReplayDerivation,
     HypotheticalReplayProvenance,
     HypotheticalReplayProposal,
     HypotheticalReplayUpstreamIds,
+    MonitorDefinitionEvaluationHistoryEntryArtifact,
+    MonitorDefinitionLatestEvaluationBenchmarkObservationLineage,
+    MonitorDefinitionLatestEvaluationPortfolioTruthBasis,
+    MonitorDefinitionLatestEvaluationSnapshotArtifact,
+    MonitorDefinitionObservationEvaluationResponse,
+    MonitorThresholdTrigger,
     OverlayApplicationSummary,
     OptimizerHandoffReplayBenchmarkAttestationSummary,
     OptimizerHandoffReplayConstraintSummary,
@@ -60,6 +71,11 @@ from app.services.candidate_construction import build_snapshot_baseline_weights 
 from app.services.candidate_construction import derive_single_replacement_construction
 from app.services.candidate_construction import derive_same_weight_substitution_construction
 from app.services.market_data import MarketDataService
+from app.services.monitor_definition_artifact_service import (
+    build_stable_monitor_definition_evaluation_history_entry,
+    load_monitor_definition_artifact,
+    persist_monitor_definition_evaluation_artifacts,
+)
 from app.services.optimizer_handoff_constraints import (
     build_optimizer_handoff_replay_output_policy,
     load_validated_optimizer_handoff_for_replay,
@@ -664,6 +680,196 @@ def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypothe
     )
 
 
+def evaluate_monitor_definition_observation(
+    monitor_definition_id: str,
+    request: EvaluateMonitorDefinitionObservationRequest,
+    *,
+    artifact_store=None,
+) -> MonitorDefinitionObservationEvaluationResponse:
+    artifact = load_monitor_definition_artifact(monitor_definition_id, store=artifact_store)
+    benchmark_observation = request.benchmark_observation
+    canonical_portfolio_source_path = _canonical_monitor_portfolio_source_path(request.current_portfolio)
+    if artifact.monitor_id != "benchmark_trend_overlay_v1":
+        raise ValueError(f"unsupported monitor_id: {artifact.monitor_id}")
+    if benchmark_observation.overlay_id != artifact.monitor_id:
+        raise ValueError("benchmark observation overlay_id does not match monitor definition")
+    if benchmark_observation.benchmark_symbol.strip().upper() != artifact.benchmark_symbol:
+        raise ValueError("benchmark observation benchmark_symbol does not match monitor definition")
+    if benchmark_observation.source_lineage.source_kind != artifact.source_lineage_requirements.benchmark_source_kind:
+        raise ValueError("benchmark observation source_lineage.source_kind is unsupported")
+    if benchmark_observation.status == "unconfirmed" and benchmark_observation.confirmation_count >= artifact.thresholds.minimum_confirmation_count:
+        raise ValueError("benchmark observation status unconfirmed contradicts confirmation_count")
+    if benchmark_observation.status in {"risk_on", "risk_reduced"} and benchmark_observation.confirmation_count < artifact.thresholds.minimum_confirmation_count:
+        raise ValueError("benchmark observation confirmation_count does not meet monitor threshold")
+
+    portfolio_observation = _build_monitor_portfolio_observation(request.current_portfolio)
+    if portfolio_observation.total_portfolio_value <= 0:
+        response = MonitorDefinitionObservationEvaluationResponse(
+            monitor_definition_id=artifact.monitor_definition_id,
+            monitor_id=artifact.monitor_id,
+            benchmark_symbol=artifact.benchmark_symbol,
+            observation_status="unavailable",
+            reason="current portfolio truth has no positive market value or cash basis",
+            thresholds=artifact.thresholds,
+            benchmark_observation=benchmark_observation,
+            portfolio_observation=portfolio_observation,
+            active_observation=BenchmarkTrendOverlayMonitorActiveObservation(
+                required_overlay_status=benchmark_observation.status,
+                threshold_evaluation_performed=False,
+            ),
+        )
+        _persist_monitor_definition_evaluation_snapshot(
+            response,
+            canonical_portfolio_source_path=canonical_portfolio_source_path,
+            monitor_definition_fingerprint=artifact.fingerprint,
+            artifact_store=artifact_store,
+        )
+        return response
+
+    if benchmark_observation.status == "unavailable":
+        response = MonitorDefinitionObservationEvaluationResponse(
+            monitor_definition_id=artifact.monitor_definition_id,
+            monitor_id=artifact.monitor_id,
+            benchmark_symbol=artifact.benchmark_symbol,
+            observation_status="unavailable",
+            reason="benchmark observation is unavailable",
+            thresholds=artifact.thresholds,
+            benchmark_observation=benchmark_observation,
+            portfolio_observation=portfolio_observation,
+            active_observation=BenchmarkTrendOverlayMonitorActiveObservation(
+                required_overlay_status=benchmark_observation.status,
+                threshold_evaluation_performed=False,
+            ),
+        )
+        _persist_monitor_definition_evaluation_snapshot(
+            response,
+            canonical_portfolio_source_path=canonical_portfolio_source_path,
+            monitor_definition_fingerprint=artifact.fingerprint,
+            artifact_store=artifact_store,
+        )
+        return response
+
+    if benchmark_observation.status == "unconfirmed":
+        response = MonitorDefinitionObservationEvaluationResponse(
+            monitor_definition_id=artifact.monitor_definition_id,
+            monitor_id=artifact.monitor_id,
+            benchmark_symbol=artifact.benchmark_symbol,
+            observation_status="degraded",
+            reason="benchmark observation is unconfirmed",
+            thresholds=artifact.thresholds,
+            benchmark_observation=benchmark_observation,
+            portfolio_observation=portfolio_observation,
+            active_observation=BenchmarkTrendOverlayMonitorActiveObservation(
+                required_overlay_status=benchmark_observation.status,
+                threshold_evaluation_performed=False,
+            ),
+        )
+        _persist_monitor_definition_evaluation_snapshot(
+            response,
+            canonical_portfolio_source_path=canonical_portfolio_source_path,
+            monitor_definition_fingerprint=artifact.fingerprint,
+            artifact_store=artifact_store,
+        )
+        return response
+
+    active_observation = _build_monitor_active_observation(
+        benchmark_observation=benchmark_observation,
+        portfolio_observation=portfolio_observation,
+        minimum_confirmation_count=artifact.thresholds.minimum_confirmation_count,
+        thresholds=artifact.thresholds,
+    )
+    observation_status = "ok" if not active_observation.triggered_thresholds else "threshold_breach"
+    reason = None if observation_status == "ok" else "current portfolio truth breaches canonical overlay thresholds"
+    response = MonitorDefinitionObservationEvaluationResponse(
+        monitor_definition_id=artifact.monitor_definition_id,
+        monitor_id=artifact.monitor_id,
+        benchmark_symbol=artifact.benchmark_symbol,
+        observation_status=observation_status,
+        reason=reason,
+        thresholds=artifact.thresholds,
+        benchmark_observation=benchmark_observation,
+        portfolio_observation=portfolio_observation,
+        active_observation=active_observation,
+    )
+    _persist_monitor_definition_evaluation_snapshot(
+        response,
+        canonical_portfolio_source_path=canonical_portfolio_source_path,
+        monitor_definition_fingerprint=artifact.fingerprint,
+        artifact_store=artifact_store,
+    )
+    return response
+
+
+def _persist_monitor_definition_evaluation_snapshot(
+    response: MonitorDefinitionObservationEvaluationResponse,
+    *,
+    canonical_portfolio_source_path: str,
+    monitor_definition_fingerprint: str,
+    artifact_store=None,
+) -> None:
+    evaluated_at = datetime.now(UTC)
+    significance_status = _latest_evaluation_significance_status(response.observation_status)
+    latest_snapshot = MonitorDefinitionLatestEvaluationSnapshotArtifact(
+        monitor_definition_id=response.monitor_definition_id,
+        monitor_id=response.monitor_id,
+        benchmark_symbol=response.benchmark_symbol,
+        evaluated_at=evaluated_at,
+        outcome_status=response.observation_status,
+        significance_status=significance_status,
+        benchmark_observation_lineage=MonitorDefinitionLatestEvaluationBenchmarkObservationLineage(
+            source_id=response.benchmark_observation.source_lineage.source_id,
+            observed_at=response.benchmark_observation.source_lineage.observed_at,
+        ),
+        portfolio_truth_basis=MonitorDefinitionLatestEvaluationPortfolioTruthBasis(
+            importer=response.portfolio_observation.source_lineage.importer,
+            imported_at=response.portfolio_observation.source_lineage.imported_at,
+            source_path=canonical_portfolio_source_path,
+            statement_period=response.portfolio_observation.source_lineage.statement_period,
+        ),
+    )
+
+    history_entry = build_stable_monitor_definition_evaluation_history_entry(
+        MonitorDefinitionEvaluationHistoryEntryArtifact(
+            history_entry_id="monitor_definition_history_pending",
+            monitor_definition_id=response.monitor_definition_id,
+            monitor_definition_fingerprint=monitor_definition_fingerprint,
+            monitor_id=response.monitor_id,
+            benchmark_symbol=response.benchmark_symbol,
+            evaluated_at=evaluated_at,
+            observation_status=response.observation_status,
+            significance_status=significance_status,
+            reason=response.reason,
+            thresholds=response.thresholds,
+            benchmark_observation=response.benchmark_observation,
+            portfolio_observation=response.portfolio_observation,
+            active_observation=response.active_observation,
+        )
+    )
+
+    persist_monitor_definition_evaluation_artifacts(
+        latest_snapshot,
+        history_entry,
+        store=artifact_store,
+    )
+
+
+def _latest_evaluation_significance_status(observation_status):
+    if observation_status == "ok":
+        return "informational"
+    if observation_status == "threshold_breach":
+        return "action_required"
+    if observation_status == "degraded":
+        return "degraded"
+    return "unavailable"
+
+
+def _canonical_monitor_portfolio_source_path(snapshot: ImportedPortfolioSnapshot) -> str:
+    statement_source_path = snapshot.statement.source_path.strip()
+    if not statement_source_path:
+        raise ValueError("current portfolio truth requires non-blank canonical imported snapshot root source_path")
+    return statement_source_path
+
+
 def _resolve_hypothetical_replay_weights(request: HypotheticalReplacementReplayRequest) -> tuple[list, list]:
     _validate_constraint_validation_lineage(request)
     constructed_candidate = request.constructed_candidate
@@ -864,6 +1070,135 @@ def _build_overlay_aware_hypothetical_replay_warnings(snapshot, cash_residual_we
     if cash_residual_weight > 0:
         warnings.append("Overlay risk reduction allocates residual candidate weight to a synthetic cash sleeve.")
     return warnings
+
+
+def _build_monitor_portfolio_observation(snapshot: ImportedPortfolioSnapshot) -> BenchmarkTrendOverlayMonitorPortfolioObservation:
+    _validate_monitor_portfolio_snapshot(snapshot)
+    risky_value = round(sum(position.market_value for position in snapshot.positions), 8)
+    cash_value = round(sum((balance.ending_cash or 0.0) for balance in snapshot.cash_balances), 8)
+    total_portfolio_value = round(risky_value + cash_value, 8)
+    risky_weight = None
+    cash_weight = None
+    if total_portfolio_value > 0:
+        risky_weight = round(risky_value / total_portfolio_value, 8)
+        cash_weight = round(cash_value / total_portfolio_value, 8)
+    source_paths = [statement.source_path for statement in snapshot.statements if statement.source_path]
+    return BenchmarkTrendOverlayMonitorPortfolioObservation(
+        total_portfolio_value=total_portfolio_value,
+        risky_value=risky_value,
+        cash_value=cash_value,
+        risky_weight=risky_weight,
+        cash_weight=cash_weight,
+        position_count=len(snapshot.positions),
+        source_lineage=CurrentPortfolioTruthLineage(
+            importer=snapshot.statement.importer,
+            imported_at=snapshot.statement.imported_at,
+            statement_period=snapshot.statement.statement_period or "",
+            source_paths=source_paths,
+        ),
+    )
+
+
+def _validate_monitor_portfolio_snapshot(snapshot: ImportedPortfolioSnapshot) -> None:
+    if not snapshot.statement.source_path:
+        raise ValueError("current portfolio truth requires statement.source_path")
+    if not snapshot.statement.statement_period:
+        raise ValueError("current portfolio truth requires statement.statement_period")
+    if any(position.market_value < 0 for position in snapshot.positions):
+        raise ValueError("current portfolio truth must not include negative position market_value")
+    if any((balance.ending_cash or 0.0) < 0 for balance in snapshot.cash_balances):
+        raise ValueError("current portfolio truth must not include negative ending_cash")
+
+
+def _build_monitor_active_observation(
+    *,
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput,
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation,
+    minimum_confirmation_count: int,
+    thresholds,
+) -> BenchmarkTrendOverlayMonitorActiveObservation:
+    if portfolio_observation.risky_weight is None or portfolio_observation.cash_weight is None:
+        raise ValueError("current portfolio truth did not produce usable weights")
+    if benchmark_observation.confirmation_count < minimum_confirmation_count:
+        raise ValueError("benchmark observation confirmation_count does not meet monitor threshold")
+
+    triggered_thresholds: list[MonitorThresholdTrigger] = []
+    if benchmark_observation.status == "risk_on":
+        _append_breach(
+            triggered_thresholds,
+            threshold_id="risk_on_min_risky_weight",
+            operator=">=",
+            threshold_value=thresholds.risk_on_min_risky_weight,
+            actual_value=portfolio_observation.risky_weight,
+        )
+        _append_breach(
+            triggered_thresholds,
+            threshold_id="risk_on_max_cash_weight",
+            operator="<=",
+            threshold_value=thresholds.risk_on_max_cash_weight,
+            actual_value=portfolio_observation.cash_weight,
+        )
+        return BenchmarkTrendOverlayMonitorActiveObservation(
+            required_overlay_status="risk_on",
+            threshold_evaluation_performed=True,
+            required_min_risky_weight=thresholds.risk_on_min_risky_weight,
+            required_max_cash_weight=thresholds.risk_on_max_cash_weight,
+            actual_risky_weight=portfolio_observation.risky_weight,
+            actual_cash_weight=portfolio_observation.cash_weight,
+            risky_weight_gap=round(portfolio_observation.risky_weight - thresholds.risk_on_min_risky_weight, 8),
+            cash_weight_gap=round(thresholds.risk_on_max_cash_weight - portfolio_observation.cash_weight, 8),
+            triggered_thresholds=triggered_thresholds,
+        )
+
+    _append_breach(
+        triggered_thresholds,
+        threshold_id="risk_reduced_max_risky_weight",
+        operator="<=",
+        threshold_value=thresholds.risk_reduced_max_risky_weight,
+        actual_value=portfolio_observation.risky_weight,
+    )
+    _append_breach(
+        triggered_thresholds,
+        threshold_id="risk_reduced_min_cash_weight",
+        operator=">=",
+        threshold_value=thresholds.risk_reduced_min_cash_weight,
+        actual_value=portfolio_observation.cash_weight,
+    )
+    return BenchmarkTrendOverlayMonitorActiveObservation(
+        required_overlay_status="risk_reduced",
+        threshold_evaluation_performed=True,
+        required_max_risky_weight=thresholds.risk_reduced_max_risky_weight,
+        required_min_cash_weight=thresholds.risk_reduced_min_cash_weight,
+        actual_risky_weight=portfolio_observation.risky_weight,
+        actual_cash_weight=portfolio_observation.cash_weight,
+        risky_weight_gap=round(thresholds.risk_reduced_max_risky_weight - portfolio_observation.risky_weight, 8),
+        cash_weight_gap=round(portfolio_observation.cash_weight - thresholds.risk_reduced_min_cash_weight, 8),
+        triggered_thresholds=triggered_thresholds,
+    )
+
+
+def _append_breach(
+    triggered_thresholds: list[MonitorThresholdTrigger],
+    *,
+    threshold_id,
+    operator: Literal[">=", "<="],
+    threshold_value: float,
+    actual_value: float,
+) -> None:
+    if operator == ">=" and actual_value >= threshold_value:
+        return
+    if operator == "<=" and actual_value <= threshold_value:
+        return
+    breach_amount = round((threshold_value - actual_value) if operator == ">=" else (actual_value - threshold_value), 8)
+    triggered_thresholds.append(
+        MonitorThresholdTrigger(
+            threshold_id=threshold_id,
+            operator=operator,
+            threshold_value=threshold_value,
+            actual_value=actual_value,
+            breach_amount=breach_amount,
+        )
+    )
 
 
 def _inject_cash_history(histories: dict[str, list[dict]], benchmark_rows: list[dict], symbols: list[str]) -> None:

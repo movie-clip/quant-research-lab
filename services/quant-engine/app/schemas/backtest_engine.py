@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 from app.schemas.construction import ConstructionPolicyDefinitionId, ConstructionSelectionRuleTrace
-from app.schemas.imports import StatementImporter
+from app.schemas.imports import ImportedPortfolioSnapshot, StatementImporter
 from app.schemas.optimizer import OptimizerArtifactState, OptimizerBenchmarkAttestationType, OptimizerConstraintStatus, OptimizerObjective, OptimizerObjectiveId, OptimizerPersistedArtifactReference, OptimizerReturnBasisAttestation, OptimizerReturnBasisSectionTrust
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
 from app.schemas.research import AllocationRebalanceFrequency, BacktestFrequency, ContinuousSeriesSpec, DistributionPolicy, InvestorEconomicsStatus, StrategyDefinition
@@ -781,6 +781,466 @@ class OverlayAwareHypotheticalReplayResponse(BaseModel):
     base_replay: PortfolioAllocationBacktestResponse
     overlay_replay: PortfolioAllocationBacktestResponse
     warnings: list[str] = Field(default_factory=list)
+
+
+MonitorDefinitionObservationStatus = Literal["ok", "threshold_breach", "degraded", "unavailable"]
+
+
+class BenchmarkTrendOverlayMonitorThresholds(BaseModel):
+    minimum_confirmation_count: int = 2
+    risk_on_min_risky_weight: float = 0.95
+    risk_on_max_cash_weight: float = 0.05
+    risk_reduced_max_risky_weight: float = 0.35
+    risk_reduced_min_cash_weight: float = 0.65
+
+    @model_validator(mode="after")
+    def _validate_thresholds(self) -> "BenchmarkTrendOverlayMonitorThresholds":
+        if self.minimum_confirmation_count < 1:
+            raise ValueError("minimum_confirmation_count must be at least 1")
+        bounded_values = {
+            "risk_on_min_risky_weight": self.risk_on_min_risky_weight,
+            "risk_on_max_cash_weight": self.risk_on_max_cash_weight,
+            "risk_reduced_max_risky_weight": self.risk_reduced_max_risky_weight,
+            "risk_reduced_min_cash_weight": self.risk_reduced_min_cash_weight,
+        }
+        for field_name, value in bounded_values.items():
+            if value < 0 or value > 1:
+                raise ValueError(f"{field_name} must be between 0 and 1")
+        return self
+
+
+class BenchmarkTrendOverlayMonitorSourceLineageRequirements(BaseModel):
+    benchmark_source_kind: Literal["benchmark_overlay_signal"] = "benchmark_overlay_signal"
+    portfolio_truth_basis: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    required_portfolio_statement_fields: list[str] = Field(
+        default_factory=lambda: ["importer", "imported_at", "source_path", "statement_period"]
+    )
+    required_benchmark_observation_fields: list[str] = Field(
+        default_factory=lambda: [
+            "overlay_id",
+            "benchmark_symbol",
+            "as_of_month_end",
+            "signal_basis",
+            "confirmation_count",
+            "rule_version",
+            "source_lineage.source_id",
+            "source_lineage.observed_at",
+        ]
+    )
+
+
+class MonitorDefinitionArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["monitor_definition_artifact_v1"] = "monitor_definition_artifact_v1"
+    monitor_definition_id: str
+    fingerprint: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    review_scope: Literal["current_portfolio_truth_only"] = "current_portfolio_truth_only"
+    evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
+    observation_statuses: list[MonitorDefinitionObservationStatus] = Field(
+        default_factory=lambda: ["ok", "threshold_breach", "degraded", "unavailable"]
+    )
+    thresholds: BenchmarkTrendOverlayMonitorThresholds = Field(default_factory=BenchmarkTrendOverlayMonitorThresholds)
+    source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements = Field(
+        default_factory=BenchmarkTrendOverlayMonitorSourceLineageRequirements
+    )
+
+
+class CreateMonitorDefinitionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+
+
+class MonitorDefinitionArtifactListItem(BaseModel):
+    monitor_definition_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    schema_version: Literal["monitor_definition_artifact_v1"]
+    fingerprint: str
+
+
+class MonitorDefinitionArtifactListResponse(BaseModel):
+    items: list[MonitorDefinitionArtifactListItem] = Field(default_factory=list)
+
+
+MonitorDefinitionDiscoveryContractVersion = Literal["monitor_definition_discovery_v1"]
+MonitorDefinitionDiscoveryMetadataTruth = Literal["authoritative_persisted_artifact_metadata"]
+MonitorDefinitionDiscoveryRowProvenance = Literal["persisted_monitor_definition_artifact"]
+MonitorDefinitionDiscoveryRecentOrderProvenance = Literal["persisted_artifact_file_mtime"]
+MonitorDefinitionOverlayFamily = Literal["benchmark_trend"]
+MonitorDefinitionDiscoveryReviewSupportStatus = Literal["review_supported"]
+MonitorDefinitionDiscoveryLifecycleStatus = Literal["enabled", "disabled"]
+MonitorDefinitionLatestEvaluationSnapshotStatus = Literal["present", "absent"]
+MonitorDefinitionLatestEvaluationSnapshotRecency = Literal["recent", "stale"]
+MonitorDefinitionLatestEvaluationSnapshotSchemaVersion = Literal[
+    "monitor_definition_latest_evaluation_snapshot_v1"
+]
+MonitorDefinitionEvaluationHistorySchemaVersion = Literal[
+    "monitor_definition_evaluation_history_entry_v1"
+]
+MonitorDefinitionEvaluationHistoryContractVersion = Literal[
+    "monitor_definition_evaluation_history_v1"
+]
+MonitorDefinitionEvaluationHistoryTruth = Literal[
+    "authoritative_persisted_monitor_definition_evaluation_history"
+]
+MonitorDefinitionEvaluationHistoryRowProvenance = Literal[
+    "persisted_monitor_definition_evaluation_history_entry"
+]
+MonitorDefinitionEvaluationHistoryOrder = Literal["newest_first_evaluated_at"]
+MonitorDefinitionLatestEvaluationSignificanceStatus = Literal[
+    "informational",
+    "action_required",
+    "degraded",
+    "unavailable",
+]
+
+
+class MonitorDefinitionLatestEvaluationBenchmarkObservationLineage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_kind: Literal["benchmark_overlay_signal"] = "benchmark_overlay_signal"
+    source_id: str
+    observed_at: datetime
+
+
+class MonitorDefinitionLatestEvaluationPortfolioTruthBasis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    truth_basis: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    importer: StatementImporter
+    imported_at: datetime
+    source_path: str
+    statement_period: str
+
+    @field_validator("source_path")
+    @classmethod
+    def _validate_source_path(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("source_path must be non-blank")
+        return normalized
+
+
+class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: MonitorDefinitionLatestEvaluationSnapshotSchemaVersion = (
+        "monitor_definition_latest_evaluation_snapshot_v1"
+    )
+    monitor_definition_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    evaluated_at: datetime
+    outcome_status: MonitorDefinitionObservationStatus
+    significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    benchmark_observation_lineage: MonitorDefinitionLatestEvaluationBenchmarkObservationLineage
+    portfolio_truth_basis: MonitorDefinitionLatestEvaluationPortfolioTruthBasis
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+
+class MonitorDefinitionDiscoveryFilters(BaseModel):
+    overlay_family: MonitorDefinitionOverlayFamily | None = None
+    monitor_id: Literal["benchmark_trend_overlay_v1"] | None = None
+    review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None = None
+    lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None = None
+    latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus | None = None
+    latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | None = None
+
+
+class MonitorDefinitionLifecycleStatusMetadata(BaseModel):
+    overlay_family: MonitorDefinitionOverlayFamily = "benchmark_trend"
+    review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus = "review_supported"
+    lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus = "enabled"
+
+
+class MonitorDefinitionLatestEvaluationSnapshotSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evaluated_at: datetime
+    outcome_status: MonitorDefinitionObservationStatus
+    significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    recency_status: MonitorDefinitionLatestEvaluationSnapshotRecency
+
+
+class MonitorDefinitionStatusMetadata(BaseModel):
+    lifecycle: MonitorDefinitionLifecycleStatusMetadata = Field(
+        default_factory=MonitorDefinitionLifecycleStatusMetadata
+    )
+    latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus = "absent"
+    latest_evaluation_snapshot: MonitorDefinitionLatestEvaluationSnapshotSummary | None = None
+
+
+class MonitorDefinitionCatalogRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = "authoritative_persisted_artifact_metadata"
+    row_provenance: MonitorDefinitionDiscoveryRowProvenance = "persisted_monitor_definition_artifact"
+    status: MonitorDefinitionStatusMetadata = Field(default_factory=MonitorDefinitionStatusMetadata)
+
+
+class MonitorDefinitionCatalogRow(BaseModel):
+    monitor_definition_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    schema_version: Literal["monitor_definition_artifact_v1"]
+    fingerprint: str
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    observation_statuses: list[MonitorDefinitionObservationStatus] = Field(default_factory=list)
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements
+    metadata: MonitorDefinitionCatalogRowMetadata = Field(default_factory=MonitorDefinitionCatalogRowMetadata)
+
+
+class MonitorDefinitionCatalogResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionDiscoveryContractVersion = "monitor_definition_discovery_v1"
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = "authoritative_persisted_artifact_metadata"
+    row_provenance: MonitorDefinitionDiscoveryRowProvenance = "persisted_monitor_definition_artifact"
+    supported_monitor_ids: list[Literal["benchmark_trend_overlay_v1"]] = Field(
+        default_factory=lambda: ["benchmark_trend_overlay_v1"]
+    )
+    supported_overlay_families: list[MonitorDefinitionOverlayFamily] = Field(
+        default_factory=lambda: ["benchmark_trend"]
+    )
+    applied_filters: MonitorDefinitionDiscoveryFilters = Field(default_factory=MonitorDefinitionDiscoveryFilters)
+
+
+class MonitorDefinitionCatalogResponse(BaseModel):
+    items: list[MonitorDefinitionCatalogRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionCatalogResponseMetadata = Field(default_factory=MonitorDefinitionCatalogResponseMetadata)
+
+
+class MonitorDefinitionRecentRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = "authoritative_persisted_artifact_metadata"
+    row_provenance: MonitorDefinitionDiscoveryRowProvenance = "persisted_monitor_definition_artifact"
+    recent_order_provenance: MonitorDefinitionDiscoveryRecentOrderProvenance = "persisted_artifact_file_mtime"
+    status: MonitorDefinitionStatusMetadata = Field(default_factory=MonitorDefinitionStatusMetadata)
+
+
+class MonitorDefinitionRecentRow(BaseModel):
+    monitor_definition_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    schema_version: Literal["monitor_definition_artifact_v1"]
+    fingerprint: str
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    observation_statuses: list[MonitorDefinitionObservationStatus] = Field(default_factory=list)
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements
+    artifact_last_modified_at: datetime
+    metadata: MonitorDefinitionRecentRowMetadata = Field(default_factory=MonitorDefinitionRecentRowMetadata)
+
+
+class MonitorDefinitionRecentResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionDiscoveryContractVersion = "monitor_definition_discovery_v1"
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = "authoritative_persisted_artifact_metadata"
+    row_provenance: MonitorDefinitionDiscoveryRowProvenance = "persisted_monitor_definition_artifact"
+    recent_order_provenance: MonitorDefinitionDiscoveryRecentOrderProvenance = "persisted_artifact_file_mtime"
+    supported_monitor_ids: list[Literal["benchmark_trend_overlay_v1"]] = Field(
+        default_factory=lambda: ["benchmark_trend_overlay_v1"]
+    )
+    supported_overlay_families: list[MonitorDefinitionOverlayFamily] = Field(
+        default_factory=lambda: ["benchmark_trend"]
+    )
+    applied_filters: MonitorDefinitionDiscoveryFilters = Field(default_factory=MonitorDefinitionDiscoveryFilters)
+
+
+class MonitorDefinitionRecentResponse(BaseModel):
+    items: list[MonitorDefinitionRecentRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionRecentResponseMetadata = Field(default_factory=MonitorDefinitionRecentResponseMetadata)
+
+
+class BenchmarkTrendOverlayObservationSourceLineage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_kind: Literal["benchmark_overlay_signal"] = "benchmark_overlay_signal"
+    source_id: str
+    observed_at: datetime
+
+
+class BenchmarkTrendOverlayMonitorBenchmarkObservationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    overlay_id: Literal["benchmark_trend_overlay_v1"]
+    status: Literal["risk_on", "risk_reduced", "unconfirmed", "unavailable"]
+    as_of_month_end: date
+    benchmark_symbol: str
+    signal_basis: Literal["10_month_sma_month_end"]
+    confirmation_count: int
+    rule_version: str
+    source_lineage: BenchmarkTrendOverlayObservationSourceLineage
+
+    @field_validator("benchmark_symbol", mode="before")
+    @classmethod
+    def _validate_benchmark_symbol_canonicality(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("benchmark_symbol must be non-blank")
+        if value != normalized:
+            raise ValueError(
+                "benchmark_symbol must be canonical uppercase without surrounding whitespace"
+            )
+        return value
+
+
+class EvaluateMonitorDefinitionObservationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_portfolio: ImportedPortfolioSnapshot
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+
+
+class CurrentPortfolioTruthLineage(BaseModel):
+    truth_basis: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    importer: StatementImporter
+    imported_at: datetime
+    statement_period: str
+    source_paths: list[str] = Field(default_factory=list)
+
+
+class BenchmarkTrendOverlayMonitorPortfolioObservation(BaseModel):
+    total_portfolio_value: float
+    risky_value: float
+    cash_value: float
+    risky_weight: float | None = None
+    cash_weight: float | None = None
+    position_count: int
+    source_lineage: CurrentPortfolioTruthLineage
+
+
+class MonitorThresholdTrigger(BaseModel):
+    threshold_id: Literal[
+        "risk_on_min_risky_weight",
+        "risk_on_max_cash_weight",
+        "risk_reduced_max_risky_weight",
+        "risk_reduced_min_cash_weight",
+    ]
+    operator: Literal[">=", "<="]
+    threshold_value: float
+    actual_value: float
+    breach_amount: float
+
+
+class BenchmarkTrendOverlayMonitorActiveObservation(BaseModel):
+    required_overlay_status: Literal["risk_on", "risk_reduced", "unconfirmed", "unavailable"]
+    threshold_evaluation_performed: bool
+    required_min_risky_weight: float | None = None
+    required_max_risky_weight: float | None = None
+    required_min_cash_weight: float | None = None
+    required_max_cash_weight: float | None = None
+    actual_risky_weight: float | None = None
+    actual_cash_weight: float | None = None
+    risky_weight_gap: float | None = None
+    cash_weight_gap: float | None = None
+    triggered_thresholds: list[MonitorThresholdTrigger] = Field(default_factory=list)
+
+
+class MonitorDefinitionObservationEvaluationResponse(BaseModel):
+    monitor_definition_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
+    observation_status: MonitorDefinitionObservationStatus
+    reason: str | None = None
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+
+
+class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: MonitorDefinitionEvaluationHistorySchemaVersion = (
+        "monitor_definition_evaluation_history_entry_v1"
+    )
+    history_entry_id: str
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
+    evaluated_at: datetime
+    observation_status: MonitorDefinitionObservationStatus
+    significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    reason: str | None = None
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+
+class MonitorDefinitionEvaluationHistoryRowMetadata(BaseModel):
+    history_truth: MonitorDefinitionEvaluationHistoryTruth = (
+        "authoritative_persisted_monitor_definition_evaluation_history"
+    )
+    row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance = (
+        "persisted_monitor_definition_evaluation_history_entry"
+    )
+
+
+class MonitorDefinitionEvaluationHistoryRow(MonitorDefinitionEvaluationHistoryEntryArtifact):
+    metadata: MonitorDefinitionEvaluationHistoryRowMetadata = Field(
+        default_factory=MonitorDefinitionEvaluationHistoryRowMetadata
+    )
+
+
+class MonitorDefinitionEvaluationHistoryResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionEvaluationHistoryContractVersion = (
+        "monitor_definition_evaluation_history_v1"
+    )
+    history_truth: MonitorDefinitionEvaluationHistoryTruth = (
+        "authoritative_persisted_monitor_definition_evaluation_history"
+    )
+    row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance = (
+        "persisted_monitor_definition_evaluation_history_entry"
+    )
+    inspection_order: MonitorDefinitionEvaluationHistoryOrder = "newest_first_evaluated_at"
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    returned_limit: int | None = None
+    total_entries: int = 0
+
+
+class MonitorDefinitionEvaluationHistoryResponse(BaseModel):
+    items: list[MonitorDefinitionEvaluationHistoryRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionEvaluationHistoryResponseMetadata
+
+
+class MonitorDefinitionEvaluationHistoryEntryResponseMetadata(
+    MonitorDefinitionEvaluationHistoryResponseMetadata
+):
+    retrieved_history_entry_id: str
+
+
+class MonitorDefinitionEvaluationHistoryEntryResponse(BaseModel):
+    item: MonitorDefinitionEvaluationHistoryRow
+    metadata: MonitorDefinitionEvaluationHistoryEntryResponseMetadata
 
 
 class CandidateFormationState(BaseModel):

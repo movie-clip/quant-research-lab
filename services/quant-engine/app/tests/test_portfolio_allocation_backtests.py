@@ -1,4 +1,5 @@
 import json
+import os
 from dataclasses import replace
 from datetime import date, datetime
 from fractions import Fraction
@@ -10,7 +11,7 @@ from types import SimpleNamespace
 from typing import Literal, cast
 from pydantic import ValidationError
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, HypotheticalReplacementReplayRequest, OptimizerHandoffReplayRequest, OptimizerHandoffValidationRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionLatestEvaluationSnapshotArtifact, OptimizerHandoffReplayRequest, OptimizerHandoffValidationRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
 from app.schemas.optimizer import OptimizationRequest, OptimizerAlphaFundamentalSnapshot, OptimizerObjective, OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerPreviewSnapshotReference, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
 from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
@@ -24,7 +25,8 @@ from app.services.optimizer_handoff_constraints import OptimizerHandoffValidatio
 from app.services.optimizer_alpha_service import build_alpha_quality_package
 from app.services.optimizer_preview_service import build_optimizer_preview
 from app.services.optimizer_service import run_optimizer
-from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
+from app.services.monitor_definition_artifact_service import MonitorDefinitionDiscoveryMetadataValidationError, MonitorDefinitionIntegrityValidationError, MonitorDefinitionPersistenceError, MonitorDefinitionSchemaValidationError, MonitorDefinitionArtifactStore, create_monitor_definition_artifact, inspect_monitor_definition_evaluation_history_entry, list_monitor_definition_artifacts, list_monitor_definition_catalog, list_monitor_definition_evaluation_history, list_recent_monitor_definition_artifacts, load_monitor_definition_artifact, load_monitor_definition_evaluation_history_entry, load_monitor_definition_latest_evaluation_snapshot
+from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, evaluate_monitor_definition_observation, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -123,6 +125,46 @@ def _mutate_persisted_json(path: str, mutator) -> None:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     mutator(payload)
     Path(path).write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+
+def _write_latest_monitor_evaluation_snapshot(
+    tmp_path: Path,
+    monitor_definition_id: str,
+    *,
+    evaluated_at: str = "2026-04-20T09:30:00Z",
+    outcome_status: str = "threshold_breach",
+    significance_status: str = "action_required",
+    benchmark_symbol: str = "SPY",
+) -> None:
+    (tmp_path / f"{monitor_definition_id}.latest_evaluation.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "monitor_definition_latest_evaluation_snapshot_v1",
+                "monitor_definition_id": monitor_definition_id,
+                "monitor_id": "benchmark_trend_overlay_v1",
+                "benchmark_symbol": benchmark_symbol,
+                "evaluated_at": evaluated_at,
+                "outcome_status": outcome_status,
+                "significance_status": significance_status,
+                "benchmark_observation_lineage": {
+                    "source_kind": "benchmark_overlay_signal",
+                    "source_id": "overlay-signal-2024-12-31",
+                    "observed_at": "2025-01-02T09:30:00Z",
+                },
+                "portfolio_truth_basis": {
+                    "truth_basis": "imported_portfolio_snapshot",
+                    "importer": "interactive_brokers",
+                    "imported_at": "2024-04-15T09:30:00Z",
+                    "source_path": "IB2024.pdf",
+                    "statement_period": "2024-04",
+                },
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ),
+        encoding="utf-8",
+    )
 
 
 def _rewrite_construction_artifact_payload(tmp_path: Path, artifact_id: str, payload_mutator) -> str:
@@ -295,6 +337,27 @@ def _build_imported_snapshot_for_optimizer():
             ImportedPosition(as_of_date=datetime(2024, 1, 1).date(), symbol="BBB", quantity=8.0, cost_basis=40.0, close_price=5.0, market_value=40.0, unrealized_pnl=0.0, currency="USD"),
         ],
         ledger_entries=[],
+    )
+
+
+def _monitor_benchmark_observation(
+    *,
+    status: Literal["risk_on", "risk_reduced", "unconfirmed", "unavailable"] = "risk_reduced",
+    confirmation_count: int = 2,
+) -> BenchmarkTrendOverlayMonitorBenchmarkObservationInput:
+    return BenchmarkTrendOverlayMonitorBenchmarkObservationInput(
+        overlay_id="benchmark_trend_overlay_v1",
+        status=status,
+        as_of_month_end=date(2024, 12, 31),
+        benchmark_symbol="SPY",
+        signal_basis="10_month_sma_month_end",
+        confirmation_count=confirmation_count,
+        rule_version="v1",
+        source_lineage=BenchmarkTrendOverlayObservationSourceLineage(
+            source_kind="benchmark_overlay_signal",
+            source_id="overlay-signal-2024-12-31",
+            observed_at=datetime(2025, 1, 2, 9, 30),
+        ),
     )
 
 
@@ -4604,6 +4667,1033 @@ def test_overlay_aware_hypothetical_replacement_preview_route_rejects_unconfirme
 
     assert response.status_code == 400
     assert response.json() == {"detail": "overlay_state status unconfirmed is not replayable"}
+
+
+def test_create_monitor_definition_artifact_persists_canonical_overlay_monitor_definition(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol=" spy "),
+        store=store,
+    )
+
+    assert artifact.monitor_definition_id.startswith("monitor_definition_")
+    assert artifact.benchmark_symbol == "SPY"
+    assert artifact.schema_version == "monitor_definition_artifact_v1"
+    assert artifact.observation_statuses == ["ok", "threshold_breach", "degraded", "unavailable"]
+    assert artifact.source_lineage_requirements.model_dump(mode="json") == {
+        "benchmark_source_kind": "benchmark_overlay_signal",
+        "portfolio_truth_basis": "imported_portfolio_snapshot",
+        "required_portfolio_statement_fields": ["importer", "imported_at", "source_path", "statement_period"],
+        "required_benchmark_observation_fields": [
+            "overlay_id",
+            "benchmark_symbol",
+            "as_of_month_end",
+            "signal_basis",
+            "confirmation_count",
+            "rule_version",
+            "source_lineage.source_id",
+            "source_lineage.observed_at",
+        ],
+    }
+    assert artifact.thresholds.model_dump(mode="json") == {
+        "minimum_confirmation_count": 2,
+        "risk_on_min_risky_weight": 0.95,
+        "risk_on_max_cash_weight": 0.05,
+        "risk_reduced_max_risky_weight": 0.35,
+        "risk_reduced_min_cash_weight": 0.65,
+    }
+
+
+def test_create_monitor_definition_artifact_is_immutable_for_same_canonical_request(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+
+    first = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol=" spy "),
+        store=store,
+    )
+    second = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    assert second.model_dump(mode="json") == first.model_dump(mode="json")
+    assert [path.name for path in tmp_path.glob("monitor_definition_*.json")] == [
+        f"{first.monitor_definition_id}.json"
+    ]
+
+
+def test_load_monitor_definition_artifact_hydrates_documented_legacy_omissions_only(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    artifact_path = tmp_path / f"{artifact.monitor_definition_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload.pop("observation_statuses")
+    payload.pop("source_lineage_requirements")
+    payload_without_ids = {
+        key: value for key, value in payload.items() if key not in {"monitor_definition_id", "fingerprint"}
+    }
+    fingerprint = sha256(_canonical_json(payload_without_ids).encode("utf-8")).hexdigest()
+    legacy_monitor_definition_id = f"monitor_definition_{fingerprint[:16]}"
+    payload["fingerprint"] = fingerprint
+    payload["monitor_definition_id"] = legacy_monitor_definition_id
+    artifact_path.unlink()
+    (tmp_path / f"{legacy_monitor_definition_id}.json").write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        encoding="utf-8",
+    )
+
+    loaded = load_monitor_definition_artifact(legacy_monitor_definition_id, store=store)
+
+    assert loaded.monitor_definition_id == legacy_monitor_definition_id
+    assert loaded.observation_statuses == ["ok", "threshold_breach", "degraded", "unavailable"]
+    assert loaded.source_lineage_requirements.model_dump(mode="json") == {
+        "benchmark_source_kind": "benchmark_overlay_signal",
+        "portfolio_truth_basis": "imported_portfolio_snapshot",
+        "required_portfolio_statement_fields": ["importer", "imported_at", "source_path", "statement_period"],
+        "required_benchmark_observation_fields": [
+            "overlay_id",
+            "benchmark_symbol",
+            "as_of_month_end",
+            "signal_basis",
+            "confirmation_count",
+            "rule_version",
+            "source_lineage.source_id",
+            "source_lineage.observed_at",
+        ],
+    }
+
+
+def test_load_monitor_definition_artifact_rejects_present_noncanonical_legacy_values(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    artifact_path = tmp_path / f"{artifact.monitor_definition_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["observation_statuses"] = ["ok", "threshold_breach", "degraded"]
+    payload_without_ids = {
+        key: value for key, value in payload.items() if key not in {"monitor_definition_id", "fingerprint"}
+    }
+    fingerprint = sha256(_canonical_json(payload_without_ids).encode("utf-8")).hexdigest()
+    noncanonical_monitor_definition_id = f"monitor_definition_{fingerprint[:16]}"
+    payload["fingerprint"] = fingerprint
+    payload["monitor_definition_id"] = noncanonical_monitor_definition_id
+    artifact_path.unlink()
+    (tmp_path / f"{noncanonical_monitor_definition_id}.json").write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        MonitorDefinitionIntegrityValidationError,
+        match="monitor definition observation_statuses must remain canonical",
+    ):
+        load_monitor_definition_artifact(noncanonical_monitor_definition_id, store=store)
+
+
+def test_list_monitor_definition_catalog_uses_persisted_artifact_metadata_only(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    response = list_monitor_definition_catalog(store=store)
+
+    assert response.metadata.model_dump(mode="json") == {
+        "contract_version": "monitor_definition_discovery_v1",
+        "metadata_truth": "authoritative_persisted_artifact_metadata",
+        "row_provenance": "persisted_monitor_definition_artifact",
+        "supported_monitor_ids": ["benchmark_trend_overlay_v1"],
+        "supported_overlay_families": ["benchmark_trend"],
+        "applied_filters": {
+            "overlay_family": None,
+            "monitor_id": None,
+            "review_support_status": None,
+            "lifecycle_status": None,
+            "latest_evaluation_snapshot_status": None,
+            "latest_evaluation_snapshot_recency": None,
+        },
+    }
+    assert response.items[0].model_dump(mode="json") == {
+        "monitor_definition_id": artifact.monitor_definition_id,
+        "monitor_id": "benchmark_trend_overlay_v1",
+        "benchmark_symbol": "SPY",
+        "schema_version": "monitor_definition_artifact_v1",
+        "fingerprint": artifact.fingerprint,
+        "review_scope": "current_portfolio_truth_only",
+        "evaluation_mode": "review_only_observation_evaluation",
+        "observation_statuses": ["ok", "threshold_breach", "degraded", "unavailable"],
+        "thresholds": {
+            "minimum_confirmation_count": 2,
+            "risk_on_min_risky_weight": 0.95,
+            "risk_on_max_cash_weight": 0.05,
+            "risk_reduced_max_risky_weight": 0.35,
+            "risk_reduced_min_cash_weight": 0.65,
+        },
+        "source_lineage_requirements": {
+            "benchmark_source_kind": "benchmark_overlay_signal",
+            "portfolio_truth_basis": "imported_portfolio_snapshot",
+            "required_portfolio_statement_fields": ["importer", "imported_at", "source_path", "statement_period"],
+            "required_benchmark_observation_fields": [
+                "overlay_id",
+                "benchmark_symbol",
+                "as_of_month_end",
+                "signal_basis",
+                "confirmation_count",
+                "rule_version",
+                "source_lineage.source_id",
+                "source_lineage.observed_at",
+            ],
+        },
+        "metadata": {
+            "metadata_truth": "authoritative_persisted_artifact_metadata",
+            "row_provenance": "persisted_monitor_definition_artifact",
+            "status": {
+                "lifecycle": {
+                    "overlay_family": "benchmark_trend",
+                    "review_support_status": "review_supported",
+                    "lifecycle_status": "enabled",
+                },
+                "latest_evaluation_snapshot_status": "absent",
+                "latest_evaluation_snapshot": None,
+            },
+        },
+    }
+
+
+def test_list_monitor_definition_artifacts_returns_narrow_identity_inventory(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    items = list_monitor_definition_artifacts(store=store)
+    response = MonitorDefinitionArtifactListResponse(items=items)
+
+    assert response.model_dump(mode="json") == {
+        "items": [
+            {
+                "monitor_definition_id": artifact.monitor_definition_id,
+                "monitor_id": "benchmark_trend_overlay_v1",
+                "benchmark_symbol": "SPY",
+                "schema_version": "monitor_definition_artifact_v1",
+                "fingerprint": artifact.fingerprint,
+            }
+        ]
+    }
+
+
+def test_list_recent_monitor_definition_artifacts_uses_newest_persisted_artifact_first(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    first = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    second = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="QQQ"),
+        store=store,
+    )
+    os.utime(tmp_path / f"{first.monitor_definition_id}.json", (1_700_000_000, 1_700_000_000))
+    os.utime(tmp_path / f"{second.monitor_definition_id}.json", (1_700_000_100, 1_700_000_100))
+
+    response = list_recent_monitor_definition_artifacts(limit=1, store=store)
+
+    assert response.metadata.model_dump(mode="json") == {
+        "contract_version": "monitor_definition_discovery_v1",
+        "metadata_truth": "authoritative_persisted_artifact_metadata",
+        "row_provenance": "persisted_monitor_definition_artifact",
+        "recent_order_provenance": "persisted_artifact_file_mtime",
+        "supported_monitor_ids": ["benchmark_trend_overlay_v1"],
+        "supported_overlay_families": ["benchmark_trend"],
+        "applied_filters": {
+            "overlay_family": None,
+            "monitor_id": None,
+            "review_support_status": None,
+            "lifecycle_status": None,
+            "latest_evaluation_snapshot_status": None,
+            "latest_evaluation_snapshot_recency": None,
+        },
+    }
+    assert len(response.items) == 1
+    assert response.items[0].monitor_definition_id == second.monitor_definition_id
+    assert response.items[0].benchmark_symbol == "QQQ"
+    assert response.items[0].metadata.model_dump(mode="json") == {
+        "metadata_truth": "authoritative_persisted_artifact_metadata",
+        "row_provenance": "persisted_monitor_definition_artifact",
+        "recent_order_provenance": "persisted_artifact_file_mtime",
+        "status": {
+            "lifecycle": {
+                "overlay_family": "benchmark_trend",
+                "review_support_status": "review_supported",
+                "lifecycle_status": "enabled",
+            },
+            "latest_evaluation_snapshot_status": "absent",
+            "latest_evaluation_snapshot": None,
+        },
+    }
+
+
+def test_list_monitor_definition_catalog_supports_presence_and_recency_filters_from_persisted_snapshot_metadata(
+    tmp_path,
+) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    stale = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    recent = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="QQQ"),
+        store=store,
+    )
+    absent = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="DIA"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        stale.monitor_definition_id,
+        evaluated_at="2026-01-01T09:30:00Z",
+        outcome_status="ok",
+        significance_status="informational",
+        benchmark_symbol=stale.benchmark_symbol,
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        recent.monitor_definition_id,
+        evaluated_at="2999-01-01T09:30:00Z",
+        outcome_status="threshold_breach",
+        significance_status="action_required",
+        benchmark_symbol=recent.benchmark_symbol,
+    )
+
+    present = list_monitor_definition_catalog(
+        store=store,
+        filters=MonitorDefinitionDiscoveryFilters(latest_evaluation_snapshot_status="present"),
+    )
+    recent_only = list_recent_monitor_definition_artifacts(
+        store=store,
+        limit=10,
+        filters=MonitorDefinitionDiscoveryFilters(
+            latest_evaluation_snapshot_status="present",
+            latest_evaluation_snapshot_recency="recent",
+        ),
+    )
+    absent_only = list_monitor_definition_catalog(
+        store=store,
+        filters=MonitorDefinitionDiscoveryFilters(latest_evaluation_snapshot_status="absent"),
+    )
+
+    assert [item.monitor_definition_id for item in present.items] == [recent.monitor_definition_id, stale.monitor_definition_id]
+    assert present.items[0].metadata.status.latest_evaluation_snapshot_status == "present"
+    assert present.items[0].metadata.status.latest_evaluation_snapshot is not None
+    assert present.items[0].metadata.status.latest_evaluation_snapshot.recency_status == "recent"
+    assert present.items[0].metadata.status.latest_evaluation_snapshot.outcome_status == "threshold_breach"
+    assert present.items[0].metadata.status.latest_evaluation_snapshot.significance_status == "action_required"
+    assert present.items[1].metadata.status.latest_evaluation_snapshot is not None
+    assert present.items[1].metadata.status.latest_evaluation_snapshot.recency_status == "stale"
+    assert [item.monitor_definition_id for item in recent_only.items] == [recent.monitor_definition_id]
+    assert [item.monitor_definition_id for item in absent_only.items] == [absent.monitor_definition_id]
+
+
+def test_list_monitor_definition_catalog_fails_closed_on_malformed_latest_evaluation_snapshot_metadata(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        artifact.monitor_definition_id,
+        outcome_status="bad_status",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="persisted latest evaluation snapshot outcome_status is invalid",
+    ):
+        list_monitor_definition_catalog(store=store)
+
+
+def test_list_monitor_definition_catalog_fails_closed_on_snapshot_definition_mismatch(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        artifact.monitor_definition_id,
+        benchmark_symbol="QQQ",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="persisted latest evaluation snapshot benchmark_symbol does not match persisted monitor definition",
+    ):
+        list_monitor_definition_catalog(store=store)
+
+
+def test_list_monitor_definition_catalog_uses_persisted_evaluated_at_for_recency_not_file_mtime(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        artifact.monitor_definition_id,
+        evaluated_at="2026-01-01T09:30:00Z",
+    )
+    os.utime(tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json", (4_102_444_800, 4_102_444_800))
+
+    response = list_monitor_definition_catalog(store=store)
+
+    assert response.items[0].metadata.status.latest_evaluation_snapshot is not None
+    assert response.items[0].metadata.status.latest_evaluation_snapshot.recency_status == "stale"
+
+
+def test_list_monitor_definition_catalog_reads_latest_status_from_snapshot_sidecar_only(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_reduced", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    (tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json").unlink()
+
+    catalog = list_monitor_definition_catalog(store=store)
+    recent = list_recent_monitor_definition_artifacts(store=store)
+    history = list_monitor_definition_evaluation_history(artifact.monitor_definition_id, store=store)
+
+    assert catalog.items[0].metadata.status.model_dump(mode="json") == {
+        "lifecycle": {
+            "overlay_family": "benchmark_trend",
+            "review_support_status": "review_supported",
+            "lifecycle_status": "enabled",
+        },
+        "latest_evaluation_snapshot_status": "absent",
+        "latest_evaluation_snapshot": None,
+    }
+    assert recent.items[0].metadata.status.latest_evaluation_snapshot_status == "absent"
+    assert recent.items[0].metadata.status.latest_evaluation_snapshot is None
+    assert history.metadata.total_entries == 1
+    assert len(history.items) == 1
+
+
+def test_load_monitor_definition_latest_evaluation_snapshot_rejects_missing_required_top_level_field(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(tmp_path, artifact.monitor_definition_id)
+    _mutate_persisted_json(
+        str(tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json"),
+        lambda payload: payload.pop("portfolio_truth_basis"),
+    )
+
+    with pytest.raises(
+        MonitorDefinitionSchemaValidationError,
+        match=r"persisted latest evaluation snapshot payload is missing required field\(s\): portfolio_truth_basis",
+    ):
+        load_monitor_definition_latest_evaluation_snapshot(artifact.monitor_definition_id, store=store)
+
+
+def test_load_monitor_definition_latest_evaluation_snapshot_rejects_ambiguous_present_nested_state(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(tmp_path, artifact.monitor_definition_id)
+    _mutate_persisted_json(
+        str(tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json"),
+        lambda payload: payload["portfolio_truth_basis"].pop("source_path"),
+    )
+
+    with pytest.raises(
+        MonitorDefinitionIntegrityValidationError,
+        match="persisted latest evaluation snapshot portfolio_truth_basis must be fully specified when present",
+    ):
+        load_monitor_definition_latest_evaluation_snapshot(artifact.monitor_definition_id, store=store)
+
+
+def test_load_monitor_definition_latest_evaluation_snapshot_rejects_monitor_definition_identity_mismatch(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(tmp_path, artifact.monitor_definition_id)
+    _mutate_persisted_json(
+        str(tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json"),
+        lambda payload: payload.__setitem__("monitor_definition_id", "monitor_definition_other"),
+    )
+
+    with pytest.raises(
+        MonitorDefinitionIntegrityValidationError,
+        match="persisted latest evaluation snapshot monitor_definition_id does not match requested definition",
+    ):
+        load_monitor_definition_latest_evaluation_snapshot(artifact.monitor_definition_id, store=store)
+
+
+def test_evaluate_monitor_definition_observation_returns_threshold_breach_for_risk_on_overlay(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    snapshot = _build_imported_snapshot_for_optimizer()
+
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=snapshot,
+            benchmark_observation=_monitor_benchmark_observation(status="risk_on", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+
+    assert response.observation_status == "threshold_breach"
+    assert response.reason == "current portfolio truth breaches canonical overlay thresholds"
+    assert response.portfolio_observation.model_dump(mode="json") == {
+        "total_portfolio_value": 600.0,
+        "risky_value": 100.0,
+        "cash_value": 500.0,
+        "risky_weight": 0.16666667,
+        "cash_weight": 0.83333333,
+        "position_count": 2,
+        "source_lineage": {
+            "truth_basis": "imported_portfolio_snapshot",
+            "importer": "interactive_brokers",
+            "imported_at": "2024-04-15T09:30:00",
+            "statement_period": "2024-04",
+            "source_paths": ["IB2024.pdf"],
+        },
+    }
+    assert response.active_observation.model_dump(mode="json") == {
+        "required_overlay_status": "risk_on",
+        "threshold_evaluation_performed": True,
+        "required_min_risky_weight": 0.95,
+        "required_max_risky_weight": None,
+        "required_min_cash_weight": None,
+        "required_max_cash_weight": 0.05,
+        "actual_risky_weight": 0.16666667,
+        "actual_cash_weight": 0.83333333,
+        "risky_weight_gap": -0.78333333,
+        "cash_weight_gap": -0.78333333,
+        "triggered_thresholds": [
+            {
+                "threshold_id": "risk_on_min_risky_weight",
+                "operator": ">=",
+                "threshold_value": 0.95,
+                "actual_value": 0.16666667,
+                "breach_amount": 0.78333333,
+            },
+            {
+                "threshold_id": "risk_on_max_cash_weight",
+                "operator": "<=",
+                "threshold_value": 0.05,
+                "actual_value": 0.83333333,
+                "breach_amount": 0.78333333,
+            },
+        ],
+    }
+
+
+def test_evaluate_monitor_definition_observation_persists_authoritative_latest_snapshot(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_on", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    persisted = load_monitor_definition_latest_evaluation_snapshot(artifact.monitor_definition_id, store=store)
+
+    assert response.observation_status == "threshold_breach"
+    assert isinstance(persisted, MonitorDefinitionLatestEvaluationSnapshotArtifact)
+    assert persisted.evaluated_at.tzinfo is not None
+    assert persisted.model_dump(mode="json") == {
+        "schema_version": "monitor_definition_latest_evaluation_snapshot_v1",
+        "monitor_definition_id": artifact.monitor_definition_id,
+        "monitor_id": "benchmark_trend_overlay_v1",
+        "benchmark_symbol": "SPY",
+        "evaluated_at": persisted.evaluated_at.isoformat().replace("+00:00", "Z"),
+        "outcome_status": "threshold_breach",
+        "significance_status": "action_required",
+        "benchmark_observation_lineage": {
+            "source_kind": "benchmark_overlay_signal",
+            "source_id": "overlay-signal-2024-12-31",
+            "observed_at": "2025-01-02T09:30:00",
+        },
+        "portfolio_truth_basis": {
+            "truth_basis": "imported_portfolio_snapshot",
+            "importer": "interactive_brokers",
+            "imported_at": "2024-04-15T09:30:00",
+            "source_path": "IB2024.pdf",
+            "statement_period": "2024-04",
+        },
+    }
+
+
+def test_evaluate_monitor_definition_observation_persists_latest_snapshot_source_path_from_canonical_root(tmp_path) -> None:
+    from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
+
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2024, 4, 15, 9, 30),
+            source_path="canonical-root.pdf",
+            detected_format="statement_pdf",
+            account_id="U1234567",
+            base_currency="USD",
+            statement_period="2024-04",
+            page_count=4,
+        ),
+        statements=[
+            ImportedStatement(
+                importer="interactive_brokers",
+                imported_at=datetime(2024, 4, 15, 9, 30),
+                source_path="lineage-first.pdf",
+                detected_format="statement_pdf",
+                account_id="U1234567",
+                base_currency="USD",
+                statement_period="2024-04",
+                page_count=4,
+            ),
+            ImportedStatement(
+                importer="interactive_brokers",
+                imported_at=datetime(2024, 4, 15, 9, 30),
+                source_path="canonical-root.pdf",
+                detected_format="statement_pdf",
+                account_id="U1234567",
+                base_currency="USD",
+                statement_period="2024-04",
+                page_count=4,
+            ),
+        ],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=500.0)],
+        positions=[ImportedPosition(as_of_date=date(2024, 1, 1), symbol="AAA", quantity=10.0, cost_basis=60.0, close_price=6.0, market_value=60.0, unrealized_pnl=0.0, currency="USD")],
+        ledger_entries=[],
+    )
+
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=snapshot,
+            benchmark_observation=_monitor_benchmark_observation(status="risk_on", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    persisted = load_monitor_definition_latest_evaluation_snapshot(artifact.monitor_definition_id, store=store)
+
+    assert response.portfolio_observation.source_lineage.source_paths[0] == "lineage-first.pdf"
+    assert persisted.portfolio_truth_basis.source_path == "canonical-root.pdf"
+
+
+@pytest.mark.parametrize("evaluated_at", ["2026-04-20T09:30:00", "not-a-timestamp"])
+def test_load_monitor_definition_latest_evaluation_snapshot_rejects_invalid_present_evaluated_at(
+    tmp_path,
+    evaluated_at: str,
+) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        artifact.monitor_definition_id,
+        evaluated_at=evaluated_at,
+    )
+
+    with pytest.raises(
+        MonitorDefinitionDiscoveryMetadataValidationError,
+        match="persisted latest evaluation snapshot evaluated_at is invalid",
+    ):
+        load_monitor_definition_latest_evaluation_snapshot(artifact.monitor_definition_id, store=store)
+
+
+def test_evaluate_monitor_definition_observation_overwrites_latest_snapshot_without_history_fanout(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_on", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    first_payload = json.loads(
+        (tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json").read_text(encoding="utf-8")
+    )
+
+    evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="unconfirmed", confirmation_count=1),
+        ),
+        artifact_store=store,
+    )
+    second_payload = json.loads(
+        (tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json").read_text(encoding="utf-8")
+    )
+
+    assert len(list(tmp_path.glob(f"{artifact.monitor_definition_id}.latest_evaluation.json"))) == 1
+    assert first_payload["outcome_status"] == "threshold_breach"
+    assert second_payload["outcome_status"] == "degraded"
+    assert second_payload["significance_status"] == "degraded"
+
+
+def test_evaluate_monitor_definition_observation_appends_canonical_history_entries(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_on", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="unconfirmed", confirmation_count=1),
+        ),
+        artifact_store=store,
+    )
+
+    history = list_monitor_definition_evaluation_history(artifact.monitor_definition_id, store=store)
+
+    assert history.metadata.monitor_definition_id == artifact.monitor_definition_id
+    assert history.metadata.monitor_definition_fingerprint == artifact.fingerprint
+    assert history.metadata.total_entries == 2
+    assert history.metadata.inspection_order == "newest_first_evaluated_at"
+    assert [item.observation_status for item in history.items] == ["degraded", "threshold_breach"]
+    assert all(item.monitor_definition_fingerprint == artifact.fingerprint for item in history.items)
+    assert all(item.monitor_definition_schema_version == "monitor_definition_artifact_v1" for item in history.items)
+    assert all(item.metadata.history_truth == "authoritative_persisted_monitor_definition_evaluation_history" for item in history.items)
+    assert all(item.metadata.row_provenance == "persisted_monitor_definition_evaluation_history_entry" for item in history.items)
+    assert len(list((tmp_path / f"{artifact.monitor_definition_id}.history").glob("*.json"))) == 2
+
+
+def test_list_monitor_definition_evaluation_history_reads_append_only_entries_only(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    _write_latest_monitor_evaluation_snapshot(tmp_path, artifact.monitor_definition_id)
+
+    history = list_monitor_definition_evaluation_history(artifact.monitor_definition_id, store=store)
+
+    assert history.metadata.monitor_definition_id == artifact.monitor_definition_id
+    assert history.metadata.total_entries == 0
+    assert history.items == []
+
+
+def test_load_monitor_definition_evaluation_history_entry_fails_closed_on_definition_fingerprint_mismatch(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_on", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    history = list_monitor_definition_evaluation_history(artifact.monitor_definition_id, store=store)
+    history_entry_id = history.items[0].history_entry_id
+    _mutate_persisted_json(
+        str(tmp_path / f"{artifact.monitor_definition_id}.history" / f"{history_entry_id}.json"),
+        lambda payload: payload.__setitem__("monitor_definition_fingerprint", "0" * 64),
+    )
+
+    with pytest.raises(
+        MonitorDefinitionIntegrityValidationError,
+        match="monitor definition evaluation history entry history_entry_id does not match canonical persisted payload content|persisted monitor definition evaluation history entry fingerprint does not match persisted monitor definition",
+    ):
+        load_monitor_definition_evaluation_history_entry(
+            artifact.monitor_definition_id,
+            history_entry_id,
+            store=store,
+        )
+
+
+def test_inspect_monitor_definition_evaluation_history_entry_returns_canonical_entry(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_reduced", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    history = list_monitor_definition_evaluation_history(artifact.monitor_definition_id, store=store)
+
+    inspected = inspect_monitor_definition_evaluation_history_entry(
+        artifact.monitor_definition_id,
+        history.items[0].history_entry_id,
+        store=store,
+    )
+
+    assert inspected.item.history_entry_id == history.items[0].history_entry_id
+    assert inspected.item.observation_status == response.observation_status
+    assert inspected.item.significance_status == "informational"
+    assert inspected.metadata.retrieved_history_entry_id == history.items[0].history_entry_id
+    assert inspected.metadata.total_entries == 1
+
+
+def test_evaluate_monitor_definition_observation_returns_ok_for_risk_reduced_overlay(tmp_path) -> None:
+    from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
+
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2024, 4, 15, 9, 30),
+            source_path="IB2024.pdf",
+            detected_format="statement_pdf",
+            account_id="U1234567",
+            base_currency="USD",
+            statement_period="2024-04",
+            page_count=4,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=650.0)],
+        positions=[ImportedPosition(as_of_date=date(2024, 1, 1), symbol="AAA", quantity=35.0, cost_basis=35.0, close_price=1.0, market_value=35.0, unrealized_pnl=0.0, currency="USD")],
+        ledger_entries=[],
+    )
+
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=snapshot,
+            benchmark_observation=_monitor_benchmark_observation(status="risk_reduced", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+
+    assert response.observation_status == "ok"
+    assert response.reason is None
+    assert response.active_observation.triggered_thresholds == []
+    assert load_monitor_definition_latest_evaluation_snapshot(
+        artifact.monitor_definition_id,
+        store=store,
+    ).evaluated_at.tzinfo is not None
+
+
+def test_evaluate_monitor_definition_observation_returns_degraded_for_unconfirmed_overlay(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="unconfirmed", confirmation_count=1),
+        ),
+        artifact_store=store,
+    )
+
+    assert response.observation_status == "degraded"
+    assert response.reason == "benchmark observation is unconfirmed"
+    assert response.active_observation.threshold_evaluation_performed is False
+
+
+def test_evaluate_monitor_definition_observation_rejects_contradictory_overlay_confirmation_state(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    with pytest.raises(ValueError, match="benchmark observation status unconfirmed contradicts confirmation_count"):
+        evaluate_monitor_definition_observation(
+            artifact.monitor_definition_id,
+            EvaluateMonitorDefinitionObservationRequest(
+                current_portfolio=_build_imported_snapshot_for_optimizer(),
+                benchmark_observation=_monitor_benchmark_observation(status="unconfirmed", confirmation_count=2),
+            ),
+            artifact_store=store,
+        )
+
+
+def test_evaluate_monitor_definition_observation_request_rejects_non_canonical_benchmark_symbol() -> None:
+    payload = {
+        "current_portfolio": _build_imported_snapshot_for_optimizer().model_dump(mode="json"),
+        "benchmark_observation": _monitor_benchmark_observation().model_dump(mode="json"),
+    }
+    payload["benchmark_observation"]["benchmark_symbol"] = " spy "
+
+    with pytest.raises(
+        ValidationError,
+        match="benchmark_symbol must be canonical uppercase without surrounding whitespace",
+    ):
+        EvaluateMonitorDefinitionObservationRequest.model_validate(payload)
+
+
+def test_evaluate_monitor_definition_observation_rolls_back_snapshot_when_history_persist_fails(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_on", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    initial_snapshot = json.loads(
+        (tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json").read_text(encoding="utf-8")
+    )
+    initial_history_files = list((tmp_path / f"{artifact.monitor_definition_id}.history").glob("*.json"))
+    original_write_once = MonitorDefinitionArtifactStore._write_once
+
+    def fail_history_write(self, path, payload):
+        if path.parent.name == f"{artifact.monitor_definition_id}.history":
+            raise MonitorDefinitionPersistenceError("injected history append failure")
+        return original_write_once(self, path, payload)
+
+    monkeypatch.setattr(MonitorDefinitionArtifactStore, "_write_once", fail_history_write)
+
+    with pytest.raises(MonitorDefinitionPersistenceError, match="injected history append failure"):
+        evaluate_monitor_definition_observation(
+            artifact.monitor_definition_id,
+            EvaluateMonitorDefinitionObservationRequest(
+                current_portfolio=_build_imported_snapshot_for_optimizer(),
+                benchmark_observation=_monitor_benchmark_observation(status="unconfirmed", confirmation_count=1),
+            ),
+            artifact_store=store,
+        )
+
+    rolled_back_snapshot = json.loads(
+        (tmp_path / f"{artifact.monitor_definition_id}.latest_evaluation.json").read_text(encoding="utf-8")
+    )
+    rolled_back_history_files = list((tmp_path / f"{artifact.monitor_definition_id}.history").glob("*.json"))
+
+    assert rolled_back_snapshot == initial_snapshot
+    assert [path.name for path in rolled_back_history_files] == [path.name for path in initial_history_files]
+    assert len(rolled_back_history_files) == 1
+
+
+def test_monitor_definition_evaluation_response_preserves_shared_contract_entities(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="unconfirmed", confirmation_count=1),
+        ),
+        artifact_store=store,
+    )
+
+    typed_response = MonitorDefinitionObservationEvaluationResponse.model_validate(
+        response.model_dump(mode="json")
+    )
+
+    assert typed_response.monitor_definition_id == artifact.monitor_definition_id
+    assert typed_response.monitor_id == artifact.monitor_id
+    assert typed_response.evaluation_mode == artifact.evaluation_mode
+    assert typed_response.thresholds.model_dump(mode="json") == artifact.thresholds.model_dump(mode="json")
+    assert typed_response.observation_status == "degraded"
+
+
+def test_monitor_definition_evaluation_history_entry_preserves_separate_observation_blocks(tmp_path) -> None:
+    store = MonitorDefinitionArtifactStore(base_dir=str(tmp_path))
+    artifact = create_monitor_definition_artifact(
+        CreateMonitorDefinitionRequest(monitor_id="benchmark_trend_overlay_v1", benchmark_symbol="SPY"),
+        store=store,
+    )
+
+    response = evaluate_monitor_definition_observation(
+        artifact.monitor_definition_id,
+        EvaluateMonitorDefinitionObservationRequest(
+            current_portfolio=_build_imported_snapshot_for_optimizer(),
+            benchmark_observation=_monitor_benchmark_observation(status="risk_reduced", confirmation_count=2),
+        ),
+        artifact_store=store,
+    )
+    history = list_monitor_definition_evaluation_history(artifact.monitor_definition_id, store=store)
+    entry = history.items[0]
+
+    assert response.benchmark_observation.overlay_id == "benchmark_trend_overlay_v1"
+    assert response.portfolio_observation.total_portfolio_value == 600.0
+    assert response.active_observation.required_overlay_status == "risk_reduced"
+    assert entry.benchmark_observation.status == "risk_reduced"
+    assert entry.portfolio_observation.cash_value == 500.0
+    assert entry.active_observation.threshold_evaluation_performed is True
 
 
 def test_hypothetical_replacement_preview_route_uses_constructed_candidate_rule_in_derivation_and_provenance(mocker) -> None:

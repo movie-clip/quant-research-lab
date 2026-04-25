@@ -1,7 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { HypotheticalReplayResponse, PortfolioAllocationBacktestResponse } from '../portfolio/types'
+import type {
+  HypotheticalReplayResponse,
+  MonitorDefinitionRecentResponse,
+  PortfolioAllocationBacktestResponse,
+} from '../portfolio/types'
 import { MonitoringPanel } from './MonitoringPanel'
 
 const baseReplay: PortfolioAllocationBacktestResponse = {
@@ -92,6 +96,112 @@ afterEach(() => {
 })
 
 describe('MonitoringPanel', () => {
+  it('deserializes monitor-definition recent discovery metadata with canonical latest-snapshot fields', () => {
+    const payload: MonitorDefinitionRecentResponse = {
+      items: [
+        {
+          monitor_definition_id: 'monitor-1',
+          monitor_id: 'benchmark_trend_overlay_v1',
+          benchmark_symbol: 'SPY',
+          schema_version: 'monitor_definition_artifact_v1',
+          fingerprint: 'fp-1',
+          review_scope: 'current_portfolio_truth_only',
+          evaluation_mode: 'review_only_observation_evaluation',
+          observation_statuses: ['ok', 'threshold_breach'],
+          thresholds: {
+            minimum_confirmation_count: 2,
+            risk_on_min_risky_weight: 0.8,
+            risk_on_max_cash_weight: 0.2,
+            risk_reduced_max_risky_weight: 0.5,
+            risk_reduced_min_cash_weight: 0.5,
+          },
+          source_lineage_requirements: {
+            benchmark_source_kind: 'benchmark_overlay_signal',
+            portfolio_truth_basis: 'imported_portfolio_snapshot',
+            required_portfolio_statement_fields: ['positions'],
+            required_benchmark_observation_fields: ['status'],
+          },
+          artifact_last_modified_at: '2026-04-24T10:00:00Z',
+          metadata: {
+            metadata_truth: 'authoritative_persisted_artifact_metadata',
+            row_provenance: 'persisted_monitor_definition_artifact',
+            recent_order_provenance: 'persisted_artifact_file_mtime',
+            status: {
+              lifecycle: {
+                overlay_family: 'benchmark_trend',
+                review_support_status: 'review_supported',
+                lifecycle_status: 'enabled',
+              },
+              latest_evaluation_snapshot_status: 'present',
+              latest_evaluation_snapshot: {
+                evaluated_at: '2026-04-24T09:30:00Z',
+                outcome_status: 'threshold_breach',
+                significance_status: 'action_required',
+                recency_status: 'recent',
+              },
+            },
+          },
+        },
+      ],
+      metadata: {
+        contract_version: 'monitor_definition_discovery_v1',
+        metadata_truth: 'authoritative_persisted_artifact_metadata',
+        row_provenance: 'persisted_monitor_definition_artifact',
+        recent_order_provenance: 'persisted_artifact_file_mtime',
+        supported_monitor_ids: ['benchmark_trend_overlay_v1'],
+        supported_overlay_families: ['benchmark_trend'],
+        applied_filters: {
+          overlay_family: 'benchmark_trend',
+          monitor_id: null,
+          review_support_status: 'review_supported',
+          lifecycle_status: 'enabled',
+          latest_evaluation_snapshot_status: 'present',
+          latest_evaluation_snapshot_recency: 'recent',
+        },
+      },
+    }
+
+    expect(Object.keys(payload.items[0].metadata)).toEqual([
+      'metadata_truth',
+      'row_provenance',
+      'recent_order_provenance',
+      'status',
+    ])
+    expect(Object.keys(payload.items[0].metadata.status)).toEqual([
+      'lifecycle',
+      'latest_evaluation_snapshot_status',
+      'latest_evaluation_snapshot',
+    ])
+    expect(payload.items[0].metadata.status.lifecycle).toEqual({
+      overlay_family: 'benchmark_trend',
+      review_support_status: 'review_supported',
+      lifecycle_status: 'enabled',
+    })
+    expect(payload.items[0].metadata.status.latest_evaluation_snapshot_status).toBe('present')
+    expect(payload.items[0].metadata.status.latest_evaluation_snapshot).toEqual({
+      evaluated_at: '2026-04-24T09:30:00Z',
+      outcome_status: 'threshold_breach',
+      significance_status: 'action_required',
+      recency_status: 'recent',
+    })
+    expect(payload.metadata).toEqual({
+      contract_version: 'monitor_definition_discovery_v1',
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_artifact',
+      recent_order_provenance: 'persisted_artifact_file_mtime',
+      supported_monitor_ids: ['benchmark_trend_overlay_v1'],
+      supported_overlay_families: ['benchmark_trend'],
+      applied_filters: {
+        overlay_family: 'benchmark_trend',
+        monitor_id: null,
+        review_support_status: 'review_supported',
+        lifecycle_status: 'enabled',
+        latest_evaluation_snapshot_status: 'present',
+        latest_evaluation_snapshot_recency: 'recent',
+      },
+    })
+  })
+
   it('renders top callouts, grouped monitors, and detail drilldown', () => {
     render(<MonitoringPanel result={baseReplay} hypotheticalReplayResult={hypotheticalReplay} />)
 
