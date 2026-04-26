@@ -7,6 +7,56 @@ Additive rollout note:
 - backend-only generalized ranking artifact discovery is now also shipped on additive strategy-lab routes
 - persisted artifacts are the authoritative source for catalog and recent discovery; discovery does not recompute rankings
 - persisted artifacts are now also the authoritative source for additive generalized ranking artifact preflight/open handoffs and typed review reopen payloads
+- persisted ETF ranking artifacts are now also the authoritative source for additive construction-consumer preflight and typed handoff on the backend construction routes
+
+## ETF Ranking To Construction Handoff v1
+
+Routes:
+- `POST /construction/ranking-artifacts/preflight/{artifact_id}`
+  - validates one persisted ETF ranking artifact for construction consumption
+  - returns the backend-owned typed construction handoff only after persisted artifact load and validation succeed
+- `POST /construction/run`
+  - additive request path now accepts exactly one ranking input source:
+    - legacy inline `ranked_universe`
+    - backend-owned `ranking_artifact_handoff`
+
+Authoritative boundary rules:
+- persisted ETF ranking artifacts are the authoritative ranking truth for the handoff path
+- preflight and construction execution remain distinct responsibilities; preflight emits the handoff and does not run construction
+- construction execution on the handoff path reloads the authoritative persisted ETF ranking artifact and derives the existing ranked-candidate input from persisted artifact truth only
+- the existing inline `ranked_universe` shape remains supported and unchanged
+- `ranked_universe.artifact_id` is not overloaded into an implicit artifact-backed handoff substitute
+- new writes remain strict and canonical; compatibility logic stays at persisted-artifact load boundaries only
+
+Preflight response contract:
+- `contract_version`
+  - current value: `construction_ranking_artifact_preflight_v1`
+- `artifact`
+  - `artifact_kind`
+    - current value: `etf_ranking`
+  - `artifact_id`
+  - `schema_version`
+    - current value: `etf_ranking_artifact_v1`
+  - `ranking_id`
+  - `methodology_id`
+  - `as_of_date`
+- `handoff`
+  - `handoff_kind`
+    - current value: `etf_ranking_artifact_construction_handoff_v1`
+  - `artifact_kind`
+    - current value: `etf_ranking`
+  - `artifact_id`
+  - `schema_version`
+    - current value: `etf_ranking_artifact_v1`
+  - `ranking_id`
+  - `methodology_id`
+  - `as_of_date`
+
+Construction handoff semantics:
+- request bodies that use `ranking_artifact_handoff` must not also send inline `ranked_universe`
+- handoff/artifact identity mismatches fail closed
+- unsupported `handoff_kind`, unsupported artifact kind, unsupported schema version, missing artifact, invalid json, non-object payload, schema failure, canonical integrity mismatch, and empty or unusable eligible ranking states fail closed
+- handoff-backed construction artifacts persist authoritative ranking provenance through `normalized_inputs.ranked_universe_artifact_kind`, `normalized_inputs.ranked_universe_artifact_id`, and `normalized_inputs.ranked_universe_artifact_schema_version` alongside existing ranking metadata fields
 
 The preferred authoritative contract shape is now grouped into:
 - `request`

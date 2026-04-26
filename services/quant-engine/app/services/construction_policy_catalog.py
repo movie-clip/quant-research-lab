@@ -41,6 +41,20 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             policy_definition_id="construction_policy_definition_top_n_equal_weight_v1",
             name="Top N Equal Weight v1",
             description="Select eligible top-ranked names and assign equal target weights.",
+            family="top_n_equal_weight",
+            constraints="long_only_fully_invested_max_position_turnover",
+            inputs="ranked_universe_and_current_portfolio",
+            determinism="deterministic_rank_order",
+            ranking_support="selection_only",
+            full_investment_constraint="required",
+            long_only_constraint="required",
+            eligible_ranked_universe_constraint="required",
+            max_position_weight_constraint="required",
+            min_position_weight_constraint="supported_optional",
+            max_turnover_weight_constraint="supported_optional",
+            max_trade_intent_count_constraint="supported_optional",
+            ranked_universe_input="required",
+            current_portfolio_input="required",
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
         ),
         max_position_failure_reason="equal-weight seed exceeds max_position_weight",
@@ -53,6 +67,20 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             policy_definition_id="construction_policy_definition_top_n_inverse_rank_weight_v1",
             name="Top N Inverse Rank Weight v1",
             description="Select eligible top-ranked names and weight them by inverse selected-order rank.",
+            family="top_n_rank_weighted",
+            constraints="long_only_fully_invested_max_position_turnover",
+            inputs="ranked_universe_and_current_portfolio",
+            determinism="deterministic_rank_order",
+            ranking_support="inverse_selected_order_weighting",
+            full_investment_constraint="required",
+            long_only_constraint="required",
+            eligible_ranked_universe_constraint="required",
+            max_position_weight_constraint="required",
+            min_position_weight_constraint="supported_optional",
+            max_turnover_weight_constraint="supported_optional",
+            max_trade_intent_count_constraint="supported_optional",
+            ranked_universe_input="required",
+            current_portfolio_input="required",
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
         ),
         max_position_failure_reason="inverse-rank seed exceeds max_position_weight",
@@ -65,6 +93,20 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             policy_definition_id="construction_policy_definition_top_n_linear_rank_weight_v1",
             name="Top N Linear Rank Weight v1",
             description="Select eligible top-ranked names and weight them by selected-order linear rank numerators N..1.",
+            family="top_n_rank_weighted",
+            constraints="long_only_fully_invested_max_position_turnover",
+            inputs="ranked_universe_and_current_portfolio",
+            determinism="deterministic_rank_order",
+            ranking_support="linear_selected_order_weighting",
+            full_investment_constraint="required",
+            long_only_constraint="required",
+            eligible_ranked_universe_constraint="required",
+            max_position_weight_constraint="required",
+            min_position_weight_constraint="supported_optional",
+            max_turnover_weight_constraint="supported_optional",
+            max_trade_intent_count_constraint="supported_optional",
+            ranked_universe_input="required",
+            current_portfolio_input="required",
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
         ),
         max_position_failure_reason="linear-rank seed exceeds max_position_weight",
@@ -78,8 +120,62 @@ _POLICY_BY_ID: dict[str, ConstructionPolicyDefinition] = {
 }
 
 
-def list_construction_policies() -> list[ConstructionPolicyCatalogEntry]:
-    return [definition.catalog_entry.model_copy(deep=True) for definition in POLICY_CATALOG]
+def list_construction_policies(
+    *,
+    family: str | None = None,
+    constraints: str | None = None,
+    inputs: str | None = None,
+    determinism: str | None = None,
+    ranking_support: str | None = None,
+    full_investment_constraint: str | None = None,
+    long_only_constraint: str | None = None,
+    eligible_ranked_universe_constraint: str | None = None,
+    max_position_weight_constraint: str | None = None,
+    min_position_weight_constraint: str | None = None,
+    max_turnover_weight_constraint: str | None = None,
+    max_trade_intent_count_constraint: str | None = None,
+    ranked_universe_input: str | None = None,
+    current_portfolio_input: str | None = None,
+) -> list[ConstructionPolicyCatalogEntry]:
+    policies: list[ConstructionPolicyCatalogEntry] = []
+    for definition in POLICY_CATALOG:
+        entry = definition.catalog_entry
+        if family is not None and entry.family != family:
+            continue
+        if constraints is not None and entry.constraints != constraints:
+            continue
+        if inputs is not None and entry.inputs != inputs:
+            continue
+        if determinism is not None and entry.determinism != determinism:
+            continue
+        if ranking_support is not None and entry.ranking_support != ranking_support:
+            continue
+        if full_investment_constraint is not None and entry.full_investment_constraint != full_investment_constraint:
+            continue
+        if long_only_constraint is not None and entry.long_only_constraint != long_only_constraint:
+            continue
+        if (
+            eligible_ranked_universe_constraint is not None
+            and entry.eligible_ranked_universe_constraint != eligible_ranked_universe_constraint
+        ):
+            continue
+        if max_position_weight_constraint is not None and entry.max_position_weight_constraint != max_position_weight_constraint:
+            continue
+        if min_position_weight_constraint is not None and entry.min_position_weight_constraint != min_position_weight_constraint:
+            continue
+        if max_turnover_weight_constraint is not None and entry.max_turnover_weight_constraint != max_turnover_weight_constraint:
+            continue
+        if (
+            max_trade_intent_count_constraint is not None
+            and entry.max_trade_intent_count_constraint != max_trade_intent_count_constraint
+        ):
+            continue
+        if ranked_universe_input is not None and entry.ranked_universe_input != ranked_universe_input:
+            continue
+        if current_portfolio_input is not None and entry.current_portfolio_input != current_portfolio_input:
+            continue
+        policies.append(entry.model_copy(deep=True))
+    return policies
 
 
 def get_construction_policy_definition(policy_id: str) -> ConstructionPolicyDefinition | None:

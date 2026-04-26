@@ -2012,6 +2012,15 @@ export type ConstructionArtifactReplayProvenance = {
   ranking_id: string | null
   ranking_methodology_id: string | null
   current_portfolio_artifact_id: string | null
+  hard_constraints: {
+    full_investment: true
+    long_only: true
+    eligible_ranked_universe_only: true
+    max_position_weight: number
+    min_position_weight: number | null
+    max_turnover_weight: number | null
+    max_trade_intent_count: number | null
+  }
   baseline_input_source: 'normalized_inputs.current_portfolio_weights'
   candidate_input_source: 'final_target_weights'
   selection_rule_trace: {
@@ -2023,6 +2032,93 @@ export type ConstructionArtifactReplayProvenance = {
       output_candidate_symbols: string[]
     }>
   }
+  turnover_diagnostics_status: 'available' | 'unavailable_legacy_artifact'
+  turnover_diagnostics_v1: {
+    diagnostics_version: 'construction_turnover_diagnostics_v1'
+    source: 'persisted_construction_artifact'
+    diagnostic_truth: 'artifact_backed_hypothetical_construction_diagnostics_only'
+    turnover_basis_method_version: 'half_l1_weight_delta_union_v1'
+    reported_value_status: 'computed' | 'not_computed_no_generated_target_weights'
+    reported_turnover_weight: number | null
+    inclusion_flags: {
+      uses_current_and_target_weight_union: true
+      includes_initiations: true
+      includes_exits: true
+      includes_zero_delta_positions_in_trade_intent_context: true
+      excludes_zero_delta_positions_from_reported_turnover_sum: true
+    }
+    trade_intent_context: {
+      source_field: 'trade_intents'
+      intent_count: number
+    }
+    feasibility_context: {
+      artifact_status: 'feasible' | 'infeasible' | 'rejected'
+      failure_reasons_field: 'failure_reasons'
+      turnover_failure_reason_present: boolean
+    }
+    constraint_context: {
+      constraint_id: 'max_turnover_weight'
+      requested: boolean
+      limit_weight: number | null
+      evaluation_status: 'pass' | 'binding' | 'fail' | 'not_evaluated'
+    }
+    symbol_contributions: Array<{
+      symbol: string
+      action: 'buy' | 'sell' | 'hold' | 'initiate' | 'exit'
+      current_weight: number
+      target_weight: number
+      delta_weight: number
+      absolute_delta_weight: number
+      turnover_contribution_weight: number
+      contribution_fraction_of_reported_turnover: number | null
+      included_in_reported_turnover: boolean
+    }>
+  } | null
+  weighting_trace_status: 'available' | 'unavailable_legacy_artifact'
+  weighting_trace_v1: {
+    trace_version: 'weighting_trace_v1'
+    source: 'persisted_construction_artifact'
+    diagnostic_truth: 'artifact_backed_hypothetical_construction_diagnostics_only'
+    policy_id: string
+    policy_definition_id: string
+    stages: Array<{
+      stage_id:
+        | 'selected_order_to_raw_weight_numerator'
+        | 'raw_weight_numerator_to_seed_weight'
+        | 'seed_weight_to_target_weight'
+      stage_order: number
+      input_metric_id: 'selected_order' | 'raw_weight_numerator' | 'seed_weight' | 'target_weight'
+      output_metric_id: 'selected_order' | 'raw_weight_numerator' | 'seed_weight' | 'target_weight'
+      positions: Array<{
+        symbol: string
+        rank: number
+        selected_order: number
+        input_value: number
+        output_value: number
+      }>
+    }>
+    normalization: {
+      normalization_source: 'raw_weight_numerator_to_seed_weight'
+      normalization_applied: boolean
+      input_metric_id: 'raw_weight_numerator'
+      output_metric_id: 'seed_weight'
+      raw_value_sum: number | null
+      normalized_value_sum: number | null
+      rounding_scale: number | null
+      normalization_method:
+        | 'not_applicable'
+        | 'single_position_force_to_one'
+        | 'fractional_sum_division_with_last_position_reconciliation'
+      residual_reconciliation_symbol: string | null
+      residual_reconciliation_delta: number | null
+    }
+    artifact_binding: {
+      binding_status:
+        | 'final_target_weights_persisted'
+        | 'generated_target_weights_not_persisted_due_to_infeasible_artifact'
+      final_target_weights_present: boolean
+    }
+  } | null
 }
 
 export type ConstructionArtifactReplayEffectiveParams = {

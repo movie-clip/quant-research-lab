@@ -139,7 +139,15 @@ This means replay diagnostics are built from:
 - handoff consumption fails closed on missing or unsupported `handoff_kind` and on persisted artifact integrity mismatches, including construction artifact id mismatch
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` echoes lineage from the persisted construction artifact
 - persisted construction artifacts carry both resolved `normalized_inputs.policy_definition_id` and full normalized replay inputs, while preview/replay still consumes persisted `final_target_weights` and normalized baseline inputs rather than recalculating from catalog state
+- `replay_provenance.hard_constraints` is required and is echoed from persisted artifact contract truth only; preview/open must not omit it, widen it, or reconstruct it from desktop defaults
+- the echoed `replay_provenance.hard_constraints` shape is exact and fail-closed: `full_investment`, `long_only`, `eligible_ranked_universe_only`, `max_position_weight`, `min_position_weight`, `max_turnover_weight`, and `max_trade_intent_count`; nullable fields stay explicit `null` when the persisted artifact carries no value
 - `replay_provenance.selection_rule_trace` must be echoed from persisted artifact provenance only
+- `replay_provenance.turnover_diagnostics_status` and `replay_provenance.turnover_diagnostics_v1` must also be echoed from the persisted artifact only; replay/open must not reconstruct, repair, or mutate turnover provenance
+- `replay_provenance.weighting_trace_status` and `replay_provenance.weighting_trace_v1` must also be echoed from the persisted artifact only; replay/open must not reconstruct, repair, or mutate weighting-trace provenance
+- the only legacy compatibility fallback is the exact dual-missing case where both persisted weighting-trace fields are absent; that case loads as `weighting_trace_status = unavailable_legacy_artifact` with `weighting_trace_v1 = null`
+- the only legacy compatibility fallback for turnover provenance is the exact dual-missing case where both persisted turnover-diagnostics fields are absent; that case loads as `turnover_diagnostics_status = unavailable_legacy_artifact` with `turnover_diagnostics_v1 = null`
+- any other present malformed, partial, unsupported, or contradictory turnover-diagnostics state fails closed, including unsupported `diagnostics_version`, missing required subfields, requested/limit/evaluation contradictions, and feasibility links that disagree with persisted artifact outputs
+- any other present malformed, partial, unsupported, or contradictory weighting-trace state fails closed, including missing required populated fields, unsupported `trace_version`, partial stage payloads, and status/value contradictions
 - the trace is descriptive provenance and must not drive replay math
 - legacy empty traces normalize only at artifact-load time; replay does not invent trace content later
 
@@ -192,6 +200,34 @@ Implementation:
 
 - `constructionArtifactReplay.replay_provenance.selection_rule_trace`
   - authoritative persisted selection trace for the artifact replayed
+- `constructionArtifactReplay.replay_provenance.hard_constraints`
+  - authoritative persisted hard-constraint block for the replayed artifact; this is replay provenance describing the persisted hypothetical construction contract, not imported portfolio truth or desktop-computed settings
+- `constructionArtifactReplay.replay_provenance.hard_constraints.max_trade_intent_count`
+  - authoritative persisted hard cap on canonical construction `trade_intents`; when present it is evaluated from the persisted artifact `trade_intents` length, not from `turnover_diagnostics_v1.trade_intent_context.intent_count` or desktop-reconstructed state
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_status`
+  - authoritative persisted turnover-diagnostics availability label; `available` requires a present valid persisted `turnover_diagnostics_v1`, and `unavailable_legacy_artifact` is reserved only for the exact dual-missing legacy artifact case
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1`
+  - authoritative persisted turnover diagnostics echoed verbatim from the artifact when present and valid; this is artifact-backed hypothetical construction diagnostics only and never replay math input
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.symbol_contributions`
+  - authoritative persisted per-symbol turnover contribution diagnostics echoed verbatim from the artifact; rows are ordered by symbol ascending and provide the stable reconciliation bridge from `current_weight` and `target_weight` through signed `delta_weight`, `absolute_delta_weight`, and `turnover_contribution_weight` back to `reported_turnover_weight`
+- `constructionArtifactReplay.replay_provenance.weighting_trace_status`
+  - authoritative persisted weighting-trace availability label; `available` requires a present valid persisted `weighting_trace_v1`, and `unavailable_legacy_artifact` is reserved only for the exact dual-missing legacy artifact case
+- `constructionArtifactReplay.replay_provenance.weighting_trace_v1`
+  - authoritative persisted weighting derivation trace echoed verbatim from the artifact when present and valid; this is hypothetical construction diagnostics only and never replay math input
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.reported_turnover_weight`
+  - persisted reported turnover weight from the construction artifact; it stays `null` only when `reported_value_status` says turnover was not computed
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.trade_intent_context.intent_count`
+  - persisted count of trade intents used as turnover-context diagnostics; it is diagnostic context only and does not imply executed trades
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.constraint_context`
+  - persisted turnover-cap diagnostic context already emitted by the backend: `requested` tells whether `max_turnover_weight` was requested in persisted hard constraints, `limit_weight` carries the persisted cap when requested, and `evaluation_status` records whether the cap passed, bound, failed, or was not evaluated
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.feasibility_context`
+  - persisted link to artifact feasibility diagnostics: `artifact_status` is the persisted construction outcome, `failure_reasons_field` identifies the persisted field carrying failure reasons, and `turnover_failure_reason_present` tells whether a turnover-specific failure reason was emitted there
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.symbol_contributions[].delta_weight`
+  - signed `target_weight - current_weight`; positive values are net buys/initiation, negative values are net sells/exits, and zero means hold
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.symbol_contributions[].turnover_contribution_weight`
+  - per-symbol contribution in weight units under the existing turnover formula `0.5 * abs(delta_weight)`; reported rows reconcile within artifact tolerance back to `reported_turnover_weight`
+- `constructionArtifactReplay.replay_provenance.turnover_diagnostics_v1.symbol_contributions[].contribution_fraction_of_reported_turnover`
+  - unitless share of reported aggregate turnover in `[0,1]`; unchanged names carry `0.0` when aggregate turnover is positive and `null` when aggregate turnover is zero
 - `constructionArtifactReplay.truth_separation`
   - makes explicit that persisted construction artifacts are hypothetical candidate inputs, not applied truth
 - artifact loading fails closed on corruption, malformed payloads, or integrity contradictions

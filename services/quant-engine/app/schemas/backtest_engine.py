@@ -5,7 +5,15 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
-from app.schemas.construction import ConstructionPolicyDefinitionId, ConstructionSelectionRuleTrace
+from app.schemas.construction import (
+    ConstructionPolicyDefinitionId,
+    ConstructionSelectionRuleTrace,
+    ConstructionHardConstraints,
+    ConstructionTurnoverDiagnosticsStatus,
+    ConstructionTurnoverDiagnosticsV1,
+    ConstructionWeightingTraceStatus,
+    ConstructionWeightingTraceV1,
+)
 from app.schemas.imports import ImportedPortfolioSnapshot, StatementImporter
 from app.schemas.optimizer import OptimizerArtifactState, OptimizerBenchmarkAttestationType, OptimizerConstraintStatus, OptimizerObjective, OptimizerObjectiveId, OptimizerPersistedArtifactReference, OptimizerReturnBasisAttestation, OptimizerReturnBasisSectionTrust
 from app.schemas.reconciliation import RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
@@ -481,9 +489,30 @@ class ConstructionArtifactReplayProvenance(BaseModel):
     ranking_id: str | None = None
     ranking_methodology_id: str | None = None
     current_portfolio_artifact_id: str | None = None
+    hard_constraints: ConstructionHardConstraints
     baseline_input_source: Literal["normalized_inputs.current_portfolio_weights"] = "normalized_inputs.current_portfolio_weights"
     candidate_input_source: Literal["final_target_weights"] = "final_target_weights"
     selection_rule_trace: ConstructionSelectionRuleTrace
+    turnover_diagnostics_status: ConstructionTurnoverDiagnosticsStatus = "unavailable_legacy_artifact"
+    turnover_diagnostics_v1: ConstructionTurnoverDiagnosticsV1 | None = None
+    weighting_trace_status: ConstructionWeightingTraceStatus
+    weighting_trace_v1: ConstructionWeightingTraceV1 | None
+
+    @model_validator(mode="after")
+    def _validate_turnover_diagnostics_contract(self) -> "ConstructionArtifactReplayProvenance":
+        if self.turnover_diagnostics_status == "available" and self.turnover_diagnostics_v1 is None:
+            raise ValueError("turnover_diagnostics_v1 is required when turnover_diagnostics_status=available")
+        if self.turnover_diagnostics_status == "unavailable_legacy_artifact" and self.turnover_diagnostics_v1 is not None:
+            raise ValueError("turnover_diagnostics_v1 must be omitted when turnover_diagnostics_status=unavailable_legacy_artifact")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_weighting_trace_contract(self) -> "ConstructionArtifactReplayProvenance":
+        if self.weighting_trace_status == "available" and self.weighting_trace_v1 is None:
+            raise ValueError("weighting_trace_v1 is required when weighting_trace_status=available")
+        if self.weighting_trace_status == "unavailable_legacy_artifact" and self.weighting_trace_v1 is not None:
+            raise ValueError("weighting_trace_v1 must be omitted when weighting_trace_status=unavailable_legacy_artifact")
+        return self
 
 
 class ConstructionArtifactReplayResponse(BaseModel):

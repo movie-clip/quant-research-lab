@@ -267,7 +267,7 @@ function formatReplayWindow(startDate: string | null | undefined, endDate: strin
 }
 
 function formatOptimizerObjectiveLabel(objective: OptimizerObjective) {
-  const objectiveId = objective.objective_id
+  const objectiveId: string = objective.objective_id
   if (objectiveId === 'maximize_alpha_quality_v1') return 'maximize alpha quality v1'
   if (objectiveId === 'minimize_l2_distance_to_benchmark') return 'minimize benchmark distance'
   return objectiveId.replace(/_/g, ' ')

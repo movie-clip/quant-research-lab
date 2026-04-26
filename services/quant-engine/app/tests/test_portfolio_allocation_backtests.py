@@ -1783,6 +1783,8 @@ def test_build_construction_artifact_replay_preview_uses_persisted_final_target_
         artifact_store=artifact_store,
     )
 
+    assert artifact.weighting_trace_v1 is not None
+    assert artifact.turnover_diagnostics_v1 is not None
     assert replay_response.construction_artifact_id == artifact.artifact_id
     assert replay_response.truth_separation.model_dump() == {
         "baseline_truth": "imported_portfolio_snapshot",
@@ -1799,6 +1801,7 @@ def test_build_construction_artifact_replay_preview_uses_persisted_final_target_
         "ranking_id": "ranked_candidates_v1",
         "ranking_methodology_id": "ranked_candidates_methodology_v1",
         "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "hard_constraints": artifact.hard_constraints.model_dump(mode="json"),
         "baseline_input_source": "normalized_inputs.current_portfolio_weights",
         "candidate_input_source": "final_target_weights",
         "selection_rule_trace": {
@@ -1818,6 +1821,10 @@ def test_build_construction_artifact_replay_preview_uses_persisted_final_target_
                 },
             ],
         },
+        "turnover_diagnostics_status": "available",
+        "turnover_diagnostics_v1": artifact.turnover_diagnostics_v1.model_dump(mode="json"),
+        "weighting_trace_status": "available",
+        "weighting_trace_v1": artifact.weighting_trace_v1.model_dump(mode="json"),
     }
     assert replay_response.baseline_weights == [
         PortfolioWeightInput(symbol="AAA", target_weight=0.6),
@@ -2454,6 +2461,15 @@ def test_build_construction_artifact_replay_preview_uses_persisted_inverse_rank_
     )
 
     assert replay_response.replay_provenance.policy_id == "top_n_inverse_rank_weight_v1"
+    assert replay_response.replay_provenance.hard_constraints.model_dump(mode="json") == {
+        "full_investment": True,
+        "long_only": True,
+        "eligible_ranked_universe_only": True,
+        "max_position_weight": 0.55,
+        "min_position_weight": None,
+        "max_turnover_weight": None,
+        "max_trade_intent_count": None,
+    }
     assert replay_response.candidate_weights == [
         PortfolioWeightInput(symbol="AAA", target_weight=0.54545455),
         PortfolioWeightInput(symbol="BBB", target_weight=0.27272727),
@@ -2527,6 +2543,8 @@ def test_build_construction_artifact_replay_preview_remains_compatible_with_turn
         artifact_store=artifact_store,
     )
 
+    assert artifact.weighting_trace_v1 is not None
+    assert artifact.turnover_diagnostics_v1 is not None
     assert replay_response.construction_artifact_id == artifact.artifact_id
     assert replay_response.replay_provenance.model_dump() == {
         "source": "construction_artifact_reference",
@@ -2537,6 +2555,7 @@ def test_build_construction_artifact_replay_preview_remains_compatible_with_turn
         "ranking_id": "ranked_candidates_v1",
         "ranking_methodology_id": "ranked_candidates_methodology_v1",
         "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "hard_constraints": artifact.hard_constraints.model_dump(mode="json"),
         "baseline_input_source": "normalized_inputs.current_portfolio_weights",
         "candidate_input_source": "final_target_weights",
         "selection_rule_trace": {
@@ -2556,6 +2575,10 @@ def test_build_construction_artifact_replay_preview_remains_compatible_with_turn
                 },
             ],
         },
+        "turnover_diagnostics_status": "available",
+        "turnover_diagnostics_v1": artifact.turnover_diagnostics_v1.model_dump(mode="json"),
+        "weighting_trace_status": "available",
+        "weighting_trace_v1": artifact.weighting_trace_v1.model_dump(mode="json"),
     }
     assert replay_response.candidate_weights == [
         PortfolioWeightInput(symbol="AAA", target_weight=0.5),
@@ -2650,6 +2673,68 @@ def test_build_construction_artifact_replay_preview_uses_persisted_artifact_weig
         PortfolioWeightInput(symbol="BBB", target_weight=0.27272727),
         PortfolioWeightInput(symbol="CCC", target_weight=0.18181818),
     ]
+
+
+def test_build_construction_artifact_replay_preview_echoes_persisted_min_position_weight_unchanged(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-min-position-weight",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "min_position_weight": 0.5,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=artifact.artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.replay_provenance.hard_constraints.model_dump(mode="json") == {
+        "full_investment": True,
+        "long_only": True,
+        "eligible_ranked_universe_only": True,
+        "max_position_weight": 0.6,
+        "min_position_weight": 0.5,
+        "max_turnover_weight": None,
+        "max_trade_intent_count": None,
+    }
 
 
 def test_build_construction_artifact_replay_preview_supports_linear_rank_policy_from_persisted_artifact(
@@ -2791,9 +2876,212 @@ def test_construction_artifact_replay_provenance_requires_explicit_selection_tra
         "construction_artifact_id": "construction_artifact_1234567890abcdef",
         "policy_id": "top_n_equal_weight_v1",
         "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+        "hard_constraints": {
+            "full_investment": True,
+            "long_only": True,
+            "eligible_ranked_universe_only": True,
+            "max_position_weight": 0.6,
+            "min_position_weight": None,
+            "max_turnover_weight": None,
+            "max_trade_intent_count": None,
+        },
         "selection_rule_trace": {"rule_ids": [], "steps": []},
     }
     trace_mutator(payload)
+
+    with pytest.raises(ValidationError):
+        ConstructionArtifactReplayProvenance.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "turnover_mutator",
+    [
+        lambda payload: payload.pop("turnover_diagnostics_status"),
+        lambda payload: payload.pop("turnover_diagnostics_v1"),
+        lambda payload: payload["turnover_diagnostics_v1"].__setitem__("diagnostics_version", "construction_turnover_diagnostics_v0"),
+    ],
+    ids=["missing_status", "missing_body", "unsupported_version"],
+)
+def test_construction_artifact_replay_provenance_fails_closed_for_invalid_turnover_diagnostics(turnover_mutator) -> None:
+    payload = {
+        "construction_artifact_id": "construction_artifact_1234567890abcdef",
+        "policy_id": "top_n_equal_weight_v1",
+        "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+        "hard_constraints": {
+            "full_investment": True,
+            "long_only": True,
+            "eligible_ranked_universe_only": True,
+            "max_position_weight": 0.6,
+            "min_position_weight": None,
+            "max_turnover_weight": None,
+            "max_trade_intent_count": None,
+        },
+        "selection_rule_trace": {"rule_ids": [], "steps": []},
+        "turnover_diagnostics_status": "available",
+        "turnover_diagnostics_v1": {
+            "diagnostics_version": "construction_turnover_diagnostics_v1",
+            "source": "persisted_construction_artifact",
+            "diagnostic_truth": "artifact_backed_hypothetical_construction_diagnostics_only",
+            "turnover_basis_method_version": "half_l1_weight_delta_union_v1",
+            "reported_value_status": "computed",
+            "reported_turnover_weight": 0.6,
+            "inclusion_flags": {
+                "uses_current_and_target_weight_union": True,
+                "includes_initiations": True,
+                "includes_exits": True,
+                "includes_zero_delta_positions_in_trade_intent_context": True,
+                "excludes_zero_delta_positions_from_reported_turnover_sum": True,
+            },
+            "trade_intent_context": {"source_field": "trade_intents", "intent_count": 2},
+            "feasibility_context": {
+                "artifact_status": "feasible",
+                "failure_reasons_field": "failure_reasons",
+                "turnover_failure_reason_present": False,
+            },
+            "constraint_context": {
+                "constraint_id": "max_turnover_weight",
+                "requested": True,
+                "limit_weight": 0.61,
+                "evaluation_status": "pass",
+            },
+            "symbol_contributions": [
+                {
+                    "symbol": "AAA",
+                    "action": "buy",
+                    "current_weight": 0.4,
+                    "target_weight": 0.6,
+                    "delta_weight": 0.2,
+                    "absolute_delta_weight": 0.2,
+                    "turnover_contribution_weight": 0.1,
+                    "contribution_fraction_of_reported_turnover": 0.16666667,
+                    "included_in_reported_turnover": True,
+                },
+                {
+                    "symbol": "BBB",
+                    "action": "sell",
+                    "current_weight": 0.6,
+                    "target_weight": 0.0,
+                    "delta_weight": -0.6,
+                    "absolute_delta_weight": 0.6,
+                    "turnover_contribution_weight": 0.3,
+                    "contribution_fraction_of_reported_turnover": 0.5,
+                    "included_in_reported_turnover": True,
+                },
+                {
+                    "symbol": "CCC",
+                    "action": "initiate",
+                    "current_weight": 0.0,
+                    "target_weight": 0.4,
+                    "delta_weight": 0.4,
+                    "absolute_delta_weight": 0.4,
+                    "turnover_contribution_weight": 0.2,
+                    "contribution_fraction_of_reported_turnover": 0.33333333,
+                    "included_in_reported_turnover": True,
+                },
+            ],
+        },
+    }
+    turnover_mutator(payload)
+
+    with pytest.raises(ValidationError):
+        ConstructionArtifactReplayProvenance.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "weighting_mutator",
+    [
+        lambda payload: payload.pop("weighting_trace_status"),
+        lambda payload: payload.pop("weighting_trace_v1"),
+        lambda payload: payload["weighting_trace_v1"].__setitem__("trace_version", "weighting_trace_v0"),
+        lambda payload: payload["weighting_trace_v1"]["stages"][1].__setitem__(
+            "positions",
+            payload["weighting_trace_v1"]["stages"][1]["positions"][:-1],
+        ),
+        lambda payload: payload.__setitem__("weighting_trace_status", "unavailable_legacy_artifact"),
+    ],
+    ids=[
+        "missing_status",
+        "missing_body",
+        "unsupported_version",
+        "partial_payload",
+        "status_body_contradiction",
+    ],
+)
+def test_construction_artifact_replay_provenance_fails_closed_for_invalid_weighting_trace(weighting_mutator) -> None:
+    payload = {
+        "construction_artifact_id": "construction_artifact_1234567890abcdef",
+        "policy_id": "top_n_equal_weight_v1",
+        "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+        "hard_constraints": {
+            "full_investment": True,
+            "long_only": True,
+            "eligible_ranked_universe_only": True,
+            "max_position_weight": 0.6,
+            "min_position_weight": None,
+            "max_turnover_weight": None,
+            "max_trade_intent_count": None,
+        },
+        "selection_rule_trace": {"rule_ids": [], "steps": []},
+        "turnover_diagnostics_status": "unavailable_legacy_artifact",
+        "turnover_diagnostics_v1": None,
+        "weighting_trace_status": "available",
+        "weighting_trace_v1": {
+            "trace_version": "weighting_trace_v1",
+            "source": "persisted_construction_artifact",
+            "diagnostic_truth": "artifact_backed_hypothetical_construction_diagnostics_only",
+            "policy_id": "top_n_equal_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "stages": [
+                {
+                    "stage_id": "selected_order_to_raw_weight_numerator",
+                    "stage_order": 1,
+                    "input_metric_id": "selected_order",
+                    "output_metric_id": "raw_weight_numerator",
+                    "positions": [
+                        {"symbol": "AAA", "rank": 1, "selected_order": 1, "input_value": 1.0, "output_value": 1.0},
+                        {"symbol": "BBB", "rank": 2, "selected_order": 2, "input_value": 2.0, "output_value": 1.0},
+                    ],
+                },
+                {
+                    "stage_id": "raw_weight_numerator_to_seed_weight",
+                    "stage_order": 2,
+                    "input_metric_id": "raw_weight_numerator",
+                    "output_metric_id": "seed_weight",
+                    "positions": [
+                        {"symbol": "AAA", "rank": 1, "selected_order": 1, "input_value": 1.0, "output_value": 0.5},
+                        {"symbol": "BBB", "rank": 2, "selected_order": 2, "input_value": 1.0, "output_value": 0.5},
+                    ],
+                },
+                {
+                    "stage_id": "seed_weight_to_target_weight",
+                    "stage_order": 3,
+                    "input_metric_id": "seed_weight",
+                    "output_metric_id": "target_weight",
+                    "positions": [
+                        {"symbol": "AAA", "rank": 1, "selected_order": 1, "input_value": 0.5, "output_value": 0.5},
+                        {"symbol": "BBB", "rank": 2, "selected_order": 2, "input_value": 0.5, "output_value": 0.5},
+                    ],
+                },
+            ],
+            "normalization": {
+                "normalization_source": "raw_weight_numerator_to_seed_weight",
+                "normalization_applied": True,
+                "input_metric_id": "raw_weight_numerator",
+                "output_metric_id": "seed_weight",
+                "raw_value_sum": 2.0,
+                "normalized_value_sum": 1.0,
+                "rounding_scale": 8,
+                "normalization_method": "fractional_sum_division_with_last_position_reconciliation",
+                "residual_reconciliation_symbol": "BBB",
+                "residual_reconciliation_delta": 0.0,
+            },
+            "artifact_binding": {
+                "binding_status": "final_target_weights_persisted",
+                "final_target_weights_present": True,
+            },
+        },
+    }
+    weighting_mutator(payload)
 
     with pytest.raises(ValidationError):
         ConstructionArtifactReplayProvenance.model_validate(payload)
@@ -2805,11 +3093,40 @@ def test_construction_artifact_replay_provenance_accepts_explicit_empty_selectio
             "construction_artifact_id": "construction_artifact_1234567890abcdef",
             "policy_id": "top_n_equal_weight_v1",
             "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "min_position_weight": None,
+                "max_turnover_weight": None,
+                "max_trade_intent_count": None,
+            },
             "selection_rule_trace": {"rule_ids": [], "steps": []},
+            "turnover_diagnostics_status": "unavailable_legacy_artifact",
+            "turnover_diagnostics_v1": None,
+            "weighting_trace_status": "unavailable_legacy_artifact",
+            "weighting_trace_v1": None,
         }
     )
 
     assert provenance.selection_rule_trace.model_dump(mode="json") == {"rule_ids": [], "steps": []}
+
+
+def test_construction_artifact_replay_provenance_rejects_missing_hard_constraints() -> None:
+    with pytest.raises(ValidationError):
+        ConstructionArtifactReplayProvenance.model_validate(
+            {
+                "construction_artifact_id": "construction_artifact_1234567890abcdef",
+                "policy_id": "top_n_equal_weight_v1",
+                "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+                "selection_rule_trace": {"rule_ids": [], "steps": []},
+                "turnover_diagnostics_status": "unavailable_legacy_artifact",
+                "turnover_diagnostics_v1": None,
+                "weighting_trace_status": "unavailable_legacy_artifact",
+                "weighting_trace_v1": None,
+            }
+        )
 
 
 def test_build_construction_artifact_replay_preview_echoes_empty_selection_trace_for_legacy_artifact(
@@ -2854,6 +3171,10 @@ def test_build_construction_artifact_replay_preview_echoes_empty_selection_trace
     original_path = tmp_path / f"{artifact.artifact_id}.json"
     payload = json.loads(original_path.read_text(encoding="utf-8"))
     payload.pop("selection_rule_trace")
+    payload.pop("turnover_diagnostics_status")
+    payload.pop("turnover_diagnostics_v1")
+    payload.pop("weighting_trace_status")
+    payload.pop("weighting_trace_v1")
     payload_without_ids = {key: value for key, value in payload.items() if key not in {"artifact_id", "fingerprint"}}
     fingerprint = sha256(
         json.dumps(payload_without_ids, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
@@ -2880,6 +3201,261 @@ def test_build_construction_artifact_replay_preview_echoes_empty_selection_trace
         "rule_ids": [],
         "steps": [],
     }
+    assert replay_response.replay_provenance.turnover_diagnostics_status == "unavailable_legacy_artifact"
+    assert replay_response.replay_provenance.turnover_diagnostics_v1 is None
+    assert replay_response.replay_provenance.weighting_trace_status == "unavailable_legacy_artifact"
+    assert replay_response.replay_provenance.weighting_trace_v1 is None
+
+
+def test_build_construction_artifact_replay_preview_uses_persisted_turnover_diagnostics_directly(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-persisted-turnover-diagnostics",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    assert artifact.turnover_diagnostics_v1 is not None
+    diagnostics_payload = artifact.turnover_diagnostics_v1.model_dump(mode="json")
+    replacement_payload = {
+        **diagnostics_payload,
+        "reported_turnover_weight": 0.12345678,
+        "symbol_contributions": [],
+    }
+    legacy_artifact_id = _rewrite_construction_artifact_payload(
+        tmp_path,
+        artifact.artifact_id,
+        lambda payload: payload.__setitem__("turnover_diagnostics_v1", replacement_payload),
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=legacy_artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.replay_provenance.turnover_diagnostics_v1 is not None
+    assert replay_response.replay_provenance.turnover_diagnostics_v1.reported_turnover_weight == 0.12345678
+
+
+def test_build_construction_artifact_replay_preview_echoes_persisted_turnover_symbol_contributions_directly(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-persisted-turnover-symbol-contributions",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    assert artifact.turnover_diagnostics_v1 is not None
+    diagnostics_payload = artifact.turnover_diagnostics_v1.model_dump(mode="json")
+    replacement_payload = {
+        **diagnostics_payload,
+        "symbol_contributions": [],
+    }
+    legacy_artifact_id = _rewrite_construction_artifact_payload(
+        tmp_path,
+        artifact.artifact_id,
+        lambda payload: payload.__setitem__("turnover_diagnostics_v1", replacement_payload),
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=legacy_artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.replay_provenance.turnover_diagnostics_v1 is not None
+    assert replay_response.replay_provenance.turnover_diagnostics_v1.symbol_contributions == []
+
+
+def test_build_construction_artifact_replay_preview_uses_persisted_weighting_trace_directly(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-persisted-weighting-trace",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    legacy_artifact_id = _rewrite_construction_artifact_payload(
+        tmp_path,
+        artifact.artifact_id,
+        lambda payload: payload["weighting_trace_v1"]["normalization"].__setitem__("residual_reconciliation_delta", 0.12345678),
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=legacy_artifact_id,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.replay_provenance.weighting_trace_v1 is not None
+    assert replay_response.replay_provenance.weighting_trace_v1.normalization.residual_reconciliation_delta == 0.12345678
+
+
+def test_build_construction_artifact_replay_preview_fails_closed_for_contradictory_persisted_min_position_state(
+    tmp_path,
+    mocker,
+) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-contradictory-min-position",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "min_position_weight": 0.5,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+    contradictory_artifact_id = _rewrite_construction_artifact_payload(
+        tmp_path,
+        artifact.artifact_id,
+        lambda payload: payload["constraint_evaluations"][4].update({"status": "pass", "actual_value": 0.49}),
+    )
+
+    with pytest.raises(
+        Exception,
+        match="persisted construction artifact failed schema validation",
+    ):
+        build_construction_artifact_replay_preview(
+            ConstructionArtifactReplayRequest(
+                construction_artifact_id=contradictory_artifact_id,
+                start_date=date(2024, 1, 1),
+                end_date=date(2024, 12, 31),
+                initial_capital=100000,
+                execution_lag_days=1,
+            ),
+            artifact_store=artifact_store,
+        )
 
 
 @pytest.mark.parametrize(
@@ -2933,6 +3509,9 @@ def test_build_construction_artifact_replay_preview_fixture_matrix_preserves_leg
         expected_selection_rule_trace
         or reference.replay_provenance.selection_rule_trace.model_dump(mode="json")
     )
+    if expected_selection_rule_trace is not None:
+        expected_provenance["weighting_trace_status"] = "unavailable_legacy_artifact"
+        expected_provenance["weighting_trace_v1"] = None
 
     assert replay_response.construction_artifact_id == artifact_id
     assert replay_response.truth_separation.model_dump(mode="json") == reference.truth_separation.model_dump(mode="json")

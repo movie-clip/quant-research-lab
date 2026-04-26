@@ -34,12 +34,18 @@ This document is the canonical source for what is actually shipped today, what i
 
 - construction is now a first-class persisted backend capability, not just an inline review helper
 - `POST /construction/run` persists canonical construction artifacts before returning them
-- `GET /construction/policies` exposes deterministic backend-owned read-only discovery for the shipped persisted policy catalog
+- `GET /construction/policies` exposes deterministic backend-owned read-only discovery for the shipped persisted policy catalog, including additive catalog metadata, explicit constraint/input capability flags such as optional `min_position_weight`, optional `max_turnover_weight`, and optional `max_trade_intent_count` support, and single-value exact-match server-side filters over that metadata only; undocumented filter keys, repeated supported scalar filter keys, and malformed present filter values are rejected rather than ignored
 - `GET /construction/artifacts/{artifact_id}` reloads persisted artifacts, validates them on read, and fails closed on corruption or malformed payloads
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` replays persisted construction artifacts through an explicit artifact-reference boundary
 - current persisted construction policies are `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
 - persisted construction execution is deterministic and records an ordered `selection_rule_trace` as provenance
+- persisted construction artifacts now also persist additive normalized `min_position_weight` and additive normalized `max_trade_intent_count` hard-constraint truth when requested, and downstream load/validation/preview/replay consume that persisted artifact state unchanged
+- persisted construction artifacts now also carry additive `weighting_trace_v1` diagnostics with explicit `weighting_trace_status`; this remains hypothetical construction diagnostics sourced only from the persisted artifact and does not change construction outputs or replay math
+- persisted construction artifacts now also carry additive `turnover_diagnostics_v1` diagnostics with explicit `turnover_diagnostics_status`; this remains hypothetical construction diagnostics sourced only from the persisted artifact and does not change construction outputs or replay math
+- persisted construction turnover diagnostics now also include additive per-symbol turnover contribution rows that reconcile exactly to the existing reported aggregate turnover and remain explanatory-only artifact diagnostics
 - replay echoes the persisted `selection_rule_trace`; it is descriptive lineage only and must not drive replay math
+- replay/open echoes persisted turnover diagnostics from the artifact only and fails closed on malformed or unsupported present turnover-diagnostics states; exact legacy compatibility remains load-only when those fields are wholly absent
+- replay/open also echo persisted construction hard constraints, including additive `min_position_weight` and additive `max_trade_intent_count`, from artifact truth only; replay outputs and analytics methodology remain unchanged when the field is absent
 - persisted construction artifacts remain hypothetical candidate truth consumed through the existing validation-to-preview and preview/replay handoff boundary; replay uses persisted `final_target_weights` plus normalized inputs rather than re-resolving catalog math
 
 ### ETF ranking artifacts and discovery
@@ -97,7 +103,7 @@ This document is the canonical source for what is actually shipped today, what i
 - ranking is still narrow and ETF-heavy; it is not yet a generalized persisted ranking-run platform across broader universes
 - generalized persisted artifact discovery is now shipped only for the supported ETF ranking and intent-bound ETF replacement artifact kinds; broader ranking engines and broader artifact-kind support remain future work
 - generalized discovery support remains strict: it does not silently widen to malformed, partially valid, or undocumented artifact states
-- persisted construction is shipped and now has read-only policy discovery, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
+- persisted construction is shipped and now has read-only policy discovery with backend-owned additive metadata (`family`, `constraints`, `inputs`, `determinism`, `ranking_support`, explicit constraint capability flags including optional `min_position_weight`, optional `max_turnover_weight`, and optional `max_trade_intent_count`, explicit required input flags) plus exact-match server-side filters over those fields only, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
 - single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
 - optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`
 - optimizer alpha-objective support remains narrow: one additive `alpha_quality_v1` objective only, artifact-backed only, fail-closed on missing, malformed, quarantined, unsupported, stale, or degraded alpha inputs

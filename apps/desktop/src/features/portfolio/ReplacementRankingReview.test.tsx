@@ -20,6 +20,12 @@ describe('ReplacementRankingReview', () => {
           rankingId: 'etf_ranking_engine_v1',
           methodologyId: 'etf_ranking_methodology_v1',
           rankingBasisDate: '2026-04-15',
+          openHandoff: {
+            handoff_kind: 'ranking_artifact_open_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+          },
           benchmarkSymbol: 'SPY',
           lookbackMonths: 6,
           peerGroup: 'Sector UCITS ETF',

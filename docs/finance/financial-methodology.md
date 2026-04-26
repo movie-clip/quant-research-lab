@@ -250,10 +250,12 @@ The codebase now has two shipped construction surfaces.
 - route: `POST /construction/run`
 - policy discovery route: `GET /construction/policies`
 - persisted load route: `GET /construction/artifacts/{artifact_id}`
-- current persisted policies: `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
+- current persisted policies: `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
 - current deterministic selection pipeline: `eligible_only` then `take_top_n`
 - policy execution captures and persists `selection_rule_trace` provenance
 - replay consumption happens through `POST /backtests/portfolio-allocation/construction-artifact-preview`
+- policy discovery exposes additive backend-owned catalog metadata only: `family`, `constraints`, `inputs`, `determinism`, and `ranking_support`
+- policy discovery filtering is server-side exact-match filtering over catalog metadata only; it does not inspect client payloads, persisted artifacts, replay inputs, or review state
 
 Current basis rules:
 - consumes ranked candidates plus current portfolio weights as explicit input artifacts
@@ -261,7 +263,9 @@ Current basis rules:
 - keeps deterministic selection separate from weighting
 - `top_n_equal_weight_v1` seeds equal weights across selected names
 - `top_n_inverse_rank_weight_v1` assigns weights proportional to inverse selected-order rank and normalizes them to sum to `1.0`
-- policy discovery does not expand construction breadth; the shipped catalog still contains only those two policies
+- `top_n_linear_rank_weight_v1` assigns weights proportional to selected-order linear numerators and normalizes them to sum to `1.0`
+- policy discovery does not expand construction breadth; the shipped catalog still contains only those three policies
+- policy discovery metadata is additive only and does not change persisted construction artifact shape, run behavior, validation/preflight, or preview/open contracts
 - enforces only the shipped constraint family for this policy slice
 - evaluates constraints against the actual generated target weights for the selected policy
 - fails closed on infeasible requests rather than repairing or silently relaxing the policy

@@ -7,6 +7,10 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
+type RankingArtifactFixture = ReturnType<typeof buildRankingArtifact>
+type RankingArtifactPreflightFixture = ReturnType<typeof buildPreflightResponse>
+type RankingArtifactOpenFixture = ReturnType<typeof buildOpenResponse>
+
 function buildRankingArtifact(overrides: Record<string, unknown> = {}) {
   return {
     schema_version: 'etf_ranking_artifact_v1',
@@ -118,11 +122,10 @@ function buildPreflightResponse(artifact: Record<string, unknown>, overrides: Re
 }
 
 function buildOpenResponse(
-  artifact: Record<string, unknown>,
-  preflight = buildPreflightResponse(artifact),
+  artifact: RankingArtifactFixture,
+  preflight: RankingArtifactPreflightFixture = buildPreflightResponse(artifact),
   overrides: Record<string, unknown> = {},
 ) {
-  const typedArtifact = artifact as ReturnType<typeof buildRankingArtifact>
   return {
     contract_version: 'ranking_artifact_open_v1',
     open_handoff: preflight.open_handoff,
@@ -132,9 +135,9 @@ function buildOpenResponse(
       review_truth_basis: 'authoritative_persisted_ranking_artifact',
       review_scope: 'artifact_backed_review_only',
       artifact_kind: 'etf_ranking',
-      artifact_id: typedArtifact.artifact_id,
+      artifact_id: artifact.artifact_id,
       schema_version: 'etf_ranking_artifact_v1',
-      artifact: typedArtifact,
+      artifact,
     },
     ...overrides,
   }
@@ -143,10 +146,10 @@ function buildOpenResponse(
 function installFetchRouter(options: {
   metadata?: { available_effective_peer_groups: string[] }
   recentRuns?: Array<Record<string, unknown>>
-  recentArtifact?: Record<string, unknown>
-  recentArtifactPreflight?: Record<string, unknown>
-  recentArtifactOpen?: Record<string, unknown>
-  runArtifact?: Record<string, unknown>
+  recentArtifact?: RankingArtifactFixture
+  recentArtifactPreflight?: RankingArtifactPreflightFixture
+  recentArtifactOpen?: RankingArtifactOpenFixture
+  runArtifact?: RankingArtifactFixture
   recentMetadataStatus?: number
   recentRunsStatus?: number
   runStatus?: number

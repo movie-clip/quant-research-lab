@@ -7,6 +7,14 @@ import { buildPersistedImportedSource } from './portfolioWorkspaceStorage'
 import type { ConstructionArtifactReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference } from '../features/portfolio/types'
 import type { ImportedHistoryContext, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace } from '../features/portfolio/workspaceTypes'
 
+function expectPersistedOptimizerHandoffSource(value: PortfolioWorkspace['source']) {
+  expect('kind' in value && value.kind === 'persisted_optimizer_handoff').toBe(true)
+  if (!('kind' in value) || value.kind !== 'persisted_optimizer_handoff') {
+    throw new Error('Expected persisted optimizer handoff workspace source in test fixture')
+  }
+  return value
+}
+
 const availableInvestorEconomicsStatus = { status: 'available' as const, reason: null }
 
 const importedSnapshot = createImportedBootstrapResponseFixture().snapshot
@@ -41,6 +49,15 @@ function createConstructionArtifactReplayResponse(): ConstructionArtifactReplayR
       ranking_id: 'ranking-1',
       ranking_methodology_id: 'method-1',
       current_portfolio_artifact_id: 'portfolio-1',
+      hard_constraints: {
+        full_investment: true,
+        long_only: true,
+        eligible_ranked_universe_only: true,
+        max_position_weight: 0.6,
+        min_position_weight: null,
+        max_turnover_weight: null,
+        max_trade_intent_count: null,
+      },
       baseline_input_source: 'normalized_inputs.current_portfolio_weights',
       candidate_input_source: 'final_target_weights',
       selection_rule_trace: {
@@ -54,6 +71,10 @@ function createConstructionArtifactReplayResponse(): ConstructionArtifactReplayR
           },
         ],
       },
+      turnover_diagnostics_status: 'unavailable_legacy_artifact',
+      turnover_diagnostics_v1: null,
+      weighting_trace_status: 'unavailable_legacy_artifact',
+      weighting_trace_v1: null,
     },
     baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
     candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
@@ -441,6 +462,12 @@ describe('portfolioWorkspaceStorage', () => {
     })
   })
 
+  it('uses current-contract construction artifact fixtures with max_trade_intent_count', () => {
+    expect(createConstructionArtifactReplayResponse().replay_provenance.hard_constraints).toMatchObject({
+      max_trade_intent_count: null,
+    })
+  })
+
   it('normalizes legacy cached artifact review workspaces to review-basis records', async () => {
     const review = {
       workspaceId: 'workspace-artifact',
@@ -562,9 +589,10 @@ describe('portfolioWorkspaceStorage', () => {
     })
     expect('handoffId' in created.workspace.source).toBe(false)
     expect('artifactId' in created.workspace.source).toBe(false)
-    if (created.workspace.source.reviewBasis) {
-      expect('handoffId' in created.workspace.source.reviewBasis).toBe(false)
-      expect('artifactId' in created.workspace.source.reviewBasis).toBe(false)
+    const createdWorkspaceSource = expectPersistedOptimizerHandoffSource(created.workspace.source)
+    if (createdWorkspaceSource.reviewBasis) {
+      expect('handoffId' in createdWorkspaceSource.reviewBasis).toBe(false)
+      expect('artifactId' in createdWorkspaceSource.reviewBasis).toBe(false)
     }
     expect(created.rootNode.kind).toBe('artifact_review_basis')
     expect(created.rootNode.portfolioSnapshot).toBeNull()
@@ -874,7 +902,7 @@ describe('portfolioWorkspaceStorage', () => {
           candidateWeights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
         },
       },
-    } satisfies PortfolioWorkspace
+    } as unknown as PortfolioWorkspace
     const node = {
       id: 'node-optimizer',
       workspaceId: 'workspace-optimizer',
@@ -897,7 +925,7 @@ describe('portfolioWorkspaceStorage', () => {
         baselineWeights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
         candidateWeights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
       },
-    } satisfies PortfolioNode
+    } as unknown as PortfolioNode
 
     const normalized = await portfolioWorkspaceStorage.normalizeLegacyPersistedOptimizerHandoffWorkspaceCache({ workspace, node, review })
 
@@ -923,8 +951,11 @@ describe('portfolioWorkspaceStorage', () => {
     })
     expect('handoffId' in normalized.workspace.source).toBe(false)
     expect('artifactId' in normalized.workspace.source).toBe(false)
-    expect(normalized.workspace.source.reviewBasis && 'handoffId' in normalized.workspace.source.reviewBasis).toBe(false)
-    expect(normalized.workspace.source.reviewBasis && 'artifactId' in normalized.workspace.source.reviewBasis).toBe(false)
+    const normalizedWorkspaceSource = expectPersistedOptimizerHandoffSource(normalized.workspace.source)
+    if (normalizedWorkspaceSource.reviewBasis) {
+      expect('handoffId' in normalizedWorkspaceSource.reviewBasis).toBe(false)
+      expect('artifactId' in normalizedWorkspaceSource.reviewBasis).toBe(false)
+    }
     expect(normalized.node.artifactReviewBasis && 'handoffId' in normalized.node.artifactReviewBasis).toBe(false)
     expect(normalized.node.artifactReviewBasis && 'artifactId' in normalized.node.artifactReviewBasis).toBe(false)
     expect(writes.get(`${portfolioDb.workspaceStoreName}:workspace-optimizer`)).toBeTruthy()
@@ -966,7 +997,7 @@ describe('portfolioWorkspaceStorage', () => {
           handoffReference: createOptimizerHandoffReference(),
           openedAt: '2026-04-24T00:00:00Z',
         },
-      } as PortfolioWorkspace,
+      } as unknown as PortfolioWorkspace,
       node: {
         id: 'node-optimizer',
         workspaceId: 'workspace-optimizer',
@@ -977,7 +1008,7 @@ describe('portfolioWorkspaceStorage', () => {
         changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
         portfolioSnapshot: null,
         artifactReviewBasis: null,
-      } as PortfolioNode,
+      } as unknown as PortfolioNode,
       review,
     })
 
@@ -1014,7 +1045,7 @@ describe('portfolioWorkspaceStorage', () => {
             basisKind: 'persisted_construction_artifact_review',
           },
         },
-      } as PortfolioWorkspace,
+      } as unknown as PortfolioWorkspace,
       node: {
         id: 'node-optimizer',
         workspaceId: 'workspace-optimizer',
@@ -1024,7 +1055,7 @@ describe('portfolioWorkspaceStorage', () => {
         createdAt: '2026-04-24T00:00:00Z',
         changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
         portfolioSnapshot: null,
-      } as PortfolioNode,
+      } as unknown as PortfolioNode,
       review: createPersistedOptimizerHandoffWorkspaceReview(),
     })).rejects.toThrow('Persisted optimizer handoff workspace review basis has unsupported basis kind')
   })
@@ -1047,7 +1078,7 @@ describe('portfolioWorkspaceStorage', () => {
             basisVersion: 2,
           },
         },
-      } as PortfolioWorkspace,
+      } as unknown as PortfolioWorkspace,
       node: {
         id: 'node-optimizer',
         workspaceId: 'workspace-optimizer',
@@ -1057,7 +1088,7 @@ describe('portfolioWorkspaceStorage', () => {
         createdAt: '2026-04-24T00:00:00Z',
         changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
         portfolioSnapshot: null,
-      } as PortfolioNode,
+      } as unknown as PortfolioNode,
       review: createPersistedOptimizerHandoffWorkspaceReview(),
     })).rejects.toThrow('Persisted optimizer handoff workspace review basis has unsupported basis version')
   })
@@ -1083,7 +1114,7 @@ describe('portfolioWorkspaceStorage', () => {
             },
           },
         },
-      } as PortfolioWorkspace,
+      } as unknown as PortfolioWorkspace,
       node: {
         id: 'node-optimizer',
         workspaceId: 'workspace-optimizer',
@@ -1093,7 +1124,7 @@ describe('portfolioWorkspaceStorage', () => {
         createdAt: '2026-04-24T00:00:00Z',
         changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
         portfolioSnapshot: null,
-      } as PortfolioNode,
+      } as unknown as PortfolioNode,
       review: createPersistedOptimizerHandoffWorkspaceReview(),
     })).rejects.toThrow('Persisted optimizer handoff workspace review basis is missing or invalid handoff reference')
   })
@@ -1116,7 +1147,7 @@ describe('portfolioWorkspaceStorage', () => {
             handoffId: 'optimizer_handoff_123',
           },
         },
-      } as PortfolioWorkspace,
+      } as unknown as PortfolioWorkspace,
       node: {
         id: 'node-optimizer',
         workspaceId: 'workspace-optimizer',
@@ -1126,7 +1157,7 @@ describe('portfolioWorkspaceStorage', () => {
         createdAt: '2026-04-24T00:00:00Z',
         changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
         portfolioSnapshot: null,
-      } as PortfolioNode,
+      } as unknown as PortfolioNode,
       review: createPersistedOptimizerHandoffWorkspaceReview(),
     })).rejects.toThrow('Persisted optimizer handoff workspace review basis has partial legacy identity fields')
   })
@@ -1149,7 +1180,7 @@ describe('portfolioWorkspaceStorage', () => {
             benchmarkSymbol: 'QQQ',
           },
         },
-      } as PortfolioWorkspace,
+      } as unknown as PortfolioWorkspace,
       node: {
         id: 'node-optimizer',
         workspaceId: 'workspace-optimizer',
@@ -1159,7 +1190,7 @@ describe('portfolioWorkspaceStorage', () => {
         createdAt: '2026-04-24T00:00:00Z',
         changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 3, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
         portfolioSnapshot: null,
-      } as PortfolioNode,
+      } as unknown as PortfolioNode,
       review: createPersistedOptimizerHandoffWorkspaceReview(),
     })).rejects.toThrow('Persisted optimizer handoff workspace review basis conflicts with canonical persisted review')
   })
@@ -1178,7 +1209,7 @@ describe('portfolioWorkspaceStorage', () => {
           handoffReference: createOptimizerHandoffReference(),
           openedAt: '2026-04-24T00:00:00Z',
         },
-      } as PortfolioWorkspace,
+      } as unknown as PortfolioWorkspace,
       node: {
         id: 'node-optimizer',
         workspaceId: 'workspace-optimizer',
@@ -1192,7 +1223,7 @@ describe('portfolioWorkspaceStorage', () => {
           ...createOptimizerHandoffWorkspaceReviewBasisFixture(),
           candidateWeights: [{ symbol: 'DDD', target_weight: 0.2 }],
         },
-      } as PortfolioNode,
+      } as unknown as PortfolioNode,
       review: createPersistedOptimizerHandoffWorkspaceReview(),
     })).rejects.toThrow('Persisted optimizer handoff node review basis conflicts with canonical persisted review')
   })

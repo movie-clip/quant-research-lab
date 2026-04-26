@@ -215,9 +215,27 @@ def _canonicalize_construction_artifact_payload(payload: object) -> object:
         }
         if canonical.get("max_turnover_weight") is None:
             canonical.pop("max_turnover_weight", None)
+        if canonical.get("min_position_weight") is None:
+            canonical.pop("min_position_weight", None)
+        if canonical.get("max_trade_intent_count") is None:
+            canonical.pop("max_trade_intent_count", None)
         selection_rule_trace = canonical.get("selection_rule_trace")
         if selection_rule_trace in (None, {}, {"rule_ids": [], "steps": []}):
             canonical.pop("selection_rule_trace", None)
+        if canonical.get("turnover_diagnostics_v1") is None:
+            canonical.pop("turnover_diagnostics_v1", None)
+        if (
+            canonical.get("turnover_diagnostics_status") == "unavailable_legacy_artifact"
+            and "turnover_diagnostics_v1" not in canonical
+        ):
+            canonical.pop("turnover_diagnostics_status", None)
+        if canonical.get("weighting_trace_v1") is None:
+            canonical.pop("weighting_trace_v1", None)
+        if (
+            canonical.get("weighting_trace_status") == "unavailable_legacy_artifact"
+            and "weighting_trace_v1" not in canonical
+        ):
+            canonical.pop("weighting_trace_status", None)
         return canonical
     if isinstance(payload, list):
         return [_canonicalize_construction_artifact_payload(item) for item in payload]
@@ -232,22 +250,73 @@ def _normalize_legacy_construction_artifact_payload(payload: dict[str, Any]) -> 
 
 
 def _hydrate_legacy_construction_artifact_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    normalized_inputs = payload.get("normalized_inputs")
-    if not isinstance(normalized_inputs, dict):
-        return payload
-    if "policy_definition_id" in normalized_inputs:
-        return payload
-
-    policy_id = normalized_inputs.get("policy_id")
-    if not isinstance(policy_id, str):
-        return payload
-
-    policy_definition = _resolve_policy_definition_or_raise(policy_id)
-
-    hydrated_normalized_inputs = dict(normalized_inputs)
-    hydrated_normalized_inputs["policy_definition_id"] = policy_definition.catalog_entry.policy_definition_id
     hydrated_payload = dict(payload)
-    hydrated_payload["normalized_inputs"] = hydrated_normalized_inputs
+    hard_constraints = payload.get("hard_constraints")
+    if isinstance(hard_constraints, dict) and "min_position_weight" not in hard_constraints:
+        hydrated_hard_constraints = dict(hard_constraints)
+        hydrated_hard_constraints["min_position_weight"] = None
+        hydrated_payload["hard_constraints"] = hydrated_hard_constraints
+        hard_constraints = hydrated_hard_constraints
+    if isinstance(hard_constraints, dict) and "max_trade_intent_count" not in hard_constraints:
+        hydrated_hard_constraints = dict(hard_constraints)
+        hydrated_hard_constraints["max_trade_intent_count"] = None
+        hydrated_payload["hard_constraints"] = hydrated_hard_constraints
+    normalized_inputs = payload.get("normalized_inputs")
+    if isinstance(normalized_inputs, dict) and "policy_definition_id" not in normalized_inputs:
+        policy_definition = None
+        policy_id = normalized_inputs.get("policy_id")
+        if isinstance(policy_id, str):
+            policy_definition = _resolve_policy_definition_or_raise(policy_id)
+        if policy_definition is not None:
+            hydrated_normalized_inputs = dict(normalized_inputs)
+            hydrated_normalized_inputs["policy_definition_id"] = policy_definition.catalog_entry.policy_definition_id
+            hydrated_payload["normalized_inputs"] = hydrated_normalized_inputs
+            normalized_inputs = hydrated_normalized_inputs
+    if isinstance(normalized_inputs, dict) and "min_position_weight" not in normalized_inputs:
+        hydrated_normalized_inputs = dict(normalized_inputs)
+        hydrated_normalized_inputs["min_position_weight"] = None
+        hydrated_payload["normalized_inputs"] = hydrated_normalized_inputs
+        normalized_inputs = hydrated_normalized_inputs
+    if isinstance(normalized_inputs, dict) and "max_trade_intent_count" not in normalized_inputs:
+        hydrated_normalized_inputs = dict(normalized_inputs)
+        hydrated_normalized_inputs["max_trade_intent_count"] = None
+        hydrated_payload["normalized_inputs"] = hydrated_normalized_inputs
+    constraint_evaluations = hydrated_payload.get("constraint_evaluations")
+    if isinstance(constraint_evaluations, list) and not any(
+        isinstance(item, dict) and item.get("constraint_id") == "min_position_weight"
+        for item in constraint_evaluations
+    ):
+        hydrated_payload["constraint_evaluations"] = [
+            *constraint_evaluations,
+            {
+                "constraint_id": "min_position_weight",
+                "status": "not_evaluated",
+                "actual_value": None,
+                "limit_value": None,
+                "message": "min_position_weight was not requested",
+            },
+        ]
+        constraint_evaluations = hydrated_payload["constraint_evaluations"]
+    if isinstance(constraint_evaluations, list) and not any(
+        isinstance(item, dict) and item.get("constraint_id") == "max_trade_intent_count"
+        for item in constraint_evaluations
+    ):
+        hydrated_payload["constraint_evaluations"] = [
+            *constraint_evaluations,
+            {
+                "constraint_id": "max_trade_intent_count",
+                "status": "not_evaluated",
+                "actual_value": None,
+                "limit_value": None,
+                "message": "max_trade_intent_count was not requested",
+            },
+        ]
+    if "turnover_diagnostics_status" not in hydrated_payload and "turnover_diagnostics_v1" not in hydrated_payload:
+        hydrated_payload["turnover_diagnostics_status"] = "unavailable_legacy_artifact"
+        hydrated_payload["turnover_diagnostics_v1"] = None
+    if "weighting_trace_status" not in hydrated_payload and "weighting_trace_v1" not in hydrated_payload:
+        hydrated_payload["weighting_trace_status"] = "unavailable_legacy_artifact"
+        hydrated_payload["weighting_trace_v1"] = None
     return hydrated_payload
 
 

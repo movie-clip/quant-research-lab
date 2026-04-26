@@ -744,7 +744,7 @@ describe('StrategyLabPanel', () => {
   })
 
   it('fails closed on null research recent methodology ids', async () => {
-    const invalidPayload = cloneValue(researchRecentPayload)
+    const invalidPayload = cloneValue(researchRecentPayload) as any
     invalidPayload.items[0].methodology_id = null
 
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -801,7 +801,7 @@ describe('StrategyLabPanel', () => {
   })
 
   it('fails closed on missing reload metadata fields instead of deriving desktop fallbacks', async () => {
-    const invalidReloadPayload = cloneValue(researchReloadPayload)
+    const invalidReloadPayload = cloneValue(researchReloadPayload) as any
     delete invalidReloadPayload.artifact.status_metadata_v1
     delete invalidReloadPayload.artifact.provenance_metadata_v1
 
@@ -895,7 +895,7 @@ describe('StrategyLabPanel', () => {
   })
 
   it('fails closed on malformed fundamental snapshot entries during reload', async () => {
-    const invalidReloadPayload = cloneValue(researchReloadPayload)
+    const invalidReloadPayload = cloneValue(researchReloadPayload) as any
     invalidReloadPayload.artifact.request.fundamental_snapshots[0] = 'bad-snapshot'
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
@@ -921,7 +921,7 @@ describe('StrategyLabPanel', () => {
   })
 
   it('fails closed on partial fundamental snapshot objects during reload', async () => {
-    const invalidReloadPayload = cloneValue(researchReloadPayload)
+    const invalidReloadPayload = cloneValue(researchReloadPayload) as any
     delete invalidReloadPayload.artifact.request.fundamental_snapshots[0].statement_date
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
