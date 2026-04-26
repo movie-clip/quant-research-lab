@@ -21,6 +21,11 @@ from app.services.etf_ranking_artifact_service import (
     build_stable_etf_ranking_artifact,
     list_recent_etf_ranking_artifacts_strict,
 )
+from app.services.ranking_artifact_open_service import (
+    RankingArtifactOpenService,
+    open_ranking_artifact,
+    preflight_ranking_artifact,
+)
 
 
 def _build_response() -> EtfRankingResponse:
@@ -315,3 +320,34 @@ def test_etf_ranking_catalog_row_metadata_rejects_recent_index_provenance_mismat
             matched_metadata_provenance="persisted_artifact_body",
             recency_same_day_provenance="etf_recent_index",
         )
+
+
+def test_etf_ranking_open_service_preflight_and_open_use_persisted_artifact_only(tmp_path: Path) -> None:
+    store = EtfRankingArtifactStore(base_dir=str(tmp_path))
+    artifact = store.persist(build_stable_etf_ranking_artifact(_build_response()))
+    service = RankingArtifactOpenService(etf_store=store)
+
+    preflight = preflight_ranking_artifact(artifact.artifact_id, service=service)
+
+    assert preflight.artifact.model_dump(mode="json") == {
+        "artifact_kind": "etf_ranking",
+        "artifact_id": artifact.artifact_id,
+        "schema_version": "etf_ranking_artifact_v1",
+        "ranking_id": artifact.ranking_id,
+        "methodology_id": artifact.run_metadata.methodology_id,
+        "as_of_date": artifact.run_metadata.as_of_date,
+        "ranking_basis_date": artifact.run_metadata.ranking_basis_date,
+    }
+    assert preflight.open_handoff.model_dump(mode="json") == {
+        "handoff_kind": "ranking_artifact_open_handoff_v1",
+        "artifact_kind": "etf_ranking",
+        "artifact_id": artifact.artifact_id,
+        "schema_version": "etf_ranking_artifact_v1",
+    }
+
+    opened = open_ranking_artifact(preflight.open_handoff, service=service)
+
+    assert opened.review_payload_kind == "etf_ranking_review_payload_v1"
+    assert opened.review_payload.review_truth_basis == "authoritative_persisted_ranking_artifact"
+    assert opened.review_payload.review_scope == "artifact_backed_review_only"
+    assert opened.review_payload.artifact.model_dump(mode="json") == artifact.model_dump(mode="json")

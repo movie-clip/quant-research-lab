@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.schemas.research import IntentBoundEtfReplacementRankingArtifact
+from app.schemas.research import RankingArtifactPreflightResponse
 from app.services import replacement_ranking as replacement_ranking_module
 from app.services.replacement_ranking import build_intent_bound_etf_replacement_ranking
 from app.services.replacement_ranking_artifact_service import (
@@ -13,9 +14,11 @@ from app.services.replacement_ranking_artifact_service import (
     ReplacementRankingArtifactNonObjectPayloadError,
     ReplacementRankingArtifactSchemaValidationError,
     ReplacementRankingArtifactStore,
+    build_replacement_ranking_consumer_handoff,
     build_stable_replacement_ranking_artifact,
     load_replacement_ranking_artifact,
 )
+from app.services.ranking_artifact_open_service import RankingArtifactOpenService, open_ranking_artifact, preflight_ranking_artifact
 
 
 def _build_request(*, seeded_symbols: list[str], candidate_symbol: str = "ETF1"):
@@ -229,3 +232,148 @@ def test_replacement_ranking_catalog_row_contract_rejects_kind_summary_mismatch(
             ),
             replacement_summary=None,
         )
+
+
+def test_replacement_ranking_open_service_preflight_and_open_use_persisted_artifact_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = ReplacementRankingArtifactStore(str(tmp_path))
+    artifact = store.persist(build_stable_replacement_ranking_artifact(_build_response(monkeypatch)))
+    service = RankingArtifactOpenService(replacement_store=store)
+
+    preflight = preflight_ranking_artifact(artifact.artifact_id, service=service)
+
+    assert preflight.artifact.model_dump(mode="json") == {
+        "artifact_kind": "intent_bound_etf_replacement_ranking",
+        "artifact_id": artifact.artifact_id,
+        "schema_version": "intent_bound_etf_replacement_ranking_artifact_v1",
+        "ranking_id": artifact.ranking_id,
+        "methodology_id": artifact.run_metadata.methodology_id,
+        "as_of_date": artifact.run_metadata.as_of_date,
+        "ranking_basis_date": artifact.run_metadata.ranking_basis_date,
+    }
+    assert preflight.open_handoff.model_dump(mode="json") == {
+        "handoff_kind": "ranking_artifact_open_handoff_v1",
+        "artifact_kind": "intent_bound_etf_replacement_ranking",
+        "artifact_id": artifact.artifact_id,
+        "schema_version": "intent_bound_etf_replacement_ranking_artifact_v1",
+    }
+    assert preflight.eligibility.model_dump(mode="json") == {
+        "review_truth_basis": "authoritative_persisted_ranking_artifact",
+        "review_scope": "artifact_backed_review_only",
+        "open_supported": True,
+        "replay_eligible": True,
+        "consumer_handoff_supported": True,
+        "ineligibility_reason": None,
+    }
+
+    opened = open_ranking_artifact(preflight.open_handoff, service=service)
+
+    assert opened.review_payload_kind == "intent_bound_etf_replacement_ranking_review_payload_v1"
+    assert opened.review_payload.review_truth_basis == "authoritative_persisted_ranking_artifact"
+    assert opened.review_payload.review_scope == "artifact_backed_review_only"
+    assert opened.review_payload.artifact.model_dump(mode="json") == artifact.model_dump(mode="json")
+    assert opened.consumer_handoff.model_dump(mode="json") == build_replacement_ranking_consumer_handoff(
+        artifact
+    ).model_dump(mode="json")
+
+
+def test_build_replacement_ranking_consumer_handoff_fails_closed_for_unavailable_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    histories = {"BASE": _history(260), "ETF2": _history(260, step=0.25)}
+    instruments = {symbol: _instrument(symbol) for symbol in histories}
+    monkeypatch.setattr(replacement_ranking_module, "InstrumentRegistry", lambda: _FakeRegistry(instruments))
+    monkeypatch.setattr(replacement_ranking_module, "MarketDataService", lambda: _FakeMarketData(histories))
+    artifact = build_stable_replacement_ranking_artifact(
+        build_intent_bound_etf_replacement_ranking(_build_request(seeded_symbols=["BASE", "ETF2"], candidate_symbol="ETF1"))
+    )
+
+    with pytest.raises(ValueError, match="replacement ranking artifact is unreplayable"):
+        build_replacement_ranking_consumer_handoff(artifact)
+
+
+def test_replacement_ranking_open_service_preflight_marks_unreplayable_replacement_as_ineligible(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    histories = {"BASE": _history(260), "ETF2": _history(260, step=0.25)}
+    instruments = {symbol: _instrument(symbol) for symbol in histories}
+    monkeypatch.setattr(replacement_ranking_module, "InstrumentRegistry", lambda: _FakeRegistry(instruments))
+    monkeypatch.setattr(replacement_ranking_module, "MarketDataService", lambda: _FakeMarketData(histories))
+    store = ReplacementRankingArtifactStore(str(tmp_path))
+    artifact = store.persist(
+        build_stable_replacement_ranking_artifact(
+            build_intent_bound_etf_replacement_ranking(
+                _build_request(seeded_symbols=["BASE", "ETF2"], candidate_symbol="ETF1")
+            )
+        )
+    )
+    service = RankingArtifactOpenService(replacement_store=store)
+
+    preflight = preflight_ranking_artifact(artifact.artifact_id, service=service)
+
+    assert preflight.eligibility.model_dump(mode="json") == {
+        "review_truth_basis": "authoritative_persisted_ranking_artifact",
+        "review_scope": "artifact_backed_review_only",
+        "open_supported": False,
+        "replay_eligible": False,
+        "consumer_handoff_supported": False,
+        "ineligibility_reason": "replacement ranking artifact is unreplayable",
+    }
+
+
+def test_replacement_ranking_preflight_model_rejects_supported_without_consumer_handoff() -> None:
+    with pytest.raises(
+        ValueError,
+        match="replacement ranking preflight must keep consumer_handoff_supported aligned with open_supported",
+    ):
+        RankingArtifactPreflightResponse.model_validate(
+            {
+                "contract_version": "ranking_artifact_preflight_v1",
+                "artifact": {
+                    "artifact_kind": "intent_bound_etf_replacement_ranking",
+                    "artifact_id": "intent_bound_etf_replacement_ranking_artifact_test",
+                    "schema_version": "intent_bound_etf_replacement_ranking_artifact_v1",
+                    "ranking_id": "intent_bound_etf_replacement_ranking_v1",
+                    "methodology_id": "intent_bound_etf_replacement_ranking_methodology_v1",
+                    "as_of_date": "2025-12-31",
+                    "ranking_basis_date": "2025-12-31",
+                },
+                "eligibility": {
+                    "review_truth_basis": "authoritative_persisted_ranking_artifact",
+                    "review_scope": "artifact_backed_review_only",
+                    "open_supported": True,
+                    "replay_eligible": True,
+                    "consumer_handoff_supported": False,
+                    "ineligibility_reason": None,
+                },
+                "open_handoff": {
+                    "handoff_kind": "ranking_artifact_open_handoff_v1",
+                    "artifact_kind": "intent_bound_etf_replacement_ranking",
+                    "artifact_id": "intent_bound_etf_replacement_ranking_artifact_test",
+                    "schema_version": "intent_bound_etf_replacement_ranking_artifact_v1",
+                },
+            }
+        )
+
+
+def test_build_replacement_ranking_consumer_handoff_rejects_candidate_lineage_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = build_stable_replacement_ranking_artifact(_build_response(monkeypatch))
+    drifted_artifact = artifact.model_copy(
+        update={
+            "ranked_candidates": [
+                artifact.ranked_candidates[0].model_copy(update={"seed_methodology_id": "other_methodology"}),
+                *artifact.ranked_candidates[1:],
+            ]
+        }
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="selected_candidate.seed_methodology_id must match seed_methodology_id",
+    ):
+        build_replacement_ranking_consumer_handoff(drifted_artifact)

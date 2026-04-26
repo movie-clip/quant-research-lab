@@ -700,6 +700,8 @@ function makeOptimizerHandoffReplayResponse(): OptimizerHandoffReplayResponse {
 
 function makeEtfRankingPayload() {
   return {
+    schema_version: 'etf_ranking_artifact_v1',
+    artifact_id: 'etf_ranking_artifact_sector_1',
     ranking_id: 'etf_ranking_engine_v1',
     title: 'ETF Ranking Engine',
     as_of_date: '2026-04-15',
@@ -770,6 +772,354 @@ function makeEtfRankingMetadataPayload() {
 
 function makeEtfRankingRecentRunsPayload() {
   return []
+}
+
+function makeEtfRankingPreflightPayload(overrides: Record<string, unknown> = {}) {
+  const artifact = makeEtfRankingPayload()
+  return {
+    contract_version: 'ranking_artifact_preflight_v1',
+    artifact: {
+      artifact_kind: 'etf_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      ranking_id: artifact.ranking_id,
+      methodology_id: artifact.run_metadata.methodology_id,
+      as_of_date: artifact.run_metadata.as_of_date,
+      ranking_basis_date: artifact.run_metadata.ranking_basis_date,
+    },
+    eligibility: {
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      open_supported: true,
+      replay_eligible: true,
+      consumer_handoff_supported: false,
+      ineligibility_reason: null,
+    },
+    open_handoff: {
+      handoff_kind: 'ranking_artifact_open_handoff_v1',
+      artifact_kind: 'etf_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+    },
+    ...overrides,
+  }
+}
+
+function makeReplacementRankingPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+    artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+    ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+    methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+    basis_date: '2026-04-15',
+    status: 'ok',
+    request: {
+      replacement_intent: {
+        draft_id: 'draft-1',
+        workspace_id: 'workspace-1',
+        base_node_id: 'node-1',
+        base_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+        seed_ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+      },
+      seed_context: {
+        ranking_id: 'etf_ranking_engine_v1',
+        methodology_id: 'etf_ranking_methodology_v1',
+        ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+        seeded_symbols: ['AAPL', 'IUFS'],
+      },
+      prefer_live_data: false,
+      normalized_request: {
+        base_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+        seeded_symbols: ['AAPL', 'IUFS'],
+        peer_group: 'Sector UCITS ETF',
+        ranking_basis_date: '2026-04-15',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+      },
+    },
+    request_context: {
+      universe: ['AAPL', 'IUFS'],
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+      prefer_live_data: false,
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      peer_group: 'Sector UCITS ETF',
+      ranking_basis_date: '2026-04-15',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+    },
+    submitted_request: {
+      replacement_intent: {
+        draft_id: 'draft-1',
+        workspace_id: 'workspace-1',
+        base_node_id: 'node-1',
+        base_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+        seed_ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+      },
+      seed_context: {
+        ranking_id: 'etf_ranking_engine_v1',
+        methodology_id: 'etf_ranking_methodology_v1',
+        ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+        seeded_symbols: ['AAPL', 'IUFS'],
+      },
+      prefer_live_data: false,
+    },
+    normalized_request: {
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      seeded_symbols: ['AAPL', 'IUFS'],
+      peer_group: 'Sector UCITS ETF',
+      ranking_basis_date: '2026-04-15',
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+    },
+    effective_inputs: {
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+      price_basis: 'close',
+      requested_universe: ['AAPL', 'IUFS'],
+      evaluated_universe: ['IUFS'],
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      peer_group: 'Sector UCITS ETF',
+      ranking_basis_date: '2026-04-15',
+    },
+    request_hash: 'request-hash-1',
+    run_metadata: {
+      ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+      methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+      methodology: 'm',
+      as_of_date: '2026-04-15',
+      ranking_basis_date: '2026-04-15',
+      basis_date: '2026-04-15',
+      request_hash: 'request-hash-1',
+      price_basis: 'close',
+      source_status: 'sample',
+      tie_break_order: ['composite_score'],
+      factor_weights: { momentum: 1 },
+      confidence: 'medium',
+    },
+    eligible_count: 1,
+    excluded_count: 1,
+    ranked_candidates: [{
+      symbol: 'IUFS',
+      rank: 1,
+      composite_score: 0.8123,
+      raw_factors: {
+        momentum_12_1: 11.2,
+        momentum_6_1: 4.2,
+        momentum_blended: 7.7,
+        realized_volatility_126d: 14.4,
+        max_drawdown_252d: 8.1,
+        liquidity_60d: 13.1,
+      },
+      normalized_scores: {
+        momentum: 1,
+        realized_volatility: 0.7,
+        max_drawdown: 0.75,
+        liquidity: 0.8,
+      },
+      eligibility_status: 'eligible',
+      exclusion_reason: null,
+      basis_date: '2026-04-15',
+      draft_id: 'draft-1',
+      base_node_id: 'node-1',
+      base_symbol: 'AAPL',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+    }],
+    excluded_candidates: [{
+      symbol: 'VDST',
+      rank: null,
+      composite_score: null,
+      raw_factors: null,
+      normalized_scores: null,
+      eligibility_status: 'excluded',
+      exclusion_reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF',
+      basis_date: '2026-04-15',
+      draft_id: 'draft-1',
+      base_node_id: 'node-1',
+      base_symbol: 'AAPL',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+    }],
+    warnings: [],
+    unavailable_reason: null,
+    lineage: {
+      draft_id: 'draft-1',
+      workspace_id: 'workspace-1',
+      base_node_id: 'node-1',
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+      seed_ranking_basis_date: '2026-04-15',
+      peer_group: 'Sector UCITS ETF',
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+    },
+    ...overrides,
+  }
+}
+
+function makeReplacementRankingPreflightPayload(overrides: Record<string, unknown> = {}) {
+  const artifact = makeReplacementRankingPayload()
+  return {
+    contract_version: 'ranking_artifact_preflight_v1',
+    artifact: {
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      ranking_id: artifact.ranking_id,
+      methodology_id: artifact.run_metadata.methodology_id,
+      as_of_date: artifact.run_metadata.as_of_date,
+      ranking_basis_date: artifact.run_metadata.ranking_basis_date,
+    },
+    eligibility: {
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      open_supported: true,
+      replay_eligible: true,
+      consumer_handoff_supported: true,
+      ineligibility_reason: null,
+    },
+    open_handoff: {
+      handoff_kind: 'ranking_artifact_open_handoff_v1',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+    },
+    ...overrides,
+  }
+}
+
+function makeReplacementRankingOpenPayload(overrides: Record<string, unknown> = {}) {
+  const artifact = makeReplacementRankingPayload()
+  const preflight = makeReplacementRankingPreflightPayload()
+  return {
+    contract_version: 'ranking_artifact_open_v1',
+    open_handoff: preflight.open_handoff,
+    review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+    review_payload: {
+      review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      artifact,
+    },
+    consumer_handoff: {
+      contract_version: 'intent_bound_etf_replacement_ranking_consumer_contract_v1',
+      handoff_kind: 'intent_bound_etf_replacement_ranking_consumer_handoff_v1',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      ranking_id: artifact.ranking_id,
+      methodology_id: artifact.methodology_id,
+      basis_date: artifact.basis_date,
+      draft_id: artifact.lineage.draft_id,
+      workspace_id: artifact.lineage.workspace_id,
+      base_node_id: artifact.lineage.base_node_id,
+      base_symbol: artifact.lineage.base_symbol,
+      candidate_symbol: artifact.lineage.candidate_symbol,
+      seed_ranking_id: artifact.lineage.seed_ranking_id,
+      seed_methodology_id: artifact.lineage.seed_methodology_id,
+      seed_ranking_basis_date: artifact.lineage.seed_ranking_basis_date,
+      peer_group: artifact.lineage.peer_group,
+      benchmark_symbol: artifact.lineage.benchmark_symbol,
+      lookback_months: artifact.lineage.lookback_months,
+      eligible_count: artifact.eligible_count,
+      excluded_count: artifact.excluded_count,
+      selected_candidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        composite_score: 0.8123,
+        basis_date: '2026-04-15',
+        draft_id: 'draft-1',
+        base_node_id: 'node-1',
+        base_symbol: 'AAPL',
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+      },
+    },
+    ...overrides,
+  }
+}
+
+function assertReplacementContractState(preflight: Record<string, any>, openPayload?: Record<string, any>) {
+  const eligibility = preflight.eligibility
+  if (preflight.artifact.artifact_kind !== 'intent_bound_etf_replacement_ranking') {
+    throw new Error('Replacement contract fixture must use replacement artifact kind')
+  }
+  if (eligibility.open_supported !== eligibility.replay_eligible) {
+    throw new Error('Replacement preflight eligibility must keep open_supported and replay_eligible aligned')
+  }
+  if (eligibility.consumer_handoff_supported !== eligibility.open_supported) {
+    throw new Error('replacement ranking preflight must keep consumer_handoff_supported aligned with open_supported')
+  }
+  if (!eligibility.open_supported) {
+    if (eligibility.ineligibility_reason == null) {
+      throw new Error('Replacement preflight must fail closed with ineligibility_reason')
+    }
+    if (openPayload) {
+      throw new Error('Ineligible replacement preflight must not carry an open payload fixture')
+    }
+    return
+  }
+  if (eligibility.ineligibility_reason != null) {
+    throw new Error('Eligible replacement preflight must not carry ineligibility_reason')
+  }
+  if (!openPayload) {
+    throw new Error('Eligible replacement preflight must provide an open payload fixture')
+  }
+  if (openPayload.review_payload.artifact_kind !== 'intent_bound_etf_replacement_ranking') {
+    throw new Error('Replacement open payload must keep replacement artifact kind')
+  }
+  const hasConsumerHandoff = 'consumer_handoff' in openPayload
+  if (eligibility.consumer_handoff_supported !== hasConsumerHandoff) {
+    throw new Error('Replacement open payload consumer_handoff presence must match preflight support state')
+  }
+}
+
+function makeEtfRankingOpenPayload(overrides: Record<string, unknown> = {}) {
+  const artifact = makeEtfRankingPayload()
+  const preflight = makeEtfRankingPreflightPayload()
+  return {
+    contract_version: 'ranking_artifact_open_v1',
+    open_handoff: preflight.open_handoff,
+    review_payload_kind: 'etf_ranking_review_payload_v1',
+    review_payload: {
+      review_payload_kind: 'etf_ranking_review_payload_v1',
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      artifact_kind: 'etf_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      artifact,
+    },
+    ...overrides,
+  }
 }
 
 function sectorPositionsByName(overview: PortfolioOverview): Record<string, Array<{ symbol: string; market_value: number; weight: number }>> {
@@ -2114,6 +2464,8 @@ describe('App', () => {
       if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') return jsonResponse(makeEtfRankingPreflightPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/open' && method === 'POST') return jsonResponse(makeEtfRankingOpenPayload())
       throw new Error(`Unhandled fetch: ${method} ${pathname}`)
     })
 
@@ -2138,6 +2490,12 @@ describe('App', () => {
       candidateSymbol: 'IUFS',
       candidateRank: 1,
       rankingId: 'etf_ranking_engine_v1',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Seeded Candidate Review')).toBeTruthy())
@@ -2191,6 +2549,12 @@ describe('App', () => {
       rankingId: 'etf_ranking_engine_v1',
       methodologyId: 'etf_ranking_methodology_v1',
       rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
       benchmarkSymbol: 'SPY',
       lookbackMonths: 6,
       peerGroup: 'Sector UCITS ETF',
@@ -2229,6 +2593,77 @@ describe('App', () => {
     expect(screen.getByText('Seeded Candidate Review')).toBeTruthy()
     expect(screen.getByText('Base: AAPL · Candidate: IUFS · Rank #1')).toBeTruthy()
     expect(screen.getByText('VDST')).toBeTruthy()
+  })
+
+  it('fails closed when restored seeded ranking cache is missing canonical open handoff', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getIntentBoundSeededEtfReplacementRankingDraft').mockRejectedValue(new Error('Persisted seeded ranking review cache is missing or invalid open handoff'))
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Dashboard'))
+    await waitFor(() => expect(screen.getByText('Unable to restore previous portfolio workspace')).toBeTruthy())
+  })
+
+  it('keeps replacement contract fixtures aligned for supported, unsupported, and fail-closed states', () => {
+    const supportedPreflight = makeReplacementRankingPreflightPayload()
+    const supportedOpen = makeReplacementRankingOpenPayload()
+    const ineligiblePreflight = makeReplacementRankingPreflightPayload({
+      eligibility: {
+        review_truth_basis: 'authoritative_persisted_ranking_artifact',
+        review_scope: 'artifact_backed_review_only',
+        open_supported: false,
+        replay_eligible: false,
+        consumer_handoff_supported: false,
+        ineligibility_reason: 'replacement ranking artifact is unreplayable',
+      },
+    })
+
+    expect(() => assertReplacementContractState(supportedPreflight, supportedOpen)).not.toThrow()
+    expect(() => assertReplacementContractState(ineligiblePreflight)).not.toThrow()
+
+    expect(() => assertReplacementContractState(makeReplacementRankingPreflightPayload({
+      eligibility: {
+        review_truth_basis: 'authoritative_persisted_ranking_artifact',
+        review_scope: 'artifact_backed_review_only',
+        open_supported: true,
+        replay_eligible: true,
+        consumer_handoff_supported: false,
+        ineligibility_reason: null,
+      },
+    }), supportedOpen)).toThrow('replacement ranking preflight must keep consumer_handoff_supported aligned with open_supported')
+
+    expect(() => assertReplacementContractState(makeReplacementRankingPreflightPayload({
+      eligibility: {
+        review_truth_basis: 'authoritative_persisted_ranking_artifact',
+        review_scope: 'artifact_backed_review_only',
+        open_supported: false,
+        replay_eligible: true,
+        consumer_handoff_supported: false,
+        ineligibility_reason: 'ambiguous replacement state',
+      },
+    }))).toThrow('Replacement preflight eligibility must keep open_supported and replay_eligible aligned')
+
+    expect(() => assertReplacementContractState(makeReplacementRankingPreflightPayload({
+      eligibility: {
+        review_truth_basis: 'authoritative_persisted_ranking_artifact',
+        review_scope: 'artifact_backed_review_only',
+        open_supported: false,
+        replay_eligible: false,
+        consumer_handoff_supported: false,
+        ineligibility_reason: null,
+      },
+    }))).toThrow('Replacement preflight must fail closed with ineligibility_reason')
   })
 
   it('promotes a seed into a persisted replacement intent and restores it for the same draft', async () => {
@@ -2348,6 +2783,12 @@ describe('App', () => {
       rankingId: 'etf_ranking_engine_v1',
       methodologyId: 'etf_ranking_methodology_v1',
       rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
       benchmarkSymbol: 'SPY',
       lookbackMonths: 6,
       peerGroup: 'Sector UCITS ETF',
@@ -2406,6 +2847,8 @@ describe('App', () => {
       if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') return jsonResponse(makeEtfRankingPreflightPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/open' && method === 'POST') return jsonResponse(makeEtfRankingOpenPayload())
       throw new Error(`Unhandled fetch: ${method} ${pathname}`)
     })
 
@@ -2943,6 +3386,8 @@ describe('App', () => {
       if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') return jsonResponse(makeEtfRankingPreflightPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/open' && method === 'POST') return jsonResponse(makeEtfRankingOpenPayload())
       if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
       if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
       if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)

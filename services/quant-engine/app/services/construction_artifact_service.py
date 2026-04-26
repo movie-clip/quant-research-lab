@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from app.core.settings import get_settings
 from app.schemas.construction import ConstructionArtifact
-from app.services.construction_policy_catalog import get_construction_policy_definition
+from app.services.construction_policy_catalog import ConstructionPolicyDefinition, get_construction_policy_definition
 
 
 class ConstructionArtifactPersistenceError(ValueError):
@@ -151,9 +151,7 @@ def _validate_loaded_construction_artifact(
         raise ConstructionArtifactIntegrityValidationError(
             "construction artifact fingerprint does not match canonical artifact content"
         )
-    policy_definition = get_construction_policy_definition(artifact.policy.policy_id)
-    if policy_definition is None:
-        raise ConstructionArtifactIntegrityValidationError("construction artifact references unsupported construction policy")
+    policy_definition = _resolve_policy_definition_or_raise(artifact.policy.policy_id)
     if artifact.normalized_inputs.policy_definition_id != policy_definition.catalog_entry.policy_definition_id:
         raise ConstructionArtifactIntegrityValidationError(
             "construction artifact policy_definition_id does not match the resolved catalog policy definition"
@@ -244,17 +242,22 @@ def _hydrate_legacy_construction_artifact_payload(payload: dict[str, Any]) -> di
     if not isinstance(policy_id, str):
         return payload
 
-    policy_definition = get_construction_policy_definition(policy_id)
-    if policy_definition is None:
-        raise ConstructionArtifactIntegrityValidationError(
-            "construction artifact references unsupported construction policy"
-        )
+    policy_definition = _resolve_policy_definition_or_raise(policy_id)
 
     hydrated_normalized_inputs = dict(normalized_inputs)
     hydrated_normalized_inputs["policy_definition_id"] = policy_definition.catalog_entry.policy_definition_id
     hydrated_payload = dict(payload)
     hydrated_payload["normalized_inputs"] = hydrated_normalized_inputs
     return hydrated_payload
+
+
+def _resolve_policy_definition_or_raise(policy_id: str) -> ConstructionPolicyDefinition:
+    policy_definition = get_construction_policy_definition(policy_id)
+    if policy_definition is None:
+        raise ConstructionArtifactIntegrityValidationError(
+            "construction artifact references unsupported construction policy"
+        )
+    return policy_definition
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:

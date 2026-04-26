@@ -6,6 +6,7 @@ Additive rollout note:
 - existing ETF-native ranking routes and replacement routes remain unchanged
 - backend-only generalized ranking artifact discovery is now also shipped on additive strategy-lab routes
 - persisted artifacts are the authoritative source for catalog and recent discovery; discovery does not recompute rankings
+- persisted artifacts are now also the authoritative source for additive generalized ranking artifact preflight/open handoffs and typed review reopen payloads
 
 The preferred authoritative contract shape is now grouped into:
 - `request`
@@ -68,6 +69,7 @@ Authoritative boundary rules:
 - artifact-backed response access remains additive on `POST /strategy-lab/etf-ranking/replacements` and both artifact-load routes
 - reload is artifact-id based only; it does not reconstruct request state, run preflight validation, or perform preview/open side effects
 - validation/open/review semantics are intentionally unchanged in this slice
+- additive generalized replacement open now also emits a backend-owned typed consumer handoff derived only from the persisted artifact after validation succeeds
 - new writes are strict and canonical; no silent repair is performed for malformed present values
 - load failures remain fail-closed on missing file (`404`) and invalid json, non-object payload, schema failure, lineage contradiction, or canonical id mismatch (`400`)
 
@@ -271,6 +273,166 @@ Failure behavior:
 - generalized ETF recent discovery remains index-backed for ordering and ETF filter narrowing only; when the shipped response contract requires enriched ETF row metadata, missing ETF artifact files fail closed rather than falling back to partial recent-index summaries
 - ETF recent-index metadata is never allowed to contradict persisted ETF artifact identity or shallow summary fields; contradictions fail closed
 
+## Generalized Ranking Artifact Preflight And Open v1
+
+Routes:
+- `POST /strategy-lab/ranking-artifacts/preflight/{artifact_id}`
+  - additive backend-only preflight over supported persisted ranking artifact kinds
+  - validates persisted artifact identity, kind support, schema support, integrity, and replay/open eligibility
+  - does not produce the review/open payload directly
+- `POST /strategy-lab/ranking-artifacts/open`
+  - additive backend-only typed reopen route
+  - accepts only the backend-owned `open_handoff` contract
+  - does not accept loose `artifact_id` plus client overrides or mixed request shapes
+
+Authoritative boundary rules:
+- the persisted artifact body is the authoritative downstream truth for both preflight and open
+- preflight and open remain distinct responsibilities: preflight proves eligibility and returns a typed handoff; open consumes that handoff and returns the typed review payload
+- for replacement artifacts only, preflight computes open/replay eligibility from successful backend-owned consumer-handoff construction against the persisted artifact; it still does not return the consumer payload itself
+- replacement artifacts no longer advertise a shipped state where review open succeeds but `consumer_handoff_supported = false`; truthful replacement eligibility is now exactly the canonical consumer-handoff/openability result
+- review payloads are artifact-backed only and explicitly labeled with review truth semantics; they do not fabricate imported portfolio truth or synthetic current-state semantics
+- new writes remain strict and canonical; legacy compatibility was not widened for this additive slice
+
+Preflight response contract:
+- `contract_version`
+  - current value: `ranking_artifact_preflight_v1`
+- `artifact`
+  - authoritative persisted identity and audit metadata:
+    - `artifact_kind`
+    - `artifact_id`
+    - `schema_version`
+    - `ranking_id`
+    - `methodology_id`
+    - `as_of_date`
+    - `ranking_basis_date`
+- `eligibility`
+  - current fields:
+    - `review_truth_basis`
+      - current value: `authoritative_persisted_ranking_artifact`
+    - `review_scope`
+      - current value: `artifact_backed_review_only`
+    - `open_supported`
+      - `true` when the specific persisted artifact instance can actually be reopened under the shipped contract
+      - `false` when replacement consumer-handoff construction fails closed for that artifact instance
+    - `replay_eligible`
+      - `true` when the specific persisted artifact instance is replayable/openable under the shipped contract
+      - `false` when replacement consumer-handoff construction fails closed for that artifact instance
+    - `consumer_handoff_supported`
+      - `false` for ETF ranking artifacts in this slice
+      - `true` only when an intent-bound replacement artifact instance successfully passes canonical consumer-handoff construction
+      - `false` when that replacement artifact instance fails closed as unreplayable or otherwise unconstructible for downstream handoff
+    - `ineligibility_reason`
+      - `null` when the artifact instance remains openable/replay-eligible
+      - explicit fail-closed reason when `open_supported = false` and `replay_eligible = false`
+- `open_handoff`
+  - backend-owned typed handoff consumed verbatim by open:
+    - `handoff_kind`
+      - current value: `ranking_artifact_open_handoff_v1`
+    - `artifact_kind`
+    - `artifact_id`
+    - `schema_version`
+  - this exact object is the authoritative downstream input for open; desktop callers must not reconstruct or widen it locally
+
+Open request contract:
+- request body must be the exact `open_handoff` object
+- `handoff_kind` is required and must be `ranking_artifact_open_handoff_v1`
+- missing or unsupported `handoff_kind` fails at request binding with `422` even when `artifact_kind`, `artifact_id`, and `schema_version` otherwise match a real persisted artifact produced by preflight
+- mixed payloads fail closed; callers cannot add loose fields, client overrides, or alternate artifact identity fields
+
+Open response contract:
+- `contract_version`
+  - current value: `ranking_artifact_open_v1`
+- `open_handoff`
+  - echoes the validated typed handoff
+- `review_payload_kind`
+  - current supported values:
+    - `etf_ranking_review_payload_v1`
+    - `intent_bound_etf_replacement_ranking_review_payload_v1`
+- `review_payload`
+  - typed review payload with explicit truth labels
+  - desktop consumers must branch on `review_payload.review_payload_kind` and `review_payload.artifact_kind`, not inferred local fields or persisted artifact assumptions alone
+- `consumer_handoff`
+  - present only for `intent_bound_etf_replacement_ranking` when `eligibility.consumer_handoff_supported = true`
+  - backend-owned typed downstream handoff derived strictly from the reopened persisted replacement artifact after validation
+  - omitted for ETF ranking opens in this slice to preserve the current ETF open payload shape
+
+Typed review payload semantics:
+- common truth labels on all review payloads:
+  - `review_truth_basis`
+    - current value: `authoritative_persisted_ranking_artifact`
+  - `review_scope`
+    - current value: `artifact_backed_review_only`
+- ETF review payload:
+  - `review_payload_kind = etf_ranking_review_payload_v1`
+  - `artifact_kind = etf_ranking`
+  - `schema_version = etf_ranking_artifact_v1`
+  - `artifact`
+    - full persisted `EtfRankingArtifact` body reopened from the authoritative artifact only
+- intent-bound replacement review payload:
+  - `review_payload_kind = intent_bound_etf_replacement_ranking_review_payload_v1`
+  - `artifact_kind = intent_bound_etf_replacement_ranking`
+  - `schema_version = intent_bound_etf_replacement_ranking_artifact_v1`
+  - `artifact`
+    - full persisted `IntentBoundEtfReplacementRankingArtifact` body reopened from the authoritative artifact only
+
+Replacement consumer handoff semantics:
+- `contract_version`
+  - current value: `intent_bound_etf_replacement_ranking_consumer_contract_v1`
+- `handoff_kind`
+  - current value: `intent_bound_etf_replacement_ranking_consumer_handoff_v1`
+- `artifact_kind`
+  - current value: `intent_bound_etf_replacement_ranking`
+- `artifact_id`
+- `schema_version`
+  - current value: `intent_bound_etf_replacement_ranking_artifact_v1`
+- `ranking_id`
+- `methodology_id`
+- `basis_date`
+- lineage identity fields:
+  - `draft_id`
+  - `workspace_id`
+  - `base_node_id`
+  - `base_symbol`
+  - `candidate_symbol`
+  - `seed_ranking_id`
+  - `seed_methodology_id`
+  - `seed_ranking_basis_date`
+  - `peer_group`
+  - `benchmark_symbol`
+  - `lookback_months`
+- replayability summary fields:
+  - `eligible_count`
+  - `excluded_count`
+- `selected_candidate`
+  - replacement-ranked row for the lineage-selected `candidate_symbol`
+  - current required fields:
+    - `symbol`
+    - `rank`
+    - `composite_score`
+    - `basis_date`
+    - `draft_id`
+    - `base_node_id`
+    - `base_symbol`
+    - `seed_ranking_id`
+    - `seed_methodology_id`
+
+Replacement consumer handoff validation rules:
+- open rejects replacement artifacts with unsupported status, empty ranked candidates, or missing lineage-selected candidate rows as unreplayable
+- open rejects malformed consumer-handoff states when required selected-candidate fields are absent
+- open rejects internal identity drift between consumer handoff fields and authoritative artifact lineage, run metadata, effective inputs, or ranked-candidate counts
+- open rejects selected-candidate lineage drift when the ranked candidate no longer matches `candidate_symbol`, `base_symbol`, `seed_ranking_id`, `seed_methodology_id`, or `basis_date`
+- no consumer handoff is synthesized from client request fields, preflight payloads, or loose overrides; persisted artifact truth is the only source
+- preflight reuses this same canonical consumer-handoff construction path to determine replacement replay/open eligibility; it does not maintain a second weaker eligibility code path
+- replacement preflight stays contract-synced with open: for shipped replacement artifacts, `open_supported`, `replay_eligible`, and `consumer_handoff_supported` now rise and fall together from that one canonical path
+- desktop callers must fail closed on ambiguous replacement states and must not assume `consumer_handoff` exists for every replacement open payload
+
+Failure behavior:
+- missing artifact file fails closed with `404`
+- request-shape and binding failures for missing or unsupported `handoff_kind`, mixed payloads, and other schema-invalid open request bodies fail closed with `422`
+- invalid json, non-object payload, unsupported kind, unsupported schema version, integrity mismatch, handoff/artifact kind mismatch, handoff/artifact schema mismatch, preflight/open artifact identity mismatch, malformed replacement consumer handoff state, identity drift, and unreplayable replacement artifacts all fail closed with `400`
+- preflight never silently becomes open and never returns the review payload
+- replacement preflight eligibility also fails closed when persisted artifact integrity succeeds but canonical consumer-handoff construction does not; callers receive `open_handoff` plus `eligibility.ineligibility_reason`, not a synthesized consumer handoff
+
 Grouped artifact fields:
 - `request`
   - persisted request envelope for intent binding
@@ -420,8 +582,11 @@ Source schema:
 ## Current Consumer Flow
 
 - the desktop `ETF Ranking` surface is a current consumer of the persisted artifact contract
-- current shipped behavior uses recent metadata discovery to populate available peer-group filters, recent artifact discovery to browse saved runs, and artifact loading to reopen one selected run
+- current shipped behavior uses recent metadata discovery to populate available peer-group filters, recent artifact discovery to browse saved runs, then generalized ranking-artifact preflight plus typed open to reopen one selected run
 - a loaded persisted ETF ranking artifact can also seed the current desktop draft-review replacement flow
+- the desktop draft-review seed now stores backend-owned ranking artifact identity, typed `open_handoff`, and the shipped review-payload discriminator for the selected ETF review context
+- desktop cached seeded-ranking restore accepts only canonical persisted review inputs with authoritative `artifactId` plus typed `openHandoff`; older raw draft records that lack those backend-owned fields are rejected instead of being reopened with inferred defaults
+- the only documented legacy cache hydration on seeded-ranking restore is load-time backfill of missing `artifactKind`, `schemaVersion`, and `reviewPayloadKind` from the already-present canonical `openHandoff`; present malformed or contradictory fields still fail closed and new writes remain strict/canonical
 
 ## Compatibility Top-Level Response Fields
 

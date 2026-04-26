@@ -51,6 +51,8 @@ export function ReplacementRankingReview({ artifact }: Props) {
         <div className="summary-card"><p className="stat-label">Ranking Id</p><p className="summary-value">{formatReviewValue(artifact.rankingId)}</p><p className="helper">Immutable local reference to the backend run</p></div>
         <div className="summary-card"><p className="stat-label">Methodology Id</p><p className="summary-value">{formatReviewValue(artifact.methodologyId)}</p><p className="helper">Methodology identity saved with the ranking review</p></div>
         <div className="summary-card"><p className="stat-label">Basis Date</p><p className="summary-value">{formatReviewValue(artifact.rankingBasisDate)}</p><p className="helper">Ranking basis date saved from run metadata</p></div>
+        <div className="summary-card"><p className="stat-label">Artifact Id</p><p className="summary-value">{formatReviewValue(artifact.openHandoff.artifact_id)}</p><p className="helper">Authoritative persisted ranking artifact backing this review</p></div>
+        <div className="summary-card"><p className="stat-label">Open Handoff</p><p className="summary-value">{formatReviewValue(artifact.openHandoff.handoff_kind)}</p><p className="helper">Canonical backend handoff reused unchanged across restore and replay entry points</p></div>
       </div>
       <div className="summary-card">
         <p className="stat-label">What This Review Means</p>

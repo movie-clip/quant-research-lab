@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import type { EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingResponse } from '../portfolio/types'
+import type {
+  EtfRankingArtifact,
+  EtfRankingArtifactRecentMetadata,
+  EtfRankingArtifactRecentRow,
+  EtfRankingResponse,
+  RankingArtifactOpenResponse,
+  RankingArtifactPreflightResponse,
+} from '../portfolio/types'
 import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, IntentBoundSeededEtfReplacementRankingCandidateSnapshot } from '../portfolio/workspaceTypes'
 
 const PEER_GROUP_OPTIONS = ['Sector UCITS ETF', 'Bond UCITS ETF', 'Broad Market UCITS ETF', 'Thematic UCITS ETF', 'Commodity UCITS ETF']
@@ -90,6 +97,37 @@ async function readJsonResponse<T>(response: Response, fallbackMessage: string) 
   return payload as T
 }
 
+function resolveEtfRankingArtifactFromOpenResponse(
+  preflight: RankingArtifactPreflightResponse,
+  openResponse: RankingArtifactOpenResponse,
+): EtfRankingArtifact {
+  if (JSON.stringify(openResponse.open_handoff) !== JSON.stringify(preflight.open_handoff)) {
+    throw new Error('Ranking artifact open must reuse the exact preflight handoff')
+  }
+  if (openResponse.open_handoff.artifact_id !== preflight.artifact.artifact_id) {
+    throw new Error('Ranking artifact open returned a mismatched artifact identity')
+  }
+  if (openResponse.review_payload_kind !== openResponse.review_payload.review_payload_kind) {
+    throw new Error('Ranking artifact open returned a mismatched review payload discriminator')
+  }
+  if (openResponse.review_payload.review_payload_kind !== 'etf_ranking_review_payload_v1') {
+    throw new Error(`Ranking artifact open returned unsupported review payload kind ${openResponse.review_payload.review_payload_kind}`)
+  }
+  if (openResponse.review_payload.artifact_kind !== 'etf_ranking') {
+    throw new Error('Ranking artifact open returned an unsupported artifact kind for ETF review')
+  }
+  if (openResponse.review_payload.artifact_id !== preflight.artifact.artifact_id) {
+    throw new Error('Ranking artifact open review payload identity does not match preflight')
+  }
+  if (openResponse.review_payload.schema_version !== preflight.artifact.schema_version) {
+    throw new Error('Ranking artifact open review payload schema_version does not match preflight')
+  }
+  if (openResponse.review_payload.artifact.artifact_id !== preflight.artifact.artifact_id) {
+    throw new Error('Ranking artifact open artifact body identity does not match preflight')
+  }
+  return openResponse.review_payload.artifact
+}
+
 function buildCandidateImprovementSeed(result: EtfRankingResponse, row: EtfRankingResponse['ranked_universe'][number], baseSymbol: string): CandidateImprovementSeed {
   const warnings = result.warnings ?? { warnings: [] as string[] }
   return {
@@ -146,6 +184,12 @@ function buildIntentBoundSeededRankingArtifact(
     rankingId: result.run_metadata.ranking_id,
     methodologyId: result.run_metadata.methodology_id,
     rankingBasisDate: result.run_metadata.ranking_basis_date,
+    openHandoff: {
+      handoff_kind: 'ranking_artifact_open_handoff_v1',
+      artifact_kind: 'etf_ranking',
+      artifact_id: (result as EtfRankingArtifact).artifact_id,
+      schema_version: (result as EtfRankingArtifact).schema_version,
+    },
     benchmarkSymbol: rankingBenchmarkSymbol(result),
     lookbackMonths: rankingLookbackMonths(result),
     peerGroup: result.effective_inputs.effective_peer_group,
@@ -295,8 +339,17 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
   async function loadRecentArtifact(artifactId: string) {
     const owner = beginResultRequest('recent', artifactId)
     try {
-      const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/${encodeURIComponent(artifactId)}`)
-      const payload = await readJsonResponse<EtfRankingArtifact>(response, 'ETF ranking artifact could not be loaded')
+      const preflightResponse = await fetch(`${apiBase}/strategy-lab/ranking-artifacts/preflight/${encodeURIComponent(artifactId)}`, {
+        method: 'POST',
+      })
+      const preflight = await readJsonResponse<RankingArtifactPreflightResponse>(preflightResponse, 'ETF ranking artifact preflight failed')
+      const openResponse = await fetch(`${apiBase}/strategy-lab/ranking-artifacts/open`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preflight.open_handoff),
+      })
+      const opened = await readJsonResponse<RankingArtifactOpenResponse>(openResponse, 'ETF ranking artifact could not be opened')
+      const payload = resolveEtfRankingArtifactFromOpenResponse(preflight, opened)
       if (!isActiveResultRequest(owner)) return
       setResult(payload)
       setResultSource('recent')
@@ -375,7 +428,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
             </label>
             <div className="field-group">
               <span className="field-label">Discovery Source</span>
-              <p className="helper">Backend metadata routes define the filter list and recent artifact availability.</p>
+              <p className="helper">Backend metadata routes define the filter list; recent open reuses typed preflight and open handoffs.</p>
             </div>
           </div>
           <div className="dashboard-edit-actions dashboard-edit-actions-compact">
@@ -453,7 +506,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                     <span>{item.universe_size}</span>
                     <span>{item.evaluated_universe_size}</span>
                     <span>{item.artifact_id}</span>
-                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><small>Open persisted result.</small></span>
+                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><small>Open persisted result via typed handoff.</small></span>
                   </div>
                 )
               })}

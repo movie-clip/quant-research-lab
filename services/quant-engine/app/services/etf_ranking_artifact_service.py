@@ -9,7 +9,11 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.core.settings import get_settings
-from app.schemas.ranking import validate_ranking_artifact_identity, validate_ranking_artifact_storage_key
+from app.schemas.ranking import (
+    ETF_RANKING_ARTIFACT_ID_PREFIX,
+    validate_ranking_artifact_identity,
+    validate_ranking_artifact_storage_key,
+)
 from app.schemas.research import EtfRankingArtifact, EtfRankingArtifactRecentMetadata, EtfRankingArtifactRecentRow, EtfRankingResponse
 
 
@@ -329,7 +333,7 @@ def validate_etf_ranking_artifact(artifact: EtfRankingArtifact) -> EtfRankingArt
             schema_version=artifact.schema_version,
             expected_schema_version="etf_ranking_artifact_v1",
             artifact_id=artifact.artifact_id,
-            artifact_id_prefix="etf_ranking_artifact_",
+            artifact_id_prefix=ETF_RANKING_ARTIFACT_ID_PREFIX,
             expected_artifact_id=_canonical_artifact_id(artifact),
             artifact_label="etf ranking",
         )
@@ -342,7 +346,7 @@ def _validated_artifact_id_key(artifact_id: str) -> str:
     try:
         return validate_ranking_artifact_storage_key(
             artifact_id=artifact_id,
-            artifact_id_prefix="etf_ranking_artifact_",
+            artifact_id_prefix=ETF_RANKING_ARTIFACT_ID_PREFIX,
             artifact_label="etf ranking",
         )
     except ValueError as exc:
@@ -351,7 +355,7 @@ def _validated_artifact_id_key(artifact_id: str) -> str:
 
 def _canonical_artifact_id(artifact: EtfRankingArtifact) -> str:
     payload = artifact.model_dump(mode="json", exclude={"artifact_id"})
-    return f"etf_ranking_artifact_{_fingerprint(payload)[:16]}"
+    return f"{ETF_RANKING_ARTIFACT_ID_PREFIX}{_fingerprint(payload)[:16]}"
 
 
 def _fingerprint(payload: object) -> str:

@@ -9,8 +9,14 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.core.settings import get_settings
-from app.schemas.ranking import validate_ranking_artifact_identity, validate_ranking_artifact_storage_key
+from app.schemas.ranking import (
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX,
+    validate_ranking_artifact_identity,
+    validate_ranking_artifact_storage_key,
+)
 from app.schemas.research import (
+    IntentBoundEtfReplacementRankingConsumerCandidate,
+    IntentBoundEtfReplacementRankingConsumerHandoff,
     IntentBoundEtfReplacementArtifactRequest,
     IntentBoundEtfReplacementRankingArtifact,
     IntentBoundEtfReplacementRankingResponse,
@@ -189,7 +195,7 @@ def validate_replacement_ranking_artifact(
             schema_version=artifact.schema_version,
             expected_schema_version="intent_bound_etf_replacement_ranking_artifact_v1",
             artifact_id=artifact.artifact_id,
-            artifact_id_prefix="intent_bound_etf_replacement_ranking_artifact_",
+            artifact_id_prefix=INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX,
             expected_artifact_id=_canonical_artifact_id(artifact),
             artifact_label="replacement ranking",
         )
@@ -198,11 +204,111 @@ def validate_replacement_ranking_artifact(
     return artifact
 
 
+def build_replacement_ranking_consumer_handoff(
+    artifact: IntentBoundEtfReplacementRankingArtifact,
+) -> IntentBoundEtfReplacementRankingConsumerHandoff:
+    try:
+        if artifact.status != "ok":
+            raise ValueError("replacement ranking artifact is unreplayable")
+        if not artifact.ranked_candidates:
+            raise ValueError("replacement ranking artifact is unreplayable")
+
+        selected_candidate = next(
+            (row for row in artifact.ranked_candidates if row.symbol == artifact.lineage.candidate_symbol),
+            None,
+        )
+        if selected_candidate is None:
+            raise ValueError("replacement ranking artifact candidate_symbol is not present in ranked_candidates")
+        if selected_candidate.rank is None:
+            raise ValueError("replacement ranking artifact selected candidate rank is required")
+        if selected_candidate.composite_score is None:
+            raise ValueError("replacement ranking artifact selected candidate composite_score is required")
+
+        consumer_handoff = IntentBoundEtfReplacementRankingConsumerHandoff(
+            artifact_id=artifact.artifact_id,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.methodology_id,
+            basis_date=artifact.basis_date,
+            draft_id=artifact.lineage.draft_id,
+            workspace_id=artifact.lineage.workspace_id,
+            base_node_id=artifact.lineage.base_node_id,
+            base_symbol=artifact.lineage.base_symbol,
+            candidate_symbol=artifact.lineage.candidate_symbol,
+            seed_ranking_id=artifact.lineage.seed_ranking_id,
+            seed_methodology_id=artifact.lineage.seed_methodology_id,
+            seed_ranking_basis_date=artifact.lineage.seed_ranking_basis_date,
+            peer_group=artifact.lineage.peer_group,
+            benchmark_symbol=artifact.lineage.benchmark_symbol,
+            lookback_months=artifact.lineage.lookback_months,
+            eligible_count=artifact.eligible_count,
+            excluded_count=artifact.excluded_count,
+            selected_candidate=IntentBoundEtfReplacementRankingConsumerCandidate(
+                symbol=selected_candidate.symbol,
+                rank=selected_candidate.rank,
+                composite_score=selected_candidate.composite_score,
+                basis_date=selected_candidate.basis_date,
+                draft_id=selected_candidate.draft_id,
+                base_node_id=selected_candidate.base_node_id,
+                base_symbol=selected_candidate.base_symbol,
+                seed_ranking_id=selected_candidate.seed_ranking_id,
+                seed_methodology_id=selected_candidate.seed_methodology_id,
+            ),
+        )
+    except ValueError as exc:
+        raise ReplacementRankingArtifactIntegrityValidationError(str(exc)) from exc
+
+    if consumer_handoff.ranking_id != artifact.run_metadata.ranking_id:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff ranking_id does not match artifact run_metadata.ranking_id"
+        )
+    if consumer_handoff.methodology_id != artifact.run_metadata.methodology_id:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff methodology_id does not match artifact run_metadata.methodology_id"
+        )
+    if consumer_handoff.basis_date != artifact.run_metadata.basis_date:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff basis_date does not match artifact run_metadata.basis_date"
+        )
+    if consumer_handoff.seed_ranking_basis_date != artifact.lineage.seed_ranking_basis_date:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff seed_ranking_basis_date does not match artifact lineage"
+        )
+    if consumer_handoff.benchmark_symbol != artifact.effective_inputs.benchmark_symbol:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff benchmark_symbol does not match artifact effective_inputs.benchmark_symbol"
+        )
+    if consumer_handoff.lookback_months != artifact.effective_inputs.lookback_months:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff lookback_months does not match artifact effective_inputs.lookback_months"
+        )
+    if consumer_handoff.base_symbol != artifact.effective_inputs.base_symbol:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff base_symbol does not match artifact effective_inputs.base_symbol"
+        )
+    if consumer_handoff.candidate_symbol != artifact.effective_inputs.candidate_symbol:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff candidate_symbol does not match artifact effective_inputs.candidate_symbol"
+        )
+    if consumer_handoff.peer_group != artifact.effective_inputs.peer_group:
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff peer_group does not match artifact effective_inputs.peer_group"
+        )
+    if consumer_handoff.eligible_count != len(artifact.ranked_candidates):
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff eligible_count does not match ranked_candidates"
+        )
+    if consumer_handoff.excluded_count != len(artifact.excluded_candidates):
+        raise ReplacementRankingArtifactIntegrityValidationError(
+            "replacement ranking consumer handoff excluded_count does not match excluded_candidates"
+        )
+    return consumer_handoff
+
+
 def _validated_artifact_id_key(artifact_id: str) -> str:
     try:
         return validate_ranking_artifact_storage_key(
             artifact_id=artifact_id,
-            artifact_id_prefix="intent_bound_etf_replacement_ranking_artifact_",
+            artifact_id_prefix=INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX,
             artifact_label="replacement ranking",
         )
     except ValueError as exc:
@@ -211,7 +317,7 @@ def _validated_artifact_id_key(artifact_id: str) -> str:
 
 def _canonical_artifact_id(artifact: IntentBoundEtfReplacementRankingArtifact) -> str:
     payload = artifact.model_dump(mode="json", exclude={"artifact_id"})
-    return f"intent_bound_etf_replacement_ranking_artifact_{_fingerprint(payload)[:16]}"
+    return f"{INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX}{_fingerprint(payload)[:16]}"
 
 
 def _fingerprint(payload: object) -> str:

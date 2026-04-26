@@ -71,19 +71,11 @@ def build_construction_run(
         top_n=request.policy.top_n,
         policy_definition=policy_definition,
     )
-    normalized_inputs = ConstructionNormalizedInputs(
-        ranked_universe_artifact_id=request.ranked_universe.artifact_id,
-        ranking_id=request.ranked_universe.ranking_id,
-        ranking_methodology_id=request.ranked_universe.methodology_id,
-        ranking_as_of_date=request.ranked_universe.as_of_date,
-        current_portfolio_artifact_id=request.current_portfolio.artifact_id,
-        current_portfolio_as_of_timestamp=request.current_portfolio.as_of_timestamp,
-        policy_id=request.policy.policy_id,
-        policy_definition_id=policy_definition.catalog_entry.policy_definition_id,
-        top_n=request.policy.top_n,
-        max_position_weight=request.hard_constraints.max_position_weight,
-        current_portfolio_weights=normalized_current,
-        ranked_candidates=normalized_ranked,
+    normalized_inputs = _build_normalized_inputs(
+        request,
+        policy_definition=policy_definition,
+        normalized_current=normalized_current,
+        normalized_ranked=normalized_ranked,
     )
     failure_reasons: list[str] = []
 
@@ -186,6 +178,29 @@ def build_construction_run(
         failure_reasons=[],
     )
     return persist_construction_artifact(build_stable_construction_artifact(artifact), store=artifact_store)
+
+
+def _build_normalized_inputs(
+    request: ConstructionRunRequest,
+    *,
+    policy_definition: ConstructionPolicyDefinition,
+    normalized_current: list[ConstructionWeight],
+    normalized_ranked: list[ConstructionRankedCandidateInput],
+) -> ConstructionNormalizedInputs:
+    return ConstructionNormalizedInputs(
+        ranked_universe_artifact_id=request.ranked_universe.artifact_id,
+        ranking_id=request.ranked_universe.ranking_id,
+        ranking_methodology_id=request.ranked_universe.methodology_id,
+        ranking_as_of_date=request.ranked_universe.as_of_date,
+        current_portfolio_artifact_id=request.current_portfolio.artifact_id,
+        current_portfolio_as_of_timestamp=request.current_portfolio.as_of_timestamp,
+        policy_id=request.policy.policy_id,
+        policy_definition_id=policy_definition.catalog_entry.policy_definition_id,
+        top_n=request.policy.top_n,
+        max_position_weight=request.hard_constraints.max_position_weight,
+        current_portfolio_weights=normalized_current,
+        ranked_candidates=normalized_ranked,
+    )
 
 
 def _normalize_ranked_candidates(candidates: list[ConstructionRankedCandidateInput]) -> list[ConstructionRankedCandidateInput]:

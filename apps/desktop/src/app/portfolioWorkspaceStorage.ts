@@ -2,7 +2,7 @@ import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStor
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ConstructionArtifactReplayResponse, ImportedPortfolioSnapshotSource, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse } from '../features/portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -126,6 +126,75 @@ function inspectLegacyOptimizerIdentityFields(value: unknown): LegacyOptimizerId
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
+}
+
+function assertValidSeededRankingOpenHandoff(
+  value: unknown,
+  label: string,
+): asserts value is IntentBoundSeededEtfReplacementRankingDraftArtifact['openHandoff'] {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is missing or invalid open handoff`)
+  }
+
+  const candidate = value as Partial<IntentBoundSeededEtfReplacementRankingDraftArtifact['openHandoff']>
+  if (candidate.handoff_kind !== 'ranking_artifact_open_handoff_v1') {
+    throw new Error(`${label} has unsupported open handoff kind`)
+  }
+  if (candidate.artifact_kind !== 'etf_ranking') {
+    throw new Error(`${label} has unsupported open handoff artifact kind`)
+  }
+  if (!isNonEmptyString(candidate.artifact_id)) {
+    throw new Error(`${label} is missing canonical artifact identity in open handoff`)
+  }
+  if (candidate.schema_version !== 'etf_ranking_artifact_v1') {
+    throw new Error(`${label} has unsupported open handoff schema version`)
+  }
+}
+
+function toCanonicalIntentBoundSeededEtfReplacementRankingDraft(
+  draft: LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact,
+): IntentBoundSeededEtfReplacementRankingDraftArtifact {
+  const candidate = draft as Partial<LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact>
+  const {
+    artifactId: _artifactId,
+    artifactKind: _artifactKind,
+    schemaVersion: _schemaVersion,
+    reviewPayloadKind: _reviewPayloadKind,
+    consumerHandoff: _consumerHandoff,
+    ...canonicalDraft
+  } = draft
+
+  assertValidSeededRankingOpenHandoff(candidate.openHandoff, 'Persisted seeded ranking review cache')
+
+  if (candidate.artifactId != null && !isNonEmptyString(candidate.artifactId)) {
+    throw new Error('Persisted seeded ranking review cache is missing canonical artifact identity')
+  }
+  if (candidate.artifactId != null && candidate.artifactId !== candidate.openHandoff.artifact_id) {
+    throw new Error('Persisted seeded ranking review cache conflicts with open handoff artifact identity')
+  }
+  if (candidate.artifactKind != null && candidate.artifactKind !== candidate.openHandoff.artifact_kind) {
+    throw new Error('Persisted seeded ranking review cache conflicts with open handoff artifact kind')
+  }
+  if (candidate.schemaVersion != null && candidate.schemaVersion !== candidate.openHandoff.schema_version) {
+    throw new Error('Persisted seeded ranking review cache conflicts with open handoff schema version')
+  }
+  if (candidate.reviewPayloadKind != null && candidate.reviewPayloadKind !== 'etf_ranking_review_payload_v1') {
+    throw new Error('Persisted seeded ranking review cache has unsupported review payload kind')
+  }
+  if ('consumerHandoff' in candidate) {
+    throw new Error('Persisted seeded ranking review cache has unsupported consumer handoff state')
+  }
+
+  return {
+    ...canonicalDraft,
+    openHandoff: candidate.openHandoff,
+  }
+}
+
+function canonicalizeIntentBoundSeededEtfReplacementRankingDraftForWrite(
+  draft: IntentBoundSeededEtfReplacementRankingDraftArtifact,
+): IntentBoundSeededEtfReplacementRankingDraftArtifact {
+  return toCanonicalIntentBoundSeededEtfReplacementRankingDraft(draft)
 }
 
 function assertValidOptimizerHandoffReference(
@@ -949,14 +1018,22 @@ export async function deleteCandidateImprovementDraft(draftId: string) {
 export async function getIntentBoundSeededEtfReplacementRankingDraft(draftId: string) {
   return withStore<IntentBoundSeededEtfReplacementRankingDraftArtifact | null>(intentBoundSeededEtfReplacementRankingDraftStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(draftId)
-    request.onsuccess = () => resolve((request.result as IntentBoundSeededEtfReplacementRankingDraftArtifact | undefined) ?? null)
+    request.onsuccess = () => {
+      try {
+        const annotation = (request.result as LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact | undefined) ?? null
+        resolve(annotation ? toCanonicalIntentBoundSeededEtfReplacementRankingDraft(annotation) : null)
+      } catch (error) {
+        reject(error)
+      }
+    }
     request.onerror = () => reject(request.error ?? new Error('Failed to load intent-bound seeded ETF replacement ranking draft'))
   })
 }
 
 export async function saveIntentBoundSeededEtfReplacementRankingDraft(annotation: IntentBoundSeededEtfReplacementRankingDraftArtifact) {
+  const canonicalAnnotation = canonicalizeIntentBoundSeededEtfReplacementRankingDraftForWrite(annotation)
   await withStore<void>(intentBoundSeededEtfReplacementRankingDraftStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.put(annotation)
+    const request = store.put(canonicalAnnotation)
     request.onsuccess = () => resolve(undefined)
     request.onerror = () => reject(request.error ?? new Error('Failed to save intent-bound seeded ETF replacement ranking draft'))
   })

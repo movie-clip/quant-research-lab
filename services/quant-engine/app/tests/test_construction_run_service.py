@@ -200,6 +200,35 @@ def test_build_construction_run_returns_inverse_rank_weight_artifact(tmp_path: P
     assert max_position_constraint.actual_value == 0.54545455
 
 
+def test_build_construction_run_returns_linear_rank_weight_artifact(tmp_path: Path) -> None:
+    result = build_construction_run(
+        _request(top_n=3, max_position_weight=0.51, policy_id="top_n_linear_rank_weight_v1"),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "feasible"
+    assert result.policy.policy_id == "top_n_linear_rank_weight_v1"
+    assert result.normalized_inputs.policy_definition_id == "construction_policy_definition_top_n_linear_rank_weight_v1"
+    assert [item.model_dump(mode="json") for item in result.selected_names] == [
+        {"symbol": "AAA", "rank": 1, "score": 9.5},
+        {"symbol": "BBB", "rank": 2, "score": 8.1},
+        {"symbol": "CCC", "rank": 3, "score": 7.0},
+    ]
+    assert [item.model_dump(mode="json") for item in result.seed_weights] == [
+        {"symbol": "AAA", "weight": 0.5},
+        {"symbol": "BBB", "weight": 0.33333333},
+        {"symbol": "CCC", "weight": 0.16666667},
+    ]
+    assert [item.model_dump(mode="json") for item in result.final_target_weights] == [
+        {"symbol": "AAA", "weight": 0.5},
+        {"symbol": "BBB", "weight": 0.33333333},
+        {"symbol": "CCC", "weight": 0.16666667},
+    ]
+    assert [item.model_dump(mode="json") for item in result.excluded_names] == [
+        {"symbol": "DDD", "rank": 4, "eligible": False, "reason": "liquidity_screen"},
+    ]
+
+
 def test_build_construction_run_marks_turnover_constraint_pass_when_under_cap(tmp_path: Path) -> None:
     result = build_construction_run(
         _request(max_turnover_weight=0.61),
@@ -590,6 +619,22 @@ def test_build_construction_run_fails_closed_when_inverse_rank_weight_breaks_max
     assert constraint.status == "fail"
     assert constraint.actual_value == 0.54545455
     assert constraint.limit_value == 0.54
+
+
+def test_build_construction_run_fails_closed_when_linear_rank_weight_breaks_max_position_constraint(tmp_path: Path) -> None:
+    result = build_construction_run(
+        _request(top_n=3, max_position_weight=0.49, policy_id="top_n_linear_rank_weight_v1"),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "infeasible"
+    assert result.final_target_weights == []
+    assert result.trade_intents == []
+    assert result.failure_reasons == ["linear-rank seed exceeds max_position_weight"]
+    constraint = next(item for item in result.constraint_evaluations if item.constraint_id == "max_position_weight")
+    assert constraint.status == "fail"
+    assert constraint.actual_value == 0.5
+    assert constraint.limit_value == 0.49
 
 
 def test_build_construction_run_fails_closed_when_eligible_ranked_universe_is_too_small(tmp_path: Path) -> None:
@@ -999,6 +1044,24 @@ def test_load_construction_artifact_rejects_missing_legacy_policy_definition_id_
         load_construction_artifact(legacy_artifact_id, store=store)
 
 
+def test_load_construction_artifact_rejects_present_unsupported_policy_id(tmp_path: Path) -> None:
+    store = ConstructionArtifactStore(str(tmp_path))
+    result = build_construction_run(_request(), artifact_store=store)
+
+    def _make_unresolvable(payload: dict) -> None:
+        payload["policy"]["policy_id"] = "unsupported_policy_v1"
+        payload["normalized_inputs"]["policy_id"] = "unsupported_policy_v1"
+        payload["normalized_inputs"]["policy_definition_id"] = "construction_policy_definition_top_n_equal_weight_v1"
+
+    artifact_id, _ = _rewrite_artifact_with_rekeyed_payload(tmp_path, result.artifact_id, _make_unresolvable)
+
+    with pytest.raises(
+        ConstructionArtifactSchemaValidationError,
+        match="persisted construction artifact failed schema validation",
+    ):
+        load_construction_artifact(artifact_id, store=store)
+
+
 def test_load_construction_artifact_raises_missing_file_error(tmp_path: Path) -> None:
     store = ConstructionArtifactStore(str(tmp_path))
 
@@ -1128,6 +1191,13 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "policy_definition_id": "construction_policy_definition_top_n_inverse_rank_weight_v1",
             "name": "Top N Inverse Rank Weight v1",
             "description": "Select eligible top-ranked names and weight them by inverse selected-order rank.",
+            "selection_rule_ids": ["eligible_only", "take_top_n"],
+        },
+        {
+            "policy_id": "top_n_linear_rank_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_linear_rank_weight_v1",
+            "name": "Top N Linear Rank Weight v1",
+            "description": "Select eligible top-ranked names and weight them by selected-order linear rank numerators N..1.",
             "selection_rule_ids": ["eligible_only", "take_top_n"],
         },
     ]

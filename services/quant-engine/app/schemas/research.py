@@ -3,20 +3,40 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 from app.schemas.optimizer import OptimizerAlphaFundamentalSnapshot, OptimizerAlphaPackageStatus
 from app.schemas.ranking import (
+    AUTHORITATIVE_PERSISTED_RANKING_ARTIFACT_REVIEW_TRUTH,
+    ETF_RANKING_ARTIFACT_KIND,
     ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
+    ETF_RANKING_REVIEW_PAYLOAD_KIND,
     EtfRankingArtifactSchemaVersion,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_KIND,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_REVIEW_PAYLOAD_KIND,
     INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_CONSUMER_CONTRACT_VERSION,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_CONSUMER_HANDOFF_KIND,
     IntentBoundEtfReplacementRankingArtifactSchemaVersion,
+    IntentBoundEtfReplacementRankingConsumerContractVersion,
+    IntentBoundEtfReplacementRankingConsumerHandoffKind,
     PersistedRankingArtifactEnvelope,
+    RANKING_ARTIFACT_BACKED_REVIEW_SCOPE,
+    RANKING_ARTIFACT_OPEN_CONTRACT_VERSION,
+    RANKING_ARTIFACT_OPEN_HANDOFF_FIELD_NAMES,
+    RANKING_ARTIFACT_OPEN_HANDOFF_KIND,
+    RANKING_ARTIFACT_PREFLIGHT_CONTRACT_VERSION,
     RankingArtifactConfidence,
     RankingArtifactDiscoveryContractVersion,
     RankingArtifactDiscoveryFilterName,
     RankingArtifactKind,
     RankingArtifactKindRegistryVersion,
+    RankingArtifactOpenContractVersion,
+    RankingArtifactOpenHandoffKind,
+    RankingArtifactPreflightContractVersion,
+    RankingArtifactReviewPayloadKind,
+    RankingArtifactReviewScope,
+    RankingArtifactReviewTruthBasis,
     RankingEffectiveInputsBase,
     RANKING_ARTIFACT_KIND_REGISTRY_VERSION,
     RankingArtifactMetadataProvenance,
@@ -611,6 +631,236 @@ class RankingArtifactCatalogMetadata(BaseModel):
 class RankingArtifactCatalogListResponse(BaseModel):
     items: list[RankingArtifactCatalogRow] = Field(default_factory=list)
     metadata: RankingArtifactCatalogMetadata = Field(default_factory=RankingArtifactCatalogMetadata)
+
+
+class RankingArtifactOpenHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: RankingArtifactOpenHandoffKind = RANKING_ARTIFACT_OPEN_HANDOFF_KIND
+    artifact_kind: RankingArtifactKind
+    artifact_id: str
+    schema_version: RankingArtifactSchemaVersion
+
+
+class RankingArtifactOpenRequest(RootModel[RankingArtifactOpenHandoff]):
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_handoff_request_shape(cls, value):
+        if not isinstance(value, dict):
+            return value
+        if "handoff_kind" not in value:
+            raise ValueError("open_handoff.handoff_kind is required")
+        if value["handoff_kind"] != RANKING_ARTIFACT_OPEN_HANDOFF_KIND:
+            raise ValueError(f"unsupported open_handoff.handoff_kind: {value['handoff_kind']}")
+        mixed_fields = set(value) - set(RANKING_ARTIFACT_OPEN_HANDOFF_FIELD_NAMES)
+        if mixed_fields:
+            raise ValueError("open_handoff request must not mix legacy artifact fields or client overrides")
+        return value
+
+
+class RankingArtifactPreflightArtifact(BaseModel):
+    artifact_kind: RankingArtifactKind
+    artifact_id: str
+    schema_version: RankingArtifactSchemaVersion
+    ranking_id: str
+    methodology_id: str
+    as_of_date: str
+    ranking_basis_date: str
+
+
+class RankingArtifactPreflightEligibility(BaseModel):
+    review_truth_basis: RankingArtifactReviewTruthBasis = AUTHORITATIVE_PERSISTED_RANKING_ARTIFACT_REVIEW_TRUTH
+    review_scope: RankingArtifactReviewScope = RANKING_ARTIFACT_BACKED_REVIEW_SCOPE
+    open_supported: bool = True
+    replay_eligible: bool = True
+    consumer_handoff_supported: bool = False
+    ineligibility_reason: str | None = None
+
+    @model_validator(mode="after")
+    def validate_ineligibility_reason(self) -> "RankingArtifactPreflightEligibility":
+        if self.open_supported != self.replay_eligible:
+            raise ValueError("open_supported and replay_eligible must stay aligned")
+        if not self.open_supported and self.consumer_handoff_supported:
+            raise ValueError("consumer_handoff_supported must be false when artifact is not open_supported")
+        if (not self.open_supported or not self.replay_eligible) and not self.ineligibility_reason:
+            raise ValueError("ineligibility_reason is required when artifact is not open_supported or replay_eligible")
+        if self.open_supported and self.replay_eligible and self.ineligibility_reason is not None:
+            raise ValueError("ineligibility_reason must be absent when artifact remains open_supported and replay_eligible")
+        return self
+
+
+class RankingArtifactPreflightResponse(BaseModel):
+    contract_version: RankingArtifactPreflightContractVersion = RANKING_ARTIFACT_PREFLIGHT_CONTRACT_VERSION
+    artifact: RankingArtifactPreflightArtifact
+    eligibility: RankingArtifactPreflightEligibility = Field(default_factory=RankingArtifactPreflightEligibility)
+    open_handoff: RankingArtifactOpenHandoff
+
+    @model_validator(mode="after")
+    def validate_contract_alignment(self) -> "RankingArtifactPreflightResponse":
+        if self.open_handoff.artifact_kind != self.artifact.artifact_kind:
+            raise ValueError("open_handoff.artifact_kind must match artifact.artifact_kind")
+        if self.open_handoff.artifact_id != self.artifact.artifact_id:
+            raise ValueError("open_handoff.artifact_id must match artifact.artifact_id")
+        if self.open_handoff.schema_version != self.artifact.schema_version:
+            raise ValueError("open_handoff.schema_version must match artifact.schema_version")
+        if self.artifact.artifact_kind == "etf_ranking" and self.eligibility.consumer_handoff_supported:
+            raise ValueError("etf ranking preflight cannot advertise consumer_handoff_supported")
+        if (
+            self.artifact.artifact_kind == "intent_bound_etf_replacement_ranking"
+            and self.eligibility.consumer_handoff_supported != self.eligibility.open_supported
+        ):
+            raise ValueError(
+                "replacement ranking preflight must keep consumer_handoff_supported aligned with open_supported"
+            )
+        return self
+
+
+class EtfRankingArtifactOpenReviewPayload(BaseModel):
+    review_payload_kind: Literal["etf_ranking_review_payload_v1"] = "etf_ranking_review_payload_v1"
+    review_truth_basis: RankingArtifactReviewTruthBasis = AUTHORITATIVE_PERSISTED_RANKING_ARTIFACT_REVIEW_TRUTH
+    review_scope: RankingArtifactReviewScope = RANKING_ARTIFACT_BACKED_REVIEW_SCOPE
+    artifact_kind: Literal["etf_ranking"] = "etf_ranking"
+    artifact_id: str
+    schema_version: EtfRankingArtifactSchemaVersion = ETF_RANKING_ARTIFACT_SCHEMA_VERSION
+    artifact: EtfRankingArtifact
+
+
+class IntentBoundEtfReplacementRankingOpenReviewPayload(BaseModel):
+    review_payload_kind: Literal["intent_bound_etf_replacement_ranking_review_payload_v1"] = (
+        "intent_bound_etf_replacement_ranking_review_payload_v1"
+    )
+    review_truth_basis: RankingArtifactReviewTruthBasis = AUTHORITATIVE_PERSISTED_RANKING_ARTIFACT_REVIEW_TRUTH
+    review_scope: RankingArtifactReviewScope = RANKING_ARTIFACT_BACKED_REVIEW_SCOPE
+    artifact_kind: Literal["intent_bound_etf_replacement_ranking"] = "intent_bound_etf_replacement_ranking"
+    artifact_id: str
+    schema_version: IntentBoundEtfReplacementRankingArtifactSchemaVersion = (
+        INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION
+    )
+    artifact: IntentBoundEtfReplacementRankingArtifact
+
+
+RankingArtifactOpenReviewPayload = (
+    EtfRankingArtifactOpenReviewPayload | IntentBoundEtfReplacementRankingOpenReviewPayload
+)
+
+
+class IntentBoundEtfReplacementRankingConsumerCandidate(BaseModel):
+    symbol: str
+    rank: int
+    composite_score: float
+    basis_date: str
+    draft_id: str
+    base_node_id: str
+    base_symbol: str
+    seed_ranking_id: str
+    seed_methodology_id: str
+
+
+class IntentBoundEtfReplacementRankingConsumerHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    contract_version: IntentBoundEtfReplacementRankingConsumerContractVersion = (
+        INTENT_BOUND_ETF_REPLACEMENT_RANKING_CONSUMER_CONTRACT_VERSION
+    )
+    handoff_kind: IntentBoundEtfReplacementRankingConsumerHandoffKind = (
+        INTENT_BOUND_ETF_REPLACEMENT_RANKING_CONSUMER_HANDOFF_KIND
+    )
+    artifact_kind: Literal["intent_bound_etf_replacement_ranking"] = "intent_bound_etf_replacement_ranking"
+    artifact_id: str
+    schema_version: IntentBoundEtfReplacementRankingArtifactSchemaVersion = (
+        INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION
+    )
+    ranking_id: str
+    methodology_id: str
+    basis_date: str
+    draft_id: str
+    workspace_id: str
+    base_node_id: str
+    base_symbol: str
+    candidate_symbol: str
+    seed_ranking_id: str
+    seed_methodology_id: str
+    seed_ranking_basis_date: str
+    peer_group: str
+    benchmark_symbol: str
+    lookback_months: int = Field(..., ge=1)
+    eligible_count: int = Field(..., ge=1)
+    excluded_count: int = Field(..., ge=0)
+    selected_candidate: IntentBoundEtfReplacementRankingConsumerCandidate
+
+    @model_validator(mode="after")
+    def validate_selected_candidate_alignment(
+        self,
+    ) -> "IntentBoundEtfReplacementRankingConsumerHandoff":
+        if self.selected_candidate.symbol != self.candidate_symbol:
+            raise ValueError("selected_candidate.symbol must match candidate_symbol")
+        if self.selected_candidate.base_symbol != self.base_symbol:
+            raise ValueError("selected_candidate.base_symbol must match base_symbol")
+        if self.selected_candidate.seed_ranking_id != self.seed_ranking_id:
+            raise ValueError("selected_candidate.seed_ranking_id must match seed_ranking_id")
+        if self.selected_candidate.seed_methodology_id != self.seed_methodology_id:
+            raise ValueError(
+                "selected_candidate.seed_methodology_id must match seed_methodology_id"
+            )
+        if self.selected_candidate.basis_date != self.basis_date:
+            raise ValueError("selected_candidate.basis_date must match basis_date")
+        return self
+
+
+class EtfRankingArtifactOpenResponse(BaseModel):
+    contract_version: RankingArtifactOpenContractVersion = RANKING_ARTIFACT_OPEN_CONTRACT_VERSION
+    open_handoff: RankingArtifactOpenHandoff
+    review_payload_kind: Literal["etf_ranking_review_payload_v1"] = "etf_ranking_review_payload_v1"
+    review_payload: EtfRankingArtifactOpenReviewPayload
+
+    @model_validator(mode="after")
+    def validate_review_payload_kind_alignment(self) -> "EtfRankingArtifactOpenResponse":
+        if self.review_payload_kind != self.review_payload.review_payload_kind:
+            raise ValueError("review_payload_kind must match review_payload.review_payload_kind")
+        if self.open_handoff.artifact_kind != self.review_payload.artifact_kind:
+            raise ValueError("open_handoff.artifact_kind must match review_payload.artifact_kind")
+        if self.open_handoff.artifact_id != self.review_payload.artifact_id:
+            raise ValueError("open_handoff.artifact_id must match review_payload.artifact_id")
+        if self.open_handoff.schema_version != self.review_payload.schema_version:
+            raise ValueError("open_handoff.schema_version must match review_payload.schema_version")
+        if self.review_payload.artifact.artifact_id != self.open_handoff.artifact_id:
+            raise ValueError("review_payload.artifact.artifact_id must match open_handoff.artifact_id")
+        return self
+
+
+class IntentBoundEtfReplacementRankingArtifactOpenResponse(BaseModel):
+    contract_version: RankingArtifactOpenContractVersion = RANKING_ARTIFACT_OPEN_CONTRACT_VERSION
+    open_handoff: RankingArtifactOpenHandoff
+    review_payload_kind: Literal["intent_bound_etf_replacement_ranking_review_payload_v1"] = (
+        "intent_bound_etf_replacement_ranking_review_payload_v1"
+    )
+    review_payload: IntentBoundEtfReplacementRankingOpenReviewPayload
+    consumer_handoff: IntentBoundEtfReplacementRankingConsumerHandoff
+
+    @model_validator(mode="after")
+    def validate_review_payload_kind_alignment(
+        self,
+    ) -> "IntentBoundEtfReplacementRankingArtifactOpenResponse":
+        if self.review_payload_kind != self.review_payload.review_payload_kind:
+            raise ValueError("review_payload_kind must match review_payload.review_payload_kind")
+        if self.open_handoff.artifact_kind != self.review_payload.artifact_kind:
+            raise ValueError("open_handoff.artifact_kind must match review_payload.artifact_kind")
+        if self.open_handoff.artifact_id != self.review_payload.artifact_id:
+            raise ValueError("open_handoff.artifact_id must match review_payload.artifact_id")
+        if self.open_handoff.schema_version != self.review_payload.schema_version:
+            raise ValueError("open_handoff.schema_version must match review_payload.schema_version")
+        if self.review_payload.artifact.artifact_id != self.open_handoff.artifact_id:
+            raise ValueError("review_payload.artifact.artifact_id must match open_handoff.artifact_id")
+        if self.consumer_handoff.artifact_kind != self.open_handoff.artifact_kind:
+            raise ValueError("consumer_handoff.artifact_kind must match open_handoff.artifact_kind")
+        if self.consumer_handoff.artifact_id != self.open_handoff.artifact_id:
+            raise ValueError("consumer_handoff.artifact_id must match open_handoff.artifact_id")
+        if self.consumer_handoff.schema_version != self.open_handoff.schema_version:
+            raise ValueError("consumer_handoff.schema_version must match open_handoff.schema_version")
+        return self
+
+
+RankingArtifactOpenResponse = EtfRankingArtifactOpenResponse | IntentBoundEtfReplacementRankingArtifactOpenResponse
 
 
 class IntentBoundReplacementIntent(BaseModel):

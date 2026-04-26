@@ -90,6 +90,7 @@ Important rules:
 - replacement-intent, construction-artifact, and optimizer-handoff replay weights are backend-owned; desktop must not synthesize candidate weights locally for those workflows
 - backtest diagnostics are synthetic replay diagnostics with explicit provenance, not imported portfolio diagnostics
 - persisted construction artifacts and optimizer handoffs are lineage-bearing hypothetical artifacts, not applied portfolio truth
+- persisted construction artifacts remain the authoritative hypothetical candidate truth at the validation-to-preview handoff boundary, regardless of whether the catalog policy is `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, or `top_n_linear_rank_weight_v1`
 - persisted monitor definitions are immutable review artifacts; evaluation is read-only and consumes current imported portfolio truth plus explicit benchmark observation lineage
 - monitor-definition catalog/recent discovery is additive and read-only; it does not change create/get/evaluate responsibilities and it must surface typed provenance/status metadata from persisted backend sources rather than desktop-reconstructed metadata or evaluation-history reconstruction
 - monitor-definition evaluation history is additive and read-only; clients inspect canonical persisted history entries by `monitor_definition_id` and `history_entry_id` rather than reconstructing history from the latest-snapshot sidecar
@@ -137,6 +138,7 @@ This means replay diagnostics are built from:
 - the preview route may accept the legacy request shape for compatibility, but handoff-shaped payloads must be complete, supported handoffs and mixed handoff-plus-legacy payloads are rejected
 - handoff consumption fails closed on missing or unsupported `handoff_kind` and on persisted artifact integrity mismatches, including construction artifact id mismatch
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` echoes lineage from the persisted construction artifact
+- persisted construction artifacts carry both resolved `normalized_inputs.policy_definition_id` and full normalized replay inputs, while preview/replay still consumes persisted `final_target_weights` and normalized baseline inputs rather than recalculating from catalog state
 - `replay_provenance.selection_rule_trace` must be echoed from persisted artifact provenance only
 - the trace is descriptive provenance and must not drive replay math
 - legacy empty traces normalize only at artifact-load time; replay does not invent trace content later

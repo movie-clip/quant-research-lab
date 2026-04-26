@@ -86,17 +86,75 @@ function buildRankingArtifact(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function buildPreflightResponse(artifact: Record<string, unknown>, overrides: Record<string, unknown> = {}) {
+  const typedArtifact = artifact as ReturnType<typeof buildRankingArtifact>
+  return {
+    contract_version: 'ranking_artifact_preflight_v1',
+    artifact: {
+      artifact_kind: 'etf_ranking',
+      artifact_id: typedArtifact.artifact_id,
+      schema_version: 'etf_ranking_artifact_v1',
+      ranking_id: typedArtifact.ranking_id,
+      methodology_id: typedArtifact.run_metadata.methodology_id,
+      as_of_date: typedArtifact.run_metadata.as_of_date,
+      ranking_basis_date: typedArtifact.run_metadata.ranking_basis_date,
+    },
+    eligibility: {
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      open_supported: true,
+      replay_eligible: true,
+      consumer_handoff_supported: false,
+      ineligibility_reason: null,
+    },
+    open_handoff: {
+      handoff_kind: 'ranking_artifact_open_handoff_v1',
+      artifact_kind: 'etf_ranking',
+      artifact_id: typedArtifact.artifact_id,
+      schema_version: 'etf_ranking_artifact_v1',
+    },
+    ...overrides,
+  }
+}
+
+function buildOpenResponse(
+  artifact: Record<string, unknown>,
+  preflight = buildPreflightResponse(artifact),
+  overrides: Record<string, unknown> = {},
+) {
+  const typedArtifact = artifact as ReturnType<typeof buildRankingArtifact>
+  return {
+    contract_version: 'ranking_artifact_open_v1',
+    open_handoff: preflight.open_handoff,
+    review_payload_kind: 'etf_ranking_review_payload_v1',
+    review_payload: {
+      review_payload_kind: 'etf_ranking_review_payload_v1',
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      artifact_kind: 'etf_ranking',
+      artifact_id: typedArtifact.artifact_id,
+      schema_version: 'etf_ranking_artifact_v1',
+      artifact: typedArtifact,
+    },
+    ...overrides,
+  }
+}
+
 function installFetchRouter(options: {
   metadata?: { available_effective_peer_groups: string[] }
   recentRuns?: Array<Record<string, unknown>>
   recentArtifact?: Record<string, unknown>
+  recentArtifactPreflight?: Record<string, unknown>
+  recentArtifactOpen?: Record<string, unknown>
   runArtifact?: Record<string, unknown>
   recentMetadataStatus?: number
   recentRunsStatus?: number
   runStatus?: number
-  artifactStatus?: number
+  artifactPreflightStatus?: number
+  artifactOpenStatus?: number
   runErrorBody?: unknown
-  artifactErrorBody?: unknown
+  artifactPreflightErrorBody?: unknown
+  artifactOpenErrorBody?: unknown
 }) {
   const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input)
@@ -106,8 +164,20 @@ function installFetchRouter(options: {
     if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
       return jsonResponse(options.recentRuns ?? [], options.recentRunsStatus ?? 200)
     }
-    if (url.includes('/strategy-lab/etf-ranking/artifacts/')) {
-      return jsonResponse(options.artifactErrorBody ?? options.recentArtifact ?? buildRankingArtifact(), options.artifactStatus ?? 200)
+    if (url.includes('/strategy-lab/ranking-artifacts/preflight/')) {
+      const artifact = options.recentArtifact ?? buildRankingArtifact()
+      return jsonResponse(
+        options.artifactPreflightErrorBody ?? options.recentArtifactPreflight ?? buildPreflightResponse(artifact),
+        options.artifactPreflightStatus ?? 200,
+      )
+    }
+    if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
+      const artifact = options.recentArtifact ?? buildRankingArtifact()
+      const preflight = options.recentArtifactPreflight ?? buildPreflightResponse(artifact)
+      return jsonResponse(
+        options.artifactOpenErrorBody ?? options.recentArtifactOpen ?? buildOpenResponse(artifact, preflight),
+        options.artifactOpenStatus ?? 200,
+      )
     }
     if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
       return jsonResponse(options.runErrorBody ?? options.runArtifact ?? buildRankingArtifact(), options.runStatus ?? 200)
@@ -376,6 +446,12 @@ describe('EtfRankingPanel', () => {
         rankingId: 'etf_ranking_engine_v1',
         methodologyId: 'etf_ranking_methodology_v1',
         rankingBasisDate: '2026-04-15',
+        openHandoff: {
+          handoff_kind: 'ranking_artifact_open_handoff_v1',
+          artifact_kind: 'etf_ranking',
+          artifact_id: 'etf_ranking_artifact_sector_1',
+          schema_version: 'etf_ranking_artifact_v1',
+        },
         benchmarkSymbol: 'SPY',
         lookbackMonths: 6,
         peerGroup: 'Sector UCITS ETF',
@@ -481,8 +557,19 @@ describe('EtfRankingPanel', () => {
   it('loads recent runs from discovery metadata, filters them, and reuses the ranking view', async () => {
     const sectorRun = buildRecentRun()
     const bondRun = buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', confidence: 'high', benchmark_symbol: 'AGG' })
+    const bondArtifact = buildRankingArtifact({
+      artifact_id: 'etf_ranking_artifact_bond_1',
+      benchmark_symbol: 'AGG',
+      effective_peer_group: 'Bond UCITS ETF',
+      request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 },
+      effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] },
+      run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' },
+      warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
+      ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }],
+      excluded_symbols: [],
+    })
 
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] })
@@ -493,18 +580,11 @@ describe('EtfRankingPanel', () => {
       if (url.includes('/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Bond+UCITS+ETF')) {
         return jsonResponse([bondRun])
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
-        return jsonResponse(buildRankingArtifact({
-          artifact_id: 'etf_ranking_artifact_bond_1',
-          benchmark_symbol: 'AGG',
-          effective_peer_group: 'Bond UCITS ETF',
-          request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 },
-          effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] },
-          run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' },
-          warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] },
-          ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }],
-          excluded_symbols: [],
-        }))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_bond_1') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse(buildPreflightResponse(bondArtifact))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse(buildOpenResponse(bondArtifact, buildPreflightResponse(bondArtifact)))
       }
       throw new Error(`Unhandled fetch: ${url}`)
     })
@@ -528,7 +608,91 @@ describe('EtfRankingPanel', () => {
     expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy()
     expect(screen.getByText('Peer Group: Bond UCITS ETF')).toBeTruthy()
     expect(screen.getByText('Confidence: high')).toBeTruthy()
+    expect(screen.getByText('Open persisted result via typed handoff.')).toBeTruthy()
     expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it('opens recent artifacts through preflight handoff and typed open payload', async () => {
+    const recentArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_recent_open' })
+    const preflight = buildPreflightResponse(recentArtifact)
+    const open = buildOpenResponse(recentArtifact, preflight)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
+        return jsonResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_recent_open' })])
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_recent_open') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse(preflight)
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
+        expect(JSON.parse(String(init?.body))).toEqual(preflight.open_handoff)
+        return jsonResponse(open)
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    await waitFor(() => expect(screen.getByText('Load Run')).toBeTruthy())
+    fireEvent.click(screen.getByText('Load Run'))
+
+    await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_recent_open')).toBeTruthy())
+    expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it('fails closed when recent artifact open returns unsupported review payload kind', async () => {
+    const recentArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bad_open' })
+    const preflight = buildPreflightResponse(recentArtifact)
+    installFetchRouter({
+      recentRuns: [buildRecentRun({ artifact_id: 'etf_ranking_artifact_bad_open' })],
+      recentArtifact: recentArtifact,
+      recentArtifactPreflight: preflight,
+      recentArtifactOpen: buildOpenResponse(recentArtifact, preflight, {
+        review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+        review_payload: {
+          review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+          review_truth_basis: 'authoritative_persisted_ranking_artifact',
+          review_scope: 'artifact_backed_review_only',
+          artifact_kind: 'intent_bound_etf_replacement_ranking',
+          artifact_id: recentArtifact.artifact_id,
+          schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+          artifact: {},
+        },
+      }),
+    })
+
+    render(<EtfRankingPanel />)
+
+    await waitFor(() => expect(screen.getByText('Load Run')).toBeTruthy())
+    fireEvent.click(screen.getByText('Load Run'))
+
+    await waitFor(() => expect(screen.getByText('Recent artifact load failed.')).toBeTruthy())
+    expect(screen.getByText('Ranking artifact open returned unsupported review payload kind intent_bound_etf_replacement_ranking_review_payload_v1')).toBeTruthy()
+  })
+
+  it('fails closed when recent artifact open payload identity mismatches preflight', async () => {
+    const recentArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_mismatch' })
+    const preflight = buildPreflightResponse(recentArtifact)
+    installFetchRouter({
+      recentRuns: [buildRecentRun({ artifact_id: 'etf_ranking_artifact_mismatch' })],
+      recentArtifact: recentArtifact,
+      recentArtifactPreflight: preflight,
+      recentArtifactOpen: buildOpenResponse(
+        buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_other' }),
+        preflight,
+      ),
+    })
+
+    render(<EtfRankingPanel />)
+
+    await waitFor(() => expect(screen.getByText('Load Run')).toBeTruthy())
+    fireEvent.click(screen.getByText('Load Run'))
+
+    await waitFor(() => expect(screen.getByText('Recent artifact load failed.')).toBeTruthy())
+    expect(screen.getByText('Ranking artifact open review payload identity does not match preflight')).toBeTruthy()
   })
 
   it('seeds a draft from a loaded recent artifact the same way as a fresh run', async () => {
@@ -564,6 +728,12 @@ describe('EtfRankingPanel', () => {
         baseSymbol: 'VUAA',
         candidateSymbol: 'IUFS',
         rankingId: 'etf_ranking_engine_v1',
+        openHandoff: {
+          handoff_kind: 'ranking_artifact_open_handoff_v1',
+          artifact_kind: 'etf_ranking',
+          artifact_id: 'etf_ranking_artifact_sector_1',
+          schema_version: 'etf_ranking_artifact_v1',
+        },
       },
     })
   })
@@ -615,6 +785,7 @@ describe('EtfRankingPanel', () => {
     const firstRunResponse = jsonResponse(buildRankingArtifact())
     const runRequest = createDeferred<Response>()
     const artifactRequest = createDeferred<Response>()
+    const bondArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
@@ -629,7 +800,10 @@ describe('EtfRankingPanel', () => {
         if (runCount === 1) return Promise.resolve(firstRunResponse)
         return runRequest.promise
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_bond_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(bondArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
         return artifactRequest.promise
       }
       throw new Error(`Unhandled fetch: ${url}`)
@@ -653,7 +827,7 @@ describe('EtfRankingPanel', () => {
     await waitFor(() => expect(screen.getByText('Load Run')).toBeTruthy())
     fireEvent.click(screen.getByText('Load Run'))
 
-    artifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+    artifactRequest.resolve(jsonResponse(buildOpenResponse(bondArtifact, buildPreflightResponse(bondArtifact))))
 
     await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
     expect(screen.getByText('Source: Recent Artifact')).toBeTruthy()
@@ -668,6 +842,7 @@ describe('EtfRankingPanel', () => {
   it('keeps the newest fresh run when a stale artifact resolves later', async () => {
     const artifactRequest = createDeferred<Response>()
     const runRequest = createDeferred<Response>()
+    const sectorArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
@@ -677,7 +852,10 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
         return Promise.resolve(jsonResponse([buildRecentRun()]))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
         return artifactRequest.promise
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
@@ -697,7 +875,7 @@ describe('EtfRankingPanel', () => {
     await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_fresh_run')).toBeTruthy())
     expect(screen.getByText('Source: Fresh Run')).toBeTruthy()
 
-    artifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })))
+    artifactRequest.resolve(jsonResponse(buildOpenResponse(sectorArtifact, buildPreflightResponse(sectorArtifact))))
 
     await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_fresh_run')).toBeTruthy())
     expect(screen.queryByText('Source: Recent Artifact')).toBeNull()
@@ -706,8 +884,10 @@ describe('EtfRankingPanel', () => {
   it('keeps the newest artifact load when an older artifact fails later', async () => {
     const firstArtifactRequest = createDeferred<Response>()
     const secondArtifactRequest = createDeferred<Response>()
+    const sectorArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })
+    const bondArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })
 
-    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
@@ -718,10 +898,16 @@ describe('EtfRankingPanel', () => {
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
         ]))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_bond_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(bondArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST' && String(init?.body).includes('etf_ranking_artifact_sector_1')) {
         return firstArtifactRequest.promise
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST' && String(init?.body).includes('etf_ranking_artifact_bond_1')) {
         return secondArtifactRequest.promise
       }
       throw new Error(`Unhandled fetch: ${url}`)
@@ -733,7 +919,7 @@ describe('EtfRankingPanel', () => {
     fireEvent.click(initialLoadButtons[0])
     fireEvent.click(initialLoadButtons[1])
 
-    secondArtifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+    secondArtifactRequest.resolve(jsonResponse(buildOpenResponse(bondArtifact, buildPreflightResponse(bondArtifact))))
 
     await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
     expect(screen.getByText('Source: Recent Artifact')).toBeTruthy()
@@ -788,6 +974,7 @@ describe('EtfRankingPanel', () => {
   it('keeps the newest artifact result when a stale run resolves later', async () => {
     const runRequest = createDeferred<Response>()
     const artifactRequest = createDeferred<Response>()
+    const sectorArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
@@ -800,7 +987,10 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
         return runRequest.promise
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
         return artifactRequest.promise
       }
       throw new Error(`Unhandled fetch: ${url}`)
@@ -812,7 +1002,7 @@ describe('EtfRankingPanel', () => {
     await waitFor(() => expect(screen.getAllByText('Load Run').length).toBe(2))
     fireEvent.click(screen.getAllByText('Load Run')[0])
 
-    artifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })))
+    artifactRequest.resolve(jsonResponse(buildOpenResponse(sectorArtifact, buildPreflightResponse(sectorArtifact))))
 
     await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
 
@@ -826,6 +1016,7 @@ describe('EtfRankingPanel', () => {
   it('keeps the newest fresh run when a stale artifact fails later', async () => {
     const artifactRequest = createDeferred<Response>()
     const runRequest = createDeferred<Response>()
+    const sectorArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
@@ -835,7 +1026,10 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
         return Promise.resolve(jsonResponse([buildRecentRun()]))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
         return artifactRequest.promise
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
@@ -865,8 +1059,10 @@ describe('EtfRankingPanel', () => {
   it('keeps the newest artifact result when an older artifact resolves later', async () => {
     const firstArtifactRequest = createDeferred<Response>()
     const secondArtifactRequest = createDeferred<Response>()
+    const sectorArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })
+    const bondArtifact = buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })
 
-    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
@@ -877,10 +1073,16 @@ describe('EtfRankingPanel', () => {
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
         ]))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_sector_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_bond_1') && (init?.method ?? 'GET') === 'POST') {
+        return Promise.resolve(jsonResponse(buildPreflightResponse(bondArtifact)))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST' && String(init?.body).includes('etf_ranking_artifact_sector_1')) {
         return firstArtifactRequest.promise
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/etf_ranking_artifact_bond_1')) {
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST' && String(init?.body).includes('etf_ranking_artifact_bond_1')) {
         return secondArtifactRequest.promise
       }
       throw new Error(`Unhandled fetch: ${url}`)
@@ -892,11 +1094,11 @@ describe('EtfRankingPanel', () => {
     fireEvent.click(initialLoadButtons[0])
     fireEvent.click(initialLoadButtons[1])
 
-    secondArtifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_bond_1', benchmark_symbol: 'AGG', effective_peer_group: 'Bond UCITS ETF', request: { peer_group: 'Bond UCITS ETF', universe: ['VDST'], benchmark_symbol: 'AGG', lookback_months: 6 }, effective_inputs: { effective_peer_group: 'Bond UCITS ETF', effective_component_weights: { momentum: 0.3, benchmark_relative_strength: 0.2, realized_volatility: 0.15, downside_volatility: 0.1, max_drawdown: 0.1, liquidity: 0.1, implementation_fit: 0.05 }, requested_universe: ['VDST'], evaluated_universe: ['VDST'], excluded_symbols: [] }, warnings: { confidence: 'high', warnings: [], unknown_metadata_symbols: [], peer_group_unclassified_symbols: [] }, run_metadata: { ranking_id: 'etf_ranking_engine_v1', methodology_id: 'etf_ranking_methodology_v1', methodology: 'm', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', price_basis: 'close', source_status: { price_history: 'sample', benchmark_history: 'sample', holdings_support: 'mixed' }, confidence: 'high' }, ranked_universe: [{ rank: 1, symbol: 'VDST', composite_score: 0.8444, instrument: { symbol: 'VDST', name: 'ETF', asset_class: 'etf', sector: 'Fixed Income', category: 'Bond UCITS ETF', currency: 'USD' }, component_scores: { momentum: { label: 'Blended momentum', direction: 'higher_is_better', raw_value: 5.5, raw_unit: 'pct', normalized_score: 1, weight: 0.3, weighted_score: 0.3 } } }], excluded_symbols: [] })))
+    secondArtifactRequest.resolve(jsonResponse(buildOpenResponse(bondArtifact, buildPreflightResponse(bondArtifact))))
 
     await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
 
-    firstArtifactRequest.resolve(jsonResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_sector_1' })))
+    firstArtifactRequest.resolve(jsonResponse(buildOpenResponse(sectorArtifact, buildPreflightResponse(sectorArtifact))))
 
     await waitFor(() => expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy())
     expect(screen.queryByText('Artifact: etf_ranking_artifact_sector_1')).toBeNull()

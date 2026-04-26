@@ -29,6 +29,10 @@ from app.schemas.research import (
     IntentBoundEtfReplacementRankingResponse,
     RankingArtifactCatalogListResponse,
     RankingArtifactDiscoveryFilters,
+    RankingArtifactOpenHandoff,
+    RankingArtifactOpenRequest,
+    RankingArtifactOpenResponse,
+    RankingArtifactPreflightResponse,
 )
 from app.services.cross_sectional_research_artifact_service import (
     CrossSectionalResearchArtifactIntegrityValidationError,
@@ -68,6 +72,13 @@ from app.services.ranking_artifact_catalog_service import (
     RankingArtifactCatalogUnsupportedStateError,
     list_ranking_artifact_catalog,
     list_recent_ranking_artifacts,
+)
+from app.services.ranking_artifact_open_service import (
+    RankingArtifactOpenIdentityMismatchError,
+    RankingArtifactOpenServiceError,
+    RankingArtifactOpenUnsupportedStateError,
+    open_ranking_artifact,
+    preflight_ranking_artifact,
 )
 from app.services.replacement_ranking import build_intent_bound_etf_replacement_ranking
 from app.services.replacement_ranking_artifact_service import (
@@ -641,6 +652,71 @@ def get_recent_ranking_artifact_catalog(
         ReplacementRankingArtifactPersistenceError,
     ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/strategy-lab/ranking-artifacts/preflight/{artifact_id}",
+    response_model=RankingArtifactPreflightResponse,
+)
+def preflight_strategy_lab_ranking_artifact(artifact_id: str) -> RankingArtifactPreflightResponse:
+    try:
+        return preflight_ranking_artifact(artifact_id)
+    except (
+        RankingArtifactOpenUnsupportedStateError,
+        RankingArtifactOpenIdentityMismatchError,
+        RankingArtifactOpenServiceError,
+        EtfRankingArtifactMissingFileError,
+        EtfRankingArtifactInvalidJsonError,
+        EtfRankingArtifactNonObjectPayloadError,
+        EtfRankingArtifactSchemaValidationError,
+        EtfRankingArtifactIntegrityValidationError,
+        EtfRankingArtifactPersistenceError,
+        ReplacementRankingArtifactMissingFileError,
+        ReplacementRankingArtifactInvalidJsonError,
+        ReplacementRankingArtifactNonObjectPayloadError,
+        ReplacementRankingArtifactSchemaValidationError,
+        ReplacementRankingArtifactIntegrityValidationError,
+        ReplacementRankingArtifactPersistenceError,
+    ) as exc:
+        status_code = 404 if isinstance(
+            exc,
+            (EtfRankingArtifactMissingFileError, ReplacementRankingArtifactMissingFileError),
+        ) else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
+
+@router.post(
+    "/strategy-lab/ranking-artifacts/open",
+    response_model=RankingArtifactOpenResponse,
+)
+def open_strategy_lab_ranking_artifact(
+    request: RankingArtifactOpenRequest,
+) -> RankingArtifactOpenResponse:
+    try:
+        handoff: RankingArtifactOpenHandoff = request.root
+        return open_ranking_artifact(handoff)
+    except (
+        RankingArtifactOpenUnsupportedStateError,
+        RankingArtifactOpenIdentityMismatchError,
+        RankingArtifactOpenServiceError,
+        EtfRankingArtifactMissingFileError,
+        EtfRankingArtifactInvalidJsonError,
+        EtfRankingArtifactNonObjectPayloadError,
+        EtfRankingArtifactSchemaValidationError,
+        EtfRankingArtifactIntegrityValidationError,
+        EtfRankingArtifactPersistenceError,
+        ReplacementRankingArtifactMissingFileError,
+        ReplacementRankingArtifactInvalidJsonError,
+        ReplacementRankingArtifactNonObjectPayloadError,
+        ReplacementRankingArtifactSchemaValidationError,
+        ReplacementRankingArtifactIntegrityValidationError,
+        ReplacementRankingArtifactPersistenceError,
+    ) as exc:
+        status_code = 404 if isinstance(
+            exc,
+            (EtfRankingArtifactMissingFileError, ReplacementRankingArtifactMissingFileError),
+        ) else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.post("/strategy-lab/etf-cross-sectional-momentum", response_model=EtfMomentumStrategyResponse)

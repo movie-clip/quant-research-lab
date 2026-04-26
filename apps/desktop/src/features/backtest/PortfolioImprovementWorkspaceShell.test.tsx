@@ -460,6 +460,53 @@ function makePersistedConstructionArtifactWorkspaceSource() {
   }
 }
 
+function makeReplacementRankingDraft(overrides: Record<string, unknown> = {}) {
+  return {
+    kind: 'intent_bound_seeded_etf_replacement_ranking',
+    source: 'etf_ranking',
+    workspaceId: 'workspace-1',
+    draftId: 'draft-1',
+    baseNodeId: 'node-1',
+    selectedAt: '2026-04-15T00:00:00Z',
+    baseSymbol: 'AAPL',
+    candidateSymbol: 'IUFS',
+    candidateRank: 1,
+    rankingId: 'etf_ranking_engine_v1',
+    methodologyId: 'etf_ranking_methodology_v1',
+    rankingBasisDate: '2026-04-15',
+    openHandoff: {
+      handoff_kind: 'ranking_artifact_open_handoff_v1',
+      artifact_kind: 'etf_ranking',
+      artifact_id: 'etf_ranking_artifact_sector_1',
+      schema_version: 'etf_ranking_artifact_v1',
+    },
+    benchmarkSymbol: 'SPY',
+    lookbackMonths: 6,
+    peerGroup: 'Sector UCITS ETF',
+    confidence: 'medium',
+    holdingsSupport: 'mixed',
+    requestUniverse: ['AAPL', 'IUFS'],
+    evaluatedUniverse: ['IUFS'],
+    warnings: ['Implementation-fit support is not complete across the ranked universe.'],
+    excludedSymbols: [{ symbol: 'VDST', reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF' }],
+    selectedCandidate: {
+      symbol: 'IUFS',
+      rank: 1,
+      compositeScore: 0.8123,
+      instrument: {
+        name: 'ETF',
+        assetClass: 'etf',
+        sector: 'Financials',
+        category: 'Sector UCITS ETF',
+        currency: 'USD',
+      },
+    },
+    topCandidate: null,
+    runnerUpCandidate: null,
+    ...overrides,
+  } as any
+}
+
 function renderShell(overrides: Record<string, any> = {}) {
   return render(
     <PortfolioImprovementWorkspaceShell
@@ -555,6 +602,18 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getByText('Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.')).toBeTruthy()
+  })
+
+  it('renders seeded replacement review from canonical open handoff only', () => {
+    renderShell({
+      candidateImprovementDraft: null,
+      intentBoundSeededEtfReplacementRankingDraft: makeReplacementRankingDraft(),
+    })
+
+    expect(screen.getByText('Ranked Review')).toBeTruthy()
+    expect(screen.getByText('Open Handoff')).toBeTruthy()
+    expect(screen.queryByText('consumer_handoff')).toBeNull()
+    expect(screen.queryByText('intent_bound_etf_replacement_ranking_consumer_handoff_v1')).toBeNull()
   })
 
   it('renders workspace sections in the approved order', () => {

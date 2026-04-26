@@ -37,9 +37,10 @@ This document is the canonical source for what is actually shipped today, what i
 - `GET /construction/policies` exposes deterministic backend-owned read-only discovery for the shipped persisted policy catalog
 - `GET /construction/artifacts/{artifact_id}` reloads persisted artifacts, validates them on read, and fails closed on corruption or malformed payloads
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` replays persisted construction artifacts through an explicit artifact-reference boundary
-- current persisted construction policies are `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
+- current persisted construction policies are `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
 - persisted construction execution is deterministic and records an ordered `selection_rule_trace` as provenance
 - replay echoes the persisted `selection_rule_trace`; it is descriptive lineage only and must not drive replay math
+- persisted construction artifacts remain hypothetical candidate truth consumed through the existing validation-to-preview and preview/replay handoff boundary; replay uses persisted `final_target_weights` plus normalized inputs rather than re-resolving catalog math
 
 ### ETF ranking artifacts and discovery
 
@@ -57,6 +58,7 @@ This document is the canonical source for what is actually shipped today, what i
 - shipped ETF ranking artifacts already carry persisted artifact identity, grouped request/effective-inputs metadata, and run-basis metadata for audit and reuse
 - the desktop `ETF Ranking` flow can reopen recent persisted runs and carry a selected ranking artifact into draft review as a current shipped workflow
 - persisted intent-bound ETF replacement ranking artifacts are the authoritative downstream truth for replacement review and reload in the shipped slice
+- generalized ranking-artifact preflight now returns only typed `open_handoff` plus truthful eligibility, and ranking-artifact open accepts only that typed handoff; replacement `open_supported`/`replay_eligible` semantics are derived from the same canonical consumer-handoff validation path used during open
 - generalized discovery is additive only; existing ETF-native and replacement routes stay unchanged
 - generalized recent discovery is now fail-closed on malformed ETF recent-index state, malformed artifact payloads, unsupported artifact kinds, unsupported schema versions, and provable identity contradictions
 - ETF `recent.jsonl` remains internal operational state for ETF discovery ordering only; it is not a shipped artifact output or generalized reusable contract payload
@@ -95,7 +97,7 @@ This document is the canonical source for what is actually shipped today, what i
 - ranking is still narrow and ETF-heavy; it is not yet a generalized persisted ranking-run platform across broader universes
 - generalized persisted artifact discovery is now shipped only for the supported ETF ranking and intent-bound ETF replacement artifact kinds; broader ranking engines and broader artifact-kind support remain future work
 - generalized discovery support remains strict: it does not silently widen to malformed, partially valid, or undocumented artifact states
-- persisted construction is shipped and now has read-only policy discovery, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1` and `top_n_inverse_rank_weight_v1`
+- persisted construction is shipped and now has read-only policy discovery, but the persisted policy set is still narrow; today it supports only `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
 - single-replacement construction and overlay-aware replay remain narrow review workflows layered alongside the broader persisted construction seam
 - optimizer is shipped only as hypothetical preview, persisted handoff, validation, and replay; it does not apply trades or mutate `PortfolioSnapshot`
 - optimizer alpha-objective support remains narrow: one additive `alpha_quality_v1` objective only, artifact-backed only, fail-closed on missing, malformed, quarantined, unsupported, stale, or degraded alpha inputs

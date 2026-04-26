@@ -30,6 +30,10 @@ def _inverse_rank_weight_numerators(selected_count: int) -> list[Fraction]:
     return [Fraction(1, selected_order_rank) for selected_order_rank in range(1, selected_count + 1)]
 
 
+def _linear_rank_weight_numerators(selected_count: int) -> list[Fraction]:
+    return [Fraction(selected_count - selected_order_rank + 1, 1) for selected_order_rank in range(1, selected_count + 1)]
+
+
 POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
     ConstructionPolicyDefinition(
         catalog_entry=ConstructionPolicyCatalogEntry(
@@ -54,6 +58,18 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
         max_position_failure_reason="inverse-rank seed exceeds max_position_weight",
         cutoff_exclusion_reason="not selected by top_n_inverse_rank_weight_v1 cutoff",
         raw_weight_numerator_builder=_inverse_rank_weight_numerators,
+    ),
+    ConstructionPolicyDefinition(
+        catalog_entry=ConstructionPolicyCatalogEntry(
+            policy_id="top_n_linear_rank_weight_v1",
+            policy_definition_id="construction_policy_definition_top_n_linear_rank_weight_v1",
+            name="Top N Linear Rank Weight v1",
+            description="Select eligible top-ranked names and weight them by selected-order linear rank numerators N..1.",
+            selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
+        ),
+        max_position_failure_reason="linear-rank seed exceeds max_position_weight",
+        cutoff_exclusion_reason="not selected by top_n_linear_rank_weight_v1 cutoff",
+        raw_weight_numerator_builder=_linear_rank_weight_numerators,
     ),
 )
 

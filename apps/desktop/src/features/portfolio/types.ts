@@ -1448,6 +1448,330 @@ export type EtfRankingArtifact = EtfRankingResponse & {
   artifact_id: string
 }
 
+export type RankingArtifactKind = 'etf_ranking' | 'intent_bound_etf_replacement_ranking'
+export type RankingArtifactSchemaVersion =
+  | 'etf_ranking_artifact_v1'
+  | 'intent_bound_etf_replacement_ranking_artifact_v1'
+export type RankingArtifactPreflightContractVersion = 'ranking_artifact_preflight_v1'
+export type RankingArtifactOpenContractVersion = 'ranking_artifact_open_v1'
+export type RankingArtifactOpenHandoffKind = 'ranking_artifact_open_handoff_v1'
+export type RankingArtifactReviewTruthBasis = 'authoritative_persisted_ranking_artifact'
+export type RankingArtifactReviewScope = 'artifact_backed_review_only'
+export type IntentBoundEtfReplacementRankingConsumerContractVersion = 'intent_bound_etf_replacement_ranking_consumer_contract_v1'
+export type IntentBoundEtfReplacementRankingConsumerHandoffKind = 'intent_bound_etf_replacement_ranking_consumer_handoff_v1'
+export type RankingArtifactReviewPayloadKind =
+  | 'etf_ranking_review_payload_v1'
+  | 'intent_bound_etf_replacement_ranking_review_payload_v1'
+
+export type IntentBoundEtfReplacementRankingArtifact = {
+  schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1'
+  artifact_id: string
+  ranking_id: string
+  methodology_id: string
+  basis_date: string
+  status: 'ok' | 'unavailable'
+  request: {
+    replacement_intent: {
+      draft_id: string
+      workspace_id: string
+      base_node_id: string
+      base_symbol: string
+      candidate_symbol: string
+      seed_ranking_id: string
+      seed_methodology_id: string
+      seed_ranking_basis_date: string
+      peer_group: string
+      benchmark_symbol: string
+      lookback_months: number
+    }
+    seed_context: {
+      ranking_id: string
+      methodology_id: string
+      ranking_basis_date: string
+      peer_group: string
+      benchmark_symbol: string
+      lookback_months: number
+      seeded_symbols: string[]
+    }
+    prefer_live_data: boolean
+    normalized_request: {
+      base_symbol: string
+      candidate_symbol: string
+      seeded_symbols: string[]
+      peer_group: string
+      ranking_basis_date: string
+      benchmark_symbol: string
+      lookback_months: number
+    }
+  }
+  request_context: {
+    universe: string[]
+    benchmark_symbol: string
+    lookback_months: number
+    prefer_live_data: boolean
+    base_symbol: string
+    candidate_symbol: string
+    peer_group: string
+    ranking_basis_date: string
+    seed_ranking_id: string
+    seed_methodology_id: string
+  }
+  submitted_request: {
+    replacement_intent: IntentBoundEtfReplacementRankingArtifact['request']['replacement_intent']
+    seed_context: IntentBoundEtfReplacementRankingArtifact['request']['seed_context']
+    prefer_live_data: boolean
+  }
+  normalized_request: IntentBoundEtfReplacementRankingArtifact['request']['normalized_request']
+  effective_inputs: {
+    benchmark_symbol: string
+    lookback_months: number
+    price_basis: 'close'
+    requested_universe: string[]
+    evaluated_universe: string[]
+    base_symbol: string
+    candidate_symbol: string
+    peer_group: string
+    ranking_basis_date: string
+  }
+  request_hash: string
+  run_metadata: {
+    ranking_id: string
+    methodology_id: string
+    methodology: string
+    as_of_date: string
+    ranking_basis_date: string
+    basis_date: string
+    request_hash: string
+    price_basis: 'close'
+    source_status: 'sample' | 'live' | 'mixed'
+    tie_break_order: string[]
+    factor_weights: Record<string, number>
+    confidence: 'high' | 'medium' | 'low'
+  }
+  eligible_count: number
+  excluded_count: number
+  ranked_candidates: Array<{
+    symbol: string
+    rank: number | null
+    composite_score: number | null
+    raw_factors: {
+      momentum_12_1: number
+      momentum_6_1: number
+      momentum_blended: number
+      realized_volatility_126d: number
+      max_drawdown_252d: number
+      liquidity_60d: number
+    } | null
+    normalized_scores: {
+      momentum: number
+      realized_volatility: number
+      max_drawdown: number
+      liquidity: number
+    } | null
+    eligibility_status: 'eligible' | 'excluded'
+    exclusion_reason: string | null
+    basis_date: string
+    draft_id: string
+    base_node_id: string
+    base_symbol: string
+    seed_ranking_id: string
+    seed_methodology_id: string
+  }>
+  excluded_candidates: IntentBoundEtfReplacementRankingArtifact['ranked_candidates']
+  warnings: string[]
+  unavailable_reason: string | null
+  lineage: {
+    draft_id: string
+    workspace_id: string
+    base_node_id: string
+    base_symbol: string
+    candidate_symbol: string
+    seed_ranking_id: string
+    seed_methodology_id: string
+    seed_ranking_basis_date: string
+    peer_group: string
+    benchmark_symbol: string
+    lookback_months: number
+  }
+}
+
+export type RankingArtifactOpenHandoff = {
+  handoff_kind: RankingArtifactOpenHandoffKind
+  artifact_kind: RankingArtifactKind
+  artifact_id: string
+  schema_version: RankingArtifactSchemaVersion
+}
+
+export type EtfRankingArtifactOpenHandoff = RankingArtifactOpenHandoff & {
+  artifact_kind: 'etf_ranking'
+  schema_version: 'etf_ranking_artifact_v1'
+}
+
+export type EtfRankingArtifactReviewPayloadKind = 'etf_ranking_review_payload_v1'
+
+export type IntentBoundEtfReplacementRankingArtifactOpenHandoff = RankingArtifactOpenHandoff & {
+  artifact_kind: 'intent_bound_etf_replacement_ranking'
+  schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1'
+}
+
+export type RankingArtifactPreflightArtifact = {
+  artifact_kind: RankingArtifactKind
+  artifact_id: string
+  schema_version: RankingArtifactSchemaVersion
+  ranking_id: string
+  methodology_id: string
+  as_of_date: string
+  ranking_basis_date: string
+}
+
+export type RankingArtifactPreflightEligibility = {
+  review_truth_basis: RankingArtifactReviewTruthBasis
+  review_scope: RankingArtifactReviewScope
+} & (
+  | {
+      open_supported: true
+      replay_eligible: true
+      consumer_handoff_supported: boolean
+      ineligibility_reason: null
+    }
+  | {
+      open_supported: false
+      replay_eligible: false
+      consumer_handoff_supported: false
+      ineligibility_reason: string
+    }
+)
+
+export type EtfRankingArtifactPreflightResponse = {
+  contract_version: RankingArtifactPreflightContractVersion
+  artifact: RankingArtifactPreflightArtifact & {
+    artifact_kind: 'etf_ranking'
+    schema_version: 'etf_ranking_artifact_v1'
+  }
+  eligibility: RankingArtifactPreflightEligibility & {
+    open_supported: true
+    replay_eligible: true
+    consumer_handoff_supported: false
+    ineligibility_reason: null
+  }
+  open_handoff: EtfRankingArtifactOpenHandoff
+}
+
+export type IntentBoundEtfReplacementRankingSupportedPreflightResponse = {
+  contract_version: RankingArtifactPreflightContractVersion
+  artifact: RankingArtifactPreflightArtifact & {
+    artifact_kind: 'intent_bound_etf_replacement_ranking'
+    schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1'
+  }
+  eligibility: RankingArtifactPreflightEligibility & {
+    open_supported: true
+    replay_eligible: true
+    consumer_handoff_supported: true
+    ineligibility_reason: null
+  }
+  open_handoff: IntentBoundEtfReplacementRankingArtifactOpenHandoff
+}
+
+export type IntentBoundEtfReplacementRankingIneligiblePreflightResponse = {
+  contract_version: RankingArtifactPreflightContractVersion
+  artifact: RankingArtifactPreflightArtifact & {
+    artifact_kind: 'intent_bound_etf_replacement_ranking'
+    schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1'
+  }
+  eligibility: RankingArtifactPreflightEligibility & {
+    open_supported: false
+    replay_eligible: false
+    consumer_handoff_supported: false
+    ineligibility_reason: string
+  }
+  open_handoff: IntentBoundEtfReplacementRankingArtifactOpenHandoff
+}
+
+export type RankingArtifactPreflightResponse =
+  | EtfRankingArtifactPreflightResponse
+  | IntentBoundEtfReplacementRankingSupportedPreflightResponse
+  | IntentBoundEtfReplacementRankingIneligiblePreflightResponse
+
+export type EtfRankingArtifactOpenReviewPayload = {
+  review_payload_kind: 'etf_ranking_review_payload_v1'
+  review_truth_basis: RankingArtifactReviewTruthBasis
+  review_scope: RankingArtifactReviewScope
+  artifact_kind: 'etf_ranking'
+  artifact_id: string
+  schema_version: 'etf_ranking_artifact_v1'
+  artifact: EtfRankingArtifact
+}
+
+export type IntentBoundEtfReplacementRankingOpenReviewPayload = {
+  review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1'
+  review_truth_basis: RankingArtifactReviewTruthBasis
+  review_scope: RankingArtifactReviewScope
+  artifact_kind: 'intent_bound_etf_replacement_ranking'
+  artifact_id: string
+  schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1'
+  artifact: IntentBoundEtfReplacementRankingArtifact
+}
+
+export type RankingArtifactOpenReviewPayload =
+  | EtfRankingArtifactOpenReviewPayload
+  | IntentBoundEtfReplacementRankingOpenReviewPayload
+
+export type IntentBoundEtfReplacementRankingConsumerCandidate = {
+  symbol: string
+  rank: number
+  composite_score: number
+  basis_date: string
+  draft_id: string
+  base_node_id: string
+  base_symbol: string
+  seed_ranking_id: string
+  seed_methodology_id: string
+}
+
+export type IntentBoundEtfReplacementRankingConsumerHandoff = {
+  contract_version: IntentBoundEtfReplacementRankingConsumerContractVersion
+  handoff_kind: IntentBoundEtfReplacementRankingConsumerHandoffKind
+  artifact_kind: 'intent_bound_etf_replacement_ranking'
+  artifact_id: string
+  schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1'
+  ranking_id: string
+  methodology_id: string
+  basis_date: string
+  draft_id: string
+  workspace_id: string
+  base_node_id: string
+  base_symbol: string
+  candidate_symbol: string
+  seed_ranking_id: string
+  seed_methodology_id: string
+  seed_ranking_basis_date: string
+  peer_group: string
+  benchmark_symbol: string
+  lookback_months: number
+  eligible_count: number
+  excluded_count: number
+  selected_candidate: IntentBoundEtfReplacementRankingConsumerCandidate
+}
+
+export type EtfRankingArtifactOpenResponse = {
+  contract_version: RankingArtifactOpenContractVersion
+  open_handoff: EtfRankingArtifactOpenHandoff
+  review_payload_kind: 'etf_ranking_review_payload_v1'
+  review_payload: EtfRankingArtifactOpenReviewPayload
+}
+
+export type IntentBoundEtfReplacementRankingSupportedOpenResponse = {
+  contract_version: RankingArtifactOpenContractVersion
+  open_handoff: IntentBoundEtfReplacementRankingArtifactOpenHandoff
+  review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1'
+  review_payload: IntentBoundEtfReplacementRankingOpenReviewPayload
+  consumer_handoff: IntentBoundEtfReplacementRankingConsumerHandoff
+}
+
+export type RankingArtifactOpenResponse =
+  | EtfRankingArtifactOpenResponse
+  | IntentBoundEtfReplacementRankingSupportedOpenResponse
+
 export type EtfRankingArtifactRecentRow = {
   artifact_id: string
   ranking_id: string

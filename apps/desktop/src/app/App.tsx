@@ -301,6 +301,9 @@ async function loadReplacementIntentDraftForCurrentDraft(draft: WorkingDraft | n
 async function loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(
   draft: WorkingDraft | null,
   setIntentBoundSeededEtfReplacementRankingDraft: (value: IntentBoundSeededEtfReplacementRankingDraftArtifact | null) => void,
+  options?: {
+    failClosed?: boolean
+  },
 ) {
   if (!desktopFeatureFlags.intentBoundSeededEtfReplacementRanking || !draft) {
     setIntentBoundSeededEtfReplacementRankingDraft(null)
@@ -309,7 +312,12 @@ async function loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(
   try {
     const annotation = await getIntentBoundSeededEtfReplacementRankingDraft(draft.id)
     setIntentBoundSeededEtfReplacementRankingDraft(annotation)
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    const isPersistedSeededRankingValidationError = message.startsWith('Persisted seeded ranking review cache ')
+    if (options?.failClosed && isPersistedSeededRankingValidationError) {
+      throw error
+    }
     setIntentBoundSeededEtfReplacementRankingDraft(null)
   }
 }
@@ -820,7 +828,7 @@ export function App() {
       await loadWorkspaceProposalArtifacts(workspace, setProposalArtifacts)
       await loadActiveThesisForWorkspace(workspace, setActiveThesis)
       await loadCandidateImprovementDraftForCurrentDraft(draft, setCandidateImprovementDraft)
-      await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(draft, setIntentBoundSeededEtfReplacementRankingDraft)
+      await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(draft, setIntentBoundSeededEtfReplacementRankingDraft, { failClosed: true })
       const restoredSelectedConstructionRuleId = await loadSelectedConstructionRuleForCurrentDraft(draft, setSelectedConstructionRuleId)
       const restoredReplacementIntentDraft = draft ? await getReplacementIntentDraft(draft.id).catch(() => null) : null
       setReplacementIntentDraft(restoredReplacementIntentDraft)

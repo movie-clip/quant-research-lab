@@ -7,9 +7,6 @@ from typing import Literal, cast
 from pydantic import ValidationError
 
 from app.schemas.ranking import (
-    CANONICAL_RANKING_ARTIFACT_SCHEMA_VERSIONS,
-    ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
-    INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
     RANKING_ARTIFACT_KIND_REGISTRY,
     RankingArtifactDiscoveryFilterName,
     RankingArtifactKind,
@@ -18,8 +15,12 @@ from app.schemas.ranking import (
     SUPPORTED_RANKING_ARTIFACT_DISCOVERY_FILTERS,
     SUPPORTED_RANKING_ARTIFACT_KINDS,
     SUPPORTED_RANKING_ARTIFACT_SCHEMA_VERSIONS,
+    validate_ranking_artifact_kind_schema_version,
     validate_ranking_artifact_discovery_filters,
     validate_ranking_artifact_supported_schema_versions,
+    CANONICAL_RANKING_ARTIFACT_SCHEMA_VERSIONS,
+    ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
 )
 from app.schemas.research import (
     EtfRankingArtifact,
@@ -358,8 +359,13 @@ def _applied_filter_names(filters: RankingArtifactDiscoveryFilters) -> list[Rank
 
 
 def _build_etf_artifact_metadata_row(artifact: EtfRankingArtifact) -> PersistedRankingArtifactMetadataRow:
-    if artifact.schema_version != ETF_RANKING_ARTIFACT_SCHEMA_VERSION:
-        raise RankingArtifactCatalogUnsupportedStateError("unsupported ranking artifact schema_version")
+    try:
+        validate_ranking_artifact_kind_schema_version(
+            artifact_kind=ETF_RANKING_KIND,
+            schema_version=artifact.schema_version,
+        )
+    except ValueError as exc:
+        raise RankingArtifactCatalogUnsupportedStateError(str(exc)) from exc
     return PersistedRankingArtifactMetadataRow(
         artifact_kind=ETF_RANKING_KIND,
         artifact_id=artifact.artifact_id,
@@ -389,8 +395,13 @@ def _build_etf_artifact_metadata_row(artifact: EtfRankingArtifact) -> PersistedR
 def _build_replacement_artifact_metadata_row(
     artifact: IntentBoundEtfReplacementRankingArtifact,
 ) -> PersistedRankingArtifactMetadataRow:
-    if artifact.schema_version != INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION:
-        raise RankingArtifactCatalogUnsupportedStateError("unsupported ranking artifact schema_version")
+    try:
+        validate_ranking_artifact_kind_schema_version(
+            artifact_kind=REPLACEMENT_RANKING_KIND,
+            schema_version=artifact.schema_version,
+        )
+    except ValueError as exc:
+        raise RankingArtifactCatalogUnsupportedStateError(str(exc)) from exc
     return PersistedRankingArtifactMetadataRow(
         artifact_kind=REPLACEMENT_RANKING_KIND,
         artifact_id=artifact.artifact_id,

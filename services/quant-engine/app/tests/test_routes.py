@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.schemas.optimizer import OptimizerAlphaFundamentalSnapshot
+from app.services import replacement_ranking as replacement_ranking_module
 from app.services.optimizer_alpha_service import build_alpha_quality_package
 from app.services.construction_artifact_service import _canonical_json
 
@@ -516,6 +517,72 @@ def _cross_sectional_research_request_payload() -> dict[str, object]:
         ],
         "top_ranked_count": 2,
     }
+
+
+class _ReplacementFakeRegistry:
+    def __init__(self, instruments):
+        self._instruments = instruments
+
+    def get_instrument(self, symbol: str):
+        return self._instruments.get(symbol)
+
+
+class _ReplacementFakeMarketData:
+    def __init__(self, histories):
+        self._histories = histories
+
+    def get_historical_prices_for_symbols(self, symbols, from_date, to_date):  # noqa: ANN001
+        return {symbol: self._histories.get(symbol, []) for symbol in symbols}
+
+    def get_last_fetch_meta(self, symbol: str):
+        return {"resolved_symbol": symbol, "cached": True}
+
+
+def _replacement_history(*, days: int = 260, start_price: float = 100.0, step: float = 1.0, volume: float = 1000.0) -> list[dict]:
+    from datetime import date, timedelta
+
+    end = date(2025, 12, 31)
+    start = end - timedelta(days=days - 1)
+    rows: list[dict] = []
+    for index in range(days):
+        price = start_price + (index * step)
+        rows.append(
+            {
+                "date": (start + timedelta(days=index)).isoformat(),
+                "close": round(price, 6),
+                "volume": volume,
+                "adjClose": round(price, 6),
+            }
+        )
+    return rows
+
+
+def _replacement_instrument(symbol: str):
+    return {
+        "instrument_id": f"instrument-{symbol.lower()}",
+        "symbol": symbol,
+        "name": symbol,
+        "asset_class": "etf",
+        "kind": "spot",
+        "sector": "Technology",
+        "category": "Sector UCITS ETF",
+        "exchange": "TEST",
+        "currency": "USD",
+    }
+
+
+def _patch_replacement_ranking_dependencies(mocker) -> None:
+    from app.schemas.research import Instrument
+    from typing import cast
+
+    histories = {
+        "BASE": _replacement_history(),
+        "ETF1": _replacement_history(step=0.5),
+        "ETF2": _replacement_history(step=0.25),
+    }
+    instruments = {symbol: Instrument.model_validate(cast(dict[str, object], _replacement_instrument(symbol))) for symbol in histories}
+    mocker.patch.object(replacement_ranking_module, "InstrumentRegistry", return_value=_ReplacementFakeRegistry(instruments))
+    mocker.patch.object(replacement_ranking_module, "MarketDataService", return_value=_ReplacementFakeMarketData(histories))
 
 
 def test_health_route() -> None:
@@ -1651,6 +1718,320 @@ def test_generalized_ranking_artifact_catalog_routes_are_registered(tmp_path, mo
     assert "benchmark_symbol" in catalog_response.json()["metadata"]["artifact_kind_registry"][0]["supported_filters"]
 
 
+def test_generalized_ranking_artifact_preflight_and_open_routes_are_registered(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    etf_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert etf_response.status_code == 200
+    artifact_id = etf_response.json()["artifact_id"]
+
+    preflight_response = client.post(f"/strategy-lab/ranking-artifacts/preflight/{artifact_id}")
+
+    assert preflight_response.status_code == 200
+    open_response = client.post(
+        "/strategy-lab/ranking-artifacts/open",
+        json=preflight_response.json()["open_handoff"],
+    )
+
+    assert open_response.status_code == 200
+    assert open_response.json()["open_handoff"]["artifact_id"] == artifact_id
+
+
+def test_generalized_ranking_artifact_open_route_rejects_missing_handoff_kind_for_valid_persisted_artifact(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    etf_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert etf_response.status_code == 200
+    preflight_response = client.post(
+        f"/strategy-lab/ranking-artifacts/preflight/{etf_response.json()['artifact_id']}"
+    )
+    assert preflight_response.status_code == 200
+
+    handoff_payload = preflight_response.json()["open_handoff"]
+    handoff_payload.pop("handoff_kind")
+
+    response = client.post(
+        "/strategy-lab/ranking-artifacts/open",
+        json=handoff_payload,
+    )
+
+    assert response.status_code == 422
+    assert "open_handoff.handoff_kind is required" in response.text
+
+
+def test_generalized_ranking_artifact_open_route_rejects_unsupported_handoff_kind_for_valid_persisted_artifact(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    etf_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert etf_response.status_code == 200
+    preflight_response = client.post(
+        f"/strategy-lab/ranking-artifacts/preflight/{etf_response.json()['artifact_id']}"
+    )
+    assert preflight_response.status_code == 200
+
+    handoff_payload = preflight_response.json()["open_handoff"]
+    handoff_payload["handoff_kind"] = "ranking_artifact_open_handoff_v0"
+
+    response = client.post(
+        "/strategy-lab/ranking-artifacts/open",
+        json=handoff_payload,
+    )
+
+    assert response.status_code == 422
+    assert "unsupported open_handoff.handoff_kind: ranking_artifact_open_handoff_v0" in response.text
+
+
+def test_generalized_ranking_artifact_open_route_rejects_handoff_identity_mismatch_for_valid_persisted_artifact(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    etf_response = client.post(
+        "/strategy-lab/etf-ranking",
+        json={
+            "universe": ["XLK", "XLF", "XLV"],
+            "benchmark_symbol": "SPY",
+            "lookback_months": 6,
+        },
+    )
+
+    assert etf_response.status_code == 200
+    preflight_response = client.post(
+        f"/strategy-lab/ranking-artifacts/preflight/{etf_response.json()['artifact_id']}"
+    )
+    assert preflight_response.status_code == 200
+
+    handoff_payload = preflight_response.json()["open_handoff"]
+    handoff_payload["artifact_id"] = "etf_ranking_artifact_other"
+
+    response = client.post(
+        "/strategy-lab/ranking-artifacts/open",
+        json=handoff_payload,
+    )
+
+    assert response.status_code == 404
+    assert "missing persisted etf ranking artifact file" in response.json()["detail"]
+
+
+def test_generalized_ranking_artifact_open_route_returns_replacement_consumer_handoff(tmp_path, mocker) -> None:
+    _patch_replacement_ranking_dependencies(mocker)
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    artifact_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+            },
+        },
+    )
+    assert artifact_response.status_code == 200
+
+    preflight_response = client.post(
+        f"/strategy-lab/ranking-artifacts/preflight/{artifact_response.json()['artifact_id']}"
+    )
+    assert preflight_response.status_code == 200
+    assert preflight_response.json()["eligibility"]["consumer_handoff_supported"] is True
+    assert preflight_response.json()["eligibility"]["ineligibility_reason"] is None
+
+    open_response = client.post(
+        "/strategy-lab/ranking-artifacts/open",
+        json=preflight_response.json()["open_handoff"],
+    )
+
+    assert open_response.status_code == 200
+    assert open_response.json()["consumer_handoff"]["handoff_kind"] == (
+        "intent_bound_etf_replacement_ranking_consumer_handoff_v1"
+    )
+    assert open_response.json()["consumer_handoff"]["candidate_symbol"] == "ETF1"
+
+
+def test_generalized_ranking_artifact_preflight_route_fails_closed_for_unconstructible_replacement_handoff(
+    tmp_path,
+    mocker,
+) -> None:
+    _patch_replacement_ranking_dependencies(mocker)
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(
+            etf_ranking_artifact_dir=str(tmp_path / "etf"),
+            replacement_ranking_artifact_dir=str(tmp_path / "replacement"),
+        ),
+    )
+    client = TestClient(app)
+
+    artifact_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF2"],
+            },
+        },
+    )
+    assert artifact_response.status_code == 200
+
+    preflight_response = client.post(
+        f"/strategy-lab/ranking-artifacts/preflight/{artifact_response.json()['artifact_id']}"
+    )
+
+    assert preflight_response.status_code == 200
+    assert preflight_response.json()["eligibility"] == {
+        "review_truth_basis": "authoritative_persisted_ranking_artifact",
+        "review_scope": "artifact_backed_review_only",
+        "open_supported": False,
+        "replay_eligible": False,
+        "consumer_handoff_supported": False,
+        "ineligibility_reason": "replacement ranking artifact is unreplayable",
+    }
+    assert set(preflight_response.json().keys()) == {"contract_version", "artifact", "eligibility", "open_handoff"}
+
+
 def test_generalized_ranking_artifact_recent_route_returns_400_for_malformed_etf_recent_index(tmp_path, mocker) -> None:
     mocker.patch(
         "app.services.etf_ranking_artifact_service.get_settings",
@@ -1950,6 +2331,60 @@ def test_construction_route_accepts_inverse_rank_weight_policy(tmp_path, mocker)
     ]
 
 
+def test_construction_route_accepts_linear_rank_weight_policy(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-linear-rank-1",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                    {"symbol": "CCC", "rank": 3, "eligible": True, "score": 0.7},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.5},
+                    {"symbol": "BBB", "weight": 0.3},
+                    {"symbol": "CCC", "weight": 0.2},
+                ],
+            },
+            "policy": {"policy_id": "top_n_linear_rank_weight_v1", "top_n": 3},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.51,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "feasible"
+    assert payload["policy"]["policy_id"] == "top_n_linear_rank_weight_v1"
+    assert payload["normalized_inputs"]["policy_id"] == "top_n_linear_rank_weight_v1"
+    assert payload["normalized_inputs"]["policy_definition_id"] == "construction_policy_definition_top_n_linear_rank_weight_v1"
+    assert payload["final_target_weights"] == [
+        {"symbol": "AAA", "weight": 0.5},
+        {"symbol": "BBB", "weight": 0.33333333},
+        {"symbol": "CCC", "weight": 0.16666667},
+    ]
+
+
 def test_construction_route_returns_infeasible_artifact_for_turnover_cap(tmp_path, mocker) -> None:
     mocker.patch(
         "app.services.construction_artifact_service.get_settings",
@@ -2072,6 +2507,13 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
             "policy_definition_id": "construction_policy_definition_top_n_inverse_rank_weight_v1",
             "name": "Top N Inverse Rank Weight v1",
             "description": "Select eligible top-ranked names and weight them by inverse selected-order rank.",
+            "selection_rule_ids": ["eligible_only", "take_top_n"],
+        },
+        {
+            "policy_id": "top_n_linear_rank_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_linear_rank_weight_v1",
+            "name": "Top N Linear Rank Weight v1",
+            "description": "Select eligible top-ranked names and weight them by selected-order linear rank numerators N..1.",
             "selection_rule_ids": ["eligible_only", "take_top_n"],
         },
     ]

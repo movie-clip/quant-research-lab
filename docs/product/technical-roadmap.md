@@ -44,7 +44,7 @@ Persisted research and decision artifacts should converge on the same shape:
 Remaining work:
 - generalize ranking inputs beyond the currently shipped ETF ranking and intent-bound ETF replacement artifact/discovery slice
 - support configurable but versioned component sets, filters, and composite weighting
-- converge future non-ETF ranking families on shared artifact, validation, loading, and discovery rules beyond the current ETF-only shipped boundary
+- converge future non-ETF ranking families on shared artifact, fail-closed validation/open handoff, loading, and discovery rules beyond the current shipped ETF ranking and intent-bound replacement boundary
 
 ### 2. Construction Engine Expansion
 

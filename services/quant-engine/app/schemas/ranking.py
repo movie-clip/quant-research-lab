@@ -11,9 +11,24 @@ RankingSourceStatus = Literal["sample", "live", "mixed"]
 RankingArtifactKind = Literal["etf_ranking", "intent_bound_etf_replacement_ranking"]
 RankingArtifactDiscoveryContractVersion = Literal["ranking_artifact_discovery_v1"]
 RankingArtifactKindRegistryVersion = Literal["ranking_artifact_kind_registry_v1"]
+RankingArtifactPreflightContractVersion = Literal["ranking_artifact_preflight_v1"]
+RankingArtifactOpenContractVersion = Literal["ranking_artifact_open_v1"]
+RankingArtifactOpenHandoffKind = Literal["ranking_artifact_open_handoff_v1"]
+IntentBoundEtfReplacementRankingConsumerContractVersion = Literal[
+    "intent_bound_etf_replacement_ranking_consumer_contract_v1"
+]
+IntentBoundEtfReplacementRankingConsumerHandoffKind = Literal[
+    "intent_bound_etf_replacement_ranking_consumer_handoff_v1"
+]
 RankingArtifactMetadataTruth = Literal["authoritative_persisted_metadata"]
 RankingArtifactMetadataProvenance = Literal["persisted_artifact_body", "persisted_etf_recent_index"]
 RankingArtifactRecencySameDayProvenance = Literal["artifact_id", "etf_recent_index"]
+RankingArtifactReviewTruthBasis = Literal["authoritative_persisted_ranking_artifact"]
+RankingArtifactReviewScope = Literal["artifact_backed_review_only"]
+RankingArtifactReviewPayloadKind = Literal[
+    "etf_ranking_review_payload_v1",
+    "intent_bound_etf_replacement_ranking_review_payload_v1",
+]
 RankingArtifactSchemaVersion = Literal[
     "etf_ranking_artifact_v1",
     "intent_bound_etf_replacement_ranking_artifact_v1",
@@ -41,11 +56,48 @@ IntentBoundEtfReplacementRankingArtifactSchemaVersion = Literal[
     "intent_bound_etf_replacement_ranking_artifact_v1"
 ]
 
+ETF_RANKING_ARTIFACT_KIND: RankingArtifactKind = "etf_ranking"
+INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_KIND: RankingArtifactKind = (
+    "intent_bound_etf_replacement_ranking"
+)
 RANKING_ARTIFACT_KIND_REGISTRY_VERSION: RankingArtifactKindRegistryVersion = "ranking_artifact_kind_registry_v1"
+RANKING_ARTIFACT_PREFLIGHT_CONTRACT_VERSION: RankingArtifactPreflightContractVersion = (
+    "ranking_artifact_preflight_v1"
+)
+RANKING_ARTIFACT_OPEN_CONTRACT_VERSION: RankingArtifactOpenContractVersion = "ranking_artifact_open_v1"
+RANKING_ARTIFACT_OPEN_HANDOFF_KIND: RankingArtifactOpenHandoffKind = "ranking_artifact_open_handoff_v1"
+INTENT_BOUND_ETF_REPLACEMENT_RANKING_CONSUMER_CONTRACT_VERSION: (
+    IntentBoundEtfReplacementRankingConsumerContractVersion
+) = "intent_bound_etf_replacement_ranking_consumer_contract_v1"
+INTENT_BOUND_ETF_REPLACEMENT_RANKING_CONSUMER_HANDOFF_KIND: (
+    IntentBoundEtfReplacementRankingConsumerHandoffKind
+) = "intent_bound_etf_replacement_ranking_consumer_handoff_v1"
 ETF_RANKING_ARTIFACT_SCHEMA_VERSION: EtfRankingArtifactSchemaVersion = "etf_ranking_artifact_v1"
 INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION: (
     IntentBoundEtfReplacementRankingArtifactSchemaVersion
 ) = "intent_bound_etf_replacement_ranking_artifact_v1"
+AUTHORITATIVE_PERSISTED_RANKING_ARTIFACT_REVIEW_TRUTH: RankingArtifactReviewTruthBasis = (
+    "authoritative_persisted_ranking_artifact"
+)
+RANKING_ARTIFACT_BACKED_REVIEW_SCOPE: RankingArtifactReviewScope = "artifact_backed_review_only"
+ETF_RANKING_REVIEW_PAYLOAD_KIND: RankingArtifactReviewPayloadKind = "etf_ranking_review_payload_v1"
+INTENT_BOUND_ETF_REPLACEMENT_RANKING_REVIEW_PAYLOAD_KIND: RankingArtifactReviewPayloadKind = (
+    "intent_bound_etf_replacement_ranking_review_payload_v1"
+)
+RANKING_ARTIFACT_OPEN_HANDOFF_FIELD_NAMES: tuple[str, ...] = (
+    "handoff_kind",
+    "artifact_kind",
+    "artifact_id",
+    "schema_version",
+)
+SUPPORTED_RANKING_ARTIFACT_REVIEW_PAYLOAD_KINDS: tuple[RankingArtifactReviewPayloadKind, ...] = (
+    ETF_RANKING_REVIEW_PAYLOAD_KIND,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_REVIEW_PAYLOAD_KIND,
+)
+ETF_RANKING_ARTIFACT_ID_PREFIX = "etf_ranking_artifact_"
+INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX = (
+    "intent_bound_etf_replacement_ranking_artifact_"
+)
 CANONICAL_RANKING_ARTIFACT_SCHEMA_VERSIONS: tuple[RankingArtifactSchemaVersion, ...] = (
     ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
     INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
@@ -89,12 +141,12 @@ class RankingArtifactKindRegistryEntry:
 
 RANKING_ARTIFACT_KIND_REGISTRY: tuple[RankingArtifactKindRegistryEntry, ...] = (
     RankingArtifactKindRegistryEntry(
-        artifact_kind="etf_ranking",
+        artifact_kind=ETF_RANKING_ARTIFACT_KIND,
         supported_schema_versions=(ETF_RANKING_ARTIFACT_SCHEMA_VERSION,),
         supported_filters=ETF_RANKING_DISCOVERY_FILTERS,
     ),
     RankingArtifactKindRegistryEntry(
-        artifact_kind="intent_bound_etf_replacement_ranking",
+        artifact_kind=INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_KIND,
         supported_schema_versions=(INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,),
         supported_filters=INTENT_BOUND_ETF_REPLACEMENT_RANKING_DISCOVERY_FILTERS,
     ),
@@ -203,6 +255,33 @@ def get_ranking_artifact_kind_registry_entry(
         if entry.artifact_kind == artifact_kind:
             return entry
     return None
+
+
+def infer_ranking_artifact_kind_from_artifact_id(
+    artifact_id: str,
+) -> RankingArtifactKind | None:
+    artifact_id_prefixes: tuple[tuple[RankingArtifactKind, str], ...] = (
+        ("intent_bound_etf_replacement_ranking", INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX),
+        ("etf_ranking", ETF_RANKING_ARTIFACT_ID_PREFIX),
+    )
+    for artifact_kind, artifact_id_prefix in artifact_id_prefixes:
+        if artifact_id.startswith(artifact_id_prefix):
+            return artifact_kind
+    return None
+
+
+def validate_ranking_artifact_kind_schema_version(
+    *,
+    artifact_kind: RankingArtifactKind,
+    schema_version: str,
+) -> None:
+    registry_entry = get_ranking_artifact_kind_registry_entry(artifact_kind)
+    if registry_entry is None:
+        raise ValueError("unsupported ranking artifact kind")
+    if schema_version not in registry_entry.supported_schema_versions:
+        raise ValueError(
+            f"schema_version {schema_version} is not supported for ranking artifact kind {artifact_kind}"
+        )
 
 
 def validate_ranking_artifact_discovery_filters(

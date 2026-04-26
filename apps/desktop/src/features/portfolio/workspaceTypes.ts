@@ -1,4 +1,4 @@
-import type { ConstructionArtifactReplayResponse, HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
+import type { ConstructionArtifactReplayResponse, HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, RankingArtifactKind, RankingArtifactOpenHandoff, RankingArtifactReviewPayloadKind, RankingArtifactSchemaVersion, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -208,6 +208,7 @@ export type IntentBoundSeededEtfReplacementRankingDraftArtifact = {
   rankingId: string
   methodologyId: string
   rankingBasisDate: string
+  openHandoff: RankingArtifactOpenHandoff
   benchmarkSymbol: string
   lookbackMonths: number
   peerGroup: string | null
@@ -223,6 +224,14 @@ export type IntentBoundSeededEtfReplacementRankingDraftArtifact = {
   selectedCandidate: IntentBoundSeededEtfReplacementRankingCandidateSnapshot
   topCandidate: IntentBoundSeededEtfReplacementRankingCandidateSnapshot | null
   runnerUpCandidate: IntentBoundSeededEtfReplacementRankingCandidateSnapshot | null
+}
+
+export type LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact = IntentBoundSeededEtfReplacementRankingDraftArtifact & {
+  artifactId?: string
+  artifactKind?: RankingArtifactKind
+  schemaVersion?: RankingArtifactSchemaVersion
+  reviewPayloadKind?: RankingArtifactReviewPayloadKind
+  consumerHandoff?: unknown
 }
 
 export type IntentBoundSeededEtfReplacementRankingDraftArtifactInput = Omit<

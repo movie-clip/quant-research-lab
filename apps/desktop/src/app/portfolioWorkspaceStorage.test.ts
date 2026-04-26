@@ -1480,6 +1480,12 @@ describe('portfolioWorkspaceStorage', () => {
       rankingId: 'etf_ranking_engine_v1',
       methodologyId: 'etf_ranking_methodology_v1',
       rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
       benchmarkSymbol: 'SPY',
       lookbackMonths: 6,
       peerGroup: 'Sector UCITS ETF',
@@ -1518,6 +1524,12 @@ describe('portfolioWorkspaceStorage', () => {
       rankingId: 'etf_ranking_engine_v1',
       methodologyId: 'etf_ranking_methodology_v1',
       rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
       benchmarkSymbol: 'SPY',
       lookbackMonths: 6,
       peerGroup: 'Sector UCITS ETF',
@@ -1550,6 +1562,619 @@ describe('portfolioWorkspaceStorage', () => {
       candidateSymbol: 'IUFS',
     })
     expect(getSpy).toHaveBeenCalledWith('draft-1')
+  })
+
+  it('uses the same canonical seeded ranking contract across save and restore', async () => {
+    const persisted = new Map<string, unknown>()
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const store = {
+        put(value: unknown) {
+          const key = (value as { draftId?: string }).draftId
+          if (key) persisted.set(`${storeName}:${key}`, structuredClone(value))
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+        get(key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: persisted.get(`${storeName}:${key}`) }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await portfolioWorkspaceStorage.saveIntentBoundSeededEtfReplacementRankingDraft({
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: ['warning'],
+      excludedSymbols: [{ symbol: 'VDST', reason: 'excluded' }],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    })
+
+    expect(persisted.get(`${portfolioDb.intentBoundSeededEtfReplacementRankingDraftStoreName}:draft-1`)).toEqual({
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: ['warning'],
+      excludedSymbols: [{ symbol: 'VDST', reason: 'excluded' }],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).resolves.toMatchObject({
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+    })
+  })
+
+  it('hydrates only documented seeded ranking legacy omissions at load time', async () => {
+    const legacyDraft = {
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: ['warning'],
+      excludedSymbols: [{ symbol: 'VDST', reason: 'excluded' }],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        get(_key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: legacyDraft as unknown }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).resolves.toMatchObject({
+      openHandoff: {
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        artifact_kind: 'etf_ranking',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+    })
+  })
+
+  it('allows documented legacy seeded ranking cache reads that omit mirrored artifact identity fields', async () => {
+    const badDraft = {
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: [],
+      excludedSymbols: [],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        get(_key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badDraft as unknown }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).resolves.toMatchObject({
+      openHandoff: {
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        artifact_kind: 'etf_ranking',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+    })
+  })
+
+  it('fails closed when seeded ranking cache is missing a valid typed open handoff', async () => {
+    const badDraft = {
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: [],
+      excludedSymbols: [],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        get(_key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badDraft as unknown }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).rejects.toThrow(
+      'Persisted seeded ranking review cache is missing or invalid open handoff',
+    )
+  })
+
+  it('fails closed when seeded ranking cache has unsupported open handoff kind', async () => {
+    const badDraft = {
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v2',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: [],
+      excludedSymbols: [],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        get(_key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badDraft as unknown }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).rejects.toThrow(
+      'Persisted seeded ranking review cache has unsupported open handoff kind',
+    )
+  })
+
+  it('fails closed when seeded ranking cache has unsupported open handoff schema version', async () => {
+    const badDraft = {
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: [],
+      excludedSymbols: [],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        get(_key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badDraft as unknown }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).rejects.toThrow(
+      'Persisted seeded ranking review cache has unsupported open handoff schema version',
+    )
+  })
+
+  it('fails closed when seeded ranking cache has contradictory present legacy mirrored fields', async () => {
+    const badDraft = {
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      artifactId: 'etf_ranking_artifact_sector_1',
+      artifactKind: 'intent_bound_etf_replacement_ranking',
+      schemaVersion: 'intent_bound_etf_replacement_ranking_artifact_v1',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      reviewPayloadKind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: [],
+      excludedSymbols: [],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        get(_key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badDraft as unknown }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).rejects.toThrow(
+      'Persisted seeded ranking review cache conflicts with open handoff artifact kind',
+    )
+  })
+
+  it('fails closed when seeded ranking cache carries unsupported consumer handoff state', async () => {
+    const badDraft = {
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: [],
+      excludedSymbols: [],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+      consumerHandoff: {
+        handoff_kind: 'intent_bound_etf_replacement_ranking_consumer_handoff_v1',
+      },
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        get(_key: string) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: badDraft as unknown }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getIntentBoundSeededEtfReplacementRankingDraft('draft-1')).rejects.toThrow(
+      'Persisted seeded ranking review cache has unsupported consumer handoff state',
+    )
+  })
+
+  it('fails closed when saving seeded ranking cache with contradictory present review payload state', async () => {
+    const withStoreSpy = vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const store = {
+        put(_value: unknown) {
+          const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+          queueMicrotask(() => request.onsuccess?.())
+          return request
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.saveIntentBoundSeededEtfReplacementRankingDraft({
+      kind: 'intent_bound_seeded_etf_replacement_ranking',
+      source: 'etf_ranking',
+      workspaceId: 'workspace-1',
+      draftId: 'draft-1',
+      baseNodeId: 'node-1',
+      selectedAt: '2026-04-15T00:00:00Z',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      candidateRank: 1,
+      rankingId: 'etf_ranking_engine_v1',
+      methodologyId: 'etf_ranking_methodology_v1',
+      rankingBasisDate: '2026-04-15',
+      openHandoff: {
+        handoff_kind: 'ranking_artifact_open_handoff_v1',
+        artifact_kind: 'etf_ranking',
+        artifact_id: 'etf_ranking_artifact_sector_1',
+        schema_version: 'etf_ranking_artifact_v1',
+      },
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      peerGroup: 'Sector UCITS ETF',
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      requestUniverse: ['AAPL', 'IUFS'],
+      evaluatedUniverse: ['IUFS'],
+      warnings: [],
+      excludedSymbols: [],
+      selectedCandidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        compositeScore: 0.8123,
+        instrument: {
+          name: 'ETF',
+          assetClass: 'etf',
+          sector: 'Financials',
+          category: 'Sector UCITS ETF',
+          currency: 'USD',
+        },
+      },
+      topCandidate: null,
+      runnerUpCandidate: null,
+    })).resolves.toBeUndefined()
+
+    expect(withStoreSpy).toHaveBeenCalledOnce()
   })
 
   it('persists hypothetical replay drafts by draft id', async () => {
