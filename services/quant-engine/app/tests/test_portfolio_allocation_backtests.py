@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Literal, cast
 from pydantic import ValidationError
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionLatestEvaluationSnapshotArtifact, OptimizerHandoffReplayRequest, OptimizerHandoffValidationRequest, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactWorkspaceReviewBasis, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplayProposalSource, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionLatestEvaluationSnapshotArtifact, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffWorkspaceReviewBasis, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse, WorkspaceReviewWindow
 from app.schemas.optimizer import OptimizationRequest, OptimizerAlphaFundamentalSnapshot, OptimizerObjective, OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerPreviewSnapshotReference, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
 from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
@@ -1494,6 +1494,13 @@ def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_
     payload = response.json()
     assert payload["proposal"] == {
         "source": "draft_replacement_intent",
+        "proposal_source": {
+            "proposal_source_version": 1,
+            "proposal_source_kind": "draft_replacement_intent_review_only",
+            "proposal_truth": "review_only_hypothetical_proposal",
+            "portfolio_truth": "draft_snapshot_not_applied",
+            "review_scope": "proposal_review_context_only",
+        },
         "incumbent_symbol": "VUAA",
         "candidate_symbol": "IUFS",
         "draft_id": "draft-1",
@@ -1528,6 +1535,14 @@ def test_hypothetical_replacement_preview_route_returns_proposal_derivation_and_
         {"symbol": "IUFS", "target_weight": 0.6},
     ]
     assert payload["replay"]["reference_result"] is not None
+    assert payload["replay"]["methodology_provenance"] == {
+        "provenance_version": 1,
+        "source": "portfolio_allocation_backtest_engine",
+        "methodology_truth": "review_only_replay_methodology",
+        "assumptions_truth": "review_only_replay_assumptions",
+        "analytics_truth": "hypothetical_replay_analytics_only",
+        "review_scope": "workspace_review_context_only",
+    }
     assert payload["replay"]["candidate_result"]["portfolio_name"] == "Hypothetical Candidate"
     assert payload["replay"]["candidate_result"]["commission_bps"] == 2
     assert payload["replay"]["candidate_result"]["slippage_bps"] == 3
@@ -1613,6 +1628,31 @@ def test_build_optimizer_handoff_replay_preview_runs_from_explicit_persisted_ref
         "candidate_applied": False,
         "consumption_mode": "explicit_reference_only",
     }
+    assert replay_response.review_basis.model_dump(mode="json") == {
+        "basis_version": 1,
+        "basis_kind": "persisted_optimizer_handoff_review",
+        "review_scope": "workspace_review_only",
+        "canonical_source": "persisted_handoff_reference",
+        "basis_provenance_label": "artifact_backed_review_basis",
+        "portfolio_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_optimizer_handoff",
+        "handoff_reference": preview_response.persisted_handoff.model_dump(mode="json"),
+        "benchmark_symbol": "SPY",
+        "base_currency": "USD",
+        "replay_window": {
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+        },
+        "baseline_weights": [
+            {"symbol": "AAA", "target_weight": 0.6},
+            {"symbol": "BBB", "target_weight": 0.4},
+        ],
+        "candidate_weights": [
+            {"symbol": "AAA", "target_weight": 0.5},
+            {"symbol": "BBB", "target_weight": 0.3},
+            {"symbol": "CCC", "target_weight": 0.2},
+        ],
+    }
     assert replay_response.replay_provenance.benchmark_id == "benchmark_spy_demo_v1"
     assert replay_response.replay_provenance.benchmark_version == "2024-04-15"
     assert replay_response.replay_provenance.benchmark_symbol == "SPY"
@@ -1653,6 +1693,14 @@ def test_build_optimizer_handoff_replay_preview_runs_from_explicit_persisted_ref
         PortfolioWeightInput(symbol="CCC", target_weight=0.2),
     ]
     assert replay_response.replay.candidate_result.portfolio_name == "Optimizer Handoff Candidate"
+    assert replay_response.replay.methodology_provenance.model_dump(mode="json") == {
+        "provenance_version": 1,
+        "source": "portfolio_allocation_backtest_engine",
+        "methodology_truth": "review_only_replay_methodology",
+        "assumptions_truth": "review_only_replay_assumptions",
+        "analytics_truth": "hypothetical_replay_analytics_only",
+        "review_scope": "workspace_review_context_only",
+    }
     assert replay_response.replay.reference_result.metrics.tracking_error_pct is None
     assert replay_response.replay.reference_result.metrics.beta_vs_benchmark is None
     assert replay_response.replay.reference_result.metrics.correlation_vs_benchmark is None
@@ -2390,6 +2438,443 @@ def test_preflight_does_not_change_construction_artifact_preview_output(tmp_path
     assert preview_response.baseline_weights == preflight.baseline_weights
     assert preview_response.candidate_weights == preflight.candidate_weights
     assert preview_response.effective_replay_params == preflight.effective_replay_params
+
+
+def test_build_construction_artifact_replay_preview_emits_canonical_review_basis_and_methodology_provenance(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = _construction_artifact_replay_histories()
+    artifact_store = ConstructionArtifactStore(str(tmp_path))
+    artifact = build_construction_run(
+        ConstructionRunRequest.model_validate({
+            "request_id": "construction-replay-review-basis",
+            "ranked_universe": {
+                "artifact_id": "ranking_artifact_1",
+                "ranking_id": "ranked_candidates_v1",
+                "methodology_id": "ranked_candidates_methodology_v1",
+                "as_of_date": "2026-04-23",
+                "ranked_candidates": [
+                    {"symbol": "AAA", "rank": 1, "eligible": True, "score": 0.9},
+                    {"symbol": "BBB", "rank": 2, "eligible": True, "score": 0.8},
+                ],
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": [
+                    {"symbol": "AAA", "weight": 0.6},
+                    {"symbol": "BBB", "weight": 0.4},
+                ],
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }),
+        artifact_store=artifact_store,
+    )
+
+    replay_response = build_construction_artifact_replay_preview(
+        ConstructionArtifactReplayRequest(
+            construction_artifact_id=artifact.artifact_id,
+            benchmark_symbol="QQQ",
+            start_date=date(2023, 1, 1),
+            end_date=date(2023, 12, 31),
+            initial_capital=250000,
+            rebalance_frequency="quarterly",
+            base_currency="EUR",
+            commission_bps=4.5,
+            slippage_bps=6.5,
+            drift_tolerance_pct=2.0,
+            execution_lag_days=3,
+            symbol_overrides={"AAA": ["QQQ"]},
+        ),
+        artifact_store=artifact_store,
+    )
+
+    assert replay_response.review_basis.model_dump(mode="json") == {
+        "basis_version": 1,
+        "basis_kind": "persisted_construction_artifact_review",
+        "review_scope": "workspace_review_only",
+        "canonical_source": "typed_preview_handoff",
+        "basis_provenance_label": "artifact_backed_review_basis",
+        "portfolio_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_construction_artifact",
+        "construction_artifact_id": artifact.artifact_id,
+        "preview_handoff": {
+            "handoff_kind": "construction_artifact_preview_handoff_v1",
+            "construction_artifact_id": artifact.artifact_id,
+            "effective_replay_params": replay_response.effective_replay_params.model_dump(mode="json"),
+        },
+        "benchmark_symbol": "QQQ",
+        "base_currency": "EUR",
+        "replay_window": {
+            "start_date": "2023-01-01",
+            "end_date": "2023-12-31",
+        },
+        "baseline_weights": [
+            {"symbol": "AAA", "target_weight": 0.6},
+            {"symbol": "BBB", "target_weight": 0.4},
+        ],
+        "candidate_weights": [
+            {"symbol": "AAA", "target_weight": 0.5},
+            {"symbol": "BBB", "target_weight": 0.5},
+        ],
+    }
+    assert replay_response.replay.methodology_provenance.model_dump(mode="json") == {
+        "provenance_version": 1,
+        "source": "portfolio_allocation_backtest_engine",
+        "methodology_truth": "review_only_replay_methodology",
+        "assumptions_truth": "review_only_replay_assumptions",
+        "analytics_truth": "hypothetical_replay_analytics_only",
+        "review_scope": "workspace_review_context_only",
+    }
+
+
+def test_construction_artifact_replay_response_rejects_review_basis_identity_mismatch() -> None:
+    with pytest.raises(ValidationError, match="review_basis.construction_artifact_id must match construction_artifact_id"):
+        ConstructionArtifactReplayResponse.model_validate({
+            "construction_artifact_id": "artifact-123",
+            "review_basis": {
+                "basis_version": 1,
+                "basis_kind": "persisted_construction_artifact_review",
+                "review_scope": "workspace_review_only",
+                "canonical_source": "typed_preview_handoff",
+                "basis_provenance_label": "artifact_backed_review_basis",
+                "portfolio_truth": "imported_portfolio_snapshot",
+                "candidate_truth": "hypothetical_construction_artifact",
+                "construction_artifact_id": "artifact-other",
+                "preview_handoff": {
+                    "handoff_kind": "construction_artifact_preview_handoff_v1",
+                    "construction_artifact_id": "artifact-other",
+                    "effective_replay_params": {
+                        "benchmark_symbol": "SPY",
+                        "start_date": "2024-01-01",
+                        "end_date": "2024-12-31",
+                        "initial_capital": 100000.0,
+                        "rebalance_frequency": "monthly",
+                        "base_currency": "USD",
+                        "commission_bps": 0.0,
+                        "slippage_bps": 0.0,
+                        "drift_tolerance_pct": None,
+                        "price_basis": "adjusted_close",
+                        "execution_price_field": "close",
+                        "execution_lag_days": 1,
+                        "symbol_overrides": {},
+                    },
+                },
+                "benchmark_symbol": "SPY",
+                "base_currency": "USD",
+                "replay_window": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
+                "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+                "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+            },
+            "replay_provenance": {
+                "source": "construction_artifact_reference",
+                "construction_artifact_id": "artifact-123",
+                "policy_id": "policy-1",
+                "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+                "ranked_universe_artifact_id": "ranking-1",
+                "ranking_id": "ranking-id-1",
+                "ranking_methodology_id": "ranking-method-1",
+                "current_portfolio_artifact_id": "portfolio-1",
+                "hard_constraints": {
+                    "full_investment": True,
+                    "long_only": True,
+                    "eligible_ranked_universe_only": True,
+                    "max_position_weight": 0.6,
+                    "min_position_weight": None,
+                    "max_turnover_weight": None,
+                    "max_trade_intent_count": None,
+                },
+                "baseline_input_source": "normalized_inputs.current_portfolio_weights",
+                "candidate_input_source": "final_target_weights",
+                "selection_rule_trace": {
+                    "rule_ids": ["eligible_only"],
+                    "steps": [{
+                        "rule_id": "eligible_only",
+                        "rule_order": 1,
+                        "input_candidate_symbols": ["AAA"],
+                        "output_candidate_symbols": ["AAA"],
+                    }],
+                },
+                "turnover_diagnostics_status": "unavailable_legacy_artifact",
+                "turnover_diagnostics_v1": None,
+                "weighting_trace_status": "unavailable_legacy_artifact",
+                "weighting_trace_v1": None,
+            },
+            "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+            "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+            "effective_replay_params": {
+                "benchmark_symbol": "SPY",
+                "start_date": "2024-01-01",
+                "end_date": "2024-12-31",
+                "initial_capital": 100000.0,
+                "rebalance_frequency": "monthly",
+                "base_currency": "USD",
+                "commission_bps": 0.0,
+                "slippage_bps": 0.0,
+                "drift_tolerance_pct": None,
+                "price_basis": "adjusted_close",
+                "execution_price_field": "close",
+                "execution_lag_days": 1,
+                "symbol_overrides": {},
+            },
+            "replay": PortfolioAllocationBacktestResponse.model_validate({
+                "methodology": "m",
+                "investor_economics_status": {"status": "available", "reason": None},
+                "candidate_result": {
+                    "portfolio_name": "Candidate",
+                    "benchmark_symbol": "SPY",
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-12-31",
+                    "observation_count": 2,
+                    "rebalance_frequency": "monthly",
+                    "commission_bps": 0.0,
+                    "slippage_bps": 0.0,
+                    "drift_tolerance_pct": None,
+                    "assumptions": {
+                        "price_basis": "adjusted_close",
+                        "execution_price_field": "close",
+                        "execution_lag_days": 1,
+                        "calendar_policy": "intersection_common_dates",
+                        "fractional_shares": True,
+                        "long_only": True,
+                        "leverage_allowed": False,
+                        "tax_treatment": "pre_tax",
+                        "investor_base_currency": "USD",
+                    },
+                    "status": "ok",
+                    "investor_economics_status": {"status": "available", "reason": None},
+                    "instrument_metadata": [],
+                    "starting_weights": [],
+                    "ending_weights": [],
+                    "metrics": {},
+                    "equity_curve": [],
+                    "rebalance_events": [],
+                    "trades": [],
+                },
+            }).model_dump(mode="json"),
+        })
+
+
+def test_optimizer_handoff_replay_response_rejects_review_basis_identity_mismatch() -> None:
+    with pytest.raises(ValidationError, match="review_basis.handoff_reference.handoff_id must match handoff_id"):
+        OptimizerHandoffReplayResponse.model_validate({
+            "handoff_id": "handoff-123",
+            "artifact_id": "artifact-123",
+            "source_portfolio_snapshot_id": "portfolio-123",
+            "review_basis": {
+                "basis_version": 1,
+                "basis_kind": "persisted_optimizer_handoff_review",
+                "review_scope": "workspace_review_only",
+                "canonical_source": "persisted_handoff_reference",
+                "basis_provenance_label": "artifact_backed_review_basis",
+                "portfolio_truth": "imported_portfolio_snapshot",
+                "candidate_truth": "hypothetical_optimizer_handoff",
+                "handoff_reference": {
+                    "reference_kind": "optimizer_handoff_reference_v1",
+                    "handoff_id": "handoff-other",
+                    "artifact_id": "artifact-123",
+                    "manifest_path": "/tmp/manifest.json",
+                    "artifact_path": "/tmp/artifact.json",
+                },
+                "benchmark_symbol": "SPY",
+                "base_currency": "USD",
+                "replay_window": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
+                "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+                "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+            },
+            "replay_provenance": {
+                "source": "optimizer_handoff_reference",
+                "benchmark_id": "benchmark-1",
+                "benchmark_version": "2024-04-15",
+                "benchmark_symbol": "SPY",
+                "return_basis_attestation": {
+                    "benchmark_symbol": "SPY",
+                    "as_of_date": "2024-12-31",
+                    "history_start_date": "2024-01-01",
+                    "history_end_date": "2024-12-31",
+                    "factor_proxy_symbols": ["QQQ"],
+                    "benchmark_return_basis_contract": "unverified_adjusted_proxy",
+                    "factor_return_basis_contract": "unverified_adjusted_proxy",
+                    "section_trust": {
+                        "benchmark_relative_path": "degraded_unverified_return_basis",
+                        "factor_model_path": "degraded_unverified_return_basis",
+                        "risk_contribution_path": "degraded_unverified_return_basis",
+                    },
+                    "evidence": {
+                        "benchmark_history": {
+                            "verification_status": "unverified",
+                            "economic_basis": "adjusted_close_proxy",
+                            "construction_method": "vendor_adjusted_close",
+                            "disqualifiers": [],
+                            "fallbacks_used": [],
+                            "source_price_field": "adj_close",
+                        },
+                        "factor_history": {
+                            "verification_status": "unverified",
+                            "economic_basis": "adjusted_close_proxy",
+                            "construction_method": "vendor_adjusted_close",
+                            "disqualifiers": [],
+                            "fallbacks_used": [],
+                            "source_price_field": "adj_close",
+                        },
+                    },
+                },
+                "replay_output_policy": {
+                    "source": "persisted_return_basis_attestation",
+                    "section_trust": {
+                        "benchmark_relative_path": "degraded_unverified_return_basis",
+                        "factor_model_path": "degraded_unverified_return_basis",
+                        "risk_contribution_path": "degraded_unverified_return_basis",
+                    },
+                    "eligible_families": [],
+                    "withheld_families": ["benchmark_relative_volatility_outputs"],
+                },
+                "artifact_state": "complete",
+                "optimizer_status": "feasible",
+                "constraint_set_fingerprint": "constraint-fingerprint-1",
+            },
+            "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+            "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+            "replay": PortfolioAllocationBacktestResponse.model_validate({
+                "methodology": "m",
+                "investor_economics_status": {"status": "available", "reason": None},
+                "candidate_result": {
+                    "portfolio_name": "Candidate",
+                    "benchmark_symbol": "SPY",
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-12-31",
+                    "observation_count": 2,
+                    "rebalance_frequency": "monthly",
+                    "commission_bps": 0.0,
+                    "slippage_bps": 0.0,
+                    "drift_tolerance_pct": None,
+                    "assumptions": {
+                        "price_basis": "adjusted_close",
+                        "execution_price_field": "close",
+                        "execution_lag_days": 1,
+                        "calendar_policy": "intersection_common_dates",
+                        "fractional_shares": True,
+                        "long_only": True,
+                        "leverage_allowed": False,
+                        "tax_treatment": "pre_tax",
+                        "investor_base_currency": "USD",
+                    },
+                    "status": "ok",
+                    "investor_economics_status": {"status": "available", "reason": None},
+                    "instrument_metadata": [],
+                    "starting_weights": [],
+                    "ending_weights": [],
+                    "metrics": {},
+                    "equity_curve": [],
+                    "rebalance_events": [],
+                    "trades": [],
+                },
+            }).model_dump(mode="json"),
+        })
+
+
+def test_construction_artifact_workspace_review_basis_requires_canonical_identity_field() -> None:
+    with pytest.raises(ValidationError, match="construction_artifact_id"):
+        ConstructionArtifactWorkspaceReviewBasis.model_validate({
+            "basis_version": 1,
+            "basis_kind": "persisted_construction_artifact_review",
+            "review_scope": "workspace_review_only",
+            "canonical_source": "typed_preview_handoff",
+            "basis_provenance_label": "artifact_backed_review_basis",
+            "portfolio_truth": "imported_portfolio_snapshot",
+            "candidate_truth": "hypothetical_construction_artifact",
+            "preview_handoff": {
+                "handoff_kind": "construction_artifact_preview_handoff_v1",
+                "construction_artifact_id": "artifact-123",
+                "effective_replay_params": {
+                    "benchmark_symbol": "SPY",
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-12-31",
+                    "initial_capital": 100000.0,
+                    "rebalance_frequency": "monthly",
+                    "base_currency": "USD",
+                    "commission_bps": 0.0,
+                    "slippage_bps": 0.0,
+                    "drift_tolerance_pct": None,
+                    "price_basis": "adjusted_close",
+                    "execution_price_field": "close",
+                    "execution_lag_days": 1,
+                    "symbol_overrides": {},
+                },
+            },
+            "benchmark_symbol": "SPY",
+            "base_currency": "USD",
+            "replay_window": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
+            "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+            "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+        })
+
+
+def test_construction_artifact_workspace_review_basis_rejects_unsupported_basis_version() -> None:
+    with pytest.raises(ValidationError, match="basis_version"):
+        ConstructionArtifactWorkspaceReviewBasis.model_validate({
+            "basis_version": 2,
+            "basis_kind": "persisted_construction_artifact_review",
+            "review_scope": "workspace_review_only",
+            "canonical_source": "typed_preview_handoff",
+            "basis_provenance_label": "artifact_backed_review_basis",
+            "portfolio_truth": "imported_portfolio_snapshot",
+            "candidate_truth": "hypothetical_construction_artifact",
+            "construction_artifact_id": "artifact-123",
+            "preview_handoff": {
+                "handoff_kind": "construction_artifact_preview_handoff_v1",
+                "construction_artifact_id": "artifact-123",
+                "effective_replay_params": {
+                    "benchmark_symbol": "SPY",
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-12-31",
+                    "initial_capital": 100000.0,
+                    "rebalance_frequency": "monthly",
+                    "base_currency": "USD",
+                    "commission_bps": 0.0,
+                    "slippage_bps": 0.0,
+                    "drift_tolerance_pct": None,
+                    "price_basis": "adjusted_close",
+                    "execution_price_field": "close",
+                    "execution_lag_days": 1,
+                    "symbol_overrides": {},
+                },
+            },
+            "benchmark_symbol": "SPY",
+            "base_currency": "USD",
+            "replay_window": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
+            "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+            "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+        })
+
+
+def test_optimizer_handoff_workspace_review_basis_rejects_malformed_handoff_reference() -> None:
+    with pytest.raises(ValidationError):
+        OptimizerHandoffWorkspaceReviewBasis.model_validate({
+            "basis_version": 1,
+            "basis_kind": "persisted_optimizer_handoff_review",
+            "review_scope": "workspace_review_only",
+            "canonical_source": "persisted_handoff_reference",
+            "basis_provenance_label": "artifact_backed_review_basis",
+            "portfolio_truth": "imported_portfolio_snapshot",
+            "candidate_truth": "hypothetical_optimizer_handoff",
+            "handoff_reference": {
+                "reference_kind": "optimizer_handoff_reference_v1",
+                "handoff_id": "handoff-123",
+                "artifact_id": "artifact-123",
+                "manifest_path": "/tmp/manifest.json",
+            },
+            "benchmark_symbol": "SPY",
+            "base_currency": "USD",
+            "replay_window": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
+            "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+            "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+        })
 
 
 def test_build_construction_artifact_replay_preview_uses_persisted_inverse_rank_weights(

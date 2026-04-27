@@ -1122,6 +1122,7 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
           <p className="stat-label">Lineage</p>
           <p className="summary-value">{proposal.sourceIntent.baseSymbol} -&gt; {proposal.sourceIntent.candidateSymbol}</p>
           <p className="helper">Shows how this proposal was derived, including ranking seed, replacement intent, and hypothetical replay context.</p>
+          <p className="helper">Proposal source: {proposal.proposalSource?.proposalSourceKind ?? proposal.reviewSnapshot.proposal.proposal_source.proposal_source_kind} · proposal truth: {proposal.proposalSource?.proposalTruth ?? proposal.reviewSnapshot.proposal.proposal_source.proposal_truth} · portfolio truth: {proposal.proposalSource?.portfolioTruth ?? proposal.reviewSnapshot.proposal.proposal_source.portfolio_truth}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Proposal Basis</p>
@@ -1195,7 +1196,7 @@ export function PersistedConstructionArtifactReviewSection({ review }: { review:
         <div className="summary-card">
           <p className="stat-label">Review Basis Id</p>
           <p className="summary-value">{review.constructionArtifactId}</p>
-          <p className="helper">Reopened from local workspace pointer only.</p>
+          <p className="helper">Canonical source: {review.reviewBasisSource?.canonical_source ?? review.replay.review_basis.canonical_source} · provenance: {review.reviewBasisSource?.basis_provenance_label ?? review.replay.review_basis.basis_provenance_label}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Truth Separation</p>
@@ -1218,6 +1219,7 @@ export function PersistedConstructionArtifactReviewSection({ review }: { review:
         <p className="helper">Source: {review.replay.replay_provenance.source} · Policy: {review.replay.replay_provenance.policy_id} · Definition: {review.replay.replay_provenance.policy_definition_id}</p>
         <p className="helper">Ranking artifact: {review.replay.replay_provenance.ranked_universe_artifact_id ?? 'n/a'} · Ranking id: {review.replay.replay_provenance.ranking_id ?? 'n/a'} · Methodology: {review.replay.replay_provenance.ranking_methodology_id ?? 'n/a'}</p>
         <p className="helper">Current portfolio artifact: {review.replay.replay_provenance.current_portfolio_artifact_id ?? 'n/a'} · Baseline input: {review.replay.replay_provenance.baseline_input_source} · Candidate input: {review.replay.replay_provenance.candidate_input_source}</p>
+        <p className="helper">Methodology provenance: {review.replay.replay.methodology_provenance.methodology_truth} · assumptions: {review.replay.replay.methodology_provenance.assumptions_truth} · analytics: {review.replay.replay.methodology_provenance.analytics_truth}</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Selection Rule Trace</p>
@@ -1284,7 +1286,7 @@ export function PersistedOptimizerHandoffReviewSection({ review }: { review: Per
         <div className="summary-card">
           <p className="stat-label">Review Basis Id</p>
           <p className="summary-value">{review.handoffReference.handoff_id}</p>
-          <p className="helper">Canonical reopen identity for this hypothetical review.</p>
+          <p className="helper">Canonical source: {review.reviewBasisSource?.canonical_source ?? review.replay.review_basis.canonical_source} · provenance: {review.reviewBasisSource?.basis_provenance_label ?? review.replay.review_basis.basis_provenance_label}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Artifact Lineage Id</p>
@@ -1311,6 +1313,7 @@ export function PersistedOptimizerHandoffReviewSection({ review }: { review: Per
         <p className="panel-label">Replay Provenance</p>
         <p className="helper">Source: {review.replay.replay_provenance.source} · Benchmark: {review.replay.replay_provenance.benchmark_symbol} · Constraint fingerprint: {review.replay.replay_provenance.constraint_set_fingerprint}</p>
         <p className="helper">Artifact state: {review.replay.replay_provenance.artifact_state} · Optimizer status: {review.replay.replay_provenance.optimizer_status}</p>
+        <p className="helper">Methodology provenance: {review.replay.replay.methodology_provenance.methodology_truth} · assumptions: {review.replay.replay.methodology_provenance.assumptions_truth} · analytics: {review.replay.replay.methodology_provenance.analytics_truth}</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Replay Output Policy</p>

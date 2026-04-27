@@ -4159,6 +4159,29 @@ def test_construction_artifact_replay_route_uses_explicit_reference_only_lineage
         {"symbol": "AAA", "target_weight": 0.5},
         {"symbol": "BBB", "target_weight": 0.5},
     ]
+    assert payload["review_basis"] == {
+        "basis_version": 1,
+        "basis_kind": "persisted_construction_artifact_review",
+        "review_scope": "workspace_review_only",
+        "canonical_source": "typed_preview_handoff",
+        "basis_provenance_label": "artifact_backed_review_basis",
+        "portfolio_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_construction_artifact",
+        "construction_artifact_id": artifact_id,
+        "preview_handoff": {
+            "handoff_kind": "construction_artifact_preview_handoff_v1",
+            "construction_artifact_id": artifact_id,
+            "effective_replay_params": payload["effective_replay_params"],
+        },
+        "benchmark_symbol": "SPY",
+        "base_currency": "USD",
+        "replay_window": {
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+        },
+        "baseline_weights": payload["baseline_weights"],
+        "candidate_weights": payload["candidate_weights"],
+    }
     assert payload["effective_replay_params"] == {
         "benchmark_symbol": "SPY",
         "start_date": "2024-01-01",
@@ -4173,6 +4196,14 @@ def test_construction_artifact_replay_route_uses_explicit_reference_only_lineage
         "execution_price_field": "close",
         "execution_lag_days": 1,
         "symbol_overrides": {},
+    }
+    assert payload["replay"]["methodology_provenance"] == {
+        "provenance_version": 1,
+        "source": "portfolio_allocation_backtest_engine",
+        "methodology_truth": "review_only_replay_methodology",
+        "assumptions_truth": "review_only_replay_assumptions",
+        "analytics_truth": "hypothetical_replay_analytics_only",
+        "review_scope": "workspace_review_context_only",
     }
     assert payload["replay"]["reference_result"] is not None
 
@@ -6240,6 +6271,32 @@ def test_optimizer_handoff_replay_route_preserves_benchmark_relative_metrics_whe
             "risk_contribution_outputs",
             "concentration_outputs",
         ],
+    }
+    assert replay_payload["review_basis"] == {
+        "basis_version": 1,
+        "basis_kind": "persisted_optimizer_handoff_review",
+        "review_scope": "workspace_review_only",
+        "canonical_source": "persisted_handoff_reference",
+        "basis_provenance_label": "artifact_backed_review_basis",
+        "portfolio_truth": "imported_portfolio_snapshot",
+        "candidate_truth": "hypothetical_optimizer_handoff",
+        "handoff_reference": persisted_handoff,
+        "benchmark_symbol": "SPY",
+        "base_currency": "USD",
+        "replay_window": {
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+        },
+        "baseline_weights": replay_payload["baseline_weights"],
+        "candidate_weights": replay_payload["candidate_weights"],
+    }
+    assert replay_payload["replay"]["methodology_provenance"] == {
+        "provenance_version": 1,
+        "source": "portfolio_allocation_backtest_engine",
+        "methodology_truth": "review_only_replay_methodology",
+        "assumptions_truth": "review_only_replay_assumptions",
+        "analytics_truth": "hypothetical_replay_analytics_only",
+        "review_scope": "workspace_review_context_only",
     }
 
     for result_key in ("reference_result", "candidate_result"):

@@ -174,11 +174,13 @@ Saved proposal review/readout rules:
 - that readout must not depend on active draft state, active replacement intent state, or live replay cache state
 - the readout should emphasize artifact identity, lineage, replay basis, compact replay summary, diagnostics delta summary, and explicit non-applied status
 - the readout remains review support only and must not imply approval, recommendation, or applied portfolio truth
+- saved proposal artifacts now also persist explicit top-level `proposalSource` review labels copied from backend `proposal.proposal_source`; desktop readout should prefer this persisted label and may fall back to the nested review snapshot only for compatibility with older local artifacts
 
 Integrity rules:
 - saved proposal artifacts must fail on provable internal contradictions between `replayBasis` lineage and `reviewSnapshot` replay lineage
 - active thesis artifacts must not bypass those saved-proposal integrity checks when promoted, persisted, or restored
 - contradictory immutable artifacts must fail deterministically rather than being auto-repaired or silently normalized
+- current save/restore integrity remains additive: new writes should carry canonical proposal-source labels, while older saved proposal artifacts may load without them until migrated or re-saved
 
 Explicit rejection conditions for MVP:
 - no replacement intent

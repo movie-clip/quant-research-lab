@@ -75,6 +75,11 @@ export type ImportedNodeSource = {
 export type DesktopArtifactReviewBasis = {
   basisVersion: 1
   basisKind: 'persisted_construction_artifact_review' | 'persisted_optimizer_handoff_review'
+  reviewScope?: 'workspace_review_only'
+  canonicalSource?: 'typed_preview_handoff' | 'persisted_handoff_reference'
+  basisProvenanceLabel?: 'artifact_backed_review_basis'
+  portfolioTruth?: 'imported_portfolio_snapshot'
+  candidateTruth?: 'hypothetical_construction_artifact' | 'hypothetical_optimizer_handoff'
   openedAt: string
   benchmarkSymbol: string | null
   baseCurrency: string | null
@@ -322,6 +327,7 @@ export type VersionedProposalArtifact = {
   savedFrom: 'desktop_hypothetical_replay_review'
   reviewStatus: 'recorded'
   sourceIntent: ReplacementIntentDraftArtifact
+  proposalSource?: ProposalSourceLabel
   replayBasis: {
     benchmarkSymbol: string
     startDate: string
@@ -355,6 +361,7 @@ export type PersistedConstructionArtifactWorkspaceReview = {
   workspaceId: PortfolioWorkspaceId
   constructionArtifactId: string
   openedAt: string
+  reviewBasisSource?: ConstructionArtifactReplayResponse['review_basis']
   replay: ConstructionArtifactReplayResponse
 }
 
@@ -363,5 +370,14 @@ export type PersistedOptimizerHandoffWorkspaceReview = {
   handoffReference: OptimizerPersistedArtifactReference
   openedAt: string
   validation: OptimizerHandoffValidationResponse
+  reviewBasisSource?: OptimizerHandoffReplayResponse['review_basis']
   replay: OptimizerHandoffReplayResponse
+}
+
+export type ProposalSourceLabel = {
+  proposalSourceVersion: 1
+  proposalSourceKind: 'draft_replacement_intent_review_only'
+  proposalTruth: 'review_only_hypothetical_proposal'
+  portfolioTruth: 'draft_snapshot_not_applied'
+  reviewScope: 'proposal_review_context_only'
 }

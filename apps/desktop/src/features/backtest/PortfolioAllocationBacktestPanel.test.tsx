@@ -48,6 +48,14 @@ void legacyMockAnalysis
 
 const mockResponse: PortfolioAllocationBacktestResponse = {
   methodology: 'm',
+  methodology_provenance: {
+    provenance_version: 1,
+    source: 'portfolio_allocation_backtest_engine',
+    methodology_truth: 'review_only_replay_methodology',
+    assumptions_truth: 'review_only_replay_assumptions',
+    analytics_truth: 'hypothetical_replay_analytics_only',
+    review_scope: 'workspace_review_context_only',
+  },
   investor_economics_status: { status: 'available', reason: null },
   reference_result: {
     portfolio_name: 'Reference', benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', observation_count: 3, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, drift_tolerance_pct: null, assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' }, status: 'ok', investor_economics_status: { status: 'available', reason: null }, instrument_metadata: [{ symbol: 'SPY', trading_currency: 'USD', instrument_base_currency: 'USD', currency_hedged: null, distribution_policy: 'unknown' }], starting_weights: [{ symbol: 'SPY', target_weight: 1 }], ending_weights: [{ symbol: 'SPY', target_weight: 1 }], metrics: { total_return_pct: 8, annualized_return_pct: 8, annualized_volatility_pct: 10, downside_volatility_pct: 6, max_drawdown_pct: -4, sharpe_ratio: 0.8, sortino_ratio: 1.1, benchmark_return_pct: 7, excess_return_pct: 1, tracking_error_pct: 3, information_ratio: 0.3, beta_vs_benchmark: 1, correlation_vs_benchmark: 0.9, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 }, equity_curve: [{ date: '2024-01-01', equity: 100000, cash: 0, gross_exposure: 100000, drawdown_pct: 0 }, { date: '2024-06-01', equity: 103000, cash: 0, gross_exposure: 103000, drawdown_pct: -1 }, { date: '2024-12-31', equity: 108000, cash: 0, gross_exposure: 108000, drawdown_pct: -2 }], rebalance_events: [], trades: [] },
@@ -92,7 +100,7 @@ const replacementIntent: ReplacementIntentDraftArtifact = {
 }
 
 const hypotheticalResponse: HypotheticalReplayResponse = {
-  proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+  proposal: { source: 'draft_replacement_intent', proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' }, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
   derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
   baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
   candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: 'IUFS', target_weight: 0.6 }],
@@ -101,7 +109,7 @@ const hypotheticalResponse: HypotheticalReplayResponse = {
 }
 
 const overlayAwareHypotheticalResponse: OverlayAwareHypotheticalReplayResponse = {
-  proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+  proposal: { source: 'draft_replacement_intent', proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' }, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
   derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
   overlay_application: { overlay_id: 'benchmark_trend_overlay_v1', overlay_status: 'risk_reduced', as_of_month_end: '2024-12-31', benchmark_symbol: 'SPY', risky_weight_scale: 0.35, cash_residual_weight: 0.65, applied_to_candidate_only: true },
   baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
@@ -305,6 +313,13 @@ const savedProposal: VersionedProposalArtifact = {
   savedFrom: 'desktop_hypothetical_replay_review',
   reviewStatus: 'recorded',
   sourceIntent: replacementIntent,
+  proposalSource: {
+    proposalSourceVersion: 1,
+    proposalSourceKind: 'draft_replacement_intent_review_only',
+    proposalTruth: 'review_only_hypothetical_proposal',
+    portfolioTruth: 'draft_snapshot_not_applied',
+    reviewScope: 'proposal_review_context_only',
+  },
   replayBasis: {
     benchmarkSymbol: 'SPY',
     startDate: '2024-01-01',
@@ -323,6 +338,40 @@ const persistedConstructionArtifactReview: PersistedConstructionArtifactWorkspac
   workspaceId: 'workspace-artifact',
   constructionArtifactId: 'artifact-123',
   openedAt: '2026-04-23T00:00:00Z',
+  reviewBasisSource: {
+    basis_version: 1,
+    basis_kind: 'persisted_construction_artifact_review',
+    review_scope: 'workspace_review_only',
+    canonical_source: 'typed_preview_handoff',
+    basis_provenance_label: 'artifact_backed_review_basis',
+    portfolio_truth: 'imported_portfolio_snapshot',
+    candidate_truth: 'hypothetical_construction_artifact',
+    construction_artifact_id: 'artifact-123',
+    preview_handoff: {
+      handoff_kind: 'construction_artifact_preview_handoff_v1',
+      construction_artifact_id: 'artifact-123',
+      effective_replay_params: {
+        benchmark_symbol: 'SPY',
+        start_date: '2024-01-01',
+        end_date: '2024-12-31',
+        initial_capital: 100000,
+        rebalance_frequency: 'monthly',
+        base_currency: 'USD',
+        commission_bps: 0,
+        slippage_bps: 0,
+        drift_tolerance_pct: null,
+        price_basis: 'adjusted_close',
+        execution_price_field: 'close',
+        execution_lag_days: 1,
+        symbol_overrides: {},
+      },
+    },
+    benchmark_symbol: 'SPY',
+    base_currency: 'USD',
+    replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+    baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+    candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+  },
   replay: {
     construction_artifact_id: 'artifact-123',
     truth_separation: {
@@ -330,6 +379,40 @@ const persistedConstructionArtifactReview: PersistedConstructionArtifactWorkspac
       candidate_truth: 'hypothetical_construction_artifact',
       candidate_applied: false,
       consumption_mode: 'explicit_reference_only',
+    },
+    review_basis: {
+      basis_version: 1,
+      basis_kind: 'persisted_construction_artifact_review',
+      review_scope: 'workspace_review_only',
+      canonical_source: 'typed_preview_handoff',
+      basis_provenance_label: 'artifact_backed_review_basis',
+      portfolio_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_construction_artifact',
+      construction_artifact_id: 'artifact-123',
+      preview_handoff: {
+        handoff_kind: 'construction_artifact_preview_handoff_v1',
+        construction_artifact_id: 'artifact-123',
+        effective_replay_params: {
+          benchmark_symbol: 'SPY',
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          initial_capital: 100000,
+          rebalance_frequency: 'monthly',
+          base_currency: 'USD',
+          commission_bps: 0,
+          slippage_bps: 0,
+          drift_tolerance_pct: null,
+          price_basis: 'adjusted_close',
+          execution_price_field: 'close',
+          execution_lag_days: 1,
+          symbol_overrides: {},
+        },
+      },
+      benchmark_symbol: 'SPY',
+      base_currency: 'USD',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+      candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
     },
     replay_provenance: {
       source: 'construction_artifact_reference',
@@ -396,6 +479,27 @@ const persistedOptimizerHandoffReview: PersistedOptimizerHandoffWorkspaceReview 
     artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
   },
   openedAt: '2026-04-24T00:00:00Z',
+  reviewBasisSource: {
+    basis_version: 1,
+    basis_kind: 'persisted_optimizer_handoff_review',
+    review_scope: 'workspace_review_only',
+    canonical_source: 'persisted_handoff_reference',
+    basis_provenance_label: 'artifact_backed_review_basis',
+    portfolio_truth: 'imported_portfolio_snapshot',
+    candidate_truth: 'hypothetical_optimizer_handoff',
+    handoff_reference: {
+      reference_kind: 'optimizer_handoff_reference_v1',
+      handoff_id: 'optimizer_handoff_123',
+      artifact_id: 'optimizer_artifact_123',
+      manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+      artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+    },
+    benchmark_symbol: 'SPY',
+    base_currency: 'USD',
+    replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+    baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+    candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+  },
   validation: {
     handoff_id: 'optimizer_handoff_123',
     artifact_id: 'optimizer_artifact_123',
@@ -452,6 +556,27 @@ const persistedOptimizerHandoffReview: PersistedOptimizerHandoffWorkspaceReview 
       candidate_truth: 'hypothetical_optimizer_handoff',
       candidate_applied: false,
       consumption_mode: 'explicit_reference_only',
+    },
+    review_basis: {
+      basis_version: 1,
+      basis_kind: 'persisted_optimizer_handoff_review',
+      review_scope: 'workspace_review_only',
+      canonical_source: 'persisted_handoff_reference',
+      basis_provenance_label: 'artifact_backed_review_basis',
+      portfolio_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_optimizer_handoff',
+      handoff_reference: {
+        reference_kind: 'optimizer_handoff_reference_v1',
+        handoff_id: 'optimizer_handoff_123',
+        artifact_id: 'optimizer_artifact_123',
+        manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+        artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+      },
+      benchmark_symbol: 'SPY',
+      base_currency: 'USD',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+      candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
     },
     replay_provenance: {
       source: 'optimizer_handoff_reference',
@@ -737,6 +862,8 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText('optimizer_handoff_123')).toBeTruthy()
     expect(screen.getByText('optimizer_artifact_123')).toBeTruthy()
     expect(screen.getByText('Optimizer Context')).toBeTruthy()
+    expect(screen.getByText(/Canonical source: persisted_handoff_reference/)).toBeTruthy()
+    expect(screen.getByText(/Methodology provenance: review_only_replay_methodology/)).toBeTruthy()
     expect(screen.getByText(/Objective: minimize benchmark distance/i)).toBeTruthy()
     expect(screen.getByText(/Minimize squared distance to benchmark weights inside the hard-constraint set\./i)).toBeTruthy()
     expect(screen.getByText(/withheld families: benchmark_relative_volatility_outputs, factor_exposure_outputs/i)).toBeTruthy()
@@ -1043,11 +1170,36 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
     expect(screen.getByText('Proposal Lineage')).toBeTruthy()
     expect(screen.getByText(/Workspace: workspace-1 · Draft: draft-1 · Base node: node-1/)).toBeTruthy()
+    expect(screen.getByText(/Proposal source: draft_replacement_intent_review_only/)).toBeTruthy()
     expect(screen.getByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied')).toBeTruthy()
     expect(screen.getByText('Proposal Basis')).toBeTruthy()
     expect(screen.getByText('draft_snapshot_positions_normalized')).toBeTruthy()
     expect(screen.getAllByText('Replay Summary').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Diagnostics Delta Summary').length).toBeGreaterThan(0)
     expect(screen.getByText('This proposal is a saved review snapshot, not applied holdings, candidate truth, or live draft state.')).toBeTruthy()
+  })
+
+  it('renders persisted construction artifact review provenance labels', () => {
+    render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        workspaceSource={persistedConstructionArtifactWorkspaceSource}
+        persistedConstructionArtifactReview={persistedConstructionArtifactReview}
+        persistedOptimizerHandoffReview={null}
+      />,
+    )
+
+    expect(screen.getByText(/Canonical source: typed_preview_handoff/)).toBeTruthy()
+    expect(screen.getByText(/Methodology provenance: review_only_replay_methodology/)).toBeTruthy()
   })
 })

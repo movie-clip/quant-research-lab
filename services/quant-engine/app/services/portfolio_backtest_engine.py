@@ -27,6 +27,7 @@ from app.schemas.backtest_engine import (
     ConstructionArtifactReplayResponse,
     ConstructionArtifactReplayValidationResponse,
     ConstructionArtifactPreviewHandoff,
+    ConstructionArtifactWorkspaceReviewBasis,
     CurrentPortfolioTruthLineage,
     EvaluateMonitorDefinitionObservationRequest,
     DistributionPolicy,
@@ -49,6 +50,7 @@ from app.schemas.backtest_engine import (
     OptimizerHandoffReplayRequest,
     OptimizerHandoffReplayResponse,
     OptimizerHandoffReplayOptimizerRunSummary,
+    OptimizerHandoffWorkspaceReviewBasis,
     OverlayAwareHypotheticalReplayRequest,
     OverlayAwareHypotheticalReplayResponse,
     HypotheticalReplacementReplayRequest,
@@ -61,6 +63,8 @@ from app.schemas.backtest_engine import (
     PortfolioAllocationBacktestRequest,
     PortfolioAllocationBacktestResponse,
     PortfolioWeightInput,
+    ReplayMethodologyProvenance,
+    WorkspaceReviewWindow,
 )
 from app.schemas.optimizer import OptimizerReturnBasisAttestation
 from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
@@ -254,6 +258,7 @@ def _build_portfolio_allocation_backtest_analysis(
 
     return PortfolioAllocationBacktestResponse(
         methodology=METHODOLOGY,
+        methodology_provenance=ReplayMethodologyProvenance(),
         investor_economics_status=_build_response_investor_economics_status(reference_result, candidate_result),
         reference_result=reference_result,
         candidate_result=candidate_result,
@@ -417,6 +422,17 @@ def build_optimizer_handoff_replay_preview(
             artifact_state=artifact.artifact_state.artifact_state,
             constraint_set_fingerprint=manifest.constraint_set.constraint_set_fingerprint,
         ),
+        review_basis=OptimizerHandoffWorkspaceReviewBasis(
+            handoff_reference=request.handoff_reference,
+            benchmark_symbol=benchmark_symbol,
+            base_currency=request.base_currency,
+            replay_window=WorkspaceReviewWindow(
+                start_date=request.start_date.isoformat(),
+                end_date=request.end_date.isoformat(),
+            ),
+            baseline_weights=baseline_weights,
+            candidate_weights=candidate_weights,
+        ),
         optimizer_context=_build_optimizer_handoff_context(artifact),
         baseline_weights=baseline_weights,
         candidate_weights=candidate_weights,
@@ -457,6 +473,21 @@ def build_construction_artifact_replay_preview(
 
     return ConstructionArtifactReplayResponse(
         construction_artifact_id=artifact.artifact_id,
+        review_basis=ConstructionArtifactWorkspaceReviewBasis(
+            construction_artifact_id=artifact.artifact_id,
+            preview_handoff=ConstructionArtifactPreviewHandoff(
+                construction_artifact_id=artifact.artifact_id,
+                effective_replay_params=effective_params,
+            ),
+            benchmark_symbol=effective_params.benchmark_symbol,
+            base_currency=effective_params.base_currency,
+            replay_window=WorkspaceReviewWindow(
+                start_date=effective_params.start_date.isoformat(),
+                end_date=effective_params.end_date.isoformat(),
+            ),
+            baseline_weights=baseline_weights,
+            candidate_weights=candidate_weights,
+        ),
         replay_provenance=ConstructionArtifactReplayProvenance(
             construction_artifact_id=artifact.artifact_id,
             policy_id=artifact.normalized_inputs.policy_id,

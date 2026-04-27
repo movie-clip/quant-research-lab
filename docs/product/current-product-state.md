@@ -27,6 +27,7 @@ This document is the canonical source for what is actually shipped today, what i
 - replacement-intent candidate construction exists at `POST /backtests/candidate-construction/replacement-intent`
 - replacement-intent constraint validation exists at `POST /backtests/candidate-construction/replacement-intent/constraints`
 - replay provenance is explicit for direct preview vs constructed-candidate replay, actual construction rule used, upstream draft/workspace lineage, ranking seed lineage, and echoed validation lineage
+- hypothetical replacement replay and saved proposal review now carry explicit proposal-source labels for review-only proposal truth and draft-portfolio non-application semantics
 - replay rejects provable lineage mismatches across persisted or supplied artifacts; validation lineage is descriptive, not execution approval
 - immutable saved proposal artifacts and active thesis restore fail closed on provable internal lineage contradictions
 
@@ -37,6 +38,7 @@ This document is the canonical source for what is actually shipped today, what i
 - `GET /construction/policies` exposes deterministic backend-owned read-only discovery for the shipped persisted policy catalog, including additive catalog metadata, explicit constraint/input capability flags such as optional `min_position_weight`, optional `max_turnover_weight`, and optional `max_trade_intent_count` support, and single-value exact-match server-side filters over that metadata only; undocumented filter keys, repeated supported scalar filter keys, and malformed present filter values are rejected rather than ignored
 - `GET /construction/artifacts/{artifact_id}` reloads persisted artifacts, validates them on read, and fails closed on corruption or malformed payloads
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` replays persisted construction artifacts through an explicit artifact-reference boundary
+- persisted construction review restore now uses the canonical backend `review_basis` block or typed `preview_handoff` semantics only; desktop does not reconstruct review basis from loose replay fields when canonical basis is present
 - current persisted construction policies are `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
 - persisted construction execution is deterministic and records an ordered `selection_rule_trace` as provenance
 - persisted construction artifacts now also persist additive normalized `min_position_weight` and additive normalized `max_trade_intent_count` hard-constraint truth when requested, and downstream load/validation/preview/replay consume that persisted artifact state unchanged
@@ -47,6 +49,7 @@ This document is the canonical source for what is actually shipped today, what i
 - replay/open echoes persisted turnover diagnostics from the artifact only and fails closed on malformed or unsupported present turnover-diagnostics states; exact legacy compatibility remains load-only when those fields are wholly absent
 - replay/open also echo persisted construction hard constraints, including additive `min_position_weight` and additive `max_trade_intent_count`, from artifact truth only; replay outputs and analytics methodology remain unchanged when the field is absent
 - persisted construction artifacts remain hypothetical candidate truth consumed through the existing validation-to-preview and preview/replay handoff boundary; replay uses persisted `final_target_weights` plus normalized inputs rather than re-resolving catalog math
+- replay/open now also echo additive canonical `review_basis` and additive replay `methodology_provenance` fields for review restore and explicit provenance labeling; these remain review-only semantics and do not change replay analytics or construction methodology
 
 ### ETF ranking artifacts and discovery
 
@@ -85,8 +88,10 @@ This document is the canonical source for what is actually shipped today, what i
 - persisted optimizer handoff review reopens by persisted `handoffReference`; `handoffReference.handoff_id` is the canonical identity and `handoffReference.artifact_id` remains persisted lineage and integrity metadata only
 - persisted handoffs replay through `POST /backtests/portfolio-allocation/optimizer-handoff-preview`
 - persisted handoffs validate through `POST /backtests/portfolio-allocation/optimizer-handoff/constraints`, which remains a validation/preflight boundary rather than a replay-open route
+- persisted optimizer handoff review restore now uses the canonical backend `review_basis` block only; desktop reopen identity remains `handoffReference` and restore fails closed on missing or conflicting canonical review basis
 - optimizer replay truth is explicit: hypothetical output only, not applied portfolio truth
 - optimizer handoff replay uses persisted lineage and return-basis attestation to control benchmark-relative output suppression
+- optimizer replay also exposes additive replay `methodology_provenance` so review surfaces can label methodology, assumptions, and analytics provenance explicitly without changing calculations
 - trusted PIT alpha attachment is shipped for the narrow `alpha_quality_v1` path when requested by optimizer preview
 - optimizer objective selection is now additive: default benchmark-distance remains backward compatible, and hypothetical artifact-backed preview/replay can also persist and replay `maximize_alpha_quality_v1`
 
@@ -118,6 +123,7 @@ This document is the canonical source for what is actually shipped today, what i
 - saved nodes are immutable portfolio-truth snapshots; review artifacts are separate from those snapshots
 - seeded candidate metadata, replacement intent, formed candidates, constructed candidates, selected construction rules, hypothetical replays, persisted construction references, optimizer handoffs, and saved proposals all preserve explicit lineage boundaries
 - desktop persisted optimizer handoff review state now writes canonical `handoffReference` reopen state only; any legacy cache repair is limited to load-time normalization
+- desktop persisted construction and optimizer review state now persists canonical backend `reviewBasisSource` blocks for restore, and saved proposals persist canonical `proposalSource` labels when present
 - recreating a draft from a node clears dependent draft-scoped review artifacts so stale review state does not silently cross lineage changes
 
 ## What is future, not current

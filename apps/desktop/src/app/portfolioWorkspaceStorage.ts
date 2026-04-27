@@ -60,19 +60,28 @@ function buildDesktopArtifactReviewBasis(input: {
   openedAt: string
   replay: ConstructionArtifactReplayResponse
 }): PersistedConstructionArtifactReviewBasis {
+  const reviewBasisSource = input.replay.review_basis
+  if (!reviewBasisSource) {
+    throw new Error('Persisted construction artifact review payload is missing canonical review_basis')
+  }
   return {
-    basisVersion: 1,
+    basisVersion: reviewBasisSource.basis_version,
     basisKind: 'persisted_construction_artifact_review',
+    reviewScope: reviewBasisSource.review_scope,
+    canonicalSource: reviewBasisSource.canonical_source,
+    basisProvenanceLabel: reviewBasisSource.basis_provenance_label,
+    portfolioTruth: reviewBasisSource.portfolio_truth,
+    candidateTruth: reviewBasisSource.candidate_truth,
     constructionArtifactId: input.constructionArtifactId,
     openedAt: input.openedAt,
-    benchmarkSymbol: input.replay.replay.candidate_result.benchmark_symbol ?? null,
-    baseCurrency: input.replay.replay.candidate_result.assumptions.investor_base_currency ?? input.replay.replay.reference_result?.assumptions.investor_base_currency ?? input.replay.effective_replay_params?.base_currency ?? null,
+    benchmarkSymbol: reviewBasisSource.benchmark_symbol ?? null,
+    baseCurrency: reviewBasisSource.base_currency ?? null,
     replayWindow: {
-      startDate: input.replay.replay.candidate_result.start_date ?? null,
-      endDate: input.replay.replay.candidate_result.end_date ?? null,
+      startDate: reviewBasisSource.replay_window.start_date ?? null,
+      endDate: reviewBasisSource.replay_window.end_date ?? null,
     },
-    baselineWeights: input.replay.baseline_weights,
-    candidateWeights: input.replay.candidate_weights,
+    baselineWeights: reviewBasisSource.baseline_weights,
+    candidateWeights: reviewBasisSource.candidate_weights,
   }
 }
 
@@ -81,19 +90,30 @@ function buildOptimizerHandoffReviewBasis(input: {
   openedAt: string
   replay: OptimizerHandoffReplayResponse
 }): PersistedOptimizerHandoffReviewBasis {
+  const reviewBasisSource = input.replay.review_basis
+  if (!reviewBasisSource) {
+    throw new Error('Persisted optimizer handoff review payload is missing canonical review_basis')
+  }
+  assertValidOptimizerHandoffReference(reviewBasisSource.handoff_reference, 'Persisted optimizer handoff review payload review_basis')
+  assertOptimizerHandoffReferenceMatchesCanonical(reviewBasisSource.handoff_reference, input.handoffReference, 'Persisted optimizer handoff review payload review_basis')
   return {
-    basisVersion: 1,
+    basisVersion: reviewBasisSource.basis_version,
     basisKind: 'persisted_optimizer_handoff_review',
-    handoffReference: input.handoffReference,
+    reviewScope: reviewBasisSource.review_scope,
+    canonicalSource: reviewBasisSource.canonical_source,
+    basisProvenanceLabel: reviewBasisSource.basis_provenance_label,
+    portfolioTruth: reviewBasisSource.portfolio_truth,
+    candidateTruth: reviewBasisSource.candidate_truth,
+    handoffReference: reviewBasisSource.handoff_reference,
     openedAt: input.openedAt,
-    benchmarkSymbol: input.replay.replay.candidate_result.benchmark_symbol ?? input.replay.replay_provenance.benchmark_symbol ?? null,
-    baseCurrency: input.replay.replay.candidate_result.assumptions.investor_base_currency ?? input.replay.replay.reference_result?.assumptions.investor_base_currency ?? null,
+    benchmarkSymbol: reviewBasisSource.benchmark_symbol ?? null,
+    baseCurrency: reviewBasisSource.base_currency ?? null,
     replayWindow: {
-      startDate: input.replay.replay.candidate_result.start_date ?? null,
-      endDate: input.replay.replay.candidate_result.end_date ?? null,
+      startDate: reviewBasisSource.replay_window.start_date ?? null,
+      endDate: reviewBasisSource.replay_window.end_date ?? null,
     },
-    baselineWeights: input.replay.baseline_weights,
-    candidateWeights: input.replay.candidate_weights,
+    baselineWeights: reviewBasisSource.baseline_weights,
+    candidateWeights: reviewBasisSource.candidate_weights,
   }
 }
 
@@ -343,6 +363,7 @@ function toCanonicalPersistedOptimizerHandoffReview(review: PersistedOptimizerHa
     handoffReference: review.handoffReference,
     openedAt: review.openedAt,
     validation: review.validation,
+    reviewBasisSource: review.reviewBasisSource ?? review.replay.review_basis,
     replay: review.replay,
   }
 }
@@ -706,6 +727,13 @@ export function buildSavedProposalArtifact(input: {
     savedFrom: 'desktop_hypothetical_replay_review',
     reviewStatus: 'recorded',
     sourceIntent: input.sourceIntent,
+    proposalSource: input.hypotheticalReplay.proposal.proposal_source ? {
+      proposalSourceVersion: input.hypotheticalReplay.proposal.proposal_source.proposal_source_version,
+      proposalSourceKind: input.hypotheticalReplay.proposal.proposal_source.proposal_source_kind,
+      proposalTruth: input.hypotheticalReplay.proposal.proposal_source.proposal_truth,
+      portfolioTruth: input.hypotheticalReplay.proposal.proposal_source.portfolio_truth,
+      reviewScope: input.hypotheticalReplay.proposal.proposal_source.review_scope,
+    } : undefined,
     replayBasis: {
       benchmarkSymbol: activeReplay.candidate_result.benchmark_symbol ?? input.sourceIntent.benchmarkSymbol,
       startDate: activeReplay.candidate_result.start_date,
@@ -902,6 +930,7 @@ export async function createWorkspaceFromPersistedConstructionArtifact(input: {
     workspaceId,
     constructionArtifactId: input.constructionArtifactId,
     openedAt,
+    reviewBasisSource: replay.review_basis,
     replay,
   }
 

@@ -12,7 +12,7 @@ import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
 import type { ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
-import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
 const diagnosticsPayload = createDiagnosticsEngineFixture()
@@ -146,6 +146,14 @@ const appendedDiagnosticsPayload = {
 
 const allocationBacktestPayload: PortfolioAllocationBacktestResponse = {
   methodology: 'm',
+  methodology_provenance: {
+    provenance_version: 1,
+    source: 'portfolio_allocation_backtest_engine',
+    methodology_truth: 'review_only_replay_methodology',
+    assumptions_truth: 'review_only_replay_assumptions',
+    analytics_truth: 'hypothetical_replay_analytics_only',
+    review_scope: 'workspace_review_context_only',
+  },
   investor_economics_status: { status: 'available', reason: null },
   reference_result: {
     portfolio_name: 'Reference',
@@ -324,6 +332,11 @@ function buildArtifactReviewSource(constructionArtifactId: string, openedAt: str
     reviewBasis: {
       basisVersion: 1 as const,
       basisKind: 'persisted_construction_artifact_review' as const,
+      reviewScope: 'workspace_review_only' as const,
+      canonicalSource: 'typed_preview_handoff' as const,
+      basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+      portfolioTruth: 'imported_portfolio_snapshot' as const,
+      candidateTruth: 'hypothetical_construction_artifact' as const,
       constructionArtifactId,
       openedAt,
       benchmarkSymbol: 'SPY',
@@ -346,6 +359,11 @@ function buildOptimizerHandoffReviewSource(handoffReference: OptimizerPersistedA
     reviewBasis: {
       basisVersion: 1 as const,
       basisKind: 'persisted_optimizer_handoff_review' as const,
+      reviewScope: 'workspace_review_only' as const,
+      canonicalSource: 'persisted_handoff_reference' as const,
+      basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+      portfolioTruth: 'imported_portfolio_snapshot' as const,
+      candidateTruth: 'hypothetical_optimizer_handoff' as const,
       handoffReference,
       openedAt,
       benchmarkSymbol: 'SPY',
@@ -388,7 +406,7 @@ function makeReplacementIntent(): ReplacementIntentDraftArtifact {
 
 function makeHypotheticalReplay(): HypotheticalReplayResponse {
   return {
-    proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+    proposal: { source: 'draft_replacement_intent', proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' }, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
     derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
     baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
     candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
@@ -487,6 +505,22 @@ function makeConstructionArtifactReplayResponse() {
       candidate_truth: 'hypothetical_construction_artifact' as const,
       candidate_applied: false as const,
       consumption_mode: 'explicit_reference_only' as const,
+    },
+    review_basis: {
+      basis_version: 1 as const,
+      basis_kind: 'persisted_construction_artifact_review' as const,
+      review_scope: 'workspace_review_only' as const,
+      canonical_source: 'typed_preview_handoff' as const,
+      basis_provenance_label: 'artifact_backed_review_basis' as const,
+      portfolio_truth: 'imported_portfolio_snapshot' as const,
+      candidate_truth: 'hypothetical_construction_artifact' as const,
+      construction_artifact_id: 'artifact-123',
+      preview_handoff: makeConstructionArtifactReplayValidationResponse().preview_handoff,
+      benchmark_symbol: 'SPY',
+      base_currency: 'USD',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+      candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
     },
     replay_provenance: {
       source: 'construction_artifact_reference' as const,
@@ -720,6 +754,21 @@ function makeOptimizerHandoffReplayResponse(): OptimizerHandoffReplayResponse {
       candidate_applied: false,
       consumption_mode: 'explicit_reference_only',
     },
+    review_basis: {
+      basis_version: 1,
+      basis_kind: 'persisted_optimizer_handoff_review',
+      review_scope: 'workspace_review_only',
+      canonical_source: 'persisted_handoff_reference',
+      basis_provenance_label: 'artifact_backed_review_basis',
+      portfolio_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_optimizer_handoff',
+      handoff_reference: makeOptimizerHandoffReference(),
+      benchmark_symbol: 'SPY',
+      base_currency: 'USD',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+      candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+    },
     replay_provenance: {
       source: 'optimizer_handoff_reference',
       benchmark_id: 'benchmark_spy_demo_v1',
@@ -888,6 +937,64 @@ function makeEtfRankingPreflightPayload(overrides: Record<string, unknown> = {})
       schema_version: artifact.schema_version,
     },
     ...overrides,
+  }
+}
+
+function makeSavedProposalArtifact(input?: {
+  id?: string
+  createdAt?: string
+  versionNumber?: number
+  candidateSymbol?: string
+  proposalFamilyId?: string
+}): VersionedProposalArtifact {
+  const candidateSymbol = input?.candidateSymbol ?? 'IUFS'
+  const createdAt = input?.createdAt ?? '2026-04-16T00:00:00Z'
+  const versionNumber = input?.versionNumber ?? 1
+  const reviewSnapshot = cloneMutable<HypotheticalReplayResponse>(makeHypotheticalReplay())
+
+  reviewSnapshot.proposal = {
+    ...reviewSnapshot.proposal,
+    candidate_symbol: candidateSymbol,
+    proposal_source: {
+      ...reviewSnapshot.proposal.proposal_source,
+    },
+  }
+
+  return {
+    id: input?.id ?? `proposal-${versionNumber}`,
+    kind: 'single_replacement_hypothetical_replay_proposal',
+    schemaVersion: 1,
+    createdAt,
+    workspaceId: 'workspace-1',
+    sourceDraftId: 'draft-1',
+    sourceBaseNodeId: 'node-1',
+    proposalFamilyId: input?.proposalFamilyId ?? `etf_replacement_intent:AAPL:${candidateSymbol}:${createdAt}`,
+    versionNumber,
+    savedFrom: 'desktop_hypothetical_replay_review',
+    reviewStatus: 'recorded',
+    sourceIntent: {
+      ...makeReplacementIntent(),
+      candidateSymbol,
+    },
+    proposalSource: {
+      proposalSourceVersion: 1,
+      proposalSourceKind: 'draft_replacement_intent_review_only',
+      proposalTruth: 'review_only_hypothetical_proposal',
+      portfolioTruth: 'draft_snapshot_not_applied',
+      reviewScope: 'proposal_review_context_only',
+    },
+    replayBasis: {
+      benchmarkSymbol: 'SPY',
+      startDate: '2024-01-01',
+      endDate: '2024-12-31',
+      rebalanceFrequency: 'monthly',
+      commissionBps: 0,
+      slippageBps: 0,
+      derivationBasis: 'draft_snapshot_positions_normalized',
+      candidateConstructionRule: 'same_weight_substitution_v1',
+      replayProvenance: cloneMutable(makeHypotheticalReplay().replay_provenance),
+    },
+    reviewSnapshot,
   }
 }
 
@@ -3229,7 +3336,15 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
     vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([{ id: 'proposal-1', kind: 'single_replacement_hypothetical_replay_proposal', schemaVersion: 1, createdAt: '2026-04-16T00:00:00Z', workspaceId: 'workspace-1', sourceDraftId: 'draft-1', sourceBaseNodeId: 'node-1', proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z', versionNumber: 1, savedFrom: 'desktop_hypothetical_replay_review', reviewStatus: 'recorded', sourceIntent: { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1 }, replayBasis: { benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized', candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } } }, reviewSnapshot: { proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' }, derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } }, baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }], replay: allocationBacktestPayload, warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'] } }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([
+      makeSavedProposalArtifact({
+        id: 'proposal-1',
+        createdAt: '2026-04-16T00:00:00Z',
+        versionNumber: 1,
+        candidateSymbol: 'IUFS',
+        proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+      }) as any,
+    ])
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -3247,8 +3362,20 @@ describe('App', () => {
   })
 
   it('reopens an older saved proposal inside the shell in review-only mode', async () => {
-    const latestProposal = { id: 'proposal-2', kind: 'single_replacement_hypothetical_replay_proposal', schemaVersion: 1, createdAt: '2026-04-17T00:00:00Z', workspaceId: 'workspace-1', sourceDraftId: 'draft-1', sourceBaseNodeId: 'node-1', proposalFamilyId: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:00:00Z', versionNumber: 2, savedFrom: 'desktop_hypothetical_replay_review', reviewStatus: 'recorded', sourceIntent: { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUIT', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1 }, replayBasis: { benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized', candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } } }, reviewSnapshot: { proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUIT', draft_id: 'draft-1', base_node_id: 'node-1' }, derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } }, baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUIT', target_weight: 1 }], replay: allocationBacktestPayload, warnings: [] } }
-    const olderProposal = { id: 'proposal-1', kind: 'single_replacement_hypothetical_replay_proposal', schemaVersion: 1, createdAt: '2026-04-16T00:00:00Z', workspaceId: 'workspace-1', sourceDraftId: 'draft-1', sourceBaseNodeId: 'node-1', proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-16T00:00:00Z', versionNumber: 1, savedFrom: 'desktop_hypothetical_replay_review', reviewStatus: 'recorded', sourceIntent: { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1 }, replayBasis: { benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized', candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } } }, reviewSnapshot: { proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' }, derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } }, baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }], replay: allocationBacktestPayload, warnings: [] } }
+    const latestProposal = makeSavedProposalArtifact({
+      id: 'proposal-2',
+      createdAt: '2026-04-17T00:00:00Z',
+      versionNumber: 2,
+      candidateSymbol: 'IUIT',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:00:00Z',
+    })
+    const olderProposal = makeSavedProposalArtifact({
+      id: 'proposal-1',
+      createdAt: '2026-04-16T00:00:00Z',
+      versionNumber: 1,
+      candidateSymbol: 'IUFS',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-16T00:00:00Z',
+    })
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
@@ -3280,7 +3407,13 @@ describe('App', () => {
   })
 
   it('promotes a saved proposal into a restored active thesis and clears it', async () => {
-    const latestProposal = { id: 'proposal-2', kind: 'single_replacement_hypothetical_replay_proposal', schemaVersion: 1, createdAt: '2026-04-17T00:00:00Z', workspaceId: 'workspace-1', sourceDraftId: 'draft-1', sourceBaseNodeId: 'node-1', proposalFamilyId: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:00:00Z', versionNumber: 2, savedFrom: 'desktop_hypothetical_replay_review', reviewStatus: 'recorded', sourceIntent: { kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUIT', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1 }, replayBasis: { benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized', candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } } }, reviewSnapshot: { proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUIT', draft_id: 'draft-1', base_node_id: 'node-1' }, derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } }, baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUIT', target_weight: 1 }], replay: allocationBacktestPayload, warnings: [] } }
+    const latestProposal = makeSavedProposalArtifact({
+      id: 'proposal-2',
+      createdAt: '2026-04-17T00:00:00Z',
+      versionNumber: 2,
+      candidateSymbol: 'IUIT',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:00:00Z',
+    })
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])

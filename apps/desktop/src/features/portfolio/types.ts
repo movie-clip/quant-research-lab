@@ -1949,6 +1949,14 @@ export type PortfolioImprovementComparison = {
 
 export type PortfolioAllocationBacktestResponse = {
   methodology: string
+  methodology_provenance?: {
+    provenance_version: 1
+    source: 'portfolio_allocation_backtest_engine'
+    methodology_truth: 'review_only_replay_methodology'
+    assumptions_truth: 'review_only_replay_assumptions'
+    analytics_truth: 'hypothetical_replay_analytics_only'
+    review_scope: 'workspace_review_context_only'
+  }
   investor_economics_status: InvestorEconomicsStatus
   reference_result: AllocationBacktestResult | null
   candidate_result: AllocationBacktestResult
@@ -1983,6 +1991,13 @@ export type HypotheticalReplayProvenance = {
 export type HypotheticalReplacementReplayResponse = {
   proposal: {
     source: 'draft_replacement_intent'
+    proposal_source?: {
+      proposal_source_version: 1
+      proposal_source_kind: 'draft_replacement_intent_review_only'
+      proposal_truth: 'review_only_hypothetical_proposal'
+      portfolio_truth: 'draft_snapshot_not_applied'
+      review_scope: 'proposal_review_context_only'
+    }
     incumbent_symbol: string
     candidate_symbol: string
     draft_id: string
@@ -2486,6 +2501,25 @@ export type CrossSectionalResearchRecentResponse = {
 export type ConstructionArtifactReplayResponse = {
   construction_artifact_id: string
   truth_separation: ConstructionArtifactReplayTruthSeparation
+  review_basis?: {
+    basis_version: 1
+    basis_kind: 'persisted_construction_artifact_review'
+    review_scope: 'workspace_review_only'
+    canonical_source: 'typed_preview_handoff'
+    basis_provenance_label: 'artifact_backed_review_basis'
+    portfolio_truth: 'imported_portfolio_snapshot'
+    candidate_truth: 'hypothetical_construction_artifact'
+    construction_artifact_id: string
+    preview_handoff: ConstructionArtifactPreviewHandoff
+    benchmark_symbol: string | null
+    base_currency: string | null
+    replay_window: {
+      start_date: string | null
+      end_date: string | null
+    }
+    baseline_weights: AllocationBacktestWeight[]
+    candidate_weights: AllocationBacktestWeight[]
+  }
   replay_provenance: ConstructionArtifactReplayProvenance
   baseline_weights: AllocationBacktestWeight[]
   candidate_weights: AllocationBacktestWeight[]
@@ -2687,6 +2721,24 @@ export type OptimizerHandoffReplayResponse = {
   artifact_id: string
   source_portfolio_snapshot_id: string
   truth_separation: OptimizerHandoffReplayTruthSeparation
+  review_basis?: {
+    basis_version: 1
+    basis_kind: 'persisted_optimizer_handoff_review'
+    review_scope: 'workspace_review_only'
+    canonical_source: 'persisted_handoff_reference'
+    basis_provenance_label: 'artifact_backed_review_basis'
+    portfolio_truth: 'imported_portfolio_snapshot'
+    candidate_truth: 'hypothetical_optimizer_handoff'
+    handoff_reference: OptimizerPersistedArtifactReference
+    benchmark_symbol: string | null
+    base_currency: string | null
+    replay_window: {
+      start_date: string | null
+      end_date: string | null
+    }
+    baseline_weights: AllocationBacktestWeight[]
+    candidate_weights: AllocationBacktestWeight[]
+  }
   replay_provenance: OptimizerHandoffReplayProvenance
   optimizer_context?: OptimizerHandoffReplayOptimizerContext | null
   baseline_weights: AllocationBacktestWeight[]

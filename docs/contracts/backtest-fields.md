@@ -135,6 +135,9 @@ This means replay diagnostics are built from:
 
 - `POST /backtests/portfolio-allocation/construction-artifact-validation` is the canonical producer of `preview_handoff`
 - `preview_handoff` is the authoritative validation-to-preview boundary; desktop persisted open posts it verbatim to `POST /backtests/portfolio-allocation/construction-artifact-preview`
+- `constructionArtifactReplay.review_basis` is the shipped canonical persisted review-basis contract for desktop restore/open; after persistence, desktop restore must consume this artifact-backed basis block and must not reconstruct review basis from loose replay fields or local defaults
+- `constructionArtifactReplay.review_basis.preview_handoff` is the canonical typed handoff payload carried into persisted review state; missing, malformed, mismatched, or unsupported review-basis identity fails closed
+- `constructionArtifactReplay.replay.methodology_provenance` is shipped additive review-context provenance for methodology, assumptions, and analytics text; it remains descriptive only and does not change replay math
 - the preview route may accept the legacy request shape for compatibility, but handoff-shaped payloads must be complete, supported handoffs and mixed handoff-plus-legacy payloads are rejected
 - handoff consumption fails closed on missing or unsupported `handoff_kind` and on persisted artifact integrity mismatches, including construction artifact id mismatch
 - `POST /backtests/portfolio-allocation/construction-artifact-preview` echoes lineage from the persisted construction artifact
@@ -158,7 +161,10 @@ This means replay diagnostics are built from:
 - `POST /backtests/portfolio-allocation/optimizer-handoff-preview` consumes that explicit persisted reference only
 - `POST /backtests/portfolio-allocation/optimizer-handoff/constraints` remains validation/preflight only; it does not open replay by itself
 - desktop persisted review writes persist `handoffReference` as the only reopen identity object, and any repair of older cache rows is load-only
+- `optimizerHandoffReplay.review_basis` is the shipped canonical persisted review-basis contract for desktop restore/open; after persistence, desktop restore must consume this artifact-backed basis block and must not rebuild review basis from replay result fields or validation payloads
+- `optimizerHandoffReplay.review_basis.handoff_reference` is the canonical persisted reopen identity echoed inside the replay payload and must match replay `handoff_id` and `artifact_id`
 - optimizer handoff replay carries persisted `return_basis_attestation` and `replay_output_policy`
+- optimizer handoff replay also carries additive `replay.methodology_provenance` so review surfaces keep explicit methodological provenance without changing analytics semantics
 - benchmark-relative replay fields may be suppressed from the top-level replay payload when attested trust is narrower than the computed engine surface
 
 ## Key Methodology Notes
@@ -189,6 +195,8 @@ Implementation:
 
 - `hypotheticalReplayResult.derivation`
   - authoritative derivation metadata, including the actual construction rule consumed by replay
+- `hypotheticalReplayResult.proposal.proposal_source`
+  - additive shipped proposal-source label describing review-only proposal truth, draft portfolio non-application, and proposal review scope; saved proposal artifacts persist the same semantics in top-level desktop storage as `proposalSource`
 - `hypotheticalReplayResult.replay_provenance`
   - authoritative lineage block for direct preview vs constructed-candidate replay, upstream lineage, ranking seed lineage, and echoed validation lineage
 - `hypotheticalReplayResult.baseline_weights` / `candidate_weights`
@@ -318,3 +326,4 @@ For replay responses, these rules apply:
 5. Replacement-intent replay, construction-artifact replay, and optimizer-handoff replay all require backend-owned candidate weights and explicit provenance.
 6. Persisted artifact lineage must be echoed, not reconstructed heuristically in the UI.
 7. `withheld` is distinct from `unavailable`; when investor-economics output is withheld, comparative views from that basis must stay suppressed or `null`.
+8. Persisted construction and optimizer review restore is artifact-backed only: canonical `review_basis` or typed handoff identity is authoritative after persistence, and missing or ambiguous persisted review-basis state fails closed.

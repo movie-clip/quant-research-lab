@@ -233,10 +233,19 @@ class ConstructionArtifactReplayEffectiveParams(BaseModel):
 
 class HypotheticalReplayProposal(BaseModel):
     source: Literal["draft_replacement_intent"]
+    proposal_source: "HypotheticalReplayProposalSource" = Field(default_factory=lambda: HypotheticalReplayProposalSource())
     incumbent_symbol: str
     candidate_symbol: str
     draft_id: str
     base_node_id: str
+
+
+class HypotheticalReplayProposalSource(BaseModel):
+    proposal_source_version: Literal[1] = 1
+    proposal_source_kind: Literal["draft_replacement_intent_review_only"] = "draft_replacement_intent_review_only"
+    proposal_truth: Literal["review_only_hypothetical_proposal"] = "review_only_hypothetical_proposal"
+    portfolio_truth: Literal["draft_snapshot_not_applied"] = "draft_snapshot_not_applied"
+    review_scope: Literal["proposal_review_context_only"] = "proposal_review_context_only"
 
 
 class HypotheticalReplayDerivation(BaseModel):
@@ -454,6 +463,7 @@ class PortfolioImprovementComparison(BaseModel):
 
 class PortfolioAllocationBacktestResponse(BaseModel):
     methodology: str
+    methodology_provenance: "ReplayMethodologyProvenance" = Field(default_factory=lambda: ReplayMethodologyProvenance())
     investor_economics_status: InvestorEconomicsStatus
     reference_result: AllocationBacktestResult | None = None
     candidate_result: AllocationBacktestResult
@@ -461,6 +471,15 @@ class PortfolioAllocationBacktestResponse(BaseModel):
     reference_diagnostics: PortfolioDiagnosticsSnapshot | None = None
     candidate_diagnostics: PortfolioDiagnosticsSnapshot | None = None
     diagnostics_comparison: PortfolioImprovementComparison | None = None
+
+
+class ReplayMethodologyProvenance(BaseModel):
+    provenance_version: Literal[1] = 1
+    source: Literal["portfolio_allocation_backtest_engine"] = "portfolio_allocation_backtest_engine"
+    methodology_truth: Literal["review_only_replay_methodology"] = "review_only_replay_methodology"
+    assumptions_truth: Literal["review_only_replay_assumptions"] = "review_only_replay_assumptions"
+    analytics_truth: Literal["hypothetical_replay_analytics_only"] = "hypothetical_replay_analytics_only"
+    review_scope: Literal["workspace_review_context_only"] = "workspace_review_context_only"
 
 
 class HypotheticalReplacementReplayResponse(BaseModel):
@@ -518,11 +537,20 @@ class ConstructionArtifactReplayProvenance(BaseModel):
 class ConstructionArtifactReplayResponse(BaseModel):
     construction_artifact_id: str
     truth_separation: ConstructionArtifactReplayTruthSeparation = Field(default_factory=ConstructionArtifactReplayTruthSeparation)
+    review_basis: "ConstructionArtifactWorkspaceReviewBasis"
     replay_provenance: ConstructionArtifactReplayProvenance
     baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     effective_replay_params: ConstructionArtifactReplayEffectiveParams
     replay: PortfolioAllocationBacktestResponse
+
+    @model_validator(mode="after")
+    def _validate_review_basis_identity(self) -> "ConstructionArtifactReplayResponse":
+        if self.review_basis.construction_artifact_id != self.construction_artifact_id:
+            raise ValueError("review_basis.construction_artifact_id must match construction_artifact_id")
+        if self.review_basis.preview_handoff.effective_replay_params != self.effective_replay_params:
+            raise ValueError("review_basis.preview_handoff.effective_replay_params must match effective_replay_params")
+        return self
 
 
 class ConstructionArtifactPreviewHandoff(BaseModel):
@@ -531,6 +559,34 @@ class ConstructionArtifactPreviewHandoff(BaseModel):
     handoff_kind: Literal["construction_artifact_preview_handoff_v1"] = "construction_artifact_preview_handoff_v1"
     construction_artifact_id: str
     effective_replay_params: ConstructionArtifactReplayEffectiveParams
+
+
+class WorkspaceReviewWindow(BaseModel):
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class ConstructionArtifactWorkspaceReviewBasis(BaseModel):
+    basis_version: Literal[1] = 1
+    basis_kind: Literal["persisted_construction_artifact_review"] = "persisted_construction_artifact_review"
+    review_scope: Literal["workspace_review_only"] = "workspace_review_only"
+    canonical_source: Literal["typed_preview_handoff"] = "typed_preview_handoff"
+    basis_provenance_label: Literal["artifact_backed_review_basis"] = "artifact_backed_review_basis"
+    portfolio_truth: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    candidate_truth: Literal["hypothetical_construction_artifact"] = "hypothetical_construction_artifact"
+    construction_artifact_id: str
+    preview_handoff: ConstructionArtifactPreviewHandoff
+    benchmark_symbol: str | None = None
+    base_currency: str | None = None
+    replay_window: WorkspaceReviewWindow
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _validate_preview_handoff_identity(self) -> "ConstructionArtifactWorkspaceReviewBasis":
+        if self.preview_handoff.construction_artifact_id != self.construction_artifact_id:
+            raise ValueError("review_basis.preview_handoff.construction_artifact_id must match construction_artifact_id")
+        return self
 
 
 class ConstructionArtifactReplayValidationResponse(BaseModel):
@@ -746,16 +802,41 @@ class OptimizerHandoffReplayRequest(BaseModel):
     symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
 
 
+class OptimizerHandoffWorkspaceReviewBasis(BaseModel):
+    basis_version: Literal[1] = 1
+    basis_kind: Literal["persisted_optimizer_handoff_review"] = "persisted_optimizer_handoff_review"
+    review_scope: Literal["workspace_review_only"] = "workspace_review_only"
+    canonical_source: Literal["persisted_handoff_reference"] = "persisted_handoff_reference"
+    basis_provenance_label: Literal["artifact_backed_review_basis"] = "artifact_backed_review_basis"
+    portfolio_truth: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    candidate_truth: Literal["hypothetical_optimizer_handoff"] = "hypothetical_optimizer_handoff"
+    handoff_reference: OptimizerPersistedArtifactReference
+    benchmark_symbol: str | None = None
+    base_currency: str | None = None
+    replay_window: "WorkspaceReviewWindow"
+    baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+    candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
+
+
 class OptimizerHandoffReplayResponse(BaseModel):
     handoff_id: str
     artifact_id: str = Field(deprecated=True)
     source_portfolio_snapshot_id: str
     truth_separation: OptimizerHandoffReplayTruthSeparation = Field(default_factory=OptimizerHandoffReplayTruthSeparation)
+    review_basis: OptimizerHandoffWorkspaceReviewBasis
     replay_provenance: OptimizerHandoffReplayProvenance
     optimizer_context: OptimizerHandoffReplayOptimizerContext | None = None
     baseline_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     replay: PortfolioAllocationBacktestResponse
+
+    @model_validator(mode="after")
+    def _validate_review_basis_identity(self) -> "OptimizerHandoffReplayResponse":
+        if self.review_basis.handoff_reference.handoff_id != self.handoff_id:
+            raise ValueError("review_basis.handoff_reference.handoff_id must match handoff_id")
+        if self.review_basis.handoff_reference.artifact_id != self.artifact_id:
+            raise ValueError("review_basis.handoff_reference.artifact_id must match artifact_id")
+        return self
 
 
 class OverlayStateInput(BaseModel):
