@@ -1,30 +1,19 @@
-from pathlib import Path
-
-import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.tests._statement_fixtures import (
+    FREEDOM24_PATH as FREEDOM24_FIXTURE_PATH,
+    STATEMENT_2025_PATH as STATEMENT_2025_FIXTURE_PATH,
+    STATEMENT_2026_PATH as STATEMENT_2026_FIXTURE_PATH,
+)
 
 
-statement_path = Path(r"C:\projects\investments\portfolio\docs\2025.pdf")
-if not statement_path.exists():
-    statement_path = Path(r"C:\projects\investments\portfolio\docs\IB2025.pdf")
-STATEMENT_PATH = str(statement_path)
-statement_2026_path = Path(r"C:\projects\investments\portfolio\docs\2026.pdf")
-if not statement_2026_path.exists():
-    statement_2026_path = Path(r"C:\projects\investments\portfolio\docs\IB2026.pdf")
-STATEMENT_2026_PATH = str(statement_2026_path)
-FREEDOM24_PATH = str(Path(r"C:\projects\investments\portfolio\docs\FF2026.pdf"))
-
-
-def _require_path(path: str) -> None:
-    if not Path(path).exists():
-        pytest.skip(f"Missing local test fixture: {path}")
+STATEMENT_PATH = str(STATEMENT_2025_FIXTURE_PATH)
+STATEMENT_2026_PATH = str(STATEMENT_2026_FIXTURE_PATH)
+FREEDOM24_PATH = str(FREEDOM24_FIXTURE_PATH)
 
 
 def test_analyze_route_returns_bootstrap_payload(mocker) -> None:
-    _require_path(STATEMENT_PATH)
-
     client = TestClient(app)
     response = client.post(
         "/portfolios/import/interactive-brokers/analyze",
@@ -38,8 +27,6 @@ def test_analyze_route_returns_bootstrap_payload(mocker) -> None:
 
 
 def test_analyze_route_returns_bootstrap_payload_for_freedom24(mocker) -> None:
-    _require_path(FREEDOM24_PATH)
-
     client = TestClient(app)
     response = client.post(
         "/portfolios/import/interactive-brokers/analyze",
@@ -53,9 +40,6 @@ def test_analyze_route_returns_bootstrap_payload_for_freedom24(mocker) -> None:
 
 
 def test_analyze_route_returns_bootstrap_payload_for_multiple_statement_paths(mocker) -> None:
-    _require_path(STATEMENT_PATH)
-    _require_path(STATEMENT_2026_PATH)
-
     client = TestClient(app)
     response = client.post(
         "/portfolios/import/interactive-brokers/analyze",

@@ -12,6 +12,7 @@ Current supported workflow states:
 - explicit replacement intent per draft
 - hypothetical replay preview from replacement intent
 - immutable versioned proposal artifact saved from reviewed hypothetical replay
+- immutable persisted review-snapshot artifact backing saved proposal reopen and comparison
 - saved proposal review/readout rendered from proposal artifact data only
 
 These are review artifacts, not portfolio truth.
@@ -171,16 +172,33 @@ Rules:
 
 Saved proposal review/readout rules:
 - desktop may render a proposal-specific review surface from the saved artifact alone
+- persisted review-snapshot artifact is the authoritative downstream input for reopen and comparison; desktop stores the immutable artifact id alongside the saved proposal and must not reconstruct canonical comparison input from loose proposal fields
+- new writes also persist canonical top-level `proposalCapture` copied from the authoritative review-snapshot artifact boundary; desktop reopen/readout uses that typed capture plus persisted artifact identity rather than rebuilding canonical proposal input from live draft, imported portfolio, or synthetic holdings state
 - that readout must not depend on active draft state, active replacement intent state, or live replay cache state
-- the readout should emphasize artifact identity, lineage, replay basis, compact replay summary, diagnostics delta summary, and explicit non-applied status
+- the readout should emphasize artifact identity, lineage, replay basis, canonical persisted backend `pm_summary`, compact replay summary, diagnostics delta summary, and explicit non-applied status
 - the readout remains review support only and must not imply approval, recommendation, or applied portfolio truth
-- saved proposal artifacts now also persist explicit top-level `proposalSource` review labels copied from backend `proposal.proposal_source`; desktop readout should prefer this persisted label and may fall back to the nested review snapshot only for compatibility with older local artifacts
+- saved proposal artifacts persist explicit top-level `proposalSource` review labels copied from backend `proposal.proposal_source`; that top-level field is authoritative for saved-artifact restore and readout, any present nested `reviewSnapshot.proposal.proposal_source` must also be valid and exactly equal to the top-level value, and desktop may derive the same canonical review-only label in memory only for the exact documented legacy local-artifact dual-omission case where both persisted locations are absent and lineage still matches the shipped draft-replacement-intent save shape
+- new writes must also persist canonical `reviewSnapshotArtifactId`; older local saved proposals may omit it only at the documented desktop load boundary, and present malformed, missing, mismatched, or contradictory review-snapshot ids fail closed
+- new writes must also persist canonical `proposalCapture.open_handoff`; older local saved proposals may load only through the documented load-boundary compatibility path, and present malformed, missing, mismatched, or contradictory capture handoffs or capture lineage fail closed
+- new writes must also persist a local `reviewSnapshotPMSummary` mirror that exactly matches persisted artifact `pm_summary`; once the review-snapshot artifact exists, persisted `pm_summary` is the sole authoritative PM summary input for desktop reopen/readout/comparison, and the local mirror may only mirror it, never override, repair, or reconstruct it
+- desktop restore/open validation remains distinct from reopen/readout hydration: validation must reject missing local summary mirrors, malformed summary mirrors, unsupported summary versions or roles, and any local-vs-persisted `pm_summary` mismatch before hydrate/open proceeds
+
+Saved proposal comparison rules:
+- comparison is read-only and artifact-backed only
+- proposal-family PM review is read-only and artifact-backed only, keyed by persisted review-snapshot lineage plus `proposal_family_id`
+- family review lists only saved same-family persisted siblings and never backfills missing/withheld families through draft state, live replay, or imported portfolio state
+- open/compare may consume either persisted review-snapshot artifact ids or typed review-snapshot handoff objects directly
+- comparison must assign explicit `baseline` and `candidate` roles
+- comparison selection is exactly two distinct sibling artifacts from the same persisted family slice
+- comparison must surface provenance, benchmark separation, methodology, assumptions, and baseline/candidate canonical PM summary envelopes only from the persisted review-snapshot artifacts
+- comparison is compatible only when `proposal_family_id`, persisted lineage family keys, replay type, replay window, benchmark symbol, derivation basis, and replay assumptions align exactly; incompatible pairs fail closed
+- desktop must not rebuild comparison from draft state, live replay cache state, or synthetic imported snapshot data when a persisted review snapshot is missing or invalid
 
 Integrity rules:
 - saved proposal artifacts must fail on provable internal contradictions between `replayBasis` lineage and `reviewSnapshot` replay lineage
 - active thesis artifacts must not bypass those saved-proposal integrity checks when promoted, persisted, or restored
 - contradictory immutable artifacts must fail deterministically rather than being auto-repaired or silently normalized
-- current save/restore integrity remains additive: new writes should carry canonical proposal-source labels, while older saved proposal artifacts may load without them until migrated or re-saved
+- current save/restore integrity remains additive: new writes must carry canonical top-level proposal-source labels, while older saved proposal artifacts may load without them only via the documented dual-omission load-boundary hydration; present malformed, partial, omitted-top-level, mismatched, or contradictory proposal-source values still fail closed and persisted artifacts are not rewritten in storage
 
 Explicit rejection conditions for MVP:
 - no replacement intent

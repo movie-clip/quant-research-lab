@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createFf2026DiagnosticsEngineFixture, createFf2026ExposureEngineFixture, createIb2026DiagnosticsEngineFixture, createIb2026ExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../test/portfolioFixtures'
 import {
@@ -12,7 +12,7 @@ import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
 import type { ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
-import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
 const diagnosticsPayload = createDiagnosticsEngineFixture()
@@ -41,8 +41,165 @@ function requestMethod(input: RequestInfo | URL, init?: RequestInit) {
   return 'GET'
 }
 
+function requestJsonBody(init?: RequestInit) {
+  return JSON.parse(typeof init?.body === 'string' ? init.body : String(init?.body ?? '{}'))
+}
+
+function matchingFetchCalls(fetchMock: ReturnType<typeof vi.fn>, pathname: string, method?: string) {
+  return fetchMock.mock.calls.filter(([input, init]) => requestPathname(input as RequestInfo | URL) === pathname
+    && (method == null || requestMethod(input as RequestInfo | URL, init) === method.toUpperCase()))
+}
+
 function installFetchMock(handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>) {
-  return vi.stubGlobal('fetch', vi.fn(handler))
+  const fetchMock = vi.fn(handler)
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function installWorkspaceReviewFetchMock(reviewSnapshotArtifact?: ReviewSnapshotArtifact) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const pathname = requestPathname(input)
+    const method = requestMethod(input, init)
+    if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+    if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+    if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+    if (reviewSnapshotArtifact && pathname === '/api/backtests/review-snapshots' && method === 'POST') return jsonResponse(reviewSnapshotArtifact)
+    throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function makeReviewSnapshotFamilyReviewResponse(anchorProposal: VersionedProposalArtifact, siblings: VersionedProposalArtifact[]) {
+  return {
+    review_kind: 'review_snapshot_family_review',
+    family_key: {
+      workspace_id: anchorProposal.workspaceId,
+      source_draft_id: anchorProposal.sourceDraftId,
+      source_base_node_id: anchorProposal.sourceBaseNodeId,
+      proposal_family_id: anchorProposal.proposalFamilyId,
+      source_kind: 'hypothetical_replacement_replay',
+    },
+    provenance: 'persisted_review_snapshot_artifacts_only',
+    compare_selection_policy: 'exactly_two_distinct_family_siblings',
+    anchor: {
+      identity: {
+        artifact_id: anchorProposal.reviewSnapshotArtifactId,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        fingerprint: `fingerprint-${anchorProposal.versionNumber}`,
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      open_handoff: anchorProposal.proposalCapture.open_handoff,
+      lineage: anchorProposal.proposalCapture.lineage,
+      pm_summary: anchorProposal.reviewSnapshotPMSummary,
+      comparison_eligibility: {
+        eligible: siblings.length > 1,
+        reason: siblings.length > 1 ? 'compatible_family_sibling_available' : 'no_compatible_family_sibling',
+        compatible_sibling_artifact_ids: siblings
+          .filter((proposal) => proposal.reviewSnapshotArtifactId !== anchorProposal.reviewSnapshotArtifactId)
+          .map((proposal) => proposal.reviewSnapshotArtifactId),
+      },
+    },
+    siblings: siblings.map((proposal) => ({
+      identity: {
+        artifact_id: proposal.reviewSnapshotArtifactId,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        fingerprint: `fingerprint-${proposal.versionNumber}`,
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      open_handoff: proposal.proposalCapture.open_handoff,
+      lineage: proposal.proposalCapture.lineage,
+      pm_summary: proposal.reviewSnapshotPMSummary,
+      comparison_eligibility: {
+        eligible: siblings.length > 1,
+        reason: siblings.length > 1 ? 'compatible_family_sibling_available' : 'no_compatible_family_sibling',
+        compatible_sibling_artifact_ids: siblings
+          .filter((item) => item.reviewSnapshotArtifactId !== proposal.reviewSnapshotArtifactId)
+          .map((item) => item.reviewSnapshotArtifactId),
+      },
+    })),
+  }
+}
+
+function makeReviewSnapshotFamilyInboxResponse(proposals: VersionedProposalArtifact[]) {
+  const latestByFamily = new Map<string, VersionedProposalArtifact[]>()
+  proposals.forEach((proposal) => {
+    const current = latestByFamily.get(proposal.proposalFamilyId) ?? []
+    latestByFamily.set(proposal.proposalFamilyId, [...current, proposal])
+  })
+  const rows = [...latestByFamily.values()]
+    .map((familyProposals) => [...familyProposals].sort((left, right) => right.versionNumber - left.versionNumber || new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()))
+    .sort((left, right) => new Date(right[0]!.createdAt).getTime() - new Date(left[0]!.createdAt).getTime())
+    .map((familyProposals) => {
+      const latest = familyProposals[0]!
+      return {
+        family_key: {
+          workspace_id: latest.workspaceId,
+          source_draft_id: latest.sourceDraftId,
+          source_base_node_id: latest.sourceBaseNodeId,
+          proposal_family_id: latest.proposalFamilyId,
+          source_kind: 'hypothetical_replacement_replay',
+        },
+        latest_identity: {
+          artifact_id: latest.reviewSnapshotArtifactId,
+          artifact_kind: 'portfolio_review_snapshot',
+          schema_version: 'review_snapshot_artifact_v1',
+          fingerprint: `fingerprint-${latest.versionNumber}`,
+          consumer_kind: 'saved_hypothetical_replay_proposal',
+        },
+        lineage: latest.proposalCapture.lineage,
+        proposal_capture: latest.proposalCapture,
+        pm_summary: latest.reviewSnapshotPMSummary,
+        sibling_count: familyProposals.length,
+        compare_readiness: {
+          ready: familyProposals.length > 1,
+          reason: familyProposals.length > 1 ? 'compatible_family_pair_available' : 'no_compatible_family_pair',
+          compatible_pair_count: familyProposals.length > 1 ? 1 : 0,
+        },
+        latest_saved_at: latest.createdAt,
+        latest_order_provenance: 'persisted_artifact_file_mtime',
+      }
+    })
+  return {
+    inbox_kind: 'review_snapshot_family_inbox',
+    workspace_id: proposals[0]?.workspaceId ?? 'workspace-1',
+    provenance: 'persisted_review_snapshot_artifacts_only',
+    rows,
+  }
+}
+
+function installSavedProposalWorkspaceFetchMock({
+  familyInboxPayload,
+  familyReviewPayloads,
+  openPayloads = {},
+}: {
+  familyInboxPayload: unknown
+  familyReviewPayloads: Record<string, unknown>
+  openPayloads?: Record<string, unknown>
+}) {
+  return installFetchMock(async (input, init) => {
+    const pathname = requestPathname(input)
+    const method = requestMethod(input, init)
+    if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+    if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+    if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+    if (pathname === '/api/backtests/review-snapshots/family-inbox' && method === 'POST') {
+      return jsonResponse(familyInboxPayload)
+    }
+    if (pathname === '/api/backtests/review-snapshots/family-review' && method === 'POST') {
+      const artifactId = requestJsonBody(init).handoff?.artifact_id
+      const payload = artifactId ? familyReviewPayloads[artifactId] : undefined
+      if (payload) return jsonResponse(payload)
+    }
+    if (pathname === '/api/backtests/review-snapshots/open' && method === 'POST') {
+      const artifactId = requestJsonBody(init).artifact_id
+      const payload = artifactId ? openPayloads[artifactId] : undefined
+      if (payload) return jsonResponse(payload)
+    }
+    throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+  })
 }
 
 function cloneMutable<T>(value: unknown): T {
@@ -338,6 +495,7 @@ function buildArtifactReviewSource(constructionArtifactId: string, openedAt: str
       portfolioTruth: 'imported_portfolio_snapshot' as const,
       candidateTruth: 'hypothetical_construction_artifact' as const,
       constructionArtifactId,
+      previewHandoff: makeConstructionArtifactReplayValidationResponse().preview_handoff,
       openedAt,
       benchmarkSymbol: 'SPY',
       baseCurrency: 'USD',
@@ -710,6 +868,24 @@ function makeOptimizerHandoffValidationResponse(overrides: Partial<OptimizerHand
       start_date: '2024-01-01',
       end_date: '2024-12-31',
     },
+    replay_handoff: {
+      handoff_kind: 'optimizer_handoff_replay_handoff_v1',
+      handoff_reference: makeOptimizerHandoffReference(),
+      effective_replay_params: {
+        start_date: '2024-01-01',
+        end_date: '2024-12-31',
+        initial_capital: 100000,
+        rebalance_frequency: 'monthly',
+        base_currency: 'USD',
+        commission_bps: 0,
+        slippage_bps: 0,
+        drift_tolerance_pct: null,
+        price_basis: 'adjusted_close',
+        execution_price_field: 'close',
+        execution_lag_days: 1,
+        symbol_overrides: {},
+      },
+    },
     provenance: {
       source: 'optimizer_handoff_reference',
       benchmark_id: 'benchmark_spy_demo_v1',
@@ -946,6 +1122,7 @@ function makeSavedProposalArtifact(input?: {
   versionNumber?: number
   candidateSymbol?: string
   proposalFamilyId?: string
+  reviewSnapshotArtifactId?: string
 }): VersionedProposalArtifact {
   const candidateSymbol = input?.candidateSymbol ?? 'IUFS'
   const createdAt = input?.createdAt ?? '2026-04-16T00:00:00Z'
@@ -960,7 +1137,7 @@ function makeSavedProposalArtifact(input?: {
     },
   }
 
-  return {
+  const proposal = {
     id: input?.id ?? `proposal-${versionNumber}`,
     kind: 'single_replacement_hypothetical_replay_proposal',
     schemaVersion: 1,
@@ -976,6 +1153,44 @@ function makeSavedProposalArtifact(input?: {
       ...makeReplacementIntent(),
       candidateSymbol,
     },
+    proposalCapture: {
+      capture_version: 1,
+      capture_kind: 'workspace_review_saved_proposal',
+      open_handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: input?.reviewSnapshotArtifactId ?? `review_snapshot_${versionNumber}`,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      lineage: {
+        workspace_id: 'workspace-1',
+        source_draft_id: 'draft-1',
+        source_base_node_id: 'node-1',
+        proposal_family_id: input?.proposalFamilyId ?? `etf_replacement_intent:AAPL:${candidateSymbol}:${createdAt}`,
+        proposal_id: input?.id ?? `proposal-${versionNumber}`,
+        version_number: versionNumber,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+      proposal: {
+        source: reviewSnapshot.proposal.source,
+        proposal_source: reviewSnapshot.proposal.proposal_source!,
+        incumbent_symbol: reviewSnapshot.proposal.incumbent_symbol,
+        candidate_symbol: reviewSnapshot.proposal.candidate_symbol,
+      },
+      replay_type: 'replay' in reviewSnapshot ? 'standard' : 'overlay_aware',
+      replay_provenance: cloneMutable(reviewSnapshot.replay_provenance),
+      review_basis: {
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        benchmark_symbol: 'SPY',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        rebalance_frequency: 'monthly',
+        commission_bps: 0,
+        slippage_bps: 0,
+        derivation_basis: 'draft_snapshot_positions_normalized',
+        candidate_construction_rule: 'same_weight_substitution_v1',
+      },
+    },
     proposalSource: {
       proposalSourceVersion: 1,
       proposalSourceKind: 'draft_replacement_intent_review_only',
@@ -983,6 +1198,7 @@ function makeSavedProposalArtifact(input?: {
       portfolioTruth: 'draft_snapshot_not_applied',
       reviewScope: 'proposal_review_context_only',
     },
+    reviewSnapshotArtifactId: input?.reviewSnapshotArtifactId ?? `review_snapshot_${versionNumber}`,
     replayBasis: {
       benchmarkSymbol: 'SPY',
       startDate: '2024-01-01',
@@ -995,6 +1211,169 @@ function makeSavedProposalArtifact(input?: {
       replayProvenance: cloneMutable(makeHypotheticalReplay().replay_provenance),
     },
     reviewSnapshot,
+  } as VersionedProposalArtifact
+
+  return {
+    ...proposal,
+    reviewSnapshotPMSummary: makeReviewSnapshotArtifactFromProposal(proposal).pm_summary,
+  }
+}
+
+function makeReviewSnapshotArtifactFromProposal(proposal: VersionedProposalArtifact): ReviewSnapshotArtifact {
+  return {
+    identity: {
+      artifact_id: proposal.reviewSnapshotArtifactId!,
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      fingerprint: 'f'.repeat(64),
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    },
+    lineage: {
+      workspace_id: proposal.workspaceId,
+      source_draft_id: proposal.sourceDraftId,
+      source_base_node_id: proposal.sourceBaseNodeId,
+      proposal_family_id: proposal.proposalFamilyId,
+      proposal_id: proposal.id,
+      version_number: proposal.versionNumber,
+      source_kind: 'hypothetical_replacement_replay',
+    },
+    review_basis: {
+      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+      start_date: proposal.replayBasis.startDate,
+      end_date: proposal.replayBasis.endDate,
+      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+      commission_bps: proposal.replayBasis.commissionBps,
+      slippage_bps: proposal.replayBasis.slippageBps,
+      derivation_basis: proposal.replayBasis.derivationBasis,
+      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+      replay_provenance: proposal.replayBasis.replayProvenance,
+    },
+    truth_labels: {
+      proposal_truth: 'review_only_hypothetical_proposal',
+      portfolio_truth: 'draft_snapshot_not_applied',
+      analytics_truth: 'hypothetical_replay_analytics_only',
+      review_scope: 'proposal_review_context_only',
+    },
+    compact_summary: {
+      replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware',
+      replay_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.status,
+      investor_economics_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).investor_economics_status,
+      candidate_analytics: {
+        methodology: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology,
+        methodology_provenance: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology_provenance,
+        assumptions: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.assumptions,
+        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+        benchmark_return_pct: 1,
+        total_return_pct: 1,
+        annualized_return_pct: 1,
+        annualized_volatility_pct: 1,
+        downside_volatility_pct: 1,
+        max_drawdown_pct: -1,
+        sharpe_ratio: 1,
+        sortino_ratio: 1,
+        excess_return_pct: 0,
+        tracking_error_pct: 1,
+        information_ratio: 0,
+        beta_vs_benchmark: 1,
+        correlation_vs_benchmark: 1,
+        total_turnover_pct: 0,
+        total_cost_paid: 0,
+      },
+      baseline_analytics: null,
+      analytics_comparison: null,
+      diagnostics_summary: {
+        diagnostics_available: false,
+        top_factor_exposure_change: null,
+        top_volatility_change: null,
+        top_risk_contribution_change: null,
+        top_concentration_change: null,
+        top_stress_scenario_change: null,
+      },
+    },
+    proposal_capture: proposal.proposalCapture,
+    pm_summary: {
+      pm_summary_version: 1,
+      role: 'saved_proposal',
+      provenance: {
+        source: 'persisted_review_snapshot_artifact',
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+        lineage: {
+          workspace_id: proposal.workspaceId,
+          source_draft_id: proposal.sourceDraftId,
+          source_base_node_id: proposal.sourceBaseNodeId,
+          proposal_family_id: proposal.proposalFamilyId,
+          proposal_id: proposal.id,
+          version_number: proposal.versionNumber,
+          source_kind: 'hypothetical_replacement_replay',
+        },
+        proposal_source: proposal.reviewSnapshot.proposal.proposal_source!,
+        replay_provenance: proposal.replayBasis.replayProvenance,
+      },
+      truth_labels: {
+        proposal_truth: 'review_only_hypothetical_proposal',
+        portfolio_truth: 'draft_snapshot_not_applied',
+        analytics_truth: 'hypothetical_replay_analytics_only',
+        review_scope: 'proposal_review_context_only',
+      },
+      replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware',
+      replay_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.status,
+      investor_economics_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).investor_economics_status,
+      review_basis: {
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+        replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
+        rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+        commission_bps: proposal.replayBasis.commissionBps,
+        slippage_bps: proposal.replayBasis.slippageBps,
+        derivation_basis: proposal.replayBasis.derivationBasis,
+        candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+      },
+      methodology: {
+        methodology: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology,
+        methodology_provenance: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology_provenance,
+      },
+      assumptions: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.assumptions,
+      analytics_summary: {
+        candidate_analytics: {
+          methodology: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology,
+          methodology_provenance: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology_provenance,
+          assumptions: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.assumptions,
+          benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+          benchmark_return_pct: 1,
+          total_return_pct: 1,
+          annualized_return_pct: 1,
+          annualized_volatility_pct: 1,
+          downside_volatility_pct: 1,
+          max_drawdown_pct: -1,
+          sharpe_ratio: 1,
+          sortino_ratio: 1,
+          excess_return_pct: 0,
+          tracking_error_pct: 1,
+          information_ratio: 0,
+          beta_vs_benchmark: 1,
+          correlation_vs_benchmark: 1,
+          total_turnover_pct: 0,
+          total_cost_paid: 0,
+        },
+        baseline_analytics: null,
+        analytics_comparison: null,
+      },
+      diagnostics_summary: {
+        diagnostics_available: false,
+        top_factor_exposure_change: null,
+        top_volatility_change: null,
+        top_risk_contribution_change: null,
+        top_concentration_change: null,
+        top_stress_scenario_change: null,
+      },
+    },
+    source_payload: {
+      replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware',
+      replay: 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot : null,
+      overlay_replay: 'overlay_replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot : null,
+    },
   }
 }
 
@@ -1339,6 +1718,10 @@ afterEach(() => {
 })
 
 describe('App', () => {
+  beforeEach(() => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([])
+  })
+
   it('adds a new imported snapshot node from Dashboard Add Statement', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     const importedWorkspace = mockImportedWorkspace()
@@ -1845,7 +2228,13 @@ describe('App', () => {
       artifactReviewBasis: {
         basisVersion: 1 as const,
         basisKind: 'persisted_construction_artifact_review' as const,
+        reviewScope: 'workspace_review_only' as const,
+        canonicalSource: 'typed_preview_handoff' as const,
+        basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+        portfolioTruth: 'imported_portfolio_snapshot' as const,
+        candidateTruth: 'hypothetical_construction_artifact' as const,
         constructionArtifactId: 'artifact-123',
+        previewHandoff: makeConstructionArtifactReplayValidationResponse().preview_handoff,
         openedAt: '2026-04-23T00:00:00Z',
         benchmarkSymbol: 'SPY',
         baseCurrency: 'USD',
@@ -1928,8 +2317,63 @@ describe('App', () => {
       await waitFor(() => expect(screen.getByTestId('persisted-construction-artifact-banner')).toBeTruthy())
       expect(requestPathname(fetchMock.mock.calls[0]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/optimizer-handoff/constraints')
       expect(requestPathname(fetchMock.mock.calls[1]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/optimizer-handoff-preview')
+      expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body ?? '{}'))).toEqual(makeOptimizerHandoffValidationResponse().replay_handoff)
       expect(screen.getByText('Review basis: optimizer_handoff_123')).toBeTruthy()
       expect(screen.getByText('This workspace reopens a hypothetical artifact-backed optimizer review by persisted handoff reference while keeping replay review surfaces intact.')).toBeTruthy()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted optimizer handoff open when validation replay handoff is missing', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse({ replay_handoff: undefined }))))
+
+      render(<App />)
+
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation response missing replay handoff')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
+  it('stops persisted optimizer handoff open when validation replay handoff reference mismatches query reference', async () => {
+    const originalLocation = globalThis.location
+    const handoffReference = makeOptimizerHandoffReference()
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: `?optimizer_handoff_reference=${encodeURIComponent(JSON.stringify(handoffReference))}` },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedOptimizerHandoff')
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse(makeOptimizerHandoffValidationResponse({
+        replay_handoff: {
+          ...makeOptimizerHandoffValidationResponse().replay_handoff!,
+          handoff_reference: {
+            ...handoffReference,
+            artifact_id: 'optimizer_artifact_other',
+          },
+        },
+      }))))
+
+      render(<App />)
+
+      fireEvent.click(screen.getByText('Dashboard'))
+      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: replay handoff reference mismatch')).toBeTruthy())
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
     }
@@ -2365,12 +2809,18 @@ describe('App', () => {
       createdAt: '2026-04-23T00:00:00Z',
       changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
       portfolioSnapshot: null,
-      artifactReviewBasis: {
-        basisVersion: 1 as const,
-        basisKind: 'persisted_construction_artifact_review' as const,
-        constructionArtifactId: 'artifact-123',
-        openedAt: '2026-04-23T00:00:00Z',
-        benchmarkSymbol: 'SPY',
+        artifactReviewBasis: {
+          basisVersion: 1 as const,
+          basisKind: 'persisted_construction_artifact_review' as const,
+          reviewScope: 'workspace_review_only' as const,
+          canonicalSource: 'typed_preview_handoff' as const,
+          basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+          portfolioTruth: 'imported_portfolio_snapshot' as const,
+          candidateTruth: 'hypothetical_construction_artifact' as const,
+          constructionArtifactId: 'artifact-123',
+          previewHandoff: makeConstructionArtifactReplayValidationResponse().preview_handoff,
+          openedAt: '2026-04-23T00:00:00Z',
+          benchmarkSymbol: 'SPY',
         baseCurrency: 'USD',
         replayWindow: { startDate: '2024-01-01', endDate: '2024-12-31' },
         baselineWeights: [{ symbol: 'AAPL', target_weight: 0.6 }],
@@ -2808,6 +3258,46 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('Unable to restore previous portfolio workspace')).toBeTruthy())
   })
 
+  it('fails closed when proposal artifact restore throws during workspace reopen', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockRejectedValue(new Error('IndexedDB unavailable'))
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Dashboard'))
+    await waitFor(() => expect(screen.getByText('Unable to reopen saved proposal: indexedDB unavailable')).toBeTruthy())
+    expect(screen.queryByText('Latest Saved Artifact')).toBeNull()
+    expect(screen.queryByText('No saved proposal artifact yet.')).toBeNull()
+  })
+
+  it('fails closed when restored proposal artifacts deserialize but violate contract during workspace reopen', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockRejectedValue(new Error('Saved proposal is missing authoritative proposalSource'))
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Dashboard'))
+    await waitFor(() => expect(screen.getByText('Unable to reopen saved proposal: saved proposal is missing authoritative proposalSource')).toBeTruthy())
+    expect(screen.queryByText('Latest Saved Artifact')).toBeNull()
+    expect(screen.queryByText('No saved proposal artifact yet.')).toBeNull()
+  })
+
   it('keeps replacement contract fixtures aligned for supported, unsupported, and fail-closed states', () => {
     const supportedPreflight = makeReplacementRankingPreflightPayload()
     const supportedOpen = makeReplacementRankingOpenPayload()
@@ -3117,6 +3607,12 @@ describe('App', () => {
   it('saves a reviewed hypothetical replay as a versioned proposal artifact', async () => {
     const replacementIntent = makeReplacementIntent()
     const hypotheticalReplay = makeHypotheticalReplay()
+    const authoritativeSavedProposal = makeSavedProposalArtifact({
+      id: 'proposal-save-test',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+      reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
+    })
+    const authoritativeReviewSnapshotArtifact = makeReviewSnapshotArtifactFromProposal(authoritativeSavedProposal)
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
@@ -3139,12 +3635,10 @@ describe('App', () => {
       replay: hypotheticalReplay,
     })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([])
+    const fetchMock = installWorkspaceReviewFetchMock(authoritativeReviewSnapshotArtifact)
     const saveProposalSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveProposalArtifact').mockResolvedValue()
+    const saveReviewSnapshotArtifactSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveReviewSnapshotArtifact').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -3155,33 +3649,26 @@ describe('App', () => {
     fireEvent.click(screen.getAllByText('Save Proposal v1')[0])
 
     await waitFor(() => expect(saveProposalSpy).toHaveBeenCalledTimes(1))
-    expect(saveProposalSpy.mock.calls[0]?.[0]).toMatchObject({
-      kind: 'single_replacement_hypothetical_replay_proposal',
-      workspaceId: 'workspace-1',
-      sourceDraftId: 'draft-1',
-      sourceBaseNodeId: 'node-1',
-      versionNumber: 1,
-      savedFrom: 'desktop_hypothetical_replay_review',
-      reviewStatus: 'recorded',
-      replayBasis: {
-        candidateConstructionRule: 'same_weight_substitution_v1',
-        replayProvenance: {
-          construction_rule_id: 'same_weight_substitution_v1',
-          candidate_input_source: 'replacement_intent_preview',
-          upstream_ids: {
-            draft_id: 'draft-1',
-            workspace_id: 'workspace-1',
-            base_node_id: 'node-1',
-          },
-          seed_ranking_id: 'etf_ranking_engine_v1',
-          seed_methodology_id: 'etf_ranking_methodology_v1',
-          constraint_validation: {
-            supplied: false,
-            validation_status: null,
-            constraint_set_id: null,
-          },
-        },
-      },
+    expect(saveReviewSnapshotArtifactSpy).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(5)
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots', 'POST')).toHaveLength(1)
+    expect(saveReviewSnapshotArtifactSpy.mock.calls[0]?.[0]).toEqual({
+      id: authoritativeSavedProposal.id,
+      workspaceId: authoritativeSavedProposal.workspaceId,
+      reviewSnapshotArtifactId: authoritativeReviewSnapshotArtifact.identity.artifact_id,
+      artifact: authoritativeReviewSnapshotArtifact,
+    })
+    expect(saveReviewSnapshotArtifactSpy.mock.invocationCallOrder[0]).toBeLessThan(saveProposalSpy.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY)
+    expect(saveProposalSpy.mock.calls[0]?.[0]).toEqual({
+      ...authoritativeSavedProposal,
+      proposalCapture: expect.objectContaining({
+        capture_kind: 'workspace_review_saved_proposal',
+        open_handoff: expect.objectContaining({
+          artifact_id: authoritativeReviewSnapshotArtifact.identity.artifact_id,
+        }),
+      }),
+      reviewSnapshotPMSummary: expect.any(Object),
+      createdAt: expect.any(String),
     })
     expect(screen.getAllByText('Saved Proposal Review').length).toBeGreaterThan(0)
     expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
@@ -3193,6 +3680,12 @@ describe('App', () => {
   it('fails before persisting a contradictory saved proposal artifact', async () => {
     const replacementIntent = makeReplacementIntent()
     const hypotheticalReplay = makeHypotheticalReplay()
+    const authoritativeSavedProposal = makeSavedProposalArtifact({
+      id: 'proposal-save-test',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+      reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
+    })
+    const authoritativeReviewSnapshotArtifact = makeReviewSnapshotArtifactFromProposal(authoritativeSavedProposal)
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
@@ -3218,7 +3711,105 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'buildSavedProposalArtifact').mockImplementation(() => {
       throw new Error('Saved proposal replayProvenance construction_rule_id does not match reviewSnapshot replay_provenance')
     })
+    const saveReviewSnapshotArtifactSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveReviewSnapshotArtifact').mockResolvedValue()
     const saveProposalSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveProposalArtifact').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    const fetchMock = installWorkspaceReviewFetchMock(authoritativeReviewSnapshotArtifact)
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getAllByText('Save Proposal v1').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByText('Save Proposal v1')[0])
+
+    await waitFor(() => expect(saveProposalSpy).not.toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(requestPathname(fetchMock.mock.calls[3]?.[0] as RequestInfo | URL)).toBe('/api/backtests/review-snapshots')
+    expect(saveReviewSnapshotArtifactSpy).not.toHaveBeenCalled()
+    expect(screen.getByText('Saved proposal replayProvenance construction_rule_id does not match reviewSnapshot replay_provenance')).toBeTruthy()
+  })
+
+  it('fails reopen when saved proposal proposalCapture handoff contradicts the open response', async () => {
+    const authoritativeProposal = makeSavedProposalArtifact()
+    const authoritativeArtifact = makeReviewSnapshotArtifactFromProposal(authoritativeProposal)
+    const proposal = {
+      ...authoritativeProposal,
+      proposalCapture: {
+        ...authoritativeProposal.proposalCapture,
+        open_handoff: {
+          ...authoritativeProposal.proposalCapture.open_handoff,
+          reopen_local_mirror: 'contradictory_cached_copy',
+        },
+      },
+    } as VersionedProposalArtifact
+    const buildReviewSnapshotOpenHandoffFromProposalSpy = vi
+      .spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal')
+      .mockResolvedValue(authoritativeArtifact.proposal_capture.open_handoff)
+    const familyReviewPayload = makeReviewSnapshotFamilyReviewResponse(proposal, [proposal])
+    const familyInboxPayload = makeReviewSnapshotFamilyInboxResponse([proposal])
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal])
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    const fetchMock = installSavedProposalWorkspaceFetchMock({
+      familyInboxPayload,
+      familyReviewPayloads: {
+        [proposal.reviewSnapshotArtifactId!]: familyReviewPayload,
+      },
+      openPayloads: {
+        [proposal.reviewSnapshotArtifactId!]: {
+          handoff: authoritativeArtifact.proposal_capture.open_handoff,
+          artifact: authoritativeArtifact,
+          pm_summary: authoritativeArtifact.pm_summary,
+          replay_payload: authoritativeArtifact.source_payload,
+        },
+      },
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Viewing For Review' }))
+
+    await waitFor(() => expect(buildReviewSnapshotOpenHandoffFromProposalSpy).toHaveBeenCalledWith(proposal))
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/family-review', 'POST')).toHaveLength(1)
+    expect(requestJsonBody(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/family-review', 'POST')[0]?.[1])).toEqual({
+      handoff: authoritativeArtifact.proposal_capture.open_handoff,
+    })
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/open', 'POST')).toHaveLength(1)
+    expect(requestJsonBody(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/open', 'POST')[0]?.[1])).toEqual(authoritativeArtifact.proposal_capture.open_handoff)
+    await waitFor(() => expect(screen.getByText('Unable to reopen saved proposal: saved proposal proposalCapture open_handoff contradicts review snapshot open handoff')).toBeTruthy())
+    expect(screen.queryByText('IndexedDB unavailable')).toBeNull()
+  })
+
+  it('fails reopen when saved proposal is missing authoritative proposalCapture', async () => {
+    const proposal = {
+      ...makeSavedProposalArtifact(),
+      proposalCapture: undefined,
+    } as unknown as VersionedProposalArtifact
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal])
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -3229,11 +3820,9 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
-    await waitFor(() => expect(screen.getAllByText('Save Proposal v1').length).toBeGreaterThan(0))
-    fireEvent.click(screen.getAllByText('Save Proposal v1')[0])
 
-    await waitFor(() => expect(saveProposalSpy).not.toHaveBeenCalled())
-    expect(screen.getByText('Saved proposal replayProvenance construction_rule_id does not match reviewSnapshot replay_provenance')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Unable to reopen saved proposal: saved proposal proposalCapture is missing')).toBeTruthy())
+    expect(screen.queryByText('Latest Saved Artifact')).toBeNull()
   })
 
   it('restores formed candidate state for the active draft before replay review', async () => {
@@ -3358,7 +3947,68 @@ describe('App', () => {
     await waitFor(() => expect(screen.getAllByText('Saved Proposal Review').length).toBeGreaterThan(0))
     expect(screen.getByText('Latest Saved Artifact')).toBeTruthy()
     expect(screen.getAllByText('Proposal Lineage').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Proposal source: draft_replacement_intent_review_only/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('This proposal is a saved review snapshot, not applied holdings, candidate truth, or live draft state.').length).toBeGreaterThan(0)
+  })
+
+  it('restores saved proposal proposalSource display from legacy dual-omission hydration without using draft or replay cache state', async () => {
+    const legacyPersistedProposal = makeSavedProposalArtifact({
+      id: 'proposal-1',
+      createdAt: '2026-04-16T00:00:00Z',
+      versionNumber: 1,
+      candidateSymbol: 'IUFS',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+    })
+    delete (legacyPersistedProposal as { proposalSource?: unknown }).proposalSource
+    delete (legacyPersistedProposal.reviewSnapshot.proposal as { proposal_source?: unknown }).proposal_source
+    delete (legacyPersistedProposal.proposalCapture.proposal as { proposal_source?: unknown }).proposal_source
+
+    const hydratedLegacyProposal = makeSavedProposalArtifact({
+      id: 'proposal-1',
+      createdAt: '2026-04-16T00:00:00Z',
+      versionNumber: 1,
+      candidateSymbol: 'IUFS',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+    })
+    hydratedLegacyProposal.proposalCapture.proposal.proposal_source = {
+      proposal_source_version: 1,
+      proposal_source_kind: 'draft_replacement_intent_review_only',
+      proposal_truth: 'review_only_hypothetical_proposal',
+      portfolio_truth: 'draft_snapshot_not_applied',
+      review_scope: 'proposal_review_context_only',
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue({ kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2099-01-01T00:00:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'ZZZZ', seededFromDraftId: 'draft-1', seedRankingId: 'other-seed', seedMethodologyId: 'other-method', seedRankingBasisDate: '2099-01-01', peerGroup: 'Other', benchmarkSymbol: 'QQQ', lookbackMonths: 3, confidence: 'low', holdingsSupport: 'mixed', warningCount: 9 } as any)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getHypotheticalReplacementReplayDraft').mockResolvedValue({ draftId: 'draft-1', snapshotHash: 'stale', replay: { proposal: { proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' } } } } as any)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockImplementation(async () => {
+      expect(legacyPersistedProposal.proposalSource).toBeUndefined()
+      expect(legacyPersistedProposal.reviewSnapshot.proposal.proposal_source).toBeUndefined()
+      return [hydratedLegacyProposal as any]
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(makeReviewSnapshotArtifactFromProposal(makeSavedProposalArtifact({ id: 'proposal-save-test', candidateSymbol: 'IUFS', proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z' }))), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(makeReviewSnapshotArtifactFromProposal(makeSavedProposalArtifact({ id: 'proposal-save-test', candidateSymbol: 'IUFS', proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z' }))), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(makeReviewSnapshotArtifactFromProposal(makeSavedProposalArtifact({ id: 'proposal-save-test', candidateSymbol: 'IUFS', proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z' }))), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getAllByText('Saved Proposal Review').length).toBeGreaterThan(0))
+    expect(screen.getAllByText(/Proposal source: draft_replacement_intent_review_only/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Proposal source: .*review_only_hypothetical_proposal.*review_only_hypothetical_proposal/)).toBeNull()
   })
 
   it('reopens an older saved proposal inside the shell in review-only mode', async () => {
@@ -3374,8 +4024,12 @@ describe('App', () => {
       createdAt: '2026-04-16T00:00:00Z',
       versionNumber: 1,
       candidateSymbol: 'IUFS',
-      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-16T00:00:00Z',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:00:00Z',
     })
+    const olderArtifact = makeReviewSnapshotArtifactFromProposal(olderProposal)
+    const familyInboxPayload = makeReviewSnapshotFamilyInboxResponse([latestProposal, olderProposal])
+    const latestFamilyReview = makeReviewSnapshotFamilyReviewResponse(latestProposal, [latestProposal, olderProposal])
+    const olderFamilyReview = makeReviewSnapshotFamilyReviewResponse(olderProposal, [latestProposal, olderProposal])
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
@@ -3387,6 +4041,186 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([olderProposal as any, latestProposal as any])
+    const buildOpenHandoffSpy = vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockResolvedValue({
+      handoff_kind: 'review_snapshot_open_handoff_v1',
+      artifact_id: olderProposal.reviewSnapshotArtifactId!,
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    const fetchMock = installSavedProposalWorkspaceFetchMock({
+      familyInboxPayload,
+      familyReviewPayloads: {
+        [latestProposal.reviewSnapshotArtifactId!]: latestFamilyReview,
+        [olderProposal.reviewSnapshotArtifactId!]: olderFamilyReview,
+      },
+      openPayloads: {
+        [olderProposal.reviewSnapshotArtifactId!]: {
+          handoff: {
+            handoff_kind: 'review_snapshot_open_handoff_v1',
+            artifact_id: olderProposal.reviewSnapshotArtifactId,
+            artifact_kind: 'portfolio_review_snapshot',
+            schema_version: 'review_snapshot_artifact_v1',
+            consumer_kind: 'saved_hypothetical_replay_proposal',
+          },
+          artifact: olderArtifact,
+          pm_summary: olderArtifact.pm_summary,
+          replay_payload: olderArtifact.source_payload,
+        },
+      },
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
+    expect(screen.getAllByText('AAPL -> IUIT').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reopen In Workspace' }))
+
+    await waitFor(() => expect(buildOpenHandoffSpy).toHaveBeenCalledWith(olderProposal))
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/family-inbox', 'POST')).toHaveLength(2)
+    expect(requestJsonBody(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/family-inbox', 'POST')[0]?.[1])).toEqual({
+      workspace_id: olderProposal.workspaceId,
+    })
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/family-review', 'POST')).toHaveLength(2)
+    expect(requestJsonBody(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/open', 'POST')[0]?.[1])).toEqual(olderProposal.proposalCapture.open_handoff)
+    expect(screen.getAllByText('Saved Proposal Review').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Proposal source: draft_replacement_intent_review_only/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('This proposal is a saved review snapshot, not applied holdings, candidate truth, or live draft state.').length).toBeGreaterThan(0)
+  })
+
+  it('renders the PM-first saved proposal family inbox from persisted artifacts only', async () => {
+    const latestProposal = makeSavedProposalArtifact({
+      id: 'proposal-2',
+      createdAt: '2026-04-17T00:00:00Z',
+      versionNumber: 2,
+      candidateSymbol: 'IUFS',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-17T00:00:00Z',
+    })
+    const olderProposal = makeSavedProposalArtifact({
+      id: 'proposal-1',
+      createdAt: '2026-04-16T00:00:00Z',
+      versionNumber: 1,
+      candidateSymbol: 'IUFS',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-17T00:00:00Z',
+    })
+    const separateFamily = makeSavedProposalArtifact({
+      id: 'proposal-3',
+      createdAt: '2026-04-15T00:00:00Z',
+      versionNumber: 1,
+      candidateSymbol: 'IUIT',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUIT:2026-04-15T00:00:00Z',
+    })
+    const familyInboxPayload = makeReviewSnapshotFamilyInboxResponse([olderProposal, latestProposal, separateFamily])
+    const latestFamilyReview = makeReviewSnapshotFamilyReviewResponse(latestProposal, [latestProposal, olderProposal])
+    const separateFamilyReview = makeReviewSnapshotFamilyReviewResponse(separateFamily, [separateFamily])
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([olderProposal as any, latestProposal as any, separateFamily as any])
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    const fetchMock = installSavedProposalWorkspaceFetchMock({
+      familyInboxPayload,
+      familyReviewPayloads: {
+        [latestProposal.reviewSnapshotArtifactId!]: latestFamilyReview,
+        [separateFamily.reviewSnapshotArtifactId!]: separateFamilyReview,
+      },
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+
+    await waitFor(() => expect(screen.getByText('Saved Proposal Family Inbox')).toBeTruthy())
+    expect(screen.getAllByText('Saved Proposal Family Inbox').length).toBeGreaterThan(0)
+    expect(screen.getByText('Persisted families: 2 · provenance: persisted_review_snapshot_artifacts_only')).toBeTruthy()
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/family-inbox', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/open', 'POST')).toHaveLength(0)
+  })
+
+  it('uses persisted pm_summary as the saved proposal reopen authority even when the local mirror differs', async () => {
+    const proposal = makeSavedProposalArtifact()
+    proposal.reviewSnapshotPMSummary = {
+      ...proposal.reviewSnapshotPMSummary,
+      review_basis: {
+        ...proposal.reviewSnapshotPMSummary.review_basis,
+        benchmark_symbol: 'QQQ',
+      },
+    }
+    const artifact = makeReviewSnapshotArtifactFromProposal(makeSavedProposalArtifact())
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal as any])
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockResolvedValue({
+      handoff_kind: 'review_snapshot_open_handoff_v1',
+      artifact_id: proposal.reviewSnapshotArtifactId,
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        handoff: {
+          handoff_kind: 'review_snapshot_open_handoff_v1',
+          artifact_id: proposal.reviewSnapshotArtifactId,
+          artifact_kind: 'portfolio_review_snapshot',
+          schema_version: 'review_snapshot_artifact_v1',
+          consumer_kind: 'saved_hypothetical_replay_proposal',
+        },
+        artifact,
+        pm_summary: artifact.pm_summary,
+        replay_payload: artifact.source_payload,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Viewing For Review' }))
+
+    await waitFor(() => expect(screen.getByText(/Methodology: m/)).toBeTruthy())
+    expect(screen.getByText(/benchmark separation: explicit_per_snapshot_benchmark_fields/)).toBeTruthy()
+  })
+
+  it('fails reopen clearly when local cached summary conflicts with persisted pm_summary', async () => {
+    const proposal = makeSavedProposalArtifact()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal as any])
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockRejectedValue(new Error('Saved proposal cached reviewSnapshotPMSummary does not match persisted review snapshot artifact pm_summary'))
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -3398,12 +4232,167 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
-    expect(screen.getAllByText('AAPL -> IUIT').length).toBeGreaterThan(0)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reopen In Workspace' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Viewing For Review' }))
 
-    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Saved Proposal Review').length).toBeGreaterThan(0)
+    await waitFor(() => expect(screen.getByText('Saved proposal cached reviewSnapshotPMSummary does not match persisted review snapshot artifact pm_summary')).toBeTruthy())
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4)
+  })
+
+  it('fails closed when reopen response handoff kind is unsupported', async () => {
+    const proposal = makeSavedProposalArtifact()
+    const artifact = makeReviewSnapshotArtifactFromProposal(proposal)
+    const familyReviewPayload = makeReviewSnapshotFamilyReviewResponse(proposal, [proposal])
+    const familyInboxPayload = makeReviewSnapshotFamilyInboxResponse([proposal])
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal as any])
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockResolvedValue({
+      handoff_kind: 'review_snapshot_open_handoff_v1',
+      artifact_id: proposal.reviewSnapshotArtifactId!,
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    installSavedProposalWorkspaceFetchMock({
+      familyInboxPayload,
+      familyReviewPayloads: {
+        [proposal.reviewSnapshotArtifactId!]: familyReviewPayload,
+      },
+      openPayloads: {
+        [proposal.reviewSnapshotArtifactId!]: {
+          handoff: {
+            handoff_kind: 'review_snapshot_open_handoff_v0',
+            artifact_id: proposal.reviewSnapshotArtifactId,
+            artifact_kind: 'portfolio_review_snapshot',
+            schema_version: 'review_snapshot_artifact_v1',
+            consumer_kind: 'saved_hypothetical_replay_proposal',
+          },
+          artifact,
+          pm_summary: artifact.pm_summary,
+          replay_payload: artifact.source_payload,
+        },
+      },
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Viewing For Review' }))
+
+    await waitFor(() => expect(screen.getByText('Review snapshot open response handoff has unsupported handoff kind')).toBeTruthy())
+  })
+
+  it('fails closed when stored reopen handoff builder returns unsupported kind', async () => {
+    const proposal = makeSavedProposalArtifact()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal as any])
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockResolvedValue({
+      handoff_kind: 'review_snapshot_open_handoff_v0',
+      artifact_id: proposal.reviewSnapshotArtifactId!,
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    } as any)
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Viewing For Review' }))
+
+    await waitFor(() => expect(screen.getByText('Unable to reopen saved proposal: unsupported review snapshot open handoff kind')).toBeTruthy())
+  })
+
+  it('fails closed when reopen response contradicts persisted artifact identity', async () => {
+    const proposal = makeSavedProposalArtifact()
+    const artifact = makeReviewSnapshotArtifactFromProposal(proposal)
+    const familyReviewPayload = makeReviewSnapshotFamilyReviewResponse(proposal, [proposal])
+    const familyInboxPayload = makeReviewSnapshotFamilyInboxResponse([proposal])
+    const contradictoryArtifact = {
+      ...artifact,
+      identity: {
+        ...artifact.identity,
+        artifact_id: 'review_snapshot_other',
+      },
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getSelectedConstructionRule').mockResolvedValue(makeSelectedConstructionRuleArtifact())
+    vi.spyOn(portfolioWorkspaceStorage, 'getReplacementIntentDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal as any])
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockResolvedValue({
+      handoff_kind: 'review_snapshot_open_handoff_v1',
+      artifact_id: proposal.reviewSnapshotArtifactId!,
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    installSavedProposalWorkspaceFetchMock({
+      familyInboxPayload,
+      familyReviewPayloads: {
+        [proposal.reviewSnapshotArtifactId!]: familyReviewPayload,
+      },
+      openPayloads: {
+        [proposal.reviewSnapshotArtifactId!]: {
+          handoff: {
+            handoff_kind: 'review_snapshot_open_handoff_v1',
+            artifact_id: proposal.reviewSnapshotArtifactId,
+            artifact_kind: 'portfolio_review_snapshot',
+            schema_version: 'review_snapshot_artifact_v1',
+            consumer_kind: 'saved_hypothetical_replay_proposal',
+          },
+          artifact: contradictoryArtifact,
+          pm_summary: artifact.pm_summary,
+          replay_payload: artifact.source_payload,
+        },
+      },
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Latest Saved Artifact')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Viewing For Review' }))
+
+    await waitFor(() => expect(screen.getByText('Review snapshot open response handoff artifact_id does not match persisted artifact identity')).toBeTruthy())
   })
 
   it('promotes a saved proposal into a restored active thesis and clears it', async () => {

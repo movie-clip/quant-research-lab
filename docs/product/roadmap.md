@@ -51,7 +51,8 @@ Goal:
 - make baseline-vs-candidate review the clearest end-to-end product workflow
 
 Remaining work:
-- broaden proposal review and comparison flows beyond the current narrow slices
+- broaden proposal review and comparison flows beyond the shipped proposal-family PM review and same-family sibling comparison slices
+- extend the shipped PM-first saved-proposal family inbox and active-thesis cross-family PM review queue into broader cross-family review and ranking workflows without weakening persisted-artifact authority
 - improve PM-first summarization across replay, diagnostics deltas, and proposal artifacts
 - connect persisted construction and optimizer workflows more directly into Workspace review
 

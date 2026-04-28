@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
+import { assertSavedProposalArtifactIntegrity, assertSavedProposalArtifactProposalSourceIntegrity } from '../../app/portfolioWorkspaceStorage'
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { CandidateConstructionRuleInput, ConstructionArtifactReplayResponse, HypotheticalReplayResponse, OptimizerHandoffReplayResponse, OptimizerObjective, OverlayApplicationSummary, OverlayAwareHypotheticalReplayResponse, OverlayStateInput, PortfolioAllocationBacktestResponse, PortfolioBaselineView, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
@@ -1102,9 +1103,19 @@ function StandardDiagnosticsComparisonSection({ activeReplay }: { activeReplay: 
 export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedProposalArtifact }) {
   const proposalReplay = activeReplayFromHypothetical(proposal.reviewSnapshot)
   if (!proposalReplay) return null
+  if (!proposal.reviewSnapshotArtifactId) {
+    throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
+  }
+  if (!proposal.reviewSnapshotPMSummary) {
+    throw new Error('Saved proposal is missing authoritative reviewSnapshotPMSummary mirror')
+  }
+  const canonicalProposal = assertSavedProposalArtifactIntegrity(proposal)
+  const proposalSource = assertSavedProposalArtifactProposalSourceIntegrity(canonicalProposal).proposalSource
   const proposalSummaryRows = buildSummaryRows(proposalReplay)
   const proposalDeltaCallouts = buildReplayDeltaCallouts(proposalSummaryRows)
   const proposalDiagnosticsSections = diagnosticsSectionConfigs(proposalReplay)
+  const proposalPMSummary = canonicalProposal.reviewSnapshotPMSummary
+  const proposalCapture = canonicalProposal.proposalCapture
 
   return (
     <section className="dashboard-bottom-grid">
@@ -1115,39 +1126,46 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
       <div className="dashboard-summary compact-summary-grid">
         <div className="summary-card">
           <p className="stat-label">Proposal Artifact</p>
-          <p className="summary-value">v{proposal.versionNumber}</p>
+          <p className="summary-value">v{canonicalProposal.versionNumber}</p>
           <p className="helper">Immutable local record of a previously reviewed hypothetical proposal.</p>
+          <p className="helper">Review snapshot artifact: {canonicalProposal.reviewSnapshotArtifactId}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Lineage</p>
-          <p className="summary-value">{proposal.sourceIntent.baseSymbol} -&gt; {proposal.sourceIntent.candidateSymbol}</p>
+          <p className="summary-value">{proposalCapture.proposal.incumbent_symbol} -&gt; {proposalCapture.proposal.candidate_symbol}</p>
           <p className="helper">Shows how this proposal was derived, including ranking seed, replacement intent, and hypothetical replay context.</p>
-          <p className="helper">Proposal source: {proposal.proposalSource?.proposalSourceKind ?? proposal.reviewSnapshot.proposal.proposal_source.proposal_source_kind} · proposal truth: {proposal.proposalSource?.proposalTruth ?? proposal.reviewSnapshot.proposal.proposal_source.proposal_truth} · portfolio truth: {proposal.proposalSource?.portfolioTruth ?? proposal.reviewSnapshot.proposal.proposal_source.portfolio_truth}</p>
+          <p className="helper">Proposal source: {proposalSource.proposalSourceKind} · proposal truth: {proposalSource.proposalTruth} · portfolio truth: {proposalSource.portfolioTruth}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Proposal Basis</p>
-          <p className="summary-value">{proposal.replayBasis.derivationBasis}</p>
-          <p className="helper">Review the baseline and candidate basis captured when this proposal was saved. This surface does not depend on the current draft state.</p>
+          <p className="summary-value">{proposalCapture.review_basis.derivation_basis}</p>
+          <p className="helper">Review-only basis captured from the persisted review snapshot artifact. This surface does not depend on current draft, live replay cache, or imported snapshot reconstruction.</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Review State</p>
-          <p className="summary-value">{proposal.reviewStatus}</p>
+          <p className="summary-value">{canonicalProposal.reviewStatus}</p>
           <p className="helper">This proposal is saved for inspection only. It does not update holdings, confirm a decision, or reflect applied portfolio truth.</p>
         </div>
       </div>
       <div className="summary-card">
         <p className="panel-label">Proposal Lineage</p>
-        <p className="helper">Workspace: {proposal.workspaceId} · Draft: {proposal.sourceDraftId} · Base node: {proposal.sourceBaseNodeId} · Saved at: {proposal.createdAt}</p>
-        <p className="helper">Source: {proposal.reviewSnapshot.proposal.source} · Construction rule: {proposal.replayBasis.candidateConstructionRule}</p>
-        <p className="helper">{formatReplayLineageHelper(proposal.reviewSnapshot)}</p>
+        <p className="helper">Workspace: {canonicalProposal.workspaceId} · Draft: {canonicalProposal.sourceDraftId} · Base node: {canonicalProposal.sourceBaseNodeId} · Saved at: {canonicalProposal.createdAt}</p>
+        <p className="helper">Source: {proposalCapture.proposal.source} · Construction rule: {proposalCapture.review_basis.candidate_construction_rule}</p>
+        <p className="helper">{formatReplayLineageHelper(canonicalProposal.reviewSnapshot)}</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Canonical PM Summary</p>
+        <p className="helper">Role: {proposalPMSummary?.role ?? 'saved_proposal'} · provenance: {proposalPMSummary?.provenance.source ?? 'persisted_review_snapshot_artifact'} · benchmark separation: {proposalPMSummary?.review_basis.benchmark_separation ?? 'explicit_per_snapshot_benchmark_fields'}</p>
+        <p className="helper">Methodology: {proposalPMSummary?.methodology.methodology ?? proposalReplay.methodology} · methodology truth: {proposalPMSummary?.methodology.methodology_provenance.methodology_truth ?? proposalReplay.methodology_provenance?.methodology_truth ?? 'n/a'} · assumptions truth: {proposalPMSummary?.methodology.methodology_provenance.assumptions_truth ?? proposalReplay.methodology_provenance?.assumptions_truth ?? 'n/a'}</p>
+        <p className="helper">Analytics truth: {proposalPMSummary?.truth_labels.analytics_truth ?? proposalReplay.methodology_provenance?.analytics_truth ?? 'n/a'} · replay type: {proposalPMSummary?.replay_type ?? ('replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware')} · diagnostics available: {proposalPMSummary?.diagnostics_summary.diagnostics_available ? 'yes' : 'no'}</p>
       </div>
       <div className="dashboard-summary compact-summary-grid backtest-workspace-summary">
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{proposal.replayBasis.benchmarkSymbol}</p></div>
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(proposal.replayBasis.startDate, proposal.replayBasis.endDate)}</p></div>
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{proposal.replayBasis.rebalanceFrequency}</p><p className="helper">{proposal.replayBasis.commissionBps} commission bps / {proposal.replayBasis.slippageBps} slippage bps</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{proposalCapture.review_basis.benchmark_symbol}</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(proposalCapture.review_basis.replay_window.start_date, proposalCapture.review_basis.replay_window.end_date)}</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{proposalCapture.review_basis.rebalance_frequency}</p><p className="helper">{proposalCapture.review_basis.commission_bps} commission bps / {proposalCapture.review_basis.slippage_bps} slippage bps</p></div>
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{proposalReplay?.candidate_result.status ?? 'N/A'}</p><p className="helper">Snapshot of the saved hypothetical current-vs-candidate replay results captured with the proposal.</p></div>
       </div>
-      {'overlay_application' in proposal.reviewSnapshot ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{proposal.reviewSnapshot.overlay_application.overlay_status}</p><p className="helper">As of {proposal.reviewSnapshot.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(proposal.reviewSnapshot.overlay_application.cash_residual_weight)}</p><p className="helper">Stored with the saved overlay-aware replay</p></div></div> : null}
+      {'overlay_application' in canonicalProposal.reviewSnapshot ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{canonicalProposal.reviewSnapshot.overlay_application.overlay_status}</p><p className="helper">As of {canonicalProposal.reviewSnapshot.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(canonicalProposal.reviewSnapshot.overlay_application.cash_residual_weight)}</p><p className="helper">Stored with the saved overlay-aware replay</p></div></div> : null}
       {proposalDeltaCallouts.length ? (
         <div className="dashboard-summary compact-summary-grid">
           {proposalDeltaCallouts.map((callout) => (

@@ -1,8 +1,8 @@
-import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStoreName, constructedCandidateStoreName, constructionConstraintValidationStoreName, deletePortfolioDatabase, formedCandidateStoreName, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, persistedConstructionArtifactReviewStoreName, persistedOptimizerHandoffReviewStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, selectedConstructionRuleStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
+import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStoreName, constructedCandidateStoreName, constructionConstraintValidationStoreName, deletePortfolioDatabase, formedCandidateStoreName, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, persistedConstructionArtifactReviewStoreName, persistedOptimizerHandoffReviewStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, reviewSnapshotArtifactStoreName, selectedConstructionRuleStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ConstructionArtifactReplayResponse, ImportedPortfolioSnapshotSource, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse } from '../features/portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ProposalSourceLabel, ReplacementIntentDraftArtifact, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenHandoff, ReviewSnapshotOpenResponse, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -55,6 +55,1103 @@ function createId(prefix: string) {
   return `${prefix}_${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
 }
 
+const canonicalReviewOnlyProposalSourceLabel = Object.freeze({
+  proposalSourceVersion: 1 as const,
+  proposalSourceKind: 'draft_replacement_intent_review_only' as const,
+  proposalTruth: 'review_only_hypothetical_proposal' as const,
+  portfolioTruth: 'draft_snapshot_not_applied' as const,
+  reviewScope: 'proposal_review_context_only' as const,
+})
+
+function buildCanonicalReviewOnlyProposalSourceLabel(): ProposalSourceLabel {
+  return { ...canonicalReviewOnlyProposalSourceLabel }
+}
+
+function buildSnapshotProposalSourceLabel(value: ProposalSourceLabel): NonNullable<VersionedProposalArtifact['reviewSnapshot']['proposal']['proposal_source']> {
+  return {
+    proposal_source_version: value.proposalSourceVersion,
+    proposal_source_kind: value.proposalSourceKind,
+    proposal_truth: value.proposalTruth,
+    portfolio_truth: value.portfolioTruth,
+    review_scope: value.reviewScope,
+  }
+}
+
+function assertProposalSourceLabelShape(value: unknown, label: string): asserts value is ProposalSourceLabel {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+
+  const candidate = value as Partial<ProposalSourceLabel>
+  if (
+    typeof candidate.proposalSourceVersion !== 'number'
+    || typeof candidate.proposalSourceKind !== 'string'
+    || typeof candidate.proposalTruth !== 'string'
+    || typeof candidate.portfolioTruth !== 'string'
+    || typeof candidate.reviewScope !== 'string'
+  ) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function isCanonicalProposalSourceLabel(value: ProposalSourceLabel) {
+  return value.proposalSourceVersion === canonicalReviewOnlyProposalSourceLabel.proposalSourceVersion
+    && value.proposalSourceKind === canonicalReviewOnlyProposalSourceLabel.proposalSourceKind
+    && value.proposalTruth === canonicalReviewOnlyProposalSourceLabel.proposalTruth
+    && value.portfolioTruth === canonicalReviewOnlyProposalSourceLabel.portfolioTruth
+    && value.reviewScope === canonicalReviewOnlyProposalSourceLabel.reviewScope
+}
+
+function assertValidProposalSourceLabel(value: unknown, label: string): asserts value is ProposalSourceLabel {
+  assertProposalSourceLabelShape(value, label)
+
+  if (!isCanonicalProposalSourceLabel(value)) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function proposalSourceLabelsMatch(
+  topLevel: ProposalSourceLabel,
+  snapshot: NonNullable<VersionedProposalArtifact['reviewSnapshot']['proposal']['proposal_source']>,
+) {
+  return topLevel.proposalSourceVersion === snapshot.proposal_source_version
+    && topLevel.proposalSourceKind === snapshot.proposal_source_kind
+    && topLevel.proposalTruth === snapshot.proposal_truth
+    && topLevel.portfolioTruth === snapshot.portfolio_truth
+    && topLevel.reviewScope === snapshot.review_scope
+}
+
+function assertSnapshotProposalSourceLabelShape(
+  value: unknown,
+  label: string,
+): asserts value is NonNullable<VersionedProposalArtifact['reviewSnapshot']['proposal']['proposal_source']> {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+
+  const candidate = value as Partial<NonNullable<VersionedProposalArtifact['reviewSnapshot']['proposal']['proposal_source']>>
+  if (
+    typeof candidate.proposal_source_version !== 'number'
+    || typeof candidate.proposal_source_kind !== 'string'
+    || typeof candidate.proposal_truth !== 'string'
+    || typeof candidate.portfolio_truth !== 'string'
+    || typeof candidate.review_scope !== 'string'
+  ) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function isCanonicalSnapshotProposalSourceLabel(
+  value: NonNullable<VersionedProposalArtifact['reviewSnapshot']['proposal']['proposal_source']>,
+) {
+  return value.proposal_source_version === canonicalReviewOnlyProposalSourceLabel.proposalSourceVersion
+    && value.proposal_source_kind === canonicalReviewOnlyProposalSourceLabel.proposalSourceKind
+    && value.proposal_truth === canonicalReviewOnlyProposalSourceLabel.proposalTruth
+    && value.portfolio_truth === canonicalReviewOnlyProposalSourceLabel.portfolioTruth
+    && value.review_scope === canonicalReviewOnlyProposalSourceLabel.reviewScope
+}
+
+function assertValidSnapshotProposalSourceLabel(
+  value: unknown,
+  label: string,
+): asserts value is NonNullable<VersionedProposalArtifact['reviewSnapshot']['proposal']['proposal_source']> {
+  assertSnapshotProposalSourceLabelShape(value, label)
+
+  if (!isCanonicalSnapshotProposalSourceLabel(value)) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function isRecognizedLegacySavedProposalProposalSourceOmission(proposal: VersionedProposalArtifact) {
+  const snapshotProposal = proposal.reviewSnapshot.proposal
+  const sourceIntent = proposal.sourceIntent
+  const upstreamIds = proposal.replayBasis.replayProvenance.upstream_ids
+
+  return proposal.kind === 'single_replacement_hypothetical_replay_proposal'
+    && proposal.savedFrom === 'desktop_hypothetical_replay_review'
+    && proposal.reviewStatus === 'recorded'
+    && sourceIntent.kind === 'etf_replacement_intent'
+    && snapshotProposal.source === 'draft_replacement_intent'
+    && sourceIntent.draftId === proposal.sourceDraftId
+    && sourceIntent.baseNodeId === proposal.sourceBaseNodeId
+    && sourceIntent.workspaceId === proposal.workspaceId
+    && sourceIntent.baseSymbol === snapshotProposal.incumbent_symbol
+    && sourceIntent.candidateSymbol === snapshotProposal.candidate_symbol
+    && snapshotProposal.draft_id === proposal.sourceDraftId
+    && snapshotProposal.base_node_id === proposal.sourceBaseNodeId
+    && upstreamIds.draft_id === proposal.sourceDraftId
+    && upstreamIds.workspace_id === proposal.workspaceId
+    && upstreamIds.base_node_id === proposal.sourceBaseNodeId
+}
+
+export function assertSavedProposalArtifactProposalSourceIntegrity(proposal: VersionedProposalArtifact): VersionedProposalArtifact {
+  const topLevelProposalSource = proposal.proposalSource ?? null
+  const snapshotProposalSource = proposal.reviewSnapshot.proposal.proposal_source ?? null
+
+  if (topLevelProposalSource == null) {
+    throw new Error('Saved proposal is missing authoritative proposalSource')
+  }
+
+  assertProposalSourceLabelShape(topLevelProposalSource, 'Saved proposal proposalSource')
+
+  if (snapshotProposalSource == null) {
+    assertValidProposalSourceLabel(topLevelProposalSource, 'Saved proposal proposalSource')
+    return proposal
+  }
+
+  assertSnapshotProposalSourceLabelShape(snapshotProposalSource, 'Saved proposal reviewSnapshot proposal.proposal_source')
+
+  if (!isCanonicalSnapshotProposalSourceLabel(snapshotProposalSource)) {
+    throw new Error('Saved proposal reviewSnapshot proposal.proposal_source is invalid')
+  }
+
+  if (!proposalSourceLabelsMatch(topLevelProposalSource, snapshotProposalSource)) {
+    throw new Error('Saved proposal proposalSource conflicts with reviewSnapshot proposal.proposal_source')
+  }
+
+  assertValidProposalSourceLabel(topLevelProposalSource, 'Saved proposal proposalSource')
+
+  return proposal
+}
+
+function buildSavedProposalReviewSnapshotPMSummary(proposal: VersionedProposalArtifact) {
+  const proposalReplay = 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay
+  const proposalSource = proposal.reviewSnapshot.proposal.proposal_source ?? {
+    proposal_source_version: proposal.proposalSource.proposalSourceVersion,
+    proposal_source_kind: proposal.proposalSource.proposalSourceKind,
+    proposal_truth: proposal.proposalSource.proposalTruth,
+    portfolio_truth: proposal.proposalSource.portfolioTruth,
+    review_scope: proposal.proposalSource.reviewScope,
+  }
+  return {
+    pm_summary_version: 1 as const,
+    role: 'saved_proposal' as const,
+    provenance: {
+      source: 'persisted_review_snapshot_artifact' as const,
+      artifact_kind: 'portfolio_review_snapshot' as const,
+      schema_version: 'review_snapshot_artifact_v1' as const,
+      consumer_kind: 'saved_hypothetical_replay_proposal' as const,
+      lineage: {
+        workspace_id: proposal.workspaceId,
+        source_draft_id: proposal.sourceDraftId,
+        source_base_node_id: proposal.sourceBaseNodeId,
+        proposal_family_id: proposal.proposalFamilyId,
+        proposal_id: proposal.id,
+        version_number: proposal.versionNumber,
+        source_kind: 'hypothetical_replacement_replay' as const,
+      },
+      proposal_source: proposalSource,
+      replay_provenance: proposal.reviewSnapshot.replay_provenance,
+    },
+    truth_labels: {
+      proposal_truth: 'review_only_hypothetical_proposal' as const,
+      portfolio_truth: 'draft_snapshot_not_applied' as const,
+      analytics_truth: 'hypothetical_replay_analytics_only' as const,
+      review_scope: 'proposal_review_context_only' as const,
+    },
+    replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' as const : 'overlay_aware' as const,
+    replay_status: proposalReplay.candidate_result.status,
+    investor_economics_status: proposalReplay.investor_economics_status,
+    review_basis: {
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields' as const,
+      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+      replay_window: {
+        start_date: proposal.replayBasis.startDate,
+        end_date: proposal.replayBasis.endDate,
+      },
+      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+      commission_bps: proposal.replayBasis.commissionBps,
+      slippage_bps: proposal.replayBasis.slippageBps,
+      derivation_basis: proposal.replayBasis.derivationBasis,
+      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+    },
+    methodology: {
+      methodology: proposalReplay.methodology,
+      methodology_provenance: proposalReplay.methodology_provenance,
+    },
+    assumptions: proposalReplay.candidate_result.assumptions,
+    analytics_summary: {
+      candidate_analytics: {
+        methodology: proposalReplay.methodology,
+        methodology_provenance: proposalReplay.methodology_provenance,
+        assumptions: proposalReplay.candidate_result.assumptions,
+        benchmark_symbol: proposalReplay.candidate_result.benchmark_symbol,
+        benchmark_return_pct: proposalReplay.candidate_result.metrics.benchmark_return_pct,
+        total_return_pct: proposalReplay.candidate_result.metrics.total_return_pct,
+        annualized_return_pct: proposalReplay.candidate_result.metrics.annualized_return_pct,
+        annualized_volatility_pct: proposalReplay.candidate_result.metrics.annualized_volatility_pct,
+        downside_volatility_pct: proposalReplay.candidate_result.metrics.downside_volatility_pct,
+        max_drawdown_pct: proposalReplay.candidate_result.metrics.max_drawdown_pct,
+        sharpe_ratio: proposalReplay.candidate_result.metrics.sharpe_ratio,
+        sortino_ratio: proposalReplay.candidate_result.metrics.sortino_ratio,
+        excess_return_pct: proposalReplay.candidate_result.metrics.excess_return_pct,
+        tracking_error_pct: proposalReplay.candidate_result.metrics.tracking_error_pct,
+        information_ratio: proposalReplay.candidate_result.metrics.information_ratio,
+        beta_vs_benchmark: proposalReplay.candidate_result.metrics.beta_vs_benchmark,
+        correlation_vs_benchmark: proposalReplay.candidate_result.metrics.correlation_vs_benchmark,
+        total_turnover_pct: proposalReplay.candidate_result.metrics.total_turnover_pct,
+        total_cost_paid: proposalReplay.candidate_result.metrics.total_cost_paid,
+      },
+      baseline_analytics: proposalReplay.reference_result ? {
+        methodology: proposalReplay.methodology,
+        methodology_provenance: proposalReplay.methodology_provenance,
+        assumptions: proposalReplay.reference_result.assumptions,
+        benchmark_symbol: proposalReplay.reference_result.benchmark_symbol,
+        benchmark_return_pct: proposalReplay.reference_result.metrics.benchmark_return_pct,
+        total_return_pct: proposalReplay.reference_result.metrics.total_return_pct,
+        annualized_return_pct: proposalReplay.reference_result.metrics.annualized_return_pct,
+        annualized_volatility_pct: proposalReplay.reference_result.metrics.annualized_volatility_pct,
+        downside_volatility_pct: proposalReplay.reference_result.metrics.downside_volatility_pct,
+        max_drawdown_pct: proposalReplay.reference_result.metrics.max_drawdown_pct,
+        sharpe_ratio: proposalReplay.reference_result.metrics.sharpe_ratio,
+        sortino_ratio: proposalReplay.reference_result.metrics.sortino_ratio,
+        excess_return_pct: proposalReplay.reference_result.metrics.excess_return_pct,
+        tracking_error_pct: proposalReplay.reference_result.metrics.tracking_error_pct,
+        information_ratio: proposalReplay.reference_result.metrics.information_ratio,
+        beta_vs_benchmark: proposalReplay.reference_result.metrics.beta_vs_benchmark,
+        correlation_vs_benchmark: proposalReplay.reference_result.metrics.correlation_vs_benchmark,
+        total_turnover_pct: proposalReplay.reference_result.metrics.total_turnover_pct,
+        total_cost_paid: proposalReplay.reference_result.metrics.total_cost_paid,
+      } : null,
+      analytics_comparison: proposalReplay.comparison,
+    },
+    diagnostics_summary: {
+      diagnostics_available: proposalReplay.diagnostics_comparison != null,
+      top_factor_exposure_change: proposalReplay.diagnostics_comparison?.top_factor_exposure_change ?? null,
+      top_volatility_change: proposalReplay.diagnostics_comparison?.top_volatility_change ?? null,
+      top_risk_contribution_change: proposalReplay.diagnostics_comparison?.top_risk_contribution_change ?? null,
+      top_concentration_change: proposalReplay.diagnostics_comparison?.top_concentration_change ?? null,
+      top_stress_scenario_change: proposalReplay.diagnostics_comparison?.top_stress_scenario_change ?? null,
+    },
+  }
+}
+
+function assertValidReviewSnapshotPMSummaryEnvelope(
+  value: unknown,
+  label: string,
+  allowedRoles: ReadonlyArray<'saved_proposal' | 'baseline' | 'candidate'> = ['saved_proposal', 'baseline', 'candidate'],
+): asserts value is ReviewSnapshotArtifact['pm_summary'] {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+
+  const candidate = value as Partial<ReviewSnapshotArtifact['pm_summary']>
+  if (candidate.pm_summary_version !== 1) {
+    throw new Error(`${label} has unsupported pm_summary_version`)
+  }
+  if (!candidate.role || !allowedRoles.includes(candidate.role)) {
+    throw new Error(`${label} role is invalid`)
+  }
+  if (!candidate.provenance || typeof candidate.provenance !== 'object') {
+    throw new Error(`${label} provenance is invalid`)
+  }
+  if (
+    candidate.provenance.source !== 'persisted_review_snapshot_artifact'
+    || candidate.provenance.artifact_kind !== 'portfolio_review_snapshot'
+    || candidate.provenance.schema_version !== 'review_snapshot_artifact_v1'
+    || candidate.provenance.consumer_kind !== 'saved_hypothetical_replay_proposal'
+  ) {
+    throw new Error(`${label} provenance is invalid`)
+  }
+  if (!candidate.provenance.lineage || typeof candidate.provenance.lineage !== 'object') {
+    throw new Error(`${label} provenance lineage is invalid`)
+  }
+  if (
+    !isNonEmptyString(candidate.provenance.lineage.workspace_id)
+    || !isNonEmptyString(candidate.provenance.lineage.source_draft_id)
+    || !isNonEmptyString(candidate.provenance.lineage.source_base_node_id)
+    || !isNonEmptyString(candidate.provenance.lineage.proposal_family_id)
+    || !isNonEmptyString(candidate.provenance.lineage.proposal_id)
+    || typeof candidate.provenance.lineage.version_number !== 'number'
+    || candidate.provenance.lineage.source_kind !== 'hypothetical_replacement_replay'
+  ) {
+    throw new Error(`${label} provenance lineage is invalid`)
+  }
+  assertSnapshotProposalSourceLabelShape(candidate.provenance.proposal_source, `${label} provenance proposal_source`)
+  if (!candidate.truth_labels || typeof candidate.truth_labels !== 'object') {
+    throw new Error(`${label} truth_labels are invalid`)
+  }
+  if (
+    candidate.truth_labels.proposal_truth !== 'review_only_hypothetical_proposal'
+    || candidate.truth_labels.portfolio_truth !== 'draft_snapshot_not_applied'
+    || candidate.truth_labels.analytics_truth !== 'hypothetical_replay_analytics_only'
+    || candidate.truth_labels.review_scope !== 'proposal_review_context_only'
+  ) {
+    throw new Error(`${label} truth_labels are invalid`)
+  }
+  if (candidate.replay_type !== 'standard' && candidate.replay_type !== 'overlay_aware') {
+    throw new Error(`${label} replay_type is invalid`)
+  }
+  if (!candidate.review_basis || typeof candidate.review_basis !== 'object') {
+    throw new Error(`${label} review_basis is invalid`)
+  }
+  if (
+    candidate.review_basis.benchmark_separation !== 'explicit_per_snapshot_benchmark_fields'
+    || !isNonEmptyString(candidate.review_basis.benchmark_symbol)
+    || !candidate.review_basis.replay_window
+    || !isNonEmptyString(candidate.review_basis.replay_window.start_date)
+    || !isNonEmptyString(candidate.review_basis.replay_window.end_date)
+    || !isNonEmptyString(candidate.review_basis.rebalance_frequency)
+    || typeof candidate.review_basis.commission_bps !== 'number'
+    || typeof candidate.review_basis.slippage_bps !== 'number'
+    || !isNonEmptyString(candidate.review_basis.derivation_basis)
+    || !isNonEmptyString(candidate.review_basis.candidate_construction_rule)
+  ) {
+    throw new Error(`${label} review_basis is invalid`)
+  }
+  if (!candidate.methodology || typeof candidate.methodology !== 'object') {
+    throw new Error(`${label} methodology is invalid`)
+  }
+  if (!isNonEmptyString(candidate.methodology.methodology) || !candidate.methodology.methodology_provenance || typeof candidate.methodology.methodology_provenance !== 'object') {
+    throw new Error(`${label} methodology is invalid`)
+  }
+  if (!candidate.analytics_summary || typeof candidate.analytics_summary !== 'object') {
+    throw new Error(`${label} analytics_summary is invalid`)
+  }
+  if (!candidate.analytics_summary.candidate_analytics || typeof candidate.analytics_summary.candidate_analytics !== 'object') {
+    throw new Error(`${label} analytics_summary candidate_analytics is invalid`)
+  }
+  if (!candidate.diagnostics_summary || typeof candidate.diagnostics_summary !== 'object') {
+    throw new Error(`${label} diagnostics_summary is invalid`)
+  }
+  if (typeof candidate.diagnostics_summary.diagnostics_available !== 'boolean') {
+    throw new Error(`${label} diagnostics_summary is invalid`)
+  }
+}
+
+function assertCachedSavedProposalPMSummaryMatchesPersisted(
+  proposal: VersionedProposalArtifact,
+  reviewSnapshotArtifact: ReviewSnapshotArtifact,
+) {
+  if (!proposal.reviewSnapshotPMSummary) {
+    throw new Error('Saved proposal cached reviewSnapshotPMSummary is missing while persisted review snapshot artifact pm_summary exists')
+  }
+  assertValidReviewSnapshotPMSummaryEnvelope(
+    proposal.reviewSnapshotPMSummary,
+    'Saved proposal cached reviewSnapshotPMSummary',
+    ['saved_proposal'],
+  )
+  if (JSON.stringify(proposal.reviewSnapshotPMSummary) !== JSON.stringify(reviewSnapshotArtifact.pm_summary)) {
+    throw new Error('Saved proposal cached reviewSnapshotPMSummary does not match persisted review snapshot artifact pm_summary')
+  }
+}
+
+function isRecognizedLegacySavedProposalPMSummaryOmission(proposal: VersionedProposalArtifact) {
+  return proposal.reviewSnapshotPMSummary == null && isRecognizedLegacySavedProposalProposalSourceOmission(proposal)
+}
+
+function hydrateLoadedSavedProposalArtifact(proposal: VersionedProposalArtifact): VersionedProposalArtifact {
+  const canonicalProposal = assertSavedProposalArtifactLineageIntegrity(proposal)
+  const topLevelProposalSource = canonicalProposal.proposalSource ?? null
+  const snapshotProposalSource = canonicalProposal.reviewSnapshot.proposal.proposal_source ?? null
+  const effectivePMSummary = canonicalProposal.reviewSnapshotPMSummary ?? null
+
+  const hydrateProposalSource = (effectiveProposalSource: ProposalSourceLabel) => ({
+    ...canonicalProposal,
+    proposalSource: effectiveProposalSource,
+    proposalCapture: {
+      ...canonicalProposal.proposalCapture,
+      proposal: {
+        ...canonicalProposal.proposalCapture.proposal,
+        proposal_source: buildSnapshotProposalSourceLabel(effectiveProposalSource),
+      },
+    },
+  })
+
+  if (topLevelProposalSource != null) {
+    const hydratedProposal = snapshotProposalSource == null
+      ? hydrateProposalSource(topLevelProposalSource)
+      : canonicalProposal
+
+    return {
+      ...assertSavedProposalArtifactProposalSourceIntegrity(hydratedProposal),
+      ...(effectivePMSummary ? { reviewSnapshotPMSummary: effectivePMSummary } : {}),
+    }
+  }
+
+  const effectiveProposalSource = snapshotProposalSource == null && isRecognizedLegacySavedProposalProposalSourceOmission(canonicalProposal)
+    ? buildCanonicalReviewOnlyProposalSourceLabel()
+    : null
+
+  if (!effectiveProposalSource) {
+    throw new Error('Saved proposal is missing authoritative proposalSource')
+  }
+
+  return {
+    ...hydrateProposalSource(effectiveProposalSource),
+    ...(isRecognizedLegacySavedProposalPMSummaryOmission(canonicalProposal) ? {
+      reviewSnapshotPMSummary: buildSavedProposalReviewSnapshotPMSummary({
+        ...hydrateProposalSource(effectiveProposalSource),
+      }),
+    } : {}),
+  }
+}
+
+function canonicalizeRestoredSavedProposalArtifact(proposal: VersionedProposalArtifact): VersionedProposalArtifact {
+  if (proposal.reviewSnapshot.proposal.proposal_source != null) {
+    return proposal
+  }
+
+  return {
+    ...proposal,
+    reviewSnapshot: {
+      ...proposal.reviewSnapshot,
+      proposal: {
+        ...proposal.reviewSnapshot.proposal,
+        proposal_source: buildSnapshotProposalSourceLabel(proposal.proposalSource),
+      },
+    },
+  }
+}
+
+function assertValidReviewSnapshotArtifactIdentity(value: unknown, label: string): asserts value is ReviewSnapshotArtifact['identity'] {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+  const candidate = value as Partial<ReviewSnapshotArtifact['identity']>
+  if (
+    candidate.artifact_kind !== 'portfolio_review_snapshot'
+    || candidate.schema_version !== 'review_snapshot_artifact_v1'
+    || candidate.consumer_kind !== 'saved_hypothetical_replay_proposal'
+    || !isNonEmptyString(candidate.artifact_id)
+    || !isNonEmptyString(candidate.fingerprint)
+  ) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function assertValidReviewSnapshotArtifact(value: unknown, label: string): asserts value is ReviewSnapshotArtifact {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+  const candidate = value as Partial<ReviewSnapshotArtifact>
+  assertValidReviewSnapshotArtifactIdentity(candidate.identity, `${label} identity`)
+  if (!candidate.lineage || typeof candidate.lineage !== 'object') {
+    throw new Error(`${label} lineage is invalid`)
+  }
+  if (!candidate.review_basis || typeof candidate.review_basis !== 'object') {
+    throw new Error(`${label} review_basis is invalid`)
+  }
+  if (!candidate.truth_labels || typeof candidate.truth_labels !== 'object') {
+    throw new Error(`${label} truth_labels are invalid`)
+  }
+  if (!candidate.compact_summary || typeof candidate.compact_summary !== 'object') {
+    throw new Error(`${label} compact_summary is invalid`)
+  }
+  assertValidReviewSnapshotProposalCapture(candidate.proposal_capture, `${label} proposal_capture`)
+  assertValidReviewSnapshotPMSummaryEnvelope(candidate.pm_summary, `${label} pm_summary`, ['saved_proposal'])
+  if (!candidate.source_payload || typeof candidate.source_payload !== 'object') {
+    throw new Error(`${label} source_payload is invalid`)
+  }
+}
+
+function assertValidReviewSnapshotOpenHandoff(value: unknown, label: string): asserts value is ReviewSnapshotOpenHandoff {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+  const candidate = value as Partial<ReviewSnapshotOpenHandoff>
+  if (candidate.handoff_kind !== 'review_snapshot_open_handoff_v1') {
+    throw new Error(`${label} has unsupported handoff kind`)
+  }
+  if (
+    candidate.artifact_kind !== 'portfolio_review_snapshot'
+    || candidate.schema_version !== 'review_snapshot_artifact_v1'
+    || candidate.consumer_kind !== 'saved_hypothetical_replay_proposal'
+    || !isNonEmptyString(candidate.artifact_id)
+  ) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function assertValidReviewSnapshotProposalCapture(value: unknown, label: string): asserts value is ReviewSnapshotArtifact['proposal_capture'] {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+  const candidate = value as Partial<ReviewSnapshotArtifact['proposal_capture']>
+  if (candidate.capture_version !== 1) {
+    throw new Error(`${label} has unsupported capture_version`)
+  }
+  if (candidate.capture_kind !== 'workspace_review_saved_proposal') {
+    throw new Error(`${label} capture_kind is invalid`)
+  }
+  assertValidReviewSnapshotOpenHandoff(candidate.open_handoff, `${label} open_handoff`)
+  if (!candidate.lineage || typeof candidate.lineage !== 'object') {
+    throw new Error(`${label} lineage is invalid`)
+  }
+  if (!candidate.proposal || typeof candidate.proposal !== 'object') {
+    throw new Error(`${label} proposal is invalid`)
+  }
+  if (
+    candidate.proposal.source !== 'draft_replacement_intent'
+    || !isNonEmptyString(candidate.proposal.incumbent_symbol)
+    || !isNonEmptyString(candidate.proposal.candidate_symbol)
+  ) {
+    throw new Error(`${label} proposal is invalid`)
+  }
+  assertValidSnapshotProposalSourceLabel(candidate.proposal.proposal_source, `${label} proposal proposal_source`)
+  if (candidate.replay_type !== 'standard' && candidate.replay_type !== 'overlay_aware') {
+    throw new Error(`${label} replay_type is invalid`)
+  }
+  if (!candidate.replay_provenance || typeof candidate.replay_provenance !== 'object') {
+    throw new Error(`${label} replay_provenance is invalid`)
+  }
+  if (!candidate.review_basis || typeof candidate.review_basis !== 'object') {
+    throw new Error(`${label} review_basis is invalid`)
+  }
+  if (
+    candidate.review_basis.benchmark_separation !== 'explicit_per_snapshot_benchmark_fields'
+    || !isNonEmptyString(candidate.review_basis.benchmark_symbol)
+    || !candidate.review_basis.replay_window
+    || !isNonEmptyString(candidate.review_basis.replay_window.start_date)
+    || !isNonEmptyString(candidate.review_basis.replay_window.end_date)
+    || !isNonEmptyString(candidate.review_basis.rebalance_frequency)
+    || typeof candidate.review_basis.commission_bps !== 'number'
+    || typeof candidate.review_basis.slippage_bps !== 'number'
+    || !isNonEmptyString(candidate.review_basis.derivation_basis)
+    || !isNonEmptyString(candidate.review_basis.candidate_construction_rule)
+  ) {
+    throw new Error(`${label} review_basis is invalid`)
+  }
+}
+
+function assertValidReviewSnapshotOpenResponse(value: unknown, label: string): asserts value is ReviewSnapshotOpenResponse {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+  const candidate = value as Partial<ReviewSnapshotOpenResponse>
+  assertValidReviewSnapshotOpenHandoff(candidate.handoff, `${label} handoff`)
+  assertValidReviewSnapshotArtifact(candidate.artifact, `${label} artifact`)
+  assertValidReviewSnapshotPMSummaryEnvelope(candidate.pm_summary, `${label} pm_summary`, ['saved_proposal'])
+  if (!candidate.replay_payload || typeof candidate.replay_payload !== 'object') {
+    throw new Error(`${label} replay_payload is invalid`)
+  }
+  if (candidate.handoff.artifact_id !== candidate.artifact.identity.artifact_id) {
+    throw new Error(`${label} handoff artifact_id does not match persisted artifact identity`)
+  }
+  if (candidate.handoff.artifact_kind !== candidate.artifact.identity.artifact_kind) {
+    throw new Error(`${label} handoff artifact_kind does not match persisted artifact identity`)
+  }
+  if (candidate.handoff.schema_version !== candidate.artifact.identity.schema_version) {
+    throw new Error(`${label} handoff schema_version does not match persisted artifact identity`)
+  }
+  if (candidate.handoff.consumer_kind !== candidate.artifact.identity.consumer_kind) {
+    throw new Error(`${label} handoff consumer_kind does not match persisted artifact identity`)
+  }
+  if (JSON.stringify(candidate.handoff) !== JSON.stringify(candidate.artifact.proposal_capture.open_handoff)) {
+    throw new Error(`${label} handoff does not match persisted artifact proposal_capture open_handoff`)
+  }
+  if (JSON.stringify(candidate.pm_summary) !== JSON.stringify(candidate.artifact.pm_summary)) {
+    throw new Error(`${label} pm_summary does not match persisted artifact pm_summary`)
+  }
+  if (JSON.stringify(candidate.replay_payload) !== JSON.stringify(candidate.artifact.source_payload)) {
+    throw new Error(`${label} replay_payload does not match persisted artifact source_payload`)
+  }
+}
+
+export function assertValidReviewSnapshotComparisonResponseEnvelope(response: unknown): ReviewSnapshotComparisonResponse {
+  if (!response || typeof response !== 'object') {
+    throw new Error('Review snapshot comparison response is invalid')
+  }
+  const candidate = response as Partial<ReviewSnapshotComparisonResponse>
+  if (candidate.provenance !== 'persisted_review_snapshot_artifacts_only') {
+    throw new Error('Review snapshot comparison response provenance is invalid')
+  }
+  if (!candidate.family_key || typeof candidate.family_key !== 'object') {
+    throw new Error('Review snapshot comparison response family_key is invalid')
+  }
+  if (
+    !isNonEmptyString(candidate.family_key.workspace_id)
+    || !isNonEmptyString(candidate.family_key.source_draft_id)
+    || !isNonEmptyString(candidate.family_key.source_base_node_id)
+    || !isNonEmptyString(candidate.family_key.proposal_family_id)
+    || candidate.family_key.source_kind !== 'hypothetical_replacement_replay'
+  ) {
+    throw new Error('Review snapshot comparison response family_key is invalid')
+  }
+  if (candidate.benchmark_separation !== 'explicit_per_snapshot_benchmark_fields') {
+    throw new Error('Review snapshot comparison response benchmark_separation is invalid')
+  }
+  if (!candidate.baseline_pm_summary || typeof candidate.baseline_pm_summary !== 'object') {
+    throw new Error('Review snapshot comparison response baseline_pm_summary is invalid')
+  }
+  if (!candidate.candidate_pm_summary || typeof candidate.candidate_pm_summary !== 'object') {
+    throw new Error('Review snapshot comparison response candidate_pm_summary is invalid')
+  }
+  if ((candidate.baseline_pm_summary as { role?: unknown }).role !== 'baseline') {
+    throw new Error('Review snapshot comparison response baseline_pm_summary role is invalid')
+  }
+  if ((candidate.candidate_pm_summary as { role?: unknown }).role !== 'candidate') {
+    throw new Error('Review snapshot comparison response candidate_pm_summary role is invalid')
+  }
+  assertValidReviewSnapshotPMSummaryEnvelope(
+    candidate.baseline_pm_summary,
+    'Review snapshot comparison response baseline_pm_summary',
+    ['baseline'],
+  )
+  assertValidReviewSnapshotPMSummaryEnvelope(
+    candidate.candidate_pm_summary,
+    'Review snapshot comparison response candidate_pm_summary',
+    ['candidate'],
+  )
+  assertReviewSnapshotFamilyKeyMatchesLineage(
+    candidate.family_key,
+    candidate.baseline_pm_summary.provenance.lineage,
+    'Review snapshot comparison response baseline_pm_summary provenance lineage',
+  )
+  assertReviewSnapshotFamilyKeyMatchesLineage(
+    candidate.family_key,
+    candidate.candidate_pm_summary.provenance.lineage,
+    'Review snapshot comparison response candidate_pm_summary provenance lineage',
+  )
+  return response as ReviewSnapshotComparisonResponse
+}
+
+function assertValidReviewSnapshotFamilyKey(value: unknown, label: string, expectedWorkspaceId?: string): asserts value is ReviewSnapshotFamilyKey {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+  const candidate = value as Partial<ReviewSnapshotFamilyKey>
+  if (
+    !isNonEmptyString(candidate.workspace_id)
+    || !isNonEmptyString(candidate.source_draft_id)
+    || !isNonEmptyString(candidate.source_base_node_id)
+    || !isNonEmptyString(candidate.proposal_family_id)
+    || candidate.source_kind !== 'hypothetical_replacement_replay'
+    || (expectedWorkspaceId !== undefined && candidate.workspace_id !== expectedWorkspaceId)
+  ) {
+    throw new Error(`${label} is invalid`)
+  }
+}
+
+function assertReviewSnapshotFamilyKeyMatchesLineage(
+  familyKey: ReviewSnapshotFamilyKey,
+  lineage: unknown,
+  label: string,
+) {
+  if (!lineage || typeof lineage !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+  const candidate = lineage as Partial<ReviewSnapshotArtifact['lineage']>
+  if (candidate.workspace_id !== familyKey.workspace_id) {
+    throw new Error(`${label} workspace_id is invalid`)
+  }
+  if (candidate.source_draft_id !== familyKey.source_draft_id) {
+    throw new Error(`${label} source_draft_id is invalid`)
+  }
+  if (candidate.source_base_node_id !== familyKey.source_base_node_id) {
+    throw new Error(`${label} source_base_node_id is invalid`)
+  }
+  if (candidate.proposal_family_id !== familyKey.proposal_family_id) {
+    throw new Error(`${label} proposal_family_id is invalid`)
+  }
+  if (candidate.source_kind !== familyKey.source_kind) {
+    throw new Error(`${label} source_kind is invalid`)
+  }
+}
+
+export function assertValidReviewSnapshotFamilyReviewResponseEnvelope(response: unknown): ReviewSnapshotFamilyReviewResponse {
+  if (!response || typeof response !== 'object') {
+    throw new Error('Review snapshot family review response is invalid')
+  }
+  const candidate = response as Partial<ReviewSnapshotFamilyReviewResponse>
+  if (candidate.review_kind !== 'review_snapshot_family_review') {
+    throw new Error('Review snapshot family review response review_kind is invalid')
+  }
+  if (candidate.provenance !== 'persisted_review_snapshot_artifacts_only') {
+    throw new Error('Review snapshot family review response provenance is invalid')
+  }
+  if (candidate.compare_selection_policy !== 'exactly_two_distinct_family_siblings') {
+    throw new Error('Review snapshot family review response compare_selection_policy is invalid')
+  }
+  assertValidReviewSnapshotFamilyKey(candidate.family_key, 'Review snapshot family review response family_key')
+  if (!candidate.anchor || typeof candidate.anchor !== 'object') {
+    throw new Error('Review snapshot family review response anchor is invalid')
+  }
+  if (!Array.isArray(candidate.siblings) || candidate.siblings.length < 1) {
+    throw new Error('Review snapshot family review response siblings are invalid')
+  }
+  const validateSibling = (sibling: unknown, label: string) => {
+    if (!sibling || typeof sibling !== 'object') {
+      throw new Error(`${label} is invalid`)
+    }
+    const summary = sibling as NonNullable<ReviewSnapshotFamilyReviewResponse['siblings']>[number]
+    assertValidReviewSnapshotArtifactIdentity(summary.identity, `${label} identity`)
+    assertValidReviewSnapshotOpenHandoff(summary.open_handoff, `${label} open_handoff`)
+    assertValidReviewSnapshotPMSummaryEnvelope(summary.pm_summary, `${label} pm_summary`, ['saved_proposal'])
+    if (!summary.lineage || typeof summary.lineage !== 'object') {
+      throw new Error(`${label} lineage is invalid`)
+    }
+    if (!summary.comparison_eligibility || typeof summary.comparison_eligibility !== 'object') {
+      throw new Error(`${label} comparison_eligibility is invalid`)
+    }
+    if (typeof summary.comparison_eligibility.eligible !== 'boolean') {
+      throw new Error(`${label} comparison_eligibility is invalid`)
+    }
+    if (!['compatible_family_sibling_available', 'no_compatible_family_sibling'].includes(summary.comparison_eligibility.reason)) {
+      throw new Error(`${label} comparison_eligibility is invalid`)
+    }
+    if (!Array.isArray(summary.comparison_eligibility.compatible_sibling_artifact_ids)) {
+      throw new Error(`${label} comparison_eligibility is invalid`)
+    }
+    assertReviewSnapshotFamilyKeyMatchesLineage(candidate.family_key, summary.lineage, `${label} lineage`)
+    assertReviewSnapshotFamilyKeyMatchesLineage(candidate.family_key, summary.pm_summary.provenance.lineage, `${label} pm_summary provenance lineage`)
+    if (JSON.stringify(summary.lineage) !== JSON.stringify(summary.pm_summary.provenance.lineage)) {
+      throw new Error(`${label} lineage does not match pm_summary provenance lineage`)
+    }
+  }
+  validateSibling(candidate.anchor, 'Review snapshot family review response anchor')
+  candidate.siblings.forEach((sibling, index) => validateSibling(sibling, `Review snapshot family review response sibling ${index + 1}`))
+  if (!candidate.siblings.some((sibling) => sibling.identity.artifact_id === candidate.anchor?.identity.artifact_id)) {
+    throw new Error('Review snapshot family review response anchor is missing from siblings')
+  }
+  return response as ReviewSnapshotFamilyReviewResponse
+}
+
+export function assertValidReviewSnapshotFamilyInboxResponseEnvelope(response: unknown): ReviewSnapshotFamilyInboxResponse {
+  if (!response || typeof response !== 'object') {
+    throw new Error('Review snapshot family inbox response is invalid')
+  }
+  const candidate = response as Partial<ReviewSnapshotFamilyInboxResponse>
+  if (candidate.inbox_kind !== 'review_snapshot_family_inbox') {
+    throw new Error('Review snapshot family inbox response inbox_kind is invalid')
+  }
+  if (!isNonEmptyString(candidate.workspace_id)) {
+    throw new Error('Review snapshot family inbox response workspace_id is invalid')
+  }
+  if (candidate.provenance !== 'persisted_review_snapshot_artifacts_only') {
+    throw new Error('Review snapshot family inbox response provenance is invalid')
+  }
+  if (!Array.isArray(candidate.rows)) {
+    throw new Error('Review snapshot family inbox response rows are invalid')
+  }
+  const seenFamilyKeys = new Set<string>()
+  candidate.rows.forEach((row, index) => {
+    const label = `Review snapshot family inbox response row ${index + 1}`
+    if (!row || typeof row !== 'object') {
+      throw new Error(`${label} is invalid`)
+    }
+    assertValidReviewSnapshotFamilyKey(row.family_key, `${label} family_key`, candidate.workspace_id)
+    const familyKeyKey = JSON.stringify(row.family_key)
+    if (seenFamilyKeys.has(familyKeyKey)) {
+      throw new Error('Review snapshot family inbox response contains duplicate family_key rows')
+    }
+    seenFamilyKeys.add(familyKeyKey)
+    assertValidReviewSnapshotArtifactIdentity(row.latest_identity, `${label} latest_identity`)
+    assertValidReviewSnapshotPMSummaryEnvelope(row.pm_summary, `${label} pm_summary`, ['saved_proposal'])
+    assertValidReviewSnapshotProposalCapture(row.proposal_capture, `${label} proposal_capture`)
+    assertReviewSnapshotFamilyKeyMatchesLineage(row.family_key, row.lineage, `${label} lineage`)
+    assertReviewSnapshotFamilyKeyMatchesLineage(row.family_key, row.pm_summary.provenance.lineage, `${label} pm_summary provenance lineage`)
+    assertReviewSnapshotFamilyKeyMatchesLineage(row.family_key, row.proposal_capture.lineage, `${label} proposal_capture lineage`)
+    if (row.lineage.proposal_id !== row.pm_summary.provenance.lineage.proposal_id) {
+      throw new Error(`${label} lineage proposal_id is invalid`)
+    }
+    if (JSON.stringify(row.lineage) !== JSON.stringify(row.pm_summary.provenance.lineage)) {
+      throw new Error(`${label} lineage does not match pm_summary provenance lineage`)
+    }
+    if (JSON.stringify(row.lineage) !== JSON.stringify(row.proposal_capture.lineage)) {
+      throw new Error(`${label} lineage does not match proposal_capture lineage`)
+    }
+    if (row.proposal_capture.open_handoff.artifact_id !== row.latest_identity.artifact_id) {
+      throw new Error(`${label} latest_identity artifact_id is invalid`)
+    }
+    if (JSON.stringify(row.pm_summary.provenance.proposal_source) !== JSON.stringify(row.proposal_capture.proposal.proposal_source)) {
+      throw new Error(`${label} proposal_source is invalid`)
+    }
+    if (typeof row.sibling_count !== 'number' || row.sibling_count < 1) {
+      throw new Error(`${label} sibling_count is invalid`)
+    }
+    if (!row.compare_readiness || typeof row.compare_readiness !== 'object') {
+      throw new Error(`${label} compare_readiness is invalid`)
+    }
+    if (typeof row.compare_readiness.ready !== 'boolean') {
+      throw new Error(`${label} compare_readiness is invalid`)
+    }
+    if (!['compatible_family_pair_available', 'no_compatible_family_pair'].includes(row.compare_readiness.reason)) {
+      throw new Error(`${label} compare_readiness is invalid`)
+    }
+    if (typeof row.compare_readiness.compatible_pair_count !== 'number' || row.compare_readiness.compatible_pair_count < 0) {
+      throw new Error(`${label} compare_readiness is invalid`)
+    }
+    if (row.compare_readiness.ready && row.compare_readiness.compatible_pair_count < 1) {
+      throw new Error(`${label} compare_readiness is invalid`)
+    }
+    if (!row.compare_readiness.ready && row.compare_readiness.compatible_pair_count !== 0) {
+      throw new Error(`${label} compare_readiness is invalid`)
+    }
+    if (!isNonEmptyString(row.latest_saved_at)) {
+      throw new Error(`${label} latest_saved_at is invalid`)
+    }
+    if (row.latest_order_provenance !== 'persisted_artifact_file_mtime') {
+      throw new Error(`${label} latest_order_provenance is invalid`)
+    }
+  })
+  return response as ReviewSnapshotFamilyInboxResponse
+}
+
+export function assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(response: unknown): ReviewSnapshotActiveThesisCrossFamilyQueueResponse {
+  if (!response || typeof response !== 'object') {
+    throw new Error('Review snapshot active thesis cross-family queue response is invalid')
+  }
+  const candidate = response as Partial<ReviewSnapshotActiveThesisCrossFamilyQueueResponse>
+  if (candidate.queue_kind !== 'review_snapshot_active_thesis_cross_family_queue') {
+    throw new Error('Review snapshot active thesis cross-family queue response queue_kind is invalid')
+  }
+  if (candidate.provenance !== 'persisted_review_snapshot_artifacts_and_active_thesis_reference_only') {
+    throw new Error('Review snapshot active thesis cross-family queue response provenance is invalid')
+  }
+  if (candidate.queue_ordering !== 'latest_saved_at_desc_then_artifact_id_desc') {
+    throw new Error('Review snapshot active thesis cross-family queue response queue_ordering is invalid')
+  }
+  if (!candidate.active_thesis || typeof candidate.active_thesis !== 'object') {
+    throw new Error('Review snapshot active thesis cross-family queue response active_thesis is invalid')
+  }
+  if (!isNonEmptyString(candidate.active_thesis.source_proposal_id)) {
+    throw new Error('Review snapshot active thesis cross-family queue response active_thesis source_proposal_id is invalid')
+  }
+  assertValidReviewSnapshotOpenHandoff(candidate.active_thesis.handoff, 'Review snapshot active thesis cross-family queue response active_thesis handoff')
+  assertValidReviewSnapshotArtifactIdentity(candidate.active_thesis.identity, 'Review snapshot active thesis cross-family queue response active_thesis identity')
+  assertValidReviewSnapshotFamilyKey(candidate.active_thesis.family_key, 'Review snapshot active thesis cross-family queue response active_thesis family_key')
+  assertReviewSnapshotFamilyKeyMatchesLineage(
+    candidate.active_thesis.family_key,
+    candidate.active_thesis.lineage,
+    'Review snapshot active thesis cross-family queue response active_thesis lineage',
+  )
+  if (candidate.active_thesis.source_proposal_id !== candidate.active_thesis.lineage.proposal_id) {
+    throw new Error('Review snapshot active thesis cross-family queue response active_thesis source_proposal_id is invalid')
+  }
+  if (!Array.isArray(candidate.rows)) {
+    throw new Error('Review snapshot active thesis cross-family queue response rows are invalid')
+  }
+  const seenFamilyKeys = new Set<string>()
+  const seenArtifactIds = new Set<string>()
+  let previousOrder: string | null = null
+  candidate.rows.forEach((row, index) => {
+    const label = `Review snapshot active thesis cross-family queue response row ${index + 1}`
+    if (!row || typeof row !== 'object') {
+      throw new Error(`${label} is invalid`)
+    }
+    assertValidReviewSnapshotFamilyKey(row.family_key, `${label} family_key`, candidate.active_thesis!.family_key.workspace_id)
+    assertValidReviewSnapshotArtifactIdentity(row.latest_identity, `${label} latest_identity`)
+    assertReviewSnapshotFamilyKeyMatchesLineage(row.family_key, row.lineage, `${label} lineage`)
+    const familyKeyKey = JSON.stringify(row.family_key)
+    if (seenFamilyKeys.has(familyKeyKey)) {
+      throw new Error('Review snapshot active thesis cross-family queue response contains duplicate family_key rows')
+    }
+    seenFamilyKeys.add(familyKeyKey)
+    if (seenArtifactIds.has(row.latest_identity.artifact_id)) {
+      throw new Error('Review snapshot active thesis cross-family queue response contains duplicate canonical row identities')
+    }
+    seenArtifactIds.add(row.latest_identity.artifact_id)
+    if (row.family_key.source_draft_id !== candidate.active_thesis!.family_key.source_draft_id) {
+      throw new Error(`${label} family_key source_draft_id is invalid`)
+    }
+    if (row.family_key.source_base_node_id !== candidate.active_thesis!.family_key.source_base_node_id) {
+      throw new Error(`${label} family_key source_base_node_id is invalid`)
+    }
+    if (row.family_key.source_kind !== candidate.active_thesis!.family_key.source_kind) {
+      throw new Error(`${label} family_key source_kind is invalid`)
+    }
+    if (row.family_key.proposal_family_id === candidate.active_thesis!.family_key.proposal_family_id) {
+      throw new Error(`${label} family_key proposal_family_id is invalid`)
+    }
+    if (!row.family_separation || typeof row.family_separation !== 'object') {
+      throw new Error(`${label} family_separation is invalid`)
+    }
+    if (
+      row.family_separation.separation_kind !== 'distinct_proposal_family_id'
+      || row.family_separation.active_thesis_proposal_family_id !== candidate.active_thesis!.family_key.proposal_family_id
+      || row.family_separation.queue_proposal_family_id !== row.family_key.proposal_family_id
+      || row.family_separation.active_thesis_proposal_family_id === row.family_separation.queue_proposal_family_id
+    ) {
+      throw new Error(`${label} family_separation is invalid`)
+    }
+    assertSnapshotProposalSourceLabelShape(row.proposal_source, `${label} proposal_source`)
+    if (!row.truth_labels || typeof row.truth_labels !== 'object') {
+      throw new Error(`${label} truth_labels are invalid`)
+    }
+    if (
+      row.truth_labels.proposal_truth !== 'review_only_hypothetical_proposal'
+      || row.truth_labels.portfolio_truth !== 'draft_snapshot_not_applied'
+      || row.truth_labels.analytics_truth !== 'hypothetical_replay_analytics_only'
+      || row.truth_labels.review_scope !== 'proposal_review_context_only'
+    ) {
+      throw new Error(`${label} truth_labels are invalid`)
+    }
+    if (!row.trust_visibility || typeof row.trust_visibility !== 'object') {
+      throw new Error(`${label} trust_visibility is invalid`)
+    }
+    if (row.trust_visibility.benchmark_separation !== 'explicit_per_snapshot_benchmark_fields') {
+      throw new Error(`${label} trust_visibility is invalid`)
+    }
+    if (!row.pm_summary_fields || typeof row.pm_summary_fields !== 'object') {
+      throw new Error(`${label} pm_summary_fields are invalid`)
+    }
+    if (row.pm_summary_fields.review_basis.benchmark_separation !== 'explicit_per_snapshot_benchmark_fields') {
+      throw new Error(`${label} pm_summary_fields are invalid`)
+    }
+    if (row.trust_visibility.benchmark_separation !== row.pm_summary_fields.review_basis.benchmark_separation) {
+      throw new Error(`${label} benchmark_separation is invalid`)
+    }
+    if (!isNonEmptyString(row.latest_saved_at)) {
+      throw new Error(`${label} latest_saved_at is invalid`)
+    }
+    if (row.queue_order_provenance !== 'persisted_artifact_file_mtime_desc_then_artifact_id_desc') {
+      throw new Error(`${label} queue_order_provenance is invalid`)
+    }
+    const currentOrder = `${row.latest_saved_at}::${row.latest_identity.artifact_id}`
+    if (previousOrder !== null && currentOrder > previousOrder) {
+      throw new Error('Review snapshot active thesis cross-family queue response ordering is invalid')
+    }
+    previousOrder = currentOrder
+  })
+  return response as ReviewSnapshotActiveThesisCrossFamilyQueueResponse
+}
+
+function assertSavedProposalArtifactReviewSnapshotIdentity(proposal: VersionedProposalArtifact, reviewSnapshotArtifact: ReviewSnapshotArtifact | null) {
+  if (!proposal.reviewSnapshotArtifactId) {
+    throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
+  }
+  if (!reviewSnapshotArtifact) {
+    throw new Error('Saved proposal review snapshot artifact is missing')
+  }
+  assertValidReviewSnapshotArtifact(reviewSnapshotArtifact, 'Saved proposal review snapshot artifact')
+  if (reviewSnapshotArtifact.identity.artifact_id !== proposal.reviewSnapshotArtifactId) {
+    throw new Error('Saved proposal reviewSnapshotArtifactId does not match persisted review snapshot artifact identity')
+  }
+  if (reviewSnapshotArtifact.lineage.proposal_id !== proposal.id) {
+    throw new Error('Saved proposal review snapshot lineage proposal_id does not match saved proposal id')
+  }
+  if (reviewSnapshotArtifact.lineage.workspace_id !== proposal.workspaceId) {
+    throw new Error('Saved proposal review snapshot lineage workspace_id does not match saved proposal workspaceId')
+  }
+  if (reviewSnapshotArtifact.lineage.source_draft_id !== proposal.sourceDraftId) {
+    throw new Error('Saved proposal review snapshot lineage source_draft_id does not match saved proposal sourceDraftId')
+  }
+  if (reviewSnapshotArtifact.lineage.source_base_node_id !== proposal.sourceBaseNodeId) {
+    throw new Error('Saved proposal review snapshot lineage source_base_node_id does not match saved proposal sourceBaseNodeId')
+  }
+  if (reviewSnapshotArtifact.lineage.proposal_family_id !== proposal.proposalFamilyId) {
+    throw new Error('Saved proposal review snapshot lineage proposal_family_id does not match saved proposal proposalFamilyId')
+  }
+  if (reviewSnapshotArtifact.lineage.version_number !== proposal.versionNumber) {
+    throw new Error('Saved proposal review snapshot lineage version_number does not match saved proposal versionNumber')
+  }
+  const payload = reviewSnapshotArtifact.source_payload.overlay_replay ?? reviewSnapshotArtifact.source_payload.replay
+  if (!payload) {
+    throw new Error('Saved proposal review snapshot artifact is missing authoritative replay payload')
+  }
+  if (JSON.stringify(payload) !== JSON.stringify(proposal.reviewSnapshot)) {
+    throw new Error('Saved proposal review snapshot artifact payload does not match saved proposal reviewSnapshot')
+  }
+  if (!reviewSnapshotArtifact.proposal_capture || typeof reviewSnapshotArtifact.proposal_capture !== 'object') {
+    throw new Error('Saved proposal review snapshot artifact is missing authoritative proposal_capture')
+  }
+  if (reviewSnapshotArtifact.proposal_capture.open_handoff.artifact_id !== proposal.reviewSnapshotArtifactId) {
+    throw new Error('Saved proposal review snapshot proposal_capture open_handoff artifact_id does not match saved proposal reviewSnapshotArtifactId')
+  }
+  if (reviewSnapshotArtifact.proposal_capture.lineage.proposal_id !== proposal.id) {
+    throw new Error('Saved proposal review snapshot proposal_capture lineage proposal_id does not match saved proposal id')
+  }
+  if (reviewSnapshotArtifact.proposal_capture.lineage.workspace_id !== proposal.workspaceId) {
+    throw new Error('Saved proposal review snapshot proposal_capture lineage workspace_id does not match saved proposal workspaceId')
+  }
+}
+
+export function assertSavedProposalProposalCaptureIntegrity(
+  proposal: VersionedProposalArtifact,
+  label = 'Saved proposal proposalCapture',
+  options: { allowMissingReviewSnapshotProposalSource?: boolean } = {},
+) {
+  const capture = proposal.proposalCapture
+  if (!capture || typeof capture !== 'object') {
+    throw new Error(`${label} is missing`)
+  }
+  if (capture.capture_version !== 1) {
+    throw new Error(`${label} has unsupported capture_version`)
+  }
+  if (capture.capture_kind !== 'workspace_review_saved_proposal') {
+    throw new Error(`${label} capture_kind is invalid`)
+  }
+  assertValidReviewSnapshotOpenHandoff(capture.open_handoff, `${label} open_handoff`)
+  if (capture.open_handoff.artifact_id !== proposal.reviewSnapshotArtifactId) {
+    throw new Error(`${label} open_handoff artifact_id does not match saved proposal reviewSnapshotArtifactId`)
+  }
+  if (capture.lineage.workspace_id !== proposal.workspaceId) {
+    throw new Error(`${label} lineage workspace_id does not match saved proposal workspaceId`)
+  }
+  if (capture.lineage.source_draft_id !== proposal.sourceDraftId) {
+    throw new Error(`${label} lineage source_draft_id does not match saved proposal sourceDraftId`)
+  }
+  if (capture.lineage.source_base_node_id !== proposal.sourceBaseNodeId) {
+    throw new Error(`${label} lineage source_base_node_id does not match saved proposal sourceBaseNodeId`)
+  }
+  if (capture.lineage.proposal_family_id !== proposal.proposalFamilyId) {
+    throw new Error(`${label} lineage proposal_family_id does not match saved proposal proposalFamilyId`)
+  }
+  if (capture.lineage.proposal_id !== proposal.id) {
+    throw new Error(`${label} lineage proposal_id does not match saved proposal id`)
+  }
+  if (capture.lineage.version_number !== proposal.versionNumber) {
+    throw new Error(`${label} lineage version_number does not match saved proposal versionNumber`)
+  }
+  if (capture.proposal.source !== proposal.reviewSnapshot.proposal.source) {
+    throw new Error(`${label} proposal source does not match saved proposal reviewSnapshot`)
+  }
+  assertValidSnapshotProposalSourceLabel(capture.proposal.proposal_source, `${label} proposal proposal_source`)
+  if (
+    proposal.reviewSnapshot.proposal.proposal_source == null
+    && options.allowMissingReviewSnapshotProposalSource !== true
+  ) {
+    throw new Error(`${label} proposal proposal_source does not match saved proposal reviewSnapshot`)
+  }
+  if (
+    proposal.reviewSnapshot.proposal.proposal_source != null
+    && JSON.stringify(capture.proposal.proposal_source) !== JSON.stringify(proposal.reviewSnapshot.proposal.proposal_source)
+  ) {
+    throw new Error(`${label} proposal proposal_source does not match saved proposal reviewSnapshot`)
+  }
+  if (JSON.stringify(capture.proposal.proposal_source) !== JSON.stringify(buildSnapshotProposalSourceLabel(proposal.proposalSource))) {
+    throw new Error(`${label} proposal proposal_source does not match saved proposal proposalSource`)
+  }
+  if (capture.proposal.incumbent_symbol !== proposal.reviewSnapshot.proposal.incumbent_symbol) {
+    throw new Error(`${label} incumbent_symbol does not match saved proposal reviewSnapshot`)
+  }
+  if (capture.proposal.candidate_symbol !== proposal.reviewSnapshot.proposal.candidate_symbol) {
+    throw new Error(`${label} candidate_symbol does not match saved proposal reviewSnapshot`)
+  }
+  const expectedReplayType = 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware'
+  if (capture.replay_type !== expectedReplayType) {
+    throw new Error(`${label} replay_type does not match saved proposal reviewSnapshot`)
+  }
+  if (JSON.stringify(capture.replay_provenance) !== JSON.stringify(proposal.reviewSnapshot.replay_provenance)) {
+    throw new Error(`${label} replay_provenance does not match saved proposal reviewSnapshot`)
+  }
+  if (capture.review_basis.benchmark_separation !== 'explicit_per_snapshot_benchmark_fields') {
+    throw new Error(`${label} review_basis benchmark_separation is invalid`)
+  }
+  if (capture.review_basis.benchmark_symbol !== proposal.replayBasis.benchmarkSymbol) {
+    throw new Error(`${label} review_basis benchmark_symbol does not match saved proposal replayBasis`)
+  }
+  if (capture.review_basis.replay_window.start_date !== proposal.replayBasis.startDate || capture.review_basis.replay_window.end_date !== proposal.replayBasis.endDate) {
+    throw new Error(`${label} review_basis replay_window does not match saved proposal replayBasis`)
+  }
+  if (capture.review_basis.rebalance_frequency !== proposal.replayBasis.rebalanceFrequency) {
+    throw new Error(`${label} review_basis rebalance_frequency does not match saved proposal replayBasis`)
+  }
+  if (capture.review_basis.commission_bps !== proposal.replayBasis.commissionBps) {
+    throw new Error(`${label} review_basis commission_bps does not match saved proposal replayBasis`)
+  }
+  if (capture.review_basis.slippage_bps !== proposal.replayBasis.slippageBps) {
+    throw new Error(`${label} review_basis slippage_bps does not match saved proposal replayBasis`)
+  }
+  if (capture.review_basis.derivation_basis !== proposal.replayBasis.derivationBasis) {
+    throw new Error(`${label} review_basis derivation_basis does not match saved proposal replayBasis`)
+  }
+  if (capture.review_basis.candidate_construction_rule !== proposal.replayBasis.candidateConstructionRule) {
+    throw new Error(`${label} review_basis candidate_construction_rule does not match saved proposal replayBasis`)
+  }
+}
+
 function buildDesktopArtifactReviewBasis(input: {
   constructionArtifactId: string
   openedAt: string
@@ -63,6 +1160,21 @@ function buildDesktopArtifactReviewBasis(input: {
   const reviewBasisSource = input.replay.review_basis
   if (!reviewBasisSource) {
     throw new Error('Persisted construction artifact review payload is missing canonical review_basis')
+  }
+  if (reviewBasisSource.construction_artifact_id !== input.constructionArtifactId) {
+    throw new Error('Persisted construction artifact review payload review_basis conflicts with requested artifact identity')
+  }
+  if (!reviewBasisSource.preview_handoff || typeof reviewBasisSource.preview_handoff !== 'object') {
+    throw new Error('Persisted construction artifact review payload review_basis is missing canonical preview handoff')
+  }
+  if (reviewBasisSource.preview_handoff.handoff_kind !== 'construction_artifact_preview_handoff_v1') {
+    throw new Error('Persisted construction artifact review payload review_basis has unsupported preview handoff kind')
+  }
+  if (reviewBasisSource.preview_handoff.construction_artifact_id !== input.constructionArtifactId) {
+    throw new Error('Persisted construction artifact review payload review_basis preview handoff conflicts with requested artifact identity')
+  }
+  if (JSON.stringify(reviewBasisSource.preview_handoff.effective_replay_params) !== JSON.stringify(input.replay.effective_replay_params)) {
+    throw new Error('Persisted construction artifact review payload review_basis preview handoff conflicts with canonical replay params')
   }
   return {
     basisVersion: reviewBasisSource.basis_version,
@@ -73,6 +1185,7 @@ function buildDesktopArtifactReviewBasis(input: {
     portfolioTruth: reviewBasisSource.portfolio_truth,
     candidateTruth: reviewBasisSource.candidate_truth,
     constructionArtifactId: input.constructionArtifactId,
+    previewHandoff: reviewBasisSource.preview_handoff,
     openedAt: input.openedAt,
     benchmarkSymbol: reviewBasisSource.benchmark_symbol ?? null,
     baseCurrency: reviewBasisSource.base_currency ?? null,
@@ -259,6 +1372,11 @@ function canonicalizeOptimizerReviewBasisForComparison(basis: PersistedOptimizer
   return {
     basisVersion: basis.basisVersion,
     basisKind: basis.basisKind,
+    reviewScope: basis.reviewScope,
+    canonicalSource: basis.canonicalSource,
+    basisProvenanceLabel: basis.basisProvenanceLabel,
+    portfolioTruth: basis.portfolioTruth,
+    candidateTruth: basis.candidateTruth,
     handoffReference: basis.handoffReference,
     openedAt: basis.openedAt,
     benchmarkSymbol: basis.benchmarkSymbol,
@@ -365,6 +1483,62 @@ function toCanonicalPersistedOptimizerHandoffReview(review: PersistedOptimizerHa
     validation: review.validation,
     reviewBasisSource: review.reviewBasisSource ?? review.replay.review_basis,
     replay: review.replay,
+  }
+}
+
+function canonicalizeConstructionReviewBasisForComparison(basis: PersistedConstructionArtifactReviewBasis) {
+  return {
+    basisVersion: basis.basisVersion,
+    basisKind: basis.basisKind,
+    reviewScope: basis.reviewScope,
+    canonicalSource: basis.canonicalSource,
+    basisProvenanceLabel: basis.basisProvenanceLabel,
+    portfolioTruth: basis.portfolioTruth,
+    candidateTruth: basis.candidateTruth,
+    constructionArtifactId: basis.constructionArtifactId,
+    previewHandoff: basis.previewHandoff,
+    openedAt: basis.openedAt,
+    benchmarkSymbol: basis.benchmarkSymbol,
+    baseCurrency: basis.baseCurrency,
+    replayWindow: basis.replayWindow,
+    baselineWeights: basis.baselineWeights,
+    candidateWeights: basis.candidateWeights,
+  }
+}
+
+function assertCachedConstructionReviewBasisMatchesCanonical(
+  value: unknown,
+  canonicalReviewBasis: PersistedConstructionArtifactReviewBasis,
+  label: string,
+) {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is malformed`)
+  }
+
+  const candidate = value as Partial<PersistedConstructionArtifactReviewBasis>
+  if (candidate.basisKind !== 'persisted_construction_artifact_review') {
+    throw new Error(`${label} has unsupported basis kind`)
+  }
+  if (candidate.basisVersion !== 1) {
+    throw new Error(`${label} has unsupported basis version`)
+  }
+  if (candidate.constructionArtifactId !== canonicalReviewBasis.constructionArtifactId) {
+    throw new Error(`${label} conflicts with canonical persisted review`)
+  }
+  if (!candidate.previewHandoff || typeof candidate.previewHandoff !== 'object') {
+    throw new Error(`${label} is missing canonical preview handoff`)
+  }
+  if (candidate.previewHandoff.handoff_kind !== 'construction_artifact_preview_handoff_v1') {
+    throw new Error(`${label} has unsupported preview handoff kind`)
+  }
+  if (candidate.previewHandoff.construction_artifact_id !== canonicalReviewBasis.constructionArtifactId) {
+    throw new Error(`${label} preview handoff conflicts with canonical persisted review identity`)
+  }
+  if (
+    JSON.stringify(canonicalizeConstructionReviewBasisForComparison(candidate as PersistedConstructionArtifactReviewBasis))
+    !== JSON.stringify(canonicalizeConstructionReviewBasisForComparison(canonicalReviewBasis))
+  ) {
+    throw new Error(`${label} conflicts with canonical persisted review`)
   }
 }
 
@@ -488,6 +1662,13 @@ function normalizePersistedConstructionArtifactWorkspace(input: {
   if (!('kind' in workspaceSource) || workspaceSource.kind !== 'persisted_construction_artifact') {
     throw new Error('Persisted construction artifact workspace normalization requires a persisted construction artifact source')
   }
+  if (workspaceSource.constructionArtifactId !== input.review.constructionArtifactId) {
+    throw new Error('Persisted construction artifact workspace source conflicts with canonical persisted review identity')
+  }
+
+  if (workspaceSource.reviewBasis != null) {
+    assertCachedConstructionReviewBasisMatchesCanonical(workspaceSource.reviewBasis, reviewBasis, 'Persisted construction artifact workspace review basis')
+  }
 
   const normalizedWorkspace: PortfolioWorkspace = workspaceSource.reviewBasis
     ? input.workspace
@@ -498,6 +1679,10 @@ function normalizePersistedConstructionArtifactWorkspace(input: {
           reviewBasis,
         },
       }
+
+  if (input.node.artifactReviewBasis != null) {
+    assertCachedConstructionReviewBasisMatchesCanonical(input.node.artifactReviewBasis, reviewBasis, 'Persisted construction artifact node review basis')
+  }
 
   const normalizedNode: PortfolioNode = input.node.kind === 'artifact_review_basis' && input.node.artifactReviewBasis
     ? { ...input.node, portfolioSnapshot: null }
@@ -658,7 +1843,7 @@ function createChangeSummary(baseSnapshot: PortfolioSnapshot, nextSnapshot: Port
   }
 }
 
-export function assertSavedProposalArtifactIntegrity(proposal: VersionedProposalArtifact): VersionedProposalArtifact {
+function assertSavedProposalArtifactLineageIntegrity(proposal: VersionedProposalArtifact): VersionedProposalArtifact {
   const replayBasis = proposal.replayBasis
   const reviewSnapshot = proposal.reviewSnapshot
   const replayProvenance = replayBasis.replayProvenance
@@ -701,6 +1886,34 @@ export function assertSavedProposalArtifactIntegrity(proposal: VersionedProposal
   return proposal
 }
 
+export function assertSavedProposalArtifactIntegrity(proposal: VersionedProposalArtifact): VersionedProposalArtifact {
+  const canonicalProposal = assertSavedProposalArtifactProposalSourceIntegrity(assertSavedProposalArtifactLineageIntegrity(proposal))
+  assertSavedProposalProposalCaptureIntegrity(canonicalProposal)
+  if (canonicalProposal.reviewSnapshotPMSummary != null) {
+    assertValidReviewSnapshotPMSummaryEnvelope(
+      canonicalProposal.reviewSnapshotPMSummary,
+      'Saved proposal reviewSnapshotPMSummary',
+      ['saved_proposal'],
+    )
+  }
+  return canonicalProposal
+}
+
+
+export function assertSavedProposalArtifactRestoreIntegrity(
+  proposal: VersionedProposalArtifact,
+  reviewSnapshotArtifact: ReviewSnapshotArtifact | null,
+): VersionedProposalArtifact {
+  const canonicalProposal = assertSavedProposalArtifactProposalSourceIntegrity(assertSavedProposalArtifactLineageIntegrity(proposal))
+  assertSavedProposalProposalCaptureIntegrity(canonicalProposal, 'Saved proposal proposalCapture', { allowMissingReviewSnapshotProposalSource: true })
+  assertSavedProposalArtifactReviewSnapshotIdentity(canonicalProposal, reviewSnapshotArtifact)
+  if (canonicalProposal.reviewSnapshotPMSummary == null) {
+    throw new Error('Saved proposal cached reviewSnapshotPMSummary is missing while persisted review snapshot artifact pm_summary exists')
+  }
+  assertCachedSavedProposalPMSummaryMatchesPersisted(canonicalProposal, reviewSnapshotArtifact)
+  return canonicalizeRestoredSavedProposalArtifact(canonicalProposal)
+}
+
 
 export function buildSavedProposalArtifact(input: {
   id: string
@@ -711,9 +1924,13 @@ export function buildSavedProposalArtifact(input: {
   proposalFamilyId: string
   versionNumber: number
   sourceIntent: ReplacementIntentDraftArtifact
+  proposalCapture: VersionedProposalArtifact['proposalCapture']
+  reviewSnapshotArtifactId: string
+  reviewSnapshotPMSummary: ReviewSnapshotPMSummaryEnvelope
   hypotheticalReplay: VersionedProposalArtifact['reviewSnapshot']
 }): VersionedProposalArtifact {
   const activeReplay = 'replay' in input.hypotheticalReplay ? input.hypotheticalReplay.replay : input.hypotheticalReplay.overlay_replay
+  const proposalSource = input.proposalCapture.proposal.proposal_source
   return assertSavedProposalArtifactIntegrity({
     id: input.id,
     kind: 'single_replacement_hypothetical_replay_proposal',
@@ -727,23 +1944,26 @@ export function buildSavedProposalArtifact(input: {
     savedFrom: 'desktop_hypothetical_replay_review',
     reviewStatus: 'recorded',
     sourceIntent: input.sourceIntent,
-    proposalSource: input.hypotheticalReplay.proposal.proposal_source ? {
-      proposalSourceVersion: input.hypotheticalReplay.proposal.proposal_source.proposal_source_version,
-      proposalSourceKind: input.hypotheticalReplay.proposal.proposal_source.proposal_source_kind,
-      proposalTruth: input.hypotheticalReplay.proposal.proposal_source.proposal_truth,
-      portfolioTruth: input.hypotheticalReplay.proposal.proposal_source.portfolio_truth,
-      reviewScope: input.hypotheticalReplay.proposal.proposal_source.review_scope,
-    } : undefined,
+    proposalCapture: input.proposalCapture,
+    proposalSource: {
+      proposalSourceVersion: proposalSource.proposal_source_version,
+      proposalSourceKind: proposalSource.proposal_source_kind,
+      proposalTruth: proposalSource.proposal_truth,
+      portfolioTruth: proposalSource.portfolio_truth,
+      reviewScope: proposalSource.review_scope,
+    },
+    reviewSnapshotArtifactId: input.reviewSnapshotArtifactId,
+    reviewSnapshotPMSummary: input.reviewSnapshotPMSummary,
     replayBasis: {
-      benchmarkSymbol: activeReplay.candidate_result.benchmark_symbol ?? input.sourceIntent.benchmarkSymbol,
-      startDate: activeReplay.candidate_result.start_date,
-      endDate: activeReplay.candidate_result.end_date,
-      rebalanceFrequency: activeReplay.candidate_result.rebalance_frequency,
-      commissionBps: activeReplay.candidate_result.commission_bps,
-      slippageBps: activeReplay.candidate_result.slippage_bps,
-      derivationBasis: input.hypotheticalReplay.derivation.baseline_basis,
-      candidateConstructionRule: input.hypotheticalReplay.derivation.candidate_construction_rule,
-      replayProvenance: input.hypotheticalReplay.replay_provenance,
+      benchmarkSymbol: input.proposalCapture.review_basis.benchmark_symbol,
+      startDate: input.proposalCapture.review_basis.replay_window.start_date,
+      endDate: input.proposalCapture.review_basis.replay_window.end_date,
+      rebalanceFrequency: input.proposalCapture.review_basis.rebalance_frequency,
+      commissionBps: input.proposalCapture.review_basis.commission_bps,
+      slippageBps: input.proposalCapture.review_basis.slippage_bps,
+      derivationBasis: input.proposalCapture.review_basis.derivation_basis,
+      candidateConstructionRule: input.proposalCapture.review_basis.candidate_construction_rule,
+      replayProvenance: input.proposalCapture.replay_provenance,
     },
     reviewSnapshot: input.hypotheticalReplay,
   })
@@ -843,8 +2063,21 @@ export async function getPersistedConstructionArtifactWorkspaceReview(workspaceI
   return withStore<PersistedConstructionArtifactWorkspaceReview | null>(persistedConstructionArtifactReviewStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(workspaceId)
     request.onsuccess = () => {
-      const review = (request.result as PersistedConstructionArtifactWorkspaceReview | undefined) ?? null
-      resolve(review ? { ...review, replay: normalizeConstructionArtifactReplayResponse(review.replay) } : null)
+      try {
+        const review = (request.result as PersistedConstructionArtifactWorkspaceReview | undefined) ?? null
+        if (!review) {
+          resolve(null)
+          return
+        }
+        const normalizedReplay = normalizeConstructionArtifactReplayResponse(review.replay)
+        resolve({
+          ...review,
+          reviewBasisSource: review.reviewBasisSource ?? normalizedReplay.review_basis,
+          replay: normalizedReplay,
+        })
+      } catch (error) {
+        reject(error)
+      }
     }
     request.onerror = () => reject(request.error ?? new Error('Failed to load persisted construction artifact review'))
   })
@@ -1221,22 +2454,33 @@ export async function deleteHypotheticalReplacementReplayDraft(draftId: string) 
 }
 
 export async function getWorkspaceProposalArtifacts(workspaceId: string) {
-  return withStore<VersionedProposalArtifact[]>(versionedProposalStoreName, 'readonly', (store, resolve, reject) => {
+  const loadedProposals = await withStore<VersionedProposalArtifact[]>(versionedProposalStoreName, 'readonly', (store, resolve, reject) => {
     const index = store.index('workspaceId')
     const request = index.getAll(workspaceId)
     request.onsuccess = () => {
       try {
-        resolve((((request.result as VersionedProposalArtifact[] | undefined) ?? []).map(assertSavedProposalArtifactIntegrity)).sort((left, right) => right.versionNumber - left.versionNumber || right.createdAt.localeCompare(left.createdAt)))
+        resolve((((request.result as VersionedProposalArtifact[] | undefined) ?? []).map(hydrateLoadedSavedProposalArtifact)).sort((left, right) => right.versionNumber - left.versionNumber || right.createdAt.localeCompare(left.createdAt)))
       } catch (error) {
         reject(error)
       }
     }
     request.onerror = () => reject(request.error ?? new Error('Failed to load proposal artifacts'))
   })
+
+  return Promise.all(loadedProposals.map(async (proposal) => {
+    const reviewSnapshotArtifact = await getReviewSnapshotArtifact(proposal.reviewSnapshotArtifactId)
+    return assertSavedProposalArtifactRestoreIntegrity(proposal, reviewSnapshotArtifact)
+  }))
 }
 
 export async function saveProposalArtifact(proposal: VersionedProposalArtifact) {
   assertSavedProposalArtifactIntegrity(proposal)
+  if (!proposal.reviewSnapshotArtifactId) {
+    throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
+  }
+  if (!proposal.reviewSnapshotPMSummary) {
+    throw new Error('Saved proposal is missing authoritative reviewSnapshotPMSummary mirror')
+  }
   await withStore<void>(versionedProposalStoreName, 'readwrite', (store, resolve, reject) => {
     const request = store.put(proposal)
     request.onsuccess = () => resolve(undefined)
@@ -1244,21 +2488,107 @@ export async function saveProposalArtifact(proposal: VersionedProposalArtifact) 
   })
 }
 
+export async function saveReviewSnapshotArtifact(input: { id: string; workspaceId: string; reviewSnapshotArtifactId: string; artifact: ReviewSnapshotArtifact }) {
+  assertValidReviewSnapshotArtifact(input.artifact, 'Review snapshot artifact')
+  if (input.artifact.identity.artifact_id !== input.reviewSnapshotArtifactId) {
+    throw new Error('Review snapshot artifact id does not match persisted reviewSnapshotArtifactId')
+  }
+  if (input.artifact.lineage.workspace_id !== input.workspaceId) {
+    throw new Error('Review snapshot artifact lineage workspace_id does not match workspaceId')
+  }
+  await withStore<void>(reviewSnapshotArtifactStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(input)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save review snapshot artifact'))
+  })
+}
+
+export async function getReviewSnapshotArtifact(reviewSnapshotArtifactId: string) {
+  return withStore<ReviewSnapshotArtifact | null>(reviewSnapshotArtifactStoreName, 'readonly', (store, resolve, reject) => {
+    const index = store.index('reviewSnapshotArtifactId')
+    const request = index.getAll(reviewSnapshotArtifactId)
+    request.onsuccess = () => {
+      try {
+        const row = ((request.result as Array<{ artifact?: unknown }> | undefined) ?? [])[0] ?? null
+        if (!row) {
+          resolve(null)
+          return
+        }
+        assertValidReviewSnapshotArtifact(row.artifact, 'Persisted review snapshot artifact row')
+        resolve(row.artifact)
+      } catch (error) {
+        reject(error)
+      }
+    }
+    request.onerror = () => reject(request.error ?? new Error('Failed to load review snapshot artifact'))
+  })
+}
+
+export async function buildReviewSnapshotOpenHandoffFromProposal(proposal: VersionedProposalArtifact): Promise<ReviewSnapshotOpenHandoff> {
+  if (!proposal.reviewSnapshotArtifactId) {
+    throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
+  }
+  assertSavedProposalProposalCaptureIntegrity(proposal)
+  const reviewSnapshotArtifact = await getReviewSnapshotArtifact(proposal.reviewSnapshotArtifactId)
+  if (!reviewSnapshotArtifact) {
+    throw new Error('Saved proposal review snapshot artifact is missing')
+  }
+  assertSavedProposalArtifactRestoreIntegrity(proposal, reviewSnapshotArtifact)
+  if (JSON.stringify(proposal.proposalCapture.open_handoff) !== JSON.stringify(reviewSnapshotArtifact.proposal_capture.open_handoff)) {
+    throw new Error('Saved proposal proposalCapture open_handoff does not match persisted review snapshot artifact proposal_capture open_handoff')
+  }
+  return proposal.proposalCapture.open_handoff
+}
+
+export function assertValidReviewSnapshotOpenResponseEnvelope(response: unknown): ReviewSnapshotOpenResponse {
+  assertValidReviewSnapshotOpenResponse(response, 'Review snapshot open response')
+  return response
+}
+
+export async function buildReviewSnapshotComparisonRefs(proposals: [VersionedProposalArtifact, VersionedProposalArtifact]): Promise<[ReviewSnapshotComparisonArtifactRef, ReviewSnapshotComparisonArtifactRef]> {
+  const [baseline, candidate] = proposals
+  if (baseline.reviewSnapshotArtifactId === candidate.reviewSnapshotArtifactId) {
+    throw new Error('Review snapshot comparison requires two distinct persisted artifacts')
+  }
+  if (baseline.proposalFamilyId !== candidate.proposalFamilyId) {
+    throw new Error('Review snapshot comparison requires matching proposalFamilyId')
+  }
+  if (baseline.workspaceId !== candidate.workspaceId) {
+    throw new Error('Review snapshot comparison requires matching workspaceId')
+  }
+  if (baseline.sourceDraftId !== candidate.sourceDraftId) {
+    throw new Error('Review snapshot comparison requires matching sourceDraftId')
+  }
+  if (baseline.sourceBaseNodeId !== candidate.sourceBaseNodeId) {
+    throw new Error('Review snapshot comparison requires matching sourceBaseNodeId')
+  }
+  const baselineHandoff = await buildReviewSnapshotOpenHandoffFromProposal(baseline)
+  const candidateHandoff = await buildReviewSnapshotOpenHandoffFromProposal(candidate)
+  return [
+    { role: 'baseline', artifact_id: baselineHandoff.artifact_id, artifact_kind: baselineHandoff.artifact_kind, schema_version: baselineHandoff.schema_version, consumer_kind: baselineHandoff.consumer_kind },
+    { role: 'candidate', artifact_id: candidateHandoff.artifact_id, artifact_kind: candidateHandoff.artifact_kind, schema_version: candidateHandoff.schema_version, consumer_kind: candidateHandoff.consumer_kind },
+  ]
+}
+
 export async function getActiveThesis(workspaceId: string) {
   return withStore<ActiveThesisArtifact | null>(activeThesisStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(workspaceId)
     request.onsuccess = () => {
-      try {
-        const thesis = (request.result as ActiveThesisArtifact | undefined) ?? null
-        if (!thesis) {
-          resolve(null)
-          return
+      void (async () => {
+        try {
+          const thesis = (request.result as ActiveThesisArtifact | undefined) ?? null
+          if (!thesis) {
+            resolve(null)
+            return
+          }
+          thesis.thesisProposal = hydrateLoadedSavedProposalArtifact(thesis.thesisProposal)
+          const reviewSnapshotArtifact = await getReviewSnapshotArtifact(thesis.thesisProposal.reviewSnapshotArtifactId)
+          thesis.thesisProposal = assertSavedProposalArtifactRestoreIntegrity(thesis.thesisProposal, reviewSnapshotArtifact)
+          resolve(thesis)
+        } catch (error) {
+          reject(error)
         }
-        thesis.thesisProposal = assertSavedProposalArtifactIntegrity(thesis.thesisProposal)
-        resolve(thesis)
-      } catch (error) {
-        reject(error)
-      }
+      })()
     }
     request.onerror = () => reject(request.error ?? new Error('Failed to load active thesis'))
   })

@@ -9,9 +9,9 @@ import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/por
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { desktopFeatureFlags } from './featureFlags'
-import type { ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import type { ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, ReviewSnapshotOpenHandoff, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
+import { assertValidReviewSnapshotOpenResponseEnvelope, buildReviewSnapshotOpenHandoffFromProposal, buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveReviewSnapshotArtifact, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 
 
@@ -322,6 +322,87 @@ async function loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(
   }
 }
 
+function resolveOptimizerHandoffReplayHandoff(
+  validation: OptimizerHandoffValidationResponse,
+  handoffReference: OptimizerPersistedArtifactReference,
+): OptimizerHandoffReplayHandoff {
+  if (!validation.replay_handoff) {
+    throw new Error('Unable to open persisted optimizer handoff review: validation response missing replay handoff')
+  }
+  if (validation.replay_handoff.handoff_kind !== 'optimizer_handoff_replay_handoff_v1') {
+    throw new Error('Unable to open persisted optimizer handoff review: unsupported replay handoff kind')
+  }
+  const replayHandoffReference = validation.replay_handoff.handoff_reference
+  if (JSON.stringify(replayHandoffReference) !== JSON.stringify(handoffReference)) {
+    throw new Error('Unable to open persisted optimizer handoff review: replay handoff reference mismatch')
+  }
+  return validation.replay_handoff
+}
+
+function assertReviewSnapshotCreateArtifact(value: unknown): ReviewSnapshotArtifact {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Failed to create review snapshot artifact')
+  }
+  const candidate = value as Partial<ReviewSnapshotArtifact>
+  if (!candidate.identity || typeof candidate.identity !== 'object') {
+    throw new Error('Failed to create review snapshot artifact: identity is missing')
+  }
+  if (candidate.identity.artifact_kind !== 'portfolio_review_snapshot') {
+    throw new Error('Failed to create review snapshot artifact: unsupported artifact kind')
+  }
+  if (candidate.identity.schema_version !== 'review_snapshot_artifact_v1') {
+    throw new Error('Failed to create review snapshot artifact: unsupported schema version')
+  }
+  if (candidate.identity.consumer_kind !== 'saved_hypothetical_replay_proposal') {
+    throw new Error('Failed to create review snapshot artifact: unsupported consumer kind')
+  }
+  if (!candidate.lineage || typeof candidate.lineage !== 'object') {
+    throw new Error('Failed to create review snapshot artifact: lineage is missing')
+  }
+  if (!candidate.source_payload || typeof candidate.source_payload !== 'object') {
+    throw new Error('Failed to create review snapshot artifact: source_payload is missing')
+  }
+  return candidate as ReviewSnapshotArtifact
+}
+
+function assertReviewSnapshotOpenHandoffRequest(value: unknown): ReviewSnapshotOpenHandoff {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Unable to reopen saved proposal: review snapshot open handoff is invalid')
+  }
+  const candidate = value as Partial<ReviewSnapshotOpenHandoff>
+  if (candidate.handoff_kind !== 'review_snapshot_open_handoff_v1') {
+    throw new Error('Unable to reopen saved proposal: unsupported review snapshot open handoff kind')
+  }
+  if (candidate.artifact_kind !== 'portfolio_review_snapshot') {
+    throw new Error('Unable to reopen saved proposal: unsupported review snapshot artifact kind')
+  }
+  if (candidate.schema_version !== 'review_snapshot_artifact_v1') {
+    throw new Error('Unable to reopen saved proposal: unsupported review snapshot schema version')
+  }
+  if (candidate.consumer_kind !== 'saved_hypothetical_replay_proposal') {
+    throw new Error('Unable to reopen saved proposal: unsupported review snapshot consumer kind')
+  }
+  if (!candidate.artifact_id) {
+    throw new Error('Unable to reopen saved proposal: review snapshot open handoff is missing artifact_id')
+  }
+  return candidate as ReviewSnapshotOpenHandoff
+}
+
+function assertReviewSnapshotOpenHandoffMatchesArtifact(handoff: ReviewSnapshotOpenHandoff, artifact: ReviewSnapshotArtifact) {
+  if (handoff.artifact_id !== artifact.identity.artifact_id) {
+    throw new Error('Unable to reopen saved proposal: handoff artifact_id does not match persisted artifact identity')
+  }
+  if (handoff.artifact_kind !== artifact.identity.artifact_kind) {
+    throw new Error('Unable to reopen saved proposal: handoff artifact_kind does not match persisted artifact identity')
+  }
+  if (handoff.schema_version !== artifact.identity.schema_version) {
+    throw new Error('Unable to reopen saved proposal: handoff schema_version does not match persisted artifact identity')
+  }
+  if (handoff.consumer_kind !== artifact.identity.consumer_kind) {
+    throw new Error('Unable to reopen saved proposal: handoff consumer_kind does not match persisted artifact identity')
+  }
+}
+
 async function loadHypotheticalReplacementReplayForCurrentDraft(
   draft: WorkingDraft | null,
   replacementIntentDraft: ReplacementIntentDraftArtifact | null,
@@ -439,16 +520,102 @@ async function loadSelectedConstructionRuleForCurrentDraft(
   }
 }
 
-async function loadWorkspaceProposalArtifacts(workspace: PortfolioWorkspace | null, setProposalArtifacts: (value: VersionedProposalArtifact[]) => void) {
+async function loadWorkspaceProposalArtifacts(workspace: PortfolioWorkspace | null): Promise<VersionedProposalArtifact[]> {
   if (!workspace) {
-    setProposalArtifacts([])
-    return
+    return []
   }
-  try {
-    setProposalArtifacts(await getWorkspaceProposalArtifacts(workspace.id))
-  } catch {
-    setProposalArtifacts([])
+  return getWorkspaceProposalArtifacts(workspace.id)
+}
+
+function formatSavedProposalRestoreFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Unable to reopen saved proposal'
+  if (message.startsWith('Unable to reopen saved proposal:')) {
+    return message
   }
+  return `Unable to reopen saved proposal: ${message.charAt(0).toLowerCase()}${message.slice(1)}`
+}
+
+async function reopenSavedProposalFromArtifact(
+  reviewSnapshotArtifactId: string,
+  proposalArtifacts: VersionedProposalArtifact[],
+  setProposalArtifacts: (value: VersionedProposalArtifact[] | ((current: VersionedProposalArtifact[]) => VersionedProposalArtifact[])) => void,
+  setHypotheticalReplacementReplay: (value: HypotheticalReplayResponse | null) => void,
+  setWorkspaceError: (value: string | null) => void,
+  setOpenedSavedProposalArtifactId: (value: string | null) => void,
+) {
+  if (!reviewSnapshotArtifactId) {
+    throw new Error('Unable to reopen saved proposal: missing authoritative reviewSnapshotArtifactId')
+  }
+  const proposal = proposalArtifacts.find((item) => item.reviewSnapshotArtifactId === reviewSnapshotArtifactId) ?? null
+  if (!proposal) {
+    throw new Error('Unable to reopen saved proposal: persisted review snapshot artifact is not indexed by any saved proposal')
+  }
+  const handoff = assertReviewSnapshotOpenHandoffRequest(await buildReviewSnapshotOpenHandoffFromProposal(proposal))
+  const response = await fetch('/api/backtests/review-snapshots/open', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(handoff),
+  })
+  const payload = await response.json()
+  if (!response.ok) {
+    throw new Error((payload as { detail?: string }).detail ?? 'Unable to reopen saved proposal')
+  }
+  const openResponse = assertValidReviewSnapshotOpenResponseEnvelope(payload)
+  assertReviewSnapshotOpenHandoffMatchesArtifact(handoff, openResponse.artifact)
+  if (openResponse.handoff.artifact_id !== reviewSnapshotArtifactId) {
+    throw new Error('Unable to reopen saved proposal: open response artifact_id does not match requested reviewSnapshotArtifactId')
+  }
+  const persistedProposal = proposalArtifacts.find((item) => item.reviewSnapshotArtifactId === openResponse.handoff.artifact_id) ?? null
+  if (!persistedProposal) {
+    throw new Error('Unable to reopen saved proposal: persisted review snapshot artifact is not indexed by any saved proposal')
+  }
+  if (persistedProposal.reviewSnapshotArtifactId !== openResponse.artifact.identity.artifact_id) {
+    throw new Error('Unable to reopen saved proposal: saved proposal artifact identity does not match open response artifact identity')
+  }
+  if (persistedProposal.id !== openResponse.artifact.lineage.proposal_id) {
+    throw new Error('Unable to reopen saved proposal: saved proposal id contradicts review snapshot lineage proposal_id')
+  }
+  if (persistedProposal.workspaceId !== openResponse.artifact.lineage.workspace_id) {
+    throw new Error('Unable to reopen saved proposal: saved proposal workspaceId contradicts review snapshot lineage workspace_id')
+  }
+  if (persistedProposal.sourceDraftId !== openResponse.artifact.lineage.source_draft_id) {
+    throw new Error('Unable to reopen saved proposal: saved proposal sourceDraftId contradicts review snapshot lineage source_draft_id')
+  }
+  if (persistedProposal.sourceBaseNodeId !== openResponse.artifact.lineage.source_base_node_id) {
+    throw new Error('Unable to reopen saved proposal: saved proposal sourceBaseNodeId contradicts review snapshot lineage source_base_node_id')
+  }
+  if (persistedProposal.proposalFamilyId !== openResponse.artifact.lineage.proposal_family_id) {
+    throw new Error('Unable to reopen saved proposal: saved proposal proposalFamilyId contradicts review snapshot lineage proposal_family_id')
+  }
+  if (persistedProposal.versionNumber !== openResponse.artifact.lineage.version_number) {
+    throw new Error('Unable to reopen saved proposal: saved proposal versionNumber contradicts review snapshot lineage version_number')
+  }
+  if (JSON.stringify(openResponse.handoff) !== JSON.stringify(openResponse.artifact.proposal_capture.open_handoff)) {
+    throw new Error('Unable to reopen saved proposal: open response handoff contradicts review snapshot proposal_capture open_handoff')
+  }
+  if (JSON.stringify(persistedProposal.proposalCapture.open_handoff) !== JSON.stringify(openResponse.handoff)) {
+    throw new Error('Unable to reopen saved proposal: saved proposal proposalCapture open_handoff contradicts review snapshot open handoff')
+  }
+  if (persistedProposal.proposalCapture.lineage.proposal_id !== openResponse.artifact.proposal_capture.lineage.proposal_id) {
+    throw new Error('Unable to reopen saved proposal: saved proposal proposalCapture lineage proposal_id contradicts review snapshot proposal_capture lineage')
+  }
+  const authoritativeReplay = openResponse.replay_payload.overlay_replay ?? openResponse.replay_payload.replay
+  if (!authoritativeReplay) {
+    throw new Error('Unable to reopen saved proposal: persisted review snapshot open payload is missing authoritative replay payload')
+  }
+  if (JSON.stringify(authoritativeReplay) !== JSON.stringify(persistedProposal.reviewSnapshot)) {
+    throw new Error('Unable to reopen saved proposal: persisted review snapshot open payload contradicts saved proposal reviewSnapshot')
+  }
+  setWorkspaceError(null)
+  setProposalArtifacts((current) => current.map((proposal) => proposal.reviewSnapshotArtifactId === openResponse.handoff.artifact_id
+    ? {
+        ...proposal,
+        proposalCapture: openResponse.artifact.proposal_capture,
+        reviewSnapshotPMSummary: openResponse.pm_summary,
+      }
+    : proposal))
+  setOpenedSavedProposalArtifactId(reviewSnapshotArtifactId)
+  setHypotheticalReplacementReplay(authoritativeReplay)
 }
 
 async function loadActiveThesisForWorkspace(workspace: PortfolioWorkspace | null, setActiveThesis: (value: ActiveThesisArtifact | null) => void) {
@@ -493,6 +660,7 @@ export function App() {
   const [constructionConstraintValidationArtifact, setConstructionConstraintValidationArtifact] = useState<ConstructionConstraintValidationArtifact | null>(null)
   const [selectedConstructionRuleId, setSelectedConstructionRuleId] = useState<SingleReplacementConstructionRuleId>(defaultConstructionRuleId)
   const [proposalArtifacts, setProposalArtifacts] = useState<VersionedProposalArtifact[]>([])
+  const [openedSavedProposalArtifactId, setOpenedSavedProposalArtifactId] = useState<string | null>(null)
   const [activeThesis, setActiveThesis] = useState<ActiveThesisArtifact | null>(null)
   const [monitoringResearchHandoff, setMonitoringResearchHandoff] = useState<MonitoringResearchHandoff | null>(null)
   const [monitoringResearchHandoffDismissed, setMonitoringResearchHandoffDismissed] = useState(false)
@@ -617,6 +785,7 @@ export function App() {
           setPersistedConstructionArtifactReview(created.review)
           setHypotheticalReplacementReplay(null)
           setProposalArtifacts([])
+          setOpenedSavedProposalArtifactId(null)
           setActiveThesis(null)
           setCandidateImprovementDraft(null)
           setIntentBoundSeededEtfReplacementRankingDraft(null)
@@ -662,28 +831,11 @@ export function App() {
             throw new Error(`Unable to open persisted optimizer handoff review: validation ${validation.validation_status}`)
           }
           assertOptimizerHandoffValidationMatchesReference(validation, optimizerHandoffReference)
-          const eligibleWindow = validation.eligible_replay_window
-          if (!eligibleWindow?.start_date || !eligibleWindow?.end_date) {
-            throw new Error('Unable to open persisted optimizer handoff review: eligible replay window missing')
-          }
+          const replayHandoff = resolveOptimizerHandoffReplayHandoff(validation, optimizerHandoffReference)
           const previewResponse = await fetch('/api/backtests/portfolio-allocation/optimizer-handoff-preview', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              handoff_reference: optimizerHandoffReference,
-              start_date: eligibleWindow.start_date,
-              end_date: eligibleWindow.end_date,
-              initial_capital: 100000,
-              rebalance_frequency: 'monthly',
-              base_currency: 'USD',
-              commission_bps: 0,
-              slippage_bps: 0,
-              drift_tolerance_pct: null,
-              price_basis: 'adjusted_close',
-              execution_price_field: 'close',
-              execution_lag_days: 1,
-              symbol_overrides: {},
-            }),
+            body: JSON.stringify(replayHandoff),
           })
           if (!previewResponse.ok) {
             const payload = (await previewResponse.json()) as { detail?: string }
@@ -701,6 +853,7 @@ export function App() {
           setPersistedOptimizerHandoffReview(created.review)
           setHypotheticalReplacementReplay(null)
           setProposalArtifacts([])
+          setOpenedSavedProposalArtifactId(null)
           setActiveThesis(null)
           setCandidateImprovementDraft(null)
           setIntentBoundSeededEtfReplacementRankingDraft(null)
@@ -766,6 +919,7 @@ export function App() {
         setAllocationBacktestRun(normalizedWorkspaceState.review.replay.replay)
         setHypotheticalReplacementReplay(null)
         setProposalArtifacts([])
+        setOpenedSavedProposalArtifactId(null)
         setActiveThesis(null)
         setCandidateImprovementDraft(null)
         setIntentBoundSeededEtfReplacementRankingDraft(null)
@@ -807,6 +961,7 @@ export function App() {
         setAllocationBacktestRun(normalizedWorkspaceState.review.replay.replay)
         setHypotheticalReplacementReplay(null)
         setProposalArtifacts([])
+        setOpenedSavedProposalArtifactId(null)
         setActiveThesis(null)
         setCandidateImprovementDraft(null)
         setIntentBoundSeededEtfReplacementRankingDraft(null)
@@ -820,12 +975,16 @@ export function App() {
       }
 
       const nodes = await getWorkspaceNodes(workspace.id)
+      const restoredProposalArtifacts = await loadWorkspaceProposalArtifacts(workspace).catch((error) => {
+        throw new Error(formatSavedProposalRestoreFailure(error))
+      })
       setActiveWorkspace(workspace)
       setActiveNode(node)
       setWorkingDraft(draft)
       setPersistedConstructionArtifactReview(null)
       setPersistedOptimizerHandoffReview(null)
-      await loadWorkspaceProposalArtifacts(workspace, setProposalArtifacts)
+      setProposalArtifacts(restoredProposalArtifacts)
+      setOpenedSavedProposalArtifactId(null)
       await loadActiveThesisForWorkspace(workspace, setActiveThesis)
       await loadCandidateImprovementDraftForCurrentDraft(draft, setCandidateImprovementDraft)
       await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(draft, setIntentBoundSeededEtfReplacementRankingDraft, { failClosed: true })
@@ -860,8 +1019,14 @@ export function App() {
           if (!active) return
         }
       })()
-      .catch(() => {
+      .catch((caughtError) => {
         if (active) {
+          const message = caughtError instanceof Error ? caughtError.message : 'Unable to restore previous portfolio workspace'
+          if (message.startsWith('Unable to reopen saved proposal:')) {
+            setImportError(message)
+            setTab('dashboard')
+            return
+          }
           setImportError('Unable to restore previous portfolio workspace')
         }
       })
@@ -1039,21 +1204,65 @@ export function App() {
     setWorkspaceError(null)
     const existingProposals = await getWorkspaceProposalArtifacts(activeWorkspace.id).catch(() => proposalArtifacts)
     try {
+      const reviewSnapshotResponse = await fetch('/api/backtests/review-snapshots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposal_id: `proposal_${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
+          workspace_id: activeWorkspace.id,
+          source_draft_id: workingDraft.id,
+          source_base_node_id: workingDraft.baseNodeId,
+          proposal_family_id: `${replacementIntentDraft.kind}:${replacementIntentDraft.baseSymbol}:${replacementIntentDraft.candidateSymbol}:${replacementIntentDraft.createdAt}`,
+          version_number: existingProposals.length + 1,
+          review_payload: hypotheticalReplacementReplay,
+        }),
+      })
+      if (!reviewSnapshotResponse.ok) {
+        const payload = (await reviewSnapshotResponse.json()) as { detail?: string }
+        throw new Error(payload.detail ?? 'Failed to create review snapshot artifact')
+      }
+      const reviewSnapshotArtifact = assertReviewSnapshotCreateArtifact(await reviewSnapshotResponse.json())
       const proposal = buildSavedProposalArtifact({
-        id: `proposal_${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
+        id: reviewSnapshotArtifact.lineage.proposal_id,
         createdAt: new Date().toISOString(),
         workspaceId: activeWorkspace.id,
         sourceDraftId: workingDraft.id,
         sourceBaseNodeId: workingDraft.baseNodeId,
-        proposalFamilyId: `${replacementIntentDraft.kind}:${replacementIntentDraft.baseSymbol}:${replacementIntentDraft.candidateSymbol}:${replacementIntentDraft.createdAt}`,
-        versionNumber: existingProposals.length + 1,
+        proposalFamilyId: reviewSnapshotArtifact.lineage.proposal_family_id,
+        versionNumber: reviewSnapshotArtifact.lineage.version_number,
         sourceIntent: replacementIntentDraft,
+        proposalCapture: reviewSnapshotArtifact.proposal_capture,
+        reviewSnapshotArtifactId: reviewSnapshotArtifact.identity.artifact_id,
+        reviewSnapshotPMSummary: reviewSnapshotArtifact.pm_summary,
         hypotheticalReplay: hypotheticalReplacementReplay,
+      })
+      await saveReviewSnapshotArtifact({
+        id: proposal.id,
+        workspaceId: activeWorkspace.id,
+        reviewSnapshotArtifactId: reviewSnapshotArtifact.identity.artifact_id,
+        artifact: reviewSnapshotArtifact,
       })
       await saveProposalArtifact(proposal)
       setProposalArtifacts([proposal, ...existingProposals])
+      setOpenedSavedProposalArtifactId(reviewSnapshotArtifact.identity.artifact_id)
     } catch (caughtError) {
       setWorkspaceError(caughtError instanceof Error ? caughtError.message : 'Failed to save proposal artifact')
+    }
+  }
+
+  async function handleOpenSavedProposal(reviewSnapshotArtifactId: string) {
+    try {
+      await reopenSavedProposalFromArtifact(
+        reviewSnapshotArtifactId,
+        proposalArtifacts,
+        setProposalArtifacts,
+        setHypotheticalReplacementReplay,
+        setWorkspaceError,
+        setOpenedSavedProposalArtifactId,
+      )
+      setTab('workspace')
+    } catch (caughtError) {
+      setWorkspaceError(caughtError instanceof Error ? caughtError.message : 'Unable to reopen saved proposal')
     }
   }
 
@@ -1479,6 +1688,8 @@ export function App() {
               hypotheticalReplayResult={hypotheticalReplacementReplay}
               savedProposals={proposalArtifacts}
               activeThesis={activeThesis}
+              onOpenSavedProposal={handleOpenSavedProposal}
+              openedSavedProposalArtifactId={openedSavedProposalArtifactId}
               monitoringResearchHandoff={monitoringResearchHandoff}
               monitoringResearchHandoffDismissed={monitoringResearchHandoffDismissed}
               onDismissMonitoringResearchHandoff={handleDismissMonitoringResearchHandoff}

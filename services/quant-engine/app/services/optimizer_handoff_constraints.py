@@ -7,8 +7,10 @@ from typing import Final
 from pydantic import ValidationError
 
 from app.schemas.backtest_engine import (
+    OptimizerHandoffReplayEffectiveParams,
     OptimizerHandoffEligibleReplayWindow,
     OptimizerHandoffReplayAnalyticsFamily,
+    OptimizerHandoffReplayHandoff,
     OptimizerHandoffReplayOutputPolicy,
     OptimizerHandoffValidationEvaluation,
     OptimizerHandoffValidationPhase,
@@ -601,6 +603,7 @@ def _build_response(state: _ValidationState) -> OptimizerHandoffValidationRespon
         artifact_id=artifact.artifact_id if artifact is not None else None,
         source_portfolio_snapshot_id=manifest.source_portfolio_snapshot.snapshot_id if manifest is not None else None,
         eligible_replay_window=_eligible_replay_window(manifest, state.benchmark_symbol),
+        replay_handoff=_replay_handoff(state) if not blocking_rule_ids else None,
         provenance=OptimizerHandoffValidationProvenance(
             benchmark_id=manifest.benchmark.benchmark_id if manifest is not None else None,
             benchmark_version=manifest.benchmark.benchmark_version if manifest is not None else None,
@@ -614,6 +617,19 @@ def _build_response(state: _ValidationState) -> OptimizerHandoffValidationRespon
         evaluations=state.evaluations,
         blocking_rule_ids=blocking_rule_ids,
         warnings=warnings,
+    )
+
+
+def _replay_handoff(state: _ValidationState) -> OptimizerHandoffReplayHandoff | None:
+    manifest = state.manifest
+    if manifest is None or state.requested_replay_start_date is None or state.requested_replay_end_date is None:
+        return None
+    return OptimizerHandoffReplayHandoff(
+        handoff_reference=state.request.handoff_reference,
+        effective_replay_params=OptimizerHandoffReplayEffectiveParams(
+            start_date=state.requested_replay_start_date,
+            end_date=state.requested_replay_end_date,
+        ),
     )
 
 

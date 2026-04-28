@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createImportedBaselineFixture } from '../../test/portfolioFixtures'
-import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
+import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PersistedOptimizerHandoffReviewSection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 import type { HypotheticalReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 
@@ -45,6 +45,14 @@ const mockAnalysis = {
 }
 
 void legacyMockAnalysis
+
+function expectSavedProposalReadoutToFailClosed(proposal: VersionedProposalArtifact, message: string) {
+  expect(() => SavedProposalReadoutSection({ proposal })).toThrow(message)
+}
+
+function expectPersistedOptimizerHandoffReviewToFailClosed(review: PersistedOptimizerHandoffWorkspaceReview, message: string) {
+  expect(() => PersistedOptimizerHandoffReviewSection({ review })).toThrow(message)
+}
 
 const mockResponse: PortfolioAllocationBacktestResponse = {
   methodology: 'm',
@@ -313,12 +321,141 @@ const savedProposal: VersionedProposalArtifact = {
   savedFrom: 'desktop_hypothetical_replay_review',
   reviewStatus: 'recorded',
   sourceIntent: replacementIntent,
+  proposalCapture: {
+    capture_version: 1,
+    capture_kind: 'workspace_review_saved_proposal',
+    open_handoff: {
+      handoff_kind: 'review_snapshot_open_handoff_v1',
+      artifact_id: 'review_snapshot_1234567890abcdef',
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    },
+    lineage: {
+      workspace_id: 'workspace-1',
+      source_draft_id: 'draft-1',
+      source_base_node_id: 'node-1',
+      proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+      proposal_id: 'proposal-1',
+      version_number: 1,
+      source_kind: 'hypothetical_replacement_replay',
+    },
+    proposal: {
+      source: 'draft_replacement_intent',
+      proposal_source: {
+        proposal_source_version: 1,
+        proposal_source_kind: 'draft_replacement_intent_review_only',
+        proposal_truth: 'review_only_hypothetical_proposal',
+        portfolio_truth: 'draft_snapshot_not_applied',
+        review_scope: 'proposal_review_context_only',
+      },
+      incumbent_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+    },
+    replay_type: 'standard',
+    replay_provenance: hypotheticalResponse.replay_provenance,
+    review_basis: {
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+      benchmark_symbol: 'SPY',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      rebalance_frequency: 'monthly',
+      commission_bps: 0,
+      slippage_bps: 0,
+      derivation_basis: 'draft_snapshot_positions_normalized',
+      candidate_construction_rule: 'same_weight_substitution_v1',
+    },
+  },
   proposalSource: {
     proposalSourceVersion: 1,
     proposalSourceKind: 'draft_replacement_intent_review_only',
     proposalTruth: 'review_only_hypothetical_proposal',
     portfolioTruth: 'draft_snapshot_not_applied',
     reviewScope: 'proposal_review_context_only',
+  },
+  reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
+  reviewSnapshotPMSummary: {
+    pm_summary_version: 1,
+    role: 'saved_proposal',
+    provenance: {
+      source: 'persisted_review_snapshot_artifact',
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+      lineage: {
+        workspace_id: 'workspace-1',
+        source_draft_id: 'draft-1',
+        source_base_node_id: 'node-1',
+        proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+        proposal_id: 'proposal-1',
+        version_number: 1,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+      proposal_source: {
+        proposal_source_version: 1,
+        proposal_source_kind: 'draft_replacement_intent_review_only',
+        proposal_truth: 'review_only_hypothetical_proposal',
+        portfolio_truth: 'draft_snapshot_not_applied',
+        review_scope: 'proposal_review_context_only',
+      },
+      replay_provenance: hypotheticalResponse.replay_provenance,
+    },
+    truth_labels: {
+      proposal_truth: 'review_only_hypothetical_proposal',
+      portfolio_truth: 'draft_snapshot_not_applied',
+      analytics_truth: 'hypothetical_replay_analytics_only',
+      review_scope: 'proposal_review_context_only',
+    },
+    replay_type: 'standard',
+    replay_status: 'ok',
+    investor_economics_status: hypotheticalResponse.replay.investor_economics_status,
+    review_basis: {
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+      benchmark_symbol: 'SPY',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      rebalance_frequency: 'monthly',
+      commission_bps: 0,
+      slippage_bps: 0,
+      derivation_basis: 'draft_snapshot_positions_normalized',
+      candidate_construction_rule: 'same_weight_substitution_v1',
+    },
+    methodology: {
+      methodology: hypotheticalResponse.replay.methodology,
+      methodology_provenance: hypotheticalResponse.replay.methodology_provenance,
+    },
+    assumptions: hypotheticalResponse.replay.candidate_result.assumptions,
+    analytics_summary: {
+      candidate_analytics: {
+        methodology: hypotheticalResponse.replay.methodology,
+        methodology_provenance: hypotheticalResponse.replay.methodology_provenance,
+        assumptions: hypotheticalResponse.replay.candidate_result.assumptions,
+        benchmark_symbol: hypotheticalResponse.replay.candidate_result.benchmark_symbol,
+        benchmark_return_pct: hypotheticalResponse.replay.candidate_result.metrics.benchmark_return_pct,
+        total_return_pct: hypotheticalResponse.replay.candidate_result.metrics.total_return_pct,
+        annualized_return_pct: hypotheticalResponse.replay.candidate_result.metrics.annualized_return_pct,
+        annualized_volatility_pct: hypotheticalResponse.replay.candidate_result.metrics.annualized_volatility_pct,
+        downside_volatility_pct: hypotheticalResponse.replay.candidate_result.metrics.downside_volatility_pct,
+        max_drawdown_pct: hypotheticalResponse.replay.candidate_result.metrics.max_drawdown_pct,
+        sharpe_ratio: hypotheticalResponse.replay.candidate_result.metrics.sharpe_ratio,
+        sortino_ratio: hypotheticalResponse.replay.candidate_result.metrics.sortino_ratio,
+        excess_return_pct: hypotheticalResponse.replay.candidate_result.metrics.excess_return_pct,
+        tracking_error_pct: hypotheticalResponse.replay.candidate_result.metrics.tracking_error_pct,
+        information_ratio: hypotheticalResponse.replay.candidate_result.metrics.information_ratio,
+        beta_vs_benchmark: hypotheticalResponse.replay.candidate_result.metrics.beta_vs_benchmark,
+        correlation_vs_benchmark: hypotheticalResponse.replay.candidate_result.metrics.correlation_vs_benchmark,
+        total_turnover_pct: hypotheticalResponse.replay.candidate_result.metrics.total_turnover_pct,
+        total_cost_paid: hypotheticalResponse.replay.candidate_result.metrics.total_cost_paid,
+      },
+      baseline_analytics: null,
+      analytics_comparison: hypotheticalResponse.replay.comparison,
+    },
+    diagnostics_summary: {
+      diagnostics_available: hypotheticalResponse.replay.diagnostics_comparison != null,
+      top_factor_exposure_change: hypotheticalResponse.replay.diagnostics_comparison?.top_factor_exposure_change ?? null,
+      top_volatility_change: hypotheticalResponse.replay.diagnostics_comparison?.top_volatility_change ?? null,
+      top_risk_contribution_change: hypotheticalResponse.replay.diagnostics_comparison?.top_risk_contribution_change ?? null,
+      top_concentration_change: hypotheticalResponse.replay.diagnostics_comparison?.top_concentration_change ?? null,
+      top_stress_scenario_change: hypotheticalResponse.replay.diagnostics_comparison?.top_stress_scenario_change ?? null,
+    },
   },
   replayBasis: {
     benchmarkSymbol: 'SPY',
@@ -456,7 +593,13 @@ const persistedConstructionArtifactWorkspaceSource = {
   reviewBasis: {
     basisVersion: 1 as const,
     basisKind: 'persisted_construction_artifact_review' as const,
+    reviewScope: 'workspace_review_only' as const,
+    canonicalSource: 'typed_preview_handoff' as const,
+    basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+    portfolioTruth: 'imported_portfolio_snapshot' as const,
+    candidateTruth: 'hypothetical_construction_artifact' as const,
     constructionArtifactId: 'artifact-123',
+    previewHandoff: persistedConstructionArtifactReview.replay.review_basis!.preview_handoff,
     openedAt: '2026-04-23T00:00:00Z',
     benchmarkSymbol: 'SPY',
     baseCurrency: 'USD',
@@ -883,24 +1026,10 @@ describe('PortfolioAllocationBacktestPanel', () => {
       },
     } satisfies PersistedOptimizerHandoffWorkspaceReview
 
-    expect(() => render(
-      <HypotheticalReplaySection
-        result={null}
-        draftSnapshot={mockDraftSnapshot}
-        replacementIntentDraft={null}
-        formedCandidateArtifact={null}
-        constructedCandidateArtifact={null}
-        constructionConstraintValidationArtifact={null}
-        selectedConstructionRuleId="same_weight_substitution_v1"
-        hypotheticalReplayResult={null}
-        savedProposalCount={0}
-        onSaveProposal={() => {}}
-        onHypotheticalReplayResult={() => {}}
-        workspaceSource={persistedOptimizerHandoffWorkspaceSource}
-        persistedConstructionArtifactReview={null}
-        persistedOptimizerHandoffReview={legacyReview}
-      />,
-    )).toThrow()
+    expectPersistedOptimizerHandoffReviewToFailClosed(
+      legacyReview,
+      'Persisted optimizer handoff review is missing replay optimizer objective',
+    )
   })
 
   it('renders optimizer handoff review ids from handoffReference only', () => {
@@ -1168,6 +1297,11 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText('This is a saved proposal artifact, not live portfolio truth. It preserves prior hypothetical replay outputs and lineage exactly as reviewed when saved, even if the current draft or portfolio state has changed.')).toBeTruthy()
     expect(screen.getByText('Proposal Artifact')).toBeTruthy()
     expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
+    expect(screen.getByText(/Review snapshot artifact:/)).toBeTruthy()
+    expect(screen.getByText('Canonical PM Summary')).toBeTruthy()
+    expect(screen.getByText(/Role: saved_proposal/)).toBeTruthy()
+    expect(screen.getByText(/benchmark separation: explicit_per_snapshot_benchmark_fields/)).toBeTruthy()
+    expect(screen.getByText(/AAPL -> IUFS/)).toBeTruthy()
     expect(screen.getByText('Proposal Lineage')).toBeTruthy()
     expect(screen.getByText(/Workspace: workspace-1 · Draft: draft-1 · Base node: node-1/)).toBeTruthy()
     expect(screen.getByText(/Proposal source: draft_replacement_intent_review_only/)).toBeTruthy()
@@ -1177,6 +1311,125 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getAllByText('Replay Summary').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Diagnostics Delta Summary').length).toBeGreaterThan(0)
     expect(screen.getByText('This proposal is a saved review snapshot, not applied holdings, candidate truth, or live draft state.')).toBeTruthy()
+  })
+
+  it('renders explicit proposal-source labels from a hydrated legacy-loaded saved proposal artifact', () => {
+    const legacyLoadedProposal = {
+      ...savedProposal,
+      proposalCapture: {
+        ...savedProposal.proposalCapture,
+        proposal: {
+          ...savedProposal.proposalCapture.proposal,
+          proposal_source: savedProposal.proposalSource == null ? savedProposal.proposalCapture.proposal.proposal_source : {
+            proposal_source_version: savedProposal.proposalSource.proposalSourceVersion,
+            proposal_source_kind: savedProposal.proposalSource.proposalSourceKind,
+            proposal_truth: savedProposal.proposalSource.proposalTruth,
+            portfolio_truth: savedProposal.proposalSource.portfolioTruth,
+            review_scope: savedProposal.proposalSource.reviewScope,
+          },
+        },
+      },
+      reviewSnapshot: {
+        ...savedProposal.reviewSnapshot,
+        proposal: {
+          ...savedProposal.reviewSnapshot.proposal,
+          proposal_source: {
+            proposal_source_version: savedProposal.proposalSource.proposalSourceVersion,
+            proposal_source_kind: savedProposal.proposalSource.proposalSourceKind,
+            proposal_truth: savedProposal.proposalSource.proposalTruth,
+            portfolio_truth: savedProposal.proposalSource.portfolioTruth,
+            review_scope: savedProposal.proposalSource.reviewScope,
+          },
+        },
+      },
+    }
+
+    render(<SavedProposalReadoutSection proposal={legacyLoadedProposal} />)
+
+    expect(screen.getByText(/Proposal source: draft_replacement_intent_review_only/)).toBeTruthy()
+    expect(screen.getByText(/proposal truth: review_only_hypothetical_proposal/)).toBeTruthy()
+    expect(screen.getByText(/portfolio truth: draft_snapshot_not_applied/)).toBeTruthy()
+  })
+
+  it('fails closed when saved proposal readout receives a conflicting present proposalSource', () => {
+    const mismatchedNestedProposal = {
+      ...savedProposal,
+      proposalSource: {
+        ...savedProposal.proposalSource,
+        portfolioTruth: 'review_only_hypothetical_proposal' as never,
+      },
+      reviewSnapshot: {
+        ...savedProposal.reviewSnapshot,
+        proposal: {
+          ...savedProposal.reviewSnapshot.proposal,
+          proposal_source: {
+            ...savedProposal.reviewSnapshot.proposal.proposal_source,
+          },
+        },
+      },
+    }
+
+    expectSavedProposalReadoutToFailClosed(mismatchedNestedProposal as VersionedProposalArtifact, 
+      'Saved proposal proposalSource conflicts with reviewSnapshot proposal.proposal_source',
+    )
+  })
+
+  it('fails closed when saved proposal readout receives no authoritative top-level proposalSource', () => {
+    const malformedSavedProposal = {
+      ...savedProposal,
+      proposalSource: undefined,
+    } as unknown as VersionedProposalArtifact
+
+    expectSavedProposalReadoutToFailClosed(malformedSavedProposal,
+      'Saved proposal is missing authoritative proposalSource',
+    )
+  })
+
+  it('fails closed when saved proposal readout receives no authoritative reviewSnapshotArtifactId', () => {
+    const malformedSavedProposal = {
+      ...savedProposal,
+      reviewSnapshotArtifactId: undefined,
+    } as unknown as VersionedProposalArtifact
+
+    expectSavedProposalReadoutToFailClosed(malformedSavedProposal,
+      'Saved proposal is missing authoritative reviewSnapshotArtifactId',
+    )
+  })
+
+  it('fails closed when saved proposal readout receives no authoritative reviewSnapshotPMSummary mirror', () => {
+    const malformedSavedProposal = {
+      ...savedProposal,
+      reviewSnapshotPMSummary: undefined,
+    } as unknown as VersionedProposalArtifact
+
+    expectSavedProposalReadoutToFailClosed(malformedSavedProposal,
+      'Saved proposal is missing authoritative reviewSnapshotPMSummary mirror',
+    )
+  })
+
+  it('fails closed when saved proposal readout receives no authoritative proposalCapture', () => {
+    const malformedSavedProposal = {
+      ...savedProposal,
+      proposalCapture: undefined,
+    } as unknown as VersionedProposalArtifact
+
+    expectSavedProposalReadoutToFailClosed(malformedSavedProposal,
+      'Saved proposal proposalCapture is missing',
+    )
+  })
+
+  it('fails closed when saved proposal readout receives a conflicting reviewSnapshotPMSummary mirror', () => {
+    const malformedSavedProposal = {
+      ...savedProposal,
+      reviewSnapshotPMSummary: {
+        ...savedProposal.reviewSnapshotPMSummary,
+        role: 'baseline' as never,
+      },
+    }
+
+    expectSavedProposalReadoutToFailClosed(malformedSavedProposal as VersionedProposalArtifact,
+      'Saved proposal reviewSnapshotPMSummary role is invalid',
+    )
   })
 
   it('renders persisted construction artifact review provenance labels', () => {

@@ -5,7 +5,18 @@ import * as portfolioDb from './portfolioDb'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { buildPersistedImportedSource } from './portfolioWorkspaceStorage'
 import type { ConstructionArtifactReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference } from '../features/portfolio/types'
-import type { ImportedHistoryContext, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace } from '../features/portfolio/workspaceTypes'
+import type {
+  ImportedHistoryContext,
+  PersistedOptimizerHandoffWorkspaceReview,
+  PortfolioNode,
+  PortfolioWorkspace,
+  ReviewSnapshotActiveThesisCrossFamilyQueueResponse,
+  ReviewSnapshotArtifact,
+  ReviewSnapshotComparisonResponse,
+  ReviewSnapshotFamilyKey,
+  ReviewSnapshotFamilyReviewResponse,
+  VersionedProposalArtifact,
+} from '../features/portfolio/workspaceTypes'
 
 function expectPersistedOptimizerHandoffSource(value: PortfolioWorkspace['source']) {
   expect('kind' in value && value.kind === 'persisted_optimizer_handoff').toBe(true)
@@ -333,6 +344,11 @@ function createOptimizerHandoffWorkspaceReviewBasisFixture() {
   return {
     basisVersion: 1 as const,
     basisKind: 'persisted_optimizer_handoff_review' as const,
+    reviewScope: 'workspace_review_only' as const,
+    canonicalSource: 'persisted_handoff_reference' as const,
+    basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+    portfolioTruth: 'imported_portfolio_snapshot' as const,
+    candidateTruth: 'hypothetical_optimizer_handoff' as const,
     handoffReference: createOptimizerHandoffReference(),
     openedAt: '2026-04-24T00:00:00Z',
     benchmarkSymbol: 'SPY',
@@ -341,6 +357,697 @@ function createOptimizerHandoffWorkspaceReviewBasisFixture() {
     baselineWeights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
     candidateWeights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
   }
+}
+
+function createConstructionArtifactWorkspaceReviewBasisFixture() {
+  return {
+    basisVersion: 1 as const,
+    basisKind: 'persisted_construction_artifact_review' as const,
+    reviewScope: 'workspace_review_only' as const,
+    canonicalSource: 'typed_preview_handoff' as const,
+    basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+    portfolioTruth: 'imported_portfolio_snapshot' as const,
+    candidateTruth: 'hypothetical_construction_artifact' as const,
+    constructionArtifactId: 'artifact-123',
+    previewHandoff: createConstructionArtifactReplayResponse().review_basis!.preview_handoff,
+    openedAt: '2026-04-23T00:00:00Z',
+    benchmarkSymbol: 'SPY',
+    baseCurrency: 'USD',
+    replayWindow: { startDate: '2024-01-01', endDate: '2024-12-31' },
+    baselineWeights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+    candidateWeights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+  }
+}
+
+function createSavedProposalArtifactFixtureBase(): Omit<VersionedProposalArtifact, 'reviewSnapshotPMSummary'> {
+  const reviewSnapshotArtifactId = 'review_snapshot_1234567890abcdef'
+  return {
+    id: 'proposal-1',
+    kind: 'single_replacement_hypothetical_replay_proposal',
+    schemaVersion: 1,
+    createdAt: '2026-04-16T00:00:00Z',
+    workspaceId: 'workspace-1',
+    sourceDraftId: 'draft-1',
+    sourceBaseNodeId: 'node-1',
+    proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+    versionNumber: 1,
+    savedFrom: 'desktop_hypothetical_replay_review',
+    reviewStatus: 'recorded',
+    sourceIntent: {
+      kind: 'etf_replacement_intent',
+      source: 'candidate_seed',
+      createdAt: '2026-04-15T00:05:00Z',
+      draftId: 'draft-1',
+      workspaceId: 'workspace-1',
+      baseNodeId: 'node-1',
+      baseSymbol: 'AAPL',
+      candidateSymbol: 'IUFS',
+      seededFromDraftId: 'draft-1',
+      seedRankingId: 'etf_ranking_engine_v1',
+      seedMethodologyId: 'etf_ranking_methodology_v1',
+      seedRankingBasisDate: '2026-04-15',
+      peerGroup: 'Sector UCITS ETF',
+      benchmarkSymbol: 'SPY',
+      lookbackMonths: 6,
+      confidence: 'medium',
+      holdingsSupport: 'mixed',
+      warningCount: 1,
+    },
+    proposalCapture: {
+      capture_version: 1,
+      capture_kind: 'workspace_review_saved_proposal',
+      open_handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: reviewSnapshotArtifactId,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      lineage: {
+        workspace_id: 'workspace-1',
+        source_draft_id: 'draft-1',
+        source_base_node_id: 'node-1',
+        proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+        proposal_id: 'proposal-1',
+        version_number: 1,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+      proposal: {
+        source: 'draft_replacement_intent',
+        proposal_source: {
+          proposal_source_version: 1,
+          proposal_source_kind: 'draft_replacement_intent_review_only',
+          proposal_truth: 'review_only_hypothetical_proposal',
+          portfolio_truth: 'draft_snapshot_not_applied',
+          review_scope: 'proposal_review_context_only',
+        },
+        incumbent_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+      },
+      replay_type: 'standard',
+      replay_provenance: {
+        candidate_input_source: 'replacement_intent_preview',
+        construction_rule_id: 'same_weight_substitution_v1',
+        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+        constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
+      },
+      review_basis: {
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        benchmark_symbol: 'SPY',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        rebalance_frequency: 'monthly',
+        commission_bps: 0,
+        slippage_bps: 0,
+        derivation_basis: 'draft_snapshot_positions_normalized',
+        candidate_construction_rule: 'same_weight_substitution_v1',
+      },
+    },
+    proposalSource: {
+      proposalSourceVersion: 1,
+      proposalSourceKind: 'draft_replacement_intent_review_only',
+      proposalTruth: 'review_only_hypothetical_proposal',
+      portfolioTruth: 'draft_snapshot_not_applied',
+      reviewScope: 'proposal_review_context_only',
+    },
+    reviewSnapshotArtifactId,
+    replayBasis: {
+      benchmarkSymbol: 'SPY',
+      startDate: '2024-01-01',
+      endDate: '2024-12-31',
+      rebalanceFrequency: 'monthly',
+      commissionBps: 0,
+      slippageBps: 0,
+      derivationBasis: 'draft_snapshot_positions_normalized',
+      candidateConstructionRule: 'same_weight_substitution_v1',
+      replayProvenance: {
+        candidate_input_source: 'replacement_intent_preview',
+        construction_rule_id: 'same_weight_substitution_v1',
+        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+        constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
+      },
+    },
+    reviewSnapshot: {
+      proposal: {
+        source: 'draft_replacement_intent',
+        proposal_source: {
+          proposal_source_version: 1,
+          proposal_source_kind: 'draft_replacement_intent_review_only',
+          proposal_truth: 'review_only_hypothetical_proposal',
+          portfolio_truth: 'draft_snapshot_not_applied',
+          review_scope: 'proposal_review_context_only',
+        },
+        incumbent_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+        draft_id: 'draft-1',
+        base_node_id: 'node-1',
+      },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
+      replay_provenance: {
+        candidate_input_source: 'replacement_intent_preview',
+        construction_rule_id: 'same_weight_substitution_v1',
+        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+        constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
+      },
+      baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
+      candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
+      replay: {
+        methodology: 'm',
+        methodology_provenance: {
+          provenance_version: 1,
+          source: 'portfolio_allocation_backtest_engine',
+          methodology_truth: 'review_only_replay_methodology',
+          assumptions_truth: 'review_only_replay_assumptions',
+          analytics_truth: 'hypothetical_replay_analytics_only',
+          review_scope: 'workspace_review_context_only',
+        },
+        investor_economics_status: availableInvestorEconomicsStatus,
+        reference_result: null,
+        candidate_result: {
+          portfolio_name: 'Candidate',
+          benchmark_symbol: 'SPY',
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          observation_count: 2,
+          rebalance_frequency: 'monthly',
+          commission_bps: 0,
+          slippage_bps: 0,
+          drift_tolerance_pct: null,
+          assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
+          status: 'ok',
+          investor_economics_status: availableInvestorEconomicsStatus,
+          instrument_metadata: [],
+          starting_weights: [],
+          ending_weights: [],
+          metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
+          equity_curve: [],
+          rebalance_events: [],
+          trades: [],
+        },
+        comparison: null,
+        reference_diagnostics: null,
+        candidate_diagnostics: null,
+        diagnostics_comparison: null,
+      },
+      warnings: [],
+    },
+  }
+}
+
+function createSavedProposalArtifactFixture(): VersionedProposalArtifact {
+  const proposal = createSavedProposalArtifactFixtureBase() as VersionedProposalArtifact
+
+  proposal.reviewSnapshotPMSummary = createReviewSnapshotArtifactFixture().pm_summary
+  return proposal
+}
+
+function createReviewSnapshotArtifactFixture(): ReviewSnapshotArtifact {
+  const proposal = createSavedProposalArtifactFixtureBase() as VersionedProposalArtifact
+  return {
+    identity: {
+      artifact_id: 'review_snapshot_1234567890abcdef',
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      fingerprint: 'f'.repeat(64),
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    },
+    lineage: {
+      workspace_id: proposal.workspaceId,
+      source_draft_id: proposal.sourceDraftId,
+      source_base_node_id: proposal.sourceBaseNodeId,
+      proposal_family_id: proposal.proposalFamilyId,
+      proposal_id: proposal.id,
+      version_number: proposal.versionNumber,
+      source_kind: 'hypothetical_replacement_replay',
+    },
+    review_basis: {
+      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+      start_date: proposal.replayBasis.startDate,
+      end_date: proposal.replayBasis.endDate,
+      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+      commission_bps: proposal.replayBasis.commissionBps,
+      slippage_bps: proposal.replayBasis.slippageBps,
+      derivation_basis: proposal.replayBasis.derivationBasis,
+      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+      replay_provenance: proposal.replayBasis.replayProvenance,
+    },
+    truth_labels: {
+      proposal_truth: 'review_only_hypothetical_proposal',
+      portfolio_truth: 'draft_snapshot_not_applied',
+      analytics_truth: 'hypothetical_replay_analytics_only',
+      review_scope: 'proposal_review_context_only',
+    },
+    compact_summary: {
+      replay_type: 'standard',
+      replay_status: 'ok',
+      investor_economics_status: availableInvestorEconomicsStatus,
+      candidate_analytics: {
+        methodology: 'm',
+        methodology_provenance: proposal.reviewSnapshot.replay.methodology_provenance!,
+        assumptions: proposal.reviewSnapshot.replay.candidate_result.assumptions,
+        benchmark_symbol: 'SPY',
+        benchmark_return_pct: 1,
+        total_return_pct: 1,
+        annualized_return_pct: 1,
+        annualized_volatility_pct: 1,
+        downside_volatility_pct: 1,
+        max_drawdown_pct: -1,
+        sharpe_ratio: 1,
+        sortino_ratio: 1,
+        excess_return_pct: 0,
+        tracking_error_pct: 1,
+        information_ratio: 0,
+        beta_vs_benchmark: 1,
+        correlation_vs_benchmark: 1,
+        total_turnover_pct: 0,
+        total_cost_paid: 0,
+      },
+      baseline_analytics: null,
+      analytics_comparison: null,
+      diagnostics_summary: {
+        diagnostics_available: false,
+        top_factor_exposure_change: null,
+        top_volatility_change: null,
+        top_risk_contribution_change: null,
+        top_concentration_change: null,
+        top_stress_scenario_change: null,
+      },
+    },
+    proposal_capture: proposal.proposalCapture,
+    pm_summary: {
+      pm_summary_version: 1,
+      role: 'saved_proposal',
+      provenance: {
+        source: 'persisted_review_snapshot_artifact',
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+        lineage: {
+          workspace_id: proposal.workspaceId,
+          source_draft_id: proposal.sourceDraftId,
+          source_base_node_id: proposal.sourceBaseNodeId,
+          proposal_family_id: proposal.proposalFamilyId,
+          proposal_id: proposal.id,
+          version_number: proposal.versionNumber,
+          source_kind: 'hypothetical_replacement_replay',
+        },
+        proposal_source: proposal.reviewSnapshot.proposal.proposal_source!,
+        replay_provenance: proposal.replayBasis.replayProvenance,
+      },
+      truth_labels: {
+        proposal_truth: 'review_only_hypothetical_proposal',
+        portfolio_truth: 'draft_snapshot_not_applied',
+        analytics_truth: 'hypothetical_replay_analytics_only',
+        review_scope: 'proposal_review_context_only',
+      },
+      replay_type: 'standard',
+      replay_status: 'ok',
+      investor_economics_status: availableInvestorEconomicsStatus,
+      review_basis: {
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+        replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
+        rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+        commission_bps: proposal.replayBasis.commissionBps,
+        slippage_bps: proposal.replayBasis.slippageBps,
+        derivation_basis: proposal.replayBasis.derivationBasis,
+        candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+      },
+      methodology: {
+        methodology: 'm',
+        methodology_provenance: proposal.reviewSnapshot.replay.methodology_provenance!,
+      },
+      assumptions: proposal.reviewSnapshot.replay.candidate_result.assumptions,
+      analytics_summary: {
+        candidate_analytics: {
+          methodology: 'm',
+          methodology_provenance: proposal.reviewSnapshot.replay.methodology_provenance!,
+          assumptions: proposal.reviewSnapshot.replay.candidate_result.assumptions,
+          benchmark_symbol: 'SPY',
+          benchmark_return_pct: 1,
+          total_return_pct: 1,
+          annualized_return_pct: 1,
+          annualized_volatility_pct: 1,
+          downside_volatility_pct: 1,
+          max_drawdown_pct: -1,
+          sharpe_ratio: 1,
+          sortino_ratio: 1,
+          excess_return_pct: 0,
+          tracking_error_pct: 1,
+          information_ratio: 0,
+          beta_vs_benchmark: 1,
+          correlation_vs_benchmark: 1,
+          total_turnover_pct: 0,
+          total_cost_paid: 0,
+        },
+        baseline_analytics: null,
+        analytics_comparison: null,
+      },
+      diagnostics_summary: {
+        diagnostics_available: false,
+        top_factor_exposure_change: null,
+        top_volatility_change: null,
+        top_risk_contribution_change: null,
+        top_concentration_change: null,
+        top_stress_scenario_change: null,
+      },
+    },
+    source_payload: {
+      replay_type: 'standard',
+      replay: proposal.reviewSnapshot as any,
+      overlay_replay: null,
+    },
+  }
+}
+
+function createReviewSnapshotFamilyInboxRowFixture(artifact: ReviewSnapshotArtifact) {
+  return {
+    family_key: createReviewSnapshotFamilyKeyFixture(artifact),
+    latest_identity: artifact.identity,
+    lineage: artifact.lineage,
+    proposal_capture: artifact.proposal_capture,
+    pm_summary: artifact.pm_summary,
+    sibling_count: 1,
+    compare_readiness: {
+      ready: false as const,
+      reason: 'no_compatible_family_pair' as const,
+      compatible_pair_count: 0,
+    },
+    latest_saved_at: '2026-04-16T00:05:00Z',
+    latest_order_provenance: 'persisted_artifact_file_mtime' as const,
+  }
+}
+
+function createReviewSnapshotFamilyInboxResponseFixture(artifact: ReviewSnapshotArtifact) {
+  return {
+    inbox_kind: 'review_snapshot_family_inbox' as const,
+    workspace_id: artifact.lineage.workspace_id,
+    provenance: 'persisted_review_snapshot_artifacts_only' as const,
+    rows: [createReviewSnapshotFamilyInboxRowFixture(artifact)],
+  }
+}
+
+function createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact: ReviewSnapshotArtifact): ReviewSnapshotActiveThesisCrossFamilyQueueResponse {
+  return {
+    queue_kind: 'review_snapshot_active_thesis_cross_family_queue',
+    provenance: 'persisted_review_snapshot_artifacts_and_active_thesis_reference_only',
+    queue_ordering: 'latest_saved_at_desc_then_artifact_id_desc',
+    active_thesis: {
+      source_proposal_id: 'proposal-thesis',
+      handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: 'review_snapshot_active_thesis',
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      identity: {
+        artifact_id: 'review_snapshot_active_thesis',
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        fingerprint: 'a'.repeat(64),
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      lineage: {
+        workspace_id: artifact.lineage.workspace_id,
+        source_draft_id: artifact.lineage.source_draft_id,
+        source_base_node_id: artifact.lineage.source_base_node_id,
+        proposal_family_id: 'etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z',
+        proposal_id: 'proposal-thesis',
+        version_number: 4,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+      family_key: {
+        workspace_id: artifact.lineage.workspace_id,
+        source_draft_id: artifact.lineage.source_draft_id,
+        source_base_node_id: artifact.lineage.source_base_node_id,
+        proposal_family_id: 'etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z',
+        source_kind: 'hypothetical_replacement_replay',
+      },
+    },
+    rows: [
+      {
+        latest_identity: artifact.identity,
+        lineage: artifact.lineage,
+        family_key: createReviewSnapshotFamilyKeyFixture(artifact),
+        family_separation: {
+          separation_kind: 'distinct_proposal_family_id',
+          active_thesis_proposal_family_id: 'etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z',
+          queue_proposal_family_id: artifact.lineage.proposal_family_id,
+        },
+        proposal_source: artifact.pm_summary.provenance.proposal_source,
+        truth_labels: artifact.pm_summary.truth_labels,
+        trust_visibility: {
+          investor_economics_status: artifact.pm_summary.investor_economics_status,
+          benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        },
+        pm_summary_fields: {
+          replay_type: artifact.pm_summary.replay_type,
+          replay_status: artifact.pm_summary.replay_status,
+          review_basis: artifact.pm_summary.review_basis,
+          methodology: artifact.pm_summary.methodology,
+          assumptions: artifact.pm_summary.assumptions,
+          analytics_summary: artifact.pm_summary.analytics_summary,
+          diagnostics_summary: artifact.pm_summary.diagnostics_summary,
+        },
+        latest_saved_at: '2026-04-16T00:05:00Z',
+        queue_order_provenance: 'persisted_artifact_file_mtime_desc_then_artifact_id_desc',
+      },
+    ],
+  }
+}
+
+function createReviewSnapshotFamilyKeyFixture(artifact: ReviewSnapshotArtifact): ReviewSnapshotFamilyKey {
+  return {
+    workspace_id: artifact.lineage.workspace_id,
+    source_draft_id: artifact.lineage.source_draft_id,
+    source_base_node_id: artifact.lineage.source_base_node_id,
+    proposal_family_id: artifact.lineage.proposal_family_id,
+    source_kind: artifact.lineage.source_kind,
+  }
+}
+
+function createReviewSnapshotComparisonResponseFixture(artifact: ReviewSnapshotArtifact): ReviewSnapshotComparisonResponse {
+  return {
+    comparison_kind: 'review_snapshot_comparison',
+    family_key: createReviewSnapshotFamilyKeyFixture(artifact),
+    baseline: {
+      benchmark_symbol: artifact.review_basis.benchmark_symbol,
+      replay_window: { start_date: artifact.review_basis.start_date, end_date: artifact.review_basis.end_date },
+      replay_type: artifact.compact_summary.replay_type,
+      candidate_construction_rule: artifact.review_basis.candidate_construction_rule,
+      derivation_basis: artifact.review_basis.derivation_basis,
+      source_pair: 'AAPL -> IUFS',
+      replay_status: artifact.compact_summary.replay_status,
+      investor_economics_status: artifact.compact_summary.investor_economics_status,
+      methodology: {
+        methodology: 'm',
+        methodology_provenance: artifact.compact_summary.candidate_analytics.methodology_provenance,
+        assumptions: artifact.compact_summary.candidate_analytics.assumptions,
+      },
+      analytics: artifact.compact_summary.candidate_analytics,
+      diagnostics_summary: artifact.compact_summary.diagnostics_summary,
+    },
+    candidate: {
+      benchmark_symbol: artifact.review_basis.benchmark_symbol,
+      replay_window: { start_date: artifact.review_basis.start_date, end_date: artifact.review_basis.end_date },
+      replay_type: artifact.compact_summary.replay_type,
+      candidate_construction_rule: artifact.review_basis.candidate_construction_rule,
+      derivation_basis: artifact.review_basis.derivation_basis,
+      source_pair: 'AAPL -> IUIT',
+      replay_status: artifact.compact_summary.replay_status,
+      investor_economics_status: artifact.compact_summary.investor_economics_status,
+      methodology: {
+        methodology: 'm',
+        methodology_provenance: artifact.compact_summary.candidate_analytics.methodology_provenance,
+        assumptions: artifact.compact_summary.candidate_analytics.assumptions,
+      },
+      analytics: artifact.compact_summary.candidate_analytics,
+      diagnostics_summary: artifact.compact_summary.diagnostics_summary,
+    },
+    provenance: 'persisted_review_snapshot_artifacts_only',
+    benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+    baseline_pm_summary: { ...artifact.pm_summary, role: 'baseline' },
+    candidate_pm_summary: { ...artifact.pm_summary, role: 'candidate' },
+    analytics_comparison: artifact.compact_summary.analytics_comparison,
+    methodology: {
+      baseline_methodology: {
+        methodology: 'm',
+        methodology_provenance: artifact.compact_summary.candidate_analytics.methodology_provenance,
+        assumptions: artifact.compact_summary.candidate_analytics.assumptions,
+      },
+      candidate_methodology: {
+        methodology: 'm',
+        methodology_provenance: artifact.compact_summary.candidate_analytics.methodology_provenance,
+        assumptions: artifact.compact_summary.candidate_analytics.assumptions,
+      },
+      methodology_consistent: true,
+      assumptions_consistent: true,
+    },
+    assumptions: {
+      baseline_assumptions: artifact.compact_summary.candidate_analytics.assumptions,
+      candidate_assumptions: artifact.compact_summary.candidate_analytics.assumptions,
+      assumptions_consistent: true,
+    },
+  }
+}
+
+function createReviewSnapshotFamilyReviewResponseFixture(artifact: ReviewSnapshotArtifact): ReviewSnapshotFamilyReviewResponse {
+  return {
+    review_kind: 'review_snapshot_family_review',
+    family_key: createReviewSnapshotFamilyKeyFixture(artifact),
+    provenance: 'persisted_review_snapshot_artifacts_only',
+    compare_selection_policy: 'exactly_two_distinct_family_siblings',
+    anchor: {
+      identity: artifact.identity,
+      open_handoff: artifact.proposal_capture.open_handoff,
+      lineage: artifact.lineage,
+      pm_summary: artifact.pm_summary,
+      comparison_eligibility: {
+        eligible: false,
+        reason: 'no_compatible_family_sibling',
+        compatible_sibling_artifact_ids: [],
+      },
+    },
+    siblings: [{
+      identity: artifact.identity,
+      open_handoff: artifact.proposal_capture.open_handoff,
+      lineage: artifact.lineage,
+      pm_summary: artifact.pm_summary,
+      comparison_eligibility: {
+        eligible: false,
+        reason: 'no_compatible_family_sibling',
+        compatible_sibling_artifact_ids: [],
+      },
+    }],
+  }
+}
+
+function buildLegacySavedProposalMirrorFromProposal(proposal: VersionedProposalArtifact) {
+  const activeReplay = 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay
+  const proposalSource = proposal.reviewSnapshot.proposal.proposal_source ?? {
+    proposal_source_version: 1,
+    proposal_source_kind: 'draft_replacement_intent_review_only',
+    proposal_truth: 'review_only_hypothetical_proposal',
+    portfolio_truth: 'draft_snapshot_not_applied',
+    review_scope: 'proposal_review_context_only',
+  }
+  return {
+    pm_summary_version: 1 as const,
+    role: 'saved_proposal' as const,
+    provenance: {
+      source: 'persisted_review_snapshot_artifact' as const,
+      artifact_kind: 'portfolio_review_snapshot' as const,
+      schema_version: 'review_snapshot_artifact_v1' as const,
+      consumer_kind: 'saved_hypothetical_replay_proposal' as const,
+      lineage: {
+        workspace_id: proposal.workspaceId,
+        source_draft_id: proposal.sourceDraftId,
+        source_base_node_id: proposal.sourceBaseNodeId,
+        proposal_family_id: proposal.proposalFamilyId,
+        proposal_id: proposal.id,
+        version_number: proposal.versionNumber,
+        source_kind: 'hypothetical_replacement_replay' as const,
+      },
+      proposal_source: proposalSource,
+      replay_provenance: proposal.reviewSnapshot.replay_provenance,
+    },
+    truth_labels: {
+      proposal_truth: 'review_only_hypothetical_proposal' as const,
+      portfolio_truth: 'draft_snapshot_not_applied' as const,
+      analytics_truth: 'hypothetical_replay_analytics_only' as const,
+      review_scope: 'proposal_review_context_only' as const,
+    },
+    replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' as const : 'overlay_aware' as const,
+    replay_status: activeReplay.candidate_result.status,
+    investor_economics_status: activeReplay.investor_economics_status,
+    review_basis: {
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields' as const,
+      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+      replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
+      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+      commission_bps: proposal.replayBasis.commissionBps,
+      slippage_bps: proposal.replayBasis.slippageBps,
+      derivation_basis: proposal.replayBasis.derivationBasis,
+      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+    },
+    methodology: {
+      methodology: activeReplay.methodology,
+      methodology_provenance: activeReplay.methodology_provenance!,
+    },
+    assumptions: activeReplay.candidate_result.assumptions,
+    analytics_summary: {
+      candidate_analytics: {
+        methodology: activeReplay.methodology,
+        methodology_provenance: activeReplay.methodology_provenance!,
+        assumptions: activeReplay.candidate_result.assumptions,
+        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+        benchmark_return_pct: 1,
+        total_return_pct: 1,
+        annualized_return_pct: 1,
+        annualized_volatility_pct: 1,
+        downside_volatility_pct: 1,
+        max_drawdown_pct: -1,
+        sharpe_ratio: 1,
+        sortino_ratio: 1,
+        excess_return_pct: 0,
+        tracking_error_pct: 1,
+        information_ratio: 0,
+        beta_vs_benchmark: 1,
+        correlation_vs_benchmark: 1,
+        total_turnover_pct: 0,
+        total_cost_paid: 0,
+      },
+      baseline_analytics: null,
+      analytics_comparison: null,
+    },
+    diagnostics_summary: {
+      diagnostics_available: false,
+      top_factor_exposure_change: null,
+      top_volatility_change: null,
+      top_risk_contribution_change: null,
+      top_concentration_change: null,
+      top_stress_scenario_change: null,
+    },
+  }
+}
+
+function mockProposalAndArtifactLoad(
+  proposals: VersionedProposalArtifact[],
+  artifactsById: Record<string, ReviewSnapshotArtifact> = {},
+) {
+  return vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+    const store = storeName === portfolioDb.versionedProposalStoreName
+      ? {
+          index() {
+            return {
+              getAll(_key: string) {
+                const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: proposals as unknown }
+                queueMicrotask(() => request.onsuccess?.())
+                return request
+              },
+            }
+          },
+        }
+      : {
+          index() {
+            return {
+              getAll(key: string) {
+                const artifact = artifactsById[key]
+                const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: artifact ? [{ id: artifact.lineage.proposal_id, workspaceId: artifact.lineage.workspace_id, reviewSnapshotArtifactId: key, artifact }] as unknown : [] as unknown }
+                queueMicrotask(() => request.onsuccess?.())
+                return request
+              },
+            }
+          },
+        }
+    return new Promise((resolve, reject) => handler(store as unknown as IDBObjectStore, resolve, reject))
+  })
 }
 
 afterEach(() => {
@@ -447,6 +1154,7 @@ describe('portfolioWorkspaceStorage', () => {
         portfolioTruth: 'imported_portfolio_snapshot',
         candidateTruth: 'hypothetical_construction_artifact',
         constructionArtifactId: 'artifact-123',
+        previewHandoff: replay.review_basis!.preview_handoff,
         openedAt: '2026-04-23T00:00:00Z',
         benchmarkSymbol: 'SPY',
         baseCurrency: 'USD',
@@ -467,6 +1175,7 @@ describe('portfolioWorkspaceStorage', () => {
       basisProvenanceLabel: 'artifact_backed_review_basis',
       constructionArtifactId: 'artifact-123',
       basisKind: 'persisted_construction_artifact_review',
+      previewHandoff: replay.review_basis!.preview_handoff,
     })
     expect(created.review).toMatchObject({
       workspaceId: created.workspace.id,
@@ -600,10 +1309,11 @@ describe('portfolioWorkspaceStorage', () => {
 
     expect(normalized.workspace.source).toMatchObject({
       kind: 'persisted_construction_artifact',
-      reviewBasis: {
-        basisKind: 'persisted_construction_artifact_review',
-      },
-    })
+        reviewBasis: {
+          basisKind: 'persisted_construction_artifact_review',
+          previewHandoff: review.replay.review_basis!.preview_handoff,
+        },
+      })
     expect(normalized.node).toMatchObject({
       kind: 'artifact_review_basis',
       name: 'Artifact Review Basis',
@@ -770,6 +1480,38 @@ describe('portfolioWorkspaceStorage', () => {
         review_basis: undefined,
       } as unknown as ConstructionArtifactReplayResponse,
     })).rejects.toThrow('Persisted construction artifact review payload is missing canonical review_basis')
+  })
+
+  it('fails closed when construction artifact review payload review_basis preview handoff is missing', async () => {
+    await expect(portfolioWorkspaceStorage.createWorkspaceFromPersistedConstructionArtifact({
+      constructionArtifactId: 'artifact-123',
+      replay: {
+        ...createConstructionArtifactReplayResponse(),
+        review_basis: {
+          ...createConstructionArtifactReplayResponse().review_basis!,
+          preview_handoff: undefined,
+        },
+      } as unknown as ConstructionArtifactReplayResponse,
+    })).rejects.toThrow('Persisted construction artifact review payload review_basis is missing canonical preview handoff')
+  })
+
+  it('fails closed when construction artifact review payload review_basis preview handoff conflicts with canonical replay params', async () => {
+    await expect(portfolioWorkspaceStorage.createWorkspaceFromPersistedConstructionArtifact({
+      constructionArtifactId: 'artifact-123',
+      replay: {
+        ...createConstructionArtifactReplayResponse(),
+        review_basis: {
+          ...createConstructionArtifactReplayResponse().review_basis!,
+          preview_handoff: {
+            ...createConstructionArtifactReplayResponse().review_basis!.preview_handoff,
+            effective_replay_params: {
+              ...createConstructionArtifactReplayResponse().review_basis!.preview_handoff.effective_replay_params,
+              benchmark_symbol: 'QQQ',
+            },
+          },
+        },
+      },
+    })).rejects.toThrow('Persisted construction artifact review payload review_basis preview handoff conflicts with canonical replay params')
   })
 
   it('fails closed when optimizer handoff review payload is missing canonical review_basis', async () => {
@@ -1005,6 +1747,11 @@ describe('portfolioWorkspaceStorage', () => {
         reviewBasis: {
           basisVersion: 1 as const,
           basisKind: 'persisted_optimizer_handoff_review' as const,
+          reviewScope: 'workspace_review_only' as const,
+          canonicalSource: 'persisted_handoff_reference' as const,
+          basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+          portfolioTruth: 'imported_portfolio_snapshot' as const,
+          candidateTruth: 'hypothetical_optimizer_handoff' as const,
           handoffId: 'optimizer_handoff_123',
           artifactId: 'optimizer_artifact_123',
           handoffReference: createOptimizerHandoffReference(),
@@ -1029,6 +1776,11 @@ describe('portfolioWorkspaceStorage', () => {
       artifactReviewBasis: {
         basisVersion: 1 as const,
         basisKind: 'persisted_optimizer_handoff_review' as const,
+        reviewScope: 'workspace_review_only' as const,
+        canonicalSource: 'persisted_handoff_reference' as const,
+        basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+        portfolioTruth: 'imported_portfolio_snapshot' as const,
+        candidateTruth: 'hypothetical_optimizer_handoff' as const,
         handoffId: 'optimizer_handoff_123',
         artifactId: 'optimizer_artifact_123',
         handoffReference: createOptimizerHandoffReference(),
@@ -1172,6 +1924,106 @@ describe('portfolioWorkspaceStorage', () => {
       } as unknown as PortfolioNode,
       review: createPersistedOptimizerHandoffWorkspaceReview(),
     })).rejects.toThrow('Persisted optimizer handoff workspace review basis has unsupported basis kind')
+  })
+
+  it('fails closed when present construction workspace reviewBasis has the wrong basis kind', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedConstructionArtifactWorkspaceCache({
+      workspace: {
+        id: 'workspace-artifact',
+        name: 'Construction Artifact artifact-123',
+        createdAt: '2026-04-23T00:00:00Z',
+        updatedAt: '2026-04-23T00:00:00Z',
+        rootNodeId: 'node-artifact',
+        activeNodeId: 'node-artifact',
+        source: {
+          kind: 'persisted_construction_artifact',
+          constructionArtifactId: 'artifact-123',
+          openedAt: '2026-04-23T00:00:00Z',
+          reviewBasis: {
+            ...createConstructionArtifactWorkspaceReviewBasisFixture(),
+            basisKind: 'persisted_optimizer_handoff_review',
+          },
+        },
+      } as unknown as PortfolioWorkspace,
+      node: {
+        id: 'node-artifact',
+        workspaceId: 'workspace-artifact',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-23T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as unknown as PortfolioNode,
+      review: { workspaceId: 'workspace-artifact', constructionArtifactId: 'artifact-123', openedAt: '2026-04-23T00:00:00Z', replay: createConstructionArtifactReplayResponse() },
+    })).rejects.toThrow('Persisted construction artifact workspace review basis has unsupported basis kind')
+  })
+
+  it('fails closed when present construction workspace reviewBasis conflicts with canonical persisted review data', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedConstructionArtifactWorkspaceCache({
+      workspace: {
+        id: 'workspace-artifact',
+        name: 'Construction Artifact artifact-123',
+        createdAt: '2026-04-23T00:00:00Z',
+        updatedAt: '2026-04-23T00:00:00Z',
+        rootNodeId: 'node-artifact',
+        activeNodeId: 'node-artifact',
+        source: {
+          kind: 'persisted_construction_artifact',
+          constructionArtifactId: 'artifact-123',
+          openedAt: '2026-04-23T00:00:00Z',
+          reviewBasis: {
+            ...createConstructionArtifactWorkspaceReviewBasisFixture(),
+            benchmarkSymbol: 'QQQ',
+          },
+        },
+      } as unknown as PortfolioWorkspace,
+      node: {
+        id: 'node-artifact',
+        workspaceId: 'workspace-artifact',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-23T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+      } as unknown as PortfolioNode,
+      review: { workspaceId: 'workspace-artifact', constructionArtifactId: 'artifact-123', openedAt: '2026-04-23T00:00:00Z', replay: createConstructionArtifactReplayResponse() },
+    })).rejects.toThrow('Persisted construction artifact workspace review basis conflicts with canonical persisted review')
+  })
+
+  it('fails closed when present construction node reviewBasis conflicts with canonical persisted review data', async () => {
+    await expect(portfolioWorkspaceStorage.normalizeLegacyPersistedConstructionArtifactWorkspaceCache({
+      workspace: {
+        id: 'workspace-artifact',
+        name: 'Construction Artifact artifact-123',
+        createdAt: '2026-04-23T00:00:00Z',
+        updatedAt: '2026-04-23T00:00:00Z',
+        rootNodeId: 'node-artifact',
+        activeNodeId: 'node-artifact',
+        source: {
+          kind: 'persisted_construction_artifact',
+          constructionArtifactId: 'artifact-123',
+          openedAt: '2026-04-23T00:00:00Z',
+          reviewBasis: createConstructionArtifactWorkspaceReviewBasisFixture(),
+        },
+      } as unknown as PortfolioWorkspace,
+      node: {
+        id: 'node-artifact',
+        workspaceId: 'workspace-artifact',
+        parentId: null,
+        kind: 'artifact_review_basis',
+        name: 'Artifact Review Basis',
+        createdAt: '2026-04-23T00:00:00Z',
+        changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+        portfolioSnapshot: null,
+        artifactReviewBasis: {
+          ...createConstructionArtifactWorkspaceReviewBasisFixture(),
+          candidateWeights: [{ symbol: 'QQQ', target_weight: 1 }],
+        },
+      } as unknown as PortfolioNode,
+      review: { workspaceId: 'workspace-artifact', constructionArtifactId: 'artifact-123', openedAt: '2026-04-23T00:00:00Z', replay: createConstructionArtifactReplayResponse() },
+    })).rejects.toThrow('Persisted construction artifact node review basis conflicts with canonical persisted review')
   })
 
   it('fails closed when present optimizer workspace reviewBasis has the wrong basis version', async () => {
@@ -2646,7 +3498,7 @@ describe('portfolioWorkspaceStorage', () => {
       },
     ])
 
-    await portfolioWorkspaceStorage.saveProposalArtifact({
+  await portfolioWorkspaceStorage.saveProposalArtifact({
       id: 'proposal-1',
       kind: 'single_replacement_hypothetical_replay_proposal',
       schemaVersion: 1,
@@ -2685,6 +3537,8 @@ describe('portfolioWorkspaceStorage', () => {
         portfolioTruth: 'draft_snapshot_not_applied',
         reviewScope: 'proposal_review_context_only',
       },
+      reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
+      reviewSnapshotPMSummary: createReviewSnapshotArtifactFixture().pm_summary,
       replayBasis: {
         benchmarkSymbol: 'SPY',
         startDate: '2024-01-01',
@@ -2769,6 +3623,9 @@ describe('portfolioWorkspaceStorage', () => {
         holdingsSupport: 'mixed',
         warningCount: 1,
       },
+      reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
+      proposalCapture: createReviewSnapshotArtifactFixture().proposal_capture,
+      reviewSnapshotPMSummary: createReviewSnapshotArtifactFixture().pm_summary,
       hypotheticalReplay: {
         proposal: { source: 'draft_replacement_intent', proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' }, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
         derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
@@ -2800,6 +3657,882 @@ describe('portfolioWorkspaceStorage', () => {
       portfolioTruth: 'draft_snapshot_not_applied',
       reviewScope: 'proposal_review_context_only',
     })
+    expect(proposal.reviewSnapshotArtifactId).toBe('review_snapshot_1234567890abcdef')
+    expect(proposal.reviewSnapshotPMSummary).toEqual(createReviewSnapshotArtifactFixture().pm_summary)
+    expect(proposal.proposalCapture).toEqual({
+      capture_version: 1,
+      capture_kind: 'workspace_review_saved_proposal',
+      open_handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: 'review_snapshot_1234567890abcdef',
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      lineage: {
+        workspace_id: 'workspace-1',
+        source_draft_id: 'draft-1',
+        source_base_node_id: 'node-1',
+        proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+        proposal_id: 'proposal-1',
+        version_number: 1,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+      proposal: {
+        source: 'draft_replacement_intent',
+        proposal_source: {
+          proposal_source_version: 1,
+          proposal_source_kind: 'draft_replacement_intent_review_only',
+          proposal_truth: 'review_only_hypothetical_proposal',
+          portfolio_truth: 'draft_snapshot_not_applied',
+          review_scope: 'proposal_review_context_only',
+        },
+        incumbent_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+      },
+      replay_type: 'standard',
+      replay_provenance: proposal.reviewSnapshot.replay_provenance,
+      review_basis: {
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        benchmark_symbol: 'SPY',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        rebalance_frequency: 'monthly',
+        commission_bps: 0,
+        slippage_bps: 0,
+        derivation_basis: 'draft_snapshot_positions_normalized',
+        candidate_construction_rule: 'same_weight_substitution_v1',
+      },
+    })
+  })
+
+  it('builds review snapshot open handoff from persisted artifact only', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
+      const store = {
+        index(indexName: string) {
+          expect(storeName).toBe(portfolioDb.reviewSnapshotArtifactStoreName)
+          expect(indexName).toBe('reviewSnapshotArtifactId')
+          return {
+            getAll(_key: string) {
+              const request = { ...requestTemplate, result: [{ id: proposal.id, workspaceId: proposal.workspaceId, reviewSnapshotArtifactId: proposal.reviewSnapshotArtifactId, artifact: reviewSnapshotArtifact }] }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.buildReviewSnapshotOpenHandoffFromProposal(proposal)).resolves.toEqual(proposal.proposalCapture.open_handoff)
+  })
+
+  it('fails closed when review snapshot open handoff sees persisted identity mismatch', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    reviewSnapshotArtifact.identity.artifact_id = 'review_snapshot_other'
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
+      const store = {
+        index(indexName: string) {
+          expect(storeName).toBe(portfolioDb.reviewSnapshotArtifactStoreName)
+          expect(indexName).toBe('reviewSnapshotArtifactId')
+          return {
+            getAll(_key: string) {
+              const request = { ...requestTemplate, result: [{ id: proposal.id, workspaceId: proposal.workspaceId, reviewSnapshotArtifactId: proposal.reviewSnapshotArtifactId, artifact: reviewSnapshotArtifact }] }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.buildReviewSnapshotOpenHandoffFromProposal(proposal)).rejects.toThrow(
+      'Saved proposal reviewSnapshotArtifactId does not match persisted review snapshot artifact identity',
+    )
+  })
+
+  it('fails closed when review snapshot open handoff sees contradictory persisted proposal_capture handoff', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    reviewSnapshotArtifact.proposal_capture = {
+      ...reviewSnapshotArtifact.proposal_capture,
+      open_handoff: {
+        ...reviewSnapshotArtifact.proposal_capture.open_handoff,
+        artifact_id: 'review_snapshot_other',
+      },
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
+      const store = {
+        index(indexName: string) {
+          expect(storeName).toBe(portfolioDb.reviewSnapshotArtifactStoreName)
+          expect(indexName).toBe('reviewSnapshotArtifactId')
+          return {
+            getAll(_key: string) {
+              const request = { ...requestTemplate, result: [{ id: proposal.id, workspaceId: proposal.workspaceId, reviewSnapshotArtifactId: proposal.reviewSnapshotArtifactId, artifact: reviewSnapshotArtifact }] }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.buildReviewSnapshotOpenHandoffFromProposal(proposal)).rejects.toThrow(
+      'Saved proposal review snapshot proposal_capture open_handoff artifact_id does not match saved proposal reviewSnapshotArtifactId',
+    )
+  })
+
+  it('validates review snapshot open response envelopes strictly', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotOpenResponseEnvelope({
+      handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: artifact.identity.artifact_id,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      artifact,
+      pm_summary: artifact.pm_summary,
+      replay_payload: artifact.source_payload,
+    })).not.toThrow()
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotOpenResponseEnvelope({
+      handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v0',
+        artifact_id: artifact.identity.artifact_id,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      artifact,
+      pm_summary: artifact.pm_summary,
+      replay_payload: artifact.source_payload,
+    })).toThrow('Review snapshot open response handoff has unsupported handoff kind')
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotOpenResponseEnvelope({
+      handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: artifact.identity.artifact_id,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      artifact,
+      pm_summary: artifact.pm_summary,
+      replay_payload: { ...artifact.source_payload, replay: null, overlay_replay: null },
+    })).toThrow('Review snapshot open response replay_payload does not match persisted artifact source_payload')
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotOpenResponseEnvelope({
+      handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: artifact.identity.artifact_id,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      artifact: { ...artifact, pm_summary: { ...artifact.pm_summary, pm_summary_version: 2 as never } },
+      pm_summary: { ...artifact.pm_summary, pm_summary_version: 2 as never },
+      replay_payload: artifact.source_payload,
+    })).toThrow('Review snapshot open response artifact pm_summary has unsupported pm_summary_version')
+  })
+
+  it('fails closed when saved proposal restore sees cached pm summary mismatch against persisted artifact', () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    proposal.reviewSnapshotPMSummary = {
+      ...proposal.reviewSnapshotPMSummary,
+      review_basis: {
+        ...proposal.reviewSnapshotPMSummary.review_basis,
+        benchmark_symbol: 'QQQ',
+      },
+    }
+
+    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal, reviewSnapshotArtifact)).toThrow(
+      'Saved proposal cached reviewSnapshotPMSummary does not match persisted review snapshot artifact pm_summary',
+    )
+  })
+
+  it('fails closed when saved proposal restore sees cached pm summary missing while persisted artifact exists', () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+
+    delete (proposal as { reviewSnapshotPMSummary?: unknown }).reviewSnapshotPMSummary
+
+    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal as VersionedProposalArtifact, reviewSnapshotArtifact)).toThrow(
+      'Saved proposal cached reviewSnapshotPMSummary is missing while persisted review snapshot artifact pm_summary exists',
+    )
+  })
+
+  it('fails closed when saved proposal restore sees missing authoritative proposalCapture while persisted artifact exists', () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+
+    delete (proposal as { proposalCapture?: unknown }).proposalCapture
+
+    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal as VersionedProposalArtifact, reviewSnapshotArtifact)).toThrow(
+      'Saved proposal proposalCapture is missing',
+    )
+  })
+
+  it('fails closed when saved proposal restore sees malformed cached pm summary while persisted artifact exists', () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    proposal.reviewSnapshotPMSummary = {
+      ...proposal.reviewSnapshotPMSummary,
+      role: 'baseline' as never,
+    }
+
+    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal, reviewSnapshotArtifact)).toThrow(
+      'Saved proposal cached reviewSnapshotPMSummary role is invalid',
+    )
+  })
+
+  it('validates review snapshot comparison response envelopes strictly', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(
+      createReviewSnapshotComparisonResponseFixture(artifact),
+    )).not.toThrow()
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope({
+      family_key: {
+        workspace_id: artifact.lineage.workspace_id,
+        source_draft_id: artifact.lineage.source_draft_id,
+        source_base_node_id: artifact.lineage.source_base_node_id,
+        proposal_family_id: artifact.lineage.proposal_family_id,
+        source_kind: artifact.lineage.source_kind,
+      },
+      provenance: 'persisted_review_snapshot_artifacts_only',
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+      baseline_pm_summary: { ...artifact.pm_summary, role: 'candidate' },
+      candidate_pm_summary: { ...artifact.pm_summary, role: 'candidate' },
+    })).toThrow('Review snapshot comparison response baseline_pm_summary role is invalid')
+  })
+
+  it('fails closed when review snapshot comparison family identity does not fully align', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(
+      createReviewSnapshotComparisonResponseFixture(artifact),
+    )).not.toThrow()
+
+    const workspaceMismatch = createReviewSnapshotComparisonResponseFixture(artifact)
+    workspaceMismatch.baseline_pm_summary = {
+      ...workspaceMismatch.baseline_pm_summary,
+      provenance: {
+        ...workspaceMismatch.baseline_pm_summary.provenance,
+        lineage: {
+          ...workspaceMismatch.baseline_pm_summary.provenance.lineage,
+          workspace_id: 'workspace-other',
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(workspaceMismatch)).toThrow(
+      'Review snapshot comparison response baseline_pm_summary provenance lineage workspace_id is invalid',
+    )
+
+    const sourceDraftMismatch = createReviewSnapshotComparisonResponseFixture(artifact)
+    sourceDraftMismatch.candidate_pm_summary = {
+      ...sourceDraftMismatch.candidate_pm_summary,
+      provenance: {
+        ...sourceDraftMismatch.candidate_pm_summary.provenance,
+        lineage: {
+          ...sourceDraftMismatch.candidate_pm_summary.provenance.lineage,
+          source_draft_id: 'draft-other',
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(sourceDraftMismatch)).toThrow(
+      'Review snapshot comparison response candidate_pm_summary provenance lineage source_draft_id is invalid',
+    )
+
+    const sourceBaseNodeMismatch = createReviewSnapshotComparisonResponseFixture(artifact)
+    sourceBaseNodeMismatch.baseline_pm_summary = {
+      ...sourceBaseNodeMismatch.baseline_pm_summary,
+      provenance: {
+        ...sourceBaseNodeMismatch.baseline_pm_summary.provenance,
+        lineage: {
+          ...sourceBaseNodeMismatch.baseline_pm_summary.provenance.lineage,
+          source_base_node_id: 'node-other',
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(sourceBaseNodeMismatch)).toThrow(
+      'Review snapshot comparison response baseline_pm_summary provenance lineage source_base_node_id is invalid',
+    )
+
+    const proposalFamilyMismatch = createReviewSnapshotComparisonResponseFixture(artifact)
+    proposalFamilyMismatch.candidate_pm_summary = {
+      ...proposalFamilyMismatch.candidate_pm_summary,
+      provenance: {
+        ...proposalFamilyMismatch.candidate_pm_summary.provenance,
+        lineage: {
+          ...proposalFamilyMismatch.candidate_pm_summary.provenance.lineage,
+          proposal_family_id: 'etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z',
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(proposalFamilyMismatch)).toThrow(
+      'Review snapshot comparison response candidate_pm_summary provenance lineage proposal_family_id is invalid',
+    )
+
+    const sourceKindMismatch = createReviewSnapshotComparisonResponseFixture(artifact)
+    sourceKindMismatch.baseline_pm_summary = {
+      ...sourceKindMismatch.baseline_pm_summary,
+      provenance: {
+        ...sourceKindMismatch.baseline_pm_summary.provenance,
+        lineage: {
+          ...sourceKindMismatch.baseline_pm_summary.provenance.lineage,
+          source_kind: 'persisted_optimizer_handoff' as never,
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(sourceKindMismatch)).toThrow(
+      'Review snapshot comparison response baseline_pm_summary provenance lineage is invalid',
+    )
+  })
+
+  it('fails closed when review snapshot comparison family_key fields are missing or partial', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+
+    const missingWorkspaceId = createReviewSnapshotComparisonResponseFixture(artifact)
+    delete (missingWorkspaceId.family_key as { workspace_id?: string }).workspace_id
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(missingWorkspaceId)).toThrow(
+      'Review snapshot comparison response family_key is invalid',
+    )
+
+    const emptySourceDraftId = createReviewSnapshotComparisonResponseFixture(artifact)
+    emptySourceDraftId.family_key.source_draft_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(emptySourceDraftId)).toThrow(
+      'Review snapshot comparison response family_key is invalid',
+    )
+
+    const emptySourceBaseNodeId = createReviewSnapshotComparisonResponseFixture(artifact)
+    emptySourceBaseNodeId.family_key.source_base_node_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(emptySourceBaseNodeId)).toThrow(
+      'Review snapshot comparison response family_key is invalid',
+    )
+
+    const emptyProposalFamilyId = createReviewSnapshotComparisonResponseFixture(artifact)
+    emptyProposalFamilyId.family_key.proposal_family_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(emptyProposalFamilyId)).toThrow(
+      'Review snapshot comparison response family_key is invalid',
+    )
+
+    const invalidSourceKind = createReviewSnapshotComparisonResponseFixture(artifact)
+    invalidSourceKind.family_key.source_kind = 'persisted_optimizer_handoff' as never
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotComparisonResponseEnvelope(invalidSourceKind)).toThrow(
+      'Review snapshot comparison response family_key is invalid',
+    )
+  })
+
+  it('validates review snapshot family review response envelopes strictly', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(
+      createReviewSnapshotFamilyReviewResponseFixture(artifact),
+    )).not.toThrow()
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope({
+      review_kind: 'review_snapshot_family_review',
+      provenance: 'persisted_review_snapshot_artifacts_only',
+      compare_selection_policy: 'exactly_two_distinct_family_siblings',
+      siblings: [],
+    })).toThrow('Review snapshot family review response family_key is invalid')
+  })
+
+  it('fails closed when review snapshot family review sibling identity does not fully align', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(
+      createReviewSnapshotFamilyReviewResponseFixture(artifact),
+    )).not.toThrow()
+
+    const workspaceMismatch = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    workspaceMismatch.siblings[0] = {
+      ...workspaceMismatch.siblings[0]!,
+      lineage: {
+        ...workspaceMismatch.siblings[0]!.lineage,
+        workspace_id: 'workspace-other',
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(workspaceMismatch)).toThrow(
+      'Review snapshot family review response sibling 1 lineage workspace_id is invalid',
+    )
+
+    const sourceDraftMismatch = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    sourceDraftMismatch.siblings[0] = {
+      ...sourceDraftMismatch.siblings[0]!,
+      pm_summary: {
+        ...sourceDraftMismatch.siblings[0]!.pm_summary,
+        provenance: {
+          ...sourceDraftMismatch.siblings[0]!.pm_summary.provenance,
+          lineage: {
+            ...sourceDraftMismatch.siblings[0]!.pm_summary.provenance.lineage,
+            source_draft_id: 'draft-other',
+          },
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(sourceDraftMismatch)).toThrow(
+      'Review snapshot family review response sibling 1 pm_summary provenance lineage source_draft_id is invalid',
+    )
+
+    const sourceBaseNodeMismatch = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    sourceBaseNodeMismatch.anchor = {
+      ...sourceBaseNodeMismatch.anchor,
+      lineage: {
+        ...sourceBaseNodeMismatch.anchor.lineage,
+        source_base_node_id: 'node-other',
+      },
+    }
+    sourceBaseNodeMismatch.siblings[0] = sourceBaseNodeMismatch.anchor
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(sourceBaseNodeMismatch)).toThrow(
+      'Review snapshot family review response anchor lineage source_base_node_id is invalid',
+    )
+
+    const proposalFamilyMismatch = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    proposalFamilyMismatch.siblings[0] = {
+      ...proposalFamilyMismatch.siblings[0]!,
+      lineage: {
+        ...proposalFamilyMismatch.siblings[0]!.lineage,
+        proposal_family_id: 'etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z',
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(proposalFamilyMismatch)).toThrow(
+      'Review snapshot family review response sibling 1 lineage proposal_family_id is invalid',
+    )
+
+    const sourceKindMismatch = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    sourceKindMismatch.siblings[0] = {
+      ...sourceKindMismatch.siblings[0]!,
+      pm_summary: {
+        ...sourceKindMismatch.siblings[0]!.pm_summary,
+        provenance: {
+          ...sourceKindMismatch.siblings[0]!.pm_summary.provenance,
+          lineage: {
+            ...sourceKindMismatch.siblings[0]!.pm_summary.provenance.lineage,
+            source_kind: 'persisted_optimizer_handoff' as never,
+          },
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(sourceKindMismatch)).toThrow(
+      'Review snapshot family review response sibling 1 pm_summary provenance lineage is invalid',
+    )
+  })
+
+  it('fails closed when review snapshot family review family_key fields are missing or partial', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+
+    const missingWorkspaceId = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    delete (missingWorkspaceId.family_key as { workspace_id?: string }).workspace_id
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(missingWorkspaceId)).toThrow(
+      'Review snapshot family review response family_key is invalid',
+    )
+
+    const emptySourceDraftId = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    emptySourceDraftId.family_key.source_draft_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(emptySourceDraftId)).toThrow(
+      'Review snapshot family review response family_key is invalid',
+    )
+
+    const emptySourceBaseNodeId = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    emptySourceBaseNodeId.family_key.source_base_node_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(emptySourceBaseNodeId)).toThrow(
+      'Review snapshot family review response family_key is invalid',
+    )
+
+    const emptyProposalFamilyId = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    emptyProposalFamilyId.family_key.proposal_family_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(emptyProposalFamilyId)).toThrow(
+      'Review snapshot family review response family_key is invalid',
+    )
+
+    const invalidSourceKind = createReviewSnapshotFamilyReviewResponseFixture(artifact)
+    invalidSourceKind.family_key.source_kind = 'persisted_optimizer_handoff' as never
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyReviewResponseEnvelope(invalidSourceKind)).toThrow(
+      'Review snapshot family review response family_key is invalid',
+    )
+  })
+
+  it('validates review snapshot family inbox response envelopes strictly', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(
+      createReviewSnapshotFamilyInboxResponseFixture(artifact),
+    )).not.toThrow()
+
+    const invalidCompareReadinessResponse = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    invalidCompareReadinessResponse.rows[0]!.compare_readiness = {
+      ready: true,
+      reason: 'compatible_family_pair_available',
+      compatible_pair_count: 0,
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(
+      invalidCompareReadinessResponse,
+    )).toThrow('Review snapshot family inbox response row 1 compare_readiness is invalid')
+  })
+
+  it('fails closed when review snapshot family inbox family identity does not fully align', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(
+      createReviewSnapshotFamilyInboxResponseFixture(artifact),
+    )).not.toThrow()
+
+    const workspaceMismatch = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    workspaceMismatch.rows[0]!.lineage = {
+      ...workspaceMismatch.rows[0]!.lineage,
+      workspace_id: 'workspace-other',
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(workspaceMismatch)).toThrow(
+      'Review snapshot family inbox response row 1 lineage workspace_id is invalid',
+    )
+
+    const sourceDraftMismatch = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    sourceDraftMismatch.rows[0]!.pm_summary = {
+      ...sourceDraftMismatch.rows[0]!.pm_summary,
+      provenance: {
+        ...sourceDraftMismatch.rows[0]!.pm_summary.provenance,
+        lineage: {
+          ...sourceDraftMismatch.rows[0]!.pm_summary.provenance.lineage,
+          source_draft_id: 'draft-other',
+        },
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(sourceDraftMismatch)).toThrow(
+      'Review snapshot family inbox response row 1 pm_summary provenance lineage source_draft_id is invalid',
+    )
+
+    const sourceBaseNodeMismatch = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    sourceBaseNodeMismatch.rows[0]!.proposal_capture = {
+      ...sourceBaseNodeMismatch.rows[0]!.proposal_capture,
+      lineage: {
+        ...sourceBaseNodeMismatch.rows[0]!.proposal_capture.lineage,
+        source_base_node_id: 'node-other',
+      },
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(sourceBaseNodeMismatch)).toThrow(
+      'Review snapshot family inbox response row 1 proposal_capture lineage source_base_node_id is invalid',
+    )
+
+    const proposalFamilyMismatch = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    proposalFamilyMismatch.rows[0]!.lineage = {
+      ...proposalFamilyMismatch.rows[0]!.lineage,
+      proposal_family_id: 'etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z',
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(proposalFamilyMismatch)).toThrow(
+      'Review snapshot family inbox response row 1 lineage proposal_family_id is invalid',
+    )
+
+    const sourceKindMismatch = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    sourceKindMismatch.rows[0]!.lineage = {
+      ...sourceKindMismatch.rows[0]!.lineage,
+      source_kind: 'persisted_optimizer_handoff' as never,
+    }
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(sourceKindMismatch)).toThrow(
+      'Review snapshot family inbox response row 1 lineage source_kind is invalid',
+    )
+  })
+
+  it('fails closed when review snapshot family inbox family_key fields are missing, empty, or duplicated', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+
+    const missingWorkspaceId = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    delete (missingWorkspaceId.rows[0]!.family_key as { workspace_id?: string }).workspace_id
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(missingWorkspaceId)).toThrow(
+      'Review snapshot family inbox response row 1 family_key is invalid',
+    )
+
+    const emptySourceDraftId = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    emptySourceDraftId.rows[0]!.family_key.source_draft_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(emptySourceDraftId)).toThrow(
+      'Review snapshot family inbox response row 1 family_key is invalid',
+    )
+
+    const emptySourceBaseNodeId = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    emptySourceBaseNodeId.rows[0]!.family_key.source_base_node_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(emptySourceBaseNodeId)).toThrow(
+      'Review snapshot family inbox response row 1 family_key is invalid',
+    )
+
+    const emptyProposalFamilyId = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    emptyProposalFamilyId.rows[0]!.family_key.proposal_family_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(emptyProposalFamilyId)).toThrow(
+      'Review snapshot family inbox response row 1 family_key is invalid',
+    )
+
+    const invalidSourceKind = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    invalidSourceKind.rows[0]!.family_key.source_kind = 'persisted_optimizer_handoff' as never
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(invalidSourceKind)).toThrow(
+      'Review snapshot family inbox response row 1 family_key is invalid',
+    )
+
+    const duplicateRows = createReviewSnapshotFamilyInboxResponseFixture(artifact)
+    duplicateRows.rows = [
+      createReviewSnapshotFamilyInboxRowFixture(artifact),
+      createReviewSnapshotFamilyInboxRowFixture(artifact),
+    ]
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(duplicateRows)).toThrow(
+      'Review snapshot family inbox response contains duplicate family_key rows',
+    )
+  })
+
+  it('validates review snapshot active thesis cross-family queue response envelopes strictly', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(
+      createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact),
+    )).not.toThrow()
+
+    const invalidShape = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    delete (invalidShape.rows[0] as { pm_summary_fields?: unknown }).pm_summary_fields
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(invalidShape)).toThrow(
+      'Review snapshot active thesis cross-family queue response row 1 pm_summary_fields are invalid',
+    )
+
+    const sameFamily = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    sameFamily.rows[0]!.family_key.proposal_family_id = sameFamily.active_thesis.family_key.proposal_family_id
+    sameFamily.rows[0]!.family_separation.queue_proposal_family_id = sameFamily.active_thesis.family_key.proposal_family_id
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(sameFamily)).toThrow(
+      'Review snapshot active thesis cross-family queue response row 1 lineage proposal_family_id is invalid',
+    )
+
+    const duplicateRows = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    duplicateRows.rows = [duplicateRows.rows[0]!, { ...duplicateRows.rows[0]! }]
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(duplicateRows)).toThrow(
+      'Review snapshot active thesis cross-family queue response contains duplicate family_key rows',
+    )
+
+    const invalidOrdering = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    invalidOrdering.rows = [
+      {
+        ...invalidOrdering.rows[0]!,
+        latest_identity: { ...invalidOrdering.rows[0]!.latest_identity, artifact_id: 'review_snapshot_b' },
+        family_key: { ...invalidOrdering.rows[0]!.family_key, proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-16T00:05:00Z' },
+        family_separation: { ...invalidOrdering.rows[0]!.family_separation, queue_proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-16T00:05:00Z' },
+        lineage: { ...invalidOrdering.rows[0]!.lineage, proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-16T00:05:00Z', proposal_id: 'proposal-b' },
+        latest_saved_at: '2026-04-15T00:05:00Z',
+      },
+      {
+        ...invalidOrdering.rows[0]!,
+        latest_identity: { ...invalidOrdering.rows[0]!.latest_identity, artifact_id: 'review_snapshot_c' },
+        family_key: { ...invalidOrdering.rows[0]!.family_key, proposal_family_id: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:05:00Z' },
+        family_separation: { ...invalidOrdering.rows[0]!.family_separation, queue_proposal_family_id: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:05:00Z' },
+        lineage: { ...invalidOrdering.rows[0]!.lineage, proposal_family_id: 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:05:00Z', proposal_id: 'proposal-c' },
+        latest_saved_at: '2026-04-16T00:05:00Z',
+      },
+    ]
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(invalidOrdering)).toThrow(
+      'Review snapshot active thesis cross-family queue response ordering is invalid',
+    )
+  })
+
+  it('rejects review snapshot comparison refs when proposal family differs', async () => {
+    const baseline = createSavedProposalArtifactFixture()
+    const candidate = createSavedProposalArtifactFixture()
+    candidate.id = 'proposal-other'
+    candidate.reviewSnapshotArtifactId = 'review_snapshot_other'
+    candidate.proposalFamilyId = 'etf_replacement_intent:AAPL:IUIT:2026-04-17T00:00:00Z'
+
+    await expect(portfolioWorkspaceStorage.buildReviewSnapshotComparisonRefs([baseline, candidate])).rejects.toThrow(
+      'Review snapshot comparison requires matching proposalFamilyId',
+    )
+  })
+
+  it('fails closed when saved proposal review snapshot artifact is missing during restore', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
+      const store = {
+        index(indexName: string) {
+          expect(storeName).toBe(portfolioDb.reviewSnapshotArtifactStoreName)
+          expect(indexName).toBe('reviewSnapshotArtifactId')
+          return {
+            getAll(_key: string) {
+              const request = { ...requestTemplate, result: [] }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.buildReviewSnapshotOpenHandoffFromProposal(proposal)).rejects.toThrow('Saved proposal review snapshot artifact is missing')
+  })
+
+  it('hydrates effective proposalSource for legacy saved proposal artifacts missing both proposal-source locations at load time', async () => {
+    const legacyProposal = createSavedProposalArtifactFixture()
+    delete (legacyProposal as { proposalSource?: unknown }).proposalSource
+    delete (legacyProposal.reviewSnapshot.proposal as { proposal_source?: unknown }).proposal_source
+    delete (legacyProposal.proposalCapture.proposal as { proposal_source?: unknown }).proposal_source
+    delete (legacyProposal as { reviewSnapshotPMSummary?: unknown }).reviewSnapshotPMSummary
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    reviewSnapshotArtifact.source_payload.replay = legacyProposal.reviewSnapshot as any
+    reviewSnapshotArtifact.pm_summary = buildLegacySavedProposalMirrorFromProposal(legacyProposal)
+
+    mockProposalAndArtifactLoad([legacyProposal], { [legacyProposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
+
+    await expect(portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')).resolves.toMatchObject([
+      {
+        proposalSource: {
+          proposalSourceVersion: 1,
+          proposalSourceKind: 'draft_replacement_intent_review_only',
+          proposalTruth: 'review_only_hypothetical_proposal',
+          portfolioTruth: 'draft_snapshot_not_applied',
+          reviewScope: 'proposal_review_context_only',
+        },
+      },
+    ])
+    expect(legacyProposal.proposalSource).toBeUndefined()
+    expect(legacyProposal.reviewSnapshot.proposal.proposal_source).toBeUndefined()
+  })
+
+  it('fails closed when loaded saved proposal mirror pm summary conflicts with persisted artifact pm_summary', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    proposal.reviewSnapshotPMSummary = {
+      ...proposal.reviewSnapshotPMSummary,
+      review_basis: {
+        ...proposal.reviewSnapshotPMSummary.review_basis,
+        benchmark_symbol: 'QQQ',
+      },
+    }
+
+    mockProposalAndArtifactLoad([proposal], { [proposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
+
+    await expect(portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')).rejects.toThrow(
+      'Saved proposal cached reviewSnapshotPMSummary does not match persisted review snapshot artifact pm_summary',
+    )
+  })
+
+  it('keeps canonical top-level proposalSource authoritative over the fallback path on load', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    delete (proposal.reviewSnapshot.proposal as { proposal_source?: unknown }).proposal_source
+    reviewSnapshotArtifact.source_payload.replay = proposal.reviewSnapshot as any
+
+    mockProposalAndArtifactLoad([proposal], { [proposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
+
+    const loaded = await portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')
+    expect(loaded[0]?.proposalSource).toEqual(proposal.proposalSource)
+    expect(loaded[0]?.reviewSnapshot.proposal.proposal_source).toEqual({
+      proposal_source_version: proposal.proposalSource.proposalSourceVersion,
+      proposal_source_kind: proposal.proposalSource.proposalSourceKind,
+      proposal_truth: proposal.proposalSource.proposalTruth,
+      portfolio_truth: proposal.proposalSource.portfolioTruth,
+      review_scope: proposal.proposalSource.reviewScope,
+    })
+    expect(loaded[0]?.proposalCapture.proposal.proposal_source).toEqual({
+      proposal_source_version: proposal.proposalSource.proposalSourceVersion,
+      proposal_source_kind: proposal.proposalSource.proposalSourceKind,
+      proposal_truth: proposal.proposalSource.proposalTruth,
+      portfolio_truth: proposal.proposalSource.portfolioTruth,
+      review_scope: proposal.proposalSource.reviewScope,
+    })
+  })
+
+  it('loads saved proposal artifacts when nested and top-level proposal-source labels match', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+
+    mockProposalAndArtifactLoad([proposal], { [proposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
+
+    const loaded = await portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')
+    expect(loaded[0]?.proposalSource).toEqual(proposal.proposalSource)
+    expect(loaded[0]?.reviewSnapshot.proposal.proposal_source).toEqual(proposal.reviewSnapshot.proposal.proposal_source)
+  })
+
+  it('hydrates the exact dual-omission legacy case but rejects top-level-only omission even when nested fallback exists', async () => {
+    const proposal = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    delete (proposal as { proposalSource?: unknown }).proposalSource
+
+    mockProposalAndArtifactLoad([proposal], { [proposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
+
+    await expect(portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')).rejects.toThrow(
+      'Saved proposal is missing authoritative proposalSource',
+    )
+  })
+
+  it('rejects malformed nested proposal-source data during load when authoritative top-level proposalSource is present', async () => {
+    const malformedProposal = createSavedProposalArtifactFixture()
+    malformedProposal.proposalSource = {
+      proposalSourceVersion: 1,
+      proposalSourceKind: 'draft_replacement_intent_review_only',
+      proposalTruth: 'review_only_hypothetical_proposal',
+      portfolioTruth: 'draft_snapshot_not_applied',
+      reviewScope: 'proposal_review_context_only',
+    }
+    malformedProposal.reviewSnapshot.proposal.proposal_source = {
+      proposal_source_version: 1,
+      proposal_source_kind: 'draft_replacement_intent_review_only',
+      proposal_truth: 'review_only_hypothetical_proposal',
+      portfolio_truth: 'review_only_hypothetical_proposal' as never,
+      review_scope: 'proposal_review_context_only',
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: [malformedProposal] as unknown }
+      const store = {
+        index() {
+          return {
+            getAll(_key: string) {
+              const request = { ...requestTemplate }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')).rejects.toThrow(
+      'Saved proposal reviewSnapshot proposal.proposal_source is invalid',
+    )
+  })
+
+  it('rejects conflicting nested proposal-source data during load when authoritative top-level proposalSource is present', async () => {
+    const conflictingProposal = createSavedProposalArtifactFixture()
+    conflictingProposal.reviewSnapshot.proposal.proposal_source = {
+      proposal_source_version: 1,
+      proposal_source_kind: 'draft_replacement_intent_review_only',
+      proposal_truth: 'review_only_hypothetical_proposal',
+      portfolio_truth: 'draft_snapshot_not_applied',
+      review_scope: 'mismatched_review_scope' as never,
+    }
+
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (_storeName, _mode, handler) => {
+      const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: [conflictingProposal] as unknown }
+      const store = {
+        index() {
+          return {
+            getAll(_key: string) {
+              const request = { ...requestTemplate }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBObjectStore
+      return new Promise((resolve, reject) => handler(store, resolve, reject))
+    })
+
+    await expect(portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')).rejects.toThrow(
+      'Saved proposal reviewSnapshot proposal.proposal_source is invalid',
+    )
   })
 
   it('rejects contradictory proposal artifacts before saving', async () => {
@@ -2835,6 +4568,13 @@ describe('portfolioWorkspaceStorage', () => {
         holdingsSupport: 'mixed',
         warningCount: 1,
       },
+      proposalSource: {
+        proposalSourceVersion: 1,
+        proposalSourceKind: 'draft_replacement_intent_review_only',
+        proposalTruth: 'review_only_hypothetical_proposal',
+        portfolioTruth: 'draft_snapshot_not_applied',
+        reviewScope: 'proposal_review_context_only',
+      },
       replayBasis: {
         benchmarkSymbol: 'SPY',
         startDate: '2024-01-01',
@@ -2847,7 +4587,20 @@ describe('portfolioWorkspaceStorage', () => {
         replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
       },
       reviewSnapshot: {
-        proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+        proposal: {
+          source: 'draft_replacement_intent',
+          proposal_source: {
+            proposal_source_version: 1,
+            proposal_source_kind: 'draft_replacement_intent_review_only',
+            proposal_truth: 'review_only_hypothetical_proposal',
+            portfolio_truth: 'draft_snapshot_not_applied',
+            review_scope: 'proposal_review_context_only',
+          },
+          incumbent_symbol: 'AAPL',
+          candidate_symbol: 'IUFS',
+          draft_id: 'draft-1',
+          base_node_id: 'node-1',
+        },
         derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'fixed_split_50_50_substitution_v2' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
         baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
         candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
@@ -2867,7 +4620,19 @@ describe('portfolioWorkspaceStorage', () => {
         },
         warnings: [],
       },
-    } as any)).toThrow('Saved proposal candidateConstructionRule does not match reviewSnapshot derivation')
+  } as any)).toThrow('Saved proposal candidateConstructionRule does not match reviewSnapshot derivation')
+  })
+
+  it('rejects present proposal-source values that differ from the nested canonical label before saving', () => {
+    const proposal = createSavedProposalArtifactFixture()
+    proposal.proposalSource = {
+      ...proposal.proposalSource,
+      portfolioTruth: 'review_only_hypothetical_proposal' as never,
+    }
+
+    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactIntegrity(proposal)).toThrow(
+      'Saved proposal proposalSource conflicts with reviewSnapshot proposal.proposal_source',
+    )
   })
 
   it('fails deterministically when loading contradictory proposal artifacts', async () => {
@@ -2886,13 +4651,33 @@ describe('portfolioWorkspaceStorage', () => {
       sourceIntent: {
         kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1,
       },
+      proposalSource: {
+        proposalSourceVersion: 1,
+        proposalSourceKind: 'draft_replacement_intent_review_only',
+        proposalTruth: 'review_only_hypothetical_proposal',
+        portfolioTruth: 'draft_snapshot_not_applied',
+        reviewScope: 'proposal_review_context_only',
+      },
       replayBasis: {
         benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized',
         candidateConstructionRule: 'same_weight_substitution_v1',
         replayProvenance: { candidate_input_source: 'constructed_candidate_payload', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
       },
       reviewSnapshot: {
-        proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+        proposal: {
+          source: 'draft_replacement_intent',
+          proposal_source: {
+            proposal_source_version: 1,
+            proposal_source_kind: 'draft_replacement_intent_review_only',
+            proposal_truth: 'review_only_hypothetical_proposal',
+            portfolio_truth: 'draft_snapshot_not_applied',
+            review_scope: 'proposal_review_context_only',
+          },
+          incumbent_symbol: 'AAPL',
+          candidate_symbol: 'IUFS',
+          draft_id: 'draft-1',
+          base_node_id: 'node-1',
+        },
         derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
         replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
         baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
@@ -2955,6 +4740,13 @@ describe('portfolioWorkspaceStorage', () => {
           holdingsSupport: 'mixed',
           warningCount: 1,
         },
+        proposalSource: {
+          proposalSourceVersion: 1,
+          proposalSourceKind: 'draft_replacement_intent_review_only',
+          proposalTruth: 'review_only_hypothetical_proposal',
+          portfolioTruth: 'draft_snapshot_not_applied',
+          reviewScope: 'proposal_review_context_only',
+        },
         replayBasis: {
           benchmarkSymbol: 'SPY',
           startDate: '2024-01-01',
@@ -2966,7 +4758,20 @@ describe('portfolioWorkspaceStorage', () => {
           candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
         },
         reviewSnapshot: {
-          proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+          proposal: {
+            source: 'draft_replacement_intent',
+            proposal_source: {
+              proposal_source_version: 1,
+              proposal_source_kind: 'draft_replacement_intent_review_only',
+              proposal_truth: 'review_only_hypothetical_proposal',
+              portfolio_truth: 'draft_snapshot_not_applied',
+              review_scope: 'proposal_review_context_only',
+            },
+            incumbent_symbol: 'AAPL',
+            candidate_symbol: 'IUFS',
+            draft_id: 'draft-1',
+            base_node_id: 'node-1',
+          },
           derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
           baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
           candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
@@ -3041,6 +4846,13 @@ describe('portfolioWorkspaceStorage', () => {
           holdingsSupport: 'mixed',
           warningCount: 1,
         },
+        proposalSource: {
+          proposalSourceVersion: 1,
+          proposalSourceKind: 'draft_replacement_intent_review_only',
+          proposalTruth: 'review_only_hypothetical_proposal',
+          portfolioTruth: 'draft_snapshot_not_applied',
+          reviewScope: 'proposal_review_context_only',
+        },
         replayBasis: {
           benchmarkSymbol: 'SPY',
           startDate: '2024-01-01',
@@ -3052,7 +4864,20 @@ describe('portfolioWorkspaceStorage', () => {
           candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
         },
         reviewSnapshot: {
-          proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+          proposal: {
+            source: 'draft_replacement_intent',
+            proposal_source: {
+              proposal_source_version: 1,
+              proposal_source_kind: 'draft_replacement_intent_review_only',
+              proposal_truth: 'review_only_hypothetical_proposal',
+              portfolio_truth: 'draft_snapshot_not_applied',
+              review_scope: 'proposal_review_context_only',
+            },
+            incumbent_symbol: 'AAPL',
+            candidate_symbol: 'IUFS',
+            draft_id: 'draft-1',
+            base_node_id: 'node-1',
+          },
           derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
           baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
           candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
@@ -3112,13 +4937,33 @@ describe('portfolioWorkspaceStorage', () => {
         sourceIntent: {
           kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1,
         },
+        proposalSource: {
+          proposalSourceVersion: 1,
+          proposalSourceKind: 'draft_replacement_intent_review_only',
+          proposalTruth: 'review_only_hypothetical_proposal',
+          portfolioTruth: 'draft_snapshot_not_applied',
+          reviewScope: 'proposal_review_context_only',
+        },
         replayBasis: {
           benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized',
           candidateConstructionRule: 'same_weight_substitution_v1',
           replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: true, validation_status: null, constraint_set_id: null } },
         },
         reviewSnapshot: {
-          proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+          proposal: {
+            source: 'draft_replacement_intent',
+            proposal_source: {
+              proposal_source_version: 1,
+              proposal_source_kind: 'draft_replacement_intent_review_only',
+              proposal_truth: 'review_only_hypothetical_proposal',
+              portfolio_truth: 'draft_snapshot_not_applied',
+              review_scope: 'proposal_review_context_only',
+            },
+            incumbent_symbol: 'AAPL',
+            candidate_symbol: 'IUFS',
+            draft_id: 'draft-1',
+            base_node_id: 'node-1',
+          },
           derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
           replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
           baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
@@ -3151,12 +4996,32 @@ describe('portfolioWorkspaceStorage', () => {
       sourceIntent: {
         kind: 'etf_replacement_intent', source: 'candidate_seed', createdAt: '2026-04-15T00:05:00Z', draftId: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', baseSymbol: 'AAPL', candidateSymbol: 'IUFS', seededFromDraftId: 'draft-1', seedRankingId: 'etf_ranking_engine_v1', seedMethodologyId: 'etf_ranking_methodology_v1', seedRankingBasisDate: '2026-04-15', peerGroup: 'Sector UCITS ETF', benchmarkSymbol: 'SPY', lookbackMonths: 6, confidence: 'medium', holdingsSupport: 'mixed', warningCount: 1,
       },
+      proposalSource: {
+        proposalSourceVersion: 1,
+        proposalSourceKind: 'draft_replacement_intent_review_only',
+        proposalTruth: 'review_only_hypothetical_proposal',
+        portfolioTruth: 'draft_snapshot_not_applied',
+        reviewScope: 'proposal_review_context_only',
+      },
       replayBasis: {
         benchmarkSymbol: 'SPY', startDate: '2024-01-01', endDate: '2024-12-31', rebalanceFrequency: 'monthly', commissionBps: 0, slippageBps: 0, derivationBasis: 'draft_snapshot_positions_normalized', candidateConstructionRule: 'same_weight_substitution_v1',
         replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'mismatched_methodology', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
       },
       reviewSnapshot: {
-        proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
+        proposal: {
+          source: 'draft_replacement_intent',
+          proposal_source: {
+            proposal_source_version: 1,
+            proposal_source_kind: 'draft_replacement_intent_review_only',
+            proposal_truth: 'review_only_hypothetical_proposal',
+            portfolio_truth: 'draft_snapshot_not_applied',
+            review_scope: 'proposal_review_context_only',
+          },
+          incumbent_symbol: 'AAPL',
+          candidate_symbol: 'IUFS',
+          draft_id: 'draft-1',
+          base_node_id: 'node-1',
+        },
         derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
         replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
         baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }], candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],

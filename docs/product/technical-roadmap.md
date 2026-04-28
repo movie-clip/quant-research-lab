@@ -58,7 +58,7 @@ Remaining work:
 Remaining work:
 - tighten Workspace integration across ranking, persisted construction, optimizer handoff, replay, and proposal artifacts
 - simplify review contracts so lineage, trust, and withholding remain visible without excessive payload noise
-- broaden saved proposal review and comparison beyond the current narrow slices
+- broaden saved proposal review beyond the shipped canonical PM-first family inbox, active-thesis cross-family PM review queue, proposal-family PM review, and same-family sibling comparison slices while preserving backend-rooted persisted-artifact discovery contracts
 
 ### 4. Overlay and Monitoring Expansion
 

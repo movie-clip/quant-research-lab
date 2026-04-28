@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import Literal
+from pathlib import Path
+from typing import Literal, cast
 
 from pydantic import ValidationError
 
@@ -44,6 +45,7 @@ from app.schemas.backtest_engine import (
     OverlayApplicationSummary,
     OptimizerHandoffReplayBenchmarkAttestationSummary,
     OptimizerHandoffReplayConstraintSummary,
+    OptimizerHandoffReplayHandoff,
     OptimizerHandoffReplayOptimizerContext,
     OptimizerHandoffReplayOptimizerDiagnostics,
     OptimizerHandoffReplayProvenance,
@@ -64,6 +66,49 @@ from app.schemas.backtest_engine import (
     PortfolioAllocationBacktestResponse,
     PortfolioWeightInput,
     ReplayMethodologyProvenance,
+    ReviewSnapshotArtifact,
+    ReviewSnapshotArtifactAnalyticsSummary,
+    ReviewSnapshotArtifactCompactSummary,
+    ReviewSnapshotArtifactDiagnosticsSummary,
+    ReviewSnapshotArtifactIdentity,
+    ReviewSnapshotArtifactLineage,
+    ReviewSnapshotArtifactReviewBasis,
+    ReviewSnapshotArtifactSourcePayload,
+    ReviewSnapshotArtifactTruthLabels,
+    ReviewSnapshotComparisonArtifactRef,
+    ReviewSnapshotComparisonAssumptionsEnvelope,
+    ReviewSnapshotActiveThesisCrossFamilyPMSummaryFields,
+    ReviewSnapshotActiveThesisCrossFamilyQueueActiveThesis,
+    ReviewSnapshotActiveThesisCrossFamilyQueueRequest,
+    ReviewSnapshotActiveThesisCrossFamilyQueueResponse,
+    ReviewSnapshotActiveThesisCrossFamilyQueueRow,
+    ReviewSnapshotActiveThesisCrossFamilySeparation,
+    ReviewSnapshotActiveThesisCrossFamilyTrustVisibility,
+    ReviewSnapshotFamilyCompareReadiness,
+    ReviewSnapshotFamilyInboxRequest,
+    ReviewSnapshotFamilyInboxResponse,
+    ReviewSnapshotFamilyInboxRow,
+    ReviewSnapshotFamilyKey,
+    ReviewSnapshotFamilyReviewRequest,
+    ReviewSnapshotFamilyReviewResponse,
+    ReviewSnapshotFamilySiblingSummary,
+    ReviewSnapshotSiblingComparisonEligibility,
+    ReviewSnapshotPMSummaryAnalyticsSummary,
+    ReviewSnapshotPMSummaryEnvelope,
+    ReviewSnapshotPMSummaryMethodology,
+    ReviewSnapshotPMSummaryProvenance,
+    ReviewSnapshotPMSummaryReviewBasis,
+    ReviewSnapshotComparisonMethodology,
+    ReviewSnapshotComparisonMethodologyEnvelope,
+    ReviewSnapshotComparisonPairSummary,
+    ReviewSnapshotComparisonRequest,
+    ReviewSnapshotComparisonResponse,
+    ReviewSnapshotProposalCapture,
+    ReviewSnapshotProposalCaptureProposal,
+    ReviewSnapshotProposalCaptureReviewBasis,
+    ReviewSnapshotCreateRequest,
+    ReviewSnapshotOpenHandoff,
+    ReviewSnapshotOpenResponse,
     WorkspaceReviewWindow,
 )
 from app.schemas.optimizer import OptimizerReturnBasisAttestation
@@ -85,6 +130,13 @@ from app.services.optimizer_handoff_constraints import (
     load_validated_optimizer_handoff_for_replay,
 )
 from app.services.optimizer_artifact_service import normalize_optimizer_return_basis_attestation
+from app.services.review_snapshot_artifact_service import (
+    ReviewSnapshotArtifactStore,
+    build_stable_review_snapshot_artifact,
+    list_review_snapshot_artifacts,
+    load_review_snapshot_artifact,
+    persist_review_snapshot_artifact,
+)
 
 
 METHODOLOGY = "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions."
@@ -374,11 +426,12 @@ def build_hypothetical_replacement_replay_preview(request: HypotheticalReplaceme
 
 
 def build_optimizer_handoff_replay_preview(
-    request: OptimizerHandoffReplayRequest,
+    request: OptimizerHandoffReplayRequest | OptimizerHandoffReplayHandoff,
     *,
     handoff_store=None,
 ) -> OptimizerHandoffReplayResponse:
-    validated_gate = load_validated_optimizer_handoff_for_replay(request, handoff_store=handoff_store)
+    replay_request = resolve_optimizer_handoff_replay_request(request)
+    validated_gate = load_validated_optimizer_handoff_for_replay(replay_request, handoff_store=handoff_store)
     persisted_handoff = validated_gate.persisted_handoff
     manifest = persisted_handoff.manifest
     artifact = persisted_handoff.artifact
@@ -393,18 +446,18 @@ def build_optimizer_handoff_replay_preview(
             weights=candidate_weights,
             reference_weights=baseline_weights,
             benchmark_symbol=benchmark_symbol,
-            start_date=request.start_date,
-            end_date=request.end_date,
-            initial_capital=request.initial_capital,
-            rebalance_frequency=request.rebalance_frequency,
-            base_currency=request.base_currency,
-            commission_bps=request.commission_bps,
-            slippage_bps=request.slippage_bps,
-            drift_tolerance_pct=request.drift_tolerance_pct,
-            price_basis=request.price_basis,
-            execution_price_field=request.execution_price_field,
-            execution_lag_days=request.execution_lag_days,
-            symbol_overrides=request.symbol_overrides,
+            start_date=replay_request.start_date,
+            end_date=replay_request.end_date,
+            initial_capital=replay_request.initial_capital,
+            rebalance_frequency=replay_request.rebalance_frequency,
+            base_currency=replay_request.base_currency,
+            commission_bps=replay_request.commission_bps,
+            slippage_bps=replay_request.slippage_bps,
+            drift_tolerance_pct=replay_request.drift_tolerance_pct,
+            price_basis=replay_request.price_basis,
+            execution_price_field=replay_request.execution_price_field,
+            execution_lag_days=replay_request.execution_lag_days,
+            symbol_overrides=replay_request.symbol_overrides,
         ),
         return_basis_attestation=normalized_return_basis_attestation,
     )
@@ -423,12 +476,12 @@ def build_optimizer_handoff_replay_preview(
             constraint_set_fingerprint=manifest.constraint_set.constraint_set_fingerprint,
         ),
         review_basis=OptimizerHandoffWorkspaceReviewBasis(
-            handoff_reference=request.handoff_reference,
+            handoff_reference=replay_request.handoff_reference,
             benchmark_symbol=benchmark_symbol,
-            base_currency=request.base_currency,
+            base_currency=replay_request.base_currency,
             replay_window=WorkspaceReviewWindow(
-                start_date=request.start_date.isoformat(),
-                end_date=request.end_date.isoformat(),
+                start_date=replay_request.start_date.isoformat(),
+                end_date=replay_request.end_date.isoformat(),
             ),
             baseline_weights=baseline_weights,
             candidate_weights=candidate_weights,
@@ -437,6 +490,28 @@ def build_optimizer_handoff_replay_preview(
         baseline_weights=baseline_weights,
         candidate_weights=candidate_weights,
         replay=replay,
+    )
+
+
+def resolve_optimizer_handoff_replay_request(
+    request: OptimizerHandoffReplayRequest | OptimizerHandoffReplayHandoff,
+) -> OptimizerHandoffReplayRequest:
+    if isinstance(request, OptimizerHandoffReplayRequest):
+        return request
+    return OptimizerHandoffReplayRequest(
+        handoff_reference=request.handoff_reference,
+        start_date=request.effective_replay_params.start_date,
+        end_date=request.effective_replay_params.end_date,
+        initial_capital=request.effective_replay_params.initial_capital,
+        rebalance_frequency=request.effective_replay_params.rebalance_frequency,
+        base_currency=request.effective_replay_params.base_currency,
+        commission_bps=request.effective_replay_params.commission_bps,
+        slippage_bps=request.effective_replay_params.slippage_bps,
+        drift_tolerance_pct=request.effective_replay_params.drift_tolerance_pct,
+        price_basis=request.effective_replay_params.price_basis,
+        execution_price_field=request.effective_replay_params.execution_price_field,
+        execution_lag_days=request.effective_replay_params.execution_lag_days,
+        symbol_overrides=request.effective_replay_params.symbol_overrides,
     )
 
 
@@ -613,6 +688,705 @@ def _validate_effective_construction_artifact_replay_params(
         if message.startswith("Value error, "):
             message = message.removeprefix("Value error, ")
         raise ValueError(message) from exc
+
+
+def create_review_snapshot_artifact(
+    request: ReviewSnapshotCreateRequest,
+    *,
+    store=None,
+) -> ReviewSnapshotArtifact:
+    replay_type = "overlay_aware" if isinstance(request.review_payload, OverlayAwareHypotheticalReplayResponse) else "standard"
+    active_replay = _active_replay_from_review_snapshot_payload(request.review_payload)
+    diagnostics_summary = _build_review_snapshot_diagnostics_summary(active_replay.diagnostics_comparison)
+    standard_payload = request.review_payload if isinstance(request.review_payload, HypotheticalReplacementReplayResponse) else None
+    overlay_payload = request.review_payload if isinstance(request.review_payload, OverlayAwareHypotheticalReplayResponse) else None
+    lineage = ReviewSnapshotArtifactLineage(
+        workspace_id=request.workspace_id,
+        source_draft_id=request.source_draft_id,
+        source_base_node_id=request.source_base_node_id,
+        proposal_family_id=request.proposal_family_id,
+        proposal_id=request.proposal_id,
+        version_number=request.version_number,
+    )
+    review_basis = ReviewSnapshotArtifactReviewBasis(
+        benchmark_symbol=active_replay.candidate_result.benchmark_symbol or "SPY",
+        start_date=active_replay.candidate_result.start_date,
+        end_date=active_replay.candidate_result.end_date,
+        rebalance_frequency=active_replay.candidate_result.rebalance_frequency,
+        commission_bps=active_replay.candidate_result.commission_bps,
+        slippage_bps=active_replay.candidate_result.slippage_bps,
+        derivation_basis=request.review_payload.derivation.baseline_basis,
+        candidate_construction_rule=request.review_payload.derivation.candidate_construction_rule,
+        replay_provenance=request.review_payload.replay_provenance,
+    )
+    truth_labels = ReviewSnapshotArtifactTruthLabels()
+    compact_summary = ReviewSnapshotArtifactCompactSummary(
+        replay_type=replay_type,
+        replay_status=active_replay.candidate_result.status,
+        investor_economics_status=active_replay.investor_economics_status,
+        candidate_analytics=_build_review_snapshot_analytics_summary(active_replay, role="candidate"),
+        baseline_analytics=_build_review_snapshot_analytics_summary(active_replay, role="baseline") if active_replay.reference_result is not None else None,
+        analytics_comparison=active_replay.comparison,
+        diagnostics_summary=diagnostics_summary,
+    )
+    artifact = ReviewSnapshotArtifact(
+        identity=ReviewSnapshotArtifactIdentity(
+            artifact_id="review_snapshot_pending",
+            fingerprint="pending",
+        ),
+        lineage=lineage,
+        review_basis=review_basis,
+        truth_labels=truth_labels,
+        compact_summary=compact_summary,
+        proposal_capture=_build_review_snapshot_proposal_capture(
+            lineage=lineage,
+            review_payload=request.review_payload,
+            review_basis=review_basis,
+            replay_type=replay_type,
+        ),
+        pm_summary=_build_review_snapshot_pm_summary(
+            lineage=lineage,
+            review_basis=review_basis,
+            truth_labels=truth_labels,
+            compact_summary=compact_summary,
+            proposal_source=request.review_payload.proposal.proposal_source,
+            role="saved_proposal",
+        ),
+        source_payload=ReviewSnapshotArtifactSourcePayload(
+            replay_type=replay_type,
+            replay=standard_payload,
+            overlay_replay=overlay_payload,
+        ),
+    )
+    stable_artifact = build_stable_review_snapshot_artifact(artifact)
+    return persist_review_snapshot_artifact(stable_artifact, store=store)
+
+
+def open_review_snapshot_artifact(
+    handoff: ReviewSnapshotOpenHandoff,
+    *,
+    store=None,
+) -> ReviewSnapshotOpenResponse:
+    if handoff.handoff_kind != "review_snapshot_open_handoff_v1":
+        raise ValueError(f"unsupported review snapshot handoff_kind: {handoff.handoff_kind}")
+    artifact = load_review_snapshot_artifact(handoff.artifact_id, store=store)
+    return ReviewSnapshotOpenResponse(
+        handoff=handoff,
+        artifact=artifact,
+        pm_summary=artifact.pm_summary,
+        replay_payload=artifact.source_payload,
+    )
+
+
+def compare_review_snapshots(
+    request: ReviewSnapshotComparisonRequest,
+    *,
+    store=None,
+) -> ReviewSnapshotComparisonResponse:
+    baseline_artifact = _resolve_review_snapshot_comparison_artifact(request.baseline, expected_role="baseline", store=store)
+    candidate_artifact = _resolve_review_snapshot_comparison_artifact(request.candidate, expected_role="candidate", store=store)
+    _validate_review_snapshot_comparison_pair(baseline_artifact, candidate_artifact)
+    baseline_replay = _active_replay_from_review_snapshot_payload(_required_review_snapshot_payload(baseline_artifact))
+    candidate_replay = _active_replay_from_review_snapshot_payload(_required_review_snapshot_payload(candidate_artifact))
+    return ReviewSnapshotComparisonResponse(
+        family_key=_review_snapshot_family_key_from_artifact(baseline_artifact),
+        baseline=_build_review_snapshot_comparison_pair_summary(baseline_artifact, role="baseline"),
+        candidate=_build_review_snapshot_comparison_pair_summary(candidate_artifact, role="candidate"),
+        baseline_pm_summary=_review_snapshot_pm_summary_for_role(baseline_artifact, role="baseline"),
+        candidate_pm_summary=_review_snapshot_pm_summary_for_role(candidate_artifact, role="candidate"),
+        analytics_comparison=_compare_review_snapshot_candidate_results(
+            baseline_replay.candidate_result,
+            candidate_replay.candidate_result,
+        ),
+        methodology=ReviewSnapshotComparisonMethodologyEnvelope(
+            baseline_methodology=_build_review_snapshot_comparison_methodology(baseline_replay),
+            candidate_methodology=_build_review_snapshot_comparison_methodology(candidate_replay),
+            assumptions_consistent=baseline_replay.candidate_result.assumptions == candidate_replay.candidate_result.assumptions,
+            methodology_consistent=baseline_replay.methodology == candidate_replay.methodology,
+        ),
+        assumptions=ReviewSnapshotComparisonAssumptionsEnvelope(
+            baseline_assumptions=baseline_replay.candidate_result.assumptions,
+            candidate_assumptions=candidate_replay.candidate_result.assumptions,
+            assumptions_consistent=baseline_replay.candidate_result.assumptions == candidate_replay.candidate_result.assumptions,
+        ),
+    )
+
+
+def build_review_snapshot_family_review(
+    request: ReviewSnapshotFamilyReviewRequest,
+    *,
+    store=None,
+) -> ReviewSnapshotFamilyReviewResponse:
+    anchor_artifact = open_review_snapshot_artifact(request.handoff, store=store).artifact
+    family_key = _review_snapshot_family_key_from_artifact(anchor_artifact)
+    family_artifacts = [
+        artifact
+        for artifact in list_review_snapshot_artifacts(store=store)
+        if _review_snapshot_family_key_from_artifact(artifact) == family_key
+    ]
+    sibling_summaries = [
+        _build_review_snapshot_family_sibling_summary(
+            artifact,
+            compatible_sibling_artifact_ids=[
+                candidate.identity.artifact_id
+                for candidate in family_artifacts
+                if candidate.identity.artifact_id != artifact.identity.artifact_id
+                and _review_snapshot_artifacts_are_comparable(artifact, candidate)
+            ],
+        )
+        for artifact in sorted(
+            family_artifacts,
+            key=lambda artifact: (artifact.lineage.version_number, artifact.identity.artifact_id),
+            reverse=True,
+        )
+    ]
+    anchor_summary = next(
+        sibling for sibling in sibling_summaries if sibling.identity.artifact_id == anchor_artifact.identity.artifact_id
+    )
+    return ReviewSnapshotFamilyReviewResponse(
+        family_key=family_key,
+        anchor=anchor_summary,
+        siblings=sibling_summaries,
+    )
+
+
+def build_review_snapshot_family_inbox(
+    request: ReviewSnapshotFamilyInboxRequest,
+    *,
+    store=None,
+) -> ReviewSnapshotFamilyInboxResponse:
+    active_store = store or ReviewSnapshotArtifactStore()
+    family_members: dict[
+        tuple[str, str, str, str, Literal["hypothetical_replacement_replay"]],
+        list[tuple[ReviewSnapshotArtifact, float, str]],
+    ] = {}
+    for artifact, artifact_path in _list_review_snapshot_artifacts_with_paths(store=active_store):
+        family_key = _review_snapshot_family_key_from_artifact(artifact)
+        if family_key.workspace_id != request.workspace_id:
+            continue
+        family_members.setdefault(_review_snapshot_family_sort_key(family_key), []).append(
+            (artifact, artifact_path.stat().st_mtime, artifact_path.as_posix())
+        )
+
+    rows = [
+        _build_review_snapshot_family_inbox_row(family_key=_family_key_from_tuple(family_key), family_members=members)
+        for family_key, members in family_members.items()
+    ]
+    rows.sort(key=lambda row: (row.latest_saved_at, row.latest_identity.artifact_id), reverse=True)
+    return ReviewSnapshotFamilyInboxResponse(
+        workspace_id=request.workspace_id,
+        rows=rows,
+    )
+
+
+def build_review_snapshot_active_thesis_cross_family_queue(
+    request: ReviewSnapshotActiveThesisCrossFamilyQueueRequest,
+    *,
+    store=None,
+) -> ReviewSnapshotActiveThesisCrossFamilyQueueResponse:
+    active_store = store or ReviewSnapshotArtifactStore()
+    active_thesis_artifact = open_review_snapshot_artifact(request.handoff, store=active_store).artifact
+    if active_thesis_artifact.lineage.proposal_id != request.source_proposal_id:
+        raise ValueError("review snapshot active thesis cross-family queue source_proposal_id does not match persisted artifact lineage")
+    active_family_key = _review_snapshot_family_key_from_artifact(active_thesis_artifact)
+
+    family_members: dict[
+        tuple[str, str, str, str, Literal["hypothetical_replacement_replay"]],
+        list[tuple[ReviewSnapshotArtifact, float, str]],
+    ] = {}
+    for artifact, artifact_path in _list_review_snapshot_artifacts_with_paths(store=active_store):
+        family_key = _review_snapshot_family_key_from_artifact(artifact)
+        if family_key.workspace_id != active_family_key.workspace_id:
+            continue
+        if family_key.source_draft_id != active_family_key.source_draft_id:
+            continue
+        if family_key.source_base_node_id != active_family_key.source_base_node_id:
+            continue
+        if family_key.source_kind != active_family_key.source_kind:
+            continue
+        if family_key.proposal_family_id == active_family_key.proposal_family_id:
+            continue
+        family_members.setdefault(_review_snapshot_family_sort_key(family_key), []).append(
+            (artifact, artifact_path.stat().st_mtime, artifact_path.as_posix())
+        )
+
+    rows = [
+        _build_review_snapshot_active_thesis_cross_family_queue_row(
+            active_thesis=active_thesis_artifact,
+            family_key=_family_key_from_tuple(cast(tuple[str, str, str, str, Literal["hypothetical_replacement_replay"]], family_key)),
+            family_members=members,
+        )
+        for family_key, members in family_members.items()
+    ]
+    rows.sort(key=lambda row: (row.latest_saved_at, row.latest_identity.artifact_id), reverse=True)
+    return ReviewSnapshotActiveThesisCrossFamilyQueueResponse(
+        active_thesis=ReviewSnapshotActiveThesisCrossFamilyQueueActiveThesis(
+            source_proposal_id=request.source_proposal_id,
+            handoff=request.handoff,
+            identity=active_thesis_artifact.identity,
+            lineage=active_thesis_artifact.lineage,
+            family_key=active_family_key,
+        ),
+        rows=rows,
+    )
+
+
+def _build_review_snapshot_analytics_summary(
+    replay: PortfolioAllocationBacktestResponse,
+    *,
+    role: Literal["baseline", "candidate"],
+) -> ReviewSnapshotArtifactAnalyticsSummary:
+    result = replay.reference_result if role == "baseline" else replay.candidate_result
+    if result is None:
+        raise ValueError("review snapshot baseline analytics summary requires reference_result")
+    return ReviewSnapshotArtifactAnalyticsSummary(
+        methodology=replay.methodology,
+        methodology_provenance=replay.methodology_provenance,
+        assumptions=result.assumptions,
+        benchmark_symbol=result.benchmark_symbol,
+        benchmark_return_pct=result.metrics.benchmark_return_pct,
+        total_return_pct=result.metrics.total_return_pct,
+        annualized_return_pct=result.metrics.annualized_return_pct,
+        annualized_volatility_pct=result.metrics.annualized_volatility_pct,
+        downside_volatility_pct=result.metrics.downside_volatility_pct,
+        max_drawdown_pct=result.metrics.max_drawdown_pct,
+        sharpe_ratio=result.metrics.sharpe_ratio,
+        sortino_ratio=result.metrics.sortino_ratio,
+        excess_return_pct=result.metrics.excess_return_pct,
+        tracking_error_pct=result.metrics.tracking_error_pct,
+        information_ratio=result.metrics.information_ratio,
+        beta_vs_benchmark=result.metrics.beta_vs_benchmark,
+        correlation_vs_benchmark=result.metrics.correlation_vs_benchmark,
+        total_turnover_pct=result.metrics.total_turnover_pct,
+        total_cost_paid=result.metrics.total_cost_paid,
+    )
+
+
+def _build_review_snapshot_diagnostics_summary(
+    diagnostics_comparison: PortfolioImprovementComparison | None,
+) -> ReviewSnapshotArtifactDiagnosticsSummary:
+    return ReviewSnapshotArtifactDiagnosticsSummary(
+        diagnostics_available=diagnostics_comparison is not None,
+        top_factor_exposure_change=diagnostics_comparison.top_factor_exposure_change if diagnostics_comparison else None,
+        top_volatility_change=diagnostics_comparison.top_volatility_change if diagnostics_comparison else None,
+        top_risk_contribution_change=diagnostics_comparison.top_risk_contribution_change if diagnostics_comparison else None,
+        top_concentration_change=diagnostics_comparison.top_concentration_change if diagnostics_comparison else None,
+        top_stress_scenario_change=diagnostics_comparison.top_stress_scenario_change if diagnostics_comparison else None,
+    )
+
+
+def _build_review_snapshot_pm_summary(
+    *,
+    lineage: ReviewSnapshotArtifactLineage,
+    review_basis: ReviewSnapshotArtifactReviewBasis,
+    truth_labels: ReviewSnapshotArtifactTruthLabels,
+    compact_summary: ReviewSnapshotArtifactCompactSummary,
+    proposal_source,
+    role: Literal["saved_proposal", "baseline", "candidate"],
+) -> ReviewSnapshotPMSummaryEnvelope:
+    return ReviewSnapshotPMSummaryEnvelope(
+        role=role,
+        provenance=ReviewSnapshotPMSummaryProvenance(
+            lineage=lineage,
+            proposal_source=proposal_source,
+            replay_provenance=review_basis.replay_provenance,
+        ),
+        truth_labels=truth_labels,
+        replay_type=compact_summary.replay_type,
+        replay_status=compact_summary.replay_status,
+        investor_economics_status=compact_summary.investor_economics_status,
+        review_basis=ReviewSnapshotPMSummaryReviewBasis(
+            benchmark_symbol=review_basis.benchmark_symbol,
+            replay_window=WorkspaceReviewWindow(
+                start_date=review_basis.start_date,
+                end_date=review_basis.end_date,
+            ),
+            rebalance_frequency=review_basis.rebalance_frequency,
+            commission_bps=review_basis.commission_bps,
+            slippage_bps=review_basis.slippage_bps,
+            derivation_basis=review_basis.derivation_basis,
+            candidate_construction_rule=review_basis.candidate_construction_rule,
+        ),
+        methodology=ReviewSnapshotPMSummaryMethodology(
+            methodology=compact_summary.candidate_analytics.methodology,
+            methodology_provenance=compact_summary.candidate_analytics.methodology_provenance,
+        ),
+        assumptions=compact_summary.candidate_analytics.assumptions,
+        analytics_summary=ReviewSnapshotPMSummaryAnalyticsSummary(
+            candidate_analytics=compact_summary.candidate_analytics,
+            baseline_analytics=compact_summary.baseline_analytics,
+            analytics_comparison=compact_summary.analytics_comparison,
+        ),
+        diagnostics_summary=compact_summary.diagnostics_summary,
+    )
+
+
+def _build_review_snapshot_proposal_capture(
+    *,
+    lineage: ReviewSnapshotArtifactLineage,
+    review_payload: HypotheticalReplacementReplayResponse | OverlayAwareHypotheticalReplayResponse,
+    review_basis: ReviewSnapshotArtifactReviewBasis,
+    replay_type: Literal["standard", "overlay_aware"],
+) -> ReviewSnapshotProposalCapture:
+    return ReviewSnapshotProposalCapture(
+        open_handoff=ReviewSnapshotOpenHandoff(
+            artifact_id="review_snapshot_pending",
+        ),
+        lineage=lineage,
+        proposal=ReviewSnapshotProposalCaptureProposal(
+            source=review_payload.proposal.source,
+            proposal_source=review_payload.proposal.proposal_source,
+            incumbent_symbol=review_payload.proposal.incumbent_symbol,
+            candidate_symbol=review_payload.proposal.candidate_symbol,
+        ),
+        replay_type=replay_type,
+        replay_provenance=review_payload.replay_provenance,
+        review_basis=ReviewSnapshotProposalCaptureReviewBasis(
+            benchmark_symbol=review_basis.benchmark_symbol,
+            replay_window=WorkspaceReviewWindow(
+                start_date=review_basis.start_date,
+                end_date=review_basis.end_date,
+            ),
+            rebalance_frequency=review_basis.rebalance_frequency,
+            commission_bps=review_basis.commission_bps,
+            slippage_bps=review_basis.slippage_bps,
+            derivation_basis=review_basis.derivation_basis,
+            candidate_construction_rule=review_basis.candidate_construction_rule,
+        ),
+    )
+
+
+def _review_snapshot_pm_summary_for_role(
+    artifact: ReviewSnapshotArtifact,
+    *,
+    role: Literal["baseline", "candidate"],
+) -> ReviewSnapshotPMSummaryEnvelope:
+    return artifact.pm_summary.model_copy(update={"role": role})
+
+
+def _review_snapshot_family_key_from_artifact(
+    artifact: ReviewSnapshotArtifact,
+) -> ReviewSnapshotFamilyKey:
+    return ReviewSnapshotFamilyKey(
+        workspace_id=artifact.lineage.workspace_id,
+        source_draft_id=artifact.lineage.source_draft_id,
+        source_base_node_id=artifact.lineage.source_base_node_id,
+        proposal_family_id=artifact.lineage.proposal_family_id,
+        source_kind=artifact.lineage.source_kind,
+    )
+
+
+def _review_snapshot_family_sort_key(
+    family_key: ReviewSnapshotFamilyKey,
+) -> tuple[str, str, str, str, Literal["hypothetical_replacement_replay"]]:
+    return (
+        family_key.workspace_id,
+        family_key.source_draft_id,
+        family_key.source_base_node_id,
+        family_key.proposal_family_id,
+        family_key.source_kind,
+    )
+
+
+def _family_key_from_tuple(
+    value: tuple[str, str, str, str, Literal["hypothetical_replacement_replay"]],
+) -> ReviewSnapshotFamilyKey:
+    return ReviewSnapshotFamilyKey(
+        workspace_id=value[0],
+        source_draft_id=value[1],
+        source_base_node_id=value[2],
+        proposal_family_id=value[3],
+        source_kind=value[4],
+    )
+
+
+def _build_review_snapshot_family_inbox_row(
+    *,
+    family_key: ReviewSnapshotFamilyKey,
+    family_members: list[tuple[ReviewSnapshotArtifact, float, str]],
+) -> ReviewSnapshotFamilyInboxRow:
+    if not family_members:
+        raise ValueError("review snapshot family inbox row requires at least one persisted family member")
+    latest_artifact, latest_saved_at = _select_review_snapshot_family_latest_artifact(family_key=family_key, family_members=family_members)
+    comparable_pair_count = _count_review_snapshot_family_compatible_pairs([artifact for artifact, _, _ in family_members])
+    compare_readiness = ReviewSnapshotFamilyCompareReadiness(
+        ready=comparable_pair_count > 0,
+        reason="compatible_family_pair_available" if comparable_pair_count > 0 else "no_compatible_family_pair",
+        compatible_pair_count=comparable_pair_count,
+    )
+    return ReviewSnapshotFamilyInboxRow(
+        family_key=family_key,
+        latest_identity=latest_artifact.identity,
+        lineage=latest_artifact.lineage,
+        proposal_capture=latest_artifact.proposal_capture,
+        pm_summary=latest_artifact.pm_summary,
+        sibling_count=len(family_members),
+        compare_readiness=compare_readiness,
+        latest_saved_at=latest_saved_at,
+    )
+
+
+def _build_review_snapshot_active_thesis_cross_family_queue_row(
+    *,
+    active_thesis: ReviewSnapshotArtifact,
+    family_key: ReviewSnapshotFamilyKey,
+    family_members: list[tuple[ReviewSnapshotArtifact, float, str]],
+) -> ReviewSnapshotActiveThesisCrossFamilyQueueRow:
+    latest_artifact, latest_saved_at = _select_review_snapshot_family_latest_artifact(
+        family_key=family_key,
+        family_members=family_members,
+    )
+    _validate_review_snapshot_cross_family_queue_candidate(active_thesis=active_thesis, candidate=latest_artifact)
+    return ReviewSnapshotActiveThesisCrossFamilyQueueRow(
+        latest_identity=latest_artifact.identity,
+        lineage=latest_artifact.lineage,
+        family_key=family_key,
+        family_separation=ReviewSnapshotActiveThesisCrossFamilySeparation(
+            active_thesis_proposal_family_id=active_thesis.lineage.proposal_family_id,
+            queue_proposal_family_id=latest_artifact.lineage.proposal_family_id,
+        ),
+        proposal_source=latest_artifact.pm_summary.provenance.proposal_source,
+        truth_labels=latest_artifact.pm_summary.truth_labels,
+        trust_visibility=ReviewSnapshotActiveThesisCrossFamilyTrustVisibility(
+            investor_economics_status=latest_artifact.pm_summary.investor_economics_status,
+        ),
+        pm_summary_fields=ReviewSnapshotActiveThesisCrossFamilyPMSummaryFields(
+            replay_type=latest_artifact.pm_summary.replay_type,
+            replay_status=latest_artifact.pm_summary.replay_status,
+            review_basis=latest_artifact.pm_summary.review_basis,
+            methodology=latest_artifact.pm_summary.methodology,
+            assumptions=latest_artifact.pm_summary.assumptions,
+            analytics_summary=latest_artifact.pm_summary.analytics_summary,
+            diagnostics_summary=latest_artifact.pm_summary.diagnostics_summary,
+        ),
+        latest_saved_at=latest_saved_at,
+    )
+
+
+def _select_review_snapshot_family_latest_artifact(
+    *,
+    family_key: ReviewSnapshotFamilyKey,
+    family_members: list[tuple[ReviewSnapshotArtifact, float, str]],
+) -> tuple[ReviewSnapshotArtifact, str]:
+    if len(family_members) == 1:
+        artifact, mtime, _ = family_members[0]
+        return artifact, _review_snapshot_saved_at_from_mtime(mtime)
+    sorted_members = sorted(
+        family_members,
+        key=lambda item: (item[0].lineage.version_number, item[1], item[0].identity.artifact_id),
+        reverse=True,
+    )
+    latest_artifact, latest_mtime, _ = sorted_members[0]
+    second_artifact, second_mtime, _ = sorted_members[1]
+    if latest_artifact.lineage.version_number == second_artifact.lineage.version_number:
+        raise ValueError(
+            f"review snapshot family inbox latest selection is ambiguous for family {family_key.proposal_family_id}"
+        )
+    if any(
+        artifact.lineage.version_number == latest_artifact.lineage.version_number and artifact.identity.artifact_id != latest_artifact.identity.artifact_id
+        for artifact, _, _ in family_members
+    ):
+        raise ValueError(
+            f"review snapshot family inbox latest selection is ambiguous for family {family_key.proposal_family_id}"
+        )
+    if latest_mtime < second_mtime and latest_artifact.lineage.version_number > second_artifact.lineage.version_number:
+        raise ValueError(
+            f"review snapshot family inbox latest selection contradicts persisted ordering for family {family_key.proposal_family_id}"
+        )
+    return latest_artifact, _review_snapshot_saved_at_from_mtime(latest_mtime)
+
+
+def _validate_review_snapshot_cross_family_queue_candidate(
+    *,
+    active_thesis: ReviewSnapshotArtifact,
+    candidate: ReviewSnapshotArtifact,
+) -> None:
+    if candidate.identity.artifact_id == active_thesis.identity.artifact_id:
+        raise ValueError("review snapshot active thesis cross-family queue requires distinct persisted artifacts")
+    if candidate.lineage.workspace_id != active_thesis.lineage.workspace_id:
+        raise ValueError("review snapshot active thesis cross-family queue requires matching workspace_id")
+    if candidate.lineage.source_draft_id != active_thesis.lineage.source_draft_id:
+        raise ValueError("review snapshot active thesis cross-family queue requires matching source_draft_id")
+    if candidate.lineage.source_base_node_id != active_thesis.lineage.source_base_node_id:
+        raise ValueError("review snapshot active thesis cross-family queue requires matching source_base_node_id")
+    if candidate.lineage.source_kind != active_thesis.lineage.source_kind:
+        raise ValueError("review snapshot active thesis cross-family queue requires matching source_kind")
+    if candidate.lineage.proposal_family_id == active_thesis.lineage.proposal_family_id:
+        raise ValueError("review snapshot active thesis cross-family queue requires distinct proposal_family_id")
+    if candidate.lineage.proposal_id == active_thesis.lineage.proposal_id:
+        raise ValueError("review snapshot active thesis cross-family queue requires distinct proposal_id")
+    if candidate.pm_summary.role != "saved_proposal":
+        raise ValueError("review snapshot active thesis cross-family queue requires saved_proposal pm_summary role")
+    if candidate.pm_summary.provenance.lineage != candidate.lineage:
+        raise ValueError("review snapshot active thesis cross-family queue candidate lineage does not match pm_summary provenance lineage")
+
+
+def _count_review_snapshot_family_compatible_pairs(family_artifacts: list[ReviewSnapshotArtifact]) -> int:
+    compatible_pair_count = 0
+    for index, baseline in enumerate(family_artifacts):
+        for candidate in family_artifacts[index + 1:]:
+            if _review_snapshot_artifacts_are_comparable(baseline, candidate):
+                compatible_pair_count += 1
+    return compatible_pair_count
+
+
+def _review_snapshot_saved_at_from_mtime(mtime: float) -> str:
+    return datetime.fromtimestamp(mtime, tz=UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _list_review_snapshot_artifacts_with_paths(
+    *,
+    store: ReviewSnapshotArtifactStore,
+) -> list[tuple[ReviewSnapshotArtifact, Path]]:
+    artifacts_with_paths: list[tuple[ReviewSnapshotArtifact, Path]] = []
+    for path in sorted(store.base_dir.glob("*.json")):
+        artifact_id = path.stem
+        artifacts_with_paths.append((load_review_snapshot_artifact(artifact_id, store=store), path))
+    return artifacts_with_paths
+
+
+def _build_review_snapshot_family_sibling_summary(
+    artifact: ReviewSnapshotArtifact,
+    *,
+    compatible_sibling_artifact_ids: list[str],
+) -> ReviewSnapshotFamilySiblingSummary:
+    return ReviewSnapshotFamilySiblingSummary(
+        identity=artifact.identity,
+        open_handoff=artifact.proposal_capture.open_handoff,
+        lineage=artifact.lineage,
+        pm_summary=artifact.pm_summary,
+        comparison_eligibility=ReviewSnapshotSiblingComparisonEligibility(
+            eligible=len(compatible_sibling_artifact_ids) > 0,
+            reason="compatible_family_sibling_available" if compatible_sibling_artifact_ids else "no_compatible_family_sibling",
+            compatible_sibling_artifact_ids=compatible_sibling_artifact_ids,
+        ),
+    )
+
+
+def _resolve_review_snapshot_comparison_artifact(
+    value: ReviewSnapshotComparisonArtifactRef | ReviewSnapshotOpenHandoff,
+    *,
+    expected_role: Literal["baseline", "candidate"],
+    store=None,
+) -> ReviewSnapshotArtifact:
+    if isinstance(value, ReviewSnapshotOpenHandoff):
+        return open_review_snapshot_artifact(value, store=store).artifact
+    if value.role != expected_role:
+        raise ValueError(f"review snapshot comparison {expected_role} role is required")
+    artifact = load_review_snapshot_artifact(value.artifact_id, store=store)
+    if value.artifact_kind != artifact.identity.artifact_kind:
+        raise ValueError(f"review snapshot comparison {expected_role} artifact_kind does not match persisted artifact")
+    if value.schema_version != artifact.identity.schema_version:
+        raise ValueError(f"review snapshot comparison {expected_role} schema_version does not match persisted artifact")
+    if value.consumer_kind != artifact.identity.consumer_kind:
+        raise ValueError(f"review snapshot comparison {expected_role} consumer_kind does not match persisted artifact")
+    return artifact
+
+
+def _validate_review_snapshot_comparison_pair(
+    baseline: ReviewSnapshotArtifact,
+    candidate: ReviewSnapshotArtifact,
+) -> None:
+    if baseline.identity.artifact_id == candidate.identity.artifact_id:
+        raise ValueError("review snapshot comparison requires two distinct persisted artifacts")
+    if baseline.lineage.proposal_family_id != candidate.lineage.proposal_family_id:
+        raise ValueError("review snapshot comparison requires matching proposal_family_id")
+    if baseline.lineage.workspace_id != candidate.lineage.workspace_id:
+        raise ValueError("review snapshot comparison requires matching workspace_id")
+    if baseline.lineage.source_draft_id != candidate.lineage.source_draft_id:
+        raise ValueError("review snapshot comparison requires matching source_draft_id")
+    if baseline.lineage.source_base_node_id != candidate.lineage.source_base_node_id:
+        raise ValueError("review snapshot comparison requires matching source_base_node_id")
+    if baseline.lineage.source_kind != candidate.lineage.source_kind:
+        raise ValueError("review snapshot comparison requires matching source_kind")
+    if baseline.review_basis.benchmark_symbol != candidate.review_basis.benchmark_symbol:
+        raise ValueError("review snapshot comparison requires matching benchmark_symbol")
+    if baseline.review_basis.start_date != candidate.review_basis.start_date or baseline.review_basis.end_date != candidate.review_basis.end_date:
+        raise ValueError("review snapshot comparison requires matching replay_window")
+    if baseline.review_basis.derivation_basis != candidate.review_basis.derivation_basis:
+        raise ValueError("review snapshot comparison requires matching derivation_basis")
+    if baseline.compact_summary.replay_type != candidate.compact_summary.replay_type:
+        raise ValueError("review snapshot comparison requires matching replay_type")
+    if baseline.compact_summary.candidate_analytics.assumptions != candidate.compact_summary.candidate_analytics.assumptions:
+        raise ValueError("review snapshot comparison requires matching replay assumptions")
+
+
+def _review_snapshot_artifacts_are_comparable(
+    baseline: ReviewSnapshotArtifact,
+    candidate: ReviewSnapshotArtifact,
+) -> bool:
+    try:
+        _validate_review_snapshot_comparison_pair(baseline, candidate)
+    except ValueError:
+        return False
+    return True
+
+
+def _build_review_snapshot_comparison_methodology(
+    replay: PortfolioAllocationBacktestResponse,
+) -> ReviewSnapshotComparisonMethodology:
+    return ReviewSnapshotComparisonMethodology(
+        methodology=replay.methodology,
+        methodology_provenance=replay.methodology_provenance,
+        assumptions=replay.candidate_result.assumptions,
+    )
+
+
+def _build_review_snapshot_comparison_pair_summary(
+    artifact: ReviewSnapshotArtifact,
+    *,
+    role: Literal["baseline", "candidate"],
+) -> ReviewSnapshotComparisonPairSummary:
+    return ReviewSnapshotComparisonPairSummary(
+        benchmark_symbol=artifact.review_basis.benchmark_symbol,
+        replay_window=WorkspaceReviewWindow(
+            start_date=artifact.review_basis.start_date,
+            end_date=artifact.review_basis.end_date,
+        ),
+        replay_type=artifact.compact_summary.replay_type,
+        candidate_construction_rule=artifact.review_basis.candidate_construction_rule,
+        derivation_basis=artifact.review_basis.derivation_basis,
+        source_pair=f"{_source_pair_from_review_snapshot_artifact(artifact)}",
+        replay_status=artifact.compact_summary.replay_status,
+        investor_economics_status=artifact.compact_summary.investor_economics_status,
+        methodology=_build_review_snapshot_comparison_methodology(
+            _active_replay_from_review_snapshot_payload(
+                _required_review_snapshot_payload(artifact)
+            )
+        ),
+        analytics=artifact.compact_summary.candidate_analytics,
+        diagnostics_summary=artifact.compact_summary.diagnostics_summary,
+    )
+
+
+def _compare_review_snapshot_candidate_results(
+    baseline: AllocationBacktestResult,
+    candidate: AllocationBacktestResult,
+) -> AllocationBacktestComparison:
+    return _compare_results(
+        AllocationBacktestResult.model_validate(baseline.model_dump(mode="json")),
+        AllocationBacktestResult.model_validate(candidate.model_dump(mode="json")),
+    )
+
+
+def _active_replay_from_review_snapshot_payload(
+    payload: HypotheticalReplacementReplayResponse | OverlayAwareHypotheticalReplayResponse,
+) -> PortfolioAllocationBacktestResponse:
+    return payload.overlay_replay if isinstance(payload, OverlayAwareHypotheticalReplayResponse) else payload.replay
+
+
+def _required_review_snapshot_payload(
+    artifact: ReviewSnapshotArtifact,
+) -> HypotheticalReplacementReplayResponse | OverlayAwareHypotheticalReplayResponse:
+    payload = artifact.source_payload.overlay_replay or artifact.source_payload.replay
+    if payload is None:
+        raise ValueError("review snapshot artifact is missing authoritative source payload")
+    return payload
+
+
+def _source_pair_from_review_snapshot_artifact(artifact: ReviewSnapshotArtifact) -> str:
+    payload = _required_review_snapshot_payload(artifact)
+    return f"{payload.proposal.incumbent_symbol} -> {payload.proposal.candidate_symbol}"
 
 
 def build_overlay_aware_hypothetical_replay_preview(request: OverlayAwareHypotheticalReplayRequest) -> OverlayAwareHypotheticalReplayResponse:

@@ -54,6 +54,8 @@ describe('BacktestWorkspacePanel', () => {
         persistedOptimizerHandoffReview={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={() => {}}
+        openedSavedProposalArtifactId={null}
         monitoringResearchHandoff={handoff}
         monitoringResearchHandoffDismissed={false}
         onDismissMonitoringResearchHandoff={onDismiss}
@@ -99,6 +101,8 @@ describe('BacktestWorkspacePanel', () => {
         persistedOptimizerHandoffReview={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={() => {}}
+        openedSavedProposalArtifactId={null}
         onReviewInResearch={() => {}}
         onSaveProposal={() => {}}
         onPromoteProposalToThesis={() => {}}

@@ -1,7 +1,7 @@
 import json
 import os
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from fractions import Fraction
 from hashlib import sha256
 from pathlib import Path
@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Literal, cast
 from pydantic import ValidationError
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactWorkspaceReviewBasis, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplayProposalSource, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionLatestEvaluationSnapshotArtifact, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffWorkspaceReviewBasis, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse, WorkspaceReviewWindow
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactWorkspaceReviewBasis, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplayProposalSource, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionLatestEvaluationSnapshotArtifact, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffWorkspaceReviewBasis, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotComparisonRequest, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotOpenHandoff, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse, WorkspaceReviewWindow
 from app.schemas.optimizer import OptimizationRequest, OptimizerAlphaFundamentalSnapshot, OptimizerObjective, OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerPreviewSnapshotReference, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
 from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
@@ -26,7 +26,7 @@ from app.services.optimizer_alpha_service import build_alpha_quality_package
 from app.services.optimizer_preview_service import build_optimizer_preview
 from app.services.optimizer_service import run_optimizer
 from app.services.monitor_definition_artifact_service import MonitorDefinitionDiscoveryMetadataValidationError, MonitorDefinitionIntegrityValidationError, MonitorDefinitionPersistenceError, MonitorDefinitionSchemaValidationError, MonitorDefinitionArtifactStore, create_monitor_definition_artifact, inspect_monitor_definition_evaluation_history_entry, list_monitor_definition_artifacts, list_monitor_definition_catalog, list_monitor_definition_evaluation_history, list_recent_monitor_definition_artifacts, load_monitor_definition_artifact, load_monitor_definition_evaluation_history_entry, load_monitor_definition_latest_evaluation_snapshot
-from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, evaluate_monitor_definition_observation, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
+from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_review_snapshot_active_thesis_cross_family_queue, build_review_snapshot_family_inbox, build_review_snapshot_family_review, compare_review_snapshots, create_review_snapshot_artifact, evaluate_monitor_definition_observation, open_review_snapshot_artifact, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -165,6 +165,110 @@ def _write_latest_monitor_evaluation_snapshot(
         ),
         encoding="utf-8",
     )
+
+
+def _hypothetical_review_payload() -> PortfolioAllocationBacktestResponse:
+    return PortfolioAllocationBacktestResponse.model_validate({
+        "methodology": "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions.",
+        "methodology_provenance": {
+            "provenance_version": 1,
+            "source": "portfolio_allocation_backtest_engine",
+            "methodology_truth": "review_only_replay_methodology",
+            "assumptions_truth": "review_only_replay_assumptions",
+            "analytics_truth": "hypothetical_replay_analytics_only",
+            "review_scope": "workspace_review_context_only",
+        },
+        "investor_economics_status": {"status": "available", "reason": None},
+        "reference_result": {
+            "portfolio_name": "Reference",
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "observation_count": 3,
+            "rebalance_frequency": "monthly",
+            "commission_bps": 0,
+            "slippage_bps": 0,
+            "drift_tolerance_pct": None,
+            "assumptions": {"price_basis": "adjusted_close", "execution_price_field": "close", "execution_lag_days": 1, "calendar_policy": "intersection_common_dates", "fractional_shares": True, "long_only": True, "leverage_allowed": False, "tax_treatment": "pre_tax", "investor_base_currency": "USD"},
+            "status": "ok",
+            "investor_economics_status": {"status": "available", "reason": None},
+            "instrument_metadata": [],
+            "starting_weights": [{"symbol": "AAPL", "target_weight": 1.0}],
+            "ending_weights": [{"symbol": "AAPL", "target_weight": 1.0}],
+            "metrics": {"total_return_pct": 8, "annualized_return_pct": 8, "annualized_volatility_pct": 10, "downside_volatility_pct": 6, "max_drawdown_pct": -4, "sharpe_ratio": 0.8, "sortino_ratio": 1.0, "benchmark_return_pct": 7, "excess_return_pct": 1, "tracking_error_pct": 3, "information_ratio": 0.3, "beta_vs_benchmark": 1, "correlation_vs_benchmark": 0.9, "total_turnover_pct": 0, "turnover_events_count": 0, "total_cost_paid": 0},
+            "equity_curve": [],
+            "rebalance_events": [],
+            "trades": [],
+        },
+        "candidate_result": {
+            "portfolio_name": "Candidate",
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "observation_count": 3,
+            "rebalance_frequency": "monthly",
+            "commission_bps": 0,
+            "slippage_bps": 0,
+            "drift_tolerance_pct": None,
+            "assumptions": {"price_basis": "adjusted_close", "execution_price_field": "close", "execution_lag_days": 1, "calendar_policy": "intersection_common_dates", "fractional_shares": True, "long_only": True, "leverage_allowed": False, "tax_treatment": "pre_tax", "investor_base_currency": "USD"},
+            "status": "ok",
+            "investor_economics_status": {"status": "available", "reason": None},
+            "instrument_metadata": [],
+            "starting_weights": [{"symbol": "IUFS", "target_weight": 1.0}],
+            "ending_weights": [{"symbol": "IUFS", "target_weight": 1.0}],
+            "metrics": {"total_return_pct": 10, "annualized_return_pct": 10, "annualized_volatility_pct": 9, "downside_volatility_pct": 5, "max_drawdown_pct": -3, "sharpe_ratio": 1.1, "sortino_ratio": 1.3, "benchmark_return_pct": 7, "excess_return_pct": 3, "tracking_error_pct": 4, "information_ratio": 0.5, "beta_vs_benchmark": 0.8, "correlation_vs_benchmark": 0.85, "total_turnover_pct": 12, "turnover_events_count": 2, "total_cost_paid": 45},
+            "equity_curve": [],
+            "rebalance_events": [],
+            "trades": [],
+        },
+        "comparison": {"total_return_diff_pct": 2, "annualized_return_diff_pct": 2, "benchmark_return_diff_pct": 0, "annualized_volatility_diff_pct": -1, "downside_volatility_diff_pct": -1, "max_drawdown_diff_pct": 1, "sharpe_diff": 0.3, "sortino_diff": 0.3, "excess_return_diff_pct": 2, "tracking_error_diff_pct": 1, "information_ratio_diff": 0.2, "beta_diff": -0.2, "correlation_diff": -0.05, "total_turnover_diff_pct": 12, "total_cost_diff": 45},
+        "reference_diagnostics": None,
+        "candidate_diagnostics": None,
+        "diagnostics_comparison": None,
+    })
+
+
+def _review_snapshot_request(candidate_symbol: str = "IUFS"):
+    return {
+        "proposal_id": f"proposal-{candidate_symbol}",
+        "workspace_id": "workspace-1",
+        "source_draft_id": "draft-1",
+        "source_base_node_id": "node-1",
+        "proposal_family_id": f"etf_replacement_intent:AAPL:{candidate_symbol}:2026-04-15T00:05:00Z",
+        "version_number": 1,
+        "review_payload": {
+            "proposal": {
+                "source": "draft_replacement_intent",
+                "proposal_source": {
+                    "proposal_source_version": 1,
+                    "proposal_source_kind": "draft_replacement_intent_review_only",
+                    "proposal_truth": "review_only_hypothetical_proposal",
+                    "portfolio_truth": "draft_snapshot_not_applied",
+                    "review_scope": "proposal_review_context_only",
+                },
+                "incumbent_symbol": "AAPL",
+                "candidate_symbol": candidate_symbol,
+                "draft_id": "draft-1",
+                "base_node_id": "node-1",
+            },
+            "derivation": {
+                "baseline_basis": "draft_snapshot_positions_normalized",
+                "candidate_construction_rule": "same_weight_substitution_v1",
+            },
+            "replay_provenance": {
+                "candidate_input_source": "replacement_intent_preview",
+                "construction_rule_id": "same_weight_substitution_v1",
+                "upstream_ids": {"draft_id": "draft-1", "workspace_id": "workspace-1", "base_node_id": "node-1"},
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "constraint_validation": {"supplied": False, "validation_status": None, "constraint_set_id": None},
+            },
+            "baseline_weights": [{"symbol": "AAPL", "target_weight": 1.0}],
+            "candidate_weights": [{"symbol": candidate_symbol, "target_weight": 1.0}],
+            "replay": _hypothetical_review_payload().model_dump(mode="json"),
+            "warnings": [],
+        },
+    }
 
 
 def _rewrite_construction_artifact_payload(tmp_path: Path, artifact_id: str, payload_mutator) -> str:
@@ -1620,7 +1724,7 @@ def test_build_optimizer_handoff_replay_preview_runs_from_explicit_persisted_ref
     )
 
     assert replay_response.handoff_id == preview_response.persisted_handoff.handoff_id
-    assert replay_response.artifact_id == preview_response.optimizer_artifact.artifact_id
+    assert replay_response.review_basis.handoff_reference.artifact_id == preview_response.optimizer_artifact.artifact_id
     assert replay_response.source_portfolio_snapshot_id.startswith("portfolio_snapshot_")
     assert replay_response.truth_separation.model_dump() == {
         "baseline_truth": "imported_portfolio_snapshot",
@@ -2062,7 +2166,7 @@ def test_construction_artifact_preview_and_validation_share_effective_param_reso
         "construction_artifact_id": artifact.artifact_id,
         "effective_replay_params": preview_response.effective_replay_params.model_dump(mode="json"),
     }
-    assert validation_response.open_payload is None
+    assert validation_response.model_dump(mode="json").get("open_payload") is None
 
 
 def test_construction_artifact_preview_uses_validation_preview_handoff_as_exact_contract(
@@ -2531,6 +2635,482 @@ def test_build_construction_artifact_replay_preview_emits_canonical_review_basis
         "analytics_truth": "hypothetical_replay_analytics_only",
         "review_scope": "workspace_review_context_only",
     }
+
+
+def test_create_open_and_compare_review_snapshot_artifacts_roundtrip(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    baseline = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    candidate_request = _review_snapshot_request("IUFS")
+    candidate_request["proposal_id"] = "proposal-IUFS-v2"
+    candidate_request["version_number"] = 2
+    candidate = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(candidate_request))
+
+    opened = open_review_snapshot_artifact(
+        ReviewSnapshotOpenHandoff(
+            artifact_id=baseline.identity.artifact_id,
+        )
+    )
+    family_review = build_review_snapshot_family_review(
+        ReviewSnapshotFamilyReviewRequest.model_validate({
+            "handoff": {"artifact_id": baseline.identity.artifact_id}
+        })
+    )
+    comparison = compare_review_snapshots(
+        ReviewSnapshotComparisonRequest.model_validate({
+            "baseline": {"role": "baseline", "artifact_id": baseline.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+            "candidate": {"role": "candidate", "artifact_id": candidate.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+        })
+    )
+
+    assert opened.artifact.identity.artifact_id == baseline.identity.artifact_id
+    assert opened.handoff == baseline.proposal_capture.open_handoff
+    assert opened.pm_summary == baseline.pm_summary
+    assert opened.replay_payload == baseline.source_payload
+    assert baseline.proposal_capture.capture_kind == "workspace_review_saved_proposal"
+    assert baseline.proposal_capture.open_handoff.artifact_id == baseline.identity.artifact_id
+    assert baseline.proposal_capture.lineage == baseline.lineage
+    assert baseline.proposal_capture.proposal.proposal_source == baseline.pm_summary.provenance.proposal_source
+    assert baseline.proposal_capture.review_basis.benchmark_separation == "explicit_per_snapshot_benchmark_fields"
+    assert family_review.review_kind == "review_snapshot_family_review"
+    assert family_review.family_key.proposal_family_id == baseline.lineage.proposal_family_id
+    assert family_review.anchor.identity.artifact_id == baseline.identity.artifact_id
+    assert [sibling.identity.artifact_id for sibling in family_review.siblings] == [candidate.identity.artifact_id, baseline.identity.artifact_id]
+    assert family_review.anchor.comparison_eligibility.reason == "compatible_family_sibling_available"
+    assert candidate.identity.artifact_id in family_review.anchor.comparison_eligibility.compatible_sibling_artifact_ids
+    assert comparison.provenance == "persisted_review_snapshot_artifacts_only"
+    assert comparison.benchmark_separation == "explicit_per_snapshot_benchmark_fields"
+    assert comparison.family_key.proposal_family_id == baseline.lineage.proposal_family_id
+    assert comparison.baseline_pm_summary.role == "baseline"
+    assert comparison.candidate_pm_summary.role == "candidate"
+    assert comparison.baseline.source_pair == "AAPL -> IUFS"
+    assert comparison.candidate.source_pair == "AAPL -> IUFS"
+    assert comparison.analytics_comparison is not None
+    assert comparison.analytics_comparison.benchmark_return_diff_pct == 0
+    assert comparison.methodology.baseline_methodology.assumptions.execution_lag_days == 1
+    assert comparison.assumptions.assumptions_consistent is True
+
+
+def test_review_snapshot_open_fails_closed_on_malformed_pm_summary_payload(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    artifact = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    artifact_path = tmp_path / f"{artifact.identity.artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["pm_summary"]["truth_labels"]["analytics_truth"] = "wrong_truth_label"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(Exception, match="persisted review snapshot artifact failed schema validation"):
+        open_review_snapshot_artifact(ReviewSnapshotOpenHandoff(artifact_id=artifact.identity.artifact_id))
+
+
+def test_review_snapshot_open_fails_closed_on_pm_summary_lineage_contradiction(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    artifact = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    artifact_path = tmp_path / f"{artifact.identity.artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["pm_summary"]["provenance"]["lineage"]["proposal_id"] = "proposal-other"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(Exception, match="persisted review snapshot artifact failed schema validation"):
+        open_review_snapshot_artifact(ReviewSnapshotOpenHandoff(artifact_id=artifact.identity.artifact_id))
+
+
+def test_review_snapshot_open_fails_closed_on_proposal_capture_open_handoff_mismatch(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    artifact = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    artifact_path = tmp_path / f"{artifact.identity.artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["proposal_capture"]["open_handoff"]["artifact_id"] = "review_snapshot_other"
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(Exception, match="persisted review snapshot artifact failed schema validation"):
+        open_review_snapshot_artifact(ReviewSnapshotOpenHandoff(artifact_id=artifact.identity.artifact_id))
+
+
+def test_review_snapshot_open_fails_closed_on_missing_artifact(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    with pytest.raises(Exception, match="missing persisted review snapshot artifact file"):
+        open_review_snapshot_artifact(ReviewSnapshotOpenHandoff(artifact_id="review_snapshot_missing0001"))
+
+
+def test_review_snapshot_compare_rejects_incompatible_pair(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    baseline = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    incompatible_request = _review_snapshot_request("IUFS")
+    incompatible_request["proposal_id"] = "proposal-IUFS-v2"
+    incompatible_request["version_number"] = 2
+    incompatible_request["review_payload"]["replay"]["candidate_result"]["assumptions"]["execution_lag_days"] = 3
+    incompatible = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(incompatible_request))
+
+    with pytest.raises(ValueError, match="review snapshot comparison requires matching replay assumptions"):
+        compare_review_snapshots(
+            ReviewSnapshotComparisonRequest.model_validate({
+                "baseline": {"role": "baseline", "artifact_id": baseline.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+                "candidate": {"role": "candidate", "artifact_id": incompatible.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+            })
+        )
+
+
+def test_review_snapshot_family_review_discovers_only_same_family_siblings(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    anchor = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    sibling_request = _review_snapshot_request("IUFS")
+    sibling_request["proposal_id"] = "proposal-IUFS-v2"
+    sibling_request["version_number"] = 2
+    sibling = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(sibling_request))
+    other_family = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUIT")))
+
+    family_review = build_review_snapshot_family_review(
+        ReviewSnapshotFamilyReviewRequest.model_validate({
+            "handoff": {"artifact_id": anchor.identity.artifact_id}
+        })
+    )
+
+    assert family_review.family_key.proposal_family_id == anchor.lineage.proposal_family_id
+    assert [row.identity.artifact_id for row in family_review.siblings] == [sibling.identity.artifact_id, anchor.identity.artifact_id]
+    assert all(row.lineage.proposal_family_id == anchor.lineage.proposal_family_id for row in family_review.siblings)
+    assert other_family.identity.artifact_id not in [row.identity.artifact_id for row in family_review.siblings]
+
+
+def test_review_snapshot_family_inbox_discovers_latest_anchor_and_compare_readiness(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    baseline = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    baseline_path = tmp_path / f"{baseline.identity.artifact_id}.json"
+    older_time = datetime(2026, 4, 15, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(baseline_path, (older_time, older_time))
+
+    candidate_request = _review_snapshot_request("IUFS")
+    candidate_request["proposal_id"] = "proposal-IUFS-v2"
+    candidate_request["version_number"] = 2
+    candidate = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(candidate_request))
+    candidate_path = tmp_path / f"{candidate.identity.artifact_id}.json"
+    newer_time = datetime(2026, 4, 16, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(candidate_path, (newer_time, newer_time))
+
+    other_family = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUIT")))
+    other_family_path = tmp_path / f"{other_family.identity.artifact_id}.json"
+    other_time = datetime(2026, 4, 14, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(other_family_path, (other_time, other_time))
+
+    inbox = build_review_snapshot_family_inbox(
+        ReviewSnapshotFamilyInboxRequest.model_validate({"workspace_id": "workspace-1"})
+    )
+
+    assert inbox.inbox_kind == "review_snapshot_family_inbox"
+    assert inbox.workspace_id == "workspace-1"
+    assert [row.family_key.proposal_family_id for row in inbox.rows] == [
+        candidate.lineage.proposal_family_id,
+        other_family.lineage.proposal_family_id,
+    ]
+    assert inbox.rows[0].latest_identity.artifact_id == candidate.identity.artifact_id
+    assert inbox.rows[0].proposal_capture.open_handoff.artifact_id == candidate.identity.artifact_id
+    assert inbox.rows[0].pm_summary == candidate.pm_summary
+    assert inbox.rows[0].sibling_count == 2
+    assert inbox.rows[0].compare_readiness.ready is True
+    assert inbox.rows[0].compare_readiness.reason == "compatible_family_pair_available"
+    assert inbox.rows[0].compare_readiness.compatible_pair_count == 1
+    assert inbox.rows[0].latest_saved_at == "2026-04-16T00:05:00Z"
+    assert inbox.rows[0].pm_summary.analytics_summary.candidate_analytics.benchmark_return_pct == candidate.pm_summary.analytics_summary.candidate_analytics.benchmark_return_pct
+    assert inbox.rows[1].latest_identity.artifact_id == other_family.identity.artifact_id
+    assert inbox.rows[1].compare_readiness.ready is False
+    assert inbox.rows[1].compare_readiness.reason == "no_compatible_family_pair"
+    assert inbox.rows[1].compare_readiness.compatible_pair_count == 0
+
+
+def test_review_snapshot_active_thesis_cross_family_queue_returns_metadata_only_and_preserves_pm_summary_fields(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    active_thesis_request = _review_snapshot_request("IUFS")
+    active_thesis_request["proposal_id"] = "proposal-thesis"
+    active_thesis_request["proposal_family_id"] = "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z"
+    active_thesis_request["version_number"] = 4
+    active_thesis = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(active_thesis_request))
+    active_path = tmp_path / f"{active_thesis.identity.artifact_id}.json"
+    active_time = datetime(2026, 4, 10, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(active_path, (active_time, active_time))
+
+    first_family_request = _review_snapshot_request("IUIT")
+    first_family_request["proposal_id"] = "proposal-iuit"
+    first_family_request["proposal_family_id"] = "etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z"
+    first_family = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(first_family_request))
+    first_family_path = tmp_path / f"{first_family.identity.artifact_id}.json"
+    first_time = datetime(2026, 4, 15, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(first_family_path, (first_time, first_time))
+
+    second_family_request = _review_snapshot_request("IVV")
+    second_family_request["proposal_id"] = "proposal-ivv"
+    second_family_request["proposal_family_id"] = "etf_replacement_intent:AAPL:IVV:2026-04-14T00:05:00Z"
+    second_family = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(second_family_request))
+    second_family_path = tmp_path / f"{second_family.identity.artifact_id}.json"
+    second_time = datetime(2026, 4, 14, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(second_family_path, (second_time, second_time))
+
+    queue = build_review_snapshot_active_thesis_cross_family_queue(
+        ReviewSnapshotActiveThesisCrossFamilyQueueRequest.model_validate({
+            "source_proposal_id": active_thesis.lineage.proposal_id,
+            "handoff": active_thesis.proposal_capture.open_handoff.model_dump(mode="json"),
+        })
+    )
+
+    assert queue.queue_kind == "review_snapshot_active_thesis_cross_family_queue"
+    assert queue.provenance == "persisted_review_snapshot_artifacts_and_active_thesis_reference_only"
+    assert queue.queue_ordering == "latest_saved_at_desc_then_artifact_id_desc"
+    assert queue.active_thesis.source_proposal_id == active_thesis.lineage.proposal_id
+    assert [row.family_key.proposal_family_id for row in queue.rows] == [
+        first_family.lineage.proposal_family_id,
+        second_family.lineage.proposal_family_id,
+    ]
+    assert queue.rows[0].latest_identity.artifact_id == first_family.identity.artifact_id
+    assert queue.rows[0].proposal_source == first_family.pm_summary.provenance.proposal_source
+    assert queue.rows[0].truth_labels == first_family.pm_summary.truth_labels
+    assert queue.rows[0].trust_visibility.investor_economics_status == first_family.pm_summary.investor_economics_status
+    assert queue.rows[0].trust_visibility.benchmark_separation == "explicit_per_snapshot_benchmark_fields"
+    assert queue.rows[0].pm_summary_fields.review_basis == first_family.pm_summary.review_basis
+    assert queue.rows[0].pm_summary_fields.methodology == first_family.pm_summary.methodology
+    assert queue.rows[0].pm_summary_fields.assumptions == first_family.pm_summary.assumptions
+    assert queue.rows[0].pm_summary_fields.analytics_summary.candidate_analytics.benchmark_symbol == first_family.pm_summary.analytics_summary.candidate_analytics.benchmark_symbol
+    assert queue.rows[0].pm_summary_fields.analytics_summary.candidate_analytics.benchmark_return_pct == first_family.pm_summary.analytics_summary.candidate_analytics.benchmark_return_pct
+    assert queue.rows[0].pm_summary_fields.analytics_summary.candidate_analytics.methodology == first_family.pm_summary.analytics_summary.candidate_analytics.methodology
+    assert queue.rows[0].pm_summary_fields.analytics_summary.candidate_analytics.assumptions == first_family.pm_summary.analytics_summary.candidate_analytics.assumptions
+    assert queue.rows[0].pm_summary_fields.diagnostics_summary == first_family.pm_summary.diagnostics_summary
+    assert queue.rows[0].family_separation.active_thesis_proposal_family_id == active_thesis.lineage.proposal_family_id
+    assert queue.rows[0].family_separation.queue_proposal_family_id == first_family.lineage.proposal_family_id
+    assert queue.rows[0].latest_saved_at == "2026-04-15T00:05:00Z"
+
+
+def test_review_snapshot_active_thesis_cross_family_queue_uses_persisted_artifacts_only_not_loose_state(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    active_thesis_request = _review_snapshot_request("IUFS")
+    active_thesis_request["proposal_id"] = "proposal-thesis"
+    active_thesis_request["proposal_family_id"] = "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z"
+    active_thesis = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(active_thesis_request))
+
+    candidate_request = _review_snapshot_request("IUIT")
+    candidate_request["proposal_id"] = "proposal-iuit"
+    candidate_request["proposal_family_id"] = "etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z"
+    candidate = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(candidate_request))
+    candidate.pm_summary.methodology.methodology = "Loose in-memory methodology"
+    candidate.pm_summary.analytics_summary.candidate_analytics.methodology = "Loose in-memory methodology"
+
+    queue = build_review_snapshot_active_thesis_cross_family_queue(
+        ReviewSnapshotActiveThesisCrossFamilyQueueRequest.model_validate({
+            "source_proposal_id": active_thesis.lineage.proposal_id,
+            "handoff": active_thesis.proposal_capture.open_handoff.model_dump(mode="json"),
+        })
+    )
+
+    assert queue.rows[0].pm_summary_fields.methodology.methodology == "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions."
+    assert queue.rows[0].pm_summary_fields.analytics_summary.candidate_analytics.methodology == "Historical allocation replay using adjusted prices, aligned valuation dates, next-available-date execution after signal generation, fractional shares, long-only target weights, and transaction cost assumptions."
+
+
+def test_review_snapshot_family_inbox_fails_closed_on_ambiguous_latest_selection(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    first = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    second_request = _review_snapshot_request("IUFS")
+    second_request["proposal_id"] = "proposal-IUFS-shadow"
+    second = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(second_request))
+    first_path = tmp_path / f"{first.identity.artifact_id}.json"
+    second_path = tmp_path / f"{second.identity.artifact_id}.json"
+    shared_time = datetime(2026, 4, 16, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(first_path, (shared_time, shared_time))
+    os.utime(second_path, (shared_time, shared_time))
+
+    with pytest.raises(ValueError, match="review snapshot family inbox latest selection is ambiguous"):
+        build_review_snapshot_family_inbox(
+            ReviewSnapshotFamilyInboxRequest.model_validate({"workspace_id": "workspace-1"})
+        )
+
+
+def test_review_snapshot_active_thesis_cross_family_queue_fails_closed_on_same_family_candidate(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    active_thesis_request = _review_snapshot_request("IUFS")
+    active_thesis_request["proposal_id"] = "proposal-thesis"
+    active_thesis_request["proposal_family_id"] = "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z"
+    active_thesis = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(active_thesis_request))
+    same_family_request = _review_snapshot_request("IUIT")
+    same_family_request["proposal_id"] = "proposal-same-family"
+    same_family_request["proposal_family_id"] = active_thesis.lineage.proposal_family_id
+    same_family = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(same_family_request))
+    same_family_path = tmp_path / f"{same_family.identity.artifact_id}.json"
+    payload = json.loads(same_family_path.read_text(encoding="utf-8"))
+    payload["lineage"]["proposal_family_id"] = "etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z"
+    same_family_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(Exception, match="persisted review snapshot artifact failed schema validation"):
+        build_review_snapshot_active_thesis_cross_family_queue(
+            ReviewSnapshotActiveThesisCrossFamilyQueueRequest.model_validate({
+                "source_proposal_id": active_thesis.lineage.proposal_id,
+                "handoff": active_thesis.proposal_capture.open_handoff.model_dump(mode="json"),
+            })
+        )
+
+
+def test_review_snapshot_active_thesis_cross_family_queue_fails_closed_on_source_proposal_mismatch(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    active_thesis_request = _review_snapshot_request("IUFS")
+    active_thesis_request["proposal_id"] = "proposal-thesis"
+    active_thesis_request["proposal_family_id"] = "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z"
+    active_thesis = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(active_thesis_request))
+
+    with pytest.raises(ValueError, match="review snapshot active thesis cross-family queue source_proposal_id does not match persisted artifact lineage"):
+        build_review_snapshot_active_thesis_cross_family_queue(
+            ReviewSnapshotActiveThesisCrossFamilyQueueRequest.model_validate({
+                "source_proposal_id": "proposal-other",
+                "handoff": active_thesis.proposal_capture.open_handoff.model_dump(mode="json"),
+            })
+        )
+
+
+def test_review_snapshot_active_thesis_cross_family_queue_fails_closed_on_ambiguous_latest_ordering(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    active_thesis_request = _review_snapshot_request("IUFS")
+    active_thesis_request["proposal_id"] = "proposal-thesis"
+    active_thesis_request["proposal_family_id"] = "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z"
+    active_thesis = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(active_thesis_request))
+
+    first_request = _review_snapshot_request("IUIT")
+    first_request["proposal_id"] = "proposal-iuit-a"
+    first_request["proposal_family_id"] = "etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z"
+    first = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(first_request))
+    second_request = _review_snapshot_request("IUIT")
+    second_request["proposal_id"] = "proposal-iuit-b"
+    second_request["proposal_family_id"] = "etf_replacement_intent:AAPL:IUIT:2026-04-15T00:05:00Z"
+    second = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(second_request))
+    first_path = tmp_path / f"{first.identity.artifact_id}.json"
+    second_path = tmp_path / f"{second.identity.artifact_id}.json"
+    shared_time = datetime(2026, 4, 16, 0, 5, tzinfo=UTC).timestamp()
+    os.utime(first_path, (shared_time, shared_time))
+    os.utime(second_path, (shared_time, shared_time))
+
+    with pytest.raises(ValueError, match="review snapshot family inbox latest selection is ambiguous"):
+        build_review_snapshot_active_thesis_cross_family_queue(
+            ReviewSnapshotActiveThesisCrossFamilyQueueRequest.model_validate({
+                "source_proposal_id": active_thesis.lineage.proposal_id,
+                "handoff": active_thesis.proposal_capture.open_handoff.model_dump(mode="json"),
+            })
+        )
+
+
+def test_review_snapshot_family_inbox_fails_closed_on_cross_family_contamination(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    anchor = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    cross_family = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUIT")))
+    cross_family_path = tmp_path / f"{cross_family.identity.artifact_id}.json"
+    payload = json.loads(cross_family_path.read_text(encoding="utf-8"))
+    payload["lineage"]["proposal_family_id"] = anchor.lineage.proposal_family_id
+    cross_family_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(Exception, match="persisted review snapshot artifact failed schema validation"):
+        build_review_snapshot_family_inbox(
+            ReviewSnapshotFamilyInboxRequest.model_validate({"workspace_id": "workspace-1"})
+        )
+
+
+def test_review_snapshot_compare_rejects_proposal_family_mismatch(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    baseline = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    candidate = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUIT")))
+
+    with pytest.raises(ValueError, match="review snapshot comparison requires matching proposal_family_id"):
+        compare_review_snapshots(
+            ReviewSnapshotComparisonRequest.model_validate({
+                "baseline": {"role": "baseline", "artifact_id": baseline.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+                "candidate": {"role": "candidate", "artifact_id": candidate.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+            })
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutator", "expected_error"),
+    [
+        (lambda payload: payload["review_basis"].__setitem__("benchmark_symbol", "QQQ"), "persisted review snapshot artifact failed schema validation"),
+        (lambda payload: payload["review_basis"].__setitem__("start_date", "2024-02-01"), "persisted review snapshot artifact failed schema validation"),
+        (lambda payload: payload["review_basis"].__setitem__("derivation_basis", "wrong_basis"), "persisted review snapshot artifact failed schema validation"),
+        (lambda payload: payload["compact_summary"].__setitem__("replay_type", "overlay_aware"), "persisted review snapshot artifact failed schema validation"),
+    ],
+)
+def test_review_snapshot_compare_fails_closed_on_incompatible_persisted_pair_dimensions(tmp_path, mocker, mutator, expected_error) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    baseline = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    candidate = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUIT")))
+    artifact_path = tmp_path / f"{candidate.identity.artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    mutator(payload)
+    artifact_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+
+    with pytest.raises(Exception, match=expected_error):
+        compare_review_snapshots(
+            ReviewSnapshotComparisonRequest.model_validate({
+                "baseline": {"role": "baseline", "artifact_id": baseline.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+                "candidate": {"role": "candidate", "artifact_id": candidate.identity.artifact_id, "artifact_kind": "portfolio_review_snapshot", "schema_version": "review_snapshot_artifact_v1", "consumer_kind": "saved_hypothetical_replay_proposal"},
+            })
+        )
 
 
 def test_construction_artifact_replay_response_rejects_review_basis_identity_mismatch() -> None:
@@ -4607,6 +5187,7 @@ def test_validate_optimizer_handoff_constraints_returns_ok_with_explicit_referen
         "start_date": "2024-01-01",
         "end_date": "2024-12-31",
     }
+    assert response.replay_handoff is None
     assert response.provenance.replay_output_policy is not None
     assert response.provenance.replay_output_policy.model_dump() == {
         "source": "persisted_return_basis_attestation",
@@ -4694,6 +5275,7 @@ def test_optimizer_handoff_roundtrip_preserves_alpha_objective_metadata_in_valid
     )
 
     assert validation.validation_status == "ok"
+    assert validation.replay_handoff is None
     assert validation.provenance.objective is not None
     assert validation.provenance.objective.objective_id == "maximize_alpha_quality_v1"
     assert replay_response.optimizer_context is not None
@@ -4714,7 +5296,91 @@ def test_validate_optimizer_handoff_constraints_allows_missing_validation_artifa
 
     assert response.validation_status == "ok"
     assert response.handoff_id == preview_response.persisted_handoff.handoff_id
-    assert response.artifact_id == preview_response.persisted_handoff.artifact_id
+    assert response.model_dump(mode="json").get("artifact_id") == preview_response.persisted_handoff.artifact_id
+
+
+def test_validate_optimizer_handoff_constraints_emits_canonical_replay_handoff_when_candidate_window_is_requested(tmp_path) -> None:
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert response.validation_status == "ok"
+    assert response.replay_handoff is not None
+    assert response.replay_handoff.model_dump(mode="json") == {
+        "handoff_kind": "optimizer_handoff_replay_handoff_v1",
+        "handoff_reference": preview_response.persisted_handoff.model_dump(mode="json"),
+        "effective_replay_params": {
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000.0,
+            "rebalance_frequency": "monthly",
+            "base_currency": "USD",
+            "commission_bps": 0.0,
+            "slippage_bps": 0.0,
+            "drift_tolerance_pct": None,
+            "price_basis": "adjusted_close",
+            "execution_price_field": "close",
+            "execution_lag_days": 1,
+            "symbol_overrides": {},
+        },
+    }
+
+
+def test_build_optimizer_handoff_replay_preview_accepts_validation_replay_handoff_verbatim(tmp_path, mocker) -> None:
+    mock_service = mocker.patch("app.services.portfolio_backtest_engine.MarketDataService")
+    mock_service.return_value.get_historical_prices_for_symbols.return_value = {
+        "SPY": _history(100.0, 102.0, 102.5, 103.0, 108.0),
+        "AAA": _history(100.0, 101.0, 102.0, 103.0, 104.0),
+        "BBB": _history(100.0, 100.5, 101.0, 101.5, 102.0),
+        "CCC": _history(100.0, 103.0, 104.0, 106.0, 109.0),
+        "QQQ": _history(100.0, 104.0, 104.5, 106.0, 112.0),
+        "IWD": _history(100.0, 101.0, 101.3, 101.8, 104.5),
+        "IWM": _history(100.0, 99.0, 98.7, 99.8, 102.0),
+        "XLF": _history(100.0, 103.0, 103.2, 104.0, 107.0),
+        "XLV": _history(100.0, 101.0, 101.4, 102.1, 103.5),
+        "XLE": _history(100.0, 97.0, 97.2, 98.5, 101.0),
+        "XLI": _history(100.0, 102.0, 102.4, 103.2, 105.2),
+        "IEF": _history(100.0, 100.4, 100.5, 100.6, 101.2),
+        "TLT": _history(100.0, 99.5, 99.0, 101.0, 104.0),
+        "LQD": _history(100.0, 100.8, 100.9, 101.2, 102.3),
+        "GLD": _history(100.0, 101.0, 101.4, 102.8, 104.1),
+    }
+    handoff_store = OptimizerHandoffStore(str(tmp_path))
+    preview_response = build_optimizer_preview(_optimizer_preview_request(), handoff_store=handoff_store)
+
+    assert preview_response.persisted_handoff is not None
+    validation_response = validate_optimizer_handoff_constraints(
+        OptimizerHandoffValidationRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert validation_response.replay_handoff is not None
+    replay_from_handoff = build_optimizer_handoff_replay_preview(validation_response.replay_handoff, handoff_store=handoff_store)
+    replay_from_request = build_optimizer_handoff_replay_preview(
+        OptimizerHandoffReplayRequest(
+            handoff_reference=preview_response.persisted_handoff,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+            initial_capital=100000,
+            execution_lag_days=1,
+        ),
+        handoff_store=handoff_store,
+    )
+
+    assert replay_from_handoff.model_dump(mode="json") == replay_from_request.model_dump(mode="json")
 
 
 def test_validate_optimizer_handoff_constraints_blocks_handoff_reference_artifact_mismatch_even_when_handoff_path_resolves(tmp_path) -> None:
@@ -4731,7 +5397,7 @@ def test_validate_optimizer_handoff_constraints_blocks_handoff_reference_artifac
     assert response.validation_status == "blocked"
     assert "artifact_reference_matches_artifact" in response.blocking_rule_ids
     assert response.handoff_id == preview_response.persisted_handoff.handoff_id
-    assert response.artifact_id == preview_response.persisted_handoff.artifact_id
+    assert response.model_dump(mode="json").get("artifact_id") == preview_response.persisted_handoff.artifact_id
 
 
 def test_build_optimizer_handoff_replay_preview_blocks_reference_artifact_mismatch_before_market_data(tmp_path, mocker) -> None:

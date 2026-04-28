@@ -1,5 +1,5 @@
 const databaseName = 'portfolio-workstation'
-const databaseVersion = 16
+const databaseVersion = 17
 
 export const appStateStoreName = 'app-state'
 export const workspaceStoreName = 'workspaces'
@@ -18,6 +18,7 @@ export const versionedProposalStoreName = 'versioned_proposals'
 export const activeThesisStoreName = 'active_thesis'
 export const persistedConstructionArtifactReviewStoreName = 'persisted_construction_artifact_reviews'
 export const persistedOptimizerHandoffReviewStoreName = 'persisted_optimizer_handoff_reviews'
+export const reviewSnapshotArtifactStoreName = 'review_snapshot_artifacts'
 
 let databasePromise: Promise<IDBDatabase> | null = null
 let openDatabaseHandle: IDBDatabase | null = null
@@ -62,6 +63,7 @@ export function openPortfolioDatabase() {
             activeThesisStoreName,
             persistedConstructionArtifactReviewStoreName,
             persistedOptimizerHandoffReviewStoreName,
+            reviewSnapshotArtifactStoreName,
           ]
 
           for (const storeName of storeNames) {
@@ -136,6 +138,11 @@ export function openPortfolioDatabase() {
           const store = database.createObjectStore(persistedOptimizerHandoffReviewStoreName, { keyPath: 'workspaceId' })
           store.createIndex('handoffId', 'handoffReference.handoff_id', { unique: false })
           store.createIndex('artifactId', 'handoffReference.artifact_id', { unique: false })
+        }
+        if (!database.objectStoreNames.contains(reviewSnapshotArtifactStoreName)) {
+          const store = database.createObjectStore(reviewSnapshotArtifactStoreName, { keyPath: 'id' })
+          store.createIndex('workspaceId', 'workspaceId', { unique: false })
+          store.createIndex('reviewSnapshotArtifactId', 'reviewSnapshotArtifactId', { unique: false })
         }
       }
 

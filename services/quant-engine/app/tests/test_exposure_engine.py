@@ -1,26 +1,12 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from pathlib import Path
-
-import pytest
 
 from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
 from app.services.exposure_engine import build_exposure_result
 from app.services.diagnostics_engine import run_imported_diagnostics_engine
 from app.services.statement_importer import import_statements
-
-
-DOCS_DIR = Path(r"C:\projects\investments\portfolio\docs")
-IB_2026_PATH = DOCS_DIR / "IB2026.pdf"
-FF_2026_PATH = DOCS_DIR / "FF2026.pdf"
-ESPP_2026_PATH = DOCS_DIR / "ESPP2026.pdf"
-
-
-def _require_paths(*paths: Path) -> None:
-    for path in paths:
-        if not path.exists():
-            pytest.skip(f"Missing local test fixture: {path}")
+from app.tests._statement_fixtures import ESPP_PATH, FREEDOM24_PATH, STATEMENT_2026_PATH
 
 
 class StubMarketDataService:
@@ -130,8 +116,7 @@ def _build_snapshot(positions: list[ImportedPosition], cash_balances: list[Impor
 
 
 def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
-    _require_paths(IB_2026_PATH)
-    snapshot = import_statements([str(IB_2026_PATH)])
+    snapshot = import_statements([str(STATEMENT_2026_PATH)])
     stub = StubMarketDataService()
     mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
 
@@ -163,8 +148,7 @@ def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
 
 
 def test_exposure_engine_builds_expected_shape_for_freedom24_2026(mocker) -> None:
-    _require_paths(FF_2026_PATH)
-    snapshot = import_statements([str(FF_2026_PATH)])
+    snapshot = import_statements([str(FREEDOM24_PATH)])
     stub = StubMarketDataService()
     mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
 
@@ -183,8 +167,7 @@ def test_exposure_engine_builds_expected_shape_for_freedom24_2026(mocker) -> Non
 
 
 def test_exposure_engine_builds_expected_shape_for_espp2026(mocker) -> None:
-    _require_paths(ESPP_2026_PATH)
-    snapshot = import_statements([str(ESPP_2026_PATH)])
+    snapshot = import_statements([str(ESPP_PATH)])
     stub = StubMarketDataService()
     mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
 
@@ -347,8 +330,7 @@ def test_exposure_engine_handles_mixed_resolved_unresolved_and_cash_snapshot(moc
 
 
 def test_exposure_engine_is_deterministic_for_repeated_ib2026_requests(mocker) -> None:
-    _require_paths(IB_2026_PATH)
-    snapshot = import_statements([str(IB_2026_PATH)])
+    snapshot = import_statements([str(STATEMENT_2026_PATH)])
 
     def run_once():
         stub = StubMarketDataService()
@@ -362,11 +344,10 @@ def test_exposure_engine_is_deterministic_for_repeated_ib2026_requests(mocker) -
 
 
 def test_exposure_engine_handles_many_varied_requests_with_deterministic_stubbed_market_data(mocker) -> None:
-    _require_paths(IB_2026_PATH, FF_2026_PATH, ESPP_2026_PATH)
     snapshots = [
-        import_statements([str(IB_2026_PATH)]),
-        import_statements([str(FF_2026_PATH)]),
-        import_statements([str(ESPP_2026_PATH)]),
+        import_statements([str(STATEMENT_2026_PATH)]),
+        import_statements([str(FREEDOM24_PATH)]),
+        import_statements([str(ESPP_PATH)]),
     ]
 
     results = []
@@ -393,8 +374,7 @@ def test_exposure_engine_handles_many_varied_requests_with_deterministic_stubbed
 
 
 def test_full_portfolio_imported_diagnostics_produces_deterministic_growth_factor_outputs() -> None:
-    _require_paths(IB_2026_PATH, FF_2026_PATH, ESPP_2026_PATH)
-    snapshot = import_statements([str(ESPP_2026_PATH), str(FF_2026_PATH), str(IB_2026_PATH)])
+    snapshot = import_statements([str(ESPP_PATH), str(FREEDOM24_PATH), str(STATEMENT_2026_PATH)])
 
     first = run_imported_diagnostics_engine(snapshot, "SPY")
     second = run_imported_diagnostics_engine(snapshot, "SPY")

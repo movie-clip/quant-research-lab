@@ -2701,6 +2701,27 @@ export type OptimizerHandoffEligibleReplayWindow = {
   end_date?: string | null
 }
 
+export type OptimizerHandoffReplayEffectiveParams = {
+  start_date: string
+  end_date: string
+  initial_capital: number
+  rebalance_frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annual'
+  base_currency: string
+  commission_bps: number
+  slippage_bps: number
+  drift_tolerance_pct: number | null
+  price_basis: 'adjusted_close'
+  execution_price_field: 'close'
+  execution_lag_days: number
+  symbol_overrides: Record<string, string[]>
+}
+
+export type OptimizerHandoffReplayHandoff = {
+  handoff_kind: 'optimizer_handoff_replay_handoff_v1'
+  handoff_reference: OptimizerPersistedArtifactReference
+  effective_replay_params: OptimizerHandoffReplayEffectiveParams
+}
+
 export type OptimizerHandoffValidationResponse = {
   handoff_id?: string | null
   /** @deprecated Use handoff_id for reopen identity; artifact_id is lineage only. */
@@ -2708,6 +2729,7 @@ export type OptimizerHandoffValidationResponse = {
   source_portfolio_snapshot_id?: string | null
   truth_separation: OptimizerHandoffValidationTruthSeparation
   eligible_replay_window?: OptimizerHandoffEligibleReplayWindow | null
+  replay_handoff?: OptimizerHandoffReplayHandoff | null
   provenance: OptimizerHandoffValidationProvenance
   validation_status: 'ok' | 'blocked' | 'rejected'
   evaluations: OptimizerHandoffValidationEvaluation[]

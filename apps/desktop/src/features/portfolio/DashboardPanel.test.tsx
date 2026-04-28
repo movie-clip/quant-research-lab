@@ -34,6 +34,9 @@ function parseCurrencyLabel(value: string) {
 }
 
 function parsePercentLabel(value: string) {
+  if (value === 'n/a') {
+    return null
+  }
   return Number(value.replace('%', ''))
 }
 
@@ -188,8 +191,8 @@ describe('DashboardPanel', () => {
     const scoped = within(view.container)
 
     expect(ib2026DashboardView.range_metrics?.['3M']?.summary.start_value).toBeCloseTo(parseCurrencyLabel(ib2026DashboardGolden.startValue), 2)
-    expect(ib2026DashboardView.range_metrics?.['3M']?.max_drawdown_pct).toBeCloseTo(parsePercentLabel(ib2026DashboardGolden.drawdown), 2)
-    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.money_weighted_return_pct).toBeCloseTo(parsePercentLabel(ib2026DashboardGolden.moneyWeightedReturn), 2)
+    expect(ib2026DashboardView.range_metrics?.['3M']?.max_drawdown_pct).toBe(parsePercentLabel(ib2026DashboardGolden.drawdown))
+    expect(ib2026DashboardView.range_metrics?.['3M']?.summary.money_weighted_return_pct).toBeCloseTo(parsePercentLabel(ib2026DashboardGolden.moneyWeightedReturn) ?? 0, 2)
     expect(scoped.getAllByText('Range metrics live').length).toBeGreaterThan(0)
     expect(scoped.getByText(`Portfolio value: ${ib2026DashboardGolden.portfolioValue}`)).toBeTruthy()
     expect(scoped.queryByText('Drawdown')).toBeNull()

@@ -253,6 +253,10 @@ class HypotheticalReplayDerivation(BaseModel):
     candidate_construction_rule: Literal["same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"]
 
 
+HypotheticalReplayBaselineBasis: TypeAlias = Literal["draft_snapshot_positions_normalized"]
+HypotheticalReplayConstructionRuleId: TypeAlias = Literal["same_weight_substitution_v1", "fixed_split_50_50_substitution_v2"]
+
+
 class HypotheticalReplayUpstreamIds(BaseModel):
     draft_id: str
     workspace_id: str
@@ -490,6 +494,804 @@ class HypotheticalReplacementReplayResponse(BaseModel):
     candidate_weights: list[PortfolioWeightInput] = Field(default_factory=list)
     replay: PortfolioAllocationBacktestResponse
     warnings: list[str] = Field(default_factory=list)
+
+
+ReviewSnapshotArtifactSchemaVersion = Literal["review_snapshot_artifact_v1"]
+ReviewSnapshotArtifactKind = Literal["portfolio_review_snapshot"]
+ReviewSnapshotConsumerKind = Literal["saved_hypothetical_replay_proposal"]
+ReviewSnapshotSourceKind = Literal["hypothetical_replacement_replay"]
+ReviewSnapshotComparisonConsumerKind = Literal["review_snapshot_comparison"]
+ReviewSnapshotFamilyReviewConsumerKind = Literal["review_snapshot_family_review"]
+ReviewSnapshotFamilyInboxConsumerKind = Literal["review_snapshot_family_inbox"]
+ReviewSnapshotActiveThesisCrossFamilyQueueConsumerKind = Literal["review_snapshot_active_thesis_cross_family_queue"]
+ReviewSnapshotComparisonRole = Literal["baseline", "candidate"]
+ReviewSnapshotPMSummaryRole = Literal["saved_proposal", "baseline", "candidate"]
+
+
+class ReviewSnapshotArtifactIdentity(BaseModel):
+    artifact_id: str
+    artifact_kind: ReviewSnapshotArtifactKind = "portfolio_review_snapshot"
+    schema_version: ReviewSnapshotArtifactSchemaVersion = "review_snapshot_artifact_v1"
+    fingerprint: str
+    consumer_kind: ReviewSnapshotConsumerKind = "saved_hypothetical_replay_proposal"
+
+
+class ReviewSnapshotArtifactLineage(BaseModel):
+    workspace_id: str
+    source_draft_id: str
+    source_base_node_id: str
+    proposal_family_id: str
+    proposal_id: str
+    version_number: int
+    source_kind: ReviewSnapshotSourceKind = "hypothetical_replacement_replay"
+
+
+class ReviewSnapshotArtifactReviewBasis(BaseModel):
+    benchmark_symbol: str
+    start_date: str
+    end_date: str
+    rebalance_frequency: str
+    commission_bps: float
+    slippage_bps: float
+    derivation_basis: HypotheticalReplayBaselineBasis
+    candidate_construction_rule: HypotheticalReplayConstructionRuleId
+    replay_provenance: HypotheticalReplayProvenance
+
+
+class ReviewSnapshotArtifactTruthLabels(BaseModel):
+    proposal_truth: Literal["review_only_hypothetical_proposal"] = "review_only_hypothetical_proposal"
+    portfolio_truth: Literal["draft_snapshot_not_applied"] = "draft_snapshot_not_applied"
+    analytics_truth: Literal["hypothetical_replay_analytics_only"] = "hypothetical_replay_analytics_only"
+    review_scope: Literal["proposal_review_context_only"] = "proposal_review_context_only"
+
+
+class ReviewSnapshotArtifactAnalyticsSummary(BaseModel):
+    methodology: str
+    methodology_provenance: "ReplayMethodologyProvenance"
+    assumptions: AllocationBacktestAssumptions
+    benchmark_symbol: str | None = None
+    benchmark_return_pct: float | None = None
+    total_return_pct: float | None = None
+    annualized_return_pct: float | None = None
+    annualized_volatility_pct: float | None = None
+    downside_volatility_pct: float | None = None
+    max_drawdown_pct: float | None = None
+    sharpe_ratio: float | None = None
+    sortino_ratio: float | None = None
+    excess_return_pct: float | None = None
+    tracking_error_pct: float | None = None
+    information_ratio: float | None = None
+    beta_vs_benchmark: float | None = None
+    correlation_vs_benchmark: float | None = None
+    total_turnover_pct: float | None = None
+    total_cost_paid: float | None = None
+
+
+class ReviewSnapshotArtifactDiagnosticsSummary(BaseModel):
+    diagnostics_available: bool
+    top_factor_exposure_change: PortfolioDiagnosticsTopCallout | None = None
+    top_volatility_change: PortfolioDiagnosticsTopCallout | None = None
+    top_risk_contribution_change: PortfolioDiagnosticsTopCallout | None = None
+    top_concentration_change: PortfolioDiagnosticsTopCallout | None = None
+    top_stress_scenario_change: PortfolioDiagnosticsTopCallout | None = None
+
+
+class ReviewSnapshotArtifactCompactSummary(BaseModel):
+    replay_type: Literal["standard", "overlay_aware"]
+    replay_status: AllocationBacktestStatus
+    investor_economics_status: InvestorEconomicsStatus
+    candidate_analytics: ReviewSnapshotArtifactAnalyticsSummary
+    baseline_analytics: ReviewSnapshotArtifactAnalyticsSummary | None = None
+    analytics_comparison: AllocationBacktestComparison | None = None
+    diagnostics_summary: ReviewSnapshotArtifactDiagnosticsSummary
+
+
+class ReviewSnapshotPMSummaryProvenance(BaseModel):
+    source: Literal["persisted_review_snapshot_artifact"] = "persisted_review_snapshot_artifact"
+    artifact_kind: ReviewSnapshotArtifactKind = "portfolio_review_snapshot"
+    schema_version: ReviewSnapshotArtifactSchemaVersion = "review_snapshot_artifact_v1"
+    consumer_kind: ReviewSnapshotConsumerKind = "saved_hypothetical_replay_proposal"
+    lineage: ReviewSnapshotArtifactLineage
+    proposal_source: "HypotheticalReplayProposalSource"
+    replay_provenance: HypotheticalReplayProvenance
+
+
+class ReviewSnapshotPMSummaryReviewBasis(BaseModel):
+    benchmark_separation: Literal["explicit_per_snapshot_benchmark_fields"] = "explicit_per_snapshot_benchmark_fields"
+    benchmark_symbol: str
+    replay_window: WorkspaceReviewWindow
+    rebalance_frequency: str
+    commission_bps: float
+    slippage_bps: float
+    derivation_basis: HypotheticalReplayBaselineBasis
+    candidate_construction_rule: HypotheticalReplayConstructionRuleId
+
+
+class ReviewSnapshotPMSummaryMethodology(BaseModel):
+    methodology: str
+    methodology_provenance: "ReplayMethodologyProvenance"
+
+
+class ReviewSnapshotPMSummaryAnalyticsSummary(BaseModel):
+    candidate_analytics: ReviewSnapshotArtifactAnalyticsSummary
+    baseline_analytics: ReviewSnapshotArtifactAnalyticsSummary | None = None
+    analytics_comparison: AllocationBacktestComparison | None = None
+
+
+class ReviewSnapshotPMSummaryEnvelope(BaseModel):
+    pm_summary_version: Literal[1] = 1
+    role: ReviewSnapshotPMSummaryRole = "saved_proposal"
+    provenance: ReviewSnapshotPMSummaryProvenance
+    truth_labels: ReviewSnapshotArtifactTruthLabels
+    replay_type: Literal["standard", "overlay_aware"]
+    replay_status: AllocationBacktestStatus
+    investor_economics_status: InvestorEconomicsStatus
+    review_basis: ReviewSnapshotPMSummaryReviewBasis
+    methodology: ReviewSnapshotPMSummaryMethodology
+    assumptions: AllocationBacktestAssumptions
+    analytics_summary: ReviewSnapshotPMSummaryAnalyticsSummary
+    diagnostics_summary: ReviewSnapshotArtifactDiagnosticsSummary
+
+
+class ReviewSnapshotOpenHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: Literal["review_snapshot_open_handoff_v1"] = "review_snapshot_open_handoff_v1"
+    artifact_id: str
+    artifact_kind: ReviewSnapshotArtifactKind = "portfolio_review_snapshot"
+    schema_version: ReviewSnapshotArtifactSchemaVersion = "review_snapshot_artifact_v1"
+    consumer_kind: ReviewSnapshotConsumerKind = "saved_hypothetical_replay_proposal"
+
+
+class ReviewSnapshotProposalCaptureProposal(BaseModel):
+    source: Literal["draft_replacement_intent"] = "draft_replacement_intent"
+    proposal_source: "HypotheticalReplayProposalSource"
+    incumbent_symbol: str
+    candidate_symbol: str
+
+
+class ReviewSnapshotProposalCaptureReviewBasis(BaseModel):
+    benchmark_separation: Literal["explicit_per_snapshot_benchmark_fields"] = "explicit_per_snapshot_benchmark_fields"
+    benchmark_symbol: str
+    replay_window: WorkspaceReviewWindow
+    rebalance_frequency: str
+    commission_bps: float
+    slippage_bps: float
+    derivation_basis: HypotheticalReplayBaselineBasis
+    candidate_construction_rule: HypotheticalReplayConstructionRuleId
+
+
+class ReviewSnapshotProposalCapture(BaseModel):
+    capture_version: Literal[1] = 1
+    capture_kind: Literal["workspace_review_saved_proposal"] = "workspace_review_saved_proposal"
+    open_handoff: ReviewSnapshotOpenHandoff
+    lineage: ReviewSnapshotArtifactLineage
+    proposal: ReviewSnapshotProposalCaptureProposal
+    replay_type: Literal["standard", "overlay_aware"]
+    replay_provenance: HypotheticalReplayProvenance
+    review_basis: ReviewSnapshotProposalCaptureReviewBasis
+
+
+class ReviewSnapshotArtifactSourcePayload(BaseModel):
+    replay_type: Literal["standard", "overlay_aware"]
+    replay: HypotheticalReplacementReplayResponse | None = None
+    overlay_replay: OverlayAwareHypotheticalReplayResponse | None = None
+
+    @model_validator(mode="after")
+    def _validate_payload_shape(self) -> "ReviewSnapshotArtifactSourcePayload":
+        if self.replay_type == "standard":
+            if self.replay is None:
+                raise ValueError("replay is required when replay_type=standard")
+            if self.overlay_replay is not None:
+                raise ValueError("overlay_replay must be omitted when replay_type=standard")
+        else:
+            if self.overlay_replay is None:
+                raise ValueError("overlay_replay is required when replay_type=overlay_aware")
+            if self.replay is not None:
+                raise ValueError("replay must be omitted when replay_type=overlay_aware")
+        return self
+
+
+class ReviewSnapshotArtifact(BaseModel):
+    identity: ReviewSnapshotArtifactIdentity
+    lineage: ReviewSnapshotArtifactLineage
+    review_basis: ReviewSnapshotArtifactReviewBasis
+    truth_labels: ReviewSnapshotArtifactTruthLabels = Field(default_factory=ReviewSnapshotArtifactTruthLabels)
+    compact_summary: ReviewSnapshotArtifactCompactSummary
+    proposal_capture: ReviewSnapshotProposalCapture
+    pm_summary: ReviewSnapshotPMSummaryEnvelope
+    source_payload: ReviewSnapshotArtifactSourcePayload
+
+    @model_validator(mode="after")
+    def _validate_internal_lineage(self) -> "ReviewSnapshotArtifact":
+        response = self.source_payload.replay or self.source_payload.overlay_replay
+        if response is None:
+            raise ValueError("review snapshot source payload is missing authoritative replay payload")
+        if response.replay_provenance.upstream_ids.workspace_id != self.lineage.workspace_id:
+            raise ValueError("review snapshot lineage workspace_id does not match source payload replay provenance")
+        if response.replay_provenance.upstream_ids.draft_id != self.lineage.source_draft_id:
+            raise ValueError("review snapshot lineage source_draft_id does not match source payload replay provenance")
+        if response.replay_provenance.upstream_ids.base_node_id != self.lineage.source_base_node_id:
+            raise ValueError("review snapshot lineage source_base_node_id does not match source payload replay provenance")
+        if response.derivation.candidate_construction_rule != self.review_basis.candidate_construction_rule:
+            raise ValueError("review snapshot review_basis candidate_construction_rule does not match source payload derivation")
+        if response.derivation.baseline_basis != self.review_basis.derivation_basis:
+            raise ValueError("review snapshot review_basis derivation_basis does not match source payload derivation")
+        if response.replay_provenance != self.review_basis.replay_provenance:
+            raise ValueError("review snapshot review_basis replay_provenance does not match source payload replay provenance")
+        if self.pm_summary.role != "saved_proposal":
+            raise ValueError("review snapshot pm_summary role must be saved_proposal on the persisted artifact")
+        if self.proposal_capture.open_handoff.artifact_id != self.identity.artifact_id:
+            raise ValueError("review snapshot proposal_capture open_handoff artifact_id does not match artifact identity")
+        if self.proposal_capture.open_handoff.artifact_kind != self.identity.artifact_kind:
+            raise ValueError("review snapshot proposal_capture open_handoff artifact_kind does not match artifact identity")
+        if self.proposal_capture.open_handoff.schema_version != self.identity.schema_version:
+            raise ValueError("review snapshot proposal_capture open_handoff schema_version does not match artifact identity")
+        if self.proposal_capture.open_handoff.consumer_kind != self.identity.consumer_kind:
+            raise ValueError("review snapshot proposal_capture open_handoff consumer_kind does not match artifact identity")
+        if self.proposal_capture.lineage != self.lineage:
+            raise ValueError("review snapshot proposal_capture lineage does not match artifact lineage")
+        if self.proposal_capture.proposal.source != response.proposal.source:
+            raise ValueError("review snapshot proposal_capture proposal source does not match source payload proposal")
+        if self.proposal_capture.proposal.proposal_source != response.proposal.proposal_source:
+            raise ValueError("review snapshot proposal_capture proposal_source does not match source payload proposal")
+        if self.proposal_capture.proposal.incumbent_symbol != response.proposal.incumbent_symbol:
+            raise ValueError("review snapshot proposal_capture incumbent_symbol does not match source payload proposal")
+        if self.proposal_capture.proposal.candidate_symbol != response.proposal.candidate_symbol:
+            raise ValueError("review snapshot proposal_capture candidate_symbol does not match source payload proposal")
+        if self.proposal_capture.replay_type != self.source_payload.replay_type:
+            raise ValueError("review snapshot proposal_capture replay_type does not match source payload replay_type")
+        if self.proposal_capture.replay_provenance != self.review_basis.replay_provenance:
+            raise ValueError("review snapshot proposal_capture replay_provenance does not match artifact review_basis replay_provenance")
+        if self.proposal_capture.review_basis.benchmark_symbol != self.review_basis.benchmark_symbol:
+            raise ValueError("review snapshot proposal_capture benchmark_symbol does not match artifact review_basis")
+        if self.proposal_capture.review_basis.replay_window != WorkspaceReviewWindow(start_date=self.review_basis.start_date, end_date=self.review_basis.end_date):
+            raise ValueError("review snapshot proposal_capture replay_window does not match artifact review_basis")
+        if self.proposal_capture.review_basis.rebalance_frequency != self.review_basis.rebalance_frequency:
+            raise ValueError("review snapshot proposal_capture rebalance_frequency does not match artifact review_basis")
+        if self.proposal_capture.review_basis.commission_bps != self.review_basis.commission_bps:
+            raise ValueError("review snapshot proposal_capture commission_bps does not match artifact review_basis")
+        if self.proposal_capture.review_basis.slippage_bps != self.review_basis.slippage_bps:
+            raise ValueError("review snapshot proposal_capture slippage_bps does not match artifact review_basis")
+        if self.proposal_capture.review_basis.derivation_basis != self.review_basis.derivation_basis:
+            raise ValueError("review snapshot proposal_capture derivation_basis does not match artifact review_basis")
+        if self.proposal_capture.review_basis.candidate_construction_rule != self.review_basis.candidate_construction_rule:
+            raise ValueError("review snapshot proposal_capture candidate_construction_rule does not match artifact review_basis")
+        if self.pm_summary.provenance.artifact_kind != self.identity.artifact_kind:
+            raise ValueError("review snapshot pm_summary artifact_kind does not match artifact identity")
+        if self.pm_summary.provenance.schema_version != self.identity.schema_version:
+            raise ValueError("review snapshot pm_summary schema_version does not match artifact identity")
+        if self.pm_summary.provenance.consumer_kind != self.identity.consumer_kind:
+            raise ValueError("review snapshot pm_summary consumer_kind does not match artifact identity")
+        if self.pm_summary.provenance.lineage != self.lineage:
+            raise ValueError("review snapshot pm_summary lineage does not match artifact lineage")
+        if self.pm_summary.provenance.proposal_source != response.proposal.proposal_source:
+            raise ValueError("review snapshot pm_summary proposal_source does not match source payload proposal_source")
+        if self.pm_summary.provenance.replay_provenance != self.review_basis.replay_provenance:
+            raise ValueError("review snapshot pm_summary replay_provenance does not match artifact review_basis replay_provenance")
+        if self.pm_summary.truth_labels != self.truth_labels:
+            raise ValueError("review snapshot pm_summary truth_labels do not match artifact truth_labels")
+        if self.pm_summary.replay_type != self.compact_summary.replay_type:
+            raise ValueError("review snapshot pm_summary replay_type does not match artifact compact_summary")
+        if self.pm_summary.replay_status != self.compact_summary.replay_status:
+            raise ValueError("review snapshot pm_summary replay_status does not match artifact compact_summary")
+        if self.pm_summary.investor_economics_status != self.compact_summary.investor_economics_status:
+            raise ValueError("review snapshot pm_summary investor_economics_status does not match artifact compact_summary")
+        if self.pm_summary.review_basis.benchmark_symbol != self.review_basis.benchmark_symbol:
+            raise ValueError("review snapshot pm_summary benchmark_symbol does not match artifact review_basis")
+        if self.pm_summary.review_basis.replay_window != WorkspaceReviewWindow(start_date=self.review_basis.start_date, end_date=self.review_basis.end_date):
+            raise ValueError("review snapshot pm_summary replay_window does not match artifact review_basis")
+        if self.pm_summary.review_basis.rebalance_frequency != self.review_basis.rebalance_frequency:
+            raise ValueError("review snapshot pm_summary rebalance_frequency does not match artifact review_basis")
+        if self.pm_summary.review_basis.commission_bps != self.review_basis.commission_bps:
+            raise ValueError("review snapshot pm_summary commission_bps does not match artifact review_basis")
+        if self.pm_summary.review_basis.slippage_bps != self.review_basis.slippage_bps:
+            raise ValueError("review snapshot pm_summary slippage_bps does not match artifact review_basis")
+        if self.pm_summary.review_basis.derivation_basis != self.review_basis.derivation_basis:
+            raise ValueError("review snapshot pm_summary derivation_basis does not match artifact review_basis")
+        if self.pm_summary.review_basis.candidate_construction_rule != self.review_basis.candidate_construction_rule:
+            raise ValueError("review snapshot pm_summary candidate_construction_rule does not match artifact review_basis")
+        if self.pm_summary.methodology.methodology != self.compact_summary.candidate_analytics.methodology:
+            raise ValueError("review snapshot pm_summary methodology does not match artifact candidate analytics methodology")
+        if self.pm_summary.methodology.methodology_provenance != self.compact_summary.candidate_analytics.methodology_provenance:
+            raise ValueError("review snapshot pm_summary methodology_provenance does not match artifact candidate analytics methodology_provenance")
+        if self.pm_summary.assumptions != self.compact_summary.candidate_analytics.assumptions:
+            raise ValueError("review snapshot pm_summary assumptions do not match artifact candidate analytics assumptions")
+        if self.pm_summary.analytics_summary.candidate_analytics != self.compact_summary.candidate_analytics:
+            raise ValueError("review snapshot pm_summary candidate_analytics do not match artifact compact_summary")
+        if self.pm_summary.analytics_summary.baseline_analytics != self.compact_summary.baseline_analytics:
+            raise ValueError("review snapshot pm_summary baseline_analytics do not match artifact compact_summary")
+        if self.pm_summary.analytics_summary.analytics_comparison != self.compact_summary.analytics_comparison:
+            raise ValueError("review snapshot pm_summary analytics_comparison does not match artifact compact_summary")
+        if self.pm_summary.diagnostics_summary != self.compact_summary.diagnostics_summary:
+            raise ValueError("review snapshot pm_summary diagnostics_summary does not match artifact compact_summary")
+        return self
+
+
+class ReviewSnapshotOpenIdentityMismatch(BaseModel):
+    requested_artifact_id: str
+    persisted_artifact_id: str
+
+
+class ReviewSnapshotOpenResponse(BaseModel):
+    handoff: ReviewSnapshotOpenHandoff
+    artifact: ReviewSnapshotArtifact
+    pm_summary: ReviewSnapshotPMSummaryEnvelope
+    replay_payload: ReviewSnapshotArtifactSourcePayload
+
+    @model_validator(mode="after")
+    def _validate_identity(self) -> "ReviewSnapshotOpenResponse":
+        if self.handoff.artifact_id != self.artifact.identity.artifact_id:
+            raise ValueError("review snapshot handoff artifact_id does not match persisted artifact")
+        if self.handoff.artifact_kind != self.artifact.identity.artifact_kind:
+            raise ValueError("review snapshot handoff artifact_kind does not match persisted artifact")
+        if self.handoff.schema_version != self.artifact.identity.schema_version:
+            raise ValueError("review snapshot handoff schema_version does not match persisted artifact")
+        if self.handoff.consumer_kind != self.artifact.identity.consumer_kind:
+            raise ValueError("review snapshot handoff consumer_kind does not match persisted artifact")
+        if self.handoff != self.artifact.proposal_capture.open_handoff:
+            raise ValueError("review snapshot open handoff does not match persisted artifact proposal_capture open_handoff")
+        if self.pm_summary != self.artifact.pm_summary:
+            raise ValueError("review snapshot open pm_summary must match persisted artifact pm_summary")
+        if self.replay_payload != self.artifact.source_payload:
+            raise ValueError("review snapshot open replay payload must match persisted artifact source payload")
+        return self
+
+
+class ReviewSnapshotComparisonArtifactRef(BaseModel):
+    role: ReviewSnapshotComparisonRole
+    artifact_id: str
+    artifact_kind: ReviewSnapshotArtifactKind = "portfolio_review_snapshot"
+    schema_version: ReviewSnapshotArtifactSchemaVersion = "review_snapshot_artifact_v1"
+    consumer_kind: ReviewSnapshotConsumerKind = "saved_hypothetical_replay_proposal"
+
+
+class ReviewSnapshotFamilyKey(BaseModel):
+    workspace_id: str
+    source_draft_id: str
+    source_base_node_id: str
+    proposal_family_id: str
+    source_kind: ReviewSnapshotSourceKind = "hypothetical_replacement_replay"
+
+
+class ReviewSnapshotSiblingComparisonEligibility(BaseModel):
+    eligible: bool
+    reason: Literal["compatible_family_sibling_available", "no_compatible_family_sibling"]
+    compatible_sibling_artifact_ids: list[str] = Field(default_factory=list)
+
+
+class ReviewSnapshotFamilySiblingSummary(BaseModel):
+    identity: ReviewSnapshotArtifactIdentity
+    open_handoff: ReviewSnapshotOpenHandoff
+    lineage: ReviewSnapshotArtifactLineage
+    pm_summary: ReviewSnapshotPMSummaryEnvelope
+    comparison_eligibility: ReviewSnapshotSiblingComparisonEligibility
+
+    @model_validator(mode="after")
+    def _validate_family_sibling_summary(self) -> "ReviewSnapshotFamilySiblingSummary":
+        if self.pm_summary.role != "saved_proposal":
+            raise ValueError("review snapshot family sibling pm_summary role must be saved_proposal")
+        if self.open_handoff.artifact_id != self.identity.artifact_id:
+            raise ValueError("review snapshot family sibling open_handoff artifact_id does not match identity")
+        if self.open_handoff.artifact_kind != self.identity.artifact_kind:
+            raise ValueError("review snapshot family sibling open_handoff artifact_kind does not match identity")
+        if self.open_handoff.schema_version != self.identity.schema_version:
+            raise ValueError("review snapshot family sibling open_handoff schema_version does not match identity")
+        if self.open_handoff.consumer_kind != self.identity.consumer_kind:
+            raise ValueError("review snapshot family sibling open_handoff consumer_kind does not match identity")
+        if self.lineage != self.pm_summary.provenance.lineage:
+            raise ValueError("review snapshot family sibling lineage does not match pm_summary provenance lineage")
+        return self
+
+
+class ReviewSnapshotFamilyCompareReadiness(BaseModel):
+    ready: bool
+    reason: Literal["compatible_family_pair_available", "no_compatible_family_pair"]
+    compatible_pair_count: int = 0
+
+    @model_validator(mode="after")
+    def _validate_compare_readiness(self) -> "ReviewSnapshotFamilyCompareReadiness":
+        if self.compatible_pair_count < 0:
+            raise ValueError("review snapshot family compare readiness compatible_pair_count must be non-negative")
+        if self.ready and self.compatible_pair_count < 1:
+            raise ValueError("review snapshot family compare readiness requires compatible_pair_count when ready=true")
+        if not self.ready and self.compatible_pair_count != 0:
+            raise ValueError("review snapshot family compare readiness compatible_pair_count must be zero when ready=false")
+        if self.ready and self.reason != "compatible_family_pair_available":
+            raise ValueError("review snapshot family compare readiness reason is invalid when ready=true")
+        if not self.ready and self.reason != "no_compatible_family_pair":
+            raise ValueError("review snapshot family compare readiness reason is invalid when ready=false")
+        return self
+
+
+class ReviewSnapshotFamilyInboxRow(BaseModel):
+    family_key: ReviewSnapshotFamilyKey
+    latest_identity: ReviewSnapshotArtifactIdentity
+    lineage: ReviewSnapshotArtifactLineage
+    proposal_capture: ReviewSnapshotProposalCapture
+    pm_summary: ReviewSnapshotPMSummaryEnvelope
+    sibling_count: int
+    compare_readiness: ReviewSnapshotFamilyCompareReadiness
+    latest_saved_at: str
+    latest_order_provenance: Literal["persisted_artifact_file_mtime"] = "persisted_artifact_file_mtime"
+
+    @model_validator(mode="after")
+    def _validate_family_inbox_row(self) -> "ReviewSnapshotFamilyInboxRow":
+        if self.sibling_count < 1:
+            raise ValueError("review snapshot family inbox row sibling_count must be at least one")
+        if self.pm_summary.role != "saved_proposal":
+            raise ValueError("review snapshot family inbox row pm_summary role must be saved_proposal")
+        if self.lineage != self.pm_summary.provenance.lineage:
+            raise ValueError("review snapshot family inbox row lineage does not match pm_summary provenance lineage")
+        if self.lineage != self.proposal_capture.lineage:
+            raise ValueError("review snapshot family inbox row lineage does not match proposal_capture lineage")
+        if self.proposal_capture.open_handoff.artifact_id != self.latest_identity.artifact_id:
+            raise ValueError("review snapshot family inbox row proposal_capture open_handoff artifact_id does not match latest identity")
+        if self.proposal_capture.open_handoff.artifact_kind != self.latest_identity.artifact_kind:
+            raise ValueError("review snapshot family inbox row proposal_capture open_handoff artifact_kind does not match latest identity")
+        if self.proposal_capture.open_handoff.schema_version != self.latest_identity.schema_version:
+            raise ValueError("review snapshot family inbox row proposal_capture open_handoff schema_version does not match latest identity")
+        if self.proposal_capture.open_handoff.consumer_kind != self.latest_identity.consumer_kind:
+            raise ValueError("review snapshot family inbox row proposal_capture open_handoff consumer_kind does not match latest identity")
+        if self.pm_summary.provenance.proposal_source != self.proposal_capture.proposal.proposal_source:
+            raise ValueError("review snapshot family inbox row proposal_source does not match proposal_capture")
+        if self.pm_summary.review_basis != ReviewSnapshotPMSummaryReviewBasis(
+            benchmark_symbol=self.proposal_capture.review_basis.benchmark_symbol,
+            replay_window=self.proposal_capture.review_basis.replay_window,
+            rebalance_frequency=self.proposal_capture.review_basis.rebalance_frequency,
+            commission_bps=self.proposal_capture.review_basis.commission_bps,
+            slippage_bps=self.proposal_capture.review_basis.slippage_bps,
+            derivation_basis=self.proposal_capture.review_basis.derivation_basis,
+            candidate_construction_rule=self.proposal_capture.review_basis.candidate_construction_rule,
+        ):
+            raise ValueError("review snapshot family inbox row pm_summary review_basis does not match proposal_capture review_basis")
+        if self.lineage.workspace_id != self.family_key.workspace_id:
+            raise ValueError("review snapshot family inbox row workspace_id does not match family_key")
+        if self.lineage.source_draft_id != self.family_key.source_draft_id:
+            raise ValueError("review snapshot family inbox row source_draft_id does not match family_key")
+        if self.lineage.source_base_node_id != self.family_key.source_base_node_id:
+            raise ValueError("review snapshot family inbox row source_base_node_id does not match family_key")
+        if self.lineage.proposal_family_id != self.family_key.proposal_family_id:
+            raise ValueError("review snapshot family inbox row proposal_family_id does not match family_key")
+        if self.lineage.source_kind != self.family_key.source_kind:
+            raise ValueError("review snapshot family inbox row source_kind does not match family_key")
+        if not self.latest_saved_at:
+            raise ValueError("review snapshot family inbox row latest_saved_at is required")
+        return self
+
+
+class ReviewSnapshotComparisonMethodology(BaseModel):
+    methodology: str
+    methodology_provenance: "ReplayMethodologyProvenance"
+    assumptions: AllocationBacktestAssumptions
+
+
+class ReviewSnapshotComparisonPairSummary(BaseModel):
+    benchmark_symbol: str
+    replay_window: WorkspaceReviewWindow
+    replay_type: Literal["standard", "overlay_aware"]
+    candidate_construction_rule: HypotheticalReplayConstructionRuleId
+    derivation_basis: HypotheticalReplayBaselineBasis
+    source_pair: str
+    replay_status: AllocationBacktestStatus
+    investor_economics_status: InvestorEconomicsStatus
+    methodology: ReviewSnapshotComparisonMethodology
+    analytics: ReviewSnapshotArtifactAnalyticsSummary
+    diagnostics_summary: ReviewSnapshotArtifactDiagnosticsSummary
+
+
+class ReviewSnapshotComparisonMethodologyEnvelope(BaseModel):
+    baseline_methodology: ReviewSnapshotComparisonMethodology
+    candidate_methodology: ReviewSnapshotComparisonMethodology
+    assumptions_consistent: bool
+    methodology_consistent: bool
+
+
+class ReviewSnapshotComparisonAssumptionsEnvelope(BaseModel):
+    baseline_assumptions: AllocationBacktestAssumptions
+    candidate_assumptions: AllocationBacktestAssumptions
+    assumptions_consistent: bool
+
+
+class ReviewSnapshotComparisonResponse(BaseModel):
+    comparison_kind: ReviewSnapshotComparisonConsumerKind = "review_snapshot_comparison"
+    family_key: ReviewSnapshotFamilyKey
+    baseline: ReviewSnapshotComparisonPairSummary
+    candidate: ReviewSnapshotComparisonPairSummary
+    provenance: Literal["persisted_review_snapshot_artifacts_only"] = "persisted_review_snapshot_artifacts_only"
+    benchmark_separation: Literal["explicit_per_snapshot_benchmark_fields"] = "explicit_per_snapshot_benchmark_fields"
+    baseline_pm_summary: ReviewSnapshotPMSummaryEnvelope
+    candidate_pm_summary: ReviewSnapshotPMSummaryEnvelope
+    analytics_comparison: AllocationBacktestComparison | None = None
+    methodology: ReviewSnapshotComparisonMethodologyEnvelope
+    assumptions: ReviewSnapshotComparisonAssumptionsEnvelope
+
+    @model_validator(mode="after")
+    def _validate_pm_summary_roles(self) -> "ReviewSnapshotComparisonResponse":
+        if self.baseline_pm_summary.role != "baseline":
+            raise ValueError("review snapshot comparison baseline_pm_summary role must be baseline")
+        if self.candidate_pm_summary.role != "candidate":
+            raise ValueError("review snapshot comparison candidate_pm_summary role must be candidate")
+        if self.baseline_pm_summary.review_basis.benchmark_symbol != self.baseline.benchmark_symbol:
+            raise ValueError("review snapshot comparison baseline_pm_summary benchmark_symbol does not match baseline summary")
+        if self.candidate_pm_summary.review_basis.benchmark_symbol != self.candidate.benchmark_symbol:
+            raise ValueError("review snapshot comparison candidate_pm_summary benchmark_symbol does not match candidate summary")
+        if self.baseline_pm_summary.review_basis.replay_window != self.baseline.replay_window:
+            raise ValueError("review snapshot comparison baseline_pm_summary replay_window does not match baseline summary")
+        if self.candidate_pm_summary.review_basis.replay_window != self.candidate.replay_window:
+            raise ValueError("review snapshot comparison candidate_pm_summary replay_window does not match candidate summary")
+        if self.baseline_pm_summary.review_basis.candidate_construction_rule != self.baseline.candidate_construction_rule:
+            raise ValueError("review snapshot comparison baseline_pm_summary candidate_construction_rule does not match baseline summary")
+        if self.candidate_pm_summary.review_basis.candidate_construction_rule != self.candidate.candidate_construction_rule:
+            raise ValueError("review snapshot comparison candidate_pm_summary candidate_construction_rule does not match candidate summary")
+        if self.baseline_pm_summary.review_basis.derivation_basis != self.baseline.derivation_basis:
+            raise ValueError("review snapshot comparison baseline_pm_summary derivation_basis does not match baseline summary")
+        if self.candidate_pm_summary.review_basis.derivation_basis != self.candidate.derivation_basis:
+            raise ValueError("review snapshot comparison candidate_pm_summary derivation_basis does not match candidate summary")
+        if self.baseline_pm_summary.methodology.methodology != self.methodology.baseline_methodology.methodology:
+            raise ValueError("review snapshot comparison baseline_pm_summary methodology does not match methodology envelope")
+        if self.candidate_pm_summary.methodology.methodology != self.methodology.candidate_methodology.methodology:
+            raise ValueError("review snapshot comparison candidate_pm_summary methodology does not match methodology envelope")
+        if self.baseline_pm_summary.assumptions != self.assumptions.baseline_assumptions:
+            raise ValueError("review snapshot comparison baseline_pm_summary assumptions do not match assumptions envelope")
+        if self.candidate_pm_summary.assumptions != self.assumptions.candidate_assumptions:
+            raise ValueError("review snapshot comparison candidate_pm_summary assumptions do not match assumptions envelope")
+        if self.baseline_pm_summary.provenance.lineage.proposal_family_id != self.family_key.proposal_family_id:
+            raise ValueError("review snapshot comparison baseline_pm_summary proposal_family_id does not match family_key")
+        if self.candidate_pm_summary.provenance.lineage.proposal_family_id != self.family_key.proposal_family_id:
+            raise ValueError("review snapshot comparison candidate_pm_summary proposal_family_id does not match family_key")
+        if self.baseline_pm_summary.provenance.lineage.workspace_id != self.family_key.workspace_id:
+            raise ValueError("review snapshot comparison baseline_pm_summary workspace_id does not match family_key")
+        if self.candidate_pm_summary.provenance.lineage.workspace_id != self.family_key.workspace_id:
+            raise ValueError("review snapshot comparison candidate_pm_summary workspace_id does not match family_key")
+        if self.baseline_pm_summary.provenance.lineage.source_draft_id != self.family_key.source_draft_id:
+            raise ValueError("review snapshot comparison baseline_pm_summary source_draft_id does not match family_key")
+        if self.candidate_pm_summary.provenance.lineage.source_draft_id != self.family_key.source_draft_id:
+            raise ValueError("review snapshot comparison candidate_pm_summary source_draft_id does not match family_key")
+        if self.baseline_pm_summary.provenance.lineage.source_base_node_id != self.family_key.source_base_node_id:
+            raise ValueError("review snapshot comparison baseline_pm_summary source_base_node_id does not match family_key")
+        if self.candidate_pm_summary.provenance.lineage.source_base_node_id != self.family_key.source_base_node_id:
+            raise ValueError("review snapshot comparison candidate_pm_summary source_base_node_id does not match family_key")
+        if self.baseline_pm_summary.provenance.lineage.source_kind != self.family_key.source_kind:
+            raise ValueError("review snapshot comparison baseline_pm_summary source_kind does not match family_key")
+        if self.candidate_pm_summary.provenance.lineage.source_kind != self.family_key.source_kind:
+            raise ValueError("review snapshot comparison candidate_pm_summary source_kind does not match family_key")
+        return self
+
+
+class ReviewSnapshotFamilyReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff: ReviewSnapshotOpenHandoff
+
+
+class ReviewSnapshotFamilyInboxRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str
+
+
+class ReviewSnapshotFamilyInboxResponse(BaseModel):
+    inbox_kind: ReviewSnapshotFamilyInboxConsumerKind = "review_snapshot_family_inbox"
+    workspace_id: str
+    provenance: Literal["persisted_review_snapshot_artifacts_only"] = "persisted_review_snapshot_artifacts_only"
+    rows: list[ReviewSnapshotFamilyInboxRow]
+
+    @model_validator(mode="after")
+    def _validate_family_inbox(self) -> "ReviewSnapshotFamilyInboxResponse":
+        seen_family_keys: set[tuple[str, str, str, str, str]] = set()
+        for row in self.rows:
+            if row.family_key.workspace_id != self.workspace_id:
+                raise ValueError("review snapshot family inbox row workspace_id does not match response workspace_id")
+            family_key = (
+                row.family_key.workspace_id,
+                row.family_key.source_draft_id,
+                row.family_key.source_base_node_id,
+                row.family_key.proposal_family_id,
+                row.family_key.source_kind,
+            )
+            if family_key in seen_family_keys:
+                raise ValueError("review snapshot family inbox response contains duplicate family_key rows")
+            seen_family_keys.add(family_key)
+        return self
+
+
+class ReviewSnapshotActiveThesisCrossFamilyQueueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_proposal_id: str
+    handoff: ReviewSnapshotOpenHandoff
+
+
+class ReviewSnapshotActiveThesisCrossFamilySeparation(BaseModel):
+    separation_kind: Literal["distinct_proposal_family_id"] = "distinct_proposal_family_id"
+    active_thesis_proposal_family_id: str
+    queue_proposal_family_id: str
+
+    @model_validator(mode="after")
+    def _validate_family_separation(self) -> "ReviewSnapshotActiveThesisCrossFamilySeparation":
+        if self.active_thesis_proposal_family_id == self.queue_proposal_family_id:
+            raise ValueError("review snapshot active thesis cross-family queue requires distinct proposal_family_id values")
+        return self
+
+
+class ReviewSnapshotActiveThesisCrossFamilyTrustVisibility(BaseModel):
+    investor_economics_status: InvestorEconomicsStatus
+    benchmark_separation: Literal["explicit_per_snapshot_benchmark_fields"] = "explicit_per_snapshot_benchmark_fields"
+
+
+class ReviewSnapshotActiveThesisCrossFamilyPMSummaryFields(BaseModel):
+    replay_type: Literal["standard", "overlay_aware"]
+    replay_status: AllocationBacktestStatus
+    review_basis: ReviewSnapshotPMSummaryReviewBasis
+    methodology: ReviewSnapshotPMSummaryMethodology
+    assumptions: AllocationBacktestAssumptions
+    analytics_summary: ReviewSnapshotPMSummaryAnalyticsSummary
+    diagnostics_summary: ReviewSnapshotArtifactDiagnosticsSummary
+
+
+class ReviewSnapshotActiveThesisCrossFamilyQueueRow(BaseModel):
+    latest_identity: ReviewSnapshotArtifactIdentity
+    lineage: ReviewSnapshotArtifactLineage
+    family_key: ReviewSnapshotFamilyKey
+    family_separation: ReviewSnapshotActiveThesisCrossFamilySeparation
+    proposal_source: HypotheticalReplayProposalSource
+    truth_labels: ReviewSnapshotArtifactTruthLabels
+    trust_visibility: ReviewSnapshotActiveThesisCrossFamilyTrustVisibility
+    pm_summary_fields: ReviewSnapshotActiveThesisCrossFamilyPMSummaryFields
+    latest_saved_at: str
+    queue_order_provenance: Literal["persisted_artifact_file_mtime_desc_then_artifact_id_desc"] = "persisted_artifact_file_mtime_desc_then_artifact_id_desc"
+
+    @model_validator(mode="after")
+    def _validate_cross_family_queue_row(self) -> "ReviewSnapshotActiveThesisCrossFamilyQueueRow":
+        if self.lineage.workspace_id != self.family_key.workspace_id:
+            raise ValueError("review snapshot active thesis cross-family queue row workspace_id does not match family_key")
+        if self.lineage.source_draft_id != self.family_key.source_draft_id:
+            raise ValueError("review snapshot active thesis cross-family queue row source_draft_id does not match family_key")
+        if self.lineage.source_base_node_id != self.family_key.source_base_node_id:
+            raise ValueError("review snapshot active thesis cross-family queue row source_base_node_id does not match family_key")
+        if self.lineage.proposal_family_id != self.family_key.proposal_family_id:
+            raise ValueError("review snapshot active thesis cross-family queue row proposal_family_id does not match family_key")
+        if self.lineage.source_kind != self.family_key.source_kind:
+            raise ValueError("review snapshot active thesis cross-family queue row source_kind does not match family_key")
+        if self.family_separation.queue_proposal_family_id != self.family_key.proposal_family_id:
+            raise ValueError("review snapshot active thesis cross-family queue row family_separation queue_proposal_family_id does not match family_key")
+        if self.latest_identity.artifact_id == "":
+            raise ValueError("review snapshot active thesis cross-family queue row latest_identity artifact_id is required")
+        if self.trust_visibility.benchmark_separation != self.pm_summary_fields.review_basis.benchmark_separation:
+            raise ValueError("review snapshot active thesis cross-family queue row benchmark_separation does not match pm_summary_fields review_basis")
+        if not self.latest_saved_at:
+            raise ValueError("review snapshot active thesis cross-family queue row latest_saved_at is required")
+        return self
+
+
+class ReviewSnapshotActiveThesisCrossFamilyQueueActiveThesis(BaseModel):
+    source_proposal_id: str
+    handoff: ReviewSnapshotOpenHandoff
+    identity: ReviewSnapshotArtifactIdentity
+    lineage: ReviewSnapshotArtifactLineage
+    family_key: ReviewSnapshotFamilyKey
+
+    @model_validator(mode="after")
+    def _validate_active_thesis_context(self) -> "ReviewSnapshotActiveThesisCrossFamilyQueueActiveThesis":
+        if self.source_proposal_id != self.lineage.proposal_id:
+            raise ValueError("review snapshot active thesis cross-family queue source_proposal_id does not match active thesis lineage proposal_id")
+        if self.handoff.artifact_id != self.identity.artifact_id:
+            raise ValueError("review snapshot active thesis cross-family queue handoff artifact_id does not match active thesis identity")
+        if self.handoff.artifact_kind != self.identity.artifact_kind:
+            raise ValueError("review snapshot active thesis cross-family queue handoff artifact_kind does not match active thesis identity")
+        if self.handoff.schema_version != self.identity.schema_version:
+            raise ValueError("review snapshot active thesis cross-family queue handoff schema_version does not match active thesis identity")
+        if self.handoff.consumer_kind != self.identity.consumer_kind:
+            raise ValueError("review snapshot active thesis cross-family queue handoff consumer_kind does not match active thesis identity")
+        if self.lineage.workspace_id != self.family_key.workspace_id:
+            raise ValueError("review snapshot active thesis cross-family queue active thesis workspace_id does not match family_key")
+        if self.lineage.source_draft_id != self.family_key.source_draft_id:
+            raise ValueError("review snapshot active thesis cross-family queue active thesis source_draft_id does not match family_key")
+        if self.lineage.source_base_node_id != self.family_key.source_base_node_id:
+            raise ValueError("review snapshot active thesis cross-family queue active thesis source_base_node_id does not match family_key")
+        if self.lineage.proposal_family_id != self.family_key.proposal_family_id:
+            raise ValueError("review snapshot active thesis cross-family queue active thesis proposal_family_id does not match family_key")
+        if self.lineage.source_kind != self.family_key.source_kind:
+            raise ValueError("review snapshot active thesis cross-family queue active thesis source_kind does not match family_key")
+        return self
+
+
+class ReviewSnapshotFamilyReviewResponse(BaseModel):
+    review_kind: ReviewSnapshotFamilyReviewConsumerKind = "review_snapshot_family_review"
+    family_key: ReviewSnapshotFamilyKey
+    provenance: Literal["persisted_review_snapshot_artifacts_only"] = "persisted_review_snapshot_artifacts_only"
+    compare_selection_policy: Literal["exactly_two_distinct_family_siblings"] = "exactly_two_distinct_family_siblings"
+    anchor: ReviewSnapshotFamilySiblingSummary
+    siblings: list[ReviewSnapshotFamilySiblingSummary]
+
+    @model_validator(mode="after")
+    def _validate_family_review(self) -> "ReviewSnapshotFamilyReviewResponse":
+        if not self.siblings:
+            raise ValueError("review snapshot family review requires at least one sibling")
+        if not any(sibling.identity.artifact_id == self.anchor.identity.artifact_id for sibling in self.siblings):
+            raise ValueError("review snapshot family review anchor must be present in siblings")
+        for sibling in self.siblings:
+            if sibling.lineage.workspace_id != self.family_key.workspace_id:
+                raise ValueError("review snapshot family review sibling workspace_id does not match family_key")
+            if sibling.lineage.source_draft_id != self.family_key.source_draft_id:
+                raise ValueError("review snapshot family review sibling source_draft_id does not match family_key")
+            if sibling.lineage.source_base_node_id != self.family_key.source_base_node_id:
+                raise ValueError("review snapshot family review sibling source_base_node_id does not match family_key")
+            if sibling.lineage.proposal_family_id != self.family_key.proposal_family_id:
+                raise ValueError("review snapshot family review sibling proposal_family_id does not match family_key")
+            if sibling.lineage.source_kind != self.family_key.source_kind:
+                raise ValueError("review snapshot family review sibling source_kind does not match family_key")
+        return self
+
+
+class ReviewSnapshotActiveThesisCrossFamilyQueueResponse(BaseModel):
+    queue_kind: ReviewSnapshotActiveThesisCrossFamilyQueueConsumerKind = "review_snapshot_active_thesis_cross_family_queue"
+    provenance: Literal["persisted_review_snapshot_artifacts_and_active_thesis_reference_only"] = "persisted_review_snapshot_artifacts_and_active_thesis_reference_only"
+    queue_ordering: Literal["latest_saved_at_desc_then_artifact_id_desc"] = "latest_saved_at_desc_then_artifact_id_desc"
+    active_thesis: ReviewSnapshotActiveThesisCrossFamilyQueueActiveThesis
+    rows: list[ReviewSnapshotActiveThesisCrossFamilyQueueRow]
+
+    @model_validator(mode="after")
+    def _validate_active_thesis_cross_family_queue(self) -> "ReviewSnapshotActiveThesisCrossFamilyQueueResponse":
+        seen_family_keys: set[tuple[str, str, str, str, str]] = set()
+        seen_artifact_ids: set[str] = set()
+        previous_order: tuple[str, str] | None = None
+        for row in self.rows:
+            family_key = (
+                row.family_key.workspace_id,
+                row.family_key.source_draft_id,
+                row.family_key.source_base_node_id,
+                row.family_key.proposal_family_id,
+                row.family_key.source_kind,
+            )
+            if family_key in seen_family_keys:
+                raise ValueError("review snapshot active thesis cross-family queue contains duplicate family_key rows")
+            seen_family_keys.add(family_key)
+            if row.latest_identity.artifact_id in seen_artifact_ids:
+                raise ValueError("review snapshot active thesis cross-family queue contains duplicate canonical row identities")
+            seen_artifact_ids.add(row.latest_identity.artifact_id)
+            if row.family_key.workspace_id != self.active_thesis.family_key.workspace_id:
+                raise ValueError("review snapshot active thesis cross-family queue row workspace_id does not match active thesis workspace_id")
+            if row.family_key.source_draft_id != self.active_thesis.family_key.source_draft_id:
+                raise ValueError("review snapshot active thesis cross-family queue row source_draft_id does not match active thesis source_draft_id")
+            if row.family_key.source_base_node_id != self.active_thesis.family_key.source_base_node_id:
+                raise ValueError("review snapshot active thesis cross-family queue row source_base_node_id does not match active thesis source_base_node_id")
+            if row.family_key.source_kind != self.active_thesis.family_key.source_kind:
+                raise ValueError("review snapshot active thesis cross-family queue row source_kind does not match active thesis source_kind")
+            if row.family_key.proposal_family_id == self.active_thesis.family_key.proposal_family_id:
+                raise ValueError("review snapshot active thesis cross-family queue row proposal_family_id must stay distinct from active thesis family")
+            if row.family_separation.active_thesis_proposal_family_id != self.active_thesis.family_key.proposal_family_id:
+                raise ValueError("review snapshot active thesis cross-family queue row active thesis proposal_family_id does not match active thesis family")
+            current_order = (row.latest_saved_at, row.latest_identity.artifact_id)
+            if previous_order is not None and current_order > previous_order:
+                raise ValueError("review snapshot active thesis cross-family queue ordering is invalid")
+            previous_order = current_order
+        return self
+
+
+ReviewSnapshotOpenRequest: TypeAlias = ReviewSnapshotOpenHandoff
+
+
+class ReviewSnapshotOpenRequestEnvelope(RootModel[ReviewSnapshotOpenRequest]):
+    pass
+
+
+class ReviewSnapshotComparisonRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    baseline: ReviewSnapshotComparisonArtifactRef | ReviewSnapshotOpenHandoff
+    candidate: ReviewSnapshotComparisonArtifactRef | ReviewSnapshotOpenHandoff
+
+
+class ReviewSnapshotCreateRequest(BaseModel):
+    proposal_id: str
+    workspace_id: str
+    source_draft_id: str
+    source_base_node_id: str
+    proposal_family_id: str
+    version_number: int
+    review_payload: HypotheticalReplacementReplayResponse | OverlayAwareHypotheticalReplayResponse
 
 
 class ConstructionArtifactReplayTruthSeparation(BaseModel):
@@ -777,6 +1579,7 @@ class OptimizerHandoffValidationResponse(BaseModel):
     source_portfolio_snapshot_id: str | None = None
     truth_separation: OptimizerHandoffValidationTruthSeparation = Field(default_factory=OptimizerHandoffValidationTruthSeparation)
     eligible_replay_window: OptimizerHandoffEligibleReplayWindow | None = None
+    replay_handoff: "OptimizerHandoffReplayHandoff | None" = None
     provenance: OptimizerHandoffValidationProvenance
     validation_status: Literal["ok", "blocked", "rejected"]
     evaluations: list[OptimizerHandoffValidationEvaluation] = Field(default_factory=list)
@@ -800,6 +1603,48 @@ class OptimizerHandoffReplayRequest(BaseModel):
     execution_price_field: Literal["close"] = "close"
     execution_lag_days: int = 1
     symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class OptimizerHandoffReplayEffectiveParams(BaseModel):
+    start_date: date
+    end_date: date
+    initial_capital: float = 100_000.0
+    rebalance_frequency: AllocationRebalanceFrequency = "monthly"
+    base_currency: str = "USD"
+    commission_bps: float = 0.0
+    slippage_bps: float = 0.0
+    drift_tolerance_pct: float | None = None
+    price_basis: Literal["adjusted_close"] = "adjusted_close"
+    execution_price_field: Literal["close"] = "close"
+    execution_lag_days: int = 1
+    symbol_overrides: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class OptimizerHandoffReplayHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: Literal["optimizer_handoff_replay_handoff_v1"] = "optimizer_handoff_replay_handoff_v1"
+    handoff_reference: OptimizerPersistedArtifactReference
+    effective_replay_params: OptimizerHandoffReplayEffectiveParams
+
+
+OptimizerHandoffPreviewRequest: TypeAlias = OptimizerHandoffReplayHandoff | OptimizerHandoffReplayRequest
+
+
+class OptimizerHandoffPreviewOpenRequest(RootModel[OptimizerHandoffPreviewRequest]):
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_preview_request_shape(cls, value):
+        if not isinstance(value, dict):
+            return value
+        if "handoff_kind" not in value and "effective_replay_params" not in value:
+            return value
+        if value.get("handoff_kind") != "optimizer_handoff_replay_handoff_v1":
+            raise ValueError(f"unsupported replay_handoff.handoff_kind: {value.get('handoff_kind')}")
+        mixed_legacy_fields = set(value) - {"handoff_kind", "handoff_reference", "effective_replay_params"}
+        if mixed_legacy_fields:
+            raise ValueError("replay_handoff request must not mix legacy replay override fields")
+        return value
 
 
 class OptimizerHandoffWorkspaceReviewBasis(BaseModel):
@@ -832,9 +1677,10 @@ class OptimizerHandoffReplayResponse(BaseModel):
 
     @model_validator(mode="after")
     def _validate_review_basis_identity(self) -> "OptimizerHandoffReplayResponse":
+        artifact_id = self.__dict__.get("artifact_id")
         if self.review_basis.handoff_reference.handoff_id != self.handoff_id:
             raise ValueError("review_basis.handoff_reference.handoff_id must match handoff_id")
-        if self.review_basis.handoff_reference.artifact_id != self.artifact_id:
+        if self.review_basis.handoff_reference.artifact_id != artifact_id:
             raise ValueError("review_basis.handoff_reference.artifact_id must match artifact_id")
         return self
 

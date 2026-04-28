@@ -101,6 +101,8 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "BTEC": _instrument("etf-btec", "BTEC", "iShares Nasdaq US Biotechnology UCITS ETF", "etf", "Health Care", "Sector UCITS ETF", "USD"),
     "IUFS": _instrument("etf-iufs", "IUFS", "iShares S&P 500 Financials Sector UCITS ETF", "etf", "Financials", "Sector UCITS ETF", "USD"),
     "IUHC": _instrument("etf-iuhc", "IUHC", "iShares S&P 500 Health Care Sector UCITS ETF", "etf", "Health Care", "Sector UCITS ETF", "USD"),
+    "IUIT": _instrument("etf-iuit", "IUIT", "iShares S&P 500 Information Technology Sector UCITS ETF", "etf", "Technology", "Sector UCITS ETF", "USD"),
+    "SEMI": _instrument("etf-semi", "SEMI", "iShares MSCI Global Semiconductors UCITS ETF", "etf", "Technology", "Thematic UCITS ETF", "GBP"),
     "VDST": _instrument("etf-vdst", "VDST", "Vanguard USD 0-1 Year Treasury Bond UCITS ETF", "etf", "Fixed Income", "Bond UCITS ETF", "USD"),
     "HOOD": _instrument("equity-hood", "HOOD", "Robinhood Markets", "equity", "Financials", "Equity", "USD"),
     "TSM": _instrument("equity-tsm", "TSM", "Taiwan Semiconductor", "equity", "Technology", "Equity", "USD"),
@@ -149,6 +151,22 @@ class InstrumentRegistry:
         instrument = self.get_instrument(symbol)
         return instrument.sector if instrument and instrument.sector else "Other"
 
+    def _merge_known_instrument_metadata(
+        self,
+        instrument: Instrument,
+        imported: ImportedInstrument | None,
+        currency: str | None,
+    ) -> Instrument:
+        updates: dict[str, str | None] = {}
+        if imported is not None:
+            if imported.description:
+                updates["name"] = imported.description.strip()
+            if imported.listing_exchange:
+                updates["exchange"] = imported.listing_exchange
+        if currency:
+            updates["currency"] = currency
+        return instrument.model_copy(update=updates) if updates else instrument
+
     def classify_imported_instrument(self, imported: ImportedInstrument, currency: str | None = None) -> Instrument:
         symbol = self.normalize_symbol(imported.symbol)
         description = (imported.description or symbol).strip()
@@ -168,6 +186,12 @@ class InstrumentRegistry:
                 category = "Commodity UCITS ETF" if category == "UCITS ETF" else "Commodity ETF"
             elif "AEROSPACE" in description_upper or "DEF" in description_upper:
                 sector = "Defense"
+                category = "Thematic UCITS ETF" if category == "UCITS ETF" else "Thematic ETF"
+            elif "INFORMATION TECHNOLOGY" in description_upper or "INFO TECH" in description_upper or " IT SECTOR" in description_upper:
+                sector = "Technology"
+                category = "Sector UCITS ETF" if category == "UCITS ETF" else "Sector ETF"
+            elif "SEMIC" in description_upper or "SEMICONDUCT" in description_upper:
+                sector = "Technology"
                 category = "Thematic UCITS ETF" if category == "UCITS ETF" else "Thematic ETF"
             elif "FINANCIAL" in description_upper:
                 sector = "Financials"
@@ -221,14 +245,18 @@ class InstrumentRegistry:
             imported_instrument = imported_by_symbol.get(self.normalize_symbol(position.symbol))
             imported_exchange = (imported_instrument.listing_exchange or "").upper() if imported_instrument else ""
             imported_type = (imported_instrument.instrument_type or "").upper() if imported_instrument else ""
+            instrument = self.get_instrument(position.symbol)
+
+            if instrument is not None:
+                metadata[position.symbol] = self._merge_known_instrument_metadata(
+                    instrument,
+                    imported_instrument,
+                    position.currency,
+                )
+                continue
 
             if imported_instrument is not None and (imported_type == "ETF" or imported_exchange == "LSEETF"):
                 metadata[position.symbol] = self.classify_imported_instrument(imported_instrument, currency=position.currency)
-                continue
-
-            instrument = self.get_instrument(position.symbol)
-            if instrument is not None:
-                metadata[position.symbol] = instrument
                 continue
 
             if imported_instrument is not None:

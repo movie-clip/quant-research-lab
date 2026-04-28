@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { MonitoringResearchHandoff, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotOpenResponse, ReplacementIntentDraftArtifact, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyReviewResponse, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import { assertSavedProposalProposalCaptureIntegrity, assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope, assertValidReviewSnapshotComparisonResponseEnvelope, assertValidReviewSnapshotFamilyInboxResponseEnvelope, assertValidReviewSnapshotFamilyReviewResponseEnvelope, assertValidReviewSnapshotOpenResponseEnvelope, buildReviewSnapshotComparisonRefs, buildReviewSnapshotOpenHandoffFromProposal } from '../../app/portfolioWorkspaceStorage'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 import { MonitoringPanel } from './MonitoringPanel'
 import { MONITORING_RESEARCH_TARGET_IDS, monitoringResearchTargetLabel } from './monitoringResearchHandoff'
@@ -35,8 +36,25 @@ function formatProposalTimestamp(value: string) {
   })
 }
 
+function formatSavedProposalContractErrorOutcome(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Saved proposal proposalCapture is missing'
+  if (message.startsWith('Unable to reopen saved proposal:')) {
+    return message
+  }
+  return `Unable to reopen saved proposal: ${message.charAt(0).toLowerCase()}${message.slice(1)}`
+}
+
+function assertSavedProposalCaptureForWorkspaceShell(
+  proposal: VersionedProposalArtifact,
+  _context: 'Saved proposal' | 'Saved proposal comparison left' | 'Saved proposal comparison right' | 'Active thesis saved proposal',
+) {
+  assertSavedProposalProposalCaptureIntegrity(proposal)
+  return proposal.proposalCapture
+}
+
 function getProposalLabel(proposal: VersionedProposalArtifact) {
-  return `v${proposal.versionNumber} · ${proposal.sourceIntent.baseSymbol} -> ${proposal.sourceIntent.candidateSymbol}`
+  const proposalCapture = assertSavedProposalCaptureForWorkspaceShell(proposal, 'Saved proposal')
+  return `v${proposal.versionNumber} · ${proposalCapture.proposal.incumbent_symbol} -> ${proposalCapture.proposal.candidate_symbol}`
 }
 
 function formatPct(value: number | null | undefined) {
@@ -149,6 +167,19 @@ function formatReplayStatusLabel(status: string | null | undefined) {
   return status
 }
 
+function formatProposalSourceKind(value: string | null | undefined) {
+  if (!value) return 'n/a'
+  return value.replaceAll('_', ' ')
+}
+
+function formatCompareReadinessLabel(ready: boolean) {
+  return ready ? 'ready' : 'not ready'
+}
+
+function familyInboxRowLabel(row: NonNullable<ReviewSnapshotFamilyInboxResponse['rows']>[number]) {
+  return `v${row.lineage.version_number} · ${row.proposal_capture.proposal.incumbent_symbol} -> ${row.proposal_capture.proposal.candidate_symbol}`
+}
+
 function formatReplayCandidateInputSourceLabel(value: HypotheticalReplayResponse['replay_provenance']['candidate_input_source']) {
   return value === 'constructed_candidate_payload' ? 'constructed candidate replay' : 'direct preview replay'
 }
@@ -177,44 +208,98 @@ type ProposalComparisonMetric = {
   note: string
 }
 
-function buildProposalComparisonMetrics(left: VersionedProposalArtifact, right: VersionedProposalArtifact): ProposalComparisonMetric[] {
-  const leftReplay = getProposalActiveReplay(left)
-  const rightReplay = getProposalActiveReplay(right)
+type SavedProposalComparisonState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  comparison: ReviewSnapshotComparisonResponse | null
+  error: string | null
+}
+
+type SavedProposalFamilyReviewState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  review: ReviewSnapshotFamilyReviewResponse | null
+  error: string | null
+}
+
+type SavedProposalFamilyInboxState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  inbox: ReviewSnapshotFamilyInboxResponse | null
+  error: string | null
+}
+
+type ActiveThesisOpenState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  open: ReviewSnapshotOpenResponse | null
+  error: string | null
+}
+
+type ActiveThesisDeltaState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  comparison: ReviewSnapshotComparisonResponse | null
+  error: string | null
+}
+
+type ActiveThesisCrossFamilyQueueState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  queue: ReviewSnapshotActiveThesisCrossFamilyQueueResponse | null
+  error: string | null
+}
+
+function buildReviewSnapshotComparisonRef(
+  artifact: {
+    artifact_id: string
+    artifact_kind: 'portfolio_review_snapshot'
+    schema_version: 'review_snapshot_artifact_v1'
+    consumer_kind: 'saved_hypothetical_replay_proposal'
+  },
+  role: ReviewSnapshotComparisonArtifactRef['role'],
+): ReviewSnapshotComparisonArtifactRef {
+  return {
+    role,
+    artifact_id: artifact.artifact_id,
+    artifact_kind: artifact.artifact_kind,
+    schema_version: artifact.schema_version,
+    consumer_kind: artifact.consumer_kind,
+  }
+}
+
+function buildProposalComparisonMetrics(comparison: ReviewSnapshotComparisonResponse): ProposalComparisonMetric[] {
+  const left = comparison.baseline_pm_summary
+  const right = comparison.candidate_pm_summary
 
   return [
     {
       key: 'replay-status',
       label: 'Replay status',
-      leftValue: formatReplayStatusLabel(leftReplay.candidate_result.status),
-      rightValue: formatReplayStatusLabel(rightReplay.candidate_result.status),
+      leftValue: formatReplayStatusLabel(left.replay_status),
+      rightValue: formatReplayStatusLabel(right.replay_status),
       note: 'Candidate replay execution status only.',
     },
     {
       key: 'replay-window',
       label: 'Replay window',
-      leftValue: `${left.replayBasis.startDate} -> ${left.replayBasis.endDate}`,
-      rightValue: `${right.replayBasis.startDate} -> ${right.replayBasis.endDate}`,
+      leftValue: `${left.review_basis.replay_window.start_date} -> ${left.review_basis.replay_window.end_date}`,
+      rightValue: `${right.review_basis.replay_window.start_date} -> ${right.review_basis.replay_window.end_date}`,
       note: 'Window compatibility for saved replay review.',
     },
     {
       key: 'replay-setup',
       label: 'Replay setup',
-      leftValue: `${left.replayBasis.rebalanceFrequency} · ${left.replayBasis.commissionBps}/${left.replayBasis.slippageBps} bps`,
-      rightValue: `${right.replayBasis.rebalanceFrequency} · ${right.replayBasis.commissionBps}/${right.replayBasis.slippageBps} bps`,
+      leftValue: `${left.review_basis.rebalance_frequency} · ${left.review_basis.commission_bps}/${left.review_basis.slippage_bps} bps`,
+      rightValue: `${right.review_basis.rebalance_frequency} · ${right.review_basis.commission_bps}/${right.review_basis.slippage_bps} bps`,
       note: 'Rebalance and cost inputs captured with each artifact.',
     },
     {
       key: 'lineage',
       label: 'Replay lineage',
-      leftValue: `${formatReplayCandidateInputSourceLabel(left.reviewSnapshot.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(left.reviewSnapshot.replay_provenance.construction_rule_id)}`,
-      rightValue: `${formatReplayCandidateInputSourceLabel(right.reviewSnapshot.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(right.reviewSnapshot.replay_provenance.construction_rule_id)}`,
+      leftValue: `${formatReplayCandidateInputSourceLabel(left.provenance.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(left.provenance.replay_provenance.construction_rule_id)}`,
+      rightValue: `${formatReplayCandidateInputSourceLabel(right.provenance.replay_provenance.candidate_input_source)} · ${formatReplayConstructionRuleLabel(right.provenance.replay_provenance.construction_rule_id)}`,
       note: 'Saved provenance and replay handoff only.',
     },
     {
       key: 'constraint-validation',
       label: 'Constraint validation',
-      leftValue: formatReplayConstraintValidationLabel(left.reviewSnapshot.replay_provenance.constraint_validation),
-      rightValue: formatReplayConstraintValidationLabel(right.reviewSnapshot.replay_provenance.constraint_validation),
+      leftValue: formatReplayConstraintValidationLabel(left.provenance.replay_provenance.constraint_validation),
+      rightValue: formatReplayConstraintValidationLabel(right.provenance.replay_provenance.constraint_validation),
       note: 'Saved validation handoff state only.',
     },
   ]
@@ -223,26 +308,43 @@ function buildProposalComparisonMetrics(left: VersionedProposalArtifact, right: 
 function SavedProposalComparisonView({
   leftProposal,
   rightProposal,
+  comparisonState,
   onSwapSides,
   onOpenProposal,
   onClearComparison,
 }: {
   leftProposal: VersionedProposalArtifact
   rightProposal: VersionedProposalArtifact
+  comparisonState: SavedProposalComparisonState
   onSwapSides: () => void
   onOpenProposal: (proposalId: string) => void
   onClearComparison: () => void
 }) {
-  const leftReplay = getProposalActiveReplay(leftProposal)
-  const rightReplay = getProposalActiveReplay(rightProposal)
-  const leftTakeaway = getTopDiagnosticsTakeaway(leftReplay)
-  const rightTakeaway = getTopDiagnosticsTakeaway(rightReplay)
-  const comparisonMetrics = buildProposalComparisonMetrics(leftProposal, rightProposal)
-  const sameReplayType = getProposalReplayType(leftProposal) === getProposalReplayType(rightProposal)
-  const sameReplayWindow = leftProposal.replayBasis.startDate === rightProposal.replayBasis.startDate
-    && leftProposal.replayBasis.endDate === rightProposal.replayBasis.endDate
-  const sameIntentPair = leftProposal.sourceIntent.baseSymbol === rightProposal.sourceIntent.baseSymbol
-    && leftProposal.sourceIntent.candidateSymbol === rightProposal.sourceIntent.candidateSymbol
+  const leftProposalCapture = assertSavedProposalCaptureForWorkspaceShell(leftProposal, 'Saved proposal comparison left')
+  const rightProposalCapture = assertSavedProposalCaptureForWorkspaceShell(rightProposal, 'Saved proposal comparison right')
+  const comparisonMetrics = comparisonState.comparison ? buildProposalComparisonMetrics(comparisonState.comparison) : []
+  const sameReplayType = comparisonState.comparison
+    ? comparisonState.comparison.baseline_pm_summary.replay_type === comparisonState.comparison.candidate_pm_summary.replay_type
+    : getProposalReplayType(leftProposal) === getProposalReplayType(rightProposal)
+  const sameReplayWindow = comparisonState.comparison
+    ? comparisonState.comparison.baseline_pm_summary.review_basis.replay_window.start_date === comparisonState.comparison.candidate_pm_summary.review_basis.replay_window.start_date
+      && comparisonState.comparison.baseline_pm_summary.review_basis.replay_window.end_date === comparisonState.comparison.candidate_pm_summary.review_basis.replay_window.end_date
+    : leftProposalCapture.review_basis.replay_window.start_date === rightProposalCapture.review_basis.replay_window.start_date
+      && leftProposalCapture.review_basis.replay_window.end_date === rightProposalCapture.review_basis.replay_window.end_date
+  const sameIntentPair = leftProposalCapture.proposal.incumbent_symbol === rightProposalCapture.proposal.incumbent_symbol
+    && leftProposalCapture.proposal.candidate_symbol === rightProposalCapture.proposal.candidate_symbol
+  const leftTakeaway = comparisonState.comparison?.baseline_pm_summary.diagnostics_summary.top_factor_exposure_change
+    ?? comparisonState.comparison?.baseline_pm_summary.diagnostics_summary.top_volatility_change
+    ?? comparisonState.comparison?.baseline_pm_summary.diagnostics_summary.top_risk_contribution_change
+    ?? comparisonState.comparison?.baseline_pm_summary.diagnostics_summary.top_concentration_change
+    ?? comparisonState.comparison?.baseline_pm_summary.diagnostics_summary.top_stress_scenario_change
+    ?? null
+  const rightTakeaway = comparisonState.comparison?.candidate_pm_summary.diagnostics_summary.top_factor_exposure_change
+    ?? comparisonState.comparison?.candidate_pm_summary.diagnostics_summary.top_volatility_change
+    ?? comparisonState.comparison?.candidate_pm_summary.diagnostics_summary.top_risk_contribution_change
+    ?? comparisonState.comparison?.candidate_pm_summary.diagnostics_summary.top_concentration_change
+    ?? comparisonState.comparison?.candidate_pm_summary.diagnostics_summary.top_stress_scenario_change
+    ?? null
   const diagnosticsAvailable = Boolean(leftTakeaway || rightTakeaway)
 
   return (
@@ -254,17 +356,17 @@ function SavedProposalComparisonView({
       <div className="dashboard-summary compact-summary-grid">
         <div className="summary-card">
           <p className="stat-label">Left proposal</p>
-          <p className="summary-value">v{leftProposal.versionNumber} · {leftProposal.sourceIntent.baseSymbol} -&gt; {leftProposal.sourceIntent.candidateSymbol}</p>
+          <p className="summary-value">v{leftProposal.versionNumber} · {leftProposalCapture.proposal.incumbent_symbol} -&gt; {leftProposalCapture.proposal.candidate_symbol}</p>
           <p className="helper">{getProposalReplayType(leftProposal)} · {formatProposalTimestamp(leftProposal.createdAt)}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Right proposal</p>
-          <p className="summary-value">v{rightProposal.versionNumber} · {rightProposal.sourceIntent.baseSymbol} -&gt; {rightProposal.sourceIntent.candidateSymbol}</p>
+          <p className="summary-value">v{rightProposal.versionNumber} · {rightProposalCapture.proposal.incumbent_symbol} -&gt; {rightProposalCapture.proposal.candidate_symbol}</p>
           <p className="helper">{getProposalReplayType(rightProposal)} · {formatProposalTimestamp(rightProposal.createdAt)}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Compatibility</p>
-          <p className="summary-value">{sameReplayType && sameReplayWindow ? 'Aligned' : 'Review carefully'}</p>
+          <p className="summary-value">{comparisonState.status === 'ready' ? 'Compatible' : sameReplayType && sameReplayWindow ? 'Aligned' : 'Review carefully'}</p>
           <p className="helper">Replay type {sameReplayType ? 'matches' : 'differs'} · window {sameReplayWindow ? 'matches' : 'differs'} · intent pair {sameIntentPair ? 'matches' : 'differs'}.</p>
         </div>
         <div className="summary-card">
@@ -272,6 +374,17 @@ function SavedProposalComparisonView({
           <p className="summary-value">2 of 2 selected</p>
           <p className="helper">Use swap to reverse sides or open either artifact in the full saved-proposal view.</p>
         </div>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Artifact-backed comparison</p>
+        {comparisonState.status === 'loading' ? <p className="helper">Loading persisted review snapshot comparison.</p> : null}
+        {comparisonState.status === 'error' ? <p className="helper">{comparisonState.error}</p> : null}
+        {comparisonState.status === 'ready' && comparisonState.comparison ? (
+          <>
+            <p className="helper">Provenance: {comparisonState.comparison.provenance} · benchmark separation: {comparisonState.comparison.benchmark_separation}</p>
+            <p className="helper">Methodology consistent: {comparisonState.comparison.methodology.methodology_consistent ? 'yes' : 'no'} · assumptions consistent: {comparisonState.comparison.assumptions.assumptions_consistent ? 'yes' : 'no'}</p>
+          </>
+        ) : null}
       </div>
       <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
         <button className="secondary-button" onClick={onSwapSides} type="button">Swap sides</button>
@@ -301,23 +414,23 @@ function SavedProposalComparisonView({
       <div className="dashboard-summary compact-summary-grid">
         <div className="summary-card">
           <p className="stat-label">Left replay status</p>
-          <p className="summary-value">{formatReplayStatusLabel(leftReplay.candidate_result.status)}</p>
-          <p className="helper">Window {leftProposal.replayBasis.startDate} - {leftProposal.replayBasis.endDate}</p>
+          <p className="summary-value">{comparisonState.comparison ? formatReplayStatusLabel(comparisonState.comparison.baseline_pm_summary.replay_status) : formatReplayStatusLabel(getProposalActiveReplay(leftProposal).candidate_result.status)}</p>
+          <p className="helper">Window {comparisonState.comparison ? `${comparisonState.comparison.baseline_pm_summary.review_basis.replay_window.start_date} - ${comparisonState.comparison.baseline_pm_summary.review_basis.replay_window.end_date}` : `${leftProposalCapture.review_basis.replay_window.start_date} - ${leftProposalCapture.review_basis.replay_window.end_date}`}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Right replay status</p>
-          <p className="summary-value">{formatReplayStatusLabel(rightReplay.candidate_result.status)}</p>
-          <p className="helper">Window {rightProposal.replayBasis.startDate} - {rightProposal.replayBasis.endDate}</p>
+          <p className="summary-value">{comparisonState.comparison ? formatReplayStatusLabel(comparisonState.comparison.candidate_pm_summary.replay_status) : formatReplayStatusLabel(getProposalActiveReplay(rightProposal).candidate_result.status)}</p>
+          <p className="helper">Window {comparisonState.comparison ? `${comparisonState.comparison.candidate_pm_summary.review_basis.replay_window.start_date} - ${comparisonState.comparison.candidate_pm_summary.review_basis.replay_window.end_date}` : `${rightProposalCapture.review_basis.replay_window.start_date} - ${rightProposalCapture.review_basis.replay_window.end_date}`}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Left diagnostics takeaway</p>
-          <p className="summary-value">{leftTakeaway?.callout.label ?? 'Unavailable'}</p>
-          <p className="helper">{leftTakeaway ? `${leftTakeaway.group} · ${diagnosticsValueLabel(leftTakeaway.callout)}` : 'No saved diagnostics takeaway is available for this artifact.'}</p>
+          <p className="summary-value">{leftTakeaway?.label ?? 'Unavailable'}</p>
+          <p className="helper">{leftTakeaway ? `Saved PM summary diagnostic delta ${diagnosticsValueLabel(leftTakeaway)}` : 'No saved diagnostics takeaway is available for this artifact.'}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Right diagnostics takeaway</p>
-          <p className="summary-value">{rightTakeaway?.callout.label ?? 'Unavailable'}</p>
-          <p className="helper">{rightTakeaway ? `${rightTakeaway.group} · ${diagnosticsValueLabel(rightTakeaway.callout)}` : 'No saved diagnostics takeaway is available for this artifact.'}</p>
+          <p className="summary-value">{rightTakeaway?.label ?? 'Unavailable'}</p>
+          <p className="helper">{rightTakeaway ? `Saved PM summary diagnostic delta ${diagnosticsValueLabel(rightTakeaway)}` : 'No saved diagnostics takeaway is available for this artifact.'}</p>
         </div>
       </div>
       {!diagnosticsAvailable ? (
@@ -404,6 +517,7 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
   const replayCandidateTotalReturn = activeReplay?.candidate_result.metrics.total_return_pct ?? null
   const diagnosticsTakeaway = getTopDiagnosticsTakeaway(activeReplay)
   const latestProposal = getLatestProposal(props.savedProposals)
+  const latestProposalCapture = latestProposal ? assertSavedProposalCaptureForWorkspaceShell(latestProposal, 'Saved proposal') : null
 
   return [
     {
@@ -565,7 +679,7 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
           ? 'Not yet saved'
           : 'No artifact',
       detail: latestProposal
-        ? `Latest immutable artifact captures ${latestProposal.sourceIntent.baseSymbol} -> ${latestProposal.sourceIntent.candidateSymbol} for review only.`
+        ? `Latest immutable artifact captures ${latestProposalCapture?.proposal.incumbent_symbol} -> ${latestProposalCapture?.proposal.candidate_symbol} for review only.`
         : props.hypotheticalReplayResult
           ? 'A replay review exists, but no immutable proposal artifact has been recorded yet.'
           : 'No saved proposal artifact exists yet for this workflow.',
@@ -594,6 +708,8 @@ type Props = {
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
   onSaveProposal: () => void | Promise<void>
+  onOpenSavedProposal?: (reviewSnapshotArtifactId: string) => void | Promise<void>
+  openedSavedProposalArtifactId?: string | null
   onPromoteProposalToThesis: (proposalId: string) => void | Promise<void>
   onClearActiveThesis: () => void | Promise<void>
   onHypotheticalReplayResult: (result: HypotheticalReplayResponse) => void
@@ -785,8 +901,320 @@ function ProposalWorkspaceSection(props: Props) {
         <p className="helper">Saved proposals stay review-only.</p>
       </div>
       <div id={WORKFLOW_SECTION_IDS.savedProposal}>
-        <SavedProposalSection proposals={props.savedProposals} activeThesis={props.activeThesis} onPromoteProposalToThesis={props.onPromoteProposalToThesis} onClearActiveThesis={props.onClearActiveThesis} />
+        <SavedProposalSection proposals={props.savedProposals} activeThesis={props.activeThesis} openedSavedProposalArtifactId={props.openedSavedProposalArtifactId} onOpenSavedProposal={props.onOpenSavedProposal} onPromoteProposalToThesis={props.onPromoteProposalToThesis} onClearActiveThesis={props.onClearActiveThesis} />
       </div>
+    </section>
+  )
+}
+
+function ActiveThesisArtifactReview({
+  thesis,
+  proposals,
+  openedSavedProposalArtifactId,
+  onOpenSavedProposal,
+}: {
+  thesis: ActiveThesisArtifact
+  proposals: VersionedProposalArtifact[]
+  openedSavedProposalArtifactId?: string | null
+  onOpenSavedProposal?: (reviewSnapshotArtifactId: string) => void | Promise<void>
+}) {
+  const [openState, setOpenState] = useState<ActiveThesisOpenState>({ status: 'idle', open: null, error: null })
+  const [crossFamilyQueueState, setCrossFamilyQueueState] = useState<ActiveThesisCrossFamilyQueueState>({ status: 'idle', queue: null, error: null })
+  const [familyReviewState, setFamilyReviewState] = useState<SavedProposalFamilyReviewState>({ status: 'idle', review: null, error: null })
+  const [deltaState, setDeltaState] = useState<ActiveThesisDeltaState>({ status: 'idle', comparison: null, error: null })
+
+  useEffect(() => {
+    let active = true
+    setOpenState({ status: 'loading', open: null, error: null })
+    void (async () => {
+      try {
+        const handoff = await buildReviewSnapshotOpenHandoffFromProposal(thesis.thesisProposal)
+        const response = await fetch('/api/backtests/review-snapshots/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(handoff),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.detail ?? 'Unable to load active thesis PM summary')
+        }
+        if (!active) return
+        const open = assertValidReviewSnapshotOpenResponseEnvelope(payload)
+        if (open.pm_summary.role !== 'saved_proposal') {
+          throw new Error('Unable to load active thesis PM summary: persisted pm_summary role is invalid for active thesis readout')
+        }
+        if (open.handoff.artifact_id !== thesis.thesisProposal.reviewSnapshotArtifactId) {
+          throw new Error('Unable to load active thesis PM summary: persisted open response artifact does not match active thesis artifact')
+        }
+        if (open.pm_summary.provenance.lineage.proposal_id !== thesis.sourceProposalId) {
+          throw new Error('Unable to load active thesis PM summary: persisted open response lineage does not match active thesis proposal id')
+        }
+        setOpenState({ status: 'ready', open, error: null })
+      } catch (error) {
+        if (!active) return
+        setOpenState({ status: 'error', open: null, error: error instanceof Error ? error.message : 'Unable to load active thesis PM summary' })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [thesis])
+
+  useEffect(() => {
+    let active = true
+    setCrossFamilyQueueState({ status: 'loading', queue: null, error: null })
+    void (async () => {
+      try {
+        const handoff = await buildReviewSnapshotOpenHandoffFromProposal(thesis.thesisProposal)
+        const response = await fetch('/api/backtests/review-snapshots/active-thesis-cross-family-queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_proposal_id: thesis.sourceProposalId,
+            handoff,
+          }),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.detail ?? 'Unable to load active thesis cross-family PM review queue')
+        }
+        if (!active) return
+        const queue = assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(payload)
+        if (queue.active_thesis.source_proposal_id !== thesis.sourceProposalId) {
+          throw new Error('Unable to load active thesis cross-family PM review queue: active thesis proposal id does not match the workspace thesis')
+        }
+        if (queue.active_thesis.handoff.artifact_id !== thesis.thesisProposal.reviewSnapshotArtifactId) {
+          throw new Error('Unable to load active thesis cross-family PM review queue: active thesis artifact does not match the workspace thesis')
+        }
+        if (queue.active_thesis.lineage.proposal_id !== thesis.sourceProposalId) {
+          throw new Error('Unable to load active thesis cross-family PM review queue: active thesis lineage does not match the workspace thesis')
+        }
+        setCrossFamilyQueueState({ status: 'ready', queue, error: null })
+      } catch (error) {
+        if (!active) return
+        setCrossFamilyQueueState({ status: 'error', queue: null, error: error instanceof Error ? error.message : 'Unable to load active thesis cross-family PM review queue' })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [thesis])
+
+  useEffect(() => {
+    if (!crossFamilyQueueState.queue) {
+      return
+    }
+    const knownArtifactIds = new Set(proposals.map((proposal) => proposal.reviewSnapshotArtifactId))
+    if (crossFamilyQueueState.queue.rows.some((row) => !knownArtifactIds.has(row.latest_identity.artifact_id))) {
+      setCrossFamilyQueueState({
+        status: 'error',
+        queue: null,
+        error: 'Active thesis cross-family PM review queue latest artifact is not indexed by any saved proposal',
+      })
+    }
+  }, [crossFamilyQueueState.queue, proposals])
+
+  useEffect(() => {
+    let active = true
+    if (openState.status !== 'ready' || !openState.open) {
+      setFamilyReviewState({ status: 'idle', review: null, error: null })
+      return () => {
+        active = false
+      }
+    }
+    const open = openState.open
+    setFamilyReviewState({ status: 'loading', review: null, error: null })
+    void (async () => {
+      try {
+        const response = await fetch('/api/backtests/review-snapshots/family-review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handoff: open.handoff }),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.detail ?? 'Unable to load active thesis same-family review')
+        }
+        if (!active) return
+        const review = assertValidReviewSnapshotFamilyReviewResponseEnvelope(payload)
+        if (review.anchor.identity.artifact_id !== open.handoff.artifact_id) {
+          throw new Error('Unable to load active thesis same-family review: anchor artifact does not match active thesis artifact')
+        }
+        setFamilyReviewState({ status: 'ready', review, error: null })
+      } catch (error) {
+        if (!active) return
+        setFamilyReviewState({ status: 'error', review: null, error: error instanceof Error ? error.message : 'Unable to load active thesis same-family review' })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [openState.open, openState.status])
+
+  useEffect(() => {
+    let active = true
+    if (familyReviewState.status !== 'ready' || !familyReviewState.review || !openState.open) {
+      setDeltaState({ status: 'idle', comparison: null, error: null })
+      return () => {
+        active = false
+      }
+    }
+
+    const open = openState.open
+    const compatibleSiblingIds = familyReviewState.review.anchor.comparison_eligibility.compatible_sibling_artifact_ids
+    if (!compatibleSiblingIds.length) {
+      setDeltaState({ status: 'idle', comparison: null, error: null })
+      return () => {
+        active = false
+      }
+    }
+    if (compatibleSiblingIds.length !== 1) {
+      setDeltaState({ status: 'error', comparison: null, error: 'Unable to load active thesis same-family delta: ambiguous sibling selection' })
+      return () => {
+        active = false
+      }
+    }
+
+    const sibling = familyReviewState.review.siblings.find((item) => item.identity.artifact_id === compatibleSiblingIds[0]) ?? null
+    if (!sibling) {
+      setDeltaState({ status: 'error', comparison: null, error: 'Unable to load active thesis same-family delta: compatible sibling artifact is missing from family review' })
+      return () => {
+        active = false
+      }
+    }
+
+    setDeltaState({ status: 'loading', comparison: null, error: null })
+    void (async () => {
+      try {
+        const response = await fetch('/api/backtests/review-snapshots/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            baseline: buildReviewSnapshotComparisonRef(sibling.identity, 'baseline'),
+            candidate: buildReviewSnapshotComparisonRef(open.artifact.identity, 'candidate'),
+          }),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.detail ?? 'Unable to load active thesis same-family delta')
+        }
+        if (!active) return
+        const comparison = assertValidReviewSnapshotComparisonResponseEnvelope(payload)
+        if (comparison.baseline_pm_summary.role !== 'baseline' || comparison.candidate_pm_summary.role !== 'candidate') {
+          throw new Error('Unable to load active thesis same-family delta: persisted comparison roles are invalid')
+        }
+        if (comparison.candidate_pm_summary.provenance.lineage.proposal_id !== thesis.sourceProposalId) {
+          throw new Error('Unable to load active thesis same-family delta: candidate lineage does not match active thesis proposal id')
+        }
+        setDeltaState({ status: 'ready', comparison, error: null })
+      } catch (error) {
+        if (!active) return
+        setDeltaState({ status: 'error', comparison: null, error: error instanceof Error ? error.message : 'Unable to load active thesis same-family delta' })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [familyReviewState.review, familyReviewState.status, openState.open, thesis.sourceProposalId])
+
+  const activeSummary = openState.open?.pm_summary ?? null
+  const crossFamilyQueue = crossFamilyQueueState.queue
+  const siblingCount = familyReviewState.review?.siblings.length ?? 0
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="active-thesis-artifact-review">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Active Thesis Artifact Review</p></div>
+        <p className="helper">Artifact-backed only. PM summary and same-family delta readouts use the persisted review-snapshot open and compare routes, never draft reconstruction or local fallback state.</p>
+      </div>
+      <div className="summary-card" data-testid="active-thesis-pm-summary-status">
+        <p className="panel-label">Canonical PM Summary</p>
+        {openState.status === 'loading' ? <p className="helper">Loading active thesis PM summary from persisted review snapshot open.</p> : null}
+        {openState.status === 'error' ? <p className="helper">{openState.error}</p> : null}
+        {openState.status === 'ready' && activeSummary ? (
+          <>
+            <p className="helper">Role: {activeSummary.role} · provenance: {activeSummary.provenance.source} · artifact: {openState.open?.handoff.artifact_id}</p>
+            <p className="helper">Family: {activeSummary.provenance.lineage.proposal_family_id} · proposal: {activeSummary.provenance.lineage.proposal_id} · version: v{activeSummary.provenance.lineage.version_number}</p>
+            <p className="helper">Benchmark: {activeSummary.review_basis.benchmark_symbol} · window: {activeSummary.review_basis.replay_window.start_date} {'->'} {activeSummary.review_basis.replay_window.end_date}</p>
+            <p className="helper">Methodology: {activeSummary.methodology.methodology} · replay type: {activeSummary.replay_type} · diagnostics available: {activeSummary.diagnostics_summary.diagnostics_available ? 'yes' : 'no'}</p>
+          </>
+        ) : null}
+      </div>
+      <div className="summary-card" data-testid="active-thesis-cross-family-queue-status">
+        <p className="panel-label">Cross-Family PM Review Queue</p>
+        {crossFamilyQueueState.status === 'loading' ? <p className="helper">Loading active thesis cross-family PM review queue from persisted discovery.</p> : null}
+        {crossFamilyQueueState.status === 'error' ? <p className="helper">{crossFamilyQueueState.error}</p> : null}
+        {crossFamilyQueueState.status === 'ready' && crossFamilyQueue ? (
+          <>
+            <p className="helper">Queued families: {crossFamilyQueue.rows.length} · provenance: {crossFamilyQueue.provenance}</p>
+            <p className="helper">Active thesis family excluded: {crossFamilyQueue.active_thesis.family_key.proposal_family_id} · ordering: {crossFamilyQueue.queue_ordering}</p>
+            {!crossFamilyQueue.rows.length ? <p className="helper">No persisted cross-family PM review rows are available for the active thesis lineage.</p> : null}
+          </>
+        ) : null}
+      </div>
+      {crossFamilyQueueState.status === 'ready' && crossFamilyQueue && crossFamilyQueue.rows.length ? (
+        <div className="summary-card" data-testid="active-thesis-cross-family-queue">
+          <p className="panel-label">Queued PM Review Rows</p>
+          <p className="helper">Metadata-only discovery. Cross-family queue rows open the existing saved-proposal PM review flow without becoming same-family review or comparison implicitly.</p>
+          <div className="list-table">
+            <div className="list-row list-row-wide">
+              <span>Family</span>
+              <span>Latest artifact</span>
+              <span>PM summary fields</span>
+              <span>Review actions</span>
+            </div>
+            {crossFamilyQueue.rows.map((row) => {
+              const isOpened = row.latest_identity.artifact_id === openedSavedProposalArtifactId
+              return (
+                <div className="list-row list-row-wide" data-testid={`active-thesis-cross-family-queue-row-${row.latest_identity.artifact_id}`} key={row.latest_identity.artifact_id}>
+                  <span>
+                    {row.family_key.proposal_family_id}
+                    <br />
+                    v{row.lineage.version_number} · proposal {row.lineage.proposal_id}
+                  </span>
+                  <span>
+                    {row.latest_identity.artifact_id}
+                    <br />
+                    Saved {formatProposalTimestamp(row.latest_saved_at)}
+                  </span>
+                  <span>
+                    {formatProposalSourceKind(row.proposal_source.proposal_source_kind)} · replay {formatReplayStatusLabel(row.pm_summary_fields.replay_status)}
+                    <br />
+                    {row.pm_summary_fields.review_basis.benchmark_symbol} · investor economics {row.trust_visibility.investor_economics_status.status}
+                  </span>
+                  <span>
+                    {onOpenSavedProposal ? (
+                      <button className={isOpened ? 'primary-button' : 'secondary-button'} type="button" onClick={() => void onOpenSavedProposal(row.latest_identity.artifact_id)}>
+                        {isOpened ? 'Opened In PM Review' : 'Open PM Review'}
+                      </button>
+                    ) : <p className="helper">Open action unavailable.</p>}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+      <div className="summary-card" data-testid="active-thesis-delta-status">
+        <p className="panel-label">Same-Family Delta</p>
+        {familyReviewState.status === 'loading' ? <p className="helper">Loading active thesis same-family siblings from persisted family review.</p> : null}
+        {familyReviewState.status === 'error' ? <p className="helper">{familyReviewState.error}</p> : null}
+        {familyReviewState.status === 'ready' && familyReviewState.review ? <p className="helper">Persisted same-family siblings: {siblingCount} · compare policy: {familyReviewState.review.compare_selection_policy}</p> : null}
+        {deltaState.status === 'loading' ? <p className="helper">Loading artifact-backed same-family delta with explicit baseline and candidate roles.</p> : null}
+        {deltaState.status === 'error' ? <p className="helper">{deltaState.error}</p> : null}
+        {deltaState.status === 'idle' && familyReviewState.status === 'ready' && familyReviewState.review?.anchor.comparison_eligibility.reason === 'no_compatible_family_sibling' ? (
+          <p className="helper">No compatible persisted same-family sibling is available for active thesis delta review.</p>
+        ) : null}
+      </div>
+      {deltaState.status === 'ready' && deltaState.comparison ? (
+        <div className="summary-card" data-testid="active-thesis-delta-readout">
+          <p className="panel-label">Active Thesis Delta Readout</p>
+          <p className="helper">Baseline: v{deltaState.comparison.baseline_pm_summary.provenance.lineage.version_number} · proposal {deltaState.comparison.baseline_pm_summary.provenance.lineage.proposal_id} · role {deltaState.comparison.baseline_pm_summary.role}</p>
+          <p className="helper">Candidate: v{deltaState.comparison.candidate_pm_summary.provenance.lineage.version_number} · proposal {deltaState.comparison.candidate_pm_summary.provenance.lineage.proposal_id} · role {deltaState.comparison.candidate_pm_summary.role}</p>
+          <p className="helper">Provenance: {deltaState.comparison.provenance} · benchmark separation: {deltaState.comparison.benchmark_separation}</p>
+          <p className="helper">Methodology consistent: {deltaState.comparison.methodology.methodology_consistent ? 'yes' : 'no'} · assumptions consistent: {deltaState.comparison.assumptions.assumptions_consistent ? 'yes' : 'no'}</p>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -1138,11 +1566,15 @@ function CandidateIdeaSection({
 function SavedProposalSection({
   proposals,
   activeThesis,
+  openedSavedProposalArtifactId,
+  onOpenSavedProposal,
   onPromoteProposalToThesis,
   onClearActiveThesis,
 }: {
   proposals: VersionedProposalArtifact[]
   activeThesis: ActiveThesisArtifact | null
+  openedSavedProposalArtifactId?: string | null
+  onOpenSavedProposal?: (reviewSnapshotArtifactId: string) => void | Promise<void>
   onPromoteProposalToThesis: (proposalId: string) => void | Promise<void>
   onClearActiveThesis: () => void | Promise<void>
 }) {
@@ -1155,6 +1587,9 @@ function SavedProposalSection({
   )
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(sortedProposals[0]?.id ?? null)
   const [comparisonSelection, setComparisonSelection] = useState<string[]>([])
+  const [comparisonState, setComparisonState] = useState<SavedProposalComparisonState>({ status: 'idle', comparison: null, error: null })
+  const [familyInboxState, setFamilyInboxState] = useState<SavedProposalFamilyInboxState>({ status: 'idle', inbox: null, error: null })
+  const [familyReviewState, setFamilyReviewState] = useState<SavedProposalFamilyReviewState>({ status: 'idle', review: null, error: null })
 
   useEffect(() => {
     if (!sortedProposals.length) {
@@ -1162,21 +1597,159 @@ function SavedProposalSection({
       return
     }
 
+    if (openedSavedProposalArtifactId) {
+      const authoritativeProposal = sortedProposals.find((proposal) => proposal.reviewSnapshotArtifactId === openedSavedProposalArtifactId) ?? null
+      setSelectedProposalId(authoritativeProposal?.id ?? null)
+      if (authoritativeProposal) {
+        return
+      }
+    }
+
     setSelectedProposalId((current) => sortedProposals.some((proposal) => proposal.id === current) ? current : sortedProposals[0].id)
-  }, [sortedProposals])
+  }, [openedSavedProposalArtifactId, sortedProposals])
 
   useEffect(() => {
     setComparisonSelection((current) => current.filter((proposalId) => sortedProposals.some((proposal) => proposal.id === proposalId)).slice(0, 2))
   }, [sortedProposals])
 
-  const selectedProposal = sortedProposals.find((proposal) => proposal.id === selectedProposalId) ?? sortedProposals[0] ?? null
+  const selectedProposal = openedSavedProposalArtifactId
+    ? (sortedProposals.find((proposal) => proposal.reviewSnapshotArtifactId === openedSavedProposalArtifactId) ?? null)
+    : (sortedProposals.find((proposal) => proposal.id === selectedProposalId) ?? sortedProposals[0] ?? null)
   const latestProposal = sortedProposals[0] ?? null
+  const latestProposalCapture = latestProposal ? assertSavedProposalCaptureForWorkspaceShell(latestProposal, 'Saved proposal') : null
   const activeThesisProposalId = activeThesis?.sourceProposalId ?? null
   const activeThesisProposal = activeThesis?.thesisProposal ?? null
-  const comparisonProposals = comparisonSelection
-    .map((proposalId) => sortedProposals.find((proposal) => proposal.id === proposalId) ?? null)
-    .filter((proposal): proposal is VersionedProposalArtifact => proposal != null)
+  const activeThesisProposalCapture = activeThesisProposal ? assertSavedProposalCaptureForWorkspaceShell(activeThesisProposal, 'Active thesis saved proposal') : null
+  const comparisonProposals = useMemo(
+    () => comparisonSelection
+      .map((proposalId) => sortedProposals.find((proposal) => proposal.id === proposalId) ?? null)
+      .filter((proposal): proposal is VersionedProposalArtifact => proposal != null),
+    [comparisonSelection, sortedProposals],
+  )
   const comparisonReady = comparisonProposals.length === 2
+  const selectedFamilyInboxRow = useMemo(
+    () => familyInboxState.inbox?.rows.find((row) => row.latest_identity.artifact_id === selectedProposal?.reviewSnapshotArtifactId) ?? null,
+    [familyInboxState.inbox, selectedProposal],
+  )
+
+  useEffect(() => {
+    let active = true
+    if (!proposals.length) {
+      setFamilyInboxState({ status: 'idle', inbox: null, error: null })
+      return () => {
+        active = false
+      }
+    }
+    const workspaceId = proposals[0]?.workspaceId ?? null
+    if (!workspaceId) {
+      setFamilyInboxState({ status: 'error', inbox: null, error: 'Saved proposal family inbox requires workspaceId' })
+      return () => {
+        active = false
+      }
+    }
+    setFamilyInboxState({ status: 'loading', inbox: null, error: null })
+    void (async () => {
+      try {
+        const response = await fetch('/api/backtests/review-snapshots/family-inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspace_id: workspaceId }),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.detail ?? 'Unable to load saved proposal family inbox')
+        }
+        if (!active) return
+        setFamilyInboxState({ status: 'ready', inbox: assertValidReviewSnapshotFamilyInboxResponseEnvelope(payload), error: null })
+      } catch (error) {
+        if (!active) return
+        setFamilyInboxState({ status: 'error', inbox: null, error: error instanceof Error ? error.message : 'Unable to load saved proposal family inbox' })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [proposals])
+
+  useEffect(() => {
+    if (!familyInboxState.inbox) {
+      return
+    }
+    const knownArtifactIds = new Set(sortedProposals.map((proposal) => proposal.reviewSnapshotArtifactId))
+    if (familyInboxState.inbox.rows.some((row) => !knownArtifactIds.has(row.latest_identity.artifact_id))) {
+      setFamilyInboxState({
+        status: 'error',
+        inbox: null,
+        error: 'Saved proposal family inbox latest artifact is not indexed by any saved proposal',
+      })
+    }
+  }, [familyInboxState.inbox, sortedProposals])
+
+  useEffect(() => {
+    let active = true
+    if (!selectedProposal) {
+      setFamilyReviewState({ status: 'idle', review: null, error: null })
+      return () => {
+        active = false
+      }
+    }
+    setFamilyReviewState({ status: 'loading', review: null, error: null })
+    void (async () => {
+      try {
+        const handoff = await buildReviewSnapshotOpenHandoffFromProposal(selectedProposal)
+        const response = await fetch('/api/backtests/review-snapshots/family-review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handoff }),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.detail ?? 'Unable to load saved proposal family review')
+        }
+        if (!active) return
+        setFamilyReviewState({ status: 'ready', review: assertValidReviewSnapshotFamilyReviewResponseEnvelope(payload), error: null })
+      } catch (error) {
+        if (!active) return
+        setFamilyReviewState({ status: 'error', review: null, error: error instanceof Error ? error.message : 'Unable to load saved proposal family review' })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [selectedProposal])
+
+  useEffect(() => {
+    let active = true
+    if (!comparisonReady) {
+      setComparisonState({ status: 'idle', comparison: null, error: null })
+      return () => {
+        active = false
+      }
+    }
+    setComparisonState({ status: 'loading', comparison: null, error: null })
+    void (async () => {
+      try {
+        const [baselineRef, candidateRef] = await buildReviewSnapshotComparisonRefs([comparisonProposals[0], comparisonProposals[1]])
+        const response = await fetch('/api/backtests/review-snapshots/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ baseline: baselineRef, candidate: candidateRef }),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload.detail ?? 'Unable to compare saved review snapshots')
+        }
+        if (!active) return
+         setComparisonState({ status: 'ready', comparison: assertValidReviewSnapshotComparisonResponseEnvelope(payload), error: null })
+      } catch (error) {
+        if (!active) return
+        setComparisonState({ status: 'error', comparison: null, error: error instanceof Error ? error.message : 'Unable to compare saved review snapshots' })
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [comparisonReady, comparisonProposals])
 
   function toggleComparisonSelection(proposalId: string) {
     setComparisonSelection((current) => {
@@ -1199,9 +1772,19 @@ function SavedProposalSection({
   }
 
   function openProposalFromComparison(proposalId: string) {
-    setSelectedProposalId(proposalId)
+    const proposal = sortedProposals.find((item) => item.id === proposalId) ?? null
+    if (onOpenSavedProposal) {
+      if (!proposal?.reviewSnapshotArtifactId) {
+        throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
+      }
+      void onOpenSavedProposal(proposal.reviewSnapshotArtifactId)
+    } else {
+      setSelectedProposalId(proposalId)
+    }
     setComparisonSelection([])
   }
+
+  const openedFamilyInboxArtifactId = selectedFamilyInboxRow?.latest_identity.artifact_id ?? openedSavedProposalArtifactId ?? selectedProposal?.reviewSnapshotArtifactId ?? null
 
   if (!sortedProposals.length) {
     return (
@@ -1227,7 +1810,7 @@ function SavedProposalSection({
       {latestProposal ? (
         <div className="summary-card">
           <p className="stat-label">Latest Saved Artifact</p>
-          <p className="summary-value">v{latestProposal.versionNumber} · {latestProposal.sourceIntent.baseSymbol} -&gt; {latestProposal.sourceIntent.candidateSymbol}</p>
+          <p className="summary-value">v{latestProposal.versionNumber} · {latestProposalCapture?.proposal.incumbent_symbol} -&gt; {latestProposalCapture?.proposal.candidate_symbol}</p>
           <p className="helper">Recorded {formatProposalTimestamp(latestProposal.createdAt)}</p>
         </div>
       ) : null}
@@ -1242,12 +1825,14 @@ function SavedProposalSection({
           <>
             <p className="summary-value">{getProposalLabel(activeThesisProposal)}</p>
             <p className="helper">Promoted {formatProposalTimestamp(activeThesis?.promotedAt ?? activeThesisProposal.createdAt)} from {activeThesisProposal.id}</p>
+            <p className="helper">Pair {activeThesisProposalCapture?.proposal.incumbent_symbol} -&gt; {activeThesisProposalCapture?.proposal.candidate_symbol}</p>
             <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
               <button className="secondary-button" data-testid="clear-active-thesis" type="button" onClick={() => void onClearActiveThesis()}>Clear active thesis</button>
             </div>
           </>
         )}
       </div>
+      {activeThesis ? <ActiveThesisArtifactReview thesis={activeThesis} proposals={sortedProposals} openedSavedProposalArtifactId={openedSavedProposalArtifactId} onOpenSavedProposal={onOpenSavedProposal} /> : null}
       <div className="list-table">
         <div className="list-row list-row-wide">
           <span>Artifact</span>
@@ -1255,22 +1840,32 @@ function SavedProposalSection({
           <span>Review Basis</span>
         </div>
         {sortedProposals.map((proposal, index) => {
+          const proposalCapture = assertSavedProposalCaptureForWorkspaceShell(proposal, 'Saved proposal')
           const isSelected = proposal.id === selectedProposal?.id
           const isMarkedForComparison = comparisonSelection.includes(proposal.id)
           const isActiveThesis = proposal.id === activeThesisProposalId
           return (
             <div className="list-row list-row-wide" data-testid={`saved-proposal-row-${proposal.id}`} key={proposal.id}>
               <span>
-                v{proposal.versionNumber} · {proposal.sourceIntent.baseSymbol} -&gt; {proposal.sourceIntent.candidateSymbol}
+                v{proposal.versionNumber} · {proposalCapture.proposal.incumbent_symbol} -&gt; {proposalCapture.proposal.candidate_symbol}
                 <br />
                 {index === 0 ? 'Latest' : 'Saved artifact'} · {formatProposalTimestamp(proposal.createdAt)}
                 {isActiveThesis ? <><br />Active thesis</> : null}
               </span>
               <span className={workflowStatusTextClass('recorded')} data-testid={`saved-proposal-status-${proposal.id}`}>{isActiveThesis ? 'active thesis' : isMarkedForComparison ? `compare ${comparisonSelection.indexOf(proposal.id) + 1}` : isSelected ? 'reviewing' : 'recorded'}</span>
               <span>
-                {proposal.replayBasis.derivationBasis} · {proposal.replayBasis.rebalanceFrequency}
+                {proposalCapture.review_basis.derivation_basis} · {proposalCapture.review_basis.rebalance_frequency}
                 <br />
-                <button className={isSelected ? 'primary-button' : 'secondary-button'} type="button" onClick={() => setSelectedProposalId(proposal.id)}>
+                <button className={isSelected ? 'primary-button' : 'secondary-button'} type="button" onClick={() => {
+                  if (onOpenSavedProposal) {
+                    if (!proposal.reviewSnapshotArtifactId) {
+                      throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
+                    }
+                    void onOpenSavedProposal(proposal.reviewSnapshotArtifactId)
+                    return
+                  }
+                  setSelectedProposalId(proposal.id)
+                }}>
                   {isSelected ? 'Viewing For Review' : 'Reopen In Workspace'}
                 </button>
                 <button className="secondary-button" data-testid={`saved-proposal-compare-${proposal.id}`} type="button" onClick={() => toggleComparisonSelection(proposal.id)}>
@@ -1287,13 +1882,104 @@ function SavedProposalSection({
       <div className="summary-card" data-testid="saved-proposal-comparison-status">
         <p className="panel-label">Saved proposal comparison</p>
         <p className="helper">Selected: {comparisonSelection.length}/2</p>
+        {familyInboxState.status === 'loading' ? <p className="helper">Loading saved proposal family inbox.</p> : null}
+        {familyInboxState.status === 'error' ? <p className="helper">{familyInboxState.error}</p> : null}
+        {familyInboxState.status === 'ready' && familyInboxState.inbox ? <p className="helper">Persisted families: {familyInboxState.inbox.rows.length} · provenance: {familyInboxState.inbox.provenance}</p> : null}
+        {familyReviewState.status === 'loading' ? <p className="helper">Loading proposal family review artifacts.</p> : null}
+        {familyReviewState.status === 'error' ? <p className="helper">{familyReviewState.error}</p> : null}
+        {familyReviewState.status === 'ready' && familyReviewState.review ? (
+          <>
+            <p className="helper">Family: {familyReviewState.review.family_key.proposal_family_id}</p>
+            <p className="helper">Persisted siblings: {familyReviewState.review.siblings.length} · compare policy: exactly two distinct family siblings</p>
+          </>
+        ) : null}
         {sortedProposals.length < 2 ? <p className="helper">Comparison is unavailable until at least two saved proposal artifacts exist.</p> : null}
         {sortedProposals.length >= 2 && !comparisonReady ? <p className="helper">Choose one more saved proposal to open the comparison surface.</p> : null}
       </div>
+      {familyInboxState.status === 'ready' && familyInboxState.inbox ? (
+        <div className="summary-card" data-testid="saved-proposal-family-inbox">
+          <p className="panel-label">Saved Proposal Family Inbox</p>
+          <p className="helper">Persisted review-snapshot families only. Rows open the existing PM review flow through the typed review-snapshot handoff boundary.</p>
+          <div className="list-table">
+            <div className="list-row list-row-wide">
+              <span>Family</span>
+              <span>Latest / Anchor</span>
+              <span>PM summary</span>
+              <span>Review actions</span>
+            </div>
+            {familyInboxState.inbox.rows.map((row) => {
+              const isSelectedFamily = selectedFamilyInboxRow?.latest_identity.artifact_id === row.latest_identity.artifact_id
+              return (
+                <div className="list-row list-row-wide" data-testid={`saved-proposal-family-inbox-row-${row.latest_identity.artifact_id}`} key={row.latest_identity.artifact_id}>
+                  <span>
+                    {row.family_key.proposal_family_id}
+                    <br />
+                    {row.sibling_count} sibling{row.sibling_count === 1 ? '' : 's'} · compare {formatCompareReadinessLabel(row.compare_readiness.ready)}
+                  </span>
+                  <span>
+                    {familyInboxRowLabel(row)}
+                    <br />
+                    {isSelectedFamily ? 'selected family' : 'family row'} · saved {formatProposalTimestamp(row.latest_saved_at)}
+                  </span>
+                  <span>
+                    {formatProposalSourceKind(row.pm_summary.provenance.proposal_source.proposal_source_kind)} · {row.pm_summary.truth_labels.proposal_truth}
+                    <br />
+                    {row.pm_summary.review_basis.benchmark_symbol} · {row.pm_summary.review_basis.replay_window.start_date} {'->'} {row.pm_summary.review_basis.replay_window.end_date}
+                  </span>
+                  <span>
+                    <button className={row.latest_identity.artifact_id === openedFamilyInboxArtifactId ? 'primary-button' : 'secondary-button'} type="button" onClick={() => {
+                      if (onOpenSavedProposal) {
+                        void onOpenSavedProposal(row.latest_identity.artifact_id)
+                        return
+                      }
+                      const matchingProposal = sortedProposals.find((proposal) => proposal.reviewSnapshotArtifactId === row.latest_identity.artifact_id) ?? null
+                      if (matchingProposal) {
+                        setSelectedProposalId(matchingProposal.id)
+                      }
+                    }}>
+                      {row.latest_identity.artifact_id === openedFamilyInboxArtifactId ? 'Opened In PM Review' : 'Open PM Review'}
+                    </button>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+      {familyReviewState.status === 'ready' && familyReviewState.review ? (
+        <div className="summary-card" data-testid="saved-proposal-family-review">
+          {(() => {
+            const review = familyReviewState.review
+            return (
+              <>
+                <p className="panel-label">Proposal Family PM Review</p>
+                <p className="helper">Anchor artifact: {review.anchor.identity.artifact_id} · lineage family: {review.family_key.proposal_family_id}</p>
+                <div className="list-table">
+                  <div className="list-row list-row-wide">
+                    <span>Artifact</span>
+                    <span>Version</span>
+                    <span>Proposal source / truth</span>
+                    <span>Replay basis</span>
+                  </div>
+                  {review.siblings.map((sibling) => (
+                    <div className="list-row list-row-wide" key={sibling.identity.artifact_id}>
+                      <span>{sibling.identity.artifact_id}</span>
+                      <span>v{sibling.lineage.version_number}{sibling.identity.artifact_id === review.anchor.identity.artifact_id ? ' · anchor' : ''}</span>
+                      <span>{sibling.pm_summary.provenance.proposal_source.proposal_source_kind} · {sibling.pm_summary.truth_labels.proposal_truth}</span>
+                      <span>{sibling.pm_summary.review_basis.benchmark_symbol} · {sibling.pm_summary.review_basis.replay_window.start_date} {'->'} {sibling.pm_summary.review_basis.replay_window.end_date}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
+          })()}
+        </div>
+      ) : null}
       {comparisonReady ? (
         <SavedProposalComparisonView
           leftProposal={comparisonProposals[0]}
           rightProposal={comparisonProposals[1]}
+          comparisonState={comparisonState}
           onSwapSides={swapComparisonSides}
           onOpenProposal={openProposalFromComparison}
           onClearComparison={clearComparisonSelection}
@@ -1305,9 +1991,40 @@ function SavedProposalSection({
 }
 
 export function PortfolioImprovementWorkspaceShell(props: Props) {
+  const artifactReviewMode = isArtifactReviewMode(props)
+  const proposalScopedSavedProposals = artifactReviewMode ? [] : props.savedProposals
+  const proposalScopedActiveThesis = artifactReviewMode ? null : props.activeThesis
+  const savedProposalContractError = useMemo(() => {
+    if (artifactReviewMode) {
+      return null
+    }
+    try {
+      proposalScopedSavedProposals.forEach((proposal) => {
+        assertSavedProposalProposalCaptureIntegrity(proposal)
+      })
+      if (proposalScopedActiveThesis?.thesisProposal) {
+        assertSavedProposalProposalCaptureIntegrity(proposalScopedActiveThesis.thesisProposal)
+      }
+      return null
+    } catch (error) {
+      return formatSavedProposalContractErrorOutcome(error)
+    }
+  }, [artifactReviewMode, proposalScopedActiveThesis, proposalScopedSavedProposals])
+  const shellProps = savedProposalContractError
+    ? {
+        ...props,
+        savedProposals: [],
+        activeThesis: null,
+      }
+    : {
+        ...props,
+        savedProposals: proposalScopedSavedProposals,
+        activeThesis: proposalScopedActiveThesis,
+      }
+
   useEffect(() => {
-    if (!props.monitoringResearchHandoff || props.monitoringResearchHandoffDismissed) return
-    const targetId = MONITORING_RESEARCH_TARGET_IDS[props.monitoringResearchHandoff.researchTarget]
+    if (!shellProps.monitoringResearchHandoff || shellProps.monitoringResearchHandoffDismissed) return
+    const targetId = MONITORING_RESEARCH_TARGET_IDS[shellProps.monitoringResearchHandoff.researchTarget]
     const timer = globalThis.setTimeout(() => {
       const target = document.getElementById(targetId)
       if (target && 'scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
@@ -1315,47 +2032,48 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
       }
     }, 0)
     return () => globalThis.clearTimeout(timer)
-  }, [props.monitoringResearchHandoff, props.monitoringResearchHandoffDismissed])
+  }, [shellProps.monitoringResearchHandoff, shellProps.monitoringResearchHandoffDismissed])
 
   return (
     <section className="workspace-section">
       <h2>Portfolio Research Workspace</h2>
-      {props.monitoringResearchHandoff && !props.monitoringResearchHandoffDismissed ? (
+      {savedProposalContractError ? <p className="error" data-testid="saved-proposal-contract-error">{savedProposalContractError}</p> : null}
+      {shellProps.monitoringResearchHandoff && !shellProps.monitoringResearchHandoffDismissed ? (
         <section className="dashboard-bottom-grid" data-testid="monitoring-research-handoff-banner">
           <div className="summary-card">
             <p className="panel-label">Monitoring context</p>
             <p className="helper">
-              {props.monitoringResearchHandoff.monitorTitle} · {monitoringResearchTargetLabel(props.monitoringResearchHandoff.researchTarget)}
-              {props.monitoringResearchHandoff.replayContext ? ` for ${props.monitoringResearchHandoff.replayContext}` : ''}.
+              {shellProps.monitoringResearchHandoff.monitorTitle} · {monitoringResearchTargetLabel(shellProps.monitoringResearchHandoff.researchTarget)}
+              {shellProps.monitoringResearchHandoff.replayContext ? ` for ${shellProps.monitoringResearchHandoff.replayContext}` : ''}.
             </p>
-            <p className="helper">Context: {props.monitoringResearchHandoff.contextLabel}</p>
+            <p className="helper">Context: {shellProps.monitoringResearchHandoff.contextLabel}</p>
             <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
-              {props.onDismissMonitoringResearchHandoff ? <button className="secondary-button" onClick={props.onDismissMonitoringResearchHandoff} type="button">Dismiss</button> : null}
+              {shellProps.onDismissMonitoringResearchHandoff ? <button className="secondary-button" onClick={shellProps.onDismissMonitoringResearchHandoff} type="button">Dismiss</button> : null}
             </div>
           </div>
         </section>
       ) : null}
-      {isArtifactReviewMode(props) ? (
+      {isArtifactReviewMode(shellProps) ? (
         <section className="dashboard-bottom-grid" data-testid="persisted-construction-artifact-banner">
           <div className="summary-card">
             <p className="panel-label">Artifact Review Mode</p>
-            <p className="helper">{isPersistedOptimizerHandoffMode(props) ? 'This workspace reopens a hypothetical artifact-backed optimizer review by persisted handoff reference while keeping replay review surfaces intact.' : 'This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.'}</p>
-            <p className="helper">Review basis: {isPersistedOptimizerHandoffMode(props) ? optimizerHandoffReviewBasisId(props) : props.persistedConstructionArtifactReview?.constructionArtifactId ?? ((props.workspaceSource && 'constructionArtifactId' in props.workspaceSource) ? props.workspaceSource.constructionArtifactId : 'n/a')}</p>
+            <p className="helper">{isPersistedOptimizerHandoffMode(shellProps) ? 'This workspace reopens a hypothetical artifact-backed optimizer review by persisted handoff reference while keeping replay review surfaces intact.' : 'This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.'}</p>
+            <p className="helper">Review basis: {isPersistedOptimizerHandoffMode(shellProps) ? optimizerHandoffReviewBasisId(shellProps) : shellProps.persistedConstructionArtifactReview?.constructionArtifactId ?? ((shellProps.workspaceSource && 'constructionArtifactId' in shellProps.workspaceSource) ? shellProps.workspaceSource.constructionArtifactId : 'n/a')}</p>
           </div>
         </section>
       ) : null}
-      <OverviewSection {...props} />
+      <OverviewSection {...shellProps} />
       <div id={WORKFLOW_SECTION_IDS.currentPortfolio} data-testid="workspace-section-current-portfolio">
-        <CurrentPortfolioSection analysis={props.analysis} draftSnapshot={props.draftSnapshot} persistedConstructionArtifactReview={props.persistedConstructionArtifactReview} persistedOptimizerHandoffReview={props.persistedOptimizerHandoffReview} />
+        <CurrentPortfolioSection analysis={shellProps.analysis} draftSnapshot={shellProps.draftSnapshot} persistedConstructionArtifactReview={shellProps.persistedConstructionArtifactReview} persistedOptimizerHandoffReview={shellProps.persistedOptimizerHandoffReview} />
       </div>
-      {isArtifactReviewMode(props) ? null : (
+      {isArtifactReviewMode(shellProps) ? null : (
         <div id={WORKFLOW_SECTION_IDS.candidateIdea}>
-          <CandidateWorkspaceSection {...props} />
+          <CandidateWorkspaceSection {...shellProps} />
         </div>
       )}
       <div id={WORKFLOW_SECTION_IDS.constructionConstraints} />
-      <CompareWorkspaceSection {...props} />
-      <ProposalWorkspaceSection {...props} />
+      <CompareWorkspaceSection {...shellProps} />
+      <ProposalWorkspaceSection {...shellProps} />
     </section>
   )
 }

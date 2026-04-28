@@ -28,6 +28,7 @@ This document is the canonical source for what is actually shipped today, what i
 - replacement-intent constraint validation exists at `POST /backtests/candidate-construction/replacement-intent/constraints`
 - replay provenance is explicit for direct preview vs constructed-candidate replay, actual construction rule used, upstream draft/workspace lineage, ranking seed lineage, and echoed validation lineage
 - hypothetical replacement replay and saved proposal review now carry explicit proposal-source labels for review-only proposal truth and draft-portfolio non-application semantics
+- immutable persisted review-snapshot artifacts now back saved proposal reopen, a PM-first saved-proposal family inbox, desktop Workspace proposal-family PM review, the desktop Workspace active-thesis cross-family PM review queue, and read-only same-family sibling comparison; backend ships an additive canonical review-only `pm_summary` envelope on the artifact root, both inbox/queue discovery surfaces stay backend-rooted and metadata-only, the active-thesis cross-family queue consumes persisted review-snapshot artifacts plus the active-thesis typed open reference only, desktop treats persisted `pm_summary` as authoritative once the artifact exists, local cached summary state may only mirror it, and the workflow fails closed on missing, malformed, contradictory, mismatched, same-family leakage, cross-family contamination, ambiguous-latest, duplicate-row, or otherwise incompatible persisted snapshot state
 - replay rejects provable lineage mismatches across persisted or supplied artifacts; validation lineage is descriptive, not execution approval
 - immutable saved proposal artifacts and active thesis restore fail closed on provable internal lineage contradictions
 
@@ -123,7 +124,7 @@ This document is the canonical source for what is actually shipped today, what i
 - saved nodes are immutable portfolio-truth snapshots; review artifacts are separate from those snapshots
 - seeded candidate metadata, replacement intent, formed candidates, constructed candidates, selected construction rules, hypothetical replays, persisted construction references, optimizer handoffs, and saved proposals all preserve explicit lineage boundaries
 - desktop persisted optimizer handoff review state now writes canonical `handoffReference` reopen state only; any legacy cache repair is limited to load-time normalization
-- desktop persisted construction and optimizer review state now persists canonical backend `reviewBasisSource` blocks for restore, and saved proposals persist canonical `proposalSource` labels when present
+- desktop persisted construction and optimizer review state now persists canonical backend `reviewBasisSource` blocks for restore, and saved proposals persist canonical top-level `proposalSource` labels for restore/readout with load-only dual-omission legacy hydration
 - recreating a draft from a node clears dependent draft-scoped review artifacts so stale review state does not silently cross lineage changes
 
 ## What is future, not current

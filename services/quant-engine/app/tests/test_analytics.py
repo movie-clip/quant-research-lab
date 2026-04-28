@@ -48,11 +48,14 @@ from app.services.exposure_engine import build_exposure_result
 from app.services.import_engine import build_import_bootstrap_from_snapshot
 from app.services.market_data import build_histories_return_basis_evidence, build_history_return_basis_evidence
 from app.services.statement_importer import import_statements
+from app.tests._statement_fixtures import (
+    ESPP_PATH as ESPP_FIXTURE_PATH,
+    FREEDOM24_PATH as FREEDOM24_FIXTURE_PATH,
+    STATEMENT_2026_PATH as STATEMENT_2026_FIXTURE_PATH,
+)
 
 
-STATEMENT_2026_PATH = Path(r"C:\projects\investments\portfolio\docs\2026.pdf")
-if not STATEMENT_2026_PATH.exists():
-    STATEMENT_2026_PATH = Path(r"C:\projects\investments\portfolio\docs\IB2026.pdf")
+STATEMENT_2026_PATH = STATEMENT_2026_FIXTURE_PATH
 
 
 FF2026_DASHBOARD_GOLDEN = {
@@ -384,16 +387,16 @@ def test_build_exposure_result_marks_partial_lookthrough_and_unavailable_benchma
 
 
 def test_build_portfolio_overview_classifies_2026_ucits_and_thematic_holdings() -> None:
-    if not STATEMENT_2026_PATH.exists():
-        return
     snapshot = import_statement(STATEMENT_2026_PATH)
 
     overview = build_portfolio_overview(snapshot)
 
-    assert any(item["symbol"] == "FICO" for item in overview.sector_position_breakdown["Financials"])
+    assert "FICO" not in {position.symbol for position in snapshot.positions}
     assert any(item["symbol"] == "IUFS" for item in overview.sector_position_breakdown["Financials"])
     assert any(item["symbol"] == "IUHC" for item in overview.sector_position_breakdown["Health Care"])
     assert any(item["symbol"] == "DFND" for item in overview.sector_position_breakdown["Defense"])
+    assert any(item["symbol"] == "IUIT" for item in overview.sector_position_breakdown["Technology"])
+    assert any(item["symbol"] == "SEMI" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "SXRV" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "VUAA" for item in overview.sector_position_breakdown["Broad Market"])
     assert any(item["symbol"] == "VDST" for item in overview.sector_position_breakdown["Fixed Income"])
@@ -450,7 +453,7 @@ def test_attach_snapshot_metadata_classifies_sxrv_as_technology() -> None:
     metadata = registry.attach_snapshot_metadata(snapshot)
 
     assert metadata["SXRV"].sector == "Technology"
-    assert metadata["SXRV"].category == "Thematic ETF"
+    assert metadata["SXRV"].category == "Thematic UCITS ETF"
 
 
 def test_canonicalize_symbol_normalizes_lse_aliases() -> None:
@@ -865,13 +868,9 @@ def test_run_diagnostics_engine_uses_history_context_for_snapshot_requests(mocke
 
 
 def test_variant_snapshot_diagnostics_history_stays_in_plausible_bounds() -> None:
-    docs_dir = Path(r"C:\projects\investments\portfolio\docs")
-    ib_2026_path = docs_dir / "IB2026.pdf"
-    ff_2026_path = docs_dir / "FF2026.pdf"
-    espp_2026_path = docs_dir / "ESPP2026.pdf"
-
-    if not (ib_2026_path.exists() and ff_2026_path.exists() and espp_2026_path.exists()):
-        return
+    ib_2026_path = STATEMENT_2026_PATH
+    ff_2026_path = FREEDOM24_FIXTURE_PATH
+    espp_2026_path = ESPP_FIXTURE_PATH
 
     snapshot = import_statements([str(espp_2026_path), str(ff_2026_path), str(ib_2026_path)])
     modified_positions = []
@@ -6400,8 +6399,6 @@ def test_portfolio_state_engine_reconciles_terminal_state_to_statement_totals() 
 
 
 def test_run_imported_dashboard_history_matches_ib2026_statement_ending_value() -> None:
-    if not STATEMENT_2026_PATH.exists():
-        return
 
     snapshot = import_statement(STATEMENT_2026_PATH)
     result = run_imported_dashboard_history(snapshot, "SPY")
@@ -6414,8 +6411,6 @@ def test_run_imported_dashboard_history_matches_ib2026_statement_ending_value() 
 
 
 def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement() -> None:
-    if not STATEMENT_2026_PATH.exists():
-        return
 
     snapshot = import_statement(STATEMENT_2026_PATH)
     history = run_imported_dashboard_history(snapshot, "SPY")
@@ -6450,9 +6445,7 @@ def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement() ->
 
 
 def test_ff2026_dashboard_truth_values_match_imported_history_and_overview() -> None:
-    ff_2026_path = Path(r"C:\projects\investments\portfolio\docs\FF2026.pdf")
-    if not ff_2026_path.exists():
-        return
+    ff_2026_path = FREEDOM24_FIXTURE_PATH
 
     snapshot = import_statements([str(ff_2026_path)])
     history = run_imported_dashboard_history(snapshot, "SPY")

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, ConstructionArtifactPreviewOpenRequest, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, CreateMonitorDefinitionRequest, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, MonitorDefinitionArtifact, MonitorDefinitionArtifactListResponse, MonitorDefinitionCatalogResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionDiscoveryLifecycleStatus, MonitorDefinitionDiscoveryReviewSupportStatus, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionEvaluationHistoryResponse, MonitorDefinitionLatestEvaluationSnapshotRecency, MonitorDefinitionLatestEvaluationSnapshotStatus, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionOverlayFamily, MonitorDefinitionRecentResponse, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, ConstructionArtifactPreviewOpenRequest, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, CreateMonitorDefinitionRequest, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, MonitorDefinitionArtifact, MonitorDefinitionArtifactListResponse, MonitorDefinitionCatalogResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionDiscoveryLifecycleStatus, MonitorDefinitionDiscoveryReviewSupportStatus, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionEvaluationHistoryResponse, MonitorDefinitionLatestEvaluationSnapshotRecency, MonitorDefinitionLatestEvaluationSnapshotStatus, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionOverlayFamily, MonitorDefinitionRecentResponse, OptimizerHandoffPreviewOpenRequest, OptimizerHandoffReplayEffectiveParams, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonRequest, ReviewSnapshotComparisonResponse, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenRequestEnvelope, ReviewSnapshotOpenResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
 from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, StrategyDefinition
 from app.services.backtest_engine_service import BacktestAnalysisResult, build_backtest_analysis
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
@@ -18,9 +18,10 @@ from app.services.construction_artifact_service import (
     ConstructionArtifactPersistenceError,
     ConstructionArtifactSchemaValidationError,
 )
+from app.services.review_snapshot_artifact_service import ReviewSnapshotArtifactIntegrityValidationError, ReviewSnapshotArtifactInvalidJsonError, ReviewSnapshotArtifactMissingFileError, ReviewSnapshotArtifactNonObjectPayloadError, ReviewSnapshotArtifactPersistenceError, ReviewSnapshotArtifactSchemaValidationError
 from app.services.optimizer_handoff_constraints import OptimizerHandoffValidationBlockedError, validate_optimizer_handoff_constraints
 from app.services.monitor_definition_artifact_service import MonitorDefinitionDiscoveryMetadataValidationError, MonitorDefinitionIntegrityValidationError, MonitorDefinitionInvalidJsonError, MonitorDefinitionMissingFileError, MonitorDefinitionNonObjectPayloadError, MonitorDefinitionPersistenceError, MonitorDefinitionSchemaValidationError, create_monitor_definition_artifact, inspect_monitor_definition_evaluation_history_entry, list_monitor_definition_artifacts, list_monitor_definition_catalog, list_monitor_definition_evaluation_history, list_recent_monitor_definition_artifacts, load_monitor_definition_artifact
-from app.services.portfolio_backtest_engine import build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_overlay_aware_hypothetical_replay_preview, build_portfolio_allocation_backtest_analysis, evaluate_monitor_definition_observation, validate_construction_artifact_replay_params
+from app.services.portfolio_backtest_engine import build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_overlay_aware_hypothetical_replay_preview, build_portfolio_allocation_backtest_analysis, build_review_snapshot_active_thesis_cross_family_queue, build_review_snapshot_family_inbox, build_review_snapshot_family_review, compare_review_snapshots, create_review_snapshot_artifact, evaluate_monitor_definition_observation, open_review_snapshot_artifact, validate_construction_artifact_replay_params
 
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
@@ -36,6 +37,13 @@ MONITOR_DEFINITION_READ_ERRORS = (
     MonitorDefinitionPersistenceError,
 )
 MONITOR_DEFINITION_LOAD_ERRORS = MONITOR_DEFINITION_READ_ERRORS[1:]
+REVIEW_SNAPSHOT_LOAD_ERRORS = (
+    ReviewSnapshotArtifactInvalidJsonError,
+    ReviewSnapshotArtifactNonObjectPayloadError,
+    ReviewSnapshotArtifactSchemaValidationError,
+    ReviewSnapshotArtifactIntegrityValidationError,
+    ReviewSnapshotArtifactPersistenceError,
+)
 
 
 @router.post("/run", response_model=BacktestAnalysisResult)
@@ -101,16 +109,24 @@ def run_hypothetical_replacement_preview(request: HypotheticalReplacementReplayR
 
 
 @router.post("/portfolio-allocation/optimizer-handoff-preview", response_model=OptimizerHandoffReplayResponse)
-def run_optimizer_handoff_replay_preview(request: OptimizerHandoffReplayRequest) -> OptimizerHandoffReplayResponse:
-    if request.end_date < request.start_date:
+def run_optimizer_handoff_replay_preview(request: OptimizerHandoffPreviewOpenRequest) -> OptimizerHandoffReplayResponse:
+    replay_request = request.root
+    effective_params: OptimizerHandoffReplayEffectiveParams | OptimizerHandoffReplayRequest
+    if isinstance(replay_request, OptimizerHandoffReplayHandoff):
+        effective_params = replay_request.effective_replay_params
+    else:
+        effective_params = cast(OptimizerHandoffReplayRequest, replay_request)
+    if effective_params.end_date < effective_params.start_date:
         raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
-    if request.initial_capital <= 0:
+    effective_initial_capital = effective_params.initial_capital
+    effective_execution_lag_days = effective_params.execution_lag_days
+    if effective_initial_capital <= 0:
         raise HTTPException(status_code=400, detail="initial_capital must be positive")
-    if request.execution_lag_days < 1:
+    if effective_execution_lag_days < 1:
         raise HTTPException(status_code=400, detail="execution_lag_days must be at least 1")
 
     try:
-        return build_optimizer_handoff_replay_preview(request)
+        return build_optimizer_handoff_replay_preview(replay_request)
     except OptimizerHandoffValidationBlockedError as exc:
         raise HTTPException(status_code=400, detail=exc.response.model_dump(mode="json")) from exc
     except ValueError as exc:
@@ -174,6 +190,72 @@ def run_overlay_aware_hypothetical_replacement_preview(request: OverlayAwareHypo
 
     try:
         return build_overlay_aware_hypothetical_replay_preview(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+@router.post("/review-snapshots", response_model=ReviewSnapshotArtifact)
+def create_portfolio_review_snapshot(request: ReviewSnapshotCreateRequest) -> ReviewSnapshotArtifact:
+    try:
+        return create_review_snapshot_artifact(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/review-snapshots/open", response_model=ReviewSnapshotOpenResponse)
+def open_portfolio_review_snapshot(request: ReviewSnapshotOpenRequestEnvelope) -> ReviewSnapshotOpenResponse:
+    try:
+        return open_review_snapshot_artifact(request.root)
+    except ReviewSnapshotArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except REVIEW_SNAPSHOT_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/review-snapshots/family-inbox", response_model=ReviewSnapshotFamilyInboxResponse)
+def inbox_portfolio_review_snapshot_families(request: ReviewSnapshotFamilyInboxRequest) -> ReviewSnapshotFamilyInboxResponse:
+    try:
+        return build_review_snapshot_family_inbox(request)
+    except ReviewSnapshotArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except REVIEW_SNAPSHOT_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/review-snapshots/family-review", response_model=ReviewSnapshotFamilyReviewResponse)
+def review_portfolio_review_snapshot_family(request: ReviewSnapshotFamilyReviewRequest) -> ReviewSnapshotFamilyReviewResponse:
+    try:
+        return build_review_snapshot_family_review(request)
+    except ReviewSnapshotArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except REVIEW_SNAPSHOT_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/review-snapshots/active-thesis-cross-family-queue", response_model=ReviewSnapshotActiveThesisCrossFamilyQueueResponse)
+def active_thesis_cross_family_review_queue(request: ReviewSnapshotActiveThesisCrossFamilyQueueRequest) -> ReviewSnapshotActiveThesisCrossFamilyQueueResponse:
+    try:
+        return build_review_snapshot_active_thesis_cross_family_queue(request)
+    except ReviewSnapshotArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except REVIEW_SNAPSHOT_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/review-snapshots/compare", response_model=ReviewSnapshotComparisonResponse)
+def compare_portfolio_review_snapshots(request: ReviewSnapshotComparisonRequest) -> ReviewSnapshotComparisonResponse:
+    try:
+        return compare_review_snapshots(request)
+    except ReviewSnapshotArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except REVIEW_SNAPSHOT_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

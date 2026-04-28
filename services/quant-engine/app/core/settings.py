@@ -11,6 +11,7 @@ DEFAULT_FMP_ALPHA_PIT_SNAPSHOT_DIR = str(Path(__file__).resolve().parents[4] / "
 DEFAULT_OPTIMIZER_HANDOFF_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "optimizer-handoffs")
 DEFAULT_CONSTRUCTION_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "construction-artifacts")
 DEFAULT_MONITOR_DEFINITION_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "monitor-definitions")
+DEFAULT_REVIEW_SNAPSHOT_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "review-snapshots")
 DEFAULT_ETF_RANKING_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "etf-ranking-artifacts")
 DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "etf-replacement-ranking-artifacts")
 DEFAULT_CROSS_SECTIONAL_RESEARCH_ARTIFACT_DIR = str(
@@ -30,6 +31,7 @@ class Settings(BaseSettings):
     optimizer_handoff_dir: str = Field(default=DEFAULT_OPTIMIZER_HANDOFF_DIR)
     construction_artifact_dir: str = Field(default=DEFAULT_CONSTRUCTION_ARTIFACT_DIR)
     monitor_definition_artifact_dir: str = Field(default=DEFAULT_MONITOR_DEFINITION_ARTIFACT_DIR)
+    review_snapshot_artifact_dir: str = Field(default=DEFAULT_REVIEW_SNAPSHOT_ARTIFACT_DIR)
     etf_ranking_artifact_dir: str = Field(default=DEFAULT_ETF_RANKING_ARTIFACT_DIR)
     replacement_ranking_artifact_dir: str = Field(default=DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR)
     cross_sectional_research_artifact_dir: str = Field(default=DEFAULT_CROSS_SECTIONAL_RESEARCH_ARTIFACT_DIR)

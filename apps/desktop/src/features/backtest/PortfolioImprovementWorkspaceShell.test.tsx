@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
+import * as portfolioWorkspaceStorage from '../../app/portfolioWorkspaceStorage'
 
 const noOp = () => {}
 
@@ -30,6 +31,161 @@ function clickCompareForIn(root: HTMLElement, proposalId: string) {
   fireEvent.click(matches[matches.length - 1])
 }
 
+function makeFamilyReviewResponse(anchorProposal: ReturnType<typeof makeSavedProposal>, siblings: ReturnType<typeof makeSavedProposal>[]) {
+  return {
+    review_kind: 'review_snapshot_family_review',
+    family_key: {
+      workspace_id: anchorProposal.workspaceId,
+      source_draft_id: anchorProposal.sourceDraftId,
+      source_base_node_id: anchorProposal.sourceBaseNodeId,
+      proposal_family_id: anchorProposal.proposalFamilyId,
+      source_kind: 'hypothetical_replacement_replay',
+    },
+    provenance: 'persisted_review_snapshot_artifacts_only',
+    compare_selection_policy: 'exactly_two_distinct_family_siblings',
+    anchor: {
+      identity: {
+        artifact_id: anchorProposal.reviewSnapshotArtifactId,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        fingerprint: `fingerprint-${anchorProposal.versionNumber}`,
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      open_handoff: anchorProposal.proposalCapture.open_handoff,
+      lineage: anchorProposal.proposalCapture.lineage,
+      pm_summary: anchorProposal.reviewSnapshotPMSummary,
+      comparison_eligibility: { eligible: siblings.length > 1, reason: siblings.length > 1 ? 'compatible_family_sibling_available' : 'no_compatible_family_sibling', compatible_sibling_artifact_ids: siblings.filter((item) => item.reviewSnapshotArtifactId !== anchorProposal.reviewSnapshotArtifactId).map((item) => item.reviewSnapshotArtifactId) },
+    },
+    siblings: siblings.map((proposal) => ({
+      identity: {
+        artifact_id: proposal.reviewSnapshotArtifactId,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        fingerprint: `fingerprint-${proposal.versionNumber}`,
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      open_handoff: proposal.proposalCapture.open_handoff,
+      lineage: proposal.proposalCapture.lineage,
+      pm_summary: proposal.reviewSnapshotPMSummary,
+      comparison_eligibility: { eligible: siblings.length > 1, reason: siblings.length > 1 ? 'compatible_family_sibling_available' : 'no_compatible_family_sibling', compatible_sibling_artifact_ids: siblings.filter((item) => item.reviewSnapshotArtifactId !== proposal.reviewSnapshotArtifactId).map((item) => item.reviewSnapshotArtifactId) },
+    })),
+  }
+}
+
+function makeFamilyInboxResponse(proposals: ReturnType<typeof makeSavedProposal>[]) {
+  const grouped = new Map<string, ReturnType<typeof makeSavedProposal>[]>()
+  proposals.forEach((proposal) => {
+    grouped.set(proposal.proposalFamilyId, [...(grouped.get(proposal.proposalFamilyId) ?? []), proposal])
+  })
+  return {
+    inbox_kind: 'review_snapshot_family_inbox',
+    workspace_id: proposals[0]?.workspaceId ?? 'workspace-1',
+    provenance: 'persisted_review_snapshot_artifacts_only',
+    rows: [...grouped.values()]
+      .map((familyProposals) => [...familyProposals].sort((left, right) => right.versionNumber - left.versionNumber || new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()))
+      .sort((left, right) => new Date(right[0]!.createdAt).getTime() - new Date(left[0]!.createdAt).getTime())
+      .map((familyProposals) => {
+        const latest = familyProposals[0]!
+        return {
+          family_key: {
+            workspace_id: latest.workspaceId,
+            source_draft_id: latest.sourceDraftId,
+            source_base_node_id: latest.sourceBaseNodeId,
+            proposal_family_id: latest.proposalFamilyId,
+            source_kind: 'hypothetical_replacement_replay',
+          },
+          latest_identity: {
+            artifact_id: latest.reviewSnapshotArtifactId,
+            artifact_kind: 'portfolio_review_snapshot',
+            schema_version: 'review_snapshot_artifact_v1',
+            fingerprint: `fingerprint-${latest.versionNumber}`,
+            consumer_kind: 'saved_hypothetical_replay_proposal',
+          },
+          lineage: latest.proposalCapture.lineage,
+          proposal_capture: latest.proposalCapture,
+          pm_summary: latest.reviewSnapshotPMSummary,
+          sibling_count: familyProposals.length,
+          compare_readiness: {
+            ready: familyProposals.length > 1,
+            reason: familyProposals.length > 1 ? 'compatible_family_pair_available' : 'no_compatible_family_pair',
+            compatible_pair_count: familyProposals.length > 1 ? 1 : 0,
+          },
+          latest_saved_at: latest.createdAt,
+          latest_order_provenance: 'persisted_artifact_file_mtime',
+        }
+      }),
+  }
+}
+
+function makeActiveThesisCrossFamilyQueueResponse(activeProposal: ReturnType<typeof makeSavedProposal>, proposals: ReturnType<typeof makeSavedProposal>[]) {
+  return {
+    queue_kind: 'review_snapshot_active_thesis_cross_family_queue',
+    provenance: 'persisted_review_snapshot_artifacts_and_active_thesis_reference_only',
+    queue_ordering: 'latest_saved_at_desc_then_artifact_id_desc',
+    active_thesis: {
+      source_proposal_id: activeProposal.id,
+      handoff: activeProposal.proposalCapture.open_handoff,
+      identity: {
+        artifact_id: activeProposal.reviewSnapshotArtifactId,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        fingerprint: `fingerprint-${activeProposal.versionNumber}`,
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      lineage: activeProposal.proposalCapture.lineage,
+      family_key: {
+        workspace_id: activeProposal.workspaceId,
+        source_draft_id: activeProposal.sourceDraftId,
+        source_base_node_id: activeProposal.sourceBaseNodeId,
+        proposal_family_id: activeProposal.proposalFamilyId,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+    },
+    rows: proposals
+      .filter((proposal) => proposal.proposalFamilyId !== activeProposal.proposalFamilyId)
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime() || right.reviewSnapshotArtifactId.localeCompare(left.reviewSnapshotArtifactId))
+      .map((proposal) => ({
+        latest_identity: {
+          artifact_id: proposal.reviewSnapshotArtifactId,
+          artifact_kind: 'portfolio_review_snapshot',
+          schema_version: 'review_snapshot_artifact_v1',
+          fingerprint: `fingerprint-${proposal.versionNumber}`,
+          consumer_kind: 'saved_hypothetical_replay_proposal',
+        },
+        lineage: proposal.proposalCapture.lineage,
+        family_key: {
+          workspace_id: proposal.workspaceId,
+          source_draft_id: proposal.sourceDraftId,
+          source_base_node_id: proposal.sourceBaseNodeId,
+          proposal_family_id: proposal.proposalFamilyId,
+          source_kind: 'hypothetical_replacement_replay',
+        },
+        family_separation: {
+          separation_kind: 'distinct_proposal_family_id',
+          active_thesis_proposal_family_id: activeProposal.proposalFamilyId,
+          queue_proposal_family_id: proposal.proposalFamilyId,
+        },
+        proposal_source: proposal.reviewSnapshot.proposal.proposal_source,
+        truth_labels: proposal.reviewSnapshotPMSummary.truth_labels,
+        trust_visibility: {
+          investor_economics_status: proposal.reviewSnapshotPMSummary.investor_economics_status,
+          benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        },
+        pm_summary_fields: {
+          replay_type: proposal.reviewSnapshotPMSummary.replay_type,
+          replay_status: proposal.reviewSnapshotPMSummary.replay_status,
+          review_basis: proposal.reviewSnapshotPMSummary.review_basis,
+          methodology: proposal.reviewSnapshotPMSummary.methodology,
+          assumptions: proposal.reviewSnapshotPMSummary.assumptions,
+          analytics_summary: proposal.reviewSnapshotPMSummary.analytics_summary,
+          diagnostics_summary: proposal.reviewSnapshotPMSummary.diagnostics_summary,
+        },
+        latest_saved_at: proposal.createdAt,
+        queue_order_provenance: 'persisted_artifact_file_mtime_desc_then_artifact_id_desc',
+      })),
+  }
+}
+
 function latestByTestIdIn(root: HTMLElement, testId: string) {
   const matches = within(root).getAllByTestId(testId)
   return matches[matches.length - 1]
@@ -53,6 +209,14 @@ const draftSnapshot = {
 function makeReplay() {
   return {
     methodology: 'm',
+    methodology_provenance: {
+      provenance_version: 1,
+      source: 'portfolio_allocation_backtest_engine',
+      methodology_truth: 'review_only_replay_methodology',
+      assumptions_truth: 'review_only_replay_assumptions',
+      analytics_truth: 'hypothetical_replay_analytics_only',
+      review_scope: 'workspace_review_context_only',
+    },
     investor_economics_status: { status: 'available', reason: null },
     reference_result: null,
     candidate_result: {
@@ -114,7 +278,15 @@ function makeReplay() {
 }
 
 function makeSavedProposal(versionNumber: number, createdAt: string, candidateSymbol: string) {
-  return {
+  const replayProvenance = {
+    candidate_input_source: 'replacement_intent_preview',
+    construction_rule_id: 'same_weight_substitution_v1',
+    upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
+    seed_ranking_id: 'etf_ranking_engine_v1',
+    seed_methodology_id: 'etf_ranking_methodology_v1',
+    constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
+  }
+  const proposal = {
     id: `proposal-${versionNumber}`,
     kind: 'single_replacement_hypothetical_replay_proposal',
     schemaVersion: 1,
@@ -146,6 +318,142 @@ function makeSavedProposal(versionNumber: number, createdAt: string, candidateSy
       holdingsSupport: 'mixed',
       warningCount: 1,
     },
+    proposalCapture: {
+      capture_version: 1,
+      capture_kind: 'workspace_review_saved_proposal',
+      open_handoff: {
+        handoff_kind: 'review_snapshot_open_handoff_v1',
+        artifact_id: `review_snapshot_${versionNumber}`,
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+      },
+      lineage: {
+        workspace_id: 'workspace-1',
+        source_draft_id: 'draft-1',
+        source_base_node_id: 'node-1',
+        proposal_family_id: `etf_replacement_intent:AAPL:${candidateSymbol}:${createdAt}`,
+        proposal_id: `proposal-${versionNumber}`,
+        version_number: versionNumber,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+      proposal: {
+        source: 'draft_replacement_intent',
+        proposal_source: {
+          proposal_source_version: 1,
+          proposal_source_kind: 'draft_replacement_intent_review_only',
+          proposal_truth: 'review_only_hypothetical_proposal',
+          portfolio_truth: 'draft_snapshot_not_applied',
+          review_scope: 'proposal_review_context_only',
+        },
+        incumbent_symbol: 'AAPL',
+        candidate_symbol: candidateSymbol,
+      },
+      replay_type: 'standard',
+      replay_provenance: replayProvenance,
+      review_basis: {
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        benchmark_symbol: 'SPY',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        rebalance_frequency: 'monthly',
+        commission_bps: 0,
+        slippage_bps: 0,
+        derivation_basis: 'draft_snapshot_positions_normalized',
+        candidate_construction_rule: 'same_weight_substitution_v1',
+      },
+    },
+    proposalSource: {
+      proposalSourceVersion: 1,
+      proposalSourceKind: 'draft_replacement_intent_review_only',
+      proposalTruth: 'review_only_hypothetical_proposal',
+      portfolioTruth: 'draft_snapshot_not_applied',
+      reviewScope: 'proposal_review_context_only',
+    },
+    reviewSnapshotArtifactId: `review_snapshot_${versionNumber}`,
+    reviewSnapshotPMSummary: {
+      pm_summary_version: 1,
+      role: 'saved_proposal',
+      provenance: {
+        source: 'persisted_review_snapshot_artifact',
+        artifact_kind: 'portfolio_review_snapshot',
+        schema_version: 'review_snapshot_artifact_v1',
+        consumer_kind: 'saved_hypothetical_replay_proposal',
+        lineage: {
+          workspace_id: 'workspace-1',
+          source_draft_id: 'draft-1',
+          source_base_node_id: 'node-1',
+          proposal_family_id: `etf_replacement_intent:AAPL:${candidateSymbol}:${createdAt}`,
+          proposal_id: `proposal-${versionNumber}`,
+          version_number: versionNumber,
+          source_kind: 'hypothetical_replacement_replay',
+        },
+        proposal_source: {
+          proposal_source_version: 1,
+          proposal_source_kind: 'draft_replacement_intent_review_only',
+          proposal_truth: 'review_only_hypothetical_proposal',
+          portfolio_truth: 'draft_snapshot_not_applied',
+          review_scope: 'proposal_review_context_only',
+        },
+        replay_provenance: replayProvenance,
+      },
+      truth_labels: {
+        proposal_truth: 'review_only_hypothetical_proposal',
+        portfolio_truth: 'draft_snapshot_not_applied',
+        analytics_truth: 'hypothetical_replay_analytics_only',
+        review_scope: 'proposal_review_context_only',
+      },
+      replay_type: 'standard',
+      replay_status: 'ok',
+      investor_economics_status: { status: 'available', reason: null },
+      review_basis: {
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        benchmark_symbol: 'SPY',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        rebalance_frequency: 'monthly',
+        commission_bps: 0,
+        slippage_bps: 0,
+        derivation_basis: 'draft_snapshot_positions_normalized',
+        candidate_construction_rule: 'same_weight_substitution_v1',
+      },
+      methodology: {
+        methodology: 'm',
+        methodology_provenance: makeReplay().methodology_provenance,
+      },
+      assumptions: makeReplay().candidate_result.assumptions,
+      analytics_summary: {
+        candidate_analytics: {
+          methodology: 'm',
+          methodology_provenance: makeReplay().methodology_provenance,
+          assumptions: makeReplay().candidate_result.assumptions,
+          benchmark_symbol: 'SPY',
+          benchmark_return_pct: 1,
+          total_return_pct: 1,
+          annualized_return_pct: 1,
+          annualized_volatility_pct: 1,
+          downside_volatility_pct: 1,
+          max_drawdown_pct: -1,
+          sharpe_ratio: 1,
+          sortino_ratio: 1,
+          excess_return_pct: 0,
+          tracking_error_pct: 1,
+          information_ratio: 0,
+          beta_vs_benchmark: 1,
+          correlation_vs_benchmark: 1,
+          total_turnover_pct: 0,
+          total_cost_paid: 0,
+        },
+        baseline_analytics: null,
+        analytics_comparison: null,
+      },
+      diagnostics_summary: {
+        diagnostics_available: false,
+        top_factor_exposure_change: null,
+        top_volatility_change: null,
+        top_risk_contribution_change: null,
+        top_concentration_change: null,
+        top_stress_scenario_change: null,
+      },
+    },
     replayBasis: {
       benchmarkSymbol: 'SPY',
       startDate: '2024-01-01',
@@ -155,23 +463,33 @@ function makeSavedProposal(versionNumber: number, createdAt: string, candidateSy
       slippageBps: 0,
       derivationBasis: 'draft_snapshot_positions_normalized',
       candidateConstructionRule: 'same_weight_substitution_v1',
+      replayProvenance,
     },
     reviewSnapshot: {
-      proposal: { source: 'draft_replacement_intent', incumbent_symbol: 'AAPL', candidate_symbol: candidateSymbol, draft_id: 'draft-1', base_node_id: 'node-1' },
-      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
-      replay_provenance: {
-        candidate_input_source: 'replacement_intent_preview',
-        construction_rule_id: 'same_weight_substitution_v1',
-        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
-        seed_ranking_id: 'etf_ranking_engine_v1',
-        seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
+      proposal: {
+        source: 'draft_replacement_intent',
+        proposal_source: {
+          proposal_source_version: 1,
+          proposal_source_kind: 'draft_replacement_intent_review_only',
+          proposal_truth: 'review_only_hypothetical_proposal',
+          portfolio_truth: 'draft_snapshot_not_applied',
+          review_scope: 'proposal_review_context_only',
+        },
+        incumbent_symbol: 'AAPL',
+        candidate_symbol: candidateSymbol,
+        draft_id: 'draft-1',
+        base_node_id: 'node-1',
       },
+      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
+      replay_provenance: replayProvenance,
       baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }, { symbol: 'MSFT', target_weight: 0.4 }],
       candidate_weights: [{ symbol: 'MSFT', target_weight: 0.4 }, { symbol: candidateSymbol, target_weight: 0.6 }],
       replay: makeReplay(),
       warnings: [],
     },
   } as any
+
+  return proposal
 }
 
 function makeFormedCandidate(status: 'ok' | 'rejected' = 'ok') {
@@ -262,6 +580,40 @@ function makePersistedConstructionArtifactReview() {
     workspaceId: 'workspace-artifact',
     constructionArtifactId: 'artifact-123',
     openedAt: '2026-04-23T00:00:00Z',
+    reviewBasisSource: {
+      basis_version: 1,
+      basis_kind: 'persisted_construction_artifact_review',
+      review_scope: 'workspace_review_only',
+      canonical_source: 'typed_preview_handoff',
+      basis_provenance_label: 'artifact_backed_review_basis',
+      portfolio_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_construction_artifact',
+      construction_artifact_id: 'artifact-123',
+      preview_handoff: {
+        handoff_kind: 'construction_artifact_preview_handoff_v1',
+        construction_artifact_id: 'artifact-123',
+        effective_replay_params: {
+          benchmark_symbol: 'SPY',
+          start_date: '2024-01-01',
+          end_date: '2024-12-31',
+          initial_capital: 100000,
+          rebalance_frequency: 'monthly',
+          base_currency: 'USD',
+          commission_bps: 0,
+          slippage_bps: 0,
+          drift_tolerance_pct: null,
+          price_basis: 'adjusted_close',
+          execution_price_field: 'close',
+          execution_lag_days: 1,
+          symbol_overrides: {},
+        },
+      },
+      benchmark_symbol: 'SPY',
+      base_currency: 'USD',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+      candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+    },
     replay: {
       construction_artifact_id: 'artifact-123',
       truth_separation: {
@@ -269,6 +621,40 @@ function makePersistedConstructionArtifactReview() {
         candidate_truth: 'hypothetical_construction_artifact',
         candidate_applied: false,
         consumption_mode: 'explicit_reference_only',
+      },
+      review_basis: {
+        basis_version: 1,
+        basis_kind: 'persisted_construction_artifact_review',
+        review_scope: 'workspace_review_only',
+        canonical_source: 'typed_preview_handoff',
+        basis_provenance_label: 'artifact_backed_review_basis',
+        portfolio_truth: 'imported_portfolio_snapshot',
+        candidate_truth: 'hypothetical_construction_artifact',
+        construction_artifact_id: 'artifact-123',
+        preview_handoff: {
+          handoff_kind: 'construction_artifact_preview_handoff_v1',
+          construction_artifact_id: 'artifact-123',
+          effective_replay_params: {
+            benchmark_symbol: 'SPY',
+            start_date: '2024-01-01',
+            end_date: '2024-12-31',
+            initial_capital: 100000,
+            rebalance_frequency: 'monthly',
+            base_currency: 'USD',
+            commission_bps: 0,
+            slippage_bps: 0,
+            drift_tolerance_pct: null,
+            price_basis: 'adjusted_close',
+            execution_price_field: 'close',
+            execution_lag_days: 1,
+            symbol_overrides: {},
+          },
+        },
+        benchmark_symbol: 'SPY',
+        base_currency: 'USD',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+        candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
       },
       replay_provenance: {
         source: 'construction_artifact_reference',
@@ -317,6 +703,27 @@ function makePersistedOptimizerHandoffReview() {
       artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
     },
     openedAt: '2026-04-24T00:00:00Z',
+    reviewBasisSource: {
+      basis_version: 1,
+      basis_kind: 'persisted_optimizer_handoff_review',
+      review_scope: 'workspace_review_only',
+      canonical_source: 'persisted_handoff_reference',
+      basis_provenance_label: 'artifact_backed_review_basis',
+      portfolio_truth: 'imported_portfolio_snapshot',
+      candidate_truth: 'hypothetical_optimizer_handoff',
+      handoff_reference: {
+        reference_kind: 'optimizer_handoff_reference_v1',
+        handoff_id: 'optimizer_handoff_123',
+        artifact_id: 'optimizer_artifact_123',
+        manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+        artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+      },
+      benchmark_symbol: 'SPY',
+      base_currency: 'USD',
+      replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+      baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+      candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
+    },
     validation: {
       handoff_id: 'optimizer_handoff_123',
       artifact_id: 'optimizer_artifact_123',
@@ -366,6 +773,27 @@ function makePersistedOptimizerHandoffReview() {
         candidate_truth: 'hypothetical_optimizer_handoff',
         candidate_applied: false,
         consumption_mode: 'explicit_reference_only',
+      },
+      review_basis: {
+        basis_version: 1,
+        basis_kind: 'persisted_optimizer_handoff_review',
+        review_scope: 'workspace_review_only',
+        canonical_source: 'persisted_handoff_reference',
+        basis_provenance_label: 'artifact_backed_review_basis',
+        portfolio_truth: 'imported_portfolio_snapshot',
+        candidate_truth: 'hypothetical_optimizer_handoff',
+        handoff_reference: {
+          reference_kind: 'optimizer_handoff_reference_v1',
+          handoff_id: 'optimizer_handoff_123',
+          artifact_id: 'optimizer_artifact_123',
+          manifest_path: '/tmp/optimizer_handoff_123/manifest.json',
+          artifact_path: '/tmp/optimizer_handoff_123/artifact.json',
+        },
+        benchmark_symbol: 'SPY',
+        base_currency: 'USD',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        baseline_weights: [{ symbol: 'AAA', target_weight: 0.6 }, { symbol: 'BBB', target_weight: 0.4 }],
+        candidate_weights: [{ symbol: 'AAA', target_weight: 0.5 }, { symbol: 'BBB', target_weight: 0.3 }, { symbol: 'CCC', target_weight: 0.2 }],
       },
       replay_provenance: {
         source: 'optimizer_handoff_reference',
@@ -440,6 +868,11 @@ function makePersistedOptimizerHandoffWorkspaceSource() {
     reviewBasis: {
       basisVersion: 1 as const,
       basisKind: 'persisted_optimizer_handoff_review' as const,
+      reviewScope: 'workspace_review_only' as const,
+      canonicalSource: 'persisted_handoff_reference' as const,
+      basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+      portfolioTruth: 'imported_portfolio_snapshot' as const,
+      candidateTruth: 'hypothetical_optimizer_handoff' as const,
       handoffReference: makePersistedOptimizerHandoffReview().handoffReference,
       openedAt: '2026-04-24T00:00:00Z',
       benchmarkSymbol: 'SPY',
@@ -459,7 +892,13 @@ function makePersistedConstructionArtifactWorkspaceSource() {
     reviewBasis: {
       basisVersion: 1 as const,
       basisKind: 'persisted_construction_artifact_review' as const,
+      reviewScope: 'workspace_review_only' as const,
+      canonicalSource: 'typed_preview_handoff' as const,
+      basisProvenanceLabel: 'artifact_backed_review_basis' as const,
+      portfolioTruth: 'imported_portfolio_snapshot' as const,
+      candidateTruth: 'hypothetical_construction_artifact' as const,
       constructionArtifactId: 'artifact-123',
+      previewHandoff: makePersistedConstructionArtifactReview().replay.review_basis!.preview_handoff,
       openedAt: '2026-04-23T00:00:00Z',
       benchmarkSymbol: 'SPY',
       baseCurrency: 'USD',
@@ -536,6 +975,8 @@ function renderShell(overrides: Record<string, any> = {}) {
       hypotheticalReplayResult={null}
       savedProposals={[]}
       activeThesis={null}
+      onOpenSavedProposal={noOp}
+      openedSavedProposalArtifactId={null}
       onPromoteProposalToThesis={noOp}
       onClearActiveThesis={noOp}
       onSaveProposal={noOp}
@@ -567,6 +1008,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -601,6 +1044,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -646,6 +1091,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -698,6 +1145,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -735,6 +1184,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={savedProposal.reviewSnapshot}
         savedProposals={[savedProposal]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -786,6 +1237,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={constructedReplay}
         savedProposals={[savedProposal]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -817,6 +1270,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -930,6 +1385,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={{ ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').reviewSnapshot, replay: replayWithDiagnostics }}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -995,6 +1452,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={{ ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').reviewSnapshot, replay: withheldReplay }}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1030,6 +1489,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={savedProposal.reviewSnapshot}
         savedProposals={[savedProposal]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1048,6 +1509,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
   it('shows newest-first saved proposal index and reopens an older artifact for review only', () => {
     const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
     const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    const onOpenSavedProposal = vi.fn()
 
     render(
       <PortfolioImprovementWorkspaceShell
@@ -1064,6 +1526,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[olderProposal, latestProposal]}
         activeThesis={null}
+        onOpenSavedProposal={onOpenSavedProposal}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1083,14 +1546,251 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Reopen In Workspace' }))
 
+    expect(onOpenSavedProposal).toHaveBeenCalledWith(olderProposal.reviewSnapshotArtifactId)
     expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied').length).toBeGreaterThan(0)
   })
 
-  it('opens a read-only saved proposal comparison for exactly two selected artifacts', () => {
+  it('uses authoritative openedSavedProposalArtifactId as the sole reopen authority', () => {
     const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
     const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[olderProposal, latestProposal]}
+        activeThesis={null}
+        openedSavedProposalArtifactId={olderProposal.reviewSnapshotArtifactId}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(`Review snapshot artifact: ${olderProposal.reviewSnapshotArtifactId}`).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
+  })
+
+  it('fails closed when shell reopen action receives a proposal missing authoritative reviewSnapshotArtifactId', () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const malformedProposal = {
+      ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS'),
+      reviewSnapshotArtifactId: undefined,
+    }
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[malformedProposal as any, latestProposal]}
+        activeThesis={null}
+        onOpenSavedProposal={vi.fn()}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reopen In Workspace' })[1]!)
+    expect(screen.getAllByRole('button', { name: 'Reopen In Workspace' }).length).toBeGreaterThan(0)
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('fails closed when shell reopen state receives a proposal missing authoritative proposalCapture', () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const malformedProposal = {
+      ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS'),
+      proposalCapture: undefined,
+    }
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[malformedProposal as any, latestProposal]}
+        activeThesis={null}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    const ui = within(container)
+    expect(ui.getByTestId('saved-proposal-contract-error').textContent).toBe(
+      'Unable to reopen saved proposal: saved proposal proposalCapture is missing',
+    )
+    expect(ui.queryByText('Latest Saved Artifact')).toBeNull()
+    expect(ui.getByText('No saved proposal artifact yet.')).toBeTruthy()
+  })
+
+  it('keeps persisted construction artifact reopen deterministic when unrelated saved proposal state lacks authoritative proposalCapture', () => {
+    const malformedProposal = {
+      ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS'),
+      proposalCapture: undefined,
+    }
+
+    const { container } = renderShell({
+      analysis: null,
+      draftSnapshot,
+      workspaceSource: makePersistedConstructionArtifactWorkspaceSource(),
+      persistedConstructionArtifactReview: makePersistedConstructionArtifactReview(),
+      allocationBacktestResult: makeReplay(),
+      savedProposals: [malformedProposal as any],
+    })
+
+    const ui = within(container)
+    expect(ui.getByTestId('persisted-construction-artifact-banner')).toBeTruthy()
+    expect(ui.queryByTestId('saved-proposal-contract-error')).toBeNull()
+    expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
+  })
+
+  it('keeps persisted optimizer handoff reopen deterministic when unrelated saved proposal state lacks authoritative proposalCapture', () => {
+    const malformedProposal = {
+      ...makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS'),
+      proposalCapture: undefined,
+    }
+
+    const { container } = renderShell({
+      analysis: null,
+      draftSnapshot,
+      workspaceSource: makePersistedOptimizerHandoffWorkspaceSource(),
+      persistedOptimizerHandoffReview: makePersistedOptimizerHandoffReview(),
+      allocationBacktestResult: makeReplay(),
+      savedProposals: [malformedProposal as any],
+    })
+
+    const ui = within(container)
+    expect(ui.getByTestId('persisted-construction-artifact-banner')).toBeTruthy()
+    expect(ui.queryByTestId('saved-proposal-contract-error')).toBeNull()
+    expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
+  })
+
+  it('opens a read-only saved proposal comparison for exactly two selected artifacts', async () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUFS')
+    const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    latestProposal.proposalFamilyId = olderProposal.proposalFamilyId
+    latestProposal.proposalCapture.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    latestProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotComparisonRefs').mockResolvedValue([
+      { role: 'baseline', artifact_id: olderProposal.reviewSnapshotArtifactId!, artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal' },
+      { role: 'candidate', artifact_id: latestProposal.reviewSnapshotArtifactId!, artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal' },
+    ])
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(latestProposal, [latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({
+      comparison_kind: 'review_snapshot_comparison',
+      family_key: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: olderProposal.proposalFamilyId, source_kind: 'hypothetical_replacement_replay' },
+      baseline: {
+        benchmark_symbol: 'SPY',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        replay_type: 'standard',
+        candidate_construction_rule: 'same_weight_substitution_v1',
+        derivation_basis: 'draft_snapshot_positions_normalized',
+        source_pair: 'AAPL -> IUFS',
+        replay_status: 'ok',
+        investor_economics_status: { status: 'available', reason: null },
+        methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions },
+        analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 },
+        diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null },
+      },
+      candidate: {
+        benchmark_symbol: 'SPY',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        replay_type: 'standard',
+        candidate_construction_rule: 'same_weight_substitution_v1',
+        derivation_basis: 'draft_snapshot_positions_normalized',
+        source_pair: 'AAPL -> IUIT',
+        replay_status: 'ok',
+        investor_economics_status: { status: 'available', reason: null },
+        methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions },
+        analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 },
+        diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null },
+      },
+      provenance: 'persisted_review_snapshot_artifacts_only',
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+      baseline_pm_summary: {
+        pm_summary_version: 1,
+        role: 'baseline',
+        provenance: { source: 'persisted_review_snapshot_artifact', artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal', lineage: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: olderProposal.proposalFamilyId, proposal_id: olderProposal.id, version_number: olderProposal.versionNumber, source_kind: 'hypothetical_replacement_replay' }, proposal_source: olderProposal.reviewSnapshot.proposal.proposal_source, replay_provenance: olderProposal.reviewSnapshot.replay_provenance },
+        truth_labels: { proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', analytics_truth: 'hypothetical_replay_analytics_only', review_scope: 'proposal_review_context_only' },
+        replay_type: 'standard', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null },
+        review_basis: { benchmark_separation: 'explicit_per_snapshot_benchmark_fields', benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, derivation_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
+        methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance },
+        assumptions: makeReplay().candidate_result.assumptions,
+        analytics_summary: { candidate_analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 }, baseline_analytics: null, analytics_comparison: null },
+        diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null },
+      },
+      candidate_pm_summary: {
+        pm_summary_version: 1,
+        role: 'candidate',
+        provenance: { source: 'persisted_review_snapshot_artifact', artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal', lineage: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: latestProposal.proposalFamilyId, proposal_id: latestProposal.id, version_number: latestProposal.versionNumber, source_kind: 'hypothetical_replacement_replay' }, proposal_source: latestProposal.reviewSnapshot.proposal.proposal_source, replay_provenance: latestProposal.reviewSnapshot.replay_provenance },
+        truth_labels: { proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', analytics_truth: 'hypothetical_replay_analytics_only', review_scope: 'proposal_review_context_only' },
+        replay_type: 'standard', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null },
+        review_basis: { benchmark_separation: 'explicit_per_snapshot_benchmark_fields', benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, derivation_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
+        methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance },
+        assumptions: makeReplay().candidate_result.assumptions,
+        analytics_summary: { candidate_analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 }, baseline_analytics: null, analytics_comparison: null },
+        diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null },
+      },
+      analytics_comparison: null,
+      methodology: { baseline_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, candidate_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, methodology_consistent: true, assumptions_consistent: true },
+      assumptions: { baseline_assumptions: makeReplay().candidate_result.assumptions, candidate_assumptions: makeReplay().candidate_result.assumptions, assumptions_consistent: true },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
 
     const { container } = render(
       <PortfolioImprovementWorkspaceShell
@@ -1107,6 +1807,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[olderProposal, latestProposal]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1124,17 +1826,55 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(textContentOfIn(container, 'saved-proposal-comparison-status')).toContain('Choose one more saved proposal to open the comparison surface.')
     clickCompareForIn(container, 'proposal-1')
 
+    await screen.findByText('Comparison Checks')
     expect(latestByTestIdIn(container, 'saved-proposal-comparison-view')).toBeTruthy()
+    expect(latestByTestIdIn(container, 'saved-proposal-family-inbox')).toBeTruthy()
+    expect(latestByTestIdIn(container, 'saved-proposal-family-review')).toBeTruthy()
     expect(ui.getByText('2 of 2 selected')).toBeTruthy()
     expect(ui.getByText('Comparison Checks')).toBeTruthy()
+    expect(ui.getByText(/Provenance: persisted_review_snapshot_artifacts_only/)).toBeTruthy()
+    expect(ui.getByText('Saved Proposal Family Inbox')).toBeTruthy()
+    expect(ui.getByText('Proposal Family PM Review')).toBeTruthy()
+    expect(ui.getByText(new RegExp(`Family: ${olderProposal.proposalFamilyId}`))).toBeTruthy()
     expect(ui.getByRole('button', { name: 'Swap sides' })).toBeTruthy()
     expect(ui.getByRole('button', { name: 'Open full proposal v2' })).toBeTruthy()
     expect(ui.getByRole('button', { name: 'Open full proposal v1' })).toBeTruthy()
   })
 
-  it('keeps saved proposal comparison on provenance and replay metadata instead of investor-performance rows', () => {
-    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+  it('keeps saved proposal comparison on provenance and replay metadata instead of investor-performance rows', async () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUFS')
     const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    latestProposal.proposalFamilyId = olderProposal.proposalFamilyId
+    latestProposal.proposalCapture.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    latestProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotComparisonRefs').mockResolvedValue([
+      { role: 'baseline', artifact_id: olderProposal.reviewSnapshotArtifactId!, artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal' },
+      { role: 'candidate', artifact_id: latestProposal.reviewSnapshotArtifactId!, artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal' },
+    ])
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(latestProposal, [latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({
+      comparison_kind: 'review_snapshot_comparison',
+      family_key: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: olderProposal.proposalFamilyId, source_kind: 'hypothetical_replacement_replay' },
+      baseline: {
+        benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, replay_type: 'standard', candidate_construction_rule: 'same_weight_substitution_v1', derivation_basis: 'draft_snapshot_positions_normalized', source_pair: 'AAPL -> IUFS', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 }, diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null },
+      },
+      candidate: {
+        benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, replay_type: 'standard', candidate_construction_rule: 'same_weight_substitution_v1', derivation_basis: 'draft_snapshot_positions_normalized', source_pair: 'AAPL -> IUIT', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 }, diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null },
+      },
+      provenance: 'persisted_review_snapshot_artifacts_only', benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+      baseline_pm_summary: { pm_summary_version: 1, role: 'baseline', provenance: { source: 'persisted_review_snapshot_artifact', artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal', lineage: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: olderProposal.proposalFamilyId, proposal_id: olderProposal.id, version_number: olderProposal.versionNumber, source_kind: 'hypothetical_replacement_replay' }, proposal_source: olderProposal.reviewSnapshot.proposal.proposal_source, replay_provenance: olderProposal.reviewSnapshot.replay_provenance }, truth_labels: { proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', analytics_truth: 'hypothetical_replay_analytics_only', review_scope: 'proposal_review_context_only' }, replay_type: 'standard', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, review_basis: { benchmark_separation: 'explicit_per_snapshot_benchmark_fields', benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, derivation_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance }, assumptions: makeReplay().candidate_result.assumptions, analytics_summary: { candidate_analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 }, baseline_analytics: null, analytics_comparison: null }, diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null } },
+      candidate_pm_summary: { pm_summary_version: 1, role: 'candidate', provenance: { source: 'persisted_review_snapshot_artifact', artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', consumer_kind: 'saved_hypothetical_replay_proposal', lineage: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: latestProposal.proposalFamilyId, proposal_id: latestProposal.id, version_number: latestProposal.versionNumber, source_kind: 'hypothetical_replacement_replay' }, proposal_source: latestProposal.reviewSnapshot.proposal.proposal_source, replay_provenance: latestProposal.reviewSnapshot.replay_provenance }, truth_labels: { proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', analytics_truth: 'hypothetical_replay_analytics_only', review_scope: 'proposal_review_context_only' }, replay_type: 'standard', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, review_basis: { benchmark_separation: 'explicit_per_snapshot_benchmark_fields', benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, derivation_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance }, assumptions: makeReplay().candidate_result.assumptions, analytics_summary: { candidate_analytics: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions, benchmark_symbol: 'SPY', benchmark_return_pct: 1, total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, total_cost_paid: 0 }, baseline_analytics: null, analytics_comparison: null }, diagnostics_summary: { diagnostics_available: false, top_factor_exposure_change: null, top_volatility_change: null, top_risk_contribution_change: null, top_concentration_change: null, top_stress_scenario_change: null } },
+      analytics_comparison: null, methodology: { baseline_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, candidate_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, methodology_consistent: true, assumptions_consistent: true }, assumptions: { baseline_assumptions: makeReplay().candidate_result.assumptions, candidate_assumptions: makeReplay().candidate_result.assumptions, assumptions_consistent: true },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
 
     const { container } = render(
       <PortfolioImprovementWorkspaceShell
@@ -1151,6 +1891,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[olderProposal, latestProposal]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1165,7 +1907,11 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     clickCompareForIn(container, 'proposal-2')
     clickCompareForIn(container, 'proposal-1')
 
-    expect(within(container).getByText('Replay setup')).toBeTruthy()
+    await screen.findByText('Replay status')
+    expect(within(container).getByText('Comparison Checks')).toBeTruthy()
+    expect(within(container).getByText('Replay status')).toBeTruthy()
+    expect(within(container).getByText(/Provenance: persisted_review_snapshot_artifacts_only/)).toBeTruthy()
+    expect(within(container).getByText(/Methodology consistent: yes/)).toBeTruthy()
     expect(within(container).queryByText('Candidate total return')).toBeNull()
     expect(within(container).queryByText('Max drawdown')).toBeNull()
     expect(within(container).queryByText('Sharpe ratio')).toBeNull()
@@ -1189,6 +1935,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={savedProposal.reviewSnapshot}
         savedProposals={[savedProposal]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1205,8 +1953,23 @@ describe('PortfolioImprovementWorkspaceShell', () => {
   })
 
   it('swaps sides and opens a full proposal from comparison mode', () => {
-    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUFS')
     const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    latestProposal.proposalFamilyId = olderProposal.proposalFamilyId
+    latestProposal.proposalCapture.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    latestProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    const onOpenSavedProposal = vi.fn()
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(latestProposal, [latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ detail: 'Unable to compare saved review snapshots' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    })
 
     const { container } = render(
       <PortfolioImprovementWorkspaceShell
@@ -1223,6 +1986,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[olderProposal, latestProposal]}
         activeThesis={null}
+        onOpenSavedProposal={onOpenSavedProposal}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1240,14 +2004,166 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     clickCompareForIn(container, 'proposal-1')
     const comparisonView = latestByTestIdIn(container, 'saved-proposal-comparison-view')
     expect(comparisonView).toBeTruthy()
-    expect(within(comparisonView).getAllByText('v2 · AAPL -> IUIT').length).toBeGreaterThan(0)
+    expect(within(comparisonView).getAllByText('v2 · AAPL -> IUFS').length).toBeGreaterThan(0)
 
     fireEvent.click(ui.getByRole('button', { name: 'Swap sides' }))
     expect(within(latestByTestIdIn(container, 'saved-proposal-comparison-view')).getAllByText('v1 · AAPL -> IUFS').length).toBeGreaterThan(0)
 
     fireEvent.click(ui.getByRole('button', { name: 'Open full proposal v2' }))
-    expect(ui.getAllByText('AAPL -> IUIT').length).toBeGreaterThan(0)
-    expect(ui.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
+    expect(onOpenSavedProposal).toHaveBeenCalledWith(latestProposal.reviewSnapshotArtifactId)
+  })
+
+  it('renders family review rejection when family review artifact payload is malformed', async () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([latestProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ review_kind: 'review_snapshot_family_review', provenance: 'persisted_review_snapshot_artifacts_only' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[latestProposal]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    await screen.findAllByText('Saved proposal comparison')
+    expect(textContentOfIn(container, 'saved-proposal-comparison-status')).toContain('Review snapshot family review response compare_selection_policy is invalid')
+  })
+
+  it('renders family inbox newest-first and opens PM review from the authoritative latest row', async () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUFS')
+    const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    const separateFamily = makeSavedProposal(3, '2026-04-15T00:00:00Z', 'IUIT')
+    latestProposal.proposalFamilyId = olderProposal.proposalFamilyId
+    latestProposal.proposalCapture.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    latestProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    const onOpenSavedProposal = vi.fn()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([olderProposal, latestProposal, separateFamily])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(latestProposal, [latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ detail: 'Unable to compare saved review snapshots' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[olderProposal, latestProposal, separateFamily]}
+        activeThesis={null}
+        onOpenSavedProposal={onOpenSavedProposal}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    await screen.findAllByTestId('saved-proposal-family-inbox')
+    const inbox = latestByTestIdIn(container, 'saved-proposal-family-inbox')
+    const rows = within(inbox).getAllByTestId(/saved-proposal-family-inbox-row-/)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.textContent).toContain(latestProposal.proposalFamilyId)
+    expect(rows[0]?.textContent).toContain('2 siblings')
+    expect(rows[1]?.textContent).toContain(separateFamily.proposalFamilyId)
+    fireEvent.click(within(rows[0]!).getByRole('button', { name: 'Open PM Review' }))
+    expect(onOpenSavedProposal).toHaveBeenCalledWith(latestProposal.reviewSnapshotArtifactId)
+  })
+
+  it('refuses family inbox rows that are not indexed by saved proposals', async () => {
+    const proposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    const inboxPayload = JSON.parse(JSON.stringify(makeFamilyInboxResponse([proposal])))
+    inboxPayload.rows[0]!.latest_identity.artifact_id = 'review_snapshot_missing'
+    inboxPayload.rows[0]!.proposal_capture.open_handoff.artifact_id = 'review_snapshot_missing'
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (value) => value.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(inboxPayload), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(proposal, [proposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ detail: 'Unable to compare saved review snapshots' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = render(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[proposal]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+      />,
+    )
+
+    await screen.findAllByText('Saved proposal comparison')
+    expect(textContentOfIn(container, 'saved-proposal-comparison-status')).toContain('Saved proposal family inbox latest artifact is not indexed by any saved proposal')
   })
 
   it('keeps candidate idea actions inside the shell and promotes to replacement intent', () => {
@@ -1268,6 +2184,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onCreateReplacementIntent={onCreateReplacementIntent}
@@ -1301,6 +2219,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1333,6 +2253,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1425,6 +2347,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         hypotheticalReplayResult={null}
         savedProposals={[]}
         activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
         onPromoteProposalToThesis={noOp}
         onClearActiveThesis={noOp}
         onSaveProposal={() => {}}
@@ -1453,6 +2377,407 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.getAllByText('v1 · AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(ui.getByTestId('saved-proposal-status-proposal-1').textContent).toContain('active thesis')
     expect(ui.getByTestId('saved-proposal-status-proposal-1').textContent).toContain('active thesis')
+  })
+
+  it('renders active thesis PM summary and same-family delta from persisted artifact-backed routes only', async () => {
+    const latestProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const olderProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUIT')
+    latestProposal.proposalFamilyId = olderProposal.proposalFamilyId
+    latestProposal.proposalCapture.lineage.proposal_family_id = olderProposal.proposalFamilyId
+    latestProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = olderProposal.proposalFamilyId
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([olderProposal, latestProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/open')) {
+        return new Response(JSON.stringify({
+          handoff: latestProposal.proposalCapture.open_handoff,
+          artifact: {
+            identity: {
+              artifact_id: latestProposal.reviewSnapshotArtifactId,
+              artifact_kind: 'portfolio_review_snapshot',
+              schema_version: 'review_snapshot_artifact_v1',
+              fingerprint: 'fingerprint-2',
+              consumer_kind: 'saved_hypothetical_replay_proposal',
+            },
+            lineage: latestProposal.proposalCapture.lineage,
+            review_basis: {
+              benchmark_symbol: 'SPY',
+              start_date: '2024-01-01',
+              end_date: '2024-12-31',
+              rebalance_frequency: 'monthly',
+              commission_bps: 0,
+              slippage_bps: 0,
+              derivation_basis: 'draft_snapshot_positions_normalized',
+              candidate_construction_rule: 'same_weight_substitution_v1',
+              replay_provenance: latestProposal.reviewSnapshot.replay_provenance,
+            },
+            truth_labels: latestProposal.reviewSnapshotPMSummary.truth_labels,
+            compact_summary: {
+              replay_type: 'standard',
+              replay_status: 'ok',
+              investor_economics_status: { status: 'available', reason: null },
+              candidate_analytics: latestProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics,
+              baseline_analytics: latestProposal.reviewSnapshotPMSummary.analytics_summary.baseline_analytics,
+              analytics_comparison: latestProposal.reviewSnapshotPMSummary.analytics_summary.analytics_comparison,
+              diagnostics_summary: latestProposal.reviewSnapshotPMSummary.diagnostics_summary,
+            },
+            proposal_capture: latestProposal.proposalCapture,
+            pm_summary: latestProposal.reviewSnapshotPMSummary,
+            source_payload: {
+              replay_type: 'standard',
+              replay: latestProposal.reviewSnapshot,
+              overlay_replay: null,
+            },
+          },
+          pm_summary: latestProposal.reviewSnapshotPMSummary,
+          replay_payload: {
+            replay_type: 'standard',
+            replay: latestProposal.reviewSnapshot,
+            overlay_replay: null,
+          },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(latestProposal, [latestProposal, olderProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({
+        comparison_kind: 'review_snapshot_comparison',
+        family_key: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: olderProposal.proposalFamilyId, source_kind: 'hypothetical_replacement_replay' },
+        baseline: { benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, replay_type: 'standard', candidate_construction_rule: 'same_weight_substitution_v1', derivation_basis: 'draft_snapshot_positions_normalized', source_pair: 'AAPL -> IUIT', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, analytics: latestProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics, diagnostics_summary: latestProposal.reviewSnapshotPMSummary.diagnostics_summary },
+        candidate: { benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, replay_type: 'standard', candidate_construction_rule: 'same_weight_substitution_v1', derivation_basis: 'draft_snapshot_positions_normalized', source_pair: 'AAPL -> IUIT', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, analytics: latestProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics, diagnostics_summary: latestProposal.reviewSnapshotPMSummary.diagnostics_summary },
+        provenance: 'persisted_review_snapshot_artifacts_only',
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        baseline_pm_summary: { ...olderProposal.reviewSnapshotPMSummary, role: 'baseline' },
+        candidate_pm_summary: { ...latestProposal.reviewSnapshotPMSummary, role: 'candidate' },
+        analytics_comparison: null,
+        methodology: { baseline_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, candidate_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, methodology_consistent: true, assumptions_consistent: true },
+        assumptions: { baseline_assumptions: makeReplay().candidate_result.assumptions, candidate_assumptions: makeReplay().candidate_result.assumptions, assumptions_consistent: true },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = renderShell({
+      savedProposals: [olderProposal, latestProposal],
+      activeThesis: {
+        workspaceId: 'workspace-1',
+        promotedAt: '2026-04-17T12:00:00Z',
+        sourceProposalId: latestProposal.id,
+        thesisProposal: latestProposal,
+      },
+    })
+
+    await within(container).findAllByTestId('active-thesis-artifact-review')
+    expect(textContentOfIn(container, 'active-thesis-pm-summary-status')).toContain('Role: saved_proposal')
+    expect(textContentOfIn(container, 'active-thesis-pm-summary-status')).toContain(`artifact: ${latestProposal.reviewSnapshotArtifactId}`)
+    expect(textContentOfIn(container, 'active-thesis-delta-readout')).toContain('role baseline')
+    expect(textContentOfIn(container, 'active-thesis-delta-readout')).toContain('role candidate')
+    expect(textContentOfIn(container, 'active-thesis-delta-readout')).toContain(`proposal ${latestProposal.id}`)
+  })
+
+  it('renders the active thesis cross-family PM review queue in the desktop workspace shell', async () => {
+    const activeProposal = makeSavedProposal(3, '2026-04-18T00:00:00Z', 'IUIT')
+    const siblingProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const queuedProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS')
+    activeProposal.proposalFamilyId = siblingProposal.proposalFamilyId
+    activeProposal.proposalCapture.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+    activeProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+    const onOpenSavedProposal = vi.fn()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([queuedProposal, siblingProposal, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/active-thesis-cross-family-queue')) {
+        return new Response(JSON.stringify(makeActiveThesisCrossFamilyQueueResponse(activeProposal, [queuedProposal, siblingProposal, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/open')) {
+        return new Response(JSON.stringify({
+          handoff: activeProposal.proposalCapture.open_handoff,
+          artifact: {
+            identity: { artifact_id: activeProposal.reviewSnapshotArtifactId, artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', fingerprint: 'fingerprint-3', consumer_kind: 'saved_hypothetical_replay_proposal' },
+            lineage: activeProposal.proposalCapture.lineage,
+            review_basis: { benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, derivation_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1', replay_provenance: activeProposal.reviewSnapshot.replay_provenance },
+            truth_labels: activeProposal.reviewSnapshotPMSummary.truth_labels,
+            compact_summary: { replay_type: 'standard', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, candidate_analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics, baseline_analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.baseline_analytics, analytics_comparison: activeProposal.reviewSnapshotPMSummary.analytics_summary.analytics_comparison, diagnostics_summary: activeProposal.reviewSnapshotPMSummary.diagnostics_summary },
+            proposal_capture: activeProposal.proposalCapture,
+            pm_summary: activeProposal.reviewSnapshotPMSummary,
+            source_payload: { replay_type: 'standard', replay: activeProposal.reviewSnapshot, overlay_replay: null },
+          },
+          pm_summary: activeProposal.reviewSnapshotPMSummary,
+          replay_payload: { replay_type: 'standard', replay: activeProposal.reviewSnapshot, overlay_replay: null },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(activeProposal, [activeProposal, siblingProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({
+        comparison_kind: 'review_snapshot_comparison',
+        family_key: { workspace_id: 'workspace-1', source_draft_id: 'draft-1', source_base_node_id: 'node-1', proposal_family_id: siblingProposal.proposalFamilyId, source_kind: 'hypothetical_replacement_replay' },
+        baseline: { benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, replay_type: 'standard', candidate_construction_rule: 'same_weight_substitution_v1', derivation_basis: 'draft_snapshot_positions_normalized', source_pair: 'AAPL -> IUIT', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics, diagnostics_summary: activeProposal.reviewSnapshotPMSummary.diagnostics_summary },
+        candidate: { benchmark_symbol: 'SPY', replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' }, replay_type: 'standard', candidate_construction_rule: 'same_weight_substitution_v1', derivation_basis: 'draft_snapshot_positions_normalized', source_pair: 'AAPL -> IUIT', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics, diagnostics_summary: activeProposal.reviewSnapshotPMSummary.diagnostics_summary },
+        provenance: 'persisted_review_snapshot_artifacts_only',
+        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+        baseline_pm_summary: { ...siblingProposal.reviewSnapshotPMSummary, role: 'baseline' },
+        candidate_pm_summary: { ...activeProposal.reviewSnapshotPMSummary, role: 'candidate' },
+        analytics_comparison: null,
+        methodology: { baseline_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, candidate_methodology: { methodology: 'm', methodology_provenance: makeReplay().methodology_provenance, assumptions: makeReplay().candidate_result.assumptions }, methodology_consistent: true, assumptions_consistent: true },
+        assumptions: { baseline_assumptions: makeReplay().candidate_result.assumptions, candidate_assumptions: makeReplay().candidate_result.assumptions, assumptions_consistent: true },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = renderShell({
+      savedProposals: [queuedProposal, siblingProposal, activeProposal],
+      activeThesis: {
+        workspaceId: 'workspace-1',
+        promotedAt: '2026-04-18T12:00:00Z',
+        sourceProposalId: activeProposal.id,
+        thesisProposal: activeProposal,
+      },
+      onOpenSavedProposal,
+    })
+
+    await within(container).findAllByTestId('active-thesis-cross-family-queue')
+    expect(textContentOfIn(container, 'active-thesis-cross-family-queue-status')).toContain('Queued families: 1')
+    const queue = latestByTestIdIn(container, 'active-thesis-cross-family-queue')
+    expect(queue.textContent).toContain(queuedProposal.proposalFamilyId)
+    expect(queue.textContent).toContain(`investor economics ${queuedProposal.reviewSnapshotPMSummary.investor_economics_status.status}`)
+    fireEvent.click(within(queue).getByRole('button', { name: 'Open PM Review' }))
+    expect(onOpenSavedProposal).toHaveBeenCalledWith(queuedProposal.reviewSnapshotArtifactId)
+  })
+
+  it('shows active thesis cross-family PM review queue loading state before rows arrive', () => {
+    const activeProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const siblingProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUIT')
+    activeProposal.proposalFamilyId = siblingProposal.proposalFamilyId
+    activeProposal.proposalCapture.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+    activeProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/active-thesis-cross-family-queue')) {
+        return new Promise<Response>(() => {})
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([siblingProposal, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/open')) {
+        return new Promise<Response>(() => {})
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Promise<Response>(() => {})
+      }
+      return new Promise<Response>(() => {})
+    })
+
+    const { container } = renderShell({
+      savedProposals: [siblingProposal, activeProposal],
+      activeThesis: {
+        workspaceId: 'workspace-1',
+        promotedAt: '2026-04-17T12:00:00Z',
+        sourceProposalId: activeProposal.id,
+        thesisProposal: activeProposal,
+      },
+    })
+
+    expect(textContentOfIn(container, 'active-thesis-cross-family-queue-status')).toContain('Loading active thesis cross-family PM review queue from persisted discovery.')
+  })
+
+  it('shows active thesis cross-family PM review queue empty state when no distinct families exist', async () => {
+    const activeProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const siblingProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUIT')
+    activeProposal.proposalFamilyId = siblingProposal.proposalFamilyId
+    activeProposal.proposalCapture.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+    activeProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([siblingProposal, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/active-thesis-cross-family-queue')) {
+        return new Response(JSON.stringify(makeActiveThesisCrossFamilyQueueResponse(activeProposal, [siblingProposal, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/open')) {
+        return new Response(JSON.stringify({
+          handoff: activeProposal.proposalCapture.open_handoff,
+          artifact: {
+            identity: { artifact_id: activeProposal.reviewSnapshotArtifactId, artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', fingerprint: 'fingerprint-2', consumer_kind: 'saved_hypothetical_replay_proposal' },
+            lineage: activeProposal.proposalCapture.lineage,
+            review_basis: { benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, derivation_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1', replay_provenance: activeProposal.reviewSnapshot.replay_provenance },
+            truth_labels: activeProposal.reviewSnapshotPMSummary.truth_labels,
+            compact_summary: { replay_type: 'standard', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, candidate_analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics, baseline_analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.baseline_analytics, analytics_comparison: activeProposal.reviewSnapshotPMSummary.analytics_summary.analytics_comparison, diagnostics_summary: activeProposal.reviewSnapshotPMSummary.diagnostics_summary },
+            proposal_capture: activeProposal.proposalCapture,
+            pm_summary: activeProposal.reviewSnapshotPMSummary,
+            source_payload: { replay_type: 'standard', replay: activeProposal.reviewSnapshot, overlay_replay: null },
+          },
+          pm_summary: activeProposal.reviewSnapshotPMSummary,
+          replay_payload: { replay_type: 'standard', replay: activeProposal.reviewSnapshot, overlay_replay: null },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify(makeFamilyReviewResponse(activeProposal, [activeProposal, siblingProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ detail: 'Unable to compare saved review snapshots' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = renderShell({
+      savedProposals: [siblingProposal, activeProposal],
+      activeThesis: {
+        workspaceId: 'workspace-1',
+        promotedAt: '2026-04-17T12:00:00Z',
+        sourceProposalId: activeProposal.id,
+        thesisProposal: activeProposal,
+      },
+    })
+
+    await within(container).findAllByTestId('active-thesis-cross-family-queue-status')
+    expect(textContentOfIn(container, 'active-thesis-cross-family-queue-status')).toContain('Queued families: 0')
+    expect(textContentOfIn(container, 'active-thesis-cross-family-queue-status')).toContain('No persisted cross-family PM review rows are available for the active thesis lineage.')
+    expect(within(container).queryByTestId('active-thesis-cross-family-queue')).toBeNull()
+  })
+
+  it('shows active thesis cross-family PM review queue error state when the route fails', async () => {
+    const activeProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const siblingProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUIT')
+    activeProposal.proposalFamilyId = siblingProposal.proposalFamilyId
+    activeProposal.proposalCapture.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+    activeProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/active-thesis-cross-family-queue')) {
+        return new Response(JSON.stringify({ detail: 'Unable to load active thesis cross-family PM review queue' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([siblingProposal, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/open')) {
+        return new Response(JSON.stringify({ detail: 'Unable to load active thesis PM summary' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify({ detail: 'Unable to load active thesis same-family review' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ detail: 'Unable to compare saved review snapshots' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = renderShell({
+      savedProposals: [siblingProposal, activeProposal],
+      activeThesis: {
+        workspaceId: 'workspace-1',
+        promotedAt: '2026-04-17T12:00:00Z',
+        sourceProposalId: activeProposal.id,
+        thesisProposal: activeProposal,
+      },
+    })
+
+    await within(container).findAllByTestId('active-thesis-cross-family-queue-status')
+    expect(textContentOfIn(container, 'active-thesis-cross-family-queue-status')).toContain('Unable to load active thesis cross-family PM review queue')
+  })
+
+  it('fails closed when active thesis cross-family queue rows are not indexed by saved proposals', async () => {
+    const activeProposal = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const siblingProposal = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUIT')
+    const queuedProposal = makeSavedProposal(3, '2026-04-15T00:00:00Z', 'IUFS')
+    activeProposal.proposalFamilyId = siblingProposal.proposalFamilyId
+    activeProposal.proposalCapture.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+    activeProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = siblingProposal.proposalFamilyId
+    const queuePayload = makeActiveThesisCrossFamilyQueueResponse(activeProposal, [queuedProposal, siblingProposal, activeProposal])
+    queuePayload.rows[0]!.latest_identity.artifact_id = 'review_snapshot_missing'
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([queuedProposal, siblingProposal, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/active-thesis-cross-family-queue')) {
+        return new Response(JSON.stringify(queuePayload), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/open')) {
+        return new Response(JSON.stringify({ detail: 'Unable to load active thesis PM summary' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        return new Response(JSON.stringify({ detail: 'Unable to load active thesis same-family review' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ detail: 'Unable to compare saved review snapshots' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = renderShell({
+      savedProposals: [siblingProposal, activeProposal],
+      activeThesis: {
+        workspaceId: 'workspace-1',
+        promotedAt: '2026-04-17T12:00:00Z',
+        sourceProposalId: activeProposal.id,
+        thesisProposal: activeProposal,
+      },
+    })
+
+    await within(container).findAllByTestId('active-thesis-cross-family-queue-status')
+    expect(textContentOfIn(container, 'active-thesis-cross-family-queue-status')).toContain('Active thesis cross-family PM review queue latest artifact is not indexed by any saved proposal')
+  })
+
+  it('fails closed when active thesis same-family sibling selection is ambiguous', async () => {
+    const activeProposal = makeSavedProposal(3, '2026-04-18T00:00:00Z', 'IUIT')
+    const siblingOne = makeSavedProposal(2, '2026-04-17T00:00:00Z', 'IUIT')
+    const siblingTwo = makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUIT')
+    activeProposal.proposalFamilyId = siblingOne.proposalFamilyId
+    siblingTwo.proposalFamilyId = siblingOne.proposalFamilyId
+    activeProposal.proposalCapture.lineage.proposal_family_id = siblingOne.proposalFamilyId
+    siblingTwo.proposalCapture.lineage.proposal_family_id = siblingOne.proposalFamilyId
+    activeProposal.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = siblingOne.proposalFamilyId
+    siblingTwo.reviewSnapshotPMSummary.provenance.lineage.proposal_family_id = siblingOne.proposalFamilyId
+
+    vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockImplementation(async (proposal) => proposal.proposalCapture.open_handoff)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      if (url.includes('/api/backtests/review-snapshots/family-inbox')) {
+        return new Response(JSON.stringify(makeFamilyInboxResponse([siblingTwo, siblingOne, activeProposal])), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/open')) {
+        return new Response(JSON.stringify({
+          handoff: activeProposal.proposalCapture.open_handoff,
+          artifact: {
+            identity: { artifact_id: activeProposal.reviewSnapshotArtifactId, artifact_kind: 'portfolio_review_snapshot', schema_version: 'review_snapshot_artifact_v1', fingerprint: 'fingerprint-3', consumer_kind: 'saved_hypothetical_replay_proposal' },
+            lineage: activeProposal.proposalCapture.lineage,
+            review_basis: { benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, derivation_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1', replay_provenance: activeProposal.reviewSnapshot.replay_provenance },
+            truth_labels: activeProposal.reviewSnapshotPMSummary.truth_labels,
+            compact_summary: { replay_type: 'standard', replay_status: 'ok', investor_economics_status: { status: 'available', reason: null }, candidate_analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics, baseline_analytics: activeProposal.reviewSnapshotPMSummary.analytics_summary.baseline_analytics, analytics_comparison: activeProposal.reviewSnapshotPMSummary.analytics_summary.analytics_comparison, diagnostics_summary: activeProposal.reviewSnapshotPMSummary.diagnostics_summary },
+            proposal_capture: activeProposal.proposalCapture,
+            pm_summary: activeProposal.reviewSnapshotPMSummary,
+            source_payload: { replay_type: 'standard', replay: activeProposal.reviewSnapshot, overlay_replay: null },
+          },
+          pm_summary: activeProposal.reviewSnapshotPMSummary,
+          replay_payload: { replay_type: 'standard', replay: activeProposal.reviewSnapshot, overlay_replay: null },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (url.includes('/api/backtests/review-snapshots/family-review')) {
+        const response = makeFamilyReviewResponse(activeProposal, [activeProposal, siblingOne, siblingTwo])
+        response.anchor.comparison_eligibility.compatible_sibling_artifact_ids = [siblingOne.reviewSnapshotArtifactId, siblingTwo.reviewSnapshotArtifactId]
+        return new Response(JSON.stringify(response), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ detail: 'should not compare' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    })
+
+    const { container } = renderShell({
+      savedProposals: [siblingTwo, siblingOne, activeProposal],
+      activeThesis: {
+        workspaceId: 'workspace-1',
+        promotedAt: '2026-04-18T12:00:00Z',
+        sourceProposalId: activeProposal.id,
+        thesisProposal: activeProposal,
+      },
+    })
+
+    await within(container).findAllByTestId('active-thesis-artifact-review')
+    expect(textContentOfIn(container, 'active-thesis-delta-status')).toContain('Unable to load active thesis same-family delta: ambiguous sibling selection')
   })
 
   it('promotes and clears the active thesis from saved proposal actions', () => {
