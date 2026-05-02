@@ -8,7 +8,34 @@ Use this skill whenever work touches ranking artifacts, construction artifacts, 
 
 ## Trigger Paths
 
-Apply this skill if any changed file matches one or more of:
+Use this skill whenever a change affects artifact-backed or handoff-backed truth boundaries.
+
+### Responsibility-Based Triggers
+
+Apply this skill if the change touches any of these responsibilities, even if the file path is new or not listed below:
+
+- persisted artifact creation or persistence-time normalization
+- persisted artifact loading, hydration, integrity validation, or lineage checks
+- typed handoff creation, serialization, validation, or consumption
+- validation/preflight boundaries for artifact-backed flows
+- preview/open/review/replay boundaries for artifact-backed flows
+- desktop restore/reopen flows sourced from persisted artifacts or typed handoffs
+- contract/docs/tests for any artifact-backed or handoff-backed workflow
+
+### Vocabulary-Based Triggers
+
+Apply this skill if the change introduces or modifies artifact-boundary vocabulary such as:
+
+- `artifact_id`, `observation_id`, `history_entry_id`, `episode_id`
+- `fingerprint`, `schema_version`, `lineage`, `provenance`
+- `handoff`, `open_handoff`, `review_basis`, `proposalCapture`
+- `preflight`, `preview`, `open`, `restore`, `replay`
+
+If responsibility-based or vocabulary-based triggers match, use this skill even when the file path is not listed below.
+
+### Common Trigger Paths
+
+Common high-signal paths include:
 
 - `services/quant-engine/app/services/*artifact*.py`
 - `services/quant-engine/app/services/portfolio_backtest_engine.py`
@@ -21,9 +48,9 @@ Apply this skill if any changed file matches one or more of:
 - `services/quant-engine/app/schemas/construction.py`
 - `services/quant-engine/app/schemas/optimizer.py`
 - `services/quant-engine/app/schemas/research.py`
-- `apps/desktop/src/app/App.tsx`
+- `apps/desktop/src/app/App.tsx` when touching restore/open/review flow wiring
 - `apps/desktop/src/app/portfolioWorkspaceStorage.ts`
-- `apps/desktop/src/features/backtest/*.tsx`
+- `apps/desktop/src/features/backtest/*.tsx` when touching monitoring/review/workspace entrypoints
 - `apps/desktop/src/features/portfolio/workspaceTypes.ts`
 - `apps/desktop/src/features/portfolio/types.ts`
 
@@ -37,8 +64,11 @@ Apply it proactively for related tests and contract/docs updates in:
 - `apps/desktop/src/app/App.test.tsx`
 - `apps/desktop/src/app/portfolioWorkspaceStorage.test.ts`
 - `apps/desktop/src/features/backtest/*.test.tsx`
+- helper modules that normalize persisted desktop state or build artifact-backed fixtures
 - `docs/contracts/*.md`
 - `docs/product/current-product-state.md`
+- `docs/product/roadmap.md`
+- `docs/product/technical-roadmap.md`
 - `services/quant-engine/docs/*.md`
 
 ## Non-Negotiable Rules
