@@ -106,16 +106,17 @@ function formatDashboardReturnBasisRefusalLine(result: DashboardAnalysis | null,
   if (!baseReason) return null
 
   const partialUnlock = runMetadata.investor_economics_partial_unlock
-  const excessReturnPolicy = partialUnlock.exact_slice_scalar_allowlist.find(
+  const exactSliceScalarAllowlist = partialUnlock?.exact_slice_scalar_allowlist ?? []
+  const excessReturnPolicy = exactSliceScalarAllowlist.find(
     (item) => item.field === 'range_metrics[*].summary.excess_return_pct',
   )
-  const benchmarkPolicy = partialUnlock.exact_slice_scalar_allowlist.find(
+  const benchmarkPolicy = exactSliceScalarAllowlist.find(
     (item) => item.field === 'range_metrics[*].summary.benchmark_return_pct',
   )
   const policyDetail = benchmarkPolicy?.runtime_enabled && excessReturnPolicy?.runtime_enabled === false
     ? ' Dashboard policy remains partial-unlock only: exact-slice benchmark return may appear only for the identical admitted slice with independently verified benchmark total-return proof, and excess return still requires the same identical admitted slice pair plus a future server-side runtime enablement.'
     : ''
-  const derivationDetail = partialUnlock.client_derivation_rule === 'server_side_scalar_only_no_daily_series_subtraction_equivalence'
+  const derivationDetail = partialUnlock?.client_derivation_rule === 'server_side_scalar_only_no_daily_series_subtraction_equivalence'
     ? ' Clients must not treat daily-series subtraction or local derivation as an equivalent path.'
     : ''
 
@@ -123,7 +124,9 @@ function formatDashboardReturnBasisRefusalLine(result: DashboardAnalysis | null,
 }
 
 function hasRichDashboardData(result: DashboardAnalysis | null) {
-  return Boolean(result && (result.performance_series.length || result.daily_states.length || result.source_status))
+  const performanceSeries = result?.performance_series ?? []
+  const dailyStates = result?.daily_states ?? []
+  return Boolean(result && (performanceSeries.length || dailyStates.length || result.source_status))
 }
 
 function buildUnavailableRangeSummary() {
@@ -141,8 +144,9 @@ function buildUnavailableRangeSummary() {
 
 function resolveDisplayedPortfolioValue(result: DashboardAnalysis | null, visibleSummaryEndValue: number | null, latestPerfValue: number | null) {
   if (!result) return visibleSummaryEndValue ?? latestPerfValue
-  const statementEndingNav = result.snapshot.statement_totals?.ending_nav ?? null
-  const latestStateValue = result.daily_states.length ? result.daily_states[result.daily_states.length - 1].total_portfolio_value : null
+  const statementEndingNav = result.snapshot?.statement_totals?.ending_nav ?? null
+  const dailyStates = result.daily_states ?? []
+  const latestStateValue = dailyStates.length ? dailyStates[dailyStates.length - 1].total_portfolio_value : null
   const candidateEndValue = visibleSummaryEndValue ?? latestStateValue ?? latestPerfValue
   if (
     statementEndingNav != null
@@ -310,11 +314,12 @@ type DashboardPanelProps = {
 const DashboardPerformanceChart = lazy(async () => ({ default: (await import('./DashboardPerformanceChart')).DashboardPerformanceChart }))
 
 function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNames: string[]) {
-  if (!result?.snapshot.statements?.length) {
+  const statements = result?.snapshot?.statements ?? []
+  if (!statements.length) {
     return fallbackFileNames.length ? fallbackFileNames.join(', ') : null
   }
 
-  return result.snapshot.statements
+  return statements
     .map((statement) => {
       const sourcePath = statement.source_path
       if (!sourcePath) {
@@ -337,6 +342,10 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
     setSectorDraft(buildEditableSectorDraftFromSnapshot(draftSnapshot))
   }, [draftSnapshot])
 
+  const snapshot = result?.snapshot ?? null
+  const statement = snapshot?.statement ?? null
+  const statements = snapshot?.statements ?? []
+  const dailyStates = result?.daily_states ?? []
   const allPerf = result?.performance_series ?? []
 
   const perf = useMemo(() => {
@@ -365,8 +374,8 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
       return []
     }
     const visibleDates = new Set(perf.map((point) => point.date))
-    return result.daily_states.filter((state) => visibleDates.has(state.date))
-  }, [perf, result])
+    return dailyStates.filter((state) => visibleDates.has(state.date))
+  }, [dailyStates, perf, result])
 
   const selectedRangeMetrics: DashboardRangeMetrics | null = result?.range_metrics?.[selectedRange] ?? null
 
@@ -466,7 +475,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   }
 
   const loadedStatementsLabel = formatLoadedStatements(result, lastImportedFileNames)
-  const statementCount = result?.snapshot.statements?.length ?? lastImportedFileNames.length
+  const statementCount = statements.length || lastImportedFileNames.length
   const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
   const dashboardSourceSummary = result?.source_status?.performance_history ? dashboardSourceLabel(result.source_status.performance_history) : null
   const dashboardAuditLine = formatDashboardAuditLine(result)
@@ -488,7 +497,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
           </div>
         </div>
         <p className="lead compact-lead">Import an Interactive Brokers or Freedom24 statement to populate the dashboard with account summary, look-through exposure, and professional risk views.</p>
-        {loadedStatementsLabel ? <p className="helper">Last import: {loadedStatementsLabel}</p> : null}
+        {loadedFilesLabel ? <p className="helper">{loadedFilesLabel}</p> : null}
         {restoredSession ? <p className="helper">Restored on launch</p> : null}
         {importError ? <p className="error">{importError}</p> : null}
       </article>
@@ -497,7 +506,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
 
   const performanceHistoryStatus = result.source_status?.performance_history ?? 'unavailable'
   const performanceEmptyState = buildPerformanceEmptyState(performanceHistoryStatus, selectedRange)
-  const benchmarkLabel = result.performance_series.find((point) => point.benchmark_price != null) ? 'SPY' : 'Benchmark'
+  const benchmarkLabel = allPerf.find((point) => point.benchmark_price != null) ? 'SPY' : 'Benchmark'
   const visibleHistoryWindow = perf.length ? formatHistoryWindowLabel(perf[0]?.date ?? null, perf[perf.length - 1]?.date ?? null) : 'History window unavailable'
   const rangeMetricsStatusLabel = selectedRangeMetrics ? 'Range metrics live' : 'Range metrics unavailable'
   const workspaceStateLabel = draftStatus ? `Working draft ${draftStatus}` : activeNodeName ? `Viewing ${activeNodeName}` : 'Imported snapshot view'
@@ -511,7 +520,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
             <h2>Project summary</h2>
             <p className="lead compact-lead">Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.</p>
             <div className="dashboard-meta-row dashboard-meta-row-quant">
-              <span className="broker-badge">{formatBrokerLabel(result.snapshot.statement.importer)}</span>
+              <span className="broker-badge">{formatBrokerLabel(statement?.importer ?? 'interactive_brokers')}</span>
               <span className="backtest-source-badge">{rangeMetricsStatusLabel}</span>
               {dashboardSourceSummary ? <span className="backtest-source-badge">{dashboardSourceSummary}</span> : null}
               <span className="backtest-source-badge">{workspaceStateLabel}</span>
@@ -529,8 +538,8 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
           <div className="dashboard-quant-context-grid">
             <div className="summary-card dashboard-quant-context-card">
               <p className="stat-label">Account Summary</p>
-            <p className="summary-value">{result.snapshot.statement.account_id ?? 'Unknown'}</p>
-            <p className="helper">{formatBrokerLabel(result.snapshot.statement.importer)} · {result.snapshot.statement.statement_period ?? 'Statement period unavailable'}{statementCount > 1 ? ` · ${statementCount} statements combined` : ''}</p>
+            <p className="summary-value">{statement?.account_id ?? 'Unknown'}</p>
+            <p className="helper">{formatBrokerLabel(statement?.importer ?? 'interactive_brokers')} · {statement?.statement_period ?? 'Statement period unavailable'}{statementCount > 1 ? ` · ${statementCount} statements combined` : ''}</p>
           </div>
             <div className="summary-card dashboard-quant-context-card">
               <p className="stat-label">Import Provenance</p>

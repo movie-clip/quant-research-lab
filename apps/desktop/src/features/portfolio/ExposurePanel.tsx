@@ -303,6 +303,9 @@ function mappingMatchCaption(
 }
 
 function trimLeadingNullPoints<T extends { date: string }>(data: T[], keys: string[]) {
+  if (!Array.isArray(data) || !data.length) {
+    return []
+  }
   const firstIndex = data.findIndex((point) => keys.some((key) => point[key as keyof T] != null))
   if (firstIndex < 0) {
     return []
@@ -388,7 +391,8 @@ function formatExposureAuditLine(result: ExposureAnalysis) {
 function formatExposureRelativeReturnRefusalLine(result: ExposureAnalysis) {
   const diagnosticsAvailable = result.availability?.historical_sections_available !== false
   const diagnosticsRunMetadata = result.diagnostics_run_metadata
-  const relativeReturnRefused = result.relative_risk.active_return_pct == null && result.relative_risk.information_ratio == null
+  const relativeRisk = result.relative_risk
+  const relativeReturnRefused = relativeRisk != null && relativeRisk.active_return_pct == null && relativeRisk.information_ratio == null
   if (!diagnosticsAvailable || !diagnosticsRunMetadata || !relativeReturnRefused) return null
   if (diagnosticsRunMetadata.investor_economics_status.status !== 'withheld') return null
 
@@ -543,16 +547,29 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   const [factorSnapshotCollapsed, setFactorSnapshotCollapsed] = useState(false)
   const [combinedRiskWindow, setCombinedRiskWindow] = useState<RollingWindow>(20)
   const resolvedFactorModel = factorModel
+  const rollingRisk = result?.rolling_risk ?? []
+  const volatilityRegime = result?.volatility_regime ?? null
+  const volatilitySnapshot = volatilityRegime?.snapshot ?? null
+  const volatilitySeries = volatilityRegime?.rolling_series ?? []
+  const riskSummary = result?.risk_summary ?? null
+  const marketOverlap = result?.market_overlap ?? null
+  const relativeRisk = result?.relative_risk ?? null
+  const modelReliability = result?.model_reliability ?? null
+  const currentStateConcentration = result?.current_state_concentration ?? null
+  const lookthrough = result?.lookthrough ?? null
+  const stressScenarios = result?.stress_scenarios ?? []
+  const overlapBenchmarkSymbol = marketOverlap?.benchmark_symbol ?? riskSummary?.benchmark_symbol ?? result?.benchmark?.symbol ?? 'benchmark'
+  const riskBenchmarkSymbol = riskSummary?.benchmark_symbol ?? result?.benchmark?.symbol ?? 'benchmark'
 
-  const topLookthrough = result?.lookthrough.top_constituents.slice(0, 10) ?? []
-  const topLookthroughSectors = result?.lookthrough_sector_exposure.slice(0, 8) ?? []
-  const topConcentrationPositions = result?.current_state_concentration.top_positions.slice(0, 5) ?? []
-  const topConcentrationSectors = result?.current_state_concentration.top_sectors.slice(0, 5) ?? []
+  const topLookthrough = lookthrough?.top_constituents?.slice(0, 10) ?? []
+  const topLookthroughSectors = result?.lookthrough_sector_exposure?.slice(0, 8) ?? []
+  const topConcentrationPositions = currentStateConcentration?.top_positions?.slice(0, 5) ?? []
+  const topConcentrationSectors = currentStateConcentration?.top_sectors?.slice(0, 5) ?? []
   const factorExposures = result?.factor_exposures ?? []
   const scenarioPreview = result?.scenario_preview ?? null
-  const sectorDrifts = scenarioPreview?.sector_drifts.slice(0, 5) ?? []
-  const positionDrifts = scenarioPreview?.position_drifts.slice(0, 5) ?? []
-  const factorDrifts = scenarioPreview?.factor_drifts.slice(0, 5) ?? []
+  const sectorDrifts = scenarioPreview?.sector_drifts?.slice(0, 5) ?? []
+  const positionDrifts = scenarioPreview?.position_drifts?.slice(0, 5) ?? []
+  const factorDrifts = scenarioPreview?.factor_drifts?.slice(0, 5) ?? []
   const scenarioStressScenarios = scenarioPreview?.scenario_stress_scenarios ?? null
   const scenarioRiskContribution = scenarioPreview?.scenario_risk_contribution ?? null
   const factorRegistry = resolvedFactorModel?.factor_registry ?? []
@@ -562,19 +579,17 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   const selectedCollinearity = resolvedFactorModel?.statistical_factor_model.collinearity_diagnostics.find((item) => item.window_days === rollingWindow) ?? null
 
   const rollingRiskSeries = useMemo(() => {
-    if (!result) return []
-    return trimLeadingNullPoints(result.rolling_risk, [`beta_${rollingWindow}d`, `correlation_${rollingWindow}d`])
-  }, [result, rollingWindow])
+    return trimLeadingNullPoints(rollingRisk, [`beta_${rollingWindow}d`, `correlation_${rollingWindow}d`])
+  }, [rollingRisk, rollingWindow])
 
   const rollingRiskCoverage = useMemo(() => getCoverage(rollingRiskSeries), [rollingRiskSeries])
-  const volatilityCoverage = useMemo(() => getCoverage(result?.volatility_regime.rolling_series ?? []), [result])
+  const volatilityCoverage = useMemo(() => getCoverage(volatilitySeries), [volatilitySeries])
   const sortedSnapshotFactors = useMemo(() => [...factorSnapshot].sort((left, right) => Math.abs(right.latest_loading ?? 0) - Math.abs(left.latest_loading ?? 0)), [factorSnapshot])
   const factorLoadingSeries = useMemo(() => (resolvedFactorModel ? getRollingLoadingsSeries(resolvedFactorModel, rollingWindow) : []), [resolvedFactorModel, rollingWindow])
-  const riskBetaStats = useMemo(() => getSeriesStats(result?.rolling_risk ?? [], `beta_${rollingWindow}d` as RollingRiskMetricKey), [result, rollingWindow])
-  const riskCorrelationStats = useMemo(() => getSeriesStats(result?.rolling_risk ?? [], `correlation_${rollingWindow}d` as RollingRiskMetricKey), [result, rollingWindow])
-  const volatilitySeries = result?.volatility_regime.rolling_series ?? []
+  const riskBetaStats = useMemo(() => getSeriesStats(rollingRisk, `beta_${rollingWindow}d` as RollingRiskMetricKey), [rollingRisk, rollingWindow])
+  const riskCorrelationStats = useMemo(() => getSeriesStats(rollingRisk, `correlation_${rollingWindow}d` as RollingRiskMetricKey), [rollingRisk, rollingWindow])
   const drawdownRiskSeries = useMemo(() => {
-    const rollingRiskByDate = new Map((result?.rolling_risk ?? []).map((point) => [point.date, point]))
+    const rollingRiskByDate = new Map(rollingRisk.map((point) => [point.date, point]))
     return volatilitySeries.map((point) => {
       const rollingRiskPoint = rollingRiskByDate.get(point.date)
       return {
@@ -583,7 +598,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         [`correlation_${rollingWindow}d`]: rollingRiskPoint?.[`correlation_${rollingWindow}d`] ?? null,
       }
     })
-  }, [result, rollingWindow, volatilitySeries])
+  }, [rollingRisk, rollingWindow, volatilitySeries])
   const combinedRiskLines = useMemo(() => {
     const suffix = `${combinedRiskWindow}d`
     return [
@@ -622,12 +637,12 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   const tracking60Stats = useMemo(() => getSeriesStats(volatilitySeries, 'tracking_error_60d'), [volatilitySeries])
   const tracking252Stats = useMemo(() => getSeriesStats(volatilitySeries, 'tracking_error_252d'), [volatilitySeries])
   const drawdownStats = useMemo(() => getSeriesStats(volatilitySeries, 'drawdown_pct'), [volatilitySeries])
-  const betaTone = toneFromBeta(result?.risk_summary.portfolio_beta)
-  const correlationTone = toneFromCorrelation(result?.risk_summary.portfolio_correlation)
-  const overlapTone = toneFromOverlap(result?.market_overlap.portfolio_in_benchmark_weight != null ? result.market_overlap.portfolio_in_benchmark_weight * 100 : null)
-  const activeShareTone = toneFromActiveShare(result?.market_overlap.active_share != null ? result.market_overlap.active_share * 100 : null)
-  const trackingErrorTone = toneFromTrackingError(result?.relative_risk.tracking_error_pct)
-  const informationRatioTone = toneFromInformationRatio(result?.relative_risk.information_ratio)
+  const betaTone = toneFromBeta(riskSummary?.portfolio_beta)
+  const correlationTone = toneFromCorrelation(riskSummary?.portfolio_correlation)
+  const overlapTone = toneFromOverlap(marketOverlap?.portfolio_in_benchmark_weight != null ? marketOverlap.portfolio_in_benchmark_weight * 100 : null)
+  const activeShareTone = toneFromActiveShare(marketOverlap?.active_share != null ? marketOverlap.active_share * 100 : null)
+  const trackingErrorTone = toneFromTrackingError(relativeRisk?.tracking_error_pct)
+  const informationRatioTone = toneFromInformationRatio(relativeRisk?.information_ratio)
   const realizedVol20Tone = toneFromRangePosition(vol20Stats?.position)
   const realizedVol60Tone = toneFromRangePosition(vol60Stats?.position)
   const realizedVol252Tone = toneFromRangePosition(vol252Stats?.position)
@@ -640,13 +655,13 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
   const tracking20Tone = toneFromRangePosition(tracking20Stats?.position)
   const tracking60Tone = toneFromRangePosition(tracking60Stats?.position)
   const tracking252Tone = toneFromRangePosition(tracking252Stats?.position)
-  const currentDrawdownTone = toneFromDrawdown(result?.volatility_regime.snapshot.current_drawdown_pct)
-  const maxDrawdownTone = toneFromDrawdown(result?.volatility_regime.snapshot.max_drawdown_pct)
-  const volRatio2060Tone = toneFromVolRatio(result?.volatility_regime.snapshot.vol_ratio_20_60)
-  const volRatio20252Tone = toneFromVolRatio(result?.volatility_regime.snapshot.vol_ratio_20_252)
-  const volPercentileTone = toneFromVolPercentile(result?.volatility_regime.snapshot.current_20d_vol_percentile)
-  const confidenceTone = toneFromConfidence(result?.volatility_regime.regime.confidence)
-  const modelReliabilityTone = toneFromConfidence(result?.model_reliability.confidence)
+  const currentDrawdownTone = toneFromDrawdown(volatilitySnapshot?.current_drawdown_pct)
+  const maxDrawdownTone = toneFromDrawdown(volatilitySnapshot?.max_drawdown_pct)
+  const volRatio2060Tone = toneFromVolRatio(volatilitySnapshot?.vol_ratio_20_60)
+  const volRatio20252Tone = toneFromVolRatio(volatilitySnapshot?.vol_ratio_20_252)
+  const volPercentileTone = toneFromVolPercentile(volatilitySnapshot?.current_20d_vol_percentile)
+  const confidenceTone = toneFromConfidence(volatilityRegime?.regime?.confidence)
+  const modelReliabilityTone = toneFromConfidence(modelReliability?.confidence)
 
   if (!result) {
     return (
@@ -667,28 +682,28 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
 
   const topRiskPath = [
     {
-      label: `Beta vs ${result.risk_summary.benchmark_symbol}`,
-      value: formatNumber(result.risk_summary.portfolio_beta, 2),
+      label: `Beta vs ${riskSummary?.benchmark_symbol ?? 'benchmark'}`,
+      value: formatNumber(riskSummary?.portfolio_beta, 2),
       tone: betaTone,
-      detail: riskBetaStats ? `${formatNumber(riskBetaStats.min, 2)} to ${formatNumber(riskBetaStats.max, 2)}` : `${result.risk_summary.observations} obs`,
+      detail: riskBetaStats ? `${formatNumber(riskBetaStats.min, 2)} to ${formatNumber(riskBetaStats.max, 2)}` : `${riskSummary?.observations ?? 0} obs`,
     },
     {
       label: 'Tracking Error',
-      value: formatPct(result.relative_risk.tracking_error_pct),
+      value: formatPct(relativeRisk?.tracking_error_pct),
       tone: trackingErrorTone,
-      detail: result.relative_risk.active_return_pct == null ? 'Active return n/a' : `Active return ${formatPct(result.relative_risk.active_return_pct)}`,
+      detail: relativeRisk?.active_return_pct == null ? 'Active return n/a' : `Active return ${formatPct(relativeRisk.active_return_pct)}`,
     },
     {
       label: '20d Realized Vol',
-      value: formatPct(result.volatility_regime.snapshot.realized_vol_20d),
+      value: formatPct(volatilitySnapshot?.realized_vol_20d),
       tone: realizedVol20Tone,
       detail: vol20Stats ? `${formatPct(vol20Stats.min)} to ${formatPct(vol20Stats.max)}` : 'Range n/a',
     },
     {
       label: 'Regime',
-      value: result.volatility_regime.regime.label,
+      value: volatilityRegime?.regime?.label ?? 'n/a',
       tone: confidenceTone,
-      detail: `${result.volatility_regime.regime.confidence} confidence`,
+      detail: `${volatilityRegime?.regime?.confidence ?? 'n/a'} confidence`,
     },
   ]
 
@@ -806,13 +821,13 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
             <p className="helper">Current holdings only.</p>
           </div>
           <div className={metricCardClass(overlapTone)}>
-            <p className="stat-label">Portfolio in {result.market_overlap.benchmark_symbol} Names</p>
-            <p className={`summary-value ${signalToneClass(overlapTone)}`}>{formatPct(result.market_overlap.portfolio_in_benchmark_weight != null ? result.market_overlap.portfolio_in_benchmark_weight * 100 : null)}</p>
+            <p className="stat-label">Portfolio in {overlapBenchmarkSymbol} Names</p>
+            <p className={`summary-value ${signalToneClass(overlapTone)}`}>{formatPct(marketOverlap?.portfolio_in_benchmark_weight != null ? marketOverlap.portfolio_in_benchmark_weight * 100 : null)}</p>
             <p className="helper">Overlap inside benchmark constituents.</p>
           </div>
           <div className={metricCardClass(activeShareTone)}>
-            <p className="stat-label">Active Share vs {result.market_overlap.benchmark_symbol}</p>
-            <p className={`summary-value ${signalToneClass(activeShareTone)}`}>{formatPct(result.market_overlap.active_share != null ? result.market_overlap.active_share * 100 : null)}</p>
+            <p className="stat-label">Active Share vs {overlapBenchmarkSymbol}</p>
+            <p className={`summary-value ${signalToneClass(activeShareTone)}`}>{formatPct(marketOverlap?.active_share != null ? marketOverlap.active_share * 100 : null)}</p>
             <p className="helper">Lower reads closer to benchmark construction.</p>
           </div>
           <div className="summary-card metric-card metric-card-neutral">
@@ -821,21 +836,21 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
           </div>
           <div className={metricCardClass(trackingErrorTone)}>
             <p className="stat-label">Tracking Error</p>
-            <p className={`summary-value ${signalToneClass(trackingErrorTone)}`}>{formatPct(result.relative_risk.tracking_error_pct)}</p>
+            <p className={`summary-value ${signalToneClass(trackingErrorTone)}`}>{formatPct(relativeRisk?.tracking_error_pct)}</p>
             <p className="helper">Daily active-risk estimate.</p>
           </div>
           <div className={metricCardClass(informationRatioTone)}>
             <p className="stat-label">Information Ratio</p>
-            <p className={`summary-value ${signalToneClass(informationRatioTone)}`}>{formatRatio(result.relative_risk.information_ratio)}</p>
-            <p className="helper">Active return {formatPct(result.relative_risk.active_return_pct)}</p>
+            <p className={`summary-value ${signalToneClass(informationRatioTone)}`}>{formatRatio(relativeRisk?.information_ratio)}</p>
+            <p className="helper">Active return {formatPct(relativeRisk?.active_return_pct)}</p>
           </div>
           </div>
           <div className="summary-card market-risk-method-card">
             <p className="stat-label">Method</p>
-            <p className="helper">{result.risk_summary.methodology}</p>
+            <p className="helper">{riskSummary?.methodology ?? 'n/a'}</p>
             <div className="market-risk-method-meta">
-              <p className="helper">Volatility {formatPct(result.risk_summary.portfolio_volatility_pct)} vs {result.risk_summary.benchmark_symbol} {formatPct(result.risk_summary.benchmark_volatility_pct)}</p>
-              <p className="helper">Window {result.risk_summary.start_date ?? 'n/a'} to {result.risk_summary.end_date ?? 'n/a'}</p>
+              <p className="helper">Volatility {formatPct(riskSummary?.portfolio_volatility_pct)} vs {riskBenchmarkSymbol} {formatPct(riskSummary?.benchmark_volatility_pct)}</p>
+              <p className="helper">Window {riskSummary?.start_date ?? 'n/a'} to {riskSummary?.end_date ?? 'n/a'}</p>
             </div>
           </div>
         </div>
@@ -846,14 +861,14 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
           title="Volatility"
           controls={<div className="toggle-group risk-window-selector" aria-label="Combined risk window selector">{ROLLING_WINDOW_OPTIONS.map((window) => <button className={`toggle-chip${combinedRiskWindow === window ? ' active' : ''}`} key={window} onClick={() => setCombinedRiskWindow(window)} type="button">{window}d</button>)}</div>}
           chartClassName="risk-combined-chart-panel"
-          data={result.volatility_regime.rolling_series}
+          data={volatilitySeries}
           yAxisFormatter={formatAxisPct}
           lines={combinedRiskLines}
         />
 
         <ExposureChartCard
           title="Drawdown"
-          helperRight={`Wealth Index ${formatNumber(result.volatility_regime.rolling_series[result.volatility_regime.rolling_series.length - 1]?.wealth_index, 2)}`}
+          helperRight={`Wealth Index ${formatNumber(volatilitySeries[volatilitySeries.length - 1]?.wealth_index, 2)}`}
           chartClassName="risk-drawdown-chart-panel"
           data={drawdownRiskSeries}
           yAxisFormatter={formatAxisPct}
@@ -871,14 +886,14 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Sensitivity</p></div><p className="helper">Historical broad-market sensitivity aligned with the drawdown horizon. {formatCoverageLabel(rollingRiskCoverage)}{scenarioPreview ? ' Historical baseline only.' : ''}</p></div>
         <div className="dashboard-summary compact-summary-grid">
           <div className={metricCardClass(betaTone)}>
-            <p className="stat-label">Beta vs {result.risk_summary.benchmark_symbol}</p>
-            <p className={`summary-value ${signalToneClass(betaTone)}`}>{formatNumber(result.risk_summary.portfolio_beta, 2)}</p>
+            <p className="stat-label">Beta vs {riskBenchmarkSymbol}</p>
+            <p className={`summary-value ${signalToneClass(betaTone)}`}>{formatNumber(riskSummary?.portfolio_beta, 2)}</p>
             <RangeContext stats={riskBetaStats} formatter={(value) => formatNumber(value, 2)} tone={betaTone} />
           </div>
           <div className={metricCardClass(correlationTone)}>
-            <p className="stat-label">Correlation vs {result.risk_summary.benchmark_symbol}</p>
-            <p className={`summary-value ${signalToneClass(correlationTone)}`}>{formatNumber(result.risk_summary.portfolio_correlation, 2)}</p>
-            <p className="helper">R-squared {formatNumber(result.risk_summary.r_squared, 2)}</p>
+            <p className="stat-label">Correlation vs {riskBenchmarkSymbol}</p>
+            <p className={`summary-value ${signalToneClass(correlationTone)}`}>{formatNumber(riskSummary?.portfolio_correlation, 2)}</p>
+            <p className="helper">R-squared {formatNumber(riskSummary?.r_squared, 2)}</p>
             <RangeContext stats={riskCorrelationStats} formatter={(value) => formatNumber(value, 2)} tone={correlationTone} />
           </div>
         </div>
@@ -891,22 +906,22 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <div className="dashboard-summary compact-summary-grid">
           <div className={metricCardClass(modelReliabilityTone)}>
             <p className="stat-label">Model Confidence</p>
-            <p className={`summary-value ${signalToneClass(modelReliabilityTone)}`}>{result.model_reliability.confidence}</p>
-            <p className="helper">{result.model_reliability.status} · {result.model_reliability.observation_count} obs</p>
+            <p className={`summary-value ${signalToneClass(modelReliabilityTone)}`}>{modelReliability?.confidence ?? 'n/a'}</p>
+            <p className="helper">{modelReliability?.status ?? 'n/a'} · {modelReliability?.observation_count ?? 0} obs</p>
           </div>
           <div className="summary-card metric-card metric-card-neutral">
             <p className="stat-label">R-Squared</p>
-            <p className="summary-value">{formatNumber(result.model_reliability.r_squared, 2)}</p>
-            <p className="helper">Current {result.model_reliability.window_days}d regression fit</p>
+            <p className="summary-value">{formatNumber(modelReliability?.r_squared, 2)}</p>
+            <p className="helper">Current {modelReliability?.window_days ?? 'n/a'}d regression fit</p>
           </div>
           <div className="summary-card metric-card metric-card-neutral">
             <p className="stat-label">Residual Vol</p>
-            <p className="summary-value">{formatPct(result.model_reliability.residual_volatility)}</p>
+            <p className="summary-value">{formatPct(modelReliability?.residual_volatility)}</p>
             <p className="helper">Unexplained volatility after factors</p>
           </div>
           <div className="summary-card metric-card metric-card-neutral">
             <p className="stat-label">Collinearity Pairs</p>
-            <p className="summary-value">{result.model_reliability.collinearity_pair_count}</p>
+            <p className="summary-value">{modelReliability?.collinearity_pair_count ?? 0}</p>
             <p className="helper">High-overlap factor pairs in the active window</p>
           </div>
         </div>
@@ -933,7 +948,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
                   <p className="helper">Window status: {selectedWindowSummary?.status ?? resolvedFactorModel?.statistical_factor_model.status ?? 'n/a'}</p>
                   <p className="helper">Observations: {selectedWindowSummary?.observations ?? 0}</p>
                   <p className="helper">Benchmark: {resolvedFactorModel?.statistical_factor_model.benchmark_symbol ?? result.benchmark?.symbol ?? 'SPY'}</p>
-                  <p className="helper">Reliability: {result.model_reliability.confidence} confidence{scenarioPreview ? ' · current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical' : ''}</p>
+                  <p className="helper">Reliability: {modelReliability?.confidence ?? 'n/a'} confidence{scenarioPreview ? ' · current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical' : ''}</p>
                 </div>
                 <div className="factor-snapshot-table-wrap">
               <div className="factor-snapshot-table-grid factor-snapshot-header-row">
@@ -982,31 +997,31 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
       <section className="dashboard-bottom-grid">
         <div className="section-header-inline sector-list-header"><div><p className="panel-label">Volatility & Regime</p></div><p className="helper">Historical volatility and regime diagnostics from persisted portfolio history. {formatCoverageLabel(volatilityCoverage)}{scenarioPreview ? ' Scenario edits do not rerun this historical regime path.' : ''}</p></div>
         <div className="factor-snapshot-meta-row">
-          <p className="helper">Methodology: {result.volatility_regime.methodology}</p>
-          <p className="helper">Return Basis: {result.volatility_regime.assumptions.return_basis}</p>
-          <p className="helper">Drawdown Basis: {result.volatility_regime.assumptions.drawdown_basis}</p>
-          <p className="helper">Benchmark Basis: {result.volatility_regime.assumptions.benchmark_basis}</p>
+          <p className="helper">Methodology: {volatilityRegime?.methodology ?? 'n/a'}</p>
+          <p className="helper">Return Basis: {volatilityRegime?.assumptions?.return_basis ?? 'n/a'}</p>
+          <p className="helper">Drawdown Basis: {volatilityRegime?.assumptions?.drawdown_basis ?? 'n/a'}</p>
+          <p className="helper">Benchmark Basis: {volatilityRegime?.assumptions?.benchmark_basis ?? 'n/a'}</p>
         </div>
         <div className="dashboard-summary volatility-summary-grid">
-          <div className={metricCardClass(realizedVol20Tone)}><p className="stat-label">Realized Vol 20d</p><p className={`summary-value ${signalToneClass(realizedVol20Tone)}`}>{formatPct(result.volatility_regime.snapshot.realized_vol_20d)}</p><RangeContext stats={vol20Stats} formatter={formatPct} tone={realizedVol20Tone} /></div>
-          <div className={metricCardClass(realizedVol60Tone)}><p className="stat-label">Realized Vol 60d</p><p className={`summary-value ${signalToneClass(realizedVol60Tone)}`}>{formatPct(result.volatility_regime.snapshot.realized_vol_60d)}</p><RangeContext stats={vol60Stats} formatter={formatPct} tone={realizedVol60Tone} /></div>
-          <div className={metricCardClass(realizedVol252Tone)}><p className="stat-label">Realized Vol 252d</p><p className={`summary-value ${signalToneClass(realizedVol252Tone)}`}>{formatPct(result.volatility_regime.snapshot.realized_vol_252d)}</p><RangeContext stats={vol252Stats} formatter={formatPct} tone={realizedVol252Tone} /></div>
-          <div className={metricCardClass(benchmarkVol20Tone)}><p className="stat-label">Benchmark Vol 20d</p><p className={`summary-value ${signalToneClass(benchmarkVol20Tone)}`}>{formatPct(result.volatility_regime.snapshot.benchmark_vol_20d)}</p><RangeContext stats={benchmarkVol20Stats} formatter={formatPct} tone={benchmarkVol20Tone} /></div>
-          <div className={metricCardClass(benchmarkVol60Tone)}><p className="stat-label">Benchmark Vol 60d</p><p className={`summary-value ${signalToneClass(benchmarkVol60Tone)}`}>{formatPct(result.volatility_regime.snapshot.benchmark_vol_60d)}</p><RangeContext stats={benchmarkVol60Stats} formatter={formatPct} tone={benchmarkVol60Tone} /></div>
-          <div className={metricCardClass(benchmarkVol252Tone)}><p className="stat-label">Benchmark Vol 252d</p><p className={`summary-value ${signalToneClass(benchmarkVol252Tone)}`}>{formatPct(result.volatility_regime.snapshot.benchmark_vol_252d)}</p><RangeContext stats={benchmarkVol252Stats} formatter={formatPct} tone={benchmarkVol252Tone} /></div>
-          <div className={metricCardClass(downsideVol20Tone)}><p className="stat-label">Downside Vol 20d</p><p className={`summary-value ${signalToneClass(downsideVol20Tone)}`}>{formatPct(result.volatility_regime.snapshot.downside_vol_20d)}</p><RangeContext stats={downside20Stats} formatter={formatPct} tone={downsideVol20Tone} /></div>
-          <div className={metricCardClass(downsideVol60Tone)}><p className="stat-label">Downside Vol 60d</p><p className={`summary-value ${signalToneClass(downsideVol60Tone)}`}>{formatPct(result.volatility_regime.snapshot.downside_vol_60d)}</p><RangeContext stats={downside60Stats} formatter={formatPct} tone={downsideVol60Tone} /></div>
-          <div className={metricCardClass(downsideVol252Tone)}><p className="stat-label">Downside Vol 252d</p><p className={`summary-value ${signalToneClass(downsideVol252Tone)}`}>{formatPct(result.volatility_regime.snapshot.downside_vol_252d)}</p><RangeContext stats={downside252Stats} formatter={formatPct} tone={downsideVol252Tone} /></div>
-          <div className={metricCardClass(tracking20Tone)}><p className="stat-label">Tracking Error 20d</p><p className={`summary-value ${signalToneClass(tracking20Tone)}`}>{formatPct(result.volatility_regime.snapshot.tracking_error_20d)}</p><RangeContext stats={tracking20Stats} formatter={formatPct} tone={tracking20Tone} /></div>
-          <div className={metricCardClass(tracking60Tone)}><p className="stat-label">Tracking Error 60d</p><p className={`summary-value ${signalToneClass(tracking60Tone)}`}>{formatPct(result.volatility_regime.snapshot.tracking_error_60d)}</p><RangeContext stats={tracking60Stats} formatter={formatPct} tone={tracking60Tone} /></div>
-          <div className={metricCardClass(tracking252Tone)}><p className="stat-label">Tracking Error 252d</p><p className={`summary-value ${signalToneClass(tracking252Tone)}`}>{formatPct(result.volatility_regime.snapshot.tracking_error_252d)}</p><RangeContext stats={tracking252Stats} formatter={formatPct} tone={tracking252Tone} /></div>
-          <div className={metricCardClass(currentDrawdownTone)}><p className="stat-label">Current Drawdown</p><p className={`summary-value ${signalToneClass(currentDrawdownTone)}`}>{formatPct(result.volatility_regime.snapshot.current_drawdown_pct)}</p><RangeContext stats={drawdownStats} formatter={formatPct} tone={currentDrawdownTone} /></div>
-          <div className={metricCardClass(maxDrawdownTone)}><p className={`stat-label ${signalToneClass(maxDrawdownTone)}`}>Max Drawdown</p><p className={`summary-value ${signalToneClass(maxDrawdownTone)}`}>{formatPct(result.volatility_regime.snapshot.max_drawdown_pct)}</p></div>
-          <div className={metricCardClass(volRatio2060Tone)}><p className="stat-label">Vol Ratio 20/60</p><p className={`summary-value ${signalToneClass(volRatio2060Tone)}`}>{formatRatio(result.volatility_regime.snapshot.vol_ratio_20_60)}</p></div>
-          <div className={metricCardClass(volRatio20252Tone)}><p className="stat-label">Vol Ratio 20/252</p><p className={`summary-value ${signalToneClass(volRatio20252Tone)}`}>{formatRatio(result.volatility_regime.snapshot.vol_ratio_20_252)}</p></div>
-          <div className={metricCardClass(volPercentileTone)}><p className="stat-label">20d Vol Percentile</p><p className={`summary-value ${signalToneClass(volPercentileTone)}`}>{formatPercentile(result.volatility_regime.snapshot.current_20d_vol_percentile)}</p></div>
-          <div className="summary-card metric-card metric-card-neutral"><p className="stat-label">Regime</p><p className="summary-value regime-value">{result.volatility_regime.regime.label}</p></div>
-          <div className={metricCardClass(confidenceTone)}><p className="stat-label">Confidence</p><p className={`summary-value ${signalToneClass(confidenceTone)}`}>{result.volatility_regime.regime.confidence}</p></div>
+          <div className={metricCardClass(realizedVol20Tone)}><p className="stat-label">Realized Vol 20d</p><p className={`summary-value ${signalToneClass(realizedVol20Tone)}`}>{formatPct(volatilitySnapshot?.realized_vol_20d)}</p><RangeContext stats={vol20Stats} formatter={formatPct} tone={realizedVol20Tone} /></div>
+          <div className={metricCardClass(realizedVol60Tone)}><p className="stat-label">Realized Vol 60d</p><p className={`summary-value ${signalToneClass(realizedVol60Tone)}`}>{formatPct(volatilitySnapshot?.realized_vol_60d)}</p><RangeContext stats={vol60Stats} formatter={formatPct} tone={realizedVol60Tone} /></div>
+          <div className={metricCardClass(realizedVol252Tone)}><p className="stat-label">Realized Vol 252d</p><p className={`summary-value ${signalToneClass(realizedVol252Tone)}`}>{formatPct(volatilitySnapshot?.realized_vol_252d)}</p><RangeContext stats={vol252Stats} formatter={formatPct} tone={realizedVol252Tone} /></div>
+          <div className={metricCardClass(benchmarkVol20Tone)}><p className="stat-label">Benchmark Vol 20d</p><p className={`summary-value ${signalToneClass(benchmarkVol20Tone)}`}>{formatPct(volatilitySnapshot?.benchmark_vol_20d)}</p><RangeContext stats={benchmarkVol20Stats} formatter={formatPct} tone={benchmarkVol20Tone} /></div>
+          <div className={metricCardClass(benchmarkVol60Tone)}><p className="stat-label">Benchmark Vol 60d</p><p className={`summary-value ${signalToneClass(benchmarkVol60Tone)}`}>{formatPct(volatilitySnapshot?.benchmark_vol_60d)}</p><RangeContext stats={benchmarkVol60Stats} formatter={formatPct} tone={benchmarkVol60Tone} /></div>
+          <div className={metricCardClass(benchmarkVol252Tone)}><p className="stat-label">Benchmark Vol 252d</p><p className={`summary-value ${signalToneClass(benchmarkVol252Tone)}`}>{formatPct(volatilitySnapshot?.benchmark_vol_252d)}</p><RangeContext stats={benchmarkVol252Stats} formatter={formatPct} tone={benchmarkVol252Tone} /></div>
+          <div className={metricCardClass(downsideVol20Tone)}><p className="stat-label">Downside Vol 20d</p><p className={`summary-value ${signalToneClass(downsideVol20Tone)}`}>{formatPct(volatilitySnapshot?.downside_vol_20d)}</p><RangeContext stats={downside20Stats} formatter={formatPct} tone={downsideVol20Tone} /></div>
+          <div className={metricCardClass(downsideVol60Tone)}><p className="stat-label">Downside Vol 60d</p><p className={`summary-value ${signalToneClass(downsideVol60Tone)}`}>{formatPct(volatilitySnapshot?.downside_vol_60d)}</p><RangeContext stats={downside60Stats} formatter={formatPct} tone={downsideVol60Tone} /></div>
+          <div className={metricCardClass(downsideVol252Tone)}><p className="stat-label">Downside Vol 252d</p><p className={`summary-value ${signalToneClass(downsideVol252Tone)}`}>{formatPct(volatilitySnapshot?.downside_vol_252d)}</p><RangeContext stats={downside252Stats} formatter={formatPct} tone={downsideVol252Tone} /></div>
+          <div className={metricCardClass(tracking20Tone)}><p className="stat-label">Tracking Error 20d</p><p className={`summary-value ${signalToneClass(tracking20Tone)}`}>{formatPct(volatilitySnapshot?.tracking_error_20d)}</p><RangeContext stats={tracking20Stats} formatter={formatPct} tone={tracking20Tone} /></div>
+          <div className={metricCardClass(tracking60Tone)}><p className="stat-label">Tracking Error 60d</p><p className={`summary-value ${signalToneClass(tracking60Tone)}`}>{formatPct(volatilitySnapshot?.tracking_error_60d)}</p><RangeContext stats={tracking60Stats} formatter={formatPct} tone={tracking60Tone} /></div>
+          <div className={metricCardClass(tracking252Tone)}><p className="stat-label">Tracking Error 252d</p><p className={`summary-value ${signalToneClass(tracking252Tone)}`}>{formatPct(volatilitySnapshot?.tracking_error_252d)}</p><RangeContext stats={tracking252Stats} formatter={formatPct} tone={tracking252Tone} /></div>
+          <div className={metricCardClass(currentDrawdownTone)}><p className="stat-label">Current Drawdown</p><p className={`summary-value ${signalToneClass(currentDrawdownTone)}`}>{formatPct(volatilitySnapshot?.current_drawdown_pct)}</p><RangeContext stats={drawdownStats} formatter={formatPct} tone={currentDrawdownTone} /></div>
+          <div className={metricCardClass(maxDrawdownTone)}><p className={`stat-label ${signalToneClass(maxDrawdownTone)}`}>Max Drawdown</p><p className={`summary-value ${signalToneClass(maxDrawdownTone)}`}>{formatPct(volatilitySnapshot?.max_drawdown_pct)}</p></div>
+          <div className={metricCardClass(volRatio2060Tone)}><p className="stat-label">Vol Ratio 20/60</p><p className={`summary-value ${signalToneClass(volRatio2060Tone)}`}>{formatRatio(volatilitySnapshot?.vol_ratio_20_60)}</p></div>
+          <div className={metricCardClass(volRatio20252Tone)}><p className="stat-label">Vol Ratio 20/252</p><p className={`summary-value ${signalToneClass(volRatio20252Tone)}`}>{formatRatio(volatilitySnapshot?.vol_ratio_20_252)}</p></div>
+          <div className={metricCardClass(volPercentileTone)}><p className="stat-label">20d Vol Percentile</p><p className={`summary-value ${signalToneClass(volPercentileTone)}`}>{formatPercentile(volatilitySnapshot?.current_20d_vol_percentile)}</p></div>
+          <div className="summary-card metric-card metric-card-neutral"><p className="stat-label">Regime</p><p className="summary-value regime-value">{volatilityRegime?.regime?.label ?? 'n/a'}</p></div>
+          <div className={metricCardClass(confidenceTone)}><p className="stat-label">Confidence</p><p className={`summary-value ${signalToneClass(confidenceTone)}`}>{volatilityRegime?.regime?.confidence ?? 'n/a'}</p></div>
         </div>
       </section>
 
@@ -1060,7 +1075,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <section>
           <div className="section-header-inline sector-list-header"><div><p className="panel-label">Collinearity Warning</p></div><p className="helper">Informational diagnostic for overlapping factors</p></div>
           <div className="list-table">
-            {selectedCollinearity?.high_collinearity_pairs.length ? selectedCollinearity.high_collinearity_pairs.map((item) => <div className="list-row" key={`collinearity-${item.left_key}-${item.right_key}`}><span>{item.left_key} / {item.right_key}</span><span>{formatNumber(item.correlation, 2)}</span></div>) : <div className="list-row"><span>No major collinearity warnings</span><span>OK</span></div>}
+            {selectedCollinearity?.high_collinearity_pairs?.length ? selectedCollinearity.high_collinearity_pairs.map((item) => <div className="list-row" key={`collinearity-${item.left_key}-${item.right_key}`}><span>{item.left_key} / {item.right_key}</span><span>{formatNumber(item.correlation, 2)}</span></div>) : <div className="list-row"><span>No major collinearity warnings</span><span>OK</span></div>}
             {selectedCollinearity?.note ? <p className="helper collinearity-note">{selectedCollinearity.note}</p> : null}
           </div>
         </section>
@@ -1071,7 +1086,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <div className="list-table">
           {scenarioStressScenarios
             ? scenarioStressScenarios.map((item) => <div className="list-row" key={`stress-${item.name}`}><span>{item.name}</span><span>{formatPct(item.estimated_return_pct)} ({formatSignedPct(item.delta_return_pct)})</span></div>)
-            : result.stress_scenarios.map((item) => <div className="list-row" key={`stress-${item.name}`}><span>{item.name}</span><span>{formatPct(item.estimated_return_pct)}</span></div>)}
+            : stressScenarios.map((item) => <div className="list-row" key={`stress-${item.name}`}><span>{item.name}</span><span>{formatPct(item.estimated_return_pct)}</span></div>)}
         </div>
         {scenarioStressScenarios ? <p className="helper">Scenario stress estimates scale baseline shocks from edited holdings mix and current factor tilts; they do not rerun historical stress regressions.</p> : null}
       </section>
@@ -1113,14 +1128,14 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <section>
           <div className="section-header-inline sector-list-header"><div><p className="panel-label">Current Concentration Snapshot</p></div><p className="helper">Snapshot holdings concentration only; separate from history-derived diagnostics concentration measures.</p></div>
           <div className="dashboard-summary compact-summary-grid">
-            <div className="summary-card"><p className="stat-label">Top 1 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_1_position_weight != null ? result.current_state_concentration.top_1_position_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 3 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_3_position_weight != null ? result.current_state_concentration.top_3_position_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 5 Position Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_5_position_weight != null ? result.current_state_concentration.top_5_position_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top Sector Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_sector_weight != null ? result.current_state_concentration.top_sector_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 3 Sectors Weight</p><p className="summary-value">{formatPct(result.current_state_concentration.top_3_sector_weight != null ? result.current_state_concentration.top_3_sector_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(result.current_state_concentration.position_hhi, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Sector HHI</p><p className="summary-value">{formatNumber(result.current_state_concentration.sector_hhi, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Effective Holdings</p><p className="summary-value">{formatNumber(result.current_state_concentration.effective_holdings, 2)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top 1 Position Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_1_position_weight != null ? currentStateConcentration.top_1_position_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top 3 Position Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_3_position_weight != null ? currentStateConcentration.top_3_position_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top 5 Position Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_5_position_weight != null ? currentStateConcentration.top_5_position_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top Sector Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_sector_weight != null ? currentStateConcentration.top_sector_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Top 3 Sectors Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_3_sector_weight != null ? currentStateConcentration.top_3_sector_weight * 100 : null)}</p></div>
+            <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(currentStateConcentration?.position_hhi, 4)}</p></div>
+            <div className="summary-card"><p className="stat-label">Sector HHI</p><p className="summary-value">{formatNumber(currentStateConcentration?.sector_hhi, 4)}</p></div>
+            <div className="summary-card"><p className="stat-label">Effective Holdings</p><p className="summary-value">{formatNumber(currentStateConcentration?.effective_holdings, 2)}</p></div>
           </div>
           <div className="split-grid dashboard-bottom-grid">
             <section>
@@ -1136,7 +1151,7 @@ export function ExposurePanel({ result, factorModel, snapshotOptions = [], selec
         <section>
           <div className="section-header-inline sector-list-header"><div><p className="panel-label">Actual Exposure</p></div><p className="helper">Top look-through constituents by snapshot market value{lookthroughDegraded ? ' · partial ETF resolution' : ''}{scenarioPreview ? ' in the draft scenario' : ''}</p></div>
           <div className="list-table">{topLookthrough.map((item) => <div className="list-row" key={`lookthrough-${item.symbol}`}><span>{item.symbol}</span><span>{formatCompactMoney(item.effective_market_value)} · {formatPct(item.portfolio_weight * 100)}</span></div>)}</div>
-          <p className="helper">Constituent Coverage {formatPct(result.lookthrough.coverage_ratio * 100)} · direct single-name positions and ETFs with resolved holdings only</p>
+          <p className="helper">Constituent Coverage {formatPct(lookthrough?.coverage_ratio != null ? lookthrough.coverage_ratio * 100 : null)} · direct single-name positions and ETFs with resolved holdings only</p>
         </section>
         <section>
           <div className="section-header-inline sector-list-header"><div><p className="panel-label">Look-Through Sectors</p></div><p className="helper">Economic exposure after ETF unpacking{lookthroughDegraded ? ' with unresolved holdings left at direct-position level' : ''}{scenarioPreview ? ' for the draft scenario' : ''}</p></div>

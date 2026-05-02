@@ -9,12 +9,10 @@ import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/por
 import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { desktopFeatureFlags } from './featureFlags'
-import type { ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, ReviewSnapshotOpenHandoff, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
-import { assertValidReviewSnapshotOpenResponseEnvelope, buildReviewSnapshotOpenHandoffFromProposal, buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveProposalArtifact, saveReplacementIntentDraft, saveReviewSnapshotArtifact, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import type { ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueResponse, MonitorDefinitionRecoveredAlertReviewQueueRow, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, MonitorDefinitionAlertReviewSessionState, MonitorDefinitionAlertReviewTimelineSelection, MonitorDefinitionAlertReviewWorkspaceState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, ReviewSnapshotOpenHandoff, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft } from '../features/portfolio/workspaceTypes'
+import { assertValidReviewSnapshotOpenResponseEnvelope, buildReviewSnapshotOpenHandoffFromProposal, buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveMonitorDefinitionAlertReviewWorkspaceState, saveProposalArtifact, saveReplacementIntentDraft, saveReviewSnapshotArtifact, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
-
-
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 const DashboardPanel = lazy(async () => ({ default: (await import('../features/portfolio/DashboardPanel')).DashboardPanel }))
 const DiagnosticsPanel = lazy(async () => ({ default: (await import('../features/portfolio/DiagnosticsPanel')).DiagnosticsPanel }))
@@ -30,6 +28,15 @@ const defaultConstructionRuleId: SingleReplacementConstructionRuleId = 'same_wei
 const persistedConstructionArtifactQueryKey = 'construction_artifact_id'
 const persistedOptimizerHandoffReferenceQueryKey = 'optimizer_handoff_reference'
 const missingPersistedOptimizerHandoffReviewRestoreMessage = 'Unable to restore previous portfolio workspace: persisted optimizer handoff review is missing'
+
+const idleMonitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionState = {
+  navigation: null,
+  timeline: null,
+  timelineStatus: 'idle',
+  timelineError: null,
+  latestObservation: { status: 'idle', row: null, observation: null, error: null },
+  alertHistory: { status: 'idle', row: null, entry: null, error: null },
+}
 
 function isImportedWorkspaceSource(source: PortfolioWorkspace['source'] | null | undefined): source is Extract<PortfolioWorkspace['source'], { importedFileNames: string[] }> {
   return Boolean(source && 'importedFileNames' in source)
@@ -527,6 +534,623 @@ async function loadWorkspaceProposalArtifacts(workspace: PortfolioWorkspace | nu
   return getWorkspaceProposalArtifacts(workspace.id)
 }
 
+function formatObservationOpenFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Unable to open timeline observation review'
+  if (message.startsWith('Unable to open timeline observation review:')) {
+    return message
+  }
+  return `Unable to open timeline observation review: ${message.charAt(0).toLowerCase()}${message.slice(1)}`
+}
+
+function formatAlertHistoryOpenFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : 'Unable to open timeline history review'
+  if (message.startsWith('Unable to open timeline history review:')) {
+    return message
+  }
+  return `Unable to open timeline history review: ${message.charAt(0).toLowerCase()}${message.slice(1)}`
+}
+
+function formatDefinitionScopedAlertReviewAnalyticsRestoreFailure(reason: string) {
+  return `Unable to restore previous portfolio workspace: ${reason}`
+}
+
+function assertMonitorDefinitionAlertReviewTimelineResponse(
+  payload: unknown,
+  expectedMonitorDefinitionId: string,
+): asserts payload is MonitorDefinitionAlertReviewTimelineResponse {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('alert review timeline payload is malformed')
+  }
+
+  const candidate = payload as Partial<MonitorDefinitionAlertReviewTimelineResponse>
+  if (!Array.isArray(candidate.items) || !candidate.metadata || typeof candidate.metadata !== 'object') {
+    throw new Error('alert review timeline payload is malformed')
+  }
+  if (candidate.metadata.contract_version !== 'monitor_definition_alert_review_timeline_v1') {
+    throw new Error('alert review timeline contract_version is unsupported')
+  }
+  if (candidate.metadata.monitor_definition_id !== expectedMonitorDefinitionId) {
+    throw new Error('alert review timeline monitor_definition_id does not match requested definition id')
+  }
+  if (candidate.metadata.monitor_definition_schema_version !== 'monitor_definition_artifact_v1') {
+    throw new Error('alert review timeline monitor_definition_schema_version is unsupported')
+  }
+  if (candidate.metadata.provenance !== 'canonical_latest_observation_artifact_and_append_only_evaluation_history_entries') {
+    throw new Error('alert review timeline provenance is unsupported')
+  }
+  if (candidate.metadata.source_precedence !== 'persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection') {
+    throw new Error('alert review timeline source_precedence is unsupported')
+  }
+  if ('latest_alert_episode' in candidate.metadata && candidate.metadata.latest_alert_episode != null) {
+    const episode = candidate.metadata.latest_alert_episode
+    if (episode.contract_version !== 'monitor_definition_alert_episode_v1') {
+      throw new Error('alert review timeline latest_alert_episode contract_version is unsupported')
+    }
+    if (episode.monitor_definition_id !== expectedMonitorDefinitionId) {
+      throw new Error('alert review timeline latest_alert_episode monitor_definition_id does not match requested definition id')
+    }
+    if (episode.episode_status !== 'active' && episode.episode_status !== 'recovered') {
+      throw new Error('alert review timeline latest_alert_episode episode_status is unsupported')
+    }
+    if (episode.episode_status === 'active' && (episode.ended_at != null || episode.recovery_basis != null)) {
+      throw new Error('alert review timeline latest_alert_episode active lifecycle is contradictory')
+    }
+    if (episode.episode_status === 'recovered' && (episode.ended_at == null || episode.recovery_basis == null)) {
+      throw new Error('alert review timeline latest_alert_episode recovered lifecycle is contradictory')
+    }
+    if (episode.source_precedence !== 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation') {
+      throw new Error('alert review timeline latest_alert_episode source_precedence is unsupported')
+    }
+  }
+  if (typeof candidate.metadata.observation_rows !== 'number' || typeof candidate.metadata.history_rows !== 'number' || typeof candidate.metadata.total_rows !== 'number') {
+    throw new Error('alert review timeline metadata counts are malformed')
+  }
+  if (candidate.metadata.observation_rows + candidate.metadata.history_rows !== candidate.metadata.total_rows) {
+    throw new Error('alert review timeline metadata counts are contradictory')
+  }
+
+  let observationRows = 0
+  let historyRows = 0
+  for (const row of candidate.items) {
+    if (!row || typeof row !== 'object' || !('event_kind' in row)) {
+      throw new Error('alert review timeline row is malformed')
+    }
+    if (row.monitor_definition_id !== expectedMonitorDefinitionId) {
+      throw new Error('alert review timeline row monitor_definition_id does not match requested definition id')
+    }
+    if (row.monitor_definition_schema_version !== 'monitor_definition_artifact_v1') {
+      throw new Error('alert review timeline row monitor_definition_schema_version is unsupported')
+    }
+    if (row.event_kind === 'latest_observation_event') {
+      observationRows += 1
+      if (row.event_semantics !== 'observation_rooted') {
+        throw new Error('alert review timeline latest observation event semantics are unsupported')
+      }
+      if (!row.open_handoff || row.open_handoff.handoff_kind !== 'monitor_definition_observation_open_handoff_v1') {
+        throw new Error('alert review timeline latest observation handoff is malformed')
+      }
+      if (row.open_handoff.monitor_definition_id !== expectedMonitorDefinitionId || row.open_handoff.observation_id !== row.observation_id) {
+        throw new Error('alert review timeline latest observation handoff does not match row identity')
+      }
+      if (row.metadata.row_provenance !== 'persisted_monitor_definition_observation_artifact') {
+        throw new Error('alert review timeline latest observation provenance is unsupported')
+      }
+      if (row.hysteresis_transition !== null && row.hysteresis_transition !== 'open' && row.hysteresis_transition !== 'remain_open' && row.hysteresis_transition !== 'recover' && row.hysteresis_transition !== 'no_op') {
+        throw new Error('alert review timeline latest observation hysteresis_transition is unsupported')
+      }
+      continue
+    }
+    if (row.event_kind === 'evaluation_history_event') {
+      historyRows += 1
+      if (row.event_semantics !== 'history_entry_rooted') {
+        throw new Error('alert review timeline history event semantics are unsupported')
+      }
+      if (!row.review_handoff || row.review_handoff.handoff_kind !== 'monitor_definition_evaluation_history_review_handoff_v1') {
+        throw new Error('alert review timeline history handoff is malformed')
+      }
+      if (row.review_handoff.monitor_definition_id !== expectedMonitorDefinitionId || row.review_handoff.history_entry_id !== row.history_entry_id) {
+        throw new Error('alert review timeline history handoff does not match row identity')
+      }
+      if (row.metadata.row_provenance !== 'persisted_monitor_definition_evaluation_history_entry') {
+        throw new Error('alert review timeline history provenance is unsupported')
+      }
+      if (row.hysteresis_transition !== null && row.hysteresis_transition !== 'open' && row.hysteresis_transition !== 'remain_open' && row.hysteresis_transition !== 'recover' && row.hysteresis_transition !== 'no_op') {
+        throw new Error('alert review timeline history hysteresis_transition is unsupported')
+      }
+      continue
+    }
+    throw new Error('alert review timeline event_kind is unsupported')
+  }
+
+  if (observationRows !== candidate.metadata.observation_rows) {
+    throw new Error('alert review timeline observation row count does not match metadata')
+  }
+  if (historyRows !== candidate.metadata.history_rows) {
+    throw new Error('alert review timeline history row count does not match metadata')
+  }
+}
+
+function assertMonitorDefinitionRecoveredAlertReviewQueueResponse(
+  payload: unknown,
+): asserts payload is MonitorDefinitionRecoveredAlertReviewQueueResponse {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('recovered alert review queue payload is malformed')
+  }
+
+  const candidate = payload as Partial<MonitorDefinitionRecoveredAlertReviewQueueResponse>
+  if (!Array.isArray(candidate.items) || !candidate.metadata || typeof candidate.metadata !== 'object') {
+    throw new Error('recovered alert review queue payload is malformed')
+  }
+  if (candidate.metadata.contract_version !== 'monitor_definition_recovered_alert_review_queue_v1') {
+    throw new Error('recovered alert review queue contract_version is unsupported')
+  }
+  if (candidate.metadata.provenance !== 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage') {
+    throw new Error('recovered alert review queue provenance is unsupported')
+  }
+  if (candidate.metadata.row_provenance !== 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage') {
+    throw new Error('recovered alert review queue row provenance is unsupported')
+  }
+  if (candidate.metadata.source_precedence !== 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries') {
+    throw new Error('recovered alert review queue source_precedence is unsupported')
+  }
+  if (candidate.metadata.ordering !== 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id') {
+    throw new Error('recovered alert review queue ordering is unsupported')
+  }
+  if (typeof candidate.metadata.total_queue_rows !== 'number') {
+    throw new Error('recovered alert review queue metadata counts are malformed')
+  }
+  if (candidate.metadata.total_queue_rows < candidate.items.length) {
+    throw new Error('recovered alert review queue metadata counts are contradictory')
+  }
+
+  for (const row of candidate.items) {
+    if (!row || typeof row !== 'object') {
+      throw new Error('recovered alert review queue row is malformed')
+    }
+    if (row.monitor_definition_schema_version !== 'monitor_definition_artifact_v1') {
+      throw new Error('recovered alert review queue row monitor_definition_schema_version is unsupported')
+    }
+    if (row.alert_classification !== 'informational') {
+      throw new Error('recovered alert review queue row alert_classification is unsupported')
+    }
+    if (!row.alert_episode || typeof row.alert_episode !== 'object') {
+      throw new Error('recovered alert review queue row alert_episode is malformed')
+    }
+    if (row.alert_episode.contract_version !== 'monitor_definition_alert_episode_v1') {
+      throw new Error('recovered alert review queue row alert_episode contract_version is unsupported')
+    }
+    if (row.alert_episode.monitor_definition_id !== row.monitor_definition_id) {
+      throw new Error('recovered alert review queue row alert_episode monitor_definition_id does not match row identity')
+    }
+    if (row.alert_episode.episode_status !== 'recovered') {
+      throw new Error('recovered alert review queue row alert_episode episode_status is unsupported')
+    }
+    if (row.alert_episode.source_precedence !== 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation') {
+      throw new Error('recovered alert review queue row alert_episode source_precedence is unsupported')
+    }
+    if (row.alert_episode.latest_contributing_observation.observation_id !== row.observation_id) {
+      throw new Error('recovered alert review queue row alert_episode latest observation does not match row identity')
+    }
+    if (!row.alert_episode.recovery_basis || row.alert_episode.recovery_basis.recovered_from_history_entry_id !== row.recovered_from.history_entry_id) {
+      throw new Error('recovered alert review queue row alert_episode recovery basis is malformed')
+    }
+    if (!row.timeline_handoff || row.timeline_handoff.handoff_kind !== 'monitor_definition_alert_review_timeline_open_handoff_v1') {
+      throw new Error('recovered alert review queue row timeline handoff is malformed')
+    }
+    if (row.timeline_handoff.selected_event_kind !== 'latest_observation_event') {
+      throw new Error('recovered alert review queue row timeline handoff selected_event_kind is unsupported')
+    }
+    if (row.timeline_handoff.monitor_definition_id !== row.monitor_definition_id || row.timeline_handoff.observation_id !== row.observation_id) {
+      throw new Error('recovered alert review queue row timeline handoff does not match row identity')
+    }
+    if (!row.recovered_from || typeof row.recovered_from !== 'object') {
+      throw new Error('recovered alert review queue row recovered_from lineage is malformed')
+    }
+    if (row.recovered_from.significance_status === 'informational') {
+      throw new Error('recovered alert review queue row recovered_from significance_status is unsupported')
+    }
+    if (row.recovered_from.history_entry_id === row.latest_history_entry_id) {
+      throw new Error('recovered alert review queue row recovered_from lineage is ambiguous')
+    }
+    if (row.hysteresis_transition !== null && row.hysteresis_transition !== 'recover' && row.hysteresis_transition !== 'no_op') {
+      throw new Error('recovered alert review queue row hysteresis_transition is unsupported')
+    }
+    if (row.metadata.row_provenance !== 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage') {
+      throw new Error('recovered alert review queue row provenance is unsupported')
+    }
+  }
+}
+
+export function assertMonitorDefinitionActiveAlertEpisodeInboxResponse(
+  payload: unknown,
+): asserts payload is MonitorDefinitionActiveAlertEpisodeInboxResponse {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('active alert episode inbox payload is malformed')
+  }
+
+  const candidate = payload as Partial<MonitorDefinitionActiveAlertEpisodeInboxResponse>
+  if (!Array.isArray(candidate.items) || !candidate.metadata || typeof candidate.metadata !== 'object') {
+    throw new Error('active alert episode inbox payload is malformed')
+  }
+  if (candidate.metadata.contract_version !== 'monitor_definition_active_alert_episode_inbox_v1') {
+    throw new Error('active alert episode inbox contract_version is unsupported')
+  }
+  if (candidate.metadata.provenance !== 'authoritative_persisted_monitor_definition_alert_episode_records_only') {
+    throw new Error('active alert episode inbox provenance is unsupported')
+  }
+  if (candidate.metadata.row_provenance !== 'persisted_monitor_definition_alert_episode_record') {
+    throw new Error('active alert episode inbox row provenance is unsupported')
+  }
+  if (candidate.metadata.source_precedence !== 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation') {
+    throw new Error('active alert episode inbox source_precedence is unsupported')
+  }
+  if (candidate.metadata.ordering !== 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id') {
+    throw new Error('active alert episode inbox ordering is unsupported')
+  }
+  if (candidate.metadata.windowing !== 'before_episode_id_exclusive') {
+    throw new Error('active alert episode inbox windowing is unsupported')
+  }
+  if (typeof candidate.metadata.total_active_episodes !== 'number') {
+    throw new Error('active alert episode inbox metadata counts are malformed')
+  }
+  if (candidate.metadata.total_active_episodes < candidate.items.length) {
+    throw new Error('active alert episode inbox metadata counts are contradictory')
+  }
+
+  for (const row of candidate.items) {
+    if (!row || typeof row !== 'object') {
+      throw new Error('active alert episode inbox row is malformed')
+    }
+    if (row.review_scope !== 'current_portfolio_truth_only') {
+      throw new Error('active alert episode inbox row review_scope is unsupported')
+    }
+    if (row.evaluation_mode !== 'review_only_observation_evaluation') {
+      throw new Error('active alert episode inbox row evaluation_mode is unsupported')
+    }
+    if (!row.alert_episode || typeof row.alert_episode !== 'object') {
+      throw new Error('active alert episode inbox row alert_episode is malformed')
+    }
+    if (row.alert_episode.schema_version !== 'monitor_definition_alert_episode_record_v1') {
+      throw new Error('active alert episode inbox row alert_episode schema_version is unsupported')
+    }
+    if (row.alert_episode.lifecycle_status !== 'open') {
+      throw new Error('active alert episode inbox row alert_episode lifecycle_status is unsupported')
+    }
+    if (row.alert_episode.source_precedence !== 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation') {
+      throw new Error('active alert episode inbox row alert_episode source_precedence is unsupported')
+    }
+    if (!row.alert_episode.latest_for_monitor_definition) {
+      throw new Error('active alert episode inbox row alert_episode latest_for_monitor_definition is contradictory')
+    }
+    if (!row.alert_episode.timeline_handoff || row.alert_episode.timeline_handoff.handoff_kind !== 'monitor_definition_alert_episode_history_timeline_handoff_v1') {
+      throw new Error('active alert episode inbox row alert_episode timeline_handoff is malformed')
+    }
+    if (row.alert_episode.timeline_handoff.selected_event_kind !== 'latest_observation_event') {
+      throw new Error('active alert episode inbox row alert_episode timeline_handoff selected_event_kind is unsupported')
+    }
+    if (row.alert_episode.timeline_handoff.observation_id !== row.alert_episode.latest_contributing_observation.observation_id) {
+      throw new Error('active alert episode inbox row alert_episode timeline_handoff does not match latest observation identity')
+    }
+    if (row.metadata.row_provenance !== 'persisted_monitor_definition_alert_episode_record') {
+      throw new Error('active alert episode inbox row metadata provenance is unsupported')
+    }
+  }
+}
+
+export function assertMonitorDefinitionAlertEpisodeHistoryResponse(
+  payload: unknown,
+  expectedMonitorDefinitionId: string,
+): asserts payload is MonitorDefinitionAlertEpisodeHistoryResponse {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('alert episode history payload is malformed')
+  }
+
+  const candidate = payload as Partial<MonitorDefinitionAlertEpisodeHistoryResponse>
+  if (!Array.isArray(candidate.items) || !candidate.metadata || typeof candidate.metadata !== 'object') {
+    throw new Error('alert episode history payload is malformed')
+  }
+  if (candidate.metadata.contract_version !== 'monitor_definition_alert_episode_history_v1') {
+    throw new Error('alert episode history contract_version is unsupported')
+  }
+  if (candidate.metadata.history_truth !== 'authoritative_persisted_monitor_definition_alert_episode_history') {
+    throw new Error('alert episode history truth label is unsupported')
+  }
+  if (candidate.metadata.row_provenance !== 'persisted_monitor_definition_alert_episode_record') {
+    throw new Error('alert episode history row provenance is unsupported')
+  }
+  if (candidate.metadata.source_precedence !== 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation') {
+    throw new Error('alert episode history source_precedence is unsupported')
+  }
+  if (candidate.metadata.ordering !== 'newest_first_latest_event_at_then_episode_id') {
+    throw new Error('alert episode history ordering is unsupported')
+  }
+  if (candidate.metadata.windowing !== 'before_episode_id_exclusive') {
+    throw new Error('alert episode history windowing is unsupported')
+  }
+  if (candidate.metadata.monitor_definition_id !== expectedMonitorDefinitionId) {
+    throw new Error('alert episode history monitor_definition_id does not match requested definition id')
+  }
+  if (candidate.metadata.monitor_definition_schema_version !== 'monitor_definition_artifact_v1') {
+    throw new Error('alert episode history monitor_definition_schema_version is unsupported')
+  }
+  if (typeof candidate.metadata.total_episodes !== 'number') {
+    throw new Error('alert episode history metadata counts are malformed')
+  }
+  if (candidate.metadata.total_episodes < candidate.items.length) {
+    throw new Error('alert episode history metadata counts are contradictory')
+  }
+
+  let latestRows = 0
+  for (const row of candidate.items) {
+    if (!row || typeof row !== 'object') {
+      throw new Error('alert episode history row is malformed')
+    }
+    if (row.schema_version !== 'monitor_definition_alert_episode_record_v1') {
+      throw new Error('alert episode history row schema_version is unsupported')
+    }
+    if (row.monitor_definition_id !== expectedMonitorDefinitionId) {
+      throw new Error('alert episode history row monitor_definition_id does not match requested definition id')
+    }
+    if (row.monitor_definition_schema_version !== 'monitor_definition_artifact_v1') {
+      throw new Error('alert episode history row monitor_definition_schema_version is unsupported')
+    }
+    if (row.lifecycle_status !== 'open' && row.lifecycle_status !== 'recovered' && row.lifecycle_status !== 'closed') {
+      throw new Error('alert episode history row lifecycle_status is unsupported')
+    }
+    if (row.latest_for_monitor_definition) {
+      latestRows += 1
+    }
+    if (!row.timeline_handoff || row.timeline_handoff.handoff_kind !== 'monitor_definition_alert_episode_history_timeline_handoff_v1') {
+      throw new Error('alert episode history row timeline_handoff is malformed')
+    }
+    if (row.timeline_handoff.monitor_definition_id !== row.monitor_definition_id) {
+      throw new Error('alert episode history row timeline_handoff monitor_definition_id does not match row identity')
+    }
+    if (row.timeline_handoff.selected_event_kind === 'latest_observation_event') {
+      if (row.timeline_handoff.observation_id !== row.latest_contributing_observation.observation_id || row.timeline_handoff.history_entry_id != null) {
+        throw new Error('alert episode history row latest-observation handoff is contradictory')
+      }
+      if (row.lifecycle_status === 'closed') {
+        throw new Error('alert episode history closed rows must not reopen by latest observation handoff')
+      }
+    } else if (row.timeline_handoff.selected_event_kind === 'evaluation_history_event') {
+      if (row.timeline_handoff.history_entry_id !== row.terminal_history_entry_id || row.timeline_handoff.observation_id != null) {
+        throw new Error('alert episode history row evaluation-history handoff is contradictory')
+      }
+      if (row.lifecycle_status !== 'closed') {
+        throw new Error('alert episode history non-closed rows must not reopen by evaluation history handoff')
+      }
+    } else {
+      throw new Error('alert episode history row timeline_handoff selected_event_kind is unsupported')
+    }
+    if (row.lifecycle_status === 'open' && (row.ended_at != null || row.recovery_basis != null || !row.latest_for_monitor_definition)) {
+      throw new Error('alert episode history open lifecycle is contradictory')
+    }
+    if (row.lifecycle_status !== 'open' && (row.ended_at == null || row.recovery_basis == null)) {
+      throw new Error('alert episode history recovered or closed lifecycle is contradictory')
+    }
+    if (row.metadata.row_provenance !== 'persisted_monitor_definition_alert_episode_record') {
+      throw new Error('alert episode history row provenance is unsupported')
+    }
+    if (row.source_precedence !== 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation') {
+      throw new Error('alert episode history row source_precedence is unsupported')
+    }
+  }
+
+  if (latestRows > 1) {
+    throw new Error('alert episode history latest row state is ambiguous')
+  }
+}
+
+export async function loadMonitorDefinitionRecoveredAlertReviewQueue(): Promise<MonitorDefinitionRecoveredAlertReviewQueueResponse> {
+  const response = await fetch('/api/backtests/monitor-definitions/recovered-alert-review-queue?limit=20')
+  const payload = await response.json()
+  if (!response.ok) {
+    throw new Error((payload as { detail?: string }).detail ?? 'Unable to load recovered alert review queue')
+  }
+  assertMonitorDefinitionRecoveredAlertReviewQueueResponse(payload)
+  return payload
+}
+
+export async function reopenRecoveredAlertReviewRow(
+  row: MonitorDefinitionRecoveredAlertReviewQueueRow,
+  beginNavigation: (input: { monitorDefinitionId: string; selectedEvent: MonitorDefinitionAlertReviewTimelineSelection | null }) => Promise<void>,
+) {
+  await beginNavigation({
+    monitorDefinitionId: row.timeline_handoff.monitor_definition_id,
+    selectedEvent: {
+      eventKind: 'latest_observation_event',
+      observationId: row.timeline_handoff.observation_id,
+    },
+  })
+}
+
+export async function loadMonitorDefinitionAlertReviewTimeline(
+  monitorDefinitionId: string,
+): Promise<MonitorDefinitionAlertReviewTimelineResponse> {
+  if (!monitorDefinitionId.trim()) {
+    throw new Error('Unable to load alert review timeline: monitor definition id is required')
+  }
+  const response = await fetch(`/api/backtests/monitor-definitions/${encodeURIComponent(monitorDefinitionId)}/alert-review-timeline`)
+  const payload = await response.json()
+  if (!response.ok) {
+    throw new Error((payload as { detail?: string }).detail ?? 'Unable to load alert review timeline')
+  }
+  assertMonitorDefinitionAlertReviewTimelineResponse(payload, monitorDefinitionId)
+  return payload
+}
+
+export async function openLatestObservationFromTimelineRow(
+  row: MonitorDefinitionAlertReviewTimelineObservationRow,
+  setOpenState: Parameters<typeof openLatestObservationFromTimelineReviewRow>[1],
+) {
+  return openLatestObservationFromTimelineReviewRow(row, setOpenState)
+}
+
+export async function openAlertHistoryReviewFromTimelineRow(
+  row: MonitorDefinitionAlertReviewTimelineHistoryRow,
+  setOpenState: Parameters<typeof openAlertHistoryReviewFromTimelineReviewRow>[1],
+) {
+  return openAlertHistoryReviewFromTimelineReviewRow(row, setOpenState)
+}
+
+function buildMonitorDefinitionAlertReviewWorkspaceState(input: {
+  monitorDefinitionId: string
+  timeline: MonitorDefinitionAlertReviewTimelineResponse
+  row: MonitorDefinitionAlertReviewTimelineObservationRow | MonitorDefinitionAlertReviewTimelineHistoryRow
+}): MonitorDefinitionAlertReviewWorkspaceState {
+  return {
+    source: 'definition_scoped_alert_review_timeline',
+    monitorDefinitionId: input.monitorDefinitionId,
+    openedAt: new Date().toISOString(),
+    selectedEvent: input.row.event_kind === 'latest_observation_event'
+      ? {
+          eventKind: 'latest_observation_event',
+          observationId: input.row.observation_id,
+        }
+      : {
+          eventKind: 'evaluation_history_event',
+          historyEntryId: input.row.history_entry_id,
+        },
+    cachedTimeline: input.timeline,
+  }
+}
+
+function resolveSelectedMonitorDefinitionTimelineRow(
+  reviewState: MonitorDefinitionAlertReviewWorkspaceState,
+  timeline: MonitorDefinitionAlertReviewTimelineResponse,
+) {
+  const selectedEvent = reviewState.selectedEvent
+  if (selectedEvent.eventKind === 'latest_observation_event') {
+    const row = timeline.items.find((item): item is MonitorDefinitionAlertReviewTimelineObservationRow => item.event_kind === 'latest_observation_event' && item.observation_id === selectedEvent.observationId)
+    if (!row) {
+      throw new Error('alert review timeline selected event is missing from the authoritative payload')
+    }
+    return row
+  }
+
+  const row = timeline.items.find((item): item is MonitorDefinitionAlertReviewTimelineHistoryRow => item.event_kind === 'evaluation_history_event' && item.history_entry_id === selectedEvent.historyEntryId)
+  if (!row) {
+    throw new Error('alert review timeline selected event is missing from the authoritative payload')
+  }
+  return row
+}
+
+function resolveMonitorDefinitionTimelineRowFromSelection(
+  timeline: MonitorDefinitionAlertReviewTimelineResponse,
+  selection: MonitorDefinitionAlertReviewTimelineSelection,
+) {
+   const selectedEvent = selection
+   if (selectedEvent.eventKind === 'latest_observation_event') {
+     const row = timeline.items.find((item): item is MonitorDefinitionAlertReviewTimelineObservationRow => item.event_kind === 'latest_observation_event' && item.observation_id === selectedEvent.observationId)
+     if (!row) {
+       throw new Error('selected event is missing from authoritative timeline payload')
+     }
+     return row
+   }
+
+   const row = timeline.items.find((item): item is MonitorDefinitionAlertReviewTimelineHistoryRow => item.event_kind === 'evaluation_history_event' && item.history_entry_id === selectedEvent.historyEntryId)
+   if (!row) {
+     throw new Error('selected event is missing from authoritative timeline payload')
+   }
+   return row
+}
+
+function resolveDefaultMonitorDefinitionTimelineObservationRow(
+  timeline: MonitorDefinitionAlertReviewTimelineResponse,
+) {
+  return timeline.items.find(
+    (item): item is MonitorDefinitionAlertReviewTimelineObservationRow => item.event_kind === 'latest_observation_event',
+  ) ?? null
+}
+
+async function openLatestObservationFromTimelineReviewRow(
+  row: MonitorDefinitionAlertReviewTimelineObservationRow,
+  setOpenState: (value: {
+    status: 'idle' | 'loading' | 'ready' | 'error'
+    row: MonitorDefinitionAlertReviewTimelineObservationRow | null
+    observation: MonitorDefinitionObservationArtifact | null
+    error: string | null
+  }) => void,
+): Promise<boolean> {
+  setOpenState({ status: 'loading', row, observation: null, error: null })
+  try {
+    const response = await fetch(`/api/backtests/monitor-definitions/${encodeURIComponent(row.monitor_definition_id)}/observation`)
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error((payload as { detail?: string }).detail ?? 'Unable to load persisted timeline observation artifact')
+    }
+    const observation = payload as MonitorDefinitionObservationArtifact
+    if (observation.monitor_definition_id !== row.monitor_definition_id) {
+      throw new Error('persisted observation monitor_definition_id does not match selected timeline observation event')
+    }
+    if (observation.observation_id !== row.open_handoff.observation_id) {
+      throw new Error('persisted observation observation_id does not match selected timeline observation event')
+    }
+    if (observation.monitor_id !== row.monitor_id) {
+      throw new Error('persisted observation monitor_id does not match selected timeline observation event')
+    }
+    if (observation.benchmark_symbol !== row.benchmark_symbol) {
+      throw new Error('persisted observation benchmark_symbol does not match selected timeline observation event')
+    }
+    if (observation.monitor_definition_fingerprint !== row.monitor_definition_fingerprint) {
+      throw new Error('persisted observation fingerprint does not match selected timeline row')
+    }
+    setOpenState({ status: 'ready', row, observation, error: null })
+    return true
+  } catch (error) {
+    setOpenState({ status: 'error', row, observation: null, error: formatObservationOpenFailure(error) })
+    return false
+  }
+}
+
+async function openAlertHistoryReviewFromTimelineReviewRow(
+  row: MonitorDefinitionAlertReviewTimelineHistoryRow,
+  setOpenState: (value: {
+    status: 'idle' | 'loading' | 'ready' | 'error'
+    row: MonitorDefinitionAlertReviewTimelineHistoryRow | null
+    entry: MonitorDefinitionEvaluationHistoryEntryResponse | null
+    error: string | null
+  }) => void,
+): Promise<boolean> {
+  setOpenState({ status: 'loading', row, entry: null, error: null })
+  try {
+    const response = await fetch(`/api/backtests/monitor-definitions/${encodeURIComponent(row.monitor_definition_id)}/evaluation-history/${encodeURIComponent(row.history_entry_id)}`)
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error((payload as { detail?: string }).detail ?? 'Unable to load persisted timeline history entry')
+    }
+    const entryResponse = payload as MonitorDefinitionEvaluationHistoryEntryResponse
+    const entry = entryResponse.item
+    if (entryResponse.metadata.monitor_definition_id !== row.monitor_definition_id) {
+      throw new Error('persisted history metadata monitor_definition_id does not match selected timeline history event')
+    }
+    if (entryResponse.metadata.retrieved_history_entry_id !== row.review_handoff.history_entry_id) {
+      throw new Error('persisted history metadata retrieved_history_entry_id does not match selected timeline history event')
+    }
+    if (entry.monitor_definition_id !== row.monitor_definition_id) {
+      throw new Error('persisted history entry monitor_definition_id does not match selected timeline history event')
+    }
+    if (entry.history_entry_id !== row.review_handoff.history_entry_id) {
+      throw new Error('persisted history entry history_entry_id does not match selected timeline history event')
+    }
+    if (entry.monitor_id !== row.monitor_id) {
+      throw new Error('persisted history entry monitor_id does not match selected timeline history event')
+    }
+    if (entry.benchmark_symbol !== row.benchmark_symbol) {
+      throw new Error('persisted history entry benchmark_symbol does not match selected timeline history event')
+    }
+    if (entry.monitor_definition_fingerprint !== row.monitor_definition_fingerprint) {
+      throw new Error('persisted history entry fingerprint does not match selected timeline row')
+    }
+    setOpenState({ status: 'ready', row, entry: entryResponse, error: null })
+    return true
+  } catch (error) {
+    setOpenState({ status: 'error', row, entry: null, error: formatAlertHistoryOpenFailure(error) })
+    return false
+  }
+}
+
 function formatSavedProposalRestoreFailure(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unable to reopen saved proposal'
   if (message.startsWith('Unable to reopen saved proposal:')) {
@@ -662,6 +1286,8 @@ export function App() {
   const [proposalArtifacts, setProposalArtifacts] = useState<VersionedProposalArtifact[]>([])
   const [openedSavedProposalArtifactId, setOpenedSavedProposalArtifactId] = useState<string | null>(null)
   const [activeThesis, setActiveThesis] = useState<ActiveThesisArtifact | null>(null)
+  const [monitorDefinitionAlertReviewSession, setMonitorDefinitionAlertReviewSession] = useState<MonitorDefinitionAlertReviewSessionState>(idleMonitorDefinitionAlertReviewSession)
+  const [recoveredAlertReviewQueue, setRecoveredAlertReviewQueue] = useState<MonitorDefinitionRecoveredAlertReviewQueueRow[]>([])
   const [monitoringResearchHandoff, setMonitoringResearchHandoff] = useState<MonitoringResearchHandoff | null>(null)
   const [monitoringResearchHandoffDismissed, setMonitoringResearchHandoffDismissed] = useState(false)
   const [persistedConstructionArtifactReview, setPersistedConstructionArtifactReview] = useState<PersistedConstructionArtifactWorkspaceReview | null>(null)
@@ -669,8 +1295,125 @@ export function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const importModeRef = useRef<ImportMode>('replace')
   const artifactReviewMode = isPersistedConstructionArtifactWorkspace(activeWorkspace) || isPersistedOptimizerHandoffWorkspace(activeWorkspace)
+  const definitionScopedAlertReviewActive = monitorDefinitionAlertReviewSession.navigation !== null
   const dashboardSnapshot = workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null
   const workflowState = activeWorkspace && backtestRun ? 'Portfolio + Backtest Loaded' : activeWorkspace ? 'Portfolio Loaded' : backtestRun ? 'Backtest Loaded' : 'Workspace Empty'
+
+  async function beginMonitorDefinitionAlertReviewNavigation(input: {
+    monitorDefinitionId: string
+    selectedEvent: MonitorDefinitionAlertReviewTimelineSelection | null
+  }) {
+    const monitorDefinitionId = input.monitorDefinitionId.trim()
+    if (!monitorDefinitionId) {
+      const message = 'Unable to load alert review timeline: monitor definition id is required'
+      setMonitorDefinitionAlertReviewSession({
+        navigation: null,
+        timeline: null,
+        timelineStatus: 'error',
+        timelineError: message,
+        latestObservation: { status: 'idle', row: null, observation: null, error: null },
+        alertHistory: { status: 'idle', row: null, entry: null, error: null },
+      })
+      return
+    }
+
+    setMonitorDefinitionAlertReviewSession((current) => ({
+      navigation: {
+        monitorDefinitionId,
+        selectedEvent: input.selectedEvent,
+      },
+      timeline: current.timeline,
+      timelineStatus: 'loading',
+      timelineError: null,
+      latestObservation: !input.selectedEvent || input.selectedEvent.eventKind === 'evaluation_history_event'
+        ? { status: 'idle', row: null, observation: null, error: null }
+        : current.latestObservation,
+      alertHistory: !input.selectedEvent || input.selectedEvent.eventKind === 'latest_observation_event'
+        ? { status: 'idle', row: null, entry: null, error: null }
+        : current.alertHistory,
+    }))
+
+    try {
+      const timeline = await loadMonitorDefinitionAlertReviewTimeline(monitorDefinitionId)
+      setMonitorDefinitionAlertReviewSession((current) => ({
+        ...current,
+        timeline,
+        timelineStatus: 'ready',
+        timelineError: null,
+      }))
+
+      const selectedRow = input.selectedEvent
+        ? resolveMonitorDefinitionTimelineRowFromSelection(timeline, input.selectedEvent)
+        : resolveDefaultMonitorDefinitionTimelineObservationRow(timeline)
+      if (!selectedRow) {
+        return
+      }
+
+      const opened = selectedRow.event_kind === 'latest_observation_event'
+        ? await openLatestObservationFromTimelineRow(selectedRow, (value) => {
+          setMonitorDefinitionAlertReviewSession((current) => ({
+            ...current,
+            latestObservation: value,
+          }))
+        })
+        : await openAlertHistoryReviewFromTimelineRow(selectedRow, (value) => {
+          setMonitorDefinitionAlertReviewSession((current) => ({
+            ...current,
+            alertHistory: value,
+          }))
+        })
+
+      if (opened && activeWorkspace) {
+        const reviewState = buildMonitorDefinitionAlertReviewWorkspaceState({
+          monitorDefinitionId,
+          timeline,
+          row: selectedRow,
+        })
+        void saveMonitorDefinitionAlertReviewWorkspaceState({
+          workspaceId: activeWorkspace.id,
+          reviewState,
+        }).catch(() => undefined)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load alert review timeline'
+      setMonitorDefinitionAlertReviewSession((current) => ({
+        ...current,
+        timeline: null,
+        timelineStatus: 'error',
+        timelineError: message,
+        latestObservation: input.selectedEvent?.eventKind === 'latest_observation_event'
+          ? { status: 'error', row: null, observation: null, error: formatObservationOpenFailure(error) }
+          : current.latestObservation,
+        alertHistory: input.selectedEvent?.eventKind === 'evaluation_history_event'
+          ? { status: 'error', row: null, entry: null, error: formatAlertHistoryOpenFailure(error) }
+          : current.alertHistory,
+      }))
+    }
+  }
+
+  async function handleOpenLatestObservation(row: MonitorDefinitionAlertReviewTimelineObservationRow) {
+    await beginMonitorDefinitionAlertReviewNavigation({
+      monitorDefinitionId: row.monitor_definition_id,
+      selectedEvent: {
+        eventKind: 'latest_observation_event',
+        observationId: row.observation_id,
+      },
+    })
+  }
+
+  async function handleOpenAlertHistoryReview(row: MonitorDefinitionAlertReviewTimelineHistoryRow) {
+    await beginMonitorDefinitionAlertReviewNavigation({
+      monitorDefinitionId: row.monitor_definition_id,
+      selectedEvent: {
+        eventKind: 'evaluation_history_event',
+        historyEntryId: row.history_entry_id,
+      },
+    })
+  }
+
+  async function handleReopenRecoveredAlertReview(row: MonitorDefinitionRecoveredAlertReviewQueueRow) {
+    await reopenRecoveredAlertReviewRow(row, beginMonitorDefinitionAlertReviewNavigation)
+  }
 
   async function analyzeExposureSnapshot(
     snapshot: WorkingDraft['portfolioSnapshot'],
@@ -679,6 +1422,7 @@ export function App() {
     options?: {
       preserveDashboardAnalysis?: boolean
       historySource?: ImportedHistorySource | null
+      strictDefinitionScopedAlertReview?: boolean
     },
   ) {
     const [exposure, diagnostics] = await Promise.all([
@@ -688,9 +1432,19 @@ export function App() {
         : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? getWorkspaceHistorySource(activeWorkspace)?.historyContext ?? null),
     ])
     const exposureView = composeExposureView(exposure, diagnostics)
+    let factorModel: ExposureFactorModelResponse | null
+    try {
+      factorModel = buildExposureFactorModel(exposureView)
+    } catch (error) {
+      if (options?.strictDefinitionScopedAlertReview) {
+        const message = error instanceof Error ? error.message : 'exposure factor model inputs are malformed'
+        throw new Error(formatDefinitionScopedAlertReviewAnalyticsRestoreFailure(`definition-scoped alert review analytics require authoritative exposure inputs; ${message}`))
+      }
+      factorModel = null
+    }
     setExposureAnalysis(exposureView)
     setDiagnosticsAnalysis(diagnostics)
-    setExposureFactorModel(buildExposureFactorModel(exposureView))
+    setExposureFactorModel(factorModel)
     if (!options?.preserveDashboardAnalysis) {
       setAnalysis(composeDashboardAnalysisFromEngines(exposure, diagnostics))
     }
@@ -711,23 +1465,53 @@ export function App() {
     snapshotId: string,
     historySource: ImportedHistorySource | null | undefined,
     workspaceId?: string,
+    options?: {
+      strictDefinitionScopedAlertReview?: boolean
+    },
   ) {
-    const [exposure, diagnostics, dashboardHistory] = await Promise.all([
-      runExposureEngine(snapshot),
-      historySource?.kind === 'imported_replay'
-        ? runImportedDiagnosticsEngine(historySource.importedHistorySnapshot)
-        : runDiagnosticsEngine(snapshot, historySource?.historyContext ?? null),
-      historySource?.kind === 'imported_replay'
-        ? runImportedDashboardHistory(historySource.importedHistorySnapshot)
-        : historySource?.historyContext
-        ? runDashboardHistoryEngine(snapshot, historySource.historyContext)
-        : Promise.resolve(null),
-    ])
+    let diagnosticsHistoryContext: ImportedHistoryContext | null = historySource?.historyContext ?? null
+    let diagnostics: DiagnosticsEngineResponse
+    let dashboardHistory: BacktestRunResponse | null
+
+    if (historySource?.kind === 'imported_replay') {
+      try {
+        [diagnostics, dashboardHistory] = await Promise.all([
+          runImportedDiagnosticsEngine(historySource.importedHistorySnapshot),
+          runImportedDashboardHistory(historySource.importedHistorySnapshot),
+        ])
+      } catch (error) {
+        if (options?.strictDefinitionScopedAlertReview) {
+          const message = error instanceof Error ? error.message : 'imported diagnostics or dashboard history inputs are invalid'
+          throw new Error(formatDefinitionScopedAlertReviewAnalyticsRestoreFailure(`definition-scoped alert review analytics require authoritative imported diagnostics and dashboard history inputs; ${message}`))
+        }
+        diagnostics = await runDiagnosticsEngine(snapshot, diagnosticsHistoryContext)
+        dashboardHistory = diagnosticsHistoryContext
+          ? await runDashboardHistoryEngine(snapshot, diagnosticsHistoryContext)
+          : null
+      }
+    } else {
+      diagnostics = await runDiagnosticsEngine(snapshot, diagnosticsHistoryContext)
+      dashboardHistory = diagnosticsHistoryContext
+        ? await runDashboardHistoryEngine(snapshot, diagnosticsHistoryContext)
+        : null
+    }
+
+    const exposure = await runExposureEngine(snapshot)
 
     const exposureView = composeExposureView(exposure, diagnostics)
+    let factorModel: ExposureFactorModelResponse | null
+    try {
+      factorModel = buildExposureFactorModel(exposureView)
+    } catch (error) {
+      if (options?.strictDefinitionScopedAlertReview) {
+        const message = error instanceof Error ? error.message : 'exposure factor model inputs are malformed'
+        throw new Error(formatDefinitionScopedAlertReviewAnalyticsRestoreFailure(`definition-scoped alert review analytics require authoritative exposure inputs; ${message}`))
+      }
+      factorModel = null
+    }
     setExposureAnalysis(exposureView)
     setDiagnosticsAnalysis(diagnostics)
-    setExposureFactorModel(buildExposureFactorModel(exposureView))
+    setExposureFactorModel(factorModel)
     setAnalysis(
       dashboardHistory
         ? composeDashboardAnalysisWithHistory(exposure, dashboardHistory)
@@ -760,22 +1544,22 @@ export function App() {
               construction_artifact_id: constructionArtifactId,
             }),
           })
+          const validationPayload = await validationResponse.json()
           if (!validationResponse.ok) {
-            const payload = (await validationResponse.json()) as { detail?: string }
-            throw new Error(payload.detail ?? 'Unable to open persisted construction artifact review')
+            throw new Error((validationPayload as { detail?: string }).detail ?? 'Unable to open persisted construction artifact review')
           }
-          const validation = (await validationResponse.json()) as ConstructionArtifactReplayValidationResponse
+          const validation = validationPayload as ConstructionArtifactReplayValidationResponse
           const previewHandoff = resolveConstructionArtifactPreviewHandoff(validation, constructionArtifactId)
           const previewResponse = await fetch('/api/backtests/portfolio-allocation/construction-artifact-preview', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(previewHandoff),
           })
+          const previewPayload = await previewResponse.json()
           if (!previewResponse.ok) {
-            const payload = (await previewResponse.json()) as { detail?: string }
-            throw new Error(payload.detail ?? 'Unable to open persisted construction artifact review')
+            throw new Error((previewPayload as { detail?: string }).detail ?? 'Unable to open persisted construction artifact review')
           }
-          const artifactReplay = (await previewResponse.json()) as ConstructionArtifactReplayResponse
+          const artifactReplay = previewPayload as ConstructionArtifactReplayResponse
           const created = await createWorkspaceFromPersistedConstructionArtifact({ constructionArtifactId, replay: artifactReplay })
           if (!active) return
           setActiveWorkspace(created.workspace)
@@ -787,6 +1571,7 @@ export function App() {
           setProposalArtifacts([])
           setOpenedSavedProposalArtifactId(null)
           setActiveThesis(null)
+          setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
           setCandidateImprovementDraft(null)
           setIntentBoundSeededEtfReplacementRankingDraft(null)
           setReplacementIntentDraft(null)
@@ -822,11 +1607,11 @@ export function App() {
               handoff_reference: optimizerHandoffReference,
             }),
           })
+          const validationPayload = await validationResponse.json()
           if (!validationResponse.ok) {
-            const payload = (await validationResponse.json()) as { detail?: string }
-            throw new Error(payload.detail ?? 'Unable to open persisted optimizer handoff review')
+            throw new Error((validationPayload as { detail?: string }).detail ?? 'Unable to open persisted optimizer handoff review')
           }
-          const validation = (await validationResponse.json()) as OptimizerHandoffValidationResponse
+          const validation = validationPayload as OptimizerHandoffValidationResponse
           if (validation.validation_status !== 'ok') {
             throw new Error(`Unable to open persisted optimizer handoff review: validation ${validation.validation_status}`)
           }
@@ -837,11 +1622,11 @@ export function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(replayHandoff),
           })
+          const previewPayload = await previewResponse.json()
           if (!previewResponse.ok) {
-            const payload = (await previewResponse.json()) as { detail?: string }
-            throw new Error(payload.detail ?? 'Unable to open persisted optimizer handoff review')
+            throw new Error((previewPayload as { detail?: string }).detail ?? 'Unable to open persisted optimizer handoff review')
           }
-          const handoffReplay = (await previewResponse.json()) as OptimizerHandoffReplayResponse
+          const handoffReplay = previewPayload as OptimizerHandoffReplayResponse
           assertOptimizerHandoffReplayMatchesReference(handoffReplay, optimizerHandoffReference)
           const created = await createWorkspaceFromPersistedOptimizerHandoff({ handoffReference: optimizerHandoffReference, validation, replay: handoffReplay })
           if (!active) return
@@ -855,6 +1640,7 @@ export function App() {
           setProposalArtifacts([])
           setOpenedSavedProposalArtifactId(null)
           setActiveThesis(null)
+          setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
           setCandidateImprovementDraft(null)
           setIntentBoundSeededEtfReplacementRankingDraft(null)
           setReplacementIntentDraft(null)
@@ -921,6 +1707,7 @@ export function App() {
         setProposalArtifacts([])
         setOpenedSavedProposalArtifactId(null)
         setActiveThesis(null)
+        setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
         setCandidateImprovementDraft(null)
         setIntentBoundSeededEtfReplacementRankingDraft(null)
         setReplacementIntentDraft(null)
@@ -963,6 +1750,7 @@ export function App() {
         setProposalArtifacts([])
         setOpenedSavedProposalArtifactId(null)
         setActiveThesis(null)
+        setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
         setCandidateImprovementDraft(null)
         setIntentBoundSeededEtfReplacementRankingDraft(null)
         setReplacementIntentDraft(null)
@@ -985,6 +1773,42 @@ export function App() {
       setPersistedOptimizerHandoffReview(null)
       setProposalArtifacts(restoredProposalArtifacts)
       setOpenedSavedProposalArtifactId(null)
+      if (restoredWorkspaceState.monitorDefinitionAlertReview) {
+        const restoredReviewState = restoredWorkspaceState.monitorDefinitionAlertReview
+        const restoredTimeline = restoredReviewState.cachedTimeline
+        assertMonitorDefinitionAlertReviewTimelineResponse(restoredTimeline, restoredReviewState.monitorDefinitionId)
+        const selectedTimelineRow = resolveSelectedMonitorDefinitionTimelineRow(restoredReviewState, restoredTimeline)
+        setMonitorDefinitionAlertReviewSession({
+          navigation: {
+            monitorDefinitionId: restoredReviewState.monitorDefinitionId,
+            selectedEvent: restoredReviewState.selectedEvent,
+          },
+          timeline: restoredTimeline,
+          timelineStatus: 'ready',
+          timelineError: null,
+          latestObservation: idleMonitorDefinitionAlertReviewSession.latestObservation,
+          alertHistory: idleMonitorDefinitionAlertReviewSession.alertHistory,
+        })
+        if (selectedTimelineRow.event_kind === 'latest_observation_event') {
+          await openLatestObservationFromTimelineRow(selectedTimelineRow, (value) => {
+            setMonitorDefinitionAlertReviewSession((current) => ({
+              ...current,
+              latestObservation: value,
+              alertHistory: idleMonitorDefinitionAlertReviewSession.alertHistory,
+            }))
+          })
+        } else {
+          await openAlertHistoryReviewFromTimelineRow(selectedTimelineRow, (value) => {
+            setMonitorDefinitionAlertReviewSession((current) => ({
+              ...current,
+              latestObservation: idleMonitorDefinitionAlertReviewSession.latestObservation,
+              alertHistory: value,
+            }))
+          })
+        }
+      } else {
+        setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
+      }
       await loadActiveThesisForWorkspace(workspace, setActiveThesis)
       await loadCandidateImprovementDraftForCurrentDraft(draft, setCandidateImprovementDraft)
       await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(draft, setIntentBoundSeededEtfReplacementRankingDraft, { failClosed: true })
@@ -1015,6 +1839,7 @@ export function App() {
             resolvedSnapshot.id,
             resolveEffectiveHistorySource(selectedSource, selectedDirectSource) ?? getWorkspaceHistorySource(workspace) ?? null,
             workspace.id,
+            { strictDefinitionScopedAlertReview: Boolean(restoredWorkspaceState.monitorDefinitionAlertReview) },
           )
           if (!active) return
         }
@@ -1022,7 +1847,7 @@ export function App() {
       .catch((caughtError) => {
         if (active) {
           const message = caughtError instanceof Error ? caughtError.message : 'Unable to restore previous portfolio workspace'
-          if (message.startsWith('Unable to reopen saved proposal:')) {
+          if (message.startsWith('Unable to reopen saved proposal:') || message.startsWith('Unable to restore previous portfolio workspace:')) {
             setImportError(message)
             setTab('dashboard')
             return
@@ -1071,6 +1896,7 @@ export function App() {
     setHypotheticalReplacementReplay(null)
     setProposalArtifacts([])
     setActiveThesis(null)
+    setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
     setMonitoringResearchHandoff(null)
     setMonitoringResearchHandoffDismissed(false)
     setPersistedConstructionArtifactReview(null)
@@ -1104,6 +1930,7 @@ export function App() {
     setHypotheticalReplacementReplay(null)
     setProposalArtifacts([])
     setActiveThesis(null)
+    setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
     setMonitoringResearchHandoff(null)
     setMonitoringResearchHandoffDismissed(false)
     setPersistedConstructionArtifactReview(null)
@@ -1192,8 +2019,35 @@ export function App() {
   function handleReviewMonitoringInResearch(handoff: MonitoringResearchHandoff) {
     setMonitoringResearchHandoff(handoff)
     setMonitoringResearchHandoffDismissed(false)
+    if (handoff.monitorDefinitionReview) {
+      void beginMonitorDefinitionAlertReviewNavigation({
+        monitorDefinitionId: handoff.monitorDefinitionReview.monitorDefinitionId,
+        selectedEvent: null,
+      })
+    }
     setTab('workspace')
   }
+
+  useEffect(() => {
+    if (tab !== 'workspace' || !activeWorkspace || artifactReviewMode) {
+      setRecoveredAlertReviewQueue([])
+      return
+    }
+
+    let active = true
+    void loadMonitorDefinitionRecoveredAlertReviewQueue()
+      .then((payload) => {
+        if (!active) return
+        setRecoveredAlertReviewQueue(payload.items)
+      })
+      .catch(() => {
+        if (!active) return
+        setRecoveredAlertReviewQueue([])
+      })
+    return () => {
+      active = false
+    }
+  }, [activeWorkspace, artifactReviewMode, tab])
 
   function handleDismissMonitoringResearchHandoff() {
     setMonitoringResearchHandoffDismissed(true)
@@ -1203,8 +2057,8 @@ export function App() {
     if (!activeWorkspace || !workingDraft || !replacementIntentDraft || !hypotheticalReplacementReplay) return
     setWorkspaceError(null)
     const existingProposals = await getWorkspaceProposalArtifacts(activeWorkspace.id).catch(() => proposalArtifacts)
-    try {
-      const reviewSnapshotResponse = await fetch('/api/backtests/review-snapshots', {
+      try {
+        const reviewSnapshotResponse = await fetch('/api/backtests/review-snapshots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1215,13 +2069,13 @@ export function App() {
           proposal_family_id: `${replacementIntentDraft.kind}:${replacementIntentDraft.baseSymbol}:${replacementIntentDraft.candidateSymbol}:${replacementIntentDraft.createdAt}`,
           version_number: existingProposals.length + 1,
           review_payload: hypotheticalReplacementReplay,
-        }),
-      })
-      if (!reviewSnapshotResponse.ok) {
-        const payload = (await reviewSnapshotResponse.json()) as { detail?: string }
-        throw new Error(payload.detail ?? 'Failed to create review snapshot artifact')
-      }
-      const reviewSnapshotArtifact = assertReviewSnapshotCreateArtifact(await reviewSnapshotResponse.json())
+          }),
+        })
+        const reviewSnapshotPayload = await reviewSnapshotResponse.json()
+        if (!reviewSnapshotResponse.ok) {
+          throw new Error((reviewSnapshotPayload as { detail?: string }).detail ?? 'Failed to create review snapshot artifact')
+        }
+        const reviewSnapshotArtifact = assertReviewSnapshotCreateArtifact(reviewSnapshotPayload)
       const proposal = buildSavedProposalArtifact({
         id: reviewSnapshotArtifact.lineage.proposal_id,
         createdAt: new Date().toISOString(),
@@ -1290,7 +2144,7 @@ export function App() {
 
   async function handlePreviewExposure(snapshot: WorkingDraft['portfolioSnapshot']) {
     if (!activeWorkspace) return
-    await analyzeExposureSnapshot(snapshot, 'draft', activeWorkspace?.id)
+    await analyzeExposureSnapshot(snapshot, 'draft', activeWorkspace?.id, { strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive })
     setTab('exposure')
   }
 
@@ -1351,7 +2205,7 @@ export function App() {
     await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
     setWorkspaceNodes(await getWorkspaceNodes(activeWorkspace.id))
     if (nextDraft) {
-      await analyzeExposureSnapshot(nextDraft.portfolioSnapshot, 'draft', activeWorkspace.id)
+      await analyzeExposureSnapshot(nextDraft.portfolioSnapshot, 'draft', activeWorkspace.id, { strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive })
     }
   }
 
@@ -1388,6 +2242,7 @@ export function App() {
         dashboardSnapshotId,
         resolveEffectiveHistorySource(nodeSource, directNodeSource),
         activeWorkspace.id,
+        { strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive },
       )
     }
   }
@@ -1411,13 +2266,13 @@ export function App() {
         method: 'POST',
         body: buildImportFormData(files),
       })
+      const responsePayload = await response.json()
 
       if (!response.ok) {
-        const payload = (await response.json()) as { detail?: string }
-        throw new Error(payload.detail ?? 'Import failed')
+        throw new Error((responsePayload as { detail?: string }).detail ?? 'Import failed')
       }
 
-      const nextAnalysis = (await response.json()) as ImportedBootstrapResponse
+      const nextAnalysis = responsePayload as ImportedBootstrapResponse
       const importedViews = projectImportedBootstrap(nextAnalysis)
       const importedFileNames = files.map((file) => file.name)
       const importedSnapshot = buildPortfolioSnapshotFromAnalysis(importedViews.workspace, importedFileNames)
@@ -1463,6 +2318,7 @@ export function App() {
         setWorkingDraft(nextDraft)
         setPersistedConstructionArtifactReview(null)
         setPersistedOptimizerHandoffReview(null)
+        setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
         await loadCandidateImprovementDraftForCurrentDraft(nextDraft, setCandidateImprovementDraft)
         await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(nextDraft, setIntentBoundSeededEtfReplacementRankingDraft)
         const nextSelectedConstructionRuleId = await loadSelectedConstructionRuleForCurrentDraft(nextDraft, setSelectedConstructionRuleId)
@@ -1472,7 +2328,7 @@ export function App() {
         await loadConstructedCandidateArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, setConstructedCandidateArtifact)
         await loadConstructionConstraintValidationArtifactForCurrentDraft(nextDraft, nextReplacementIntentDraft, nextSelectedConstructionRuleId, setConstructionConstraintValidationArtifact)
         await loadHypotheticalReplacementReplayForCurrentDraft(nextDraft, nextReplacementIntentDraft, setHypotheticalReplacementReplay)
-        await loadWorkspaceProposalArtifacts(savedNode.workspace, setProposalArtifacts)
+        setProposalArtifacts(await loadWorkspaceProposalArtifacts(savedNode.workspace))
         await loadActiveThesisForWorkspace(savedNode.workspace, setActiveThesis)
         setWorkspaceNodes(nextNodes)
         setRestoredSession(false)
@@ -1491,6 +2347,7 @@ export function App() {
                 }
               : null,
             savedNode.workspace.id,
+            { strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive },
           )
         } else {
           setSelectedExposureSnapshotId(dashboardSnapshotId)
@@ -1527,7 +2384,11 @@ export function App() {
       setBaselineAnalysis(buildPortfolioBaselineView(exposure))
       setExposureAnalysis(exposureView)
       setDiagnosticsAnalysis(diagnostics)
-      setExposureFactorModel(buildExposureFactorModel(exposureView))
+      try {
+        setExposureFactorModel(buildExposureFactorModel(exposureView))
+      } catch {
+        setExposureFactorModel(null)
+      }
       setLoadedStatementFiles(files)
       setLastImportedFileNames(importedFileNames)
       setActiveWorkspace(workspaceResult.workspace)
@@ -1535,6 +2396,7 @@ export function App() {
       setWorkingDraft(normalizedDraft)
       setPersistedConstructionArtifactReview(null)
       setPersistedOptimizerHandoffReview(null)
+      setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
       await loadCandidateImprovementDraftForCurrentDraft(normalizedDraft, setCandidateImprovementDraft)
       await loadIntentBoundSeededEtfReplacementRankingDraftForCurrentDraft(normalizedDraft, setIntentBoundSeededEtfReplacementRankingDraft)
       await loadSelectedConstructionRuleForCurrentDraft(normalizedDraft, setSelectedConstructionRuleId)
@@ -1637,6 +2499,7 @@ export function App() {
                         ? (getNodeHistorySource(selectedBaseDirectSource) ?? null)
                         : collapseToHistoryContextSource(selectedBaseSource),
                       preserveDashboardAnalysis: true,
+                      strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive,
                     })
                     return
                   }
@@ -1649,6 +2512,7 @@ export function App() {
                   await analyzeExposureSnapshot(node.portfolioSnapshot, snapshotId, activeWorkspace.id, {
                     historySource: resolveEffectiveHistorySource(nodeSource, directNodeSource),
                     preserveDashboardAnalysis: true,
+                    strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive,
                   })
                 })()
               }}
@@ -1755,6 +2619,11 @@ export function App() {
                 void saveConstructionConstraintValidationArtifact(artifact).catch(() => undefined)
                 void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
               }}
+              monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
+              recoveredAlertReviewQueue={recoveredAlertReviewQueue}
+              onOpenLatestObservation={handleOpenLatestObservation}
+              onOpenAlertHistoryReview={handleOpenAlertHistoryReview}
+              onReopenRecoveredAlertReview={handleReopenRecoveredAlertReview}
               onSelectedConstructionRuleChange={(ruleId) => {
                 if (!activeWorkspace || !workingDraft) {
                   setSelectedConstructionRuleId(ruleId)

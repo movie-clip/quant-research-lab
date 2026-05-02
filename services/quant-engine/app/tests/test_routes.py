@@ -11,6 +11,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.schemas.backtest_engine import MonitorDefinitionAlertEpisode
 from app.schemas.optimizer import OptimizerAlphaFundamentalSnapshot
 from app.services import replacement_ranking as replacement_ranking_module
 from app.services.optimizer_alpha_service import build_alpha_quality_package
@@ -687,13 +688,29 @@ def _rekey_monitor_definition_artifact_payload(tmp_path: Path, monitor_definitio
     return legacy_monitor_definition_id
 
 
+def _rekey_monitor_definition_observation_payload(path: Path, payload_mutator) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload_mutator(payload)
+    payload_without_id = {key: value for key, value in payload.items() if key != "observation_id"}
+    fingerprint = sha256(
+        json.dumps(payload_without_id, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    payload["observation_id"] = f"monitor_definition_observation_{fingerprint[:16]}"
+    path.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        encoding="utf-8",
+    )
+
+
 def _write_latest_monitor_evaluation_snapshot(
     tmp_path: Path,
     monitor_definition_id: str,
     *,
     evaluated_at: str = "2026-04-20T09:30:00Z",
     outcome_status: str = "threshold_breach",
+    cause_code: str | None = None,
     significance_status: str = "action_required",
+    hysteresis_transition: str | None = None,
     benchmark_symbol: str = "SPY",
 ) -> None:
     (tmp_path / f"{monitor_definition_id}.latest_evaluation.json").write_text(
@@ -705,7 +722,10 @@ def _write_latest_monitor_evaluation_snapshot(
                 "benchmark_symbol": benchmark_symbol,
                 "evaluated_at": evaluated_at,
                 "outcome_status": outcome_status,
+                "cause_code": cause_code,
                 "significance_status": significance_status,
+                "hysteresis_transition": hysteresis_transition,
+                "source_precedence": "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact",
                 "benchmark_observation_lineage": {
                     "source_kind": "benchmark_overlay_signal",
                     "source_id": "overlay-signal-2024-12-31",
@@ -727,6 +747,190 @@ def _write_latest_monitor_evaluation_snapshot(
     )
 
 
+def _write_monitor_definition_observation(
+    tmp_path: Path,
+    monitor_definition_id: str,
+    *,
+    evaluated_at: str = "2026-04-20T09:30:00Z",
+    observation_status: str = "threshold_breach",
+    cause_code: str | None = None,
+    alert_classification: str = "action_required",
+    hysteresis_transition: str | None = None,
+    benchmark_symbol: str = "SPY",
+) -> None:
+    if hysteresis_transition is None:
+        hysteresis_transition = "no_op" if alert_classification == "informational" else "open"
+    definition_payload = json.loads((tmp_path / f"{monitor_definition_id}.json").read_text(encoding="utf-8"))
+    payload = {
+        "schema_version": "monitor_definition_observation_artifact_v1",
+        "monitor_definition_id": monitor_definition_id,
+        "monitor_definition_fingerprint": definition_payload["fingerprint"],
+        "monitor_definition_schema_version": "monitor_definition_artifact_v1",
+        "monitor_id": "benchmark_trend_overlay_v1",
+        "benchmark_symbol": benchmark_symbol,
+        "evaluation_mode": "review_only_observation_evaluation",
+        "evaluated_at": evaluated_at,
+        "observation_status": observation_status,
+        "cause_code": cause_code,
+        "alert_classification": alert_classification,
+        "hysteresis_transition": hysteresis_transition,
+        "source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
+        "reason": None,
+        "thresholds": {
+            "minimum_confirmation_count": 2,
+            "risk_on_min_risky_weight": 0.95,
+            "risk_on_max_cash_weight": 0.05,
+            "risk_reduced_max_risky_weight": 0.35,
+            "risk_reduced_min_cash_weight": 0.65,
+        },
+        "benchmark_observation": {
+            "overlay_id": "benchmark_trend_overlay_v1",
+            "status": "risk_on",
+            "as_of_month_end": "2024-12-31",
+            "benchmark_symbol": benchmark_symbol,
+            "signal_basis": "10_month_sma_month_end",
+            "confirmation_count": 2,
+            "rule_version": "v1",
+            "source_lineage": {
+                "source_kind": "benchmark_overlay_signal",
+                "source_id": "overlay-signal-2024-12-31",
+                "observed_at": "2025-01-02T09:30:00Z",
+            },
+        },
+        "portfolio_observation": {
+            "total_portfolio_value": 600.0,
+            "risky_value": 100.0,
+            "cash_value": 500.0,
+            "risky_weight": 0.16666667,
+            "cash_weight": 0.83333333,
+            "position_count": 2,
+            "source_lineage": {
+                "truth_basis": "imported_portfolio_snapshot",
+                "importer": "interactive_brokers",
+                "imported_at": "2024-04-15T09:30:00Z",
+                "statement_period": "2024-04",
+                "source_paths": ["IB2024.pdf"],
+            },
+        },
+        "active_observation": {
+            "required_overlay_status": "risk_on",
+            "threshold_evaluation_performed": True,
+            "required_min_risky_weight": 0.95,
+            "required_max_risky_weight": None,
+            "required_min_cash_weight": None,
+            "required_max_cash_weight": 0.05,
+            "actual_risky_weight": 0.16666667,
+            "actual_cash_weight": 0.83333333,
+            "risky_weight_gap": -0.78333333,
+            "cash_weight_gap": -0.78333333,
+            "triggered_thresholds": [],
+        },
+    }
+    observation_payload = dict(payload)
+    observation_fingerprint = sha256(
+        json.dumps(observation_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    observation_payload["observation_id"] = f"monitor_definition_observation_{observation_fingerprint[:16]}"
+    (tmp_path / f"{monitor_definition_id}.observation.json").write_text(
+        json.dumps(observation_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        encoding="utf-8",
+    )
+
+
+def _write_monitor_definition_history_entry(
+    tmp_path: Path,
+    monitor_definition_id: str,
+    *,
+    evaluated_at: str = "2026-04-20T09:30:00Z",
+    observation_status: str = "threshold_breach",
+    cause_code: str | None = None,
+    significance_status: str = "action_required",
+    hysteresis_transition: str | None = None,
+    benchmark_symbol: str = "SPY",
+    reason: str | None = None,
+) -> str:
+    if hysteresis_transition is None:
+        hysteresis_transition = "no_op" if significance_status == "informational" else "open"
+    definition_payload = json.loads((tmp_path / f"{monitor_definition_id}.json").read_text(encoding="utf-8"))
+    payload = {
+        "schema_version": "monitor_definition_evaluation_history_entry_v1",
+        "monitor_definition_id": monitor_definition_id,
+        "monitor_definition_fingerprint": definition_payload["fingerprint"],
+        "monitor_definition_schema_version": "monitor_definition_artifact_v1",
+        "monitor_id": "benchmark_trend_overlay_v1",
+        "benchmark_symbol": benchmark_symbol,
+        "evaluation_mode": "review_only_observation_evaluation",
+        "evaluated_at": evaluated_at,
+        "observation_status": observation_status,
+        "cause_code": cause_code,
+        "significance_status": significance_status,
+        "hysteresis_transition": hysteresis_transition,
+        "source_precedence": "persisted_evaluation_history_entry_only",
+        "reason": reason,
+        "thresholds": {
+            "minimum_confirmation_count": 2,
+            "risk_on_min_risky_weight": 0.95,
+            "risk_on_max_cash_weight": 0.05,
+            "risk_reduced_max_risky_weight": 0.35,
+            "risk_reduced_min_cash_weight": 0.65,
+        },
+        "benchmark_observation": {
+            "overlay_id": "benchmark_trend_overlay_v1",
+            "status": "risk_on",
+            "as_of_month_end": "2024-12-31",
+            "benchmark_symbol": benchmark_symbol,
+            "signal_basis": "10_month_sma_month_end",
+            "confirmation_count": 2,
+            "rule_version": "v1",
+            "source_lineage": {
+                "source_kind": "benchmark_overlay_signal",
+                "source_id": "overlay-signal-2024-12-31",
+                "observed_at": "2025-01-02T09:30:00Z",
+            },
+        },
+        "portfolio_observation": {
+            "total_portfolio_value": 600.0,
+            "risky_value": 100.0,
+            "cash_value": 500.0,
+            "risky_weight": 0.16666667,
+            "cash_weight": 0.83333333,
+            "position_count": 2,
+            "source_lineage": {
+                "truth_basis": "imported_portfolio_snapshot",
+                "importer": "interactive_brokers",
+                "imported_at": "2024-04-15T09:30:00Z",
+                "statement_period": "2024-04",
+                "source_paths": ["IB2024.pdf"],
+            },
+        },
+        "active_observation": {
+            "required_overlay_status": "risk_on",
+            "threshold_evaluation_performed": True,
+            "required_min_risky_weight": 0.95,
+            "required_max_risky_weight": None,
+            "required_min_cash_weight": None,
+            "required_max_cash_weight": 0.05,
+            "actual_risky_weight": 0.16666667,
+            "actual_cash_weight": 0.83333333,
+            "risky_weight_gap": -0.78333333,
+            "cash_weight_gap": -0.78333333,
+            "triggered_thresholds": [],
+        },
+    }
+    fingerprint = sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    history_entry_id = f"monitor_definition_history_{fingerprint[:16]}"
+    payload["history_entry_id"] = history_entry_id
+    history_dir = tmp_path / f"{monitor_definition_id}.history"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    (history_dir / f"{history_entry_id}.json").write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        encoding="utf-8",
+    )
+    return history_entry_id
+
+
 def _monitor_definition_boundary_response(client: TestClient, boundary: str, monitor_definition_id: str):
     if boundary == "get":
         return client.get(f"/backtests/monitor-definitions/{monitor_definition_id}")
@@ -743,6 +947,8 @@ def _monitor_definition_boundary_response(client: TestClient, boundary: str, mon
         )
     if boundary == "history":
         return client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history")
+    if boundary == "episode_history":
+        return client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history")
     raise AssertionError(f"unsupported boundary: {boundary}")
 
 
@@ -969,6 +1175,9 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
                             "review_support_status": "review_supported",
                             "lifecycle_status": "enabled",
                         },
+                        "status_source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot",
+                        "latest_observation_status": "absent",
+                        "latest_observation": None,
                         "latest_evaluation_snapshot_status": "absent",
                         "latest_evaluation_snapshot": None,
                     },
@@ -986,7 +1195,13 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
                 "monitor_id": None,
                 "review_support_status": None,
                 "lifecycle_status": None,
+                "latest_observation_status": None,
+                "latest_observation_observation_status": None,
+                "latest_observation_alert_classification": None,
+                "latest_observation_cause_code": None,
+                "latest_observation_recency": None,
                 "latest_evaluation_snapshot_status": None,
+                "latest_evaluation_snapshot_cause_code": None,
                 "latest_evaluation_snapshot_recency": None,
             },
         },
@@ -1005,7 +1220,13 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
             "monitor_id": None,
             "review_support_status": None,
             "lifecycle_status": None,
+            "latest_observation_status": None,
+            "latest_observation_observation_status": None,
+            "latest_observation_alert_classification": None,
+            "latest_observation_cause_code": None,
+            "latest_observation_recency": None,
             "latest_evaluation_snapshot_status": None,
+            "latest_evaluation_snapshot_cause_code": None,
             "latest_evaluation_snapshot_recency": None,
         },
     }
@@ -1022,13 +1243,26 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
                 "review_support_status": "review_supported",
                 "lifecycle_status": "enabled",
             },
+            "status_source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot",
+            "latest_observation_status": "absent",
+            "latest_observation": None,
             "latest_evaluation_snapshot_status": "absent",
             "latest_evaluation_snapshot": None,
         },
     }
     assert evaluate_response.status_code == 200
     assert evaluate_response.json()["observation_status"] == "ok"
+    assert evaluate_response.json()["cause_code"] is None
     assert evaluate_response.json()["active_observation"]["required_overlay_status"] == "risk_reduced"
+    observation_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/observation"
+    )
+    assert observation_response.status_code == 200
+    assert observation_response.json()["monitor_definition_id"] == monitor_definition_id
+    assert observation_response.json()["monitor_definition_fingerprint"] == created["fingerprint"]
+    assert observation_response.json()["observation_status"] == "ok"
+    assert observation_response.json()["cause_code"] is None
+    assert observation_response.json()["alert_classification"] == "informational"
     assert history_response.status_code == 200
     history_payload = history_response.json()
     assert history_payload["metadata"]["contract_version"] == "monitor_definition_evaluation_history_v1"
@@ -1042,6 +1276,7 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
     assert history_entry["monitor_definition_fingerprint"] == created["fingerprint"]
     assert history_entry["monitor_definition_schema_version"] == "monitor_definition_artifact_v1"
     assert history_entry["observation_status"] == "ok"
+    assert history_entry["cause_code"] is None
     inspect_response = client.get(
         f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry['history_entry_id']}"
     )
@@ -1049,11 +1284,14 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
     assert inspect_response.json()["item"]["history_entry_id"] == history_entry["history_entry_id"]
     assert inspect_response.json()["metadata"]["retrieved_history_entry_id"] == history_entry["history_entry_id"]
     persisted_snapshot = json.loads((tmp_path / f"{monitor_definition_id}.latest_evaluation.json").read_text(encoding="utf-8"))
+    persisted_observation = json.loads((tmp_path / f"{monitor_definition_id}.observation.json").read_text(encoding="utf-8"))
     assert persisted_snapshot["schema_version"] == "monitor_definition_latest_evaluation_snapshot_v1"
     assert persisted_snapshot["monitor_definition_id"] == monitor_definition_id
     assert persisted_snapshot["benchmark_symbol"] == "SPY"
     assert persisted_snapshot["outcome_status"] == "ok"
+    assert persisted_snapshot["cause_code"] is None
     assert persisted_snapshot["significance_status"] == "informational"
+    assert persisted_snapshot["hysteresis_transition"] == "no_op"
     assert persisted_snapshot["benchmark_observation_lineage"] == {
         "source_kind": "benchmark_overlay_signal",
         "source_id": "overlay-signal-2024-12-31",
@@ -1066,6 +1304,15 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
         "source_path": "IB2024.pdf",
         "statement_period": "2024-04",
     }
+    assert persisted_observation["schema_version"] == "monitor_definition_observation_artifact_v1"
+    assert persisted_observation["observation_id"].startswith("monitor_definition_observation_")
+    assert persisted_observation["monitor_definition_id"] == monitor_definition_id
+    assert persisted_observation["monitor_definition_fingerprint"] == created["fingerprint"]
+    assert persisted_observation["monitor_definition_schema_version"] == "monitor_definition_artifact_v1"
+    assert persisted_observation["observation_status"] == "ok"
+    assert persisted_observation["cause_code"] is None
+    assert persisted_observation["alert_classification"] == "informational"
+    assert persisted_observation["hysteresis_transition"] == "no_op"
     persisted_history_files = list((tmp_path / f"{monitor_definition_id}.history").glob("*.json"))
     assert len(persisted_history_files) == 1
 
@@ -1116,11 +1363,76 @@ def test_monitor_definition_route_inventory_stays_aligned_with_shipped_contract_
         (("POST",), "/backtests/monitor-definitions"),
         (("GET",), "/backtests/monitor-definitions/catalog"),
         (("GET",), "/backtests/monitor-definitions/recent"),
+        (("GET",), "/backtests/monitor-definitions/latest-observation-alert-inbox"),
+        (("GET",), "/backtests/monitor-definitions/alert-history-queue"),
+        (("GET",), "/backtests/monitor-definitions/recovered-alert-review-queue"),
+        (("GET",), "/backtests/monitor-definitions/active-alert-episode-inbox"),
         (("GET",), "/backtests/monitor-definitions/{monitor_definition_id}"),
+        (("GET",), "/backtests/monitor-definitions/{monitor_definition_id}/observation"),
         (("GET",), "/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history"),
+        (("GET",), "/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"),
+        (("GET",), "/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"),
         (("GET",), "/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry_id}"),
         (("POST",), "/backtests/monitor-definitions/{monitor_definition_id}/evaluations"),
     }
+
+
+def test_monitor_definition_alert_review_timeline_contract_docs_and_desktop_types_stay_aligned() -> None:
+    schema_text = Path(__file__).resolve().parents[1].joinpath("schemas", "backtest_engine.py").read_text(encoding="utf-8")
+    repo_root = Path(__file__).resolve().parents[4]
+    desktop_types_text = repo_root / "apps" / "desktop" / "src" / "features" / "portfolio" / "types.ts"
+    desktop_types = desktop_types_text.read_text(encoding="utf-8")
+    contract_docs = (repo_root / "docs" / "contracts" / "backtest-fields.md").read_text(encoding="utf-8")
+    current_state = (repo_root / "docs" / "product" / "current-product-state.md").read_text(encoding="utf-8")
+    roadmap = (repo_root / "docs" / "product" / "roadmap.md").read_text(encoding="utf-8")
+    technical_roadmap = (repo_root / "docs" / "product" / "technical-roadmap.md").read_text(encoding="utf-8")
+
+    for expected in (
+        "monitor_definition_alert_review_timeline_v1",
+        "monitor_definition_alert_episode_v1",
+        "monitor_definition_active_alert_episode_inbox_v1",
+        "monitor_definition_alert_episode_history_v1",
+        "monitor_definition_alert_episode_record_v1",
+        "authoritative_persisted_monitor_definition_alert_episode_records_only",
+        "canonical_latest_observation_artifact_and_append_only_evaluation_history_entries",
+        "newest_first_evaluated_at_then_observation_event_then_history_entry_id",
+        "newest_first_latest_event_at_then_monitor_definition_id_then_episode_id",
+        "newest_first_latest_event_at_then_episode_id",
+        "before_episode_id_exclusive",
+        "latest_observation_event",
+        "evaluation_history_event",
+        "observation_rooted",
+        "history_entry_rooted",
+        "latest_alert_episode",
+        "alert_episode",
+        "lifecycle_status",
+        "latest_for_monitor_definition",
+        "terminal_history_entry_id",
+        "monitor_definition_alert_episode_history_timeline_handoff_v1",
+        "monitor_definition_recovered_alert_review_queue_v1",
+        "persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage",
+        "newest_first_evaluated_at_then_monitor_definition_id_then_observation_id",
+        "monitor_definition_alert_review_timeline_open_handoff_v1",
+    ):
+        assert expected in schema_text
+        assert expected in desktop_types
+
+    assert "GET /backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline" in contract_docs
+    assert "GET /backtests/monitor-definitions/active-alert-episode-inbox" in contract_docs
+    assert "GET /backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history" in contract_docs
+    assert "GET /backtests/monitor-definitions/recovered-alert-review-queue" in contract_docs
+    assert "benchmark_observation`, `portfolio_observation`, and `active_observation` remain separate persisted blocks" in contract_docs
+    assert "definition-scoped alert-review timeline sourced only from the canonical latest observation artifact plus append-only canonical evaluation-history entries" in current_state
+    assert "active alert-episode inbox sourced only from authoritative persisted alert-episode records" in current_state
+    assert "broaden monitoring beyond the shipped active alert-episode inbox, definition-scoped persisted alert-episode history index, definition-scoped alert-review timeline, and latest persisted alert-episode lifecycle for one persisted `monitor_definition_id`" in roadmap
+    assert "GET /backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline" in technical_roadmap
+    assert "GET /backtests/monitor-definitions/active-alert-episode-inbox" in technical_roadmap
+    assert "latest_alert_episode" in contract_docs
+    assert "alert_episode" in contract_docs
+    assert "active alert-episode inbox" in contract_docs
+    assert "alert-episode history" in contract_docs
+    assert "latest persisted alert-episode lifecycle" in roadmap
+    assert "persisted alert-episode lifecycle semantics" in technical_roadmap
 
 
 def test_monitor_definition_evaluation_route_rejects_contradictory_lineage_state(tmp_path, mocker) -> None:
@@ -1256,7 +1568,7 @@ def test_monitor_definition_create_route_rejects_legacy_write_widening() -> None
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history"])
+@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history", "episode_history"])
 def test_monitor_definition_routes_fail_closed_on_malformed_json(tmp_path, mocker, boundary: str) -> None:
     mocker.patch(
         "app.services.monitor_definition_artifact_service.get_settings",
@@ -1276,7 +1588,7 @@ def test_monitor_definition_routes_fail_closed_on_malformed_json(tmp_path, mocke
     assert "invalid persisted monitor definition json" in response.json()["detail"]
 
 
-@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history"])
+@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history", "episode_history"])
 def test_monitor_definition_routes_fail_closed_on_non_object_payload(tmp_path, mocker, boundary: str) -> None:
     mocker.patch(
         "app.services.monitor_definition_artifact_service.get_settings",
@@ -1310,7 +1622,7 @@ def test_monitor_definition_routes_fail_closed_on_non_object_payload(tmp_path, m
         ),
     ],
 )
-@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history"])
+@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history", "episode_history"])
 def test_monitor_definition_routes_fail_closed_on_invalid_persisted_states(
     tmp_path,
     mocker,
@@ -1336,7 +1648,7 @@ def test_monitor_definition_routes_fail_closed_on_invalid_persisted_states(
     assert expected_detail in response.json()["detail"]
 
 
-@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history"])
+@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history", "episode_history"])
 def test_monitor_definition_routes_hydrate_only_documented_legacy_omissions(tmp_path, mocker, boundary: str) -> None:
     mocker.patch(
         "app.services.monitor_definition_artifact_service.get_settings",
@@ -1380,6 +1692,12 @@ def test_monitor_definition_routes_hydrate_only_documented_legacy_omissions(tmp_
         assert payload["metadata"]["total_entries"] == 0
         assert payload["items"] == []
         return
+    if boundary == "episode_history":
+        payload = response.json()
+        assert payload["metadata"]["monitor_definition_id"] == monitor_definition_id
+        assert payload["metadata"]["total_episodes"] == 0
+        assert payload["items"] == []
+        return
     payload = response.json()
     if boundary == "get":
         assert payload["observation_statuses"] == ["ok", "threshold_breach", "degraded", "unavailable"]
@@ -1421,7 +1739,7 @@ def test_monitor_definition_routes_hydrate_only_documented_legacy_omissions(tmp_
         ),
     ],
 )
-@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history"])
+@pytest.mark.parametrize("boundary", ["get", "list", "catalog", "recent", "evaluate", "history", "episode_history"])
 def test_monitor_definition_routes_reject_ambiguous_legacy_present_values(
     tmp_path,
     mocker,
@@ -1502,6 +1820,7 @@ def test_monitor_definition_discovery_routes_apply_additive_status_filters(tmp_p
         first["monitor_definition_id"],
         evaluated_at="2999-01-01T09:30:00Z",
         outcome_status="threshold_breach",
+        cause_code=None,
         significance_status="action_required",
     )
     _write_latest_monitor_evaluation_snapshot(
@@ -1509,6 +1828,7 @@ def test_monitor_definition_discovery_routes_apply_additive_status_filters(tmp_p
         second["monitor_definition_id"],
         evaluated_at="2026-01-01T09:30:00Z",
         outcome_status="ok",
+        cause_code=None,
         significance_status="informational",
         benchmark_symbol="QQQ",
     )
@@ -1525,11 +1845,231 @@ def test_monitor_definition_discovery_routes_apply_additive_status_filters(tmp_p
     assert catalog_response.json()["items"][0]["metadata"]["status"]["latest_evaluation_snapshot"] == {
         "evaluated_at": "2999-01-01T09:30:00Z",
         "outcome_status": "threshold_breach",
+        "cause_code": None,
         "significance_status": "action_required",
+        "hysteresis_transition": None,
         "recency_status": "recent",
+        "source_precedence": "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact",
     }
     assert recent_response.status_code == 200
     assert [item["monitor_definition_id"] for item in recent_response.json()["items"]] == [second["monitor_definition_id"], first["monitor_definition_id"]]
+
+
+def test_monitor_definition_discovery_routes_apply_additive_latest_observation_filters(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    action_required = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    informational = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "QQQ"},
+    ).json()
+    absent = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "DIA"},
+    ).json()
+    _write_monitor_definition_observation(
+        tmp_path,
+        action_required["monitor_definition_id"],
+        evaluated_at="2999-01-01T09:30:00Z",
+        observation_status="threshold_breach",
+        cause_code=None,
+        alert_classification="action_required",
+        benchmark_symbol="SPY",
+    )
+    _write_monitor_definition_observation(
+        tmp_path,
+        informational["monitor_definition_id"],
+        evaluated_at="2026-01-01T09:30:00Z",
+        observation_status="ok",
+        cause_code=None,
+        alert_classification="informational",
+        benchmark_symbol="QQQ",
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        absent["monitor_definition_id"],
+        evaluated_at="2999-01-01T09:30:00Z",
+        outcome_status="threshold_breach",
+        cause_code=None,
+        significance_status="action_required",
+        benchmark_symbol="DIA",
+    )
+
+    catalog_status_response = client.get(
+        "/backtests/monitor-definitions/catalog?latest_observation_status=present"
+    )
+    catalog_observation_status_response = client.get(
+        "/backtests/monitor-definitions/catalog?latest_observation_observation_status=threshold_breach"
+    )
+    catalog_alert_classification_response = client.get(
+        "/backtests/monitor-definitions/catalog?latest_observation_alert_classification=action_required"
+    )
+    catalog_recency_response = client.get(
+        "/backtests/monitor-definitions/catalog?latest_observation_recency=recent"
+    )
+    catalog_combined_response = client.get(
+        "/backtests/monitor-definitions/catalog?overlay_family=benchmark_trend&latest_observation_status=present&latest_observation_observation_status=threshold_breach&latest_observation_alert_classification=action_required&latest_observation_recency=recent"
+    )
+    catalog_absent_response = client.get(
+        "/backtests/monitor-definitions/catalog?latest_observation_status=absent"
+    )
+    recent_status_response = client.get(
+        "/backtests/monitor-definitions/recent?latest_observation_status=present"
+    )
+    recent_stale_response = client.get(
+        "/backtests/monitor-definitions/recent?latest_observation_recency=stale"
+    )
+    catalog_cause_code_response = client.get(
+        "/backtests/monitor-definitions/catalog?latest_observation_cause_code=benchmark_observation_unconfirmed"
+    )
+
+    assert catalog_status_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in catalog_status_response.json()["items"]] == [
+        informational["monitor_definition_id"],
+        action_required["monitor_definition_id"],
+    ]
+    assert catalog_status_response.json()["metadata"]["applied_filters"] == {
+        "overlay_family": None,
+        "monitor_id": None,
+        "review_support_status": None,
+        "lifecycle_status": None,
+        "latest_observation_status": "present",
+        "latest_observation_observation_status": None,
+        "latest_observation_alert_classification": None,
+        "latest_observation_cause_code": None,
+        "latest_observation_recency": None,
+        "latest_evaluation_snapshot_status": None,
+        "latest_evaluation_snapshot_cause_code": None,
+        "latest_evaluation_snapshot_recency": None,
+    }
+    assert catalog_observation_status_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in catalog_observation_status_response.json()["items"]] == [
+        action_required["monitor_definition_id"]
+    ]
+    assert catalog_alert_classification_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in catalog_alert_classification_response.json()["items"]] == [
+        action_required["monitor_definition_id"]
+    ]
+    assert catalog_cause_code_response.status_code == 200
+    assert catalog_cause_code_response.json()["items"] == []
+    assert catalog_recency_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in catalog_recency_response.json()["items"]] == [
+        action_required["monitor_definition_id"]
+    ]
+    assert catalog_combined_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in catalog_combined_response.json()["items"]] == [
+        action_required["monitor_definition_id"]
+    ]
+    assert catalog_absent_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in catalog_absent_response.json()["items"]] == [
+        absent["monitor_definition_id"]
+    ]
+    assert recent_status_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in recent_status_response.json()["items"]] == [
+        informational["monitor_definition_id"],
+        action_required["monitor_definition_id"],
+    ]
+    assert recent_stale_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in recent_stale_response.json()["items"]] == [
+        informational["monitor_definition_id"]
+    ]
+
+
+def test_monitor_definition_discovery_routes_filter_by_cause_code_fields(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    degraded = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    unavailable = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "QQQ"},
+    ).json()
+    _write_monitor_definition_observation(
+        tmp_path,
+        degraded["monitor_definition_id"],
+        observation_status="degraded",
+        cause_code="benchmark_observation_unconfirmed",
+        alert_classification="degraded",
+        benchmark_symbol="SPY",
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        degraded["monitor_definition_id"],
+        outcome_status="degraded",
+        cause_code="benchmark_observation_unconfirmed",
+        significance_status="degraded",
+        benchmark_symbol="SPY",
+    )
+    _write_latest_monitor_evaluation_snapshot(
+        tmp_path,
+        unavailable["monitor_definition_id"],
+        outcome_status="unavailable",
+        cause_code="benchmark_observation_unavailable",
+        significance_status="unavailable",
+        benchmark_symbol="QQQ",
+    )
+
+    catalog_response = client.get(
+        "/backtests/monitor-definitions/catalog?latest_observation_cause_code=benchmark_observation_unconfirmed"
+    )
+    recent_response = client.get(
+        "/backtests/monitor-definitions/recent?latest_evaluation_snapshot_cause_code=benchmark_observation_unavailable"
+    )
+
+    assert catalog_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in catalog_response.json()["items"]] == [
+        degraded["monitor_definition_id"]
+    ]
+    assert catalog_response.json()["items"][0]["metadata"]["status"]["latest_observation"]["cause_code"] == (
+        "benchmark_observation_unconfirmed"
+    )
+    assert recent_response.status_code == 200
+    assert [item["monitor_definition_id"] for item in recent_response.json()["items"]] == [
+        unavailable["monitor_definition_id"]
+    ]
+    assert recent_response.json()["items"][0]["metadata"]["status"]["latest_evaluation_snapshot"]["cause_code"] == (
+        "benchmark_observation_unavailable"
+    )
+
+
+def test_monitor_definition_discovery_openapi_query_parameter_inventory_stays_aligned(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+
+    paths = app.openapi()["paths"]
+    catalog_params = [param["name"] for param in paths["/backtests/monitor-definitions/catalog"]["get"]["parameters"]]
+    recent_params = [param["name"] for param in paths["/backtests/monitor-definitions/recent"]["get"]["parameters"]]
+
+    assert catalog_params == [
+        "overlay_family",
+        "monitor_id",
+        "review_support_status",
+        "lifecycle_status",
+        "latest_observation_status",
+        "latest_observation_observation_status",
+        "latest_observation_alert_classification",
+        "latest_observation_cause_code",
+        "latest_observation_recency",
+        "latest_evaluation_snapshot_status",
+        "latest_evaluation_snapshot_cause_code",
+        "latest_evaluation_snapshot_recency",
+    ]
+    assert recent_params == ["limit", *catalog_params]
 
 
 def test_monitor_definition_discovery_routes_fail_closed_on_malformed_latest_evaluation_snapshot_metadata(
@@ -1665,6 +2205,7 @@ def test_monitor_definition_discovery_routes_read_latest_status_from_snapshot_si
     history_response = client.get(
         f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history"
     )
+    latest_observation = catalog_response.json()["items"][0]["metadata"]["status"]["latest_observation"]
 
     assert catalog_response.status_code == 200
     assert recent_response.status_code == 200
@@ -1675,13 +2216,1709 @@ def test_monitor_definition_discovery_routes_read_latest_status_from_snapshot_si
             "review_support_status": "review_supported",
             "lifecycle_status": "enabled",
         },
+        "status_source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot",
+        "latest_observation_status": "present",
+        "latest_observation": {
+            "observation_id": latest_observation["observation_id"],
+            "evaluated_at": latest_observation["evaluated_at"],
+            "observation_status": "ok",
+            "cause_code": None,
+            "alert_classification": "informational",
+            "hysteresis_transition": "no_op",
+            "recency_status": latest_observation["recency_status"],
+            "source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
+        },
         "latest_evaluation_snapshot_status": "absent",
         "latest_evaluation_snapshot": None,
     }
     assert recent_response.json()["items"][0]["metadata"]["status"]["latest_evaluation_snapshot_status"] == "absent"
     assert recent_response.json()["items"][0]["metadata"]["status"]["latest_evaluation_snapshot"] is None
+    assert recent_response.json()["items"][0]["metadata"]["status"]["latest_observation_status"] == "present"
+    assert recent_response.json()["items"][0]["metadata"]["status"]["latest_observation"] is not None
     assert history_response.json()["metadata"]["total_entries"] == 1
     assert len(history_response.json()["items"]) == 1
+
+
+def test_monitor_definition_alert_history_queue_route_returns_newest_alert_eligible_history_rows_only(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    def _queue_payload(
+        benchmark_symbol: str,
+        status: str,
+        *,
+        confirmation_count: int,
+    ) -> dict[str, object]:
+        payload = cast(dict[str, object], _monitor_evaluation_payload())
+        benchmark_observation = cast(dict[str, object], payload["benchmark_observation"])
+        benchmark_observation["benchmark_symbol"] = benchmark_symbol
+        benchmark_observation["status"] = status
+        benchmark_observation["confirmation_count"] = confirmation_count
+        return payload
+
+    action_required = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    degraded = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "QQQ"},
+    ).json()
+    informational = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "DIA"},
+    ).json()
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{action_required['monitor_definition_id']}/evaluations",
+        json=_queue_payload("SPY", "risk_on", confirmation_count=2),
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{degraded['monitor_definition_id']}/evaluations",
+        json=_queue_payload("QQQ", "unconfirmed", confirmation_count=1),
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{informational['monitor_definition_id']}/evaluations",
+        json=_queue_payload("DIA", "risk_reduced", confirmation_count=2),
+    ).status_code == 200
+
+    response = client.get("/backtests/monitor-definitions/alert-history-queue?limit=10")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"] == {
+        "contract_version": "monitor_definition_alert_history_queue_v1",
+        "provenance": "persisted_monitor_definitions_with_canonical_latest_snapshot_and_evaluation_history",
+        "row_provenance": "persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence",
+        "source_precedence": "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries",
+        "ordering": "newest_first_evaluated_at_then_latest_snapshot_precedence_then_monitor_definition_id_then_history_entry_id",
+        "returned_limit": 10,
+        "total_queue_rows": 2,
+    }
+    assert [item["monitor_definition_id"] for item in payload["items"]] == [
+        degraded["monitor_definition_id"],
+        action_required["monitor_definition_id"],
+    ]
+    assert payload["items"][0]["outcome_status"] == "degraded"
+    assert payload["items"][0]["cause_code"] == "benchmark_observation_unconfirmed"
+    assert payload["items"][0]["significance_status"] == "degraded"
+    assert payload["items"][0]["latest_for_monitor_definition"] is True
+    assert payload["items"][0]["review_handoff"]["history_entry_id"] == payload["items"][0]["history_entry_id"]
+    assert payload["items"][1]["outcome_status"] == "threshold_breach"
+    assert payload["items"][1]["cause_code"] is None
+    assert payload["items"][1]["significance_status"] == "action_required"
+
+
+def test_monitor_definition_alert_history_queue_route_fails_closed_on_persisted_evaluation_alignment_mismatch(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    evaluate_response = client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    )
+    assert evaluate_response.status_code == 200
+    _mutate_persisted_json(
+        str(tmp_path / f"{monitor_definition_id}.latest_evaluation.json"),
+        lambda payload: payload.__setitem__("evaluated_at", "2026-04-20T09:30:00Z"),
+    )
+    _rekey_monitor_definition_observation_payload(
+        tmp_path / f"{monitor_definition_id}.observation.json",
+        lambda payload: payload.__setitem__("evaluated_at", "2026-04-20T09:30:00Z"),
+    )
+
+    response = client.get("/backtests/monitor-definitions/alert-history-queue")
+
+    assert response.status_code == 400
+    assert (
+        "observation evaluated_at must match persisted evaluation artifacts"
+        in response.json()["detail"]
+    )
+
+
+def test_monitor_definition_recovered_alert_review_queue_route_returns_newest_recovered_rows_with_authoritative_lineage(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    first = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    second = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "QQQ"},
+    ).json()
+
+    def _payload(benchmark_symbol: str, status: str, *, confirmation_count: int) -> dict[str, object]:
+        payload = cast(dict[str, object], _monitor_evaluation_payload())
+        benchmark_observation = cast(dict[str, object], payload["benchmark_observation"])
+        benchmark_observation["benchmark_symbol"] = benchmark_symbol
+        benchmark_observation["status"] = status
+        benchmark_observation["confirmation_count"] = confirmation_count
+        return payload
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{first['monitor_definition_id']}/evaluations",
+        json=_payload("SPY", "risk_on", confirmation_count=2),
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{first['monitor_definition_id']}/evaluations",
+        json=_payload("SPY", "risk_reduced", confirmation_count=2),
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{second['monitor_definition_id']}/evaluations",
+        json=_payload("QQQ", "risk_on", confirmation_count=2),
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{second['monitor_definition_id']}/evaluations",
+        json=_payload("QQQ", "risk_reduced", confirmation_count=2),
+    ).status_code == 200
+
+    response = client.get("/backtests/monitor-definitions/recovered-alert-review-queue?limit=10")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"] == {
+        "contract_version": "monitor_definition_recovered_alert_review_queue_v1",
+        "provenance": "persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage",
+        "row_provenance": "persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage",
+        "source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries",
+        "ordering": "newest_first_evaluated_at_then_monitor_definition_id_then_observation_id",
+        "returned_limit": 10,
+        "total_queue_rows": 2,
+    }
+    assert [item["monitor_definition_id"] for item in payload["items"]] == [
+        second["monitor_definition_id"],
+        first["monitor_definition_id"],
+    ]
+    assert payload["items"][0]["alert_classification"] == "informational"
+    assert payload["items"][0]["hysteresis_transition"] == "recover"
+    assert payload["items"][0]["timeline_handoff"]["observation_id"] == payload["items"][0]["observation_id"]
+    assert payload["items"][0]["recovered_from"]["significance_status"] == "action_required"
+    assert payload["items"][0]["latest_history_entry_id"] != payload["items"][0]["recovered_from"]["history_entry_id"]
+    assert payload["items"][0]["alert_episode"]["contract_version"] == "monitor_definition_alert_episode_v1"
+    assert payload["items"][0]["alert_episode"]["episode_status"] == "recovered"
+    assert payload["items"][0]["alert_episode"]["hysteresis_transition"] == "recover"
+    assert payload["items"][0]["alert_episode"]["source_precedence"] == "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    assert payload["items"][0]["alert_episode"]["latest_contributing_observation"]["observation_id"] == payload["items"][0]["observation_id"]
+
+
+def test_monitor_definition_recovered_alert_review_queue_route_excludes_non_recovered_and_informational_only_states(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    informational_only = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    still_alerting = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "QQQ"},
+    ).json()
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{informational_only['monitor_definition_id']}/evaluations",
+        json=_monitor_evaluation_payload(),
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{still_alerting['monitor_definition_id']}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "benchmark_symbol": "QQQ",
+            },
+        },
+    ).status_code == 200
+
+    response = client.get("/backtests/monitor-definitions/recovered-alert-review-queue")
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["metadata"]["total_queue_rows"] == 0
+
+
+def test_monitor_definition_recovered_alert_review_queue_route_fails_closed_on_latest_snapshot_history_mismatch(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    _mutate_persisted_json(
+        str(tmp_path / f"{monitor_definition_id}.latest_evaluation.json"),
+        lambda payload: payload.__setitem__("evaluated_at", "2026-04-22T09:30:00Z"),
+    )
+
+    response = client.get("/backtests/monitor-definitions/recovered-alert-review-queue")
+
+    assert response.status_code == 400
+    assert "observation evaluated_at must match persisted evaluation artifacts" in response.json()["detail"]
+
+
+def test_monitor_definition_recovered_alert_review_queue_route_fails_closed_on_ambiguous_latest_history_state(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    latest_snapshot_payload = json.loads(
+        (tmp_path / f"{monitor_definition_id}.latest_evaluation.json").read_text(encoding="utf-8")
+    )
+    _write_monitor_definition_history_entry(
+        tmp_path,
+        monitor_definition_id,
+        evaluated_at=str(latest_snapshot_payload["evaluated_at"]),
+        observation_status=str(latest_snapshot_payload["outcome_status"]),
+        cause_code=latest_snapshot_payload["cause_code"],
+        significance_status=str(latest_snapshot_payload["significance_status"]),
+        reason="ambiguous_latest_duplicate",
+    )
+
+    response = client.get("/backtests/monitor-definitions/recovered-alert-review-queue")
+
+    assert response.status_code == 400
+    assert (
+        "monitor definition recovered alert review queue latest history state is ambiguous"
+        in response.json()["detail"]
+        or "persisted latest observation hysteresis_transition does not match canonical persisted evaluation lineage"
+        in response.json()["detail"]
+        or "persisted latest evaluation snapshot hysteresis_transition does not match canonical persisted evaluation lineage"
+        in response.json()["detail"]
+        or "persisted latest evaluation history entry hysteresis_transition does not match canonical persisted evaluation lineage"
+        in response.json()["detail"]
+    )
+
+
+def test_monitor_definition_recovered_alert_review_queue_route_fails_closed_on_unsupported_legacy_payloads(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json=_monitor_evaluation_payload(),
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    latest_history_payload = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history"
+    ).json()
+    latest_history_entry_id = latest_history_payload["items"][0]["history_entry_id"]
+    _mutate_persisted_json(
+        str(tmp_path / f"{monitor_definition_id}.history" / f"{latest_history_entry_id}.json"),
+        lambda payload: payload.pop("significance_status"),
+    )
+
+    response = client.get("/backtests/monitor-definitions/recovered-alert-review-queue")
+
+    assert response.status_code == 400
+    assert "persisted monitor definition evaluation history entry payload is missing required field(s): significance_status" in response.json()["detail"]
+
+
+def test_monitor_definition_latest_observation_alert_inbox_route_returns_newest_persisted_alert_rows_only(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    first = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    second = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "QQQ"},
+    ).json()
+    informational = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "DIA"},
+    ).json()
+    _write_monitor_definition_observation(
+        tmp_path,
+        first["monitor_definition_id"],
+        evaluated_at="2026-04-20T09:30:00Z",
+        observation_status="degraded",
+        cause_code="benchmark_observation_unconfirmed",
+        alert_classification="degraded",
+        benchmark_symbol="SPY",
+    )
+    _write_monitor_definition_observation(
+        tmp_path,
+        second["monitor_definition_id"],
+        evaluated_at="2026-04-21T09:30:00Z",
+        observation_status="threshold_breach",
+        alert_classification="action_required",
+        benchmark_symbol="QQQ",
+    )
+    _write_monitor_definition_observation(
+        tmp_path,
+        informational["monitor_definition_id"],
+        evaluated_at="2026-04-22T09:30:00Z",
+        observation_status="ok",
+        alert_classification="informational",
+        benchmark_symbol="DIA",
+    )
+
+    response = client.get("/backtests/monitor-definitions/latest-observation-alert-inbox?limit=10")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"] == {
+        "contract_version": "monitor_definition_latest_observation_alert_inbox_v1",
+        "provenance": "authoritative_persisted_monitor_definition_observations_only",
+        "row_provenance": "persisted_monitor_definition_observation_artifact",
+        "source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
+        "ordering": "newest_first_evaluated_at",
+        "returned_limit": 10,
+    }
+    assert [item["monitor_definition_id"] for item in payload["items"]] == [
+        second["monitor_definition_id"],
+        first["monitor_definition_id"],
+    ]
+    assert payload["items"][0]["hysteresis_transition"] == "open"
+    assert payload["items"][0]["open_handoff"]["observation_id"] == payload["items"][0]["observation_id"]
+    assert payload["items"][1]["cause_code"] == "benchmark_observation_unconfirmed"
+
+
+def test_monitor_definition_latest_observation_alert_inbox_route_fails_closed_on_invalid_persisted_observation(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    _write_monitor_definition_observation(tmp_path, monitor_definition_id)
+    _mutate_persisted_json(
+        str(tmp_path / f"{monitor_definition_id}.observation.json"),
+        lambda payload: payload.__setitem__("monitor_definition_fingerprint", "0" * 64),
+    )
+
+    response = client.get("/backtests/monitor-definitions/latest-observation-alert-inbox")
+
+    assert response.status_code == 400
+    assert "monitor definition observation observation_id does not match canonical persisted payload content" in response.json()["detail"]
+
+
+def test_monitor_definition_alert_review_timeline_route_returns_definition_scoped_payload_with_authoritative_ids(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json=_monitor_evaluation_payload(),
+    ).status_code == 200
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"] == {
+        "contract_version": "monitor_definition_alert_review_timeline_v1",
+        "provenance": "canonical_latest_observation_artifact_and_append_only_evaluation_history_entries",
+        "ordering": "newest_first_evaluated_at_then_observation_event_then_history_entry_id",
+        "monitor_definition_id": monitor_definition_id,
+        "monitor_definition_fingerprint": created["fingerprint"],
+        "monitor_definition_schema_version": "monitor_definition_artifact_v1",
+        "observation_row_provenance": "persisted_monitor_definition_observation_artifact",
+        "history_row_provenance": "persisted_monitor_definition_evaluation_history_entry",
+        "source_precedence": "persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection",
+        "latest_alert_episode": None,
+        "total_rows": 2,
+        "observation_rows": 1,
+        "history_rows": 1,
+    }
+    assert payload["items"][0]["event_kind"] == "latest_observation_event"
+    assert payload["items"][0]["event_semantics"] == "observation_rooted"
+    assert payload["items"][0]["hysteresis_transition"] == "no_op"
+    assert payload["items"][0]["open_handoff"]["observation_id"] == payload["items"][0]["observation_id"]
+    assert payload["items"][0]["metadata"]["row_provenance"] == "persisted_monitor_definition_observation_artifact"
+    assert payload["items"][1]["event_kind"] == "evaluation_history_event"
+    assert payload["items"][1]["event_semantics"] == "history_entry_rooted"
+    assert payload["items"][1]["hysteresis_transition"] == "no_op"
+    assert payload["items"][1]["review_handoff"]["history_entry_id"] == payload["items"][1]["history_entry_id"]
+    assert payload["items"][1]["metadata"]["row_provenance"] == "persisted_monitor_definition_evaluation_history_entry"
+    assert payload["metadata"]["latest_alert_episode"] is None
+
+
+def test_monitor_definition_alert_review_timeline_route_derives_active_alert_episode_boundaries_from_persisted_history(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert response.status_code == 200
+    episode = MonitorDefinitionAlertEpisode.model_validate(
+        response.json()["metadata"]["latest_alert_episode"]
+    )
+    assert episode.episode_status == "active"
+    assert episode.hysteresis_transition == "open"
+    assert episode.source_precedence == "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    assert episode.started_at.isoformat() == response.json()["items"][1]["evaluated_at"].replace("Z", "+00:00")
+    assert episode.ended_at is None
+    assert episode.latest_contributing_observation.observation_id == response.json()["items"][0]["observation_id"]
+
+
+def test_monitor_definition_alert_review_timeline_route_derives_recovered_alert_episode_boundaries_from_persisted_history(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert response.status_code == 200
+    episode = MonitorDefinitionAlertEpisode.model_validate(
+        response.json()["metadata"]["latest_alert_episode"]
+    )
+    assert episode.episode_status == "recovered"
+    assert episode.hysteresis_transition == "recover"
+    assert episode.source_precedence == "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    assert episode.ended_at is not None
+    assert episode.recovery_basis is not None
+    assert episode.latest_contributing_observation.observation_id == response.json()["items"][0]["observation_id"]
+    assert episode.recovery_basis.recovered_from_history_entry_id == response.json()["items"][2]["history_entry_id"]
+
+
+def test_monitor_definition_alert_review_timeline_route_derives_degraded_active_alert_episode_boundaries_from_persisted_history(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+
+    response = client.post(
+        f"/backtests/monitor-definitions/{created['monitor_definition_id']}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "unconfirmed",
+                "confirmation_count": 1,
+            },
+        },
+    )
+    assert response.status_code == 200
+
+    timeline_response = client.get(
+        f"/backtests/monitor-definitions/{created['monitor_definition_id']}/alert-review-timeline"
+    )
+
+    assert timeline_response.status_code == 200
+    episode = MonitorDefinitionAlertEpisode.model_validate(
+        timeline_response.json()["metadata"]["latest_alert_episode"]
+    )
+    assert episode.episode_status == "active"
+    assert episode.latest_contributing_observation.alert_classification == "degraded"
+    assert episode.latest_contributing_observation.cause_code == "benchmark_observation_unconfirmed"
+
+
+def test_monitor_definition_alert_review_timeline_route_derives_unavailable_active_alert_episode_boundaries_from_persisted_history(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+
+    response = client.post(
+        f"/backtests/monitor-definitions/{created['monitor_definition_id']}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "unavailable",
+                "confirmation_count": 0,
+            },
+        },
+    )
+    assert response.status_code == 200
+
+    timeline_response = client.get(
+        f"/backtests/monitor-definitions/{created['monitor_definition_id']}/alert-review-timeline"
+    )
+
+    assert timeline_response.status_code == 200
+    episode = MonitorDefinitionAlertEpisode.model_validate(
+        timeline_response.json()["metadata"]["latest_alert_episode"]
+    )
+    assert episode.episode_status == "active"
+    assert episode.latest_contributing_observation.alert_classification == "unavailable"
+    assert episode.latest_contributing_observation.cause_code == "benchmark_observation_unavailable"
+
+
+def test_monitor_definition_alert_review_timeline_route_fails_closed_on_latest_alert_episode_contradictory_recovered_transition(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    history_payload = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history"
+    ).json()
+    _mutate_persisted_json(
+        str(tmp_path / f"{monitor_definition_id}.history" / f"{history_payload['items'][0]['history_entry_id']}.json"),
+        lambda payload: payload.__setitem__("evaluated_at", history_payload["items"][1]["evaluated_at"]),
+    )
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert response.status_code == 400
+    assert "monitor definition evaluation history entry history_entry_id does not match canonical persisted payload content" in response.json()["detail"]
+
+
+def test_monitor_definition_recovered_alert_review_queue_route_returns_alert_episode_contract(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+
+    response = client.get("/backtests/monitor-definitions/recovered-alert-review-queue")
+
+    assert response.status_code == 200
+    row = response.json()["items"][0]
+    assert row["alert_episode"]["contract_version"] == "monitor_definition_alert_episode_v1"
+    assert row["alert_episode"]["episode_status"] == "recovered"
+    assert row["alert_episode"]["monitor_definition_id"] == row["monitor_definition_id"]
+    assert row["alert_episode"]["latest_contributing_observation"]["observation_id"] == row["observation_id"]
+    assert row["alert_episode"]["recovery_basis"]["recovered_from_history_entry_id"] == row["recovered_from"]["history_entry_id"]
+
+
+def test_monitor_definition_recovered_alert_review_queue_route_fails_closed_on_contradictory_alert_episode_transition(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    history_payload = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history"
+    ).json()
+    latest_history_entry_id = history_payload["items"][0]["history_entry_id"]
+    _mutate_persisted_json(
+        str(tmp_path / f"{monitor_definition_id}.history" / f"{latest_history_entry_id}.json"),
+        lambda payload: payload.__setitem__("significance_status", "action_required"),
+    )
+
+    response = client.get("/backtests/monitor-definitions/recovered-alert-review-queue")
+
+    assert response.status_code == 400
+    assert "monitor definition evaluation history entry history_entry_id does not match canonical persisted payload content" in response.json()["detail"]
+
+
+def test_monitor_definition_active_alert_episode_inbox_route_returns_ordered_open_persisted_episode_rows_only(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    active_oldest = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    active_newest = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "QQQ"},
+    ).json()
+    recovered = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "DIA"},
+    ).json()
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{active_oldest['monitor_definition_id']}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{active_newest['monitor_definition_id']}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "benchmark_symbol": "QQQ",
+                "status": "unconfirmed",
+                "confirmation_count": 1,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{recovered['monitor_definition_id']}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "benchmark_symbol": "DIA",
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{recovered['monitor_definition_id']}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "benchmark_symbol": "DIA",
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+
+    response = client.get("/backtests/monitor-definitions/active-alert-episode-inbox?limit=1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"] == {
+        "contract_version": "monitor_definition_active_alert_episode_inbox_v1",
+        "provenance": "authoritative_persisted_monitor_definition_alert_episode_records_only",
+        "row_provenance": "persisted_monitor_definition_alert_episode_record",
+        "source_precedence": "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation",
+        "ordering": "newest_first_latest_event_at_then_monitor_definition_id_then_episode_id",
+        "windowing": "before_episode_id_exclusive",
+        "returned_limit": 1,
+        "requested_before_episode_id": None,
+        "next_before_episode_id": payload["items"][0]["alert_episode"]["episode_id"],
+        "total_active_episodes": 2,
+    }
+    assert [item["alert_episode"]["monitor_definition_id"] for item in payload["items"]] == [
+        active_newest["monitor_definition_id"]
+    ]
+    assert payload["items"][0]["alert_episode"]["lifecycle_status"] == "open"
+    assert payload["items"][0]["alert_episode"]["hysteresis_transition"] == "open"
+    assert payload["items"][0]["alert_episode"]["source_precedence"] == "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    assert payload["items"][0]["alert_episode"]["timeline_handoff"]["selected_event_kind"] == "latest_observation_event"
+
+    next_response = client.get(
+        f"/backtests/monitor-definitions/active-alert-episode-inbox?limit=2&before_episode_id={payload['items'][0]['alert_episode']['episode_id']}"
+    )
+
+    assert next_response.status_code == 200
+    next_payload = next_response.json()
+    assert next_payload["metadata"]["requested_before_episode_id"] == payload["items"][0]["alert_episode"]["episode_id"]
+    assert next_payload["metadata"]["next_before_episode_id"] is None
+    assert next_payload["metadata"]["total_active_episodes"] == 1
+    assert [item["alert_episode"]["monitor_definition_id"] for item in next_payload["items"]] == [
+        active_oldest["monitor_definition_id"]
+    ]
+
+
+def test_monitor_definition_active_alert_episode_inbox_route_returns_empty_rows_when_no_active_persisted_episodes_exist(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+
+    response = client.get("/backtests/monitor-definitions/active-alert-episode-inbox")
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["metadata"]["total_active_episodes"] == 0
+    assert response.json()["metadata"]["next_before_episode_id"] is None
+
+
+def test_monitor_definition_active_alert_episode_inbox_route_fails_closed_on_persisted_episode_lineage_contradiction(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    episode_path = next((tmp_path / f"{monitor_definition_id}.episodes").glob("*.json"))
+    _mutate_persisted_json(
+        str(episode_path),
+        lambda payload: payload.__setitem__("terminal_history_entry_id", "monitor_definition_history_other"),
+    )
+
+    response = client.get("/backtests/monitor-definitions/active-alert-episode-inbox")
+
+    assert response.status_code == 400
+    assert (
+        "persisted alert episode history does not match canonical persisted evaluation lineage"
+        in response.json()["detail"]
+        or "monitor definition alert episode record episode_id does not match canonical persisted payload content"
+        in response.json()["detail"]
+    )
+
+
+def test_monitor_definition_alert_review_timeline_route_reads_persisted_episode_evidence_not_client_reconstruction(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    _write_monitor_definition_observation(
+        tmp_path,
+        monitor_definition_id,
+        evaluated_at="2026-04-22T09:30:00Z",
+        observation_status="ok",
+        cause_code=None,
+        alert_classification="informational",
+        hysteresis_transition="recover",
+    )
+    _write_monitor_definition_history_entry(
+        tmp_path,
+        monitor_definition_id,
+        evaluated_at="2026-04-22T09:30:00Z",
+        observation_status="ok",
+        cause_code=None,
+        significance_status="informational",
+        hysteresis_transition="recover",
+        reason="recovered persisted history",
+    )
+    _write_monitor_definition_history_entry(
+        tmp_path,
+        monitor_definition_id,
+        evaluated_at="2026-04-20T09:30:00Z",
+        observation_status="threshold_breach",
+        cause_code=None,
+        significance_status="action_required",
+        reason="older alert persisted history",
+    )
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert response.status_code == 200
+    episode = response.json()["metadata"]["latest_alert_episode"]
+    assert episode["episode_status"] == "recovered"
+    assert episode["started_at"] == "2026-04-20T09:30:00Z"
+    assert episode["ended_at"] == "2026-04-22T09:30:00Z"
+    assert episode["recovery_basis"]["recovered_from_history_entry_id"].startswith("monitor_definition_history_")
+
+
+def test_monitor_definition_alert_episode_history_route_returns_stable_ordered_bounded_rows(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+
+    assert any((tmp_path / f"{monitor_definition_id}.episodes").glob("*.json"))
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history?limit=1"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"] == {
+        "contract_version": "monitor_definition_alert_episode_history_v1",
+        "history_truth": "authoritative_persisted_monitor_definition_alert_episode_history",
+        "row_provenance": "persisted_monitor_definition_alert_episode_record",
+        "source_precedence": "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation",
+        "ordering": "newest_first_latest_event_at_then_episode_id",
+        "windowing": "before_episode_id_exclusive",
+        "monitor_definition_id": monitor_definition_id,
+        "monitor_definition_fingerprint": created["fingerprint"],
+        "monitor_definition_schema_version": "monitor_definition_artifact_v1",
+        "returned_limit": 1,
+        "requested_before_episode_id": None,
+        "next_before_episode_id": payload["items"][0]["episode_id"],
+        "total_episodes": 2,
+    }
+    assert len(payload["items"]) == 1
+    first_episode = payload["items"][0]
+    assert first_episode["lifecycle_status"] == "open"
+    assert first_episode["hysteresis_transition"] == "open"
+    assert first_episode["source_precedence"] == "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    assert first_episode["latest_for_monitor_definition"] is True
+    assert first_episode["timeline_handoff"]["selected_event_kind"] == "latest_observation_event"
+
+    second_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history?limit=2&before_episode_id={first_episode['episode_id']}"
+    )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["metadata"]["requested_before_episode_id"] == first_episode["episode_id"]
+    assert second_payload["metadata"]["next_before_episode_id"] is None
+    assert second_payload["metadata"]["total_episodes"] == 2
+    assert [item["lifecycle_status"] for item in second_payload["items"]] == ["closed"]
+    assert second_payload["items"][0]["latest_for_monitor_definition"] is False
+    assert second_payload["items"][0]["timeline_handoff"]["selected_event_kind"] == "evaluation_history_event"
+
+
+def test_monitor_definition_alert_episode_history_route_returns_empty_rows_when_no_persisted_episodes_exist(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{created['monitor_definition_id']}/alert-episode-history"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.json()["metadata"]["total_episodes"] == 0
+    assert response.json()["metadata"]["next_before_episode_id"] is None
+
+
+def test_monitor_definition_alert_episode_history_route_covers_open_recovered_and_closed_persisted_episode_rows(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    for status in ("risk_on", "risk_reduced", "risk_on", "risk_reduced"):
+        assert client.post(
+            f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+            json={
+                **_monitor_evaluation_payload(),
+                "benchmark_observation": {
+                    **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                    "status": status,
+                    "confirmation_count": 2,
+                },
+            },
+        ).status_code == 200
+
+    assert any((tmp_path / f"{monitor_definition_id}.episodes").glob("*.json"))
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+
+    assert response.status_code == 200
+    assert [item["lifecycle_status"] for item in response.json()["items"]] == ["recovered", "closed"]
+    assert response.json()["items"][0]["latest_for_monitor_definition"] is True
+    assert response.json()["items"][1]["latest_for_monitor_definition"] is False
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+
+    open_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+    assert open_response.status_code == 200
+    assert [item["lifecycle_status"] for item in open_response.json()["items"]] == ["open", "closed", "closed"]
+
+
+def test_monitor_definition_alert_episode_history_latest_row_agrees_with_latest_timeline_lifecycle_surface(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_reduced",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+
+    episode_history_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+    timeline_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert episode_history_response.status_code == 200
+    assert timeline_response.status_code == 200
+    latest_episode_row = episode_history_response.json()["items"][0]
+    latest_timeline_episode = timeline_response.json()["metadata"]["latest_alert_episode"]
+    assert latest_episode_row["episode_id"] == latest_timeline_episode["episode_id"]
+    assert latest_episode_row["started_at"] == latest_timeline_episode["started_at"]
+    assert latest_episode_row["ended_at"] == latest_timeline_episode["ended_at"]
+    assert latest_episode_row["recovery_basis"] == latest_timeline_episode["recovery_basis"]
+    assert latest_episode_row["latest_contributing_observation"] == latest_timeline_episode["latest_contributing_observation"]
+    assert latest_episode_row["lifecycle_status"] == "recovered"
+
+
+def test_monitor_definition_alert_episode_history_route_returns_404_for_unknown_definition(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.get(
+        "/backtests/monitor-definitions/monitor_definition_missing/alert-episode-history"
+    )
+
+    assert response.status_code == 404
+    assert "missing persisted monitor definition file" in response.json()["detail"]
+
+
+def test_monitor_definition_alert_episode_history_route_fails_closed_on_malformed_persisted_episode_record(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    episode_dir = tmp_path / f"{monitor_definition_id}.episodes"
+    episode_path = next(episode_dir.glob("*.json"))
+    episode_path.write_text("{", encoding="utf-8")
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+
+    assert response.status_code == 400
+    assert "invalid persisted monitor definition alert episode record json" in response.json()["detail"]
+
+
+def test_monitor_definition_alert_episode_history_route_fails_closed_on_episode_definition_identity_mismatch(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    episode_path = next((tmp_path / f"{monitor_definition_id}.episodes").glob("*.json"))
+    _mutate_persisted_json(
+        str(episode_path),
+        lambda payload: payload.__setitem__("monitor_definition_id", "monitor_definition_other"),
+    )
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+
+    assert response.status_code == 400
+    assert (
+        "monitor definition alert episode record episode_id does not match canonical persisted payload content"
+        in response.json()["detail"]
+        or "persisted monitor definition alert episode record monitor_definition_id does not match persisted monitor definition"
+        in response.json()["detail"]
+    )
+
+
+def test_monitor_definition_alert_episode_history_route_fails_closed_on_unsupported_ambiguous_state(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    episode_path = next((tmp_path / f"{monitor_definition_id}.episodes").glob("*.json"))
+    _mutate_persisted_json(
+        str(episode_path),
+        lambda payload: payload.__setitem__("latest_for_monitor_definition", False),
+    )
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+
+    assert response.status_code == 400
+    assert (
+        "open alert episode history rows must remain latest for the monitor definition"
+        in response.json()["detail"]
+        or "persisted monitor definition alert episode record failed schema validation"
+        in response.json()["detail"]
+    )
+
+
+def test_monitor_definition_alert_episode_history_route_fails_closed_when_persisted_episode_history_disagrees_with_canonical_lineage(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "risk_on",
+                "confirmation_count": 2,
+            },
+        },
+    ).status_code == 200
+    episode_path = next((tmp_path / f"{monitor_definition_id}.episodes").glob("*.json"))
+    _mutate_persisted_json(
+        str(episode_path),
+        lambda payload: payload.__setitem__("terminal_history_entry_id", "monitor_definition_history_other"),
+    )
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+
+    assert response.status_code == 400
+    assert (
+        "persisted alert episode history does not match canonical persisted evaluation lineage"
+        in response.json()["detail"]
+        or "monitor definition alert episode record episode_id does not match canonical persisted payload content"
+        in response.json()["detail"]
+    )
+
+
+def test_monitor_definition_alert_review_timeline_route_fails_closed_on_unsupported_or_malformed_persisted_state(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    assert client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json=_monitor_evaluation_payload(),
+    ).status_code == 200
+    history_dir = tmp_path / f"{monitor_definition_id}.history"
+    history_entry = next(history_dir.glob("*.json"))
+    _mutate_persisted_json(
+        str(history_entry),
+        lambda payload: payload.__setitem__("monitor_definition_fingerprint", "0" * 64),
+    )
+
+    response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert response.status_code == 400
+    assert (
+        "monitor definition evaluation history entry history_entry_id does not match canonical persisted payload content"
+        in response.json()["detail"]
+        or "persisted monitor definition evaluation history entry fingerprint does not match persisted monitor definition"
+        in response.json()["detail"]
+    )
+
+
+def test_monitor_definition_observation_route_reads_persisted_observation_only(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json=_monitor_evaluation_payload(),
+    )
+    (tmp_path / f"{monitor_definition_id}.observation.json").unlink()
+
+    response = client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/observation")
+
+    assert response.status_code == 404
+    assert "missing persisted monitor definition observation file" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("mutator", "expected_detail"),
+    [
+        (
+            lambda payload: payload.pop("alert_classification"),
+            "persisted monitor definition observation payload is missing required field(s): alert_classification",
+        ),
+        (
+            lambda payload: payload.pop("cause_code"),
+            "persisted monitor definition observation payload is missing required field(s): cause_code",
+        ),
+        (
+            lambda payload: payload.__setitem__("monitor_definition_id", "monitor_definition_other"),
+            "monitor definition observation observation_id does not match canonical persisted payload content",
+        ),
+        (
+            lambda payload: payload["benchmark_observation"].__setitem__("benchmark_symbol", "QQQ"),
+            "monitor definition observation observation_id does not match canonical persisted payload content",
+        ),
+    ],
+)
+def test_monitor_definition_observation_route_fails_closed_on_invalid_persisted_observation(
+    tmp_path,
+    mocker,
+    mutator,
+    expected_detail: str,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    _write_monitor_definition_observation(tmp_path, monitor_definition_id)
+    _mutate_persisted_json(str(tmp_path / f"{monitor_definition_id}.observation.json"), mutator)
+
+    response = client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/observation")
+
+    assert response.status_code == 400
+    assert expected_detail in response.json()["detail"]
+
+
+@pytest.mark.parametrize("route", ["catalog", "recent"])
+@pytest.mark.parametrize(
+    ("mutator", "expected_detail"),
+    [
+        (
+            lambda payload: payload.pop("alert_classification"),
+            "persisted monitor definition observation payload is missing required field(s): alert_classification",
+        ),
+        (
+            lambda payload: payload.pop("cause_code"),
+            "persisted monitor definition observation payload is missing required field(s): cause_code",
+        ),
+        (
+            lambda payload: payload["portfolio_observation"]["source_lineage"].pop("importer"),
+            "monitor definition observation observation_id does not match canonical persisted payload content",
+        ),
+        (
+            lambda payload: payload.__setitem__("monitor_definition_fingerprint", "0" * 64),
+            "monitor definition observation observation_id does not match canonical persisted payload content",
+        ),
+    ],
+)
+def test_monitor_definition_discovery_routes_fail_closed_on_malformed_partial_or_mismatched_present_observation_artifacts(
+    tmp_path,
+    mocker,
+    route: str,
+    mutator,
+    expected_detail: str,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    _write_monitor_definition_observation(tmp_path, monitor_definition_id)
+    _mutate_persisted_json(str(tmp_path / f"{monitor_definition_id}.observation.json"), mutator)
+
+    response = client.get(f"/backtests/monitor-definitions/{route}")
+
+    assert response.status_code == 400
+    assert expected_detail in response.json()["detail"]
 
 
 def test_monitor_definition_discovery_routes_fail_closed_on_missing_required_present_snapshot_field(
@@ -1707,6 +3944,74 @@ def test_monitor_definition_discovery_routes_fail_closed_on_missing_required_pre
 
     assert response.status_code == 400
     assert "persisted latest evaluation snapshot payload is missing required field(s): portfolio_truth_basis" in response.json()["detail"]
+
+
+def test_monitor_definition_discovery_routes_fail_closed_on_missing_required_present_snapshot_cause_code(
+    tmp_path,
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    _write_latest_monitor_evaluation_snapshot(tmp_path, created["monitor_definition_id"])
+    _mutate_persisted_json(
+        str(tmp_path / f"{created['monitor_definition_id']}.latest_evaluation.json"),
+        lambda payload: payload.pop("cause_code"),
+    )
+
+    response = client.get("/backtests/monitor-definitions/catalog")
+
+    assert response.status_code == 400
+    assert "persisted latest evaluation snapshot payload is missing required field(s): cause_code" in response.json()["detail"]
+
+
+def test_monitor_definition_routes_fail_closed_on_cross_artifact_cause_code_mismatch(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+    client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json={
+            **_monitor_evaluation_payload(),
+            "benchmark_observation": {
+                **cast(dict[str, object], _monitor_evaluation_payload()["benchmark_observation"]),
+                "status": "unavailable",
+                "confirmation_count": 0,
+            },
+        },
+    )
+    history_payload = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history"
+    ).json()
+    history_entry_id = history_payload["items"][0]["history_entry_id"]
+    _rekey_monitor_definition_observation_payload(
+        tmp_path / f"{monitor_definition_id}.observation.json",
+        lambda payload: payload.__setitem__("cause_code", "portfolio_truth_non_positive_total_value"),
+    )
+
+    observation_response = client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/observation")
+    history_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry_id}"
+    )
+    catalog_response = client.get("/backtests/monitor-definitions/catalog")
+
+    assert observation_response.status_code == 400
+    assert history_response.status_code == 200
+    assert catalog_response.status_code == 400
+    assert "observation cause_code must match persisted evaluation artifacts" in catalog_response.json()["detail"]
 
 
 def test_monitor_definition_discovery_routes_fail_closed_on_ambiguous_present_snapshot_nested_state(

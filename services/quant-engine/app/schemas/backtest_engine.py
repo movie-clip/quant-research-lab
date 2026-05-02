@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
@@ -1740,6 +1740,84 @@ class OverlayAwareHypotheticalReplayResponse(BaseModel):
 
 
 MonitorDefinitionObservationStatus = Literal["ok", "threshold_breach", "degraded", "unavailable"]
+MonitorDefinitionCanonicalCauseCode = Literal[
+    "benchmark_observation_unconfirmed",
+    "benchmark_observation_unavailable",
+    "portfolio_truth_non_positive_total_value",
+]
+
+
+def _allowed_monitor_definition_cause_codes_for_status(
+    observation_status: MonitorDefinitionObservationStatus,
+) -> frozenset[str]:
+    if observation_status == "degraded":
+        return frozenset({"benchmark_observation_unconfirmed"})
+    if observation_status == "unavailable":
+        return frozenset(
+            {
+                "benchmark_observation_unavailable",
+                "portfolio_truth_non_positive_total_value",
+            }
+        )
+    return frozenset()
+
+
+def _expected_monitor_definition_escalation_status(
+    observation_status: MonitorDefinitionObservationStatus,
+) -> str:
+    if observation_status == "ok":
+        return "informational"
+    if observation_status == "threshold_breach":
+        return "action_required"
+    if observation_status == "degraded":
+        return "degraded"
+    return "unavailable"
+
+
+def _validate_monitor_definition_cause_code_contract(
+    observation_status: MonitorDefinitionObservationStatus,
+    cause_code: MonitorDefinitionCanonicalCauseCode | None,
+) -> None:
+    allowed_cause_codes = _allowed_monitor_definition_cause_codes_for_status(observation_status)
+    if not allowed_cause_codes:
+        if cause_code is not None:
+            raise ValueError("cause_code must be null unless observation_status is degraded or unavailable")
+        return
+    if cause_code is None:
+        raise ValueError("cause_code is required when observation_status is degraded or unavailable")
+    if cause_code not in allowed_cause_codes:
+        raise ValueError("cause_code is unsupported for the supplied observation_status")
+
+
+def _validate_monitor_definition_escalation_contract(
+    observation_status: MonitorDefinitionObservationStatus,
+    escalation_status: str,
+    *,
+    field_name: str,
+) -> None:
+    expected = _expected_monitor_definition_escalation_status(observation_status)
+    if escalation_status != expected:
+        raise ValueError(f"{field_name} must match the canonical observation_status escalation mapping")
+
+
+def _validate_monitor_definition_hysteresis_transition_contract(
+    escalation_status: str,
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None,
+    *,
+    field_name: str,
+) -> None:
+    if hysteresis_transition is None:
+        return
+    alert_eligible = escalation_status != "informational"
+    allowed = (
+        frozenset({"open", "remain_open"})
+        if alert_eligible
+        else frozenset({"recover", "no_op"})
+    )
+    if hysteresis_transition not in allowed:
+        raise ValueError(
+            f"{field_name} must remain consistent with the canonical alert lifecycle transition mapping"
+        )
 
 
 class BenchmarkTrendOverlayMonitorThresholds(BaseModel):
@@ -1830,8 +1908,13 @@ MonitorDefinitionDiscoveryRecentOrderProvenance = Literal["persisted_artifact_fi
 MonitorDefinitionOverlayFamily = Literal["benchmark_trend"]
 MonitorDefinitionDiscoveryReviewSupportStatus = Literal["review_supported"]
 MonitorDefinitionDiscoveryLifecycleStatus = Literal["enabled", "disabled"]
+MonitorDefinitionLatestObservationStatus = Literal["present", "absent"]
+MonitorDefinitionLatestObservationRecency = Literal["recent", "stale"]
 MonitorDefinitionLatestEvaluationSnapshotStatus = Literal["present", "absent"]
 MonitorDefinitionLatestEvaluationSnapshotRecency = Literal["recent", "stale"]
+MonitorDefinitionObservationArtifactSchemaVersion = Literal[
+    "monitor_definition_observation_artifact_v1"
+]
 MonitorDefinitionLatestEvaluationSnapshotSchemaVersion = Literal[
     "monitor_definition_latest_evaluation_snapshot_v1"
 ]
@@ -1848,11 +1931,28 @@ MonitorDefinitionEvaluationHistoryRowProvenance = Literal[
     "persisted_monitor_definition_evaluation_history_entry"
 ]
 MonitorDefinitionEvaluationHistoryOrder = Literal["newest_first_evaluated_at"]
-MonitorDefinitionLatestEvaluationSignificanceStatus = Literal[
+MonitorDefinitionAlertClassification = Literal[
     "informational",
     "action_required",
     "degraded",
     "unavailable",
+]
+MonitorDefinitionLatestEvaluationSignificanceStatus = MonitorDefinitionAlertClassification
+MonitorDefinitionHysteresisTransition = Literal[
+    "open",
+    "remain_open",
+    "recover",
+    "no_op",
+]
+MonitorDefinitionMonitoringSourcePrecedence = Literal[
+    "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
+    "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact",
+    "persisted_evaluation_history_entry_only",
+    "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot",
+    "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries",
+    "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries",
+    "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation",
+    "persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection",
 ]
 
 
@@ -1893,7 +1993,10 @@ class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
     benchmark_symbol: str
     evaluated_at: datetime
     outcome_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
     significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence | None = None
     benchmark_observation_lineage: MonitorDefinitionLatestEvaluationBenchmarkObservationLineage
     portfolio_truth_basis: MonitorDefinitionLatestEvaluationPortfolioTruthBasis
 
@@ -1904,13 +2007,34 @@ class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
             raise ValueError("evaluated_at must be timezone-aware")
         return value
 
+    @model_validator(mode="after")
+    def _validate_cause_and_significance(self) -> "MonitorDefinitionLatestEvaluationSnapshotArtifact":
+        _validate_monitor_definition_cause_code_contract(self.outcome_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.outcome_status,
+            self.significance_status,
+            field_name="significance_status",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.significance_status,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
+
 
 class MonitorDefinitionDiscoveryFilters(BaseModel):
     overlay_family: MonitorDefinitionOverlayFamily | None = None
     monitor_id: Literal["benchmark_trend_overlay_v1"] | None = None
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None = None
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None = None
+    latest_observation_status: MonitorDefinitionLatestObservationStatus | None = None
+    latest_observation_observation_status: MonitorDefinitionObservationStatus | None = None
+    latest_observation_alert_classification: MonitorDefinitionAlertClassification | None = None
+    latest_observation_cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    latest_observation_recency: MonitorDefinitionLatestObservationRecency | None = None
     latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus | None = None
+    latest_evaluation_snapshot_cause_code: MonitorDefinitionCanonicalCauseCode | None = None
     latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | None = None
 
 
@@ -1925,14 +2049,65 @@ class MonitorDefinitionLatestEvaluationSnapshotSummary(BaseModel):
 
     evaluated_at: datetime
     outcome_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
     significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
     recency_status: MonitorDefinitionLatestEvaluationSnapshotRecency
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+
+    @model_validator(mode="after")
+    def _validate_summary_contract(self) -> "MonitorDefinitionLatestEvaluationSnapshotSummary":
+        _validate_monitor_definition_cause_code_contract(self.outcome_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.outcome_status,
+            self.significance_status,
+            field_name="significance_status",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.significance_status,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
+
+
+class MonitorDefinitionLatestObservationSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    observation_id: str
+    evaluated_at: datetime
+    observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    alert_classification: MonitorDefinitionAlertClassification
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    recency_status: MonitorDefinitionLatestObservationRecency
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+
+    @model_validator(mode="after")
+    def _validate_summary_contract(self) -> "MonitorDefinitionLatestObservationSummary":
+        _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.observation_status,
+            self.alert_classification,
+            field_name="alert_classification",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.alert_classification,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
 
 
 class MonitorDefinitionStatusMetadata(BaseModel):
     lifecycle: MonitorDefinitionLifecycleStatusMetadata = Field(
         default_factory=MonitorDefinitionLifecycleStatusMetadata
     )
+    status_source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot"
+    )
+    latest_observation_status: MonitorDefinitionLatestObservationStatus = "absent"
+    latest_observation: MonitorDefinitionLatestObservationSummary | None = None
     latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus = "absent"
     latest_evaluation_snapshot: MonitorDefinitionLatestEvaluationSnapshotSummary | None = None
 
@@ -2014,6 +2189,1065 @@ class MonitorDefinitionRecentResponseMetadata(BaseModel):
 class MonitorDefinitionRecentResponse(BaseModel):
     items: list[MonitorDefinitionRecentRow] = Field(default_factory=list)
     metadata: MonitorDefinitionRecentResponseMetadata = Field(default_factory=MonitorDefinitionRecentResponseMetadata)
+
+
+MonitorDefinitionLatestObservationAlertInboxContractVersion = Literal[
+    "monitor_definition_latest_observation_alert_inbox_v1"
+]
+MonitorDefinitionLatestObservationAlertInboxProvenance = Literal[
+    "authoritative_persisted_monitor_definition_observations_only"
+]
+MonitorDefinitionLatestObservationAlertInboxRowProvenance = Literal[
+    "persisted_monitor_definition_observation_artifact"
+]
+MonitorDefinitionLatestObservationAlertInboxOrdering = Literal["newest_first_evaluated_at"]
+MonitorDefinitionObservationOpenHandoffKind = Literal[
+    "monitor_definition_observation_open_handoff_v1"
+]
+MonitorDefinitionAlertHistoryQueueContractVersion = Literal[
+    "monitor_definition_alert_history_queue_v1"
+]
+MonitorDefinitionAlertHistoryQueueProvenance = Literal[
+    "persisted_monitor_definitions_with_canonical_latest_snapshot_and_evaluation_history"
+]
+MonitorDefinitionAlertHistoryQueueRowProvenance = Literal[
+    "persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence"
+]
+MonitorDefinitionAlertHistoryQueueOrdering = Literal[
+    "newest_first_evaluated_at_then_latest_snapshot_precedence_then_monitor_definition_id_then_history_entry_id"
+]
+MonitorDefinitionEvaluationHistoryReviewHandoffKind = Literal[
+    "monitor_definition_evaluation_history_review_handoff_v1"
+]
+MonitorDefinitionRecoveredAlertReviewQueueContractVersion = Literal[
+    "monitor_definition_recovered_alert_review_queue_v1"
+]
+MonitorDefinitionRecoveredAlertReviewQueueProvenance = Literal[
+    "persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage"
+]
+MonitorDefinitionRecoveredAlertReviewQueueRowProvenance = Literal[
+    "persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage"
+]
+MonitorDefinitionRecoveredAlertReviewQueueOrdering = Literal[
+    "newest_first_evaluated_at_then_monitor_definition_id_then_observation_id"
+]
+MonitorDefinitionAlertReviewTimelineOpenHandoffKind = Literal[
+    "monitor_definition_alert_review_timeline_open_handoff_v1"
+]
+MonitorDefinitionAlertReviewTimelineContractVersion = Literal[
+    "monitor_definition_alert_review_timeline_v1"
+]
+MonitorDefinitionAlertEpisodeContractVersion = Literal[
+    "monitor_definition_alert_episode_v1"
+]
+MonitorDefinitionAlertEpisodeStatus = Literal["active", "recovered"]
+MonitorDefinitionAlertEpisodeRecordSchemaVersion = Literal[
+    "monitor_definition_alert_episode_record_v1"
+]
+MonitorDefinitionAlertEpisodeLifecycleStatus = Literal["open", "recovered", "closed"]
+MonitorDefinitionAlertEpisodeHistoryContractVersion = Literal[
+    "monitor_definition_alert_episode_history_v1"
+]
+MonitorDefinitionAlertEpisodeHistoryTruth = Literal[
+    "authoritative_persisted_monitor_definition_alert_episode_history"
+]
+MonitorDefinitionAlertEpisodeHistoryRowProvenance = Literal[
+    "persisted_monitor_definition_alert_episode_record"
+]
+MonitorDefinitionAlertEpisodeHistoryOrdering = Literal[
+    "newest_first_latest_event_at_then_episode_id"
+]
+MonitorDefinitionAlertEpisodeHistoryWindowing = Literal[
+    "before_episode_id_exclusive"
+]
+MonitorDefinitionActiveAlertEpisodeInboxContractVersion = Literal[
+    "monitor_definition_active_alert_episode_inbox_v1"
+]
+MonitorDefinitionActiveAlertEpisodeInboxProvenance = Literal[
+    "authoritative_persisted_monitor_definition_alert_episode_records_only"
+]
+MonitorDefinitionActiveAlertEpisodeInboxRowProvenance = Literal[
+    "persisted_monitor_definition_alert_episode_record"
+]
+MonitorDefinitionActiveAlertEpisodeInboxOrdering = Literal[
+    "newest_first_latest_event_at_then_monitor_definition_id_then_episode_id"
+]
+MonitorDefinitionActiveAlertEpisodeInboxWindowing = Literal[
+    "before_episode_id_exclusive"
+]
+MonitorDefinitionAlertEpisodeHistoryTimelineHandoffKind = Literal[
+    "monitor_definition_alert_episode_history_timeline_handoff_v1"
+]
+MonitorDefinitionAlertReviewTimelineProvenance = Literal[
+    "canonical_latest_observation_artifact_and_append_only_evaluation_history_entries"
+]
+MonitorDefinitionAlertReviewTimelineOrdering = Literal[
+    "newest_first_evaluated_at_then_observation_event_then_history_entry_id"
+]
+MonitorDefinitionAlertReviewTimelineEventKind = Literal[
+    "latest_observation_event",
+    "evaluation_history_event",
+]
+MonitorDefinitionAlertReviewTimelineEventSemantics = Literal[
+    "observation_rooted",
+    "history_entry_rooted",
+]
+
+
+class MonitorDefinitionObservationOpenHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: MonitorDefinitionObservationOpenHandoffKind = (
+        "monitor_definition_observation_open_handoff_v1"
+    )
+    monitor_definition_id: str
+    observation_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+
+
+class MonitorDefinitionEvaluationHistoryReviewHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: MonitorDefinitionEvaluationHistoryReviewHandoffKind = (
+        "monitor_definition_evaluation_history_review_handoff_v1"
+    )
+    monitor_definition_id: str
+    history_entry_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+
+
+class MonitorDefinitionAlertReviewTimelineOpenHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: MonitorDefinitionAlertReviewTimelineOpenHandoffKind = (
+        "monitor_definition_alert_review_timeline_open_handoff_v1"
+    )
+    monitor_definition_id: str
+    selected_event_kind: Literal["latest_observation_event"] = "latest_observation_event"
+    observation_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+
+
+class MonitorDefinitionAlertEpisodeHistoryTimelineHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: MonitorDefinitionAlertEpisodeHistoryTimelineHandoffKind = (
+        "monitor_definition_alert_episode_history_timeline_handoff_v1"
+    )
+    monitor_definition_id: str
+    selected_event_kind: MonitorDefinitionAlertReviewTimelineEventKind
+    observation_id: str | None = None
+    history_entry_id: str | None = None
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+
+    @model_validator(mode="after")
+    def _validate_selected_event_identity(
+        self,
+    ) -> "MonitorDefinitionAlertEpisodeHistoryTimelineHandoff":
+        if self.selected_event_kind == "latest_observation_event":
+            if self.observation_id is None:
+                raise ValueError(
+                    "latest_observation_event timeline handoff must define observation_id"
+                )
+            if self.history_entry_id is not None:
+                raise ValueError(
+                    "latest_observation_event timeline handoff must not define history_entry_id"
+                )
+        else:
+            if self.history_entry_id is None:
+                raise ValueError(
+                    "evaluation_history_event timeline handoff must define history_entry_id"
+                )
+            if self.observation_id is not None:
+                raise ValueError(
+                    "evaluation_history_event timeline handoff must not define observation_id"
+                )
+        return self
+
+
+class MonitorDefinitionAlertEpisodeLatestContributingObservation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    observation_id: str
+    evaluated_at: datetime
+    observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    alert_classification: MonitorDefinitionAlertClassification
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_contract(
+        self,
+    ) -> "MonitorDefinitionAlertEpisodeLatestContributingObservation":
+        _validate_monitor_definition_cause_code_contract(
+            self.observation_status,
+            self.cause_code,
+        )
+        _validate_monitor_definition_escalation_contract(
+            self.observation_status,
+            self.alert_classification,
+            field_name="alert_classification",
+        )
+        return self
+
+
+class MonitorDefinitionAlertEpisodeRecoveryBasis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recovered_from_history_entry_id: str
+    recovered_from_evaluated_at: datetime
+    recovered_from_outcome_status: MonitorDefinitionObservationStatus
+    recovered_from_cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    recovered_from_significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+
+    @field_validator("recovered_from_evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("recovered_from_evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_contract(self) -> "MonitorDefinitionAlertEpisodeRecoveryBasis":
+        _validate_monitor_definition_cause_code_contract(
+            self.recovered_from_outcome_status,
+            self.recovered_from_cause_code,
+        )
+        _validate_monitor_definition_escalation_contract(
+            self.recovered_from_outcome_status,
+            self.recovered_from_significance_status,
+            field_name="recovered_from_significance_status",
+        )
+        if self.recovered_from_significance_status == "informational":
+            raise ValueError(
+                "recovered_from_significance_status must remain alert-eligible"
+            )
+        return self
+
+
+class MonitorDefinitionAlertEpisode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    contract_version: MonitorDefinitionAlertEpisodeContractVersion = (
+        "monitor_definition_alert_episode_v1"
+    )
+    monitor_definition_id: str
+    episode_id: str
+    episode_status: MonitorDefinitionAlertEpisodeStatus
+    started_at: datetime
+    ended_at: datetime | None = None
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    )
+    latest_contributing_observation: MonitorDefinitionAlertEpisodeLatestContributingObservation
+    recovery_basis: MonitorDefinitionAlertEpisodeRecoveryBasis | None = None
+
+    @field_validator("started_at", "ended_at")
+    @classmethod
+    def _validate_episode_timestamps(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return value
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("alert episode timestamps must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_episode_contract(self) -> "MonitorDefinitionAlertEpisode":
+        if self.episode_status == "active":
+            if self.hysteresis_transition not in {None, "open", "remain_open"}:
+                raise ValueError(
+                    "active alert episode hysteresis_transition must remain open or remain_open"
+                )
+        elif self.hysteresis_transition not in {None, "recover"}:
+            raise ValueError(
+                "recovered alert episode hysteresis_transition must remain recover"
+            )
+        if self.episode_status == "active":
+            if self.ended_at is not None:
+                raise ValueError("active alert episode must not define ended_at")
+            if self.recovery_basis is not None:
+                raise ValueError("active alert episode must not define recovery_basis")
+        else:
+            if self.ended_at is None:
+                raise ValueError("recovered alert episode must define ended_at")
+            if self.recovery_basis is None:
+                raise ValueError("recovered alert episode must define recovery_basis")
+            if self.ended_at < self.started_at:
+                raise ValueError("recovered alert episode ended_at must not precede started_at")
+            if self.recovery_basis.recovered_from_evaluated_at > self.ended_at:
+                raise ValueError(
+                    "recovered alert episode recovery basis must not follow ended_at"
+                )
+        latest_evaluated_at = self.latest_contributing_observation.evaluated_at
+        if latest_evaluated_at < self.started_at:
+            raise ValueError(
+                "alert episode latest contributing observation must not precede started_at"
+            )
+        if self.ended_at is not None and latest_evaluated_at != self.ended_at:
+            raise ValueError(
+                "recovered alert episode latest contributing observation must match ended_at"
+            )
+        return self
+
+
+class MonitorDefinitionAlertEpisodeRecordArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: MonitorDefinitionAlertEpisodeRecordSchemaVersion = (
+        "monitor_definition_alert_episode_record_v1"
+    )
+    episode_id: str
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    lifecycle_status: MonitorDefinitionAlertEpisodeLifecycleStatus
+    latest_for_monitor_definition: bool
+    started_at: datetime
+    ended_at: datetime | None = None
+    latest_event_at: datetime
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence | None = None
+    latest_contributing_observation: MonitorDefinitionAlertEpisodeLatestContributingObservation
+    recovery_basis: MonitorDefinitionAlertEpisodeRecoveryBasis | None = None
+    terminal_history_entry_id: str
+    timeline_handoff: MonitorDefinitionAlertEpisodeHistoryTimelineHandoff
+
+    @field_validator("started_at", "ended_at", "latest_event_at")
+    @classmethod
+    def _validate_timestamps(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return value
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("alert episode history timestamps must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_contract(self) -> "MonitorDefinitionAlertEpisodeRecordArtifact":
+        if self.lifecycle_status == "open":
+            if self.hysteresis_transition not in {None, "open", "remain_open"}:
+                raise ValueError(
+                    "open alert episode history rows hysteresis_transition must remain open or remain_open"
+                )
+        elif self.hysteresis_transition not in {None, "recover"}:
+            raise ValueError(
+                "recovered and closed alert episode history rows hysteresis_transition must remain recover"
+            )
+        if self.latest_event_at < self.started_at:
+            raise ValueError("alert episode history latest_event_at must not precede started_at")
+        if self.timeline_handoff.monitor_definition_id != self.monitor_definition_id:
+            raise ValueError(
+                "alert episode history timeline_handoff monitor_definition_id must match row identity"
+            )
+        if self.lifecycle_status == "open":
+            if not self.latest_for_monitor_definition:
+                raise ValueError(
+                    "open alert episode history rows must remain latest for the monitor definition"
+                )
+            if self.ended_at is not None:
+                raise ValueError("open alert episode history rows must not define ended_at")
+            if self.recovery_basis is not None:
+                raise ValueError(
+                    "open alert episode history rows must not define recovery_basis"
+                )
+            if self.timeline_handoff.selected_event_kind != "latest_observation_event":
+                raise ValueError(
+                    "open alert episode history rows must reopen the latest observation timeline event"
+                )
+            if self.timeline_handoff.observation_id != self.latest_contributing_observation.observation_id:
+                raise ValueError(
+                    "open alert episode history rows must reopen the latest contributing observation"
+                )
+            if self.latest_event_at != self.latest_contributing_observation.evaluated_at:
+                raise ValueError(
+                    "open alert episode history latest_event_at must match the latest contributing observation"
+                )
+        else:
+            if self.ended_at is None:
+                raise ValueError(
+                    "recovered and closed alert episode history rows must define ended_at"
+                )
+            if self.recovery_basis is None:
+                raise ValueError(
+                    "recovered and closed alert episode history rows must define recovery_basis"
+                )
+            if self.ended_at < self.started_at:
+                raise ValueError(
+                    "recovered and closed alert episode history rows ended_at must not precede started_at"
+                )
+            if self.latest_event_at != self.ended_at:
+                raise ValueError(
+                    "recovered and closed alert episode history latest_event_at must match ended_at"
+                )
+            if self.latest_contributing_observation.evaluated_at != self.ended_at:
+                raise ValueError(
+                    "recovered and closed alert episode latest contributing observation must match ended_at"
+                )
+            if self.timeline_handoff.selected_event_kind == "latest_observation_event":
+                if self.lifecycle_status != "recovered" or not self.latest_for_monitor_definition:
+                    raise ValueError(
+                        "latest_observation_event handoffs are supported only for the latest recovered alert episode"
+                    )
+                if self.timeline_handoff.observation_id != self.latest_contributing_observation.observation_id:
+                    raise ValueError(
+                        "recovered alert episode history latest-observation handoff must match the latest contributing observation"
+                    )
+            else:
+                if self.timeline_handoff.history_entry_id != self.terminal_history_entry_id:
+                    raise ValueError(
+                        "evaluation_history_event handoff must match terminal_history_entry_id"
+                    )
+            if self.lifecycle_status == "recovered" and not self.latest_for_monitor_definition:
+                raise ValueError(
+                    "recovered alert episode history rows must remain latest for the monitor definition"
+                )
+            if self.lifecycle_status == "closed" and self.latest_for_monitor_definition:
+                raise ValueError(
+                    "closed alert episode history rows must not remain latest for the monitor definition"
+                )
+        return self
+
+
+class MonitorDefinitionAlertEpisodeHistoryRowMetadata(BaseModel):
+    history_truth: MonitorDefinitionAlertEpisodeHistoryTruth = (
+        "authoritative_persisted_monitor_definition_alert_episode_history"
+    )
+    row_provenance: MonitorDefinitionAlertEpisodeHistoryRowProvenance = (
+        "persisted_monitor_definition_alert_episode_record"
+    )
+
+
+class MonitorDefinitionAlertEpisodeHistoryRow(MonitorDefinitionAlertEpisodeRecordArtifact):
+    metadata: MonitorDefinitionAlertEpisodeHistoryRowMetadata = Field(
+        default_factory=MonitorDefinitionAlertEpisodeHistoryRowMetadata
+    )
+
+
+class MonitorDefinitionAlertEpisodeHistoryResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionAlertEpisodeHistoryContractVersion = (
+        "monitor_definition_alert_episode_history_v1"
+    )
+    history_truth: MonitorDefinitionAlertEpisodeHistoryTruth = (
+        "authoritative_persisted_monitor_definition_alert_episode_history"
+    )
+    row_provenance: MonitorDefinitionAlertEpisodeHistoryRowProvenance = (
+        "persisted_monitor_definition_alert_episode_record"
+    )
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    )
+    ordering: MonitorDefinitionAlertEpisodeHistoryOrdering = (
+        "newest_first_latest_event_at_then_episode_id"
+    )
+    windowing: MonitorDefinitionAlertEpisodeHistoryWindowing = (
+        "before_episode_id_exclusive"
+    )
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    returned_limit: int | None = None
+    requested_before_episode_id: str | None = None
+    next_before_episode_id: str | None = None
+    total_episodes: int = 0
+
+
+class MonitorDefinitionAlertEpisodeHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MonitorDefinitionAlertEpisodeHistoryRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionAlertEpisodeHistoryResponseMetadata
+
+
+class MonitorDefinitionActiveAlertEpisodeInboxRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = (
+        "authoritative_persisted_artifact_metadata"
+    )
+    row_provenance: MonitorDefinitionActiveAlertEpisodeInboxRowProvenance = (
+        "persisted_monitor_definition_alert_episode_record"
+    )
+
+
+class MonitorDefinitionActiveAlertEpisodeInboxRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    alert_episode: MonitorDefinitionAlertEpisodeHistoryRow
+    metadata: MonitorDefinitionActiveAlertEpisodeInboxRowMetadata = Field(
+        default_factory=MonitorDefinitionActiveAlertEpisodeInboxRowMetadata
+    )
+
+    @model_validator(mode="after")
+    def _validate_row_contract(self) -> "MonitorDefinitionActiveAlertEpisodeInboxRow":
+        if self.alert_episode.lifecycle_status != "open":
+            raise ValueError(
+                "active alert episode inbox rows must remain rooted in open persisted alert episodes"
+            )
+        if not self.alert_episode.latest_for_monitor_definition:
+            raise ValueError(
+                "active alert episode inbox rows must remain latest for the monitor definition"
+            )
+        if self.alert_episode.timeline_handoff.selected_event_kind != "latest_observation_event":
+            raise ValueError(
+                "active alert episode inbox rows must reopen the latest observation timeline event"
+            )
+        if (
+            self.alert_episode.timeline_handoff.observation_id
+            != self.alert_episode.latest_contributing_observation.observation_id
+        ):
+            raise ValueError(
+                "active alert episode inbox rows must reopen the latest contributing observation"
+            )
+        return self
+
+
+class MonitorDefinitionActiveAlertEpisodeInboxResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionActiveAlertEpisodeInboxContractVersion = (
+        "monitor_definition_active_alert_episode_inbox_v1"
+    )
+    provenance: MonitorDefinitionActiveAlertEpisodeInboxProvenance = (
+        "authoritative_persisted_monitor_definition_alert_episode_records_only"
+    )
+    row_provenance: MonitorDefinitionActiveAlertEpisodeInboxRowProvenance = (
+        "persisted_monitor_definition_alert_episode_record"
+    )
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_alert_episode_record_then_canonical_evaluation_lineage_validation"
+    )
+    ordering: MonitorDefinitionActiveAlertEpisodeInboxOrdering = (
+        "newest_first_latest_event_at_then_monitor_definition_id_then_episode_id"
+    )
+    windowing: MonitorDefinitionActiveAlertEpisodeInboxWindowing = (
+        "before_episode_id_exclusive"
+    )
+    returned_limit: int | None = None
+    requested_before_episode_id: str | None = None
+    next_before_episode_id: str | None = None
+    total_active_episodes: int = 0
+
+
+class MonitorDefinitionActiveAlertEpisodeInboxResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MonitorDefinitionActiveAlertEpisodeInboxRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionActiveAlertEpisodeInboxResponseMetadata = Field(
+        default_factory=MonitorDefinitionActiveAlertEpisodeInboxResponseMetadata
+    )
+
+
+class MonitorDefinitionLatestObservationAlertInboxRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = (
+        "authoritative_persisted_artifact_metadata"
+    )
+    row_provenance: MonitorDefinitionLatestObservationAlertInboxRowProvenance = (
+        "persisted_monitor_definition_observation_artifact"
+    )
+
+
+class MonitorDefinitionLatestObservationAlertInboxRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    observation_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    evaluated_at: datetime
+    observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    alert_classification: MonitorDefinitionAlertClassification
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    recency_status: MonitorDefinitionLatestObservationRecency
+    reason: str | None = None
+    open_handoff: MonitorDefinitionObservationOpenHandoff
+    metadata: MonitorDefinitionLatestObservationAlertInboxRowMetadata = Field(
+        default_factory=MonitorDefinitionLatestObservationAlertInboxRowMetadata
+    )
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_row_contract(self) -> "MonitorDefinitionLatestObservationAlertInboxRow":
+        _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.observation_status,
+            self.alert_classification,
+            field_name="alert_classification",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.alert_classification,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
+
+
+class MonitorDefinitionLatestObservationAlertInboxResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionLatestObservationAlertInboxContractVersion = (
+        "monitor_definition_latest_observation_alert_inbox_v1"
+    )
+    provenance: MonitorDefinitionLatestObservationAlertInboxProvenance = (
+        "authoritative_persisted_monitor_definition_observations_only"
+    )
+    row_provenance: MonitorDefinitionLatestObservationAlertInboxRowProvenance = (
+        "persisted_monitor_definition_observation_artifact"
+    )
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry"
+    )
+    ordering: MonitorDefinitionLatestObservationAlertInboxOrdering = (
+        "newest_first_evaluated_at"
+    )
+    returned_limit: int | None = None
+
+
+class MonitorDefinitionLatestObservationAlertInboxResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MonitorDefinitionLatestObservationAlertInboxRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionLatestObservationAlertInboxResponseMetadata = Field(
+        default_factory=MonitorDefinitionLatestObservationAlertInboxResponseMetadata
+    )
+
+
+class MonitorDefinitionAlertHistoryQueueRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = (
+        "authoritative_persisted_artifact_metadata"
+    )
+    row_provenance: MonitorDefinitionAlertHistoryQueueRowProvenance = (
+        "persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence"
+    )
+
+
+class MonitorDefinitionAlertHistoryQueueRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    history_entry_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    evaluated_at: datetime
+    outcome_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus = "review_supported"
+    latest_for_monitor_definition: bool
+    reason: str | None = None
+    review_handoff: MonitorDefinitionEvaluationHistoryReviewHandoff
+    metadata: MonitorDefinitionAlertHistoryQueueRowMetadata = Field(
+        default_factory=MonitorDefinitionAlertHistoryQueueRowMetadata
+    )
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_row_contract(self) -> "MonitorDefinitionAlertHistoryQueueRow":
+        _validate_monitor_definition_cause_code_contract(self.outcome_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.outcome_status,
+            self.significance_status,
+            field_name="significance_status",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.significance_status,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
+
+
+class MonitorDefinitionAlertHistoryQueueResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionAlertHistoryQueueContractVersion = (
+        "monitor_definition_alert_history_queue_v1"
+    )
+    provenance: MonitorDefinitionAlertHistoryQueueProvenance = (
+        "persisted_monitor_definitions_with_canonical_latest_snapshot_and_evaluation_history"
+    )
+    row_provenance: MonitorDefinitionAlertHistoryQueueRowProvenance = (
+        "persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence"
+    )
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries"
+    )
+    ordering: MonitorDefinitionAlertHistoryQueueOrdering = (
+        "newest_first_evaluated_at_then_latest_snapshot_precedence_then_monitor_definition_id_then_history_entry_id"
+    )
+    returned_limit: int | None = None
+    total_queue_rows: int = 0
+
+
+class MonitorDefinitionAlertHistoryQueueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MonitorDefinitionAlertHistoryQueueRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionAlertHistoryQueueResponseMetadata = Field(
+        default_factory=MonitorDefinitionAlertHistoryQueueResponseMetadata
+    )
+
+
+class MonitorDefinitionRecoveredAlertReviewQueueRecoveredFrom(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    history_entry_id: str
+    evaluated_at: datetime
+    outcome_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    reason: str | None = None
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_row_contract(self) -> "MonitorDefinitionRecoveredAlertReviewQueueRecoveredFrom":
+        _validate_monitor_definition_cause_code_contract(self.outcome_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.outcome_status,
+            self.significance_status,
+            field_name="significance_status",
+        )
+        if self.significance_status == "informational":
+            raise ValueError(
+                "significance_status must remain alert-eligible for recovered_from lineage"
+            )
+        return self
+
+
+class MonitorDefinitionRecoveredAlertReviewQueueRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = (
+        "authoritative_persisted_artifact_metadata"
+    )
+    row_provenance: MonitorDefinitionRecoveredAlertReviewQueueRowProvenance = (
+        "persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage"
+    )
+
+
+class MonitorDefinitionRecoveredAlertReviewQueueRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    observation_id: str
+    latest_history_entry_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    evaluated_at: datetime
+    observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    alert_classification: MonitorDefinitionAlertClassification
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    recency_status: MonitorDefinitionLatestObservationRecency
+    reason: str | None = None
+    alert_episode: MonitorDefinitionAlertEpisode
+    recovered_from: MonitorDefinitionRecoveredAlertReviewQueueRecoveredFrom
+    timeline_handoff: MonitorDefinitionAlertReviewTimelineOpenHandoff
+    metadata: MonitorDefinitionRecoveredAlertReviewQueueRowMetadata = Field(
+        default_factory=MonitorDefinitionRecoveredAlertReviewQueueRowMetadata
+    )
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_row_contract(self) -> "MonitorDefinitionRecoveredAlertReviewQueueRow":
+        _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.observation_status,
+            self.alert_classification,
+            field_name="alert_classification",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.alert_classification,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        if self.alert_classification != "informational":
+            raise ValueError(
+                "alert_classification must remain informational for recovered alert queue rows"
+            )
+        if self.alert_episode.monitor_definition_id != self.monitor_definition_id:
+            raise ValueError(
+                "alert_episode monitor_definition_id must match row monitor_definition_id"
+            )
+        if self.alert_episode.episode_status != "recovered":
+            raise ValueError("alert_episode episode_status must remain recovered")
+        if (
+            self.alert_episode.latest_contributing_observation.observation_id
+            != self.observation_id
+        ):
+            raise ValueError(
+                "alert_episode latest_contributing_observation observation_id must match row observation_id"
+            )
+        if self.alert_episode.recovery_basis is None:
+            raise ValueError("alert_episode recovery_basis must be present")
+        if (
+            self.alert_episode.recovery_basis.recovered_from_history_entry_id
+            != self.recovered_from.history_entry_id
+        ):
+            raise ValueError(
+                "alert_episode recovery_basis recovered_from_history_entry_id must match recovered_from history_entry_id"
+            )
+        if self.timeline_handoff.observation_id != self.observation_id:
+            raise ValueError("timeline_handoff observation_id must match row observation_id")
+        if self.timeline_handoff.monitor_definition_id != self.monitor_definition_id:
+            raise ValueError(
+                "timeline_handoff monitor_definition_id must match row monitor_definition_id"
+            )
+        if self.recovered_from.history_entry_id == self.latest_history_entry_id:
+            raise ValueError(
+                "recovered_from history_entry_id must remain distinct from latest_history_entry_id"
+            )
+        return self
+
+
+class MonitorDefinitionRecoveredAlertReviewQueueResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionRecoveredAlertReviewQueueContractVersion = (
+        "monitor_definition_recovered_alert_review_queue_v1"
+    )
+    provenance: MonitorDefinitionRecoveredAlertReviewQueueProvenance = (
+        "persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage"
+    )
+    row_provenance: MonitorDefinitionRecoveredAlertReviewQueueRowProvenance = (
+        "persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage"
+    )
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries"
+    )
+    ordering: MonitorDefinitionRecoveredAlertReviewQueueOrdering = (
+        "newest_first_evaluated_at_then_monitor_definition_id_then_observation_id"
+    )
+    returned_limit: int | None = None
+    total_queue_rows: int = 0
+
+
+class MonitorDefinitionRecoveredAlertReviewQueueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MonitorDefinitionRecoveredAlertReviewQueueRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionRecoveredAlertReviewQueueResponseMetadata = Field(
+        default_factory=MonitorDefinitionRecoveredAlertReviewQueueResponseMetadata
+    )
+
+
+class MonitorDefinitionAlertReviewTimelineObservationRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = (
+        "authoritative_persisted_artifact_metadata"
+    )
+    row_provenance: MonitorDefinitionLatestObservationAlertInboxRowProvenance = (
+        "persisted_monitor_definition_observation_artifact"
+    )
+
+
+class MonitorDefinitionAlertReviewTimelineObservationRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    observation_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    evaluated_at: datetime
+    observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    alert_classification: MonitorDefinitionAlertClassification
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    recency_status: MonitorDefinitionLatestObservationRecency
+    reason: str | None = None
+    open_handoff: MonitorDefinitionObservationOpenHandoff
+    event_kind: Literal["latest_observation_event"] = "latest_observation_event"
+    event_semantics: Literal["observation_rooted"] = "observation_rooted"
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    metadata: MonitorDefinitionAlertReviewTimelineObservationRowMetadata = Field(
+        default_factory=MonitorDefinitionAlertReviewTimelineObservationRowMetadata
+    )
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_row_contract(self) -> "MonitorDefinitionAlertReviewTimelineObservationRow":
+        _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.observation_status,
+            self.alert_classification,
+            field_name="alert_classification",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.alert_classification,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
+
+
+class MonitorDefinitionAlertReviewTimelineHistoryRowMetadata(BaseModel):
+    metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = (
+        "authoritative_persisted_artifact_metadata"
+    )
+    row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance = (
+        "persisted_monitor_definition_evaluation_history_entry"
+    )
+
+
+class MonitorDefinitionAlertReviewTimelineHistoryRow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    history_entry_id: str
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    review_scope: Literal["current_portfolio_truth_only"]
+    evaluation_mode: Literal["review_only_observation_evaluation"]
+    evaluated_at: datetime
+    outcome_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus = "review_supported"
+    latest_for_monitor_definition: bool
+    reason: str | None = None
+    review_handoff: MonitorDefinitionEvaluationHistoryReviewHandoff
+    event_kind: Literal["evaluation_history_event"] = "evaluation_history_event"
+    event_semantics: Literal["history_entry_rooted"] = "history_entry_rooted"
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    metadata: MonitorDefinitionAlertReviewTimelineHistoryRowMetadata = Field(
+        default_factory=MonitorDefinitionAlertReviewTimelineHistoryRowMetadata
+    )
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_row_contract(self) -> "MonitorDefinitionAlertReviewTimelineHistoryRow":
+        _validate_monitor_definition_cause_code_contract(self.outcome_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.outcome_status,
+            self.significance_status,
+            field_name="significance_status",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.significance_status,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
+
+
+MonitorDefinitionAlertReviewTimelineRow: TypeAlias = Annotated[
+    MonitorDefinitionAlertReviewTimelineObservationRow | MonitorDefinitionAlertReviewTimelineHistoryRow,
+    Field(discriminator="event_kind"),
+]
+
+
+class MonitorDefinitionAlertReviewTimelineResponseMetadata(BaseModel):
+    contract_version: MonitorDefinitionAlertReviewTimelineContractVersion = (
+        "monitor_definition_alert_review_timeline_v1"
+    )
+    provenance: MonitorDefinitionAlertReviewTimelineProvenance = (
+        "canonical_latest_observation_artifact_and_append_only_evaluation_history_entries"
+    )
+    ordering: MonitorDefinitionAlertReviewTimelineOrdering = (
+        "newest_first_evaluated_at_then_observation_event_then_history_entry_id"
+    )
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    observation_row_provenance: MonitorDefinitionLatestObservationAlertInboxRowProvenance = (
+        "persisted_monitor_definition_observation_artifact"
+    )
+    history_row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance = (
+        "persisted_monitor_definition_evaluation_history_entry"
+    )
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection"
+    )
+    latest_alert_episode: MonitorDefinitionAlertEpisode | None = None
+    total_rows: int = 0
+    observation_rows: int = 0
+    history_rows: int = 0
+
+
+class MonitorDefinitionAlertReviewTimelineResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[MonitorDefinitionAlertReviewTimelineRow] = Field(default_factory=list)
+    metadata: MonitorDefinitionAlertReviewTimelineResponseMetadata
 
 
 class BenchmarkTrendOverlayObservationSourceLineage(BaseModel):
@@ -2109,11 +3343,67 @@ class MonitorDefinitionObservationEvaluationResponse(BaseModel):
     benchmark_symbol: str
     evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
     observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
     reason: str | None = None
     thresholds: BenchmarkTrendOverlayMonitorThresholds
     benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
     portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
     active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+
+    @model_validator(mode="after")
+    def _validate_cause_code(self) -> "MonitorDefinitionObservationEvaluationResponse":
+        _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
+        return self
+
+
+class MonitorDefinitionObservationArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: MonitorDefinitionObservationArtifactSchemaVersion = (
+        "monitor_definition_observation_artifact_v1"
+    )
+    observation_id: str
+    monitor_definition_id: str
+    monitor_definition_fingerprint: str
+    monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
+        "monitor_definition_artifact_v1"
+    )
+    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    benchmark_symbol: str
+    evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
+    evaluated_at: datetime
+    observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
+    alert_classification: MonitorDefinitionAlertClassification
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence | None = None
+    reason: str | None = None
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+
+    @field_validator("evaluated_at")
+    @classmethod
+    def _validate_evaluated_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("evaluated_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_cause_and_alert(self) -> "MonitorDefinitionObservationArtifact":
+        _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.observation_status,
+            self.alert_classification,
+            field_name="alert_classification",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.alert_classification,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
 
 
 class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
@@ -2133,7 +3423,10 @@ class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
     evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
     evaluated_at: datetime
     observation_status: MonitorDefinitionObservationStatus
+    cause_code: MonitorDefinitionCanonicalCauseCode | None = None
     significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence | None = None
     reason: str | None = None
     thresholds: BenchmarkTrendOverlayMonitorThresholds
     benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
@@ -2146,6 +3439,21 @@ class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("evaluated_at must be timezone-aware")
         return value
+
+    @model_validator(mode="after")
+    def _validate_cause_and_significance(self) -> "MonitorDefinitionEvaluationHistoryEntryArtifact":
+        _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
+        _validate_monitor_definition_escalation_contract(
+            self.observation_status,
+            self.significance_status,
+            field_name="significance_status",
+        )
+        _validate_monitor_definition_hysteresis_transition_contract(
+            self.significance_status,
+            self.hysteresis_transition,
+            field_name="hysteresis_transition",
+        )
+        return self
 
 
 class MonitorDefinitionEvaluationHistoryRowMetadata(BaseModel):
@@ -2172,6 +3480,9 @@ class MonitorDefinitionEvaluationHistoryResponseMetadata(BaseModel):
     )
     row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance = (
         "persisted_monitor_definition_evaluation_history_entry"
+    )
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence = (
+        "persisted_evaluation_history_entry_only"
     )
     inspection_order: MonitorDefinitionEvaluationHistoryOrder = "newest_first_evaluated_at"
     monitor_definition_id: str

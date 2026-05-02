@@ -1,6 +1,6 @@
 # Backtest Field Inventory
 
-This document inventories financially meaningful fields shown in the desktop portfolio-allocation workflow and the adjacent backend replay-preview contracts that feed it today.
+This document inventories financially meaningful fields shown in the desktop portfolio-allocation workflow and the adjacent backend replay-preview and shipped monitor-definition review/discovery contracts that feed or bound it today.
 
 For shipped workflow boundaries, use `docs/product/current-product-state.md`.
 
@@ -15,7 +15,7 @@ For each visible backtest value, we want a traceable chain:
 
 ## Current Root Sources
 
-The portfolio-allocation workflow currently renders from these root inputs:
+The portfolio-allocation workflow currently renders from, reopens through, or remains contract-bound to these root inputs:
 
 1. `result: PortfolioAllocationBacktestResponse | null`
    - returned by `POST /backtests/portfolio-allocation`
@@ -69,21 +69,49 @@ The portfolio-allocation workflow currently renders from these root inputs:
     - returned by `GET /backtests/monitor-definitions/recent`
     - additive read-only newest-first discovery for persisted `benchmark_trend_overlay_v1` monitor-definition artifacts, derived from authoritative persisted artifact metadata plus the canonical persisted latest-snapshot sidecar only, carrying typed recent-order provenance, and exposing optional persisted latest-evaluation snapshot summary metadata without synthesizing history when absent
 
-14. `monitorEvaluationRequest: EvaluateMonitorDefinitionObservationRequest`
-   - posted to `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations`
-   - canonical read-only evaluation input combining current imported portfolio truth with explicit benchmark observation lineage
+14. `monitorDefinitionLatestObservationAlertInbox: MonitorDefinitionLatestObservationAlertInboxResponse | null`
+     - returned by `GET /backtests/monitor-definitions/latest-observation-alert-inbox`
+     - additive read-only newest-first discovery inbox rooted in authoritative persisted `monitor_definition_observation_artifact_v1` rows only; rows stay review-only, exclude informational latest observations, and carry authoritative persisted observation handoff identity for definition-scoped review reopening only
 
-15. `monitorEvaluation: MonitorDefinitionObservationEvaluationResponse | null`
-      - returned by `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations`
-      - review-only evaluation of a persisted monitor definition against current portfolio truth and required benchmark observation input; on success it overwrites the one canonical latest-evaluation snapshot sidecar for discovery and appends one canonical persisted evaluation-history entry for append-only inspection
+15. `monitorDefinitionAlertHistoryQueue: MonitorDefinitionAlertHistoryQueueResponse | null`
+     - returned by `GET /backtests/monitor-definitions/alert-history-queue`
+     - additive read-only newest-first review queue of canonical persisted monitor-definition evaluation-history entries whose persisted `significance_status` is alert-eligible (`degraded` or `action_required`) only; each row is history-entry rooted, the latest row for a monitor definition must align with the canonical latest-snapshot sidecar, and informational history entries are excluded
 
-16. `monitorEvaluationHistory: MonitorDefinitionEvaluationHistoryResponse | null`
-    - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history`
-    - additive read-only newest-first inspection list for canonical persisted monitor-definition evaluation-history entries only; no rollups, analytics, or synthesized history
+16. `monitorDefinitionRecoveredAlertReviewQueue: MonitorDefinitionRecoveredAlertReviewQueueResponse | null`
+     - returned by `GET /backtests/monitor-definitions/recovered-alert-review-queue`
+     - additive read-only newest-first recovered review discovery queue sourced only from authoritative persisted latest observation plus latest snapshot plus append-only history lineage; rows exist only when the latest persisted state is informational and aligned while an older persisted history entry for the same definition remains alert-eligible, and rows reopen the existing definition-scoped alert-review timeline by authoritative persisted observation id only
 
-17. `monitorEvaluationHistoryEntry: MonitorDefinitionEvaluationHistoryEntryResponse | null`
-    - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry_id}`
-    - additive read-only inspection payload for one canonical persisted evaluation-history entry scoped to the persisted monitor definition
+17. `monitorDefinitionActiveAlertEpisodeInbox: MonitorDefinitionActiveAlertEpisodeInboxResponse | null`
+     - returned by `GET /backtests/monitor-definitions/active-alert-episode-inbox`
+     - additive read-only newest-first discovery inbox rooted in authoritative persisted `monitor_definition_alert_episode_record_v1` rows only; rows stay open-episode-rooted, preserve explicit persisted lifecycle/windowing provenance, and hand off to reopen the existing definition-scoped alert-review timeline by authoritative persisted ids only
+
+18. `monitorEvaluationRequest: EvaluateMonitorDefinitionObservationRequest`
+    - posted to `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations`
+    - canonical read-only evaluation input combining current imported portfolio truth with explicit benchmark observation lineage
+
+19. `monitorEvaluation: MonitorDefinitionObservationEvaluationResponse | null`
+       - returned by `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations`
+       - review-only evaluation of a persisted monitor definition against current portfolio truth and required benchmark observation input; on success it overwrites the one canonical latest-evaluation snapshot sidecar for discovery and appends one canonical persisted evaluation-history entry for append-only inspection
+
+20. `monitorDefinitionObservation: MonitorDefinitionObservationArtifact | null`
+      - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/observation`
+      - definition-scoped read-only open surface for exactly one authoritative persisted `monitor_definition_observation_artifact_v1`; review-only inspection stays observation-rooted, never reconstructs from snapshots/history/inbox rows, and fails closed when the persisted observation is absent or invalid
+
+21. `monitorEvaluationHistory: MonitorDefinitionEvaluationHistoryResponse | null`
+      - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history`
+      - additive read-only newest-first inspection list for canonical persisted monitor-definition evaluation-history entries only; no rollups, analytics, or synthesized history
+
+22. `monitorEvaluationHistoryEntry: MonitorDefinitionEvaluationHistoryEntryResponse | null`
+      - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry_id}`
+      - additive read-only inspection payload for one canonical persisted evaluation-history entry scoped to the persisted monitor definition
+
+23. `monitorAlertEpisodeHistory: MonitorDefinitionAlertEpisodeHistoryResponse | null`
+      - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history`
+      - additive read-only newest-first persisted alert-episode index for one persisted `monitor_definition_id` only; rows are authoritative persisted episode records with explicit lifecycle labels, explicit windowing metadata, and timeline handoffs for drill-in only
+
+24. `monitorAlertReviewTimeline: MonitorDefinitionAlertReviewTimelineResponse | null`
+      - returned by `GET /backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline`
+      - additive read-only definition-scoped review timeline that merges at most one canonical latest observation artifact plus append-only canonical evaluation-history entries while keeping observation-rooted and history-entry-rooted event semantics distinct
 
 Important rules:
 - imported holdings may seed workflows, but replay outputs remain hypothetical and must never be confused with imported broker-truth history
@@ -93,7 +121,11 @@ Important rules:
 - persisted construction artifacts remain the authoritative hypothetical candidate truth at the validation-to-preview handoff boundary, regardless of whether the catalog policy is `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, or `top_n_linear_rank_weight_v1`
 - persisted monitor definitions are immutable review artifacts; evaluation is read-only and consumes current imported portfolio truth plus explicit benchmark observation lineage
 - monitor-definition catalog/recent discovery is additive and read-only; it does not change create/get/evaluate responsibilities and it must surface typed provenance/status metadata from persisted backend sources rather than desktop-reconstructed metadata or evaluation-history reconstruction
+- monitor-definition latest-observation and active-alert-episode inboxes are additive and read-only discovery surfaces only; clients preserve observation-rooted vs alert-episode-rooted semantics, keep their explicit review-only truth labels, and reopen definition-scoped review only by authoritative persisted ids already carried on the route payloads
 - monitor-definition evaluation history is additive and read-only; clients inspect canonical persisted history entries by `monitor_definition_id` and `history_entry_id` rather than reconstructing history from the latest-snapshot sidecar
+- monitor-definition alert-episode history is additive and read-only; clients inspect canonical persisted episode rows by `monitor_definition_id` and explicit `episode_id` windowing only, and they must preserve explicit `lifecycle_status`, `latest_for_monitor_definition`, `ordering`, and `windowing` metadata rather than inferring lifecycle from mixed sources
+- monitor-definition alert review timeline is additive and read-only; clients consume the backend timeline payload directly, preserve explicit `event_kind` / `event_semantics`, and reopen existing observation or history review surfaces by authoritative persisted ids only
+- desktop monitoring-to-workspace handoff may carry `monitor_definition_id` only as a navigation entrypoint into definition-scoped review, but once that handoff occurs the desktop must reload the definition-scoped alert-review timeline route and must not retain latest-observation inbox, active-alert-episode inbox, or other inbox/queue payloads as authoritative definition review state
 
 ## Truth and Trust Semantics
 
@@ -296,29 +328,51 @@ Implementation:
 
 ### Monitor definition provenance
 
-- the shipped monitor-definition contract family is `create -> get/list -> catalog/recent -> evaluate`
-- the additive shipped inspection extension is `evaluation-history -> evaluation-history/{history_entry_id}` and both routes are read-only persisted-history boundaries only
+- the shipped monitor-definition contract family is `create -> get/list -> catalog/recent -> latest-observation-alert-inbox -> alert-history-queue -> recovered-alert-review-queue -> active-alert-episode-inbox -> evaluate -> observation -> evaluation-history -> evaluation-history/{history_entry_id} -> alert-episode-history -> alert-review-timeline`
 - `POST /backtests/monitor-definitions` persists canonical monitor-definition artifacts for `benchmark_trend_overlay_v1` only
 - persisted monitor definitions are the authoritative downstream input for monitor review; clients reopen by `monitor_definition_id`, not by reconstructing thresholds locally
 - `GET /backtests/monitor-definitions` returns the shipped narrow artifact inventory view with identity-only list items
 - `GET /backtests/monitor-definitions/catalog` returns an additive read-only catalog discovery slice and each row carries typed provenance `persisted_monitor_definition_artifact`
-- `GET /backtests/monitor-definitions/catalog` and `GET /backtests/monitor-definitions/recent` accept additive low-cardinality filters only: `overlay_family`, `monitor_id`, `review_support_status`, `lifecycle_status`, `latest_evaluation_snapshot_status`, and `latest_evaluation_snapshot_recency`
+- `GET /backtests/monitor-definitions/catalog` and `GET /backtests/monitor-definitions/recent` accept additive low-cardinality filters only: `overlay_family`, `monitor_id`, `review_support_status`, `lifecycle_status`, `latest_observation_status`, `latest_observation_observation_status`, `latest_observation_alert_classification`, `latest_observation_cause_code`, `latest_observation_recency`, `latest_evaluation_snapshot_status`, `latest_evaluation_snapshot_cause_code`, and `latest_evaluation_snapshot_recency`
 - `GET /backtests/monitor-definitions/recent` returns an additive read-only newest-first discovery slice and each row carries typed provenance `persisted_monitor_definition_artifact` plus typed recent-order provenance `persisted_artifact_file_mtime`
 - `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` persists exactly one authoritative latest-snapshot sidecar per monitor definition at `{monitor_definition_id}.latest_evaluation.json`; this sidecar is the only shipped discovery source for latest evaluation status
+- `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` also overwrites exactly one canonical persisted observation artifact per monitor definition at `{monitor_definition_id}.observation.json`; this persisted observation is the authoritative downstream review/discovery input for latest observation state, degraded/unavailable cause code, and alert classification
+- `GET /backtests/monitor-definitions/latest-observation-alert-inbox` returns newest-first latest-observation inbox rows from canonical persisted observation artifacts only; rows exclude `informational` observations, carry authoritative `monitor_definition_id` + `observation_id` open handoff fields, and never reconstruct observation state from snapshots, history, or client-side logic
+- `GET /backtests/monitor-definitions/alert-history-queue` returns newest-first alert-history queue rows from canonical persisted evaluation-history entries plus the canonical latest-snapshot sidecar only; rows exclude `informational` significance states, carry authoritative `monitor_definition_id` + `history_entry_id` review handoff fields, preserve history-entry semantics rather than observation semantics, and fail closed when the latest snapshot conflicts with the latest persisted history entry for a monitor definition
+- `GET /backtests/monitor-definitions/recovered-alert-review-queue` returns newest-first recovered review discovery rows from canonical persisted latest observation plus latest-snapshot plus append-only history lineage only; rows remain discovery-only, require an informational latest observation/latest snapshot/latest informational history alignment, require `latest_observation.hysteresis_transition = recover`, require at least one older alert-eligible persisted history entry for the same definition, exclude informational `no_op` lineages, carry one recovered `alert_episode` contract rooted to that same persisted definition lineage only, and reopen the existing definition-scoped alert-review timeline by authoritative `monitor_definition_id` + latest-observation `observation_id` only
+- `GET /backtests/monitor-definitions/active-alert-episode-inbox` returns newest-first active alert-episode discovery rows from authoritative persisted `monitor_definition_alert_episode_record_v1` rows only; each row is rooted in one persisted open episode record, excludes recovered/closed/informational-only states, preserves explicit alert-episode lifecycle/order/provenance fields under `alert_episode`, carries explicit review-only `review_scope` and `evaluation_mode`, supports additive `before_episode_id` windowing, and only hands off to reopen the existing definition-scoped alert-review timeline by authoritative persisted ids already stored on that episode record
+- `GET /backtests/monitor-definitions/{monitor_definition_id}/observation` returns exactly one canonical persisted observation artifact scoped to the persisted monitor definition and fails closed when the authoritative observation is absent or invalid
 - `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` also appends exactly one canonical persisted history entry per successful evaluation under `{monitor_definition_id}.history/*.json`; history is append-only and the latest-snapshot sidecar remains the authoritative latest-status sidecar for discovery surfaces
 - `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history` returns newest-first persisted history entries only and its response metadata echoes authoritative monitor-definition identity, fingerprint, schema version, inspection order, returned limit, and total persisted entry count
 - `GET /backtests/monitor-definitions/{monitor_definition_id}/evaluation-history/{history_entry_id}` returns exactly one persisted history entry plus inspection metadata; it does not accept alternate lookup semantics or synthesize fallback rows
+- `GET /backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history` returns newest-first persisted alert-episode records only for that one persisted definition; response metadata keeps explicit `ordering = newest_first_latest_event_at_then_episode_id`, explicit `windowing = before_episode_id_exclusive`, `returned_limit`, `requested_before_episode_id`, `next_before_episode_id`, and authoritative total persisted episode count
+- persisted alert-episode history rows are strict `monitor_definition_alert_episode_record_v1` records and carry only authoritative persisted episode metadata for bounded history discovery: episode identity, definition identity plus fingerprint/schema lineage, explicit `lifecycle_status` (`open`, `recovered`, `closed`), explicit `latest_for_monitor_definition`, explicit `started_at` / `ended_at` / `latest_event_at`, explicit `latest_contributing_observation`, explicit `recovery_basis` when present, explicit `terminal_history_entry_id`, and an explicit timeline handoff to reopen the shipped review timeline by authoritative ids only
+- active alert-episode inbox rows stay distinct from latest-observation inbox rows, evaluation-history queue rows, recovered review rows, and alert-episode history rows: the inbox wraps one authoritative persisted open `alert_episode` row without collapsing it into observation-rooted or history-entry-rooted semantics, and desktop/open callers must treat the nested persisted episode record as the sole authoritative handoff basis
+- alert-episode history stays separate from evaluation-history and alert-review timeline retrieval; it does not mutate evaluation behavior, does not widen latest lifecycle semantics, does not synthesize rows from client cache or queue ordering, and fails closed on unknown definitions, malformed persisted episode records, persisted episode-to-definition identity mismatch, unsupported lifecycle states, contradictory handoffs, or disagreement with canonical persisted evaluation lineage
+- `GET /backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline` returns newest-first definition-scoped review rows from canonical persisted sources only: one latest observation artifact when present plus append-only evaluation-history entries; observation rows carry authoritative `observation_id` open handoff fields and observation-rooted semantics, history rows carry authoritative `history_entry_id` review handoff fields and history-entry-rooted semantics, response metadata may carry one authoritative `latest_alert_episode` contract for that same persisted `monitor_definition_id`, recovered-queue handoffs reopen this same review surface by authoritative persisted ids only, and the route fails closed on missing, malformed, lineage-mismatched, fingerprint-mismatched, schema-mismatched, unsupported episode state, or contradictory persisted state
+- the alert-review timeline row payload is review-only and inventory-exact: `benchmark_observation`, `portfolio_observation`, and `active_observation` remain separate persisted blocks, and no analytics methodology, benchmark math, or interpretation prose is introduced into those fields
+- alert episodes are definition-scoped only: one `episode_id` identifies one backend-rooted alert lineage for one persisted `monitor_definition_id`, `episode_status = active` means the latest persisted history state is still alert-eligible, and `episode_status = recovered` means the latest persisted history state and latest persisted observation are informational after at least one earlier alert-eligible persisted history entry in the same definition lineage
+- alert episode boundaries derive only from persisted observation plus persisted evaluation-history outputs, never from client reconstruction, inbox ordering, or latest-snapshot-only inference; `started_at` is the first alert-eligible persisted history entry in the latest contiguous alert lineage, `ended_at` is null while active and equals the latest contributing persisted observation `evaluated_at` after recovery, `latest_contributing_observation` names the canonical persisted observation that currently closes the lineage, and `recovery_basis` names the last alert-eligible persisted history entry that the recovered observation clears
+- monitor discovery/review surfaces now carry explicit precedence metadata and transition semantics from persisted backend truth: discovery `metadata.status.status_source_precedence`, latest-observation `source_precedence`, latest-snapshot `source_precedence`, recovered-queue `source_precedence`, alert-review-timeline `source_precedence`, and alert-episode `source_precedence`; desktop must preserve these authoritative fields and must not replace them with client-authored precedence inference
+- hysteresis remains explicit and additive across persisted observation, latest-snapshot, history-entry, timeline-row, recovered-queue-row, and latest-alert-episode contracts: `open` means the latest state newly entered an alert-eligible lineage, `remain_open` means the latest state stays within an already alert-eligible lineage, `recover` means the latest informational state closed a prior alert-eligible lineage, and `no_op` means the latest informational state remained informational with no reopening or recovery event
+- `degraded` and `unavailable` remain alert-eligible persisted states for monitor review semantics, `ok` remains informational, and ambiguous or contradictory combinations of significance/alert classification vs hysteresis vs cause code fail closed rather than being normalized client-side
 - discovery `metadata.status.lifecycle` is authoritative persisted backend status metadata for review support and lifecycle and is distinct from latest evaluation outcome
+- discovery `metadata.status.latest_observation_status` is explicit `present` or `absent`; if the canonical persisted observation is absent, discovery returns `absent` plus `latest_observation = null` rather than reconstructing state from latest-snapshot sidecars or history entries
+- discovery latest-observation filters match only canonical persisted observation metadata: `latest_observation_status` matches explicit presence vs absence, `latest_observation_observation_status` matches persisted observation `observation_status`, `latest_observation_alert_classification` matches persisted observation `alert_classification`, `latest_observation_cause_code` matches persisted observation `cause_code`, and `latest_observation_recency` matches backend-derived recency from persisted observation `evaluated_at`
+- the canonical persisted observation artifact is strict `monitor_definition_observation_artifact_v1` and carries explicit observation identity, monitor-definition identity plus fingerprint/schema lineage, evaluated timestamp, observation status, degraded/unavailable cause code, alert classification, and separate benchmark/current-portfolio/active observation blocks for review-only inspection
+- when persisted observation metadata is present, discovery returns `observation_id`, `evaluated_at`, `observation_status`, `cause_code`, `alert_classification`, and backend-derived `recency_status`; `observation_status`, `cause_code`, `alert_classification`, degradation, and provenance remain separate fields and do not imply applied portfolio state
 - discovery `metadata.status.latest_evaluation_snapshot_status` is explicit `present` or `absent`; if the canonical sidecar is absent, discovery returns `absent` plus `latest_evaluation_snapshot = null` rather than inferring prior evaluations
-- the persisted latest-snapshot sidecar is strict `monitor_definition_latest_evaluation_snapshot_v1` and carries only monitor-definition identity, benchmark symbol, evaluated timestamp, outcome/significance, explicit benchmark-observation lineage, and imported portfolio truth-basis fields
-- when persisted latest evaluation snapshot metadata is present, discovery returns `evaluated_at`, `outcome_status`, `significance_status`, and backend-derived `recency_status`; `recency_status` is computed strictly from the persisted sidecar `evaluated_at`, never from sidecar file mtime, route time, lifecycle metadata, or review-support metadata; `outcome_status` and `significance_status` remain separate fields and are not overloaded into lifecycle metadata
+- the persisted latest-snapshot sidecar is strict `monitor_definition_latest_evaluation_snapshot_v1` and carries only monitor-definition identity, benchmark symbol, evaluated timestamp, outcome status, degraded/unavailable cause code, significance status, explicit benchmark-observation lineage, and imported portfolio truth-basis fields
+- when persisted latest evaluation snapshot metadata is present, discovery returns `evaluated_at`, `outcome_status`, `cause_code`, `significance_status`, and backend-derived `recency_status`; `recency_status` is computed strictly from the persisted sidecar `evaluated_at`, never from sidecar file mtime, route time, lifecycle metadata, or review-support metadata; `outcome_status`, `cause_code`, and `significance_status` remain separate fields and are not overloaded into lifecycle metadata
 - malformed, schema-invalid, structurally incomplete, or monitor-definition-mismatched present latest-evaluation snapshot sidecars fail closed for discovery routes; absent snapshot metadata remains a valid explicit absence state
+- malformed, schema-invalid, structurally incomplete, identity-mismatched, fingerprint-mismatched, schema-version-mismatched, benchmark-mismatched, partial, unsupported, contradictory, or lineage-mismatched present observation artifacts fail closed for observation retrieval and discovery routes; discovery does not synthesize latest observation state from history or latest-evaluation snapshots when the canonical observation is absent or invalid
 - malformed, schema-invalid, structurally incomplete, identity-mismatched, fingerprint-mismatched, schema-version-mismatched, or benchmark-mismatched present evaluation-history entries fail closed for history retrieval and inspection routes; history does not auto-repair malformed present payloads and does not fall back to latest-snapshot reconstruction
 - monitor definition writes are strict and canonical; compatibility is load-only and limited to documented persisted omissions of `observation_statuses` and `source_lineage_requirements`
+- load-boundary compatibility does not hydrate missing `cause_code`; legacy persisted observation, latest-snapshot, and history artifacts that predate `cause_code` fail closed when present on read surfaces
 - monitor definition load integrity validates raw persisted `fingerprint` and `monitor_definition_id` against stored payload content before any legacy hydration runs
 - present-but-noncanonical or partially conflicting legacy-shaped values are rejected; load does not auto-repair malformed, ambiguous, or mismatched persisted fields
-- `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` is evaluation-only with respect to portfolio truth and review history; it persists the canonical latest-snapshot sidecar plus one append-only history entry, and it does not infer benchmark observations
-- list, catalog, recent, retrieval, and evaluation accept only the documented legacy omissions and otherwise fail closed on missing persisted artifacts, malformed JSON, non-object or schema-invalid payloads, non-canonical artifact identity, contradictory benchmark lineage states, blank benchmark symbols, and missing required imported-portfolio statement lineage
+- `POST /backtests/monitor-definitions/{monitor_definition_id}/evaluations` is evaluation-only with respect to portfolio truth and review history; it persists the canonical observation artifact plus the canonical latest-snapshot sidecar plus one append-only history entry, and it does not infer benchmark observations
+- list, catalog, recent, retrieval, and evaluation accept only the documented legacy omissions and otherwise fail closed on missing persisted artifacts, malformed JSON, non-object or schema-invalid payloads, non-canonical artifact identity, contradictory benchmark lineage states, blank benchmark symbols, missing required imported-portfolio statement lineage, missing required degraded/unavailable `cause_code`, unknown `cause_code` enum values, and cause-code mismatches across canonical observation, latest snapshot, and history artifacts
 - monitor evaluation surfaces `benchmark_observation`, `portfolio_observation`, and `active_observation` separately so benchmark truth, current portfolio truth, and threshold application do not collapse into one field bundle
 
 ### Monitor observation statuses
@@ -331,6 +385,16 @@ Implementation:
   - evaluation remained read-only but benchmark observation is not fully actionable, such as `unconfirmed`
 - `unavailable`
   - required benchmark observation or current portfolio truth basis is unavailable, so threshold evaluation does not run
+
+### Monitor cause codes
+
+- canonical serialized observation, latest-snapshot, and history payloads always carry `cause_code`
+- canonical mapping is authoritative on the backend: evaluation conditions -> `observation_status` -> `cause_code` -> `alert_classification` / `significance_status`
+- `ok` and `threshold_breach` use explicit `null` for `cause_code`
+- `benchmark observation status = unconfirmed` -> `degraded` -> `benchmark_observation_unconfirmed` -> `degraded`
+- `benchmark observation status = unavailable` -> `unavailable` -> `benchmark_observation_unavailable` -> `unavailable`
+- `current portfolio total_portfolio_value <= 0` -> `unavailable` -> `portfolio_truth_non_positive_total_value` -> `unavailable`
+- `degraded` and `unavailable` require the mapped canonical non-null `cause_code` across observation, latest snapshot, and history entry payloads
 
 ### Replay summary metrics
 

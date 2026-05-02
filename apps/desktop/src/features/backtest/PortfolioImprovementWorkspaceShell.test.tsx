@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
 import * as portfolioWorkspaceStorage from '../../app/portfolioWorkspaceStorage'
+import type {
+  MonitorDefinitionAlertReviewTimelineHistoryRow,
+  MonitorDefinitionAlertReviewTimelineObservationRow,
+  MonitorDefinitionAlertReviewTimelineResponse,
+  MonitorDefinitionEvaluationHistoryEntryResponse,
+  MonitorDefinitionObservationArtifact,
+  MonitorDefinitionRecoveredAlertReviewQueueRow,
+} from '../portfolio/types'
+import type { MonitorDefinitionAlertReviewSessionState } from '../portfolio/workspaceTypes'
 
 const noOp = () => {}
 
@@ -959,7 +968,365 @@ function makeReplacementRankingDraft(overrides: Record<string, unknown> = {}) {
   } as any
 }
 
+function makeLatestObservationInboxRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineObservationRow {
+  return {
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    observation_id: 'monitor_definition_observation_abc12345',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'threshold_breach',
+    cause_code: null,
+    alert_classification: 'action_required',
+    hysteresis_transition: 'open',
+    recency_status: 'recent',
+    reason: 'current portfolio truth breaches canonical overlay thresholds',
+    open_handoff: {
+      handoff_kind: 'monitor_definition_observation_open_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      observation_id: 'monitor_definition_observation_abc12345',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_observation_artifact',
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineObservationRow
+}
+
+function makeAlertReviewTimeline(
+  rows: Array<MonitorDefinitionAlertReviewTimelineObservationRow | MonitorDefinitionAlertReviewTimelineHistoryRow> = [makeTimelineObservationRow(), makeTimelineHistoryRow()],
+): MonitorDefinitionAlertReviewTimelineResponse {
+  const observationRows = rows.filter((row) => row.event_kind === 'latest_observation_event').length
+  const historyRows = rows.filter((row) => row.event_kind === 'evaluation_history_event').length
+  return {
+    items: rows,
+    metadata: {
+      contract_version: 'monitor_definition_alert_review_timeline_v1',
+      provenance: 'canonical_latest_observation_artifact_and_append_only_evaluation_history_entries',
+      ordering: 'newest_first_evaluated_at_then_observation_event_then_history_entry_id',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      observation_row_provenance: 'persisted_monitor_definition_observation_artifact',
+      history_row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      source_precedence: 'persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection',
+      latest_alert_episode: null,
+      total_rows: rows.length,
+      observation_rows: observationRows,
+      history_rows: historyRows,
+    },
+  } satisfies MonitorDefinitionAlertReviewTimelineResponse
+}
+
+function makeObservationArtifact(overrides: Record<string, unknown> = {}): MonitorDefinitionObservationArtifact {
+  return {
+    schema_version: 'monitor_definition_observation_artifact_v1',
+    observation_id: 'monitor_definition_observation_abc12345',
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'threshold_breach',
+    cause_code: null,
+    alert_classification: 'action_required',
+    hysteresis_transition: 'open',
+    source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry',
+    reason: 'current portfolio truth breaches canonical overlay thresholds',
+    thresholds: {
+      minimum_confirmation_count: 2,
+      risk_on_min_risky_weight: 0.95,
+      risk_on_max_cash_weight: 0.05,
+      risk_reduced_max_risky_weight: 0.35,
+      risk_reduced_min_cash_weight: 0.65,
+    },
+    benchmark_observation: {
+      overlay_id: 'benchmark_trend_overlay_v1',
+      status: 'risk_reduced',
+      as_of_month_end: '2024-12-31',
+      benchmark_symbol: 'SPY',
+      signal_basis: '10_month_sma_month_end',
+      confirmation_count: 2,
+      rule_version: 'v1',
+      source_lineage: {
+        source_kind: 'benchmark_overlay_signal',
+        source_id: 'overlay-signal-2024-12-31',
+        observed_at: '2025-01-02T09:30:00Z',
+      },
+    },
+    portfolio_observation: {
+      total_portfolio_value: 685,
+      risky_value: 35,
+      cash_value: 650,
+      risky_weight: 0.05109489,
+      cash_weight: 0.94890511,
+      position_count: 2,
+      source_lineage: {
+        truth_basis: 'imported_portfolio_snapshot',
+        importer: 'interactive_brokers',
+        imported_at: '2024-04-15T09:30:00Z',
+        statement_period: '2024-04',
+        source_paths: ['IB2024.pdf'],
+      },
+    },
+    active_observation: {
+      required_overlay_status: 'risk_reduced',
+      threshold_evaluation_performed: true,
+      required_min_risky_weight: null,
+      required_max_risky_weight: 0.35,
+      required_min_cash_weight: 0.65,
+      required_max_cash_weight: null,
+      actual_risky_weight: 0.05109489,
+      actual_cash_weight: 0.94890511,
+      risky_weight_gap: -0.29890511,
+      cash_weight_gap: 0.29890511,
+      triggered_thresholds: [],
+    },
+    ...overrides,
+  } as MonitorDefinitionObservationArtifact
+}
+
+function makeAlertHistoryQueueRow(overrides: Record<string, unknown> = {}) {
+  return {
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    history_entry_id: 'monitor_definition_history_entry_abc12345',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    outcome_status: 'threshold_breach',
+    cause_code: null,
+    significance_status: 'action_required',
+    hysteresis_transition: 'open',
+    review_support_status: 'review_supported',
+    latest_for_monitor_definition: true,
+    reason: 'current portfolio truth breaches canonical overlay thresholds',
+    review_handoff: {
+      handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      history_entry_id: 'monitor_definition_history_entry_abc12345',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence',
+    },
+    ...overrides,
+  }
+}
+
+function makeTimelineObservationRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineObservationRow {
+  return {
+    ...makeLatestObservationInboxRow(),
+    event_kind: 'latest_observation_event',
+    event_semantics: 'observation_rooted',
+    thresholds: makeObservationArtifact().thresholds,
+    benchmark_observation: makeObservationArtifact().benchmark_observation,
+    portfolio_observation: makeObservationArtifact().portfolio_observation,
+    active_observation: makeObservationArtifact().active_observation,
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_observation_artifact',
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineObservationRow
+}
+
+function makeTimelineHistoryRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineHistoryRow {
+  return {
+    ...makeAlertHistoryQueueRow(),
+    event_kind: 'evaluation_history_event',
+    event_semantics: 'history_entry_rooted',
+    thresholds: makeEvaluationHistoryEntryResponse().item.thresholds,
+    benchmark_observation: makeEvaluationHistoryEntryResponse().item.benchmark_observation,
+    portfolio_observation: makeEvaluationHistoryEntryResponse().item.portfolio_observation,
+    active_observation: makeEvaluationHistoryEntryResponse().item.active_observation,
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineHistoryRow
+}
+
+function makeRecoveredAlertQueueRow(overrides: Record<string, unknown> = {}): MonitorDefinitionRecoveredAlertReviewQueueRow {
+  return {
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    observation_id: 'monitor_definition_observation_abc12345',
+    latest_history_entry_id: 'monitor_definition_history_entry_latest_info',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'ok',
+    cause_code: null,
+    alert_classification: 'informational',
+    hysteresis_transition: 'recover',
+    recency_status: 'recent',
+    reason: 'latest persisted evaluation recovered to informational state',
+    alert_episode: {
+      contract_version: 'monitor_definition_alert_episode_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      episode_id: 'monitor_definition_alert_episode_abc12345def67890',
+      episode_status: 'recovered',
+      started_at: '2026-04-20T09:30:00Z',
+      ended_at: '2026-04-21T09:30:00Z',
+      hysteresis_transition: 'recover',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      latest_contributing_observation: {
+        observation_id: 'monitor_definition_observation_abc12345',
+        evaluated_at: '2026-04-21T09:30:00Z',
+        observation_status: 'ok',
+        cause_code: null,
+        alert_classification: 'informational',
+      },
+      recovery_basis: {
+        recovered_from_history_entry_id: 'monitor_definition_history_entry_alert',
+        recovered_from_evaluated_at: '2026-04-20T09:30:00Z',
+        recovered_from_outcome_status: 'threshold_breach',
+        recovered_from_cause_code: null,
+        recovered_from_significance_status: 'action_required',
+      },
+    },
+    recovered_from: {
+      history_entry_id: 'monitor_definition_history_entry_alert',
+      evaluated_at: '2026-04-20T09:30:00Z',
+      outcome_status: 'threshold_breach',
+      cause_code: null,
+      significance_status: 'action_required',
+      reason: 'prior persisted alert state',
+    },
+    timeline_handoff: {
+      handoff_kind: 'monitor_definition_alert_review_timeline_open_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      selected_event_kind: 'latest_observation_event',
+      observation_id: 'monitor_definition_observation_abc12345',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage',
+    },
+    ...overrides,
+  }
+}
+
+function makeEvaluationHistoryEntryResponse(overrides: Record<string, unknown> = {}): MonitorDefinitionEvaluationHistoryEntryResponse {
+  return {
+    item: {
+      schema_version: 'monitor_definition_evaluation_history_entry_v1',
+      history_entry_id: 'monitor_definition_history_entry_abc12345',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+      evaluation_mode: 'review_only_observation_evaluation',
+      evaluated_at: '2026-04-21T09:30:00Z',
+      observation_status: 'threshold_breach',
+      cause_code: null,
+      significance_status: 'action_required',
+      hysteresis_transition: 'open',
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      reason: 'current portfolio truth breaches canonical overlay thresholds',
+      thresholds: {
+        minimum_confirmation_count: 2,
+        risk_on_min_risky_weight: 0.95,
+        risk_on_max_cash_weight: 0.05,
+        risk_reduced_max_risky_weight: 0.35,
+        risk_reduced_min_cash_weight: 0.65,
+      },
+      benchmark_observation: {
+        overlay_id: 'benchmark_trend_overlay_v1',
+        status: 'risk_reduced',
+        as_of_month_end: '2024-12-31',
+        benchmark_symbol: 'SPY',
+        signal_basis: '10_month_sma_month_end',
+        confirmation_count: 2,
+        rule_version: 'v1',
+        source_lineage: {
+          source_kind: 'benchmark_overlay_signal',
+          source_id: 'overlay-signal-2024-12-31',
+          observed_at: '2025-01-02T09:30:00Z',
+        },
+      },
+      portfolio_observation: {
+        total_portfolio_value: 685,
+        risky_value: 35,
+        cash_value: 650,
+        risky_weight: 0.05109489,
+        cash_weight: 0.94890511,
+        position_count: 2,
+        source_lineage: {
+          truth_basis: 'imported_portfolio_snapshot',
+          importer: 'interactive_brokers',
+          imported_at: '2024-04-15T09:30:00Z',
+          statement_period: '2024-04',
+          source_paths: ['IB2024.pdf'],
+        },
+      },
+      active_observation: {
+        required_overlay_status: 'risk_reduced',
+        threshold_evaluation_performed: true,
+        required_min_risky_weight: null,
+        required_max_risky_weight: 0.35,
+        required_min_cash_weight: 0.65,
+        required_max_cash_weight: null,
+        actual_risky_weight: 0.05109489,
+        actual_cash_weight: 0.94890511,
+        risky_weight_gap: -0.29890511,
+        cash_weight_gap: 0.29890511,
+        triggered_thresholds: [],
+      },
+      metadata: {
+        history_truth: 'authoritative_persisted_monitor_definition_evaluation_history',
+        row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      },
+    },
+    metadata: {
+      contract_version: 'monitor_definition_evaluation_history_v1',
+      history_truth: 'authoritative_persisted_monitor_definition_evaluation_history',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      inspection_order: 'newest_first_evaluated_at',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      returned_limit: 20,
+      total_entries: 1,
+      retrieved_history_entry_id: 'monitor_definition_history_entry_abc12345',
+    },
+    ...overrides,
+  }
+}
+
 function renderShell(overrides: Record<string, any> = {}) {
+  const monitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionState = {
+    navigation: null,
+    timeline: makeAlertReviewTimeline([]),
+    timelineStatus: 'ready',
+    timelineError: null,
+    latestObservation: { status: 'idle', row: null, observation: null, error: null },
+    alertHistory: { status: 'idle', row: null, entry: null, error: null },
+  }
+
   return render(
     <PortfolioImprovementWorkspaceShell
       analysis={analysis}
@@ -986,12 +1353,239 @@ function renderShell(overrides: Record<string, any> = {}) {
       onConstructionConstraintValidationArtifact={noOp}
       onSelectedConstructionRuleChange={noOp}
       persistedOptimizerHandoffReview={null}
+      monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
+      recoveredAlertReviewQueue={[]}
+      onOpenLatestObservation={noOp}
+      onOpenAlertHistoryReview={noOp}
+      onReopenRecoveredAlertReview={noOp}
       {...overrides}
     />,
   )
 }
 
 describe('PortfolioImprovementWorkspaceShell', () => {
+  it('renders latest observation timeline rows and opens the read-only observation review surface from authoritative ids', async () => {
+    const onOpenLatestObservation = vi.fn()
+    const row = makeTimelineObservationRow()
+
+    renderShell({
+      monitorDefinitionAlertReviewSession: {
+        navigation: null,
+        timeline: makeAlertReviewTimeline([row]),
+        timelineStatus: 'ready',
+        timelineError: null,
+        latestObservation: { status: 'ready', row, observation: makeObservationArtifact(), error: null },
+        alertHistory: { status: 'idle', row: null, entry: null, error: null },
+      },
+      onOpenLatestObservation,
+    })
+
+    expect(screen.getByText('Latest Observation Alerts')).toBeTruthy()
+    expect(screen.getAllByText('Rows: 1 · provenance: canonical_latest_observation_artifact_and_append_only_evaluation_history_entries · ordering: newest_first_evaluated_at_then_observation_event_then_history_entry_id').length).toBeGreaterThan(0)
+    expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_observation_abc12345')).toBeTruthy()
+    expect(screen.getByText('Threshold observation')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('Open observation'))
+    expect(onOpenLatestObservation).toHaveBeenCalledWith(expect.objectContaining({
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      open_handoff: expect.objectContaining({ observation_id: 'monitor_definition_observation_abc12345' }),
+    }))
+  })
+
+  it('renders explicit empty and degraded observation timeline states', () => {
+    const degradedRow = makeTimelineObservationRow({
+      observation_id: 'monitor_definition_observation_degraded',
+      observation_status: 'degraded',
+      cause_code: 'benchmark_observation_unconfirmed',
+      alert_classification: 'degraded',
+      open_handoff: {
+        handoff_kind: 'monitor_definition_observation_open_handoff_v1',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        observation_id: 'monitor_definition_observation_degraded',
+        monitor_id: 'benchmark_trend_overlay_v1',
+        benchmark_symbol: 'SPY',
+      },
+    })
+
+    const { rerender } = renderShell({
+      monitorDefinitionAlertReviewSession: {
+        navigation: null,
+        timeline: makeAlertReviewTimeline([]),
+        timelineStatus: 'ready',
+        timelineError: null,
+        latestObservation: { status: 'idle', row: null, observation: null, error: null },
+        alertHistory: { status: 'idle', row: null, entry: null, error: null },
+      },
+    })
+
+    expect(screen.getByText('No definition-scoped latest-observation review events are currently available in the authoritative timeline.')).toBeTruthy()
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        monitorDefinitionAlertReviewSession={{
+          navigation: null,
+          timeline: makeAlertReviewTimeline([degradedRow]),
+          timelineStatus: 'ready',
+          timelineError: null,
+          latestObservation: { status: 'error', row: degradedRow, observation: null, error: 'Unable to open timeline observation review: persisted observation observation_id does not match selected timeline observation event' },
+          alertHistory: { status: 'idle', row: null, entry: null, error: null },
+        }}
+        onOpenLatestObservation={noOp}
+      />,
+    )
+
+    expect(screen.getByText('degraded · recent')).toBeTruthy()
+    expect(screen.getByText('degraded · cause benchmark observation unconfirmed')).toBeTruthy()
+    expect(screen.getByText('Unable to open timeline observation review: persisted observation observation_id does not match selected timeline observation event')).toBeTruthy()
+  })
+
+  it('renders alert history queue rows and opens the read-only history review surface from authoritative ids', () => {
+    const onOpenAlertHistoryReview = vi.fn()
+    const row = makeTimelineHistoryRow()
+
+    renderShell({
+      monitorDefinitionAlertReviewSession: {
+        navigation: null,
+        timeline: makeAlertReviewTimeline([row]),
+        timelineStatus: 'ready',
+        timelineError: null,
+        latestObservation: { status: 'idle', row: null, observation: null, error: null },
+        alertHistory: { status: 'ready', row, entry: makeEvaluationHistoryEntryResponse(), error: null },
+      },
+      onOpenAlertHistoryReview,
+    })
+
+    expect(screen.getAllByText('Alert History Queue').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Rows: 1 · provenance: canonical_latest_observation_artifact_and_append_only_evaluation_history_entries · ordering: newest_first_evaluated_at_then_observation_event_then_history_entry_id').length).toBeGreaterThan(0)
+    expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_history_entry_abc12345')).toBeTruthy()
+    expect(screen.getAllByText('History Review').length).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByText('Open history review'))
+    expect(onOpenAlertHistoryReview).toHaveBeenCalledWith(expect.objectContaining({
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      review_handoff: expect.objectContaining({ history_entry_id: 'monitor_definition_history_entry_abc12345' }),
+    }))
+  })
+
+  it('renders explicit empty and mismatch alert history timeline states', () => {
+    const degradedRow = makeTimelineHistoryRow({
+      history_entry_id: 'monitor_definition_history_entry_degraded',
+      outcome_status: 'degraded',
+      cause_code: 'benchmark_observation_unconfirmed',
+      significance_status: 'degraded',
+      latest_for_monitor_definition: false,
+      review_handoff: {
+        handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        history_entry_id: 'monitor_definition_history_entry_degraded',
+        monitor_id: 'benchmark_trend_overlay_v1',
+        benchmark_symbol: 'SPY',
+      },
+    })
+
+    const { rerender } = renderShell({
+      monitorDefinitionAlertReviewSession: {
+        navigation: null,
+        timeline: makeAlertReviewTimeline([]),
+        timelineStatus: 'ready',
+        timelineError: null,
+        latestObservation: { status: 'idle', row: null, observation: null, error: null },
+        alertHistory: { status: 'idle', row: null, entry: null, error: null },
+      },
+    })
+
+    expect(screen.getAllByText('No definition-scoped evaluation-history review events are currently available in the authoritative timeline.').length).toBeGreaterThan(0)
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        monitorDefinitionAlertReviewSession={{
+          navigation: null,
+          timeline: makeAlertReviewTimeline([degradedRow]),
+          timelineStatus: 'ready',
+          timelineError: null,
+          latestObservation: { status: 'idle', row: null, observation: null, error: null },
+          alertHistory: { status: 'error', row: degradedRow, entry: null, error: 'Unable to open timeline history review: persisted history entry history_entry_id does not match selected timeline history event' },
+        }}
+        recoveredAlertReviewQueue={[]}
+        onOpenLatestObservation={noOp}
+        onOpenAlertHistoryReview={noOp}
+        onReopenRecoveredAlertReview={noOp}
+      />,
+    )
+
+    expect(screen.getByText('degraded · degraded · historical')).toBeTruthy()
+    expect(screen.getByText('review supported · cause benchmark observation unconfirmed')).toBeTruthy()
+    expect(screen.getByText('Unable to open timeline history review: persisted history entry history_entry_id does not match selected timeline history event')).toBeTruthy()
+  })
+
+  it('renders recovered review queue rows from backend payloads directly and reopens timeline review by authoritative ids', () => {
+    const onReopenRecoveredAlertReview = vi.fn()
+    const row = makeRecoveredAlertQueueRow()
+
+    renderShell({
+      recoveredAlertReviewQueue: [row],
+      onReopenRecoveredAlertReview,
+    })
+
+    expect(screen.getAllByTestId('recovered-alert-review-queue').at(-1)).toBeTruthy()
+    expect(screen.getByText('Rows: 1 · newest first · discovery-only handoff to the authoritative definition-scoped timeline latest-observation event.')).toBeTruthy()
+    expect(screen.getAllByText('Active alert episodes reopen from the persisted active alert-episode inbox by authoritative persisted episode and timeline ids only; this recovered queue stays recovered-only.').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('recovered-alert-row-monitor_definition_observation_abc12345')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reopen timeline review' }))
+
+    expect(onReopenRecoveredAlertReview).toHaveBeenCalledTimes(1)
+    expect(onReopenRecoveredAlertReview).toHaveBeenCalledWith(row)
+  })
+
   it('shows an explicit decision summary when no candidate exists yet', () => {
     const { container } = render(
       <PortfolioImprovementWorkspaceShell
@@ -1021,11 +1615,11 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getByText('Portfolio Improvement Decision Summary')).toBeTruthy()
-    expect(screen.getByText('Not selected')).toBeTruthy()
+    expect(screen.getAllByText('Portfolio Improvement Decision Summary').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Not selected').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getAllByText('No artifact').length).toBeGreaterThan(0)
-    expect(screen.getByText('Current review state only.')).toBeTruthy()
+    expect(screen.getAllByText('Current review state only.').length).toBeGreaterThan(0)
   })
 
   it('shows partial decision summary state when candidate exists but replay has not run', () => {

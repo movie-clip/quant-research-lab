@@ -2,7 +2,7 @@ import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStor
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ConstructionArtifactReplayResponse, ImportedPortfolioSnapshotSource, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse } from '../features/portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ProposalSourceLabel, ReplacementIntentDraftArtifact, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenHandoff, ReviewSnapshotOpenResponse, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewWorkspaceState, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ProposalSourceLabel, ReplacementIntentDraftArtifact, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenHandoff, ReviewSnapshotOpenResponse, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -1259,6 +1259,43 @@ function inspectLegacyOptimizerIdentityFields(value: unknown): LegacyOptimizerId
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
+}
+
+function assertValidMonitorDefinitionAlertReviewWorkspaceState(
+  value: unknown,
+  label: string,
+): asserts value is MonitorDefinitionAlertReviewWorkspaceState {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`${label} is invalid`)
+  }
+
+  const candidate = value as Partial<MonitorDefinitionAlertReviewWorkspaceState>
+  if (candidate.source !== 'definition_scoped_alert_review_timeline') {
+    throw new Error(`${label} source is invalid`)
+  }
+  if (!isNonEmptyString(candidate.monitorDefinitionId)) {
+    throw new Error(`${label} monitorDefinitionId is invalid`)
+  }
+  if (!isNonEmptyString(candidate.openedAt)) {
+    throw new Error(`${label} openedAt is invalid`)
+  }
+  if (!candidate.selectedEvent || typeof candidate.selectedEvent !== 'object') {
+    throw new Error(`${label} selectedEvent is invalid`)
+  }
+  if (candidate.selectedEvent.eventKind === 'latest_observation_event') {
+    if (!isNonEmptyString(candidate.selectedEvent.observationId)) {
+      throw new Error(`${label} selectedEvent observationId is invalid`)
+    }
+  } else if (candidate.selectedEvent.eventKind === 'evaluation_history_event') {
+    if (!isNonEmptyString(candidate.selectedEvent.historyEntryId)) {
+      throw new Error(`${label} selectedEvent historyEntryId is invalid`)
+    }
+  } else {
+    throw new Error(`${label} selectedEvent eventKind is invalid`)
+  }
+  if (!candidate.cachedTimeline || typeof candidate.cachedTimeline !== 'object') {
+    throw new Error(`${label} cachedTimeline is invalid`)
+  }
 }
 
 function assertValidSeededRankingOpenHandoff(
@@ -2646,7 +2683,20 @@ export async function discardDraft(workspaceId: string) {
 export async function getWorkspaceState(workspaceId: string) {
   return withStore<WorkspaceState | null>(workspaceStateStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(workspaceId)
-    request.onsuccess = () => resolve((request.result as WorkspaceState | undefined) ?? null)
+    request.onsuccess = () => {
+      try {
+        const state = (request.result as WorkspaceState | undefined) ?? null
+        if (state?.monitorDefinitionAlertReview != null) {
+          assertValidMonitorDefinitionAlertReviewWorkspaceState(
+            state.monitorDefinitionAlertReview,
+            'Workspace state monitorDefinitionAlertReview',
+          )
+        }
+        resolve(state)
+      } catch (error) {
+        reject(error)
+      }
+    }
     request.onerror = () => reject(request.error ?? new Error('Failed to load workspace state'))
   })
 }
@@ -2664,6 +2714,7 @@ export async function setActiveNode(input: { workspaceId: string; nodeId: string
     activeNodeId: input.nodeId,
     activeDraftId: draft?.id ?? null,
     selectedExposureSnapshotId: draft ? 'draft' : input.nodeId,
+    monitorDefinitionAlertReview: null,
     lastOpenedAt: new Date().toISOString(),
   }
 
@@ -2694,6 +2745,7 @@ export async function setSelectedExposureSnapshot(input: { workspaceId: string; 
   const nextState: WorkspaceState = {
     ...state,
     selectedExposureSnapshotId: input.snapshotId,
+    monitorDefinitionAlertReview: state.monitorDefinitionAlertReview ?? null,
     lastOpenedAt: new Date().toISOString(),
   }
 
@@ -2821,4 +2873,35 @@ export async function getLastOpenedWorkspaceState() {
   })
   if (!pointer) return null
   return getWorkspaceState(pointer.workspaceId)
+}
+
+export async function saveMonitorDefinitionAlertReviewWorkspaceState(input: {
+  workspaceId: string
+  reviewState: MonitorDefinitionAlertReviewWorkspaceState | null
+}) {
+  const state = await getWorkspaceState(input.workspaceId)
+  if (!state) {
+    throw new Error('Workspace state is missing')
+  }
+
+  if (input.reviewState != null) {
+    assertValidMonitorDefinitionAlertReviewWorkspaceState(
+      input.reviewState,
+      'Workspace state monitorDefinitionAlertReview',
+    )
+  }
+
+  const nextState: WorkspaceState = {
+    ...state,
+    monitorDefinitionAlertReview: input.reviewState,
+    lastOpenedAt: new Date().toISOString(),
+  }
+
+  await withStore<void>(workspaceStateStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(nextState)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to persist monitor definition alert review workspace state'))
+  })
+
+  return nextState
 }

@@ -64,8 +64,8 @@ Remaining work:
 
 Remaining work:
 - add broader overlay specs and monitor families beyond the shipped `benchmark_trend_overlay_v1` monitor-definition artifact path
-- persist monitor observations and review history on top of the shipped monitor-definition create/get/list/catalog/recent/evaluate contract family
-- formalize alert thresholds, hysteresis, and degraded/unavailable semantics across monitoring outputs without widening the current review-only evaluation boundary
+- extend persisted monitor observations, latest-observation-alert-inbox review intake, recovered-alert-review discovery, active-alert-episode-inbox discovery, definition-scoped alert-episode history retrieval, definition-scoped alert-review timeline retrieval, and evaluation-history inspection beyond the shipped narrow monitor-definition create/get/list/catalog/recent/latest-observation-alert-inbox/alert-history-queue/recovered-alert-review-queue/active-alert-episode-inbox/evaluate/observation contract family, which already includes additive read-only persisted retrieval at `GET /backtests/monitor-definitions/alert-history-queue`, `GET /backtests/monitor-definitions/recovered-alert-review-queue`, `GET /backtests/monitor-definitions/active-alert-episode-inbox`, `GET /backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history`, `GET /backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline`, and additive read-only evaluation-history routes
+- add broader monitoring workflows and overlay coverage beyond the current narrow review-only `benchmark_trend_overlay_v1` boundary while preserving the shipped alert lifecycle, persisted alert-episode lifecycle semantics, degraded/unavailable handling, hysteresis transitions, and definition-scoped review semantics
 
 ### 5. Optimizer Expansion
 
@@ -96,7 +96,7 @@ These remain permanent technical requirements:
 1. generalize ranking infrastructure beyond the currently shipped ETF-only artifact persistence and additive backend discovery path
 2. broaden persisted construction policies and constraints
 3. improve shared artifact-loading, validation, and provenance rules across construction and optimizer workflows
-4. expand monitoring observations, alerts, and degraded-state semantics on top of shipped monitor-definition persistence
+4. expand monitoring observations, alerts, and overlay coverage beyond the shipped narrow review-only `benchmark_trend_overlay_v1` contract
 5. extend optimizer breadth without weakening truth separation or replay attestation rules
 
 ## Definition of Done for the Pivot

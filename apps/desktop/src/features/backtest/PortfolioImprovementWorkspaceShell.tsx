@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
-import type { MonitoringResearchHandoff, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotOpenResponse, ReplacementIntentDraftArtifact, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyReviewResponse, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
+import type { MonitoringResearchHandoff, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewSessionState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotOpenResponse, ReplacementIntentDraftArtifact, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyReviewResponse, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { assertSavedProposalProposalCaptureIntegrity, assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope, assertValidReviewSnapshotComparisonResponseEnvelope, assertValidReviewSnapshotFamilyInboxResponseEnvelope, assertValidReviewSnapshotFamilyReviewResponseEnvelope, assertValidReviewSnapshotOpenResponseEnvelope, buildReviewSnapshotComparisonRefs, buildReviewSnapshotOpenHandoffFromProposal } from '../../app/portfolioWorkspaceStorage'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 import { MonitoringPanel } from './MonitoringPanel'
@@ -242,6 +242,46 @@ type ActiveThesisCrossFamilyQueueState = {
   status: 'idle' | 'loading' | 'ready' | 'error'
   queue: ReviewSnapshotActiveThesisCrossFamilyQueueResponse | null
   error: string | null
+}
+
+type LatestObservationOpenState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  row: MonitorDefinitionAlertReviewTimelineObservationRow | null
+  observation: MonitorDefinitionObservationArtifact | null
+  error: string | null
+}
+
+type AlertHistoryOpenState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  row: MonitorDefinitionAlertReviewTimelineHistoryRow | null
+  entry: MonitorDefinitionEvaluationHistoryEntryResponse | null
+  error: string | null
+}
+
+function formatObservationStatusLabel(value: MonitorDefinitionObservationArtifact['observation_status'] | MonitorDefinitionAlertReviewTimelineObservationRow['observation_status']) {
+  if (value === 'threshold_breach') return 'alert'
+  return value.replaceAll('_', ' ')
+}
+
+function formatObservationAlertClassificationLabel(value: MonitorDefinitionAlertReviewTimelineObservationRow['alert_classification']) {
+  return value.replaceAll('_', ' ')
+}
+
+function formatObservationCauseCodeLabel(value: MonitorDefinitionAlertReviewTimelineObservationRow['cause_code']) {
+  return value ? value.replaceAll('_', ' ') : 'none'
+}
+
+function formatAlertHistoryOutcomeLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['outcome_status']) {
+  if (value === 'threshold_breach') return 'alert'
+  return value.replaceAll('_', ' ')
+}
+
+function formatAlertHistorySignificanceLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['significance_status']) {
+  return value.replaceAll('_', ' ')
+}
+
+function formatAlertHistoryReviewSupportLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['review_support_status']) {
+  return value.replaceAll('_', ' ')
 }
 
 function buildReviewSnapshotComparisonRef(
@@ -514,7 +554,7 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
   const activeReplay = getActiveReplay(props)
   const replayInvestorEconomicsWithheld = investorEconomicsBaseReason(activeReplay?.investor_economics_status) != null
   const replayTotalReturnDelta = activeReplay?.comparison?.total_return_diff_pct ?? null
-  const replayCandidateTotalReturn = activeReplay?.candidate_result.metrics.total_return_pct ?? null
+  const replayCandidateTotalReturn = activeReplay?.candidate_result?.metrics?.total_return_pct ?? null
   const diagnosticsTakeaway = getTopDiagnosticsTakeaway(activeReplay)
   const latestProposal = getLatestProposal(props.savedProposals)
   const latestProposalCapture = latestProposal ? assertSavedProposalCaptureForWorkspaceShell(latestProposal, 'Saved proposal') : null
@@ -630,7 +670,7 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
       key: 'replay',
       title: 'Replay Status',
       value: props.hypotheticalReplayResult
-        ? activeReplay?.candidate_result.status ?? 'n/a'
+        ? activeReplay?.candidate_result?.status ?? 'n/a'
         : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok' && hasPassingConstraintValidation
           ? 'Not yet run'
           : props.replacementIntentDraft || activeCandidatePair
@@ -642,7 +682,7 @@ function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
           : replayTotalReturnDelta != null
           ? `Total return delta ${formatSignedPct(replayTotalReturnDelta)} versus baseline under the shared replay window.`
           : replayCandidateTotalReturn != null
-            ? `Candidate total return ${formatPct(activeReplay.candidate_result.metrics.total_return_pct)} under the shared replay window.`
+            ? `Candidate total return ${formatPct(activeReplay.candidate_result?.metrics?.total_return_pct)} under the shared replay window.`
             : 'Replay evidence is recorded for this workflow. Review replay status, lineage, window, and allowed diagnostics only.'
         : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok' && hasPassingConstraintValidation
           ? 'A validated construction artifact exists, but no hypothetical replay review has been run yet.'
@@ -717,10 +757,61 @@ type Props = {
   onConstructedCandidateArtifact: (result: SingleReplacementCandidateConstructionResponse) => void
   onConstructionConstraintValidationArtifact: (result: SingleReplacementConstructionConstraintValidationResponse) => void
   onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
+  monitorDefinitionAlertReviewSession?: MonitorDefinitionAlertReviewSessionState | null
+  recoveredAlertReviewQueue?: MonitorDefinitionRecoveredAlertReviewQueueRow[] | null
+  onOpenLatestObservation?: (row: MonitorDefinitionAlertReviewTimelineObservationRow) => void | Promise<void>
+  onOpenAlertHistoryReview?: (row: MonitorDefinitionAlertReviewTimelineHistoryRow) => void | Promise<void>
+  onReopenRecoveredAlertReview?: (row: MonitorDefinitionRecoveredAlertReviewQueueRow) => void | Promise<void>
   monitoringResearchHandoff?: MonitoringResearchHandoff | null
   monitoringResearchHandoffDismissed?: boolean
   onDismissMonitoringResearchHandoff?: () => void
   onReviewInResearch?: (handoff: MonitoringResearchHandoff) => void
+}
+
+function RecoveredAlertReviewQueueSection({
+  rows,
+  onReopenRecoveredAlertReview,
+}: {
+  rows: MonitorDefinitionRecoveredAlertReviewQueueRow[]
+  onReopenRecoveredAlertReview: ((row: MonitorDefinitionRecoveredAlertReviewQueueRow) => void | Promise<void>) | undefined
+}) {
+  return (
+    <section className="dashboard-bottom-grid" data-testid="recovered-alert-review-queue">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Recovered Alert Review Queue</p></div>
+        <p className="helper">Discovery-only recovered rows from authoritative persisted observation, latest-snapshot, and prior alert-history lineage. Reopen only seeds the definition-scoped timeline on the persisted latest-observation event; there is no queue-local review surface.</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Recovered Rows</p>
+        <p className="helper">Rows: {rows.length} · newest first · discovery-only handoff to the authoritative definition-scoped timeline latest-observation event.</p>
+        <p className="helper">Active alert episodes reopen from the persisted active alert-episode inbox by authoritative persisted episode and timeline ids only; this recovered queue stays recovered-only.</p>
+        {!rows.length ? <p className="helper">No recovered alert review rows are currently available from authoritative persisted lineage.</p> : null}
+      </div>
+      {rows.length ? (
+        <div className="summary-card">
+          <p className="panel-label">Recovered Discovery Rows</p>
+          <div className="list-table">
+            <div className="list-row list-row-wide">
+              <span>Benchmark</span>
+              <span>Recovered Latest</span>
+              <span>Recovered From</span>
+              <span>Review</span>
+            </div>
+            {rows.map((row) => (
+              <div className="list-row list-row-wide" key={`${row.monitor_definition_id}-${row.observation_id}`} data-testid={`recovered-alert-row-${row.observation_id}`}>
+                <span>{row.benchmark_symbol}</span>
+                <span>{formatObservationStatusLabel(row.observation_status)} · {row.observation_id} · {row.recency_status}</span>
+                <span>{formatAlertHistorySignificanceLabel(row.recovered_from.significance_status)} · {formatAlertHistoryOutcomeLabel(row.recovered_from.outcome_status)} · {row.recovered_from.history_entry_id}</span>
+                <span>
+                  <button className="secondary-button" onClick={() => { void onReopenRecoveredAlertReview?.(row) }} type="button">Reopen timeline review</button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  )
 }
 
 function isPersistedConstructionArtifactMode(props: Props) {
@@ -762,10 +853,10 @@ function OverviewSection(props: Props) {
   const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
   const positionsCount = props.draftSnapshot?.positions.length ?? props.analysis?.snapshot.positions.length ?? null
   const benchmarkSymbol = artifactMode
-    ? props.persistedConstructionArtifactReview?.replay.replay.candidate_result.benchmark_symbol ?? 'SPY'
+    ? props.persistedConstructionArtifactReview?.replay.replay.candidate_result?.benchmark_symbol ?? 'SPY'
     : optimizerHandoffMode
-      ? props.persistedOptimizerHandoffReview?.replay.replay.candidate_result.benchmark_symbol ?? 'SPY'
-    : props.draftSnapshot?.metadata.benchmarkSymbol ?? 'SPY'
+      ? props.persistedOptimizerHandoffReview?.replay.replay.candidate_result?.benchmark_symbol ?? 'SPY'
+      : props.draftSnapshot?.metadata.benchmarkSymbol ?? 'SPY'
 
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-overview">
@@ -775,7 +866,7 @@ function OverviewSection(props: Props) {
       <div className="dashboard-summary compact-summary-grid">
         <div className="summary-card">
           <p className="stat-label">Portfolio Value</p>
-          <p className="summary-value">{formatMoney(props.analysis?.overview.total_market_value ?? null)}</p>
+          <p className="summary-value">{formatMoney(props.analysis?.overview?.total_market_value ?? null)}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Positions</p>
@@ -838,11 +929,187 @@ function CandidateWorkspaceSection(props: Props) {
   )
 }
 
+function LatestObservationAlertInboxSection({
+  timeline,
+  timelineStatus,
+  timelineError,
+  openState,
+  onOpenLatestObservation,
+}: {
+  timeline: MonitorDefinitionAlertReviewTimelineResponse | null | undefined
+  timelineStatus: MonitorDefinitionAlertReviewSessionState['timelineStatus'] | undefined
+  timelineError: string | null | undefined
+  openState: LatestObservationOpenState | null | undefined
+  onOpenLatestObservation: ((row: MonitorDefinitionAlertReviewTimelineObservationRow) => void | Promise<void>) | undefined
+}) {
+  const timelineRows = timeline?.items ?? []
+  const rows = timelineRows.filter((row): row is MonitorDefinitionAlertReviewTimelineObservationRow => row.event_kind === 'latest_observation_event')
+  const timelineMetadata = timeline?.metadata ?? null
+  const selectedObservation = openState?.observation ?? null
+  const selectedRow = openState?.row ?? null
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="latest-observation-alert-inbox">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Latest Observation Alerts</p></div>
+        <p className="helper">Definition-scoped review timeline latest-observation events only. This review surface never reconstructs timeline state from inbox or history queues.</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Timeline Status</p>
+        {timelineStatus === 'loading' ? <p className="helper">Loading authoritative definition-scoped alert review timeline.</p> : null}
+        {timelineStatus === 'error' ? <p className="helper">{timelineError}</p> : null}
+        {timelineStatus === 'ready' && timelineMetadata ? (
+          <>
+            <p className="helper">Rows: {rows.length} · provenance: {timelineMetadata.provenance} · ordering: {timelineMetadata.ordering}</p>
+            <p className="helper">Review basis: latest-observation events only · row provenance: {timelineMetadata.observation_row_provenance}</p>
+            {!rows.length ? <p className="helper">No definition-scoped latest-observation review events are currently available in the authoritative timeline.</p> : null}
+          </>
+        ) : null}
+      </div>
+      {timelineStatus === 'ready' && rows.length ? (
+        <div className="summary-card">
+          <p className="panel-label">Authoritative Timeline Observation Events</p>
+          <div className="list-table">
+            <div className="list-row list-row-wide">
+              <span>Benchmark</span>
+              <span>Status</span>
+              <span>Classification</span>
+              <span>Review</span>
+            </div>
+            {rows.map((row) => (
+              <div className="list-row list-row-wide" key={row.observation_id} data-testid={`latest-observation-row-${row.observation_id}`}>
+                <span>{row.benchmark_symbol}</span>
+                <span>{formatObservationStatusLabel(row.observation_status)} · {row.recency_status}</span>
+                <span>{formatObservationAlertClassificationLabel(row.alert_classification)} · cause {formatObservationCauseCodeLabel(row.cause_code)}</span>
+                <span>
+                  <button className="secondary-button" onClick={() => { void onOpenLatestObservation?.(row) }} type="button">Open observation</button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="summary-card" data-testid="latest-observation-review-surface">
+          <p className="panel-label">Observation Review</p>
+          {openState?.status === 'loading' ? <p className="helper">Loading persisted observation artifact.</p> : null}
+          {openState?.status === 'error' ? <p className="helper">{openState.error}</p> : null}
+          {openState?.status === 'idle' ? <p className="helper">Select a definition-scoped timeline observation event to open the persisted observation artifact.</p> : null}
+          {openState?.status === 'ready' && selectedObservation && selectedRow ? (
+            <>
+            <p className="helper">Opened by timeline ids only: {selectedRow.monitor_definition_id} · {selectedRow.observation_id}</p>
+            <div className="dashboard-summary compact-summary-grid">
+              <div className="summary-card"><p className="stat-label">Observation Status</p><p className="summary-value">{formatObservationStatusLabel(selectedObservation.observation_status)}</p><p className="helper">Classification {formatObservationAlertClassificationLabel(selectedObservation.alert_classification)}</p></div>
+              <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{selectedObservation.benchmark_symbol}</p><p className="helper">Evaluated {selectedObservation.evaluated_at}</p></div>
+              <div className="summary-card"><p className="stat-label">Cause Code</p><p className="summary-value">{formatObservationCauseCodeLabel(selectedObservation.cause_code)}</p><p className="helper">Reason {formatValue(selectedObservation.reason)}</p></div>
+              <div className="summary-card"><p className="stat-label">Methodology</p><p className="summary-value">Threshold observation</p><p className="helper">Read-only persisted monitor observation for benchmark-relative threshold drift review.</p></div>
+            </div>
+            <div className="summary-card">
+              <p className="panel-label">Persisted Threshold / Observation Detail</p>
+              <p className="helper">Overlay status {selectedObservation.benchmark_observation.status} · confirmation count {selectedObservation.benchmark_observation.confirmation_count} · rule {selectedObservation.benchmark_observation.rule_version}</p>
+              <p className="helper">Portfolio risky weight {formatValue(selectedObservation.portfolio_observation.risky_weight)} · cash weight {formatValue(selectedObservation.portfolio_observation.cash_weight)} · positions {selectedObservation.portfolio_observation.position_count}</p>
+              <p className="helper">Threshold evaluation performed: {selectedObservation.active_observation.threshold_evaluation_performed ? 'yes' : 'no'} · triggered thresholds: {selectedObservation.active_observation.triggered_thresholds.length}</p>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+function AlertHistoryQueueSection({
+  timeline,
+  timelineStatus,
+  timelineError,
+  openState,
+  onOpenAlertHistoryReview,
+}: {
+  timeline: MonitorDefinitionAlertReviewTimelineResponse | null | undefined
+  timelineStatus: MonitorDefinitionAlertReviewSessionState['timelineStatus'] | undefined
+  timelineError: string | null | undefined
+  openState: AlertHistoryOpenState | null | undefined
+  onOpenAlertHistoryReview: ((row: MonitorDefinitionAlertReviewTimelineHistoryRow) => void | Promise<void>) | undefined
+}) {
+  const timelineRows = timeline?.items ?? []
+  const rows = timelineRows.filter((row): row is MonitorDefinitionAlertReviewTimelineHistoryRow => row.event_kind === 'evaluation_history_event')
+  const timelineMetadata = timeline?.metadata ?? null
+  const selectedRow = openState?.row ?? null
+  const selectedEntry = openState?.entry?.item ?? null
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="alert-history-queue">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Alert History Queue</p></div>
+        <p className="helper">Definition-scoped review timeline history events only. The desktop does not reconstruct review state from queue surfaces.</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Timeline Status</p>
+        {timelineStatus === 'loading' ? <p className="helper">Loading authoritative definition-scoped alert review timeline.</p> : null}
+        {timelineStatus === 'error' ? <p className="helper">{timelineError}</p> : null}
+        {timelineStatus === 'ready' && timelineMetadata ? (
+          <>
+            <p className="helper">Rows: {rows.length} · provenance: {timelineMetadata.provenance} · ordering: {timelineMetadata.ordering}</p>
+            <p className="helper">Review basis: evaluation-history events only · row provenance: {timelineMetadata.history_row_provenance}</p>
+            {!rows.length ? <p className="helper">No definition-scoped evaluation-history review events are currently available in the authoritative timeline.</p> : null}
+          </>
+        ) : null}
+      </div>
+      {timelineStatus === 'ready' && rows.length ? (
+        <div className="summary-card">
+          <p className="panel-label">Authoritative Timeline History Events</p>
+          <div className="list-table">
+            <div className="list-row list-row-wide">
+              <span>Benchmark</span>
+              <span>Outcome</span>
+              <span>Review support</span>
+              <span>Review</span>
+            </div>
+            {rows.map((row) => (
+              <div className="list-row list-row-wide" key={row.history_entry_id} data-testid={`alert-history-row-${row.history_entry_id}`}>
+                <span>{row.benchmark_symbol}</span>
+                <span>{formatAlertHistoryOutcomeLabel(row.outcome_status)} · {formatAlertHistorySignificanceLabel(row.significance_status)} · {row.latest_for_monitor_definition ? 'latest' : 'historical'}</span>
+                <span>{formatAlertHistoryReviewSupportLabel(row.review_support_status)} · cause {formatObservationCauseCodeLabel(row.cause_code)}</span>
+                <span>
+                  <button className="secondary-button" onClick={() => { void onOpenAlertHistoryReview?.(row) }} type="button">Open history review</button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="summary-card" data-testid="alert-history-review-surface">
+        <p className="panel-label">History Review</p>
+        {openState?.status === 'loading' ? <p className="helper">Loading persisted evaluation history entry.</p> : null}
+        {openState?.status === 'error' ? <p className="helper">{openState.error}</p> : null}
+        {openState?.status === 'idle' ? <p className="helper">Select a definition-scoped timeline history event to open the authoritative persisted history review.</p> : null}
+        {openState?.status === 'ready' && selectedRow && selectedEntry ? (
+          <>
+            <p className="helper">Opened by timeline ids only: {selectedRow.monitor_definition_id} · {selectedRow.history_entry_id}</p>
+            <div className="dashboard-summary compact-summary-grid">
+              <div className="summary-card"><p className="stat-label">Outcome</p><p className="summary-value">{formatAlertHistoryOutcomeLabel(selectedEntry.observation_status)}</p><p className="helper">Significance {formatAlertHistorySignificanceLabel(selectedEntry.significance_status)}</p></div>
+              <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{selectedEntry.benchmark_symbol}</p><p className="helper">Evaluated {selectedEntry.evaluated_at}</p></div>
+              <div className="summary-card"><p className="stat-label">Cause Code</p><p className="summary-value">{formatObservationCauseCodeLabel(selectedEntry.cause_code)}</p><p className="helper">Reason {formatValue(selectedEntry.reason)}</p></div>
+              <div className="summary-card"><p className="stat-label">Review Support</p><p className="summary-value">{formatAlertHistoryReviewSupportLabel(selectedRow.review_support_status)}</p><p className="helper">{selectedRow.latest_for_monitor_definition ? 'Latest persisted row for this monitor definition.' : 'Historical persisted row for this monitor definition.'}</p></div>
+            </div>
+            <div className="summary-card">
+              <p className="panel-label">Persisted Threshold / History Detail</p>
+              <p className="helper">Overlay status {selectedEntry.benchmark_observation.status} · confirmation count {selectedEntry.benchmark_observation.confirmation_count} · rule {selectedEntry.benchmark_observation.rule_version}</p>
+              <p className="helper">Portfolio risky weight {formatValue(selectedEntry.portfolio_observation.risky_weight)} · cash weight {formatValue(selectedEntry.portfolio_observation.cash_weight)} · positions {selectedEntry.portfolio_observation.position_count}</p>
+              <p className="helper">Threshold evaluation performed: {selectedEntry.active_observation.threshold_evaluation_performed ? 'yes' : 'no'} · triggered thresholds: {selectedEntry.active_observation.triggered_thresholds.length}</p>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
 function CompareWorkspaceSection(props: Props) {
   const handleAllocationBacktestResult = props.onAllocationBacktestResult ?? (() => undefined)
   const replayLineageHelper = formatReplayLineageHelper(props.hypotheticalReplayResult)
   const artifactMode = isPersistedConstructionArtifactMode(props)
   const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
+  const monitorDefinitionAlertReviewSession = props.monitorDefinitionAlertReviewSession ?? null
+  const recoveredAlertReviewQueue = props.recoveredAlertReviewQueue ?? []
 
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-compare">
@@ -877,6 +1144,24 @@ function CompareWorkspaceSection(props: Props) {
         </section>
         <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
       </div>
+      <LatestObservationAlertInboxSection
+        timeline={monitorDefinitionAlertReviewSession?.timeline}
+        timelineStatus={monitorDefinitionAlertReviewSession?.timelineStatus}
+        timelineError={monitorDefinitionAlertReviewSession?.timelineError}
+        openState={monitorDefinitionAlertReviewSession?.latestObservation}
+        onOpenLatestObservation={props.onOpenLatestObservation}
+      />
+      <AlertHistoryQueueSection
+        timeline={monitorDefinitionAlertReviewSession?.timeline}
+        timelineStatus={monitorDefinitionAlertReviewSession?.timelineStatus}
+        timelineError={monitorDefinitionAlertReviewSession?.timelineError}
+        openState={monitorDefinitionAlertReviewSession?.alertHistory}
+        onOpenAlertHistoryReview={props.onOpenAlertHistoryReview}
+      />
+      <RecoveredAlertReviewQueueSection
+        rows={recoveredAlertReviewQueue}
+        onReopenRecoveredAlertReview={props.onReopenRecoveredAlertReview}
+      />
       {artifactMode || optimizerHandoffMode ? null : (
         <>
           <div className="summary-card">
@@ -1459,8 +1744,8 @@ function CurrentPortfolioSection({ analysis, draftSnapshot, persistedConstructio
       <div className="dashboard-summary compact-summary-grid">
         <div className="summary-card"><p className="stat-label">Basis</p><p className="summary-value">{formatValue(artifactMode ? 'Artifact review basis' : basisLabel)}</p></div>
         <div className="summary-card"><p className="stat-label">Source</p><p className="summary-value">{formatValue(persistedOptimizerHandoffReview ? 'optimizer_handoff_review' : artifactMode ? 'construction_artifact_review' : draftSnapshot?.importedMeta.importer ?? analysis?.snapshot.statement.importer ?? null)}</p></div>
-        <div className="summary-card"><p className="stat-label">Period</p><p className="summary-value">{formatValue(artifactMode ? formatReplayWindow((artifactReplay ?? optimizerReplay)?.candidate_result.start_date, (artifactReplay ?? optimizerReplay)?.candidate_result.end_date) : draftSnapshot?.importedMeta.statementPeriod ?? analysis?.snapshot.statement.statement_period ?? null)}</p></div>
-        <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{formatValue(artifactMode ? (artifactReplay ?? optimizerReplay)?.candidate_result.benchmark_symbol ?? null : draftSnapshot?.metadata.benchmarkSymbol ?? null)}</p></div>
+        <div className="summary-card"><p className="stat-label">Period</p><p className="summary-value">{formatValue(artifactMode ? formatReplayWindow((artifactReplay ?? optimizerReplay)?.candidate_result?.start_date, (artifactReplay ?? optimizerReplay)?.candidate_result?.end_date) : draftSnapshot?.importedMeta.statementPeriod ?? analysis?.snapshot.statement.statement_period ?? null)}</p></div>
+        <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{formatValue(artifactMode ? (artifactReplay ?? optimizerReplay)?.candidate_result?.benchmark_symbol ?? null : draftSnapshot?.metadata.benchmarkSymbol ?? null)}</p></div>
       </div>
     </section>
   )

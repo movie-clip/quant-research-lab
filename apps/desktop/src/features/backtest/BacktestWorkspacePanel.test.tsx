@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { MonitoringResearchHandoff, PortfolioAllocationBacktestResponse } from '../portfolio/types'
+import type { MonitorDefinitionAlertReviewSessionState } from '../portfolio/workspaceTypes'
 import { BacktestWorkspacePanel } from './BacktestWorkspacePanel'
 
 const replay: PortfolioAllocationBacktestResponse = {
@@ -29,6 +30,22 @@ const handoff: MonitoringResearchHandoff = {
   researchTarget: 'diagnostics_change',
   contextLabel: 'Market',
   replayContext: 'AAPL -> IUFS',
+  monitorDefinitionReview: {
+    source: 'definition_scoped_alert_review_entrypoint',
+    monitorDefinitionId: 'monitor_definition_abc12345def67890',
+  },
+}
+
+const monitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionState = {
+  navigation: {
+    monitorDefinitionId: 'monitor_definition_abc12345def67890',
+    selectedEvent: null,
+  },
+  timeline: null,
+  timelineStatus: 'idle',
+  timelineError: null,
+  latestObservation: { status: 'idle', row: null, observation: null, error: null },
+  alertHistory: { status: 'idle', row: null, entry: null, error: null },
 }
 
 describe('BacktestWorkspacePanel', () => {
@@ -58,6 +75,7 @@ describe('BacktestWorkspacePanel', () => {
         openedSavedProposalArtifactId={null}
         monitoringResearchHandoff={handoff}
         monitoringResearchHandoffDismissed={false}
+        monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
         onDismissMonitoringResearchHandoff={onDismiss}
         onReviewInResearch={() => {}}
         onSaveProposal={() => {}}
@@ -103,6 +121,7 @@ describe('BacktestWorkspacePanel', () => {
         activeThesis={null}
         onOpenSavedProposal={() => {}}
         openedSavedProposalArtifactId={null}
+        monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
         onReviewInResearch={() => {}}
         onSaveProposal={() => {}}
         onPromoteProposalToThesis={() => {}}

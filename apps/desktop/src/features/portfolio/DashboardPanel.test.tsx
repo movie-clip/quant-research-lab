@@ -608,7 +608,7 @@ describe('DashboardPanel', () => {
     render(<DashboardPanel result={null} lastImportedFileNames={['IB2025.pdf']} restoredSession onClearImportedSession={clearSpy} />)
 
     expect(screen.getAllByText('Restored on launch').length).toBeGreaterThan(0)
-    expect(screen.getByText('Last import: IB2025.pdf')).toBeTruthy()
+    expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
     expect(screen.getAllByText('Clear Imported Session').length).toBeGreaterThan(0)
   })
 })

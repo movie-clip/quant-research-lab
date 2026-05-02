@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type {
   AllocationBacktestComparison,
   HypotheticalReplayResponse,
+  MonitorDefinitionId,
   MonitoringResearchHandoff,
   PortfolioAllocationBacktestResponse,
   PortfolioDiagnosticsComparisonRow,
@@ -11,7 +12,7 @@ import type {
 } from '../portfolio/types'
 import { formatReplayHistoricalBasisLabel } from '../portfolio/historyTruth'
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
-import { MONITORING_RESEARCH_HANDOFF_VERSION } from './monitoringResearchHandoff'
+import { MONITOR_DEFINITION_MONITOR_ID, MONITORING_RESEARCH_HANDOFF_VERSION } from './monitoringResearchHandoff'
 
 type MonitorTone = 'hot' | 'warm' | 'cool' | 'neutral'
 
@@ -91,7 +92,7 @@ function toneFromMagnitude(value: number | null | undefined, highThreshold: numb
 }
 
 function confidenceFromReplay(activeReplay: PortfolioAllocationBacktestResponse, diagnosticsReady: boolean): 'High' | 'Medium' | 'Low' {
-  if (activeReplay.candidate_result.status === 'degraded' || activeReplay.reference_result?.status === 'degraded') return 'Low'
+  if (activeReplay.candidate_result?.status === 'degraded' || activeReplay.reference_result?.status === 'degraded') return 'Low'
   if (!diagnosticsReady) return 'Medium'
   return activeReplay.reference_result ? 'High' : 'Medium'
 }
@@ -101,7 +102,7 @@ function isReplayInvestorEconomicsWithheld(activeReplay: PortfolioAllocationBack
 }
 
 function isResultInvestorEconomicsWithheld(activeReplay: PortfolioAllocationBacktestResponse, side: 'candidate' | 'reference') {
-  if (side === 'candidate') return investorEconomicsBaseReason(activeReplay.candidate_result.investor_economics_status) != null
+  if (side === 'candidate') return investorEconomicsBaseReason(activeReplay.candidate_result?.investor_economics_status) != null
   return investorEconomicsBaseReason(activeReplay.reference_result?.investor_economics_status) != null
 }
 
@@ -152,7 +153,7 @@ function dataQualityMonitor(
   candidateDiagnostics: PortfolioDiagnosticsSnapshot | null,
   referenceDiagnostics: PortfolioDiagnosticsSnapshot | null,
 ): MonitorItem {
-  const degradedVariants = [activeReplay.reference_result?.status, activeReplay.candidate_result.status].filter((status) => status === 'degraded').length
+  const degradedVariants = [activeReplay.reference_result?.status, activeReplay.candidate_result?.status].filter((status) => status === 'degraded').length
   const missingDiagnostics = [referenceDiagnostics, candidateDiagnostics].filter((snapshot) => snapshot == null).length
   const comparisonReady = Boolean(activeReplay.diagnostics_comparison)
   const tone = degradedVariants > 0 ? 'hot' : missingDiagnostics > 0 || !comparisonReady ? 'warm' : 'cool'
@@ -167,7 +168,7 @@ function dataQualityMonitor(
     provenance: candidateDiagnostics?.provenance.note ?? referenceDiagnostics?.provenance.note ?? 'Replay status and diagnostics availability are backend-authored.',
     tone,
     detail: [
-      `Candidate replay status: ${activeReplay.candidate_result.status}.`,
+      `Candidate replay status: ${activeReplay.candidate_result?.status ?? 'not provided'}.`,
       `Reference replay status: ${activeReplay.reference_result?.status ?? 'not provided'}.`,
       comparisonReady ? 'Diagnostics comparison is available for monitoring review.' : 'Diagnostics comparison is unavailable for this replay state.',
     ],
@@ -187,14 +188,14 @@ function benchmarkRelativeMonitor(
   return {
     key: 'benchmark-relative',
     title: 'Benchmark-Relative Drift',
-    currentStatus: `TE ${formatPct(activeReplay.candidate_result.metrics.tracking_error_pct)} / Beta ${formatNumber(activeReplay.candidate_result.metrics.beta_vs_benchmark)}`,
+    currentStatus: `TE ${formatPct(activeReplay.candidate_result?.metrics?.tracking_error_pct)} / Beta ${formatNumber(activeReplay.candidate_result?.metrics?.beta_vs_benchmark)}`,
     recentChange: `TE ${formatSignedPct(comparison?.tracking_error_diff_pct ?? null)} / Beta ${formatSignedNumber(comparison?.beta_diff ?? null)}`,
     severity: tone === 'hot' ? 'High' : tone === 'warm' ? 'Medium' : 'Low',
     confidence: diagnosticsConfidence,
     provenance,
     tone,
     detail: [
-      `Candidate correlation vs benchmark: ${formatNumber(activeReplay.candidate_result.metrics.correlation_vs_benchmark)}.`,
+      `Candidate correlation vs benchmark: ${formatNumber(activeReplay.candidate_result?.metrics?.correlation_vs_benchmark)}.`,
       replayInvestorEconomicsWithheld
         ? 'Investor-performance benchmark-relative deltas are withheld for this replay state because total-return equivalence is unverified.'
         : 'This monitor stays on tracking error, beta, and correlation only rather than investor-performance benchmark-relative outcomes.',
@@ -292,7 +293,11 @@ function buildMonitors(activeReplay: PortfolioAllocationBacktestResponse, hypoth
   }
 }
 
-function buildResearchHandoffPayload(selectedMonitor: MonitorItem, hypotheticalReplayResult: HypotheticalReplayResponse | null): MonitoringResearchHandoff {
+function buildResearchHandoffPayload(
+  selectedMonitor: MonitorItem,
+  hypotheticalReplayResult: HypotheticalReplayResponse | null,
+  monitorDefinitionId: MonitorDefinitionId | null,
+): MonitoringResearchHandoff {
   const replayContext = hypotheticalReplayResult
     ? `${hypotheticalReplayResult.proposal.incumbent_symbol} -> ${hypotheticalReplayResult.proposal.candidate_symbol}`
     : null
@@ -305,6 +310,12 @@ function buildResearchHandoffPayload(selectedMonitor: MonitorItem, hypotheticalR
     researchTarget: selectedMonitor.researchTarget ?? 'diagnostics_change',
     contextLabel: selectedMonitor.currentStatus,
     replayContext,
+    monitorDefinitionReview: monitorDefinitionId
+      ? {
+          source: 'definition_scoped_alert_review_entrypoint',
+          monitorDefinitionId,
+        }
+      : null,
   }
 }
 
@@ -320,6 +331,37 @@ export function MonitoringPanel({
   const activeReplay = hypotheticalReplayResult ? ('replay' in hypotheticalReplayResult ? hypotheticalReplayResult.replay : hypotheticalReplayResult.overlay_replay) : result
   const monitoringState = useMemo(() => activeReplay ? buildMonitors(activeReplay, hypotheticalReplayResult) : null, [activeReplay, hypotheticalReplayResult])
   const [selectedKey, setSelectedKey] = useState<string>('factor-drift')
+  const [monitorDefinitionId, setMonitorDefinitionId] = useState<MonitorDefinitionId | null>(null)
+
+  useEffect(() => {
+    if (!activeReplay || !onReviewInResearch) return
+
+    let active = true
+    void (async () => {
+      try {
+        const response = await fetch('/api/backtests/monitor-definitions/recent?limit=1&overlay_family=benchmark_trend&monitor_id=benchmark_trend_overlay_v1&review_support_status=review_supported&lifecycle_status=enabled')
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error((payload as { detail?: string }).detail ?? 'Unable to load recent monitor definitions')
+        }
+        const recentId = (payload as { items?: Array<{ monitor_definition_id?: unknown; monitor_id?: unknown }> }).items?.[0]?.monitor_definition_id
+        const recentMonitorId = (payload as { items?: Array<{ monitor_definition_id?: unknown; monitor_id?: unknown }> }).items?.[0]?.monitor_id
+        if (!active) return
+        if (typeof recentId === 'string' && recentId.trim() && recentMonitorId === MONITOR_DEFINITION_MONITOR_ID) {
+          setMonitorDefinitionId(recentId)
+          return
+        }
+        setMonitorDefinitionId(null)
+      } catch {
+        if (!active) return
+        setMonitorDefinitionId(null)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [activeReplay, onReviewInResearch])
 
   const selectedMonitor = monitoringState?.monitors.find((item) => item.key === selectedKey) ?? monitoringState?.monitors[0] ?? null
 
@@ -350,7 +392,7 @@ export function MonitoringPanel({
         <p className="stat-label">Current Context</p>
         <p className="helper">{monitoringState.contextNote}</p>
         <div className="tab-bar dashboard-meta-row-quant diagnostics-provenance-strip">
-          <span className="backtest-source-badge">Candidate {activeReplay.candidate_result.status}</span>
+          <span className="backtest-source-badge">Candidate {activeReplay.candidate_result?.status ?? 'not provided'}</span>
           <span className="backtest-source-badge">Diagnostics confidence {monitoringState.diagnosticsConfidence}</span>
           <span className="backtest-source-badge">Reference {activeReplay.reference_result?.status ?? 'not provided'}</span>
         </div>
@@ -401,11 +443,11 @@ export function MonitoringPanel({
               <p className="summary-value">{selectedMonitor.currentStatus}</p>
               <p className="helper">{selectedMonitor.recentChange} · {selectedMonitor.severity} severity · {selectedMonitor.confidence} confidence</p>
               <p className="helper">{selectedMonitor.provenance}</p>
-              {selectedMonitor.researchTarget && onReviewInResearch ? (
+              {selectedMonitor.researchTarget && onReviewInResearch && monitorDefinitionId ? (
                 <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
                   <button
                     className="secondary-button"
-                    onClick={() => onReviewInResearch(buildResearchHandoffPayload(selectedMonitor, hypotheticalReplayResult))}
+                    onClick={() => onReviewInResearch(buildResearchHandoffPayload(selectedMonitor, hypotheticalReplayResult, monitorDefinitionId))}
                     type="button"
                   >
                     Review In Workspace

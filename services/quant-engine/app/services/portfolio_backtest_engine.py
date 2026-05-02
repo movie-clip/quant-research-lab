@@ -37,6 +37,7 @@ from app.schemas.backtest_engine import (
     HypotheticalReplayProposal,
     HypotheticalReplayUpstreamIds,
     MonitorDefinitionEvaluationHistoryEntryArtifact,
+    MonitorDefinitionObservationArtifact,
     MonitorDefinitionLatestEvaluationBenchmarkObservationLineage,
     MonitorDefinitionLatestEvaluationPortfolioTruthBasis,
     MonitorDefinitionLatestEvaluationSnapshotArtifact,
@@ -121,8 +122,11 @@ from app.services.candidate_construction import derive_single_replacement_constr
 from app.services.candidate_construction import derive_same_weight_substitution_construction
 from app.services.market_data import MarketDataService
 from app.services.monitor_definition_artifact_service import (
+    MonitorDefinitionMissingFileError,
     build_stable_monitor_definition_evaluation_history_entry,
+    build_stable_monitor_definition_observation,
     load_monitor_definition_artifact,
+    load_monitor_definition_latest_evaluation_snapshot,
     persist_monitor_definition_evaluation_artifacts,
 )
 from app.services.optimizer_handoff_constraints import (
@@ -1519,6 +1523,7 @@ def evaluate_monitor_definition_observation(
             monitor_id=artifact.monitor_id,
             benchmark_symbol=artifact.benchmark_symbol,
             observation_status="unavailable",
+            cause_code="portfolio_truth_non_positive_total_value",
             reason="current portfolio truth has no positive market value or cash basis",
             thresholds=artifact.thresholds,
             benchmark_observation=benchmark_observation,
@@ -1542,6 +1547,7 @@ def evaluate_monitor_definition_observation(
             monitor_id=artifact.monitor_id,
             benchmark_symbol=artifact.benchmark_symbol,
             observation_status="unavailable",
+            cause_code="benchmark_observation_unavailable",
             reason="benchmark observation is unavailable",
             thresholds=artifact.thresholds,
             benchmark_observation=benchmark_observation,
@@ -1565,6 +1571,7 @@ def evaluate_monitor_definition_observation(
             monitor_id=artifact.monitor_id,
             benchmark_symbol=artifact.benchmark_symbol,
             observation_status="degraded",
+            cause_code="benchmark_observation_unconfirmed",
             reason="benchmark observation is unconfirmed",
             thresholds=artifact.thresholds,
             benchmark_observation=benchmark_observation,
@@ -1619,13 +1626,52 @@ def _persist_monitor_definition_evaluation_snapshot(
 ) -> None:
     evaluated_at = datetime.now(UTC)
     significance_status = _latest_evaluation_significance_status(response.observation_status)
+    previous_significance_status = None
+    try:
+        previous_snapshot = load_monitor_definition_latest_evaluation_snapshot(
+            response.monitor_definition_id,
+            expected_monitor_id=response.monitor_id,
+            expected_benchmark_symbol=response.benchmark_symbol,
+            store=artifact_store,
+        )
+    except MonitorDefinitionMissingFileError:
+        previous_snapshot = None
+    if previous_snapshot is not None:
+        previous_significance_status = previous_snapshot.significance_status
+    hysteresis_transition = _monitor_definition_hysteresis_transition(
+        current_significance_status=significance_status,
+        previous_significance_status=previous_significance_status,
+    )
+    observation = build_stable_monitor_definition_observation(
+        MonitorDefinitionObservationArtifact(
+            observation_id="monitor_definition_observation_pending",
+            monitor_definition_id=response.monitor_definition_id,
+            monitor_definition_fingerprint=monitor_definition_fingerprint,
+            monitor_id=response.monitor_id,
+            benchmark_symbol=response.benchmark_symbol,
+            evaluated_at=evaluated_at,
+            observation_status=response.observation_status,
+            cause_code=response.cause_code,
+            alert_classification=significance_status,
+            hysteresis_transition=hysteresis_transition,
+            source_precedence="persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
+            reason=response.reason,
+            thresholds=response.thresholds,
+            benchmark_observation=response.benchmark_observation,
+            portfolio_observation=response.portfolio_observation,
+            active_observation=response.active_observation,
+        )
+    )
     latest_snapshot = MonitorDefinitionLatestEvaluationSnapshotArtifact(
         monitor_definition_id=response.monitor_definition_id,
         monitor_id=response.monitor_id,
         benchmark_symbol=response.benchmark_symbol,
         evaluated_at=evaluated_at,
         outcome_status=response.observation_status,
+        cause_code=response.cause_code,
         significance_status=significance_status,
+        hysteresis_transition=hysteresis_transition,
+        source_precedence="persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact",
         benchmark_observation_lineage=MonitorDefinitionLatestEvaluationBenchmarkObservationLineage(
             source_id=response.benchmark_observation.source_lineage.source_id,
             observed_at=response.benchmark_observation.source_lineage.observed_at,
@@ -1647,7 +1693,10 @@ def _persist_monitor_definition_evaluation_snapshot(
             benchmark_symbol=response.benchmark_symbol,
             evaluated_at=evaluated_at,
             observation_status=response.observation_status,
+            cause_code=response.cause_code,
             significance_status=significance_status,
+            hysteresis_transition=hysteresis_transition,
+            source_precedence="persisted_evaluation_history_entry_only",
             reason=response.reason,
             thresholds=response.thresholds,
             benchmark_observation=response.benchmark_observation,
@@ -1657,6 +1706,7 @@ def _persist_monitor_definition_evaluation_snapshot(
     )
 
     persist_monitor_definition_evaluation_artifacts(
+        observation,
         latest_snapshot,
         history_entry,
         store=artifact_store,
@@ -1671,6 +1721,18 @@ def _latest_evaluation_significance_status(observation_status):
     if observation_status == "degraded":
         return "degraded"
     return "unavailable"
+
+
+def _monitor_definition_hysteresis_transition(
+    *,
+    current_significance_status: str,
+    previous_significance_status: str | None,
+) -> str:
+    current_alert_eligible = current_significance_status != "informational"
+    previous_alert_eligible = previous_significance_status != "informational" if previous_significance_status is not None else False
+    if current_alert_eligible:
+        return "remain_open" if previous_alert_eligible else "open"
+    return "recover" if previous_alert_eligible else "no_op"
 
 
 def _canonical_monitor_portfolio_source_path(snapshot: ImportedPortfolioSnapshot) -> str:

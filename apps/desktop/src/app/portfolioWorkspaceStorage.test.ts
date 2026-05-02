@@ -7,6 +7,7 @@ import { buildPersistedImportedSource } from './portfolioWorkspaceStorage'
 import type { ConstructionArtifactReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference } from '../features/portfolio/types'
 import type {
   ImportedHistoryContext,
+  WorkspaceState,
   PersistedOptimizerHandoffWorkspaceReview,
   PortfolioNode,
   PortfolioWorkspace,
@@ -2559,6 +2560,40 @@ describe('portfolioWorkspaceStorage', () => {
       candidateSymbol: 'IUFS',
     })
     expect(getSpy).toHaveBeenCalledWith('draft-1')
+  })
+
+  it('fails closed on malformed cached monitor definition alert review state', async () => {
+    vi.spyOn(portfolioDb, 'withStore').mockImplementation((storeName, _mode, callback) => {
+      if (storeName === portfolioDb.workspaceStateStoreName) {
+        const store = {
+          get: () => {
+            const request: Record<string, unknown> = {}
+            queueMicrotask(() => {
+              request.result = {
+                workspaceId: 'workspace-1',
+                activeNodeId: 'node-1',
+                activeDraftId: 'draft-1',
+                selectedExposureSnapshotId: 'draft',
+                monitorDefinitionAlertReview: {
+                  source: 'definition_scoped_alert_review_timeline',
+                  monitorDefinitionId: '',
+                  openedAt: '2026-04-10T00:05:00Z',
+                  selectedEvent: { eventKind: 'latest_observation_event', observationId: 'monitor_definition_observation_abc12345' },
+                  cachedTimeline: {},
+                },
+                lastOpenedAt: '2026-04-10T00:00:00Z',
+              }
+              ;(request.onsuccess as (() => void) | undefined)?.()
+            })
+            return request
+          },
+        }
+        return new Promise((resolve, reject) => callback(store as never, resolve, reject))
+      }
+      return Promise.resolve(undefined)
+    })
+
+    await expect(portfolioWorkspaceStorage.getWorkspaceState('workspace-1')).rejects.toThrow('Workspace state monitorDefinitionAlertReview monitorDefinitionId is invalid')
   })
 
   it('uses the same canonical seeded ranking contract across save and restore', async () => {

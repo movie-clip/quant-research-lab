@@ -44,6 +44,9 @@ describe('TrendRiskOverlaysPanel', () => {
                 review_support_status: 'review_supported',
                 lifecycle_status: 'enabled',
               },
+              status_source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot',
+              latest_observation_status: 'absent',
+              latest_observation: null,
               latest_evaluation_snapshot_status: 'absent',
               latest_evaluation_snapshot: null,
             },
@@ -61,7 +64,13 @@ describe('TrendRiskOverlaysPanel', () => {
           monitor_id: 'benchmark_trend_overlay_v1',
           review_support_status: null,
           lifecycle_status: null,
+          latest_observation_status: null,
+          latest_observation_observation_status: null,
+          latest_observation_alert_classification: null,
+          latest_observation_cause_code: null,
+          latest_observation_recency: null,
           latest_evaluation_snapshot_status: 'absent',
+          latest_evaluation_snapshot_cause_code: null,
           latest_evaluation_snapshot_recency: null,
         },
       },
@@ -78,6 +87,8 @@ describe('TrendRiskOverlaysPanel', () => {
       lifecycle_status: 'enabled',
     })
     expect(payload.items[0].metadata.status.latest_evaluation_snapshot_status).toBe('absent')
+    expect(payload.items[0].metadata.status.latest_observation_status).toBe('absent')
+    expect(payload.items[0].metadata.status.latest_observation).toBeNull()
     expect(payload.items[0].metadata.status.latest_evaluation_snapshot).toBeNull()
     expect(payload.metadata).toEqual({
       contract_version: 'monitor_definition_discovery_v1',
@@ -90,7 +101,13 @@ describe('TrendRiskOverlaysPanel', () => {
         monitor_id: 'benchmark_trend_overlay_v1',
         review_support_status: null,
         lifecycle_status: null,
+        latest_observation_status: null,
+        latest_observation_observation_status: null,
+        latest_observation_alert_classification: null,
+        latest_observation_cause_code: null,
+        latest_observation_recency: null,
         latest_evaluation_snapshot_status: 'absent',
+        latest_evaluation_snapshot_cause_code: null,
         latest_evaluation_snapshot_recency: null,
       },
     })

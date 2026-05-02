@@ -1,4 +1,4 @@
-import type { ConstructionArtifactReplayResponse, HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, RankingArtifactKind, RankingArtifactOpenHandoff, RankingArtifactReviewPayloadKind, RankingArtifactSchemaVersion, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
+import type { ConstructionArtifactReplayResponse, HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, RankingArtifactKind, RankingArtifactOpenHandoff, RankingArtifactReviewPayloadKind, RankingArtifactSchemaVersion, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -94,7 +94,7 @@ export type DesktopArtifactReviewBasis = {
 export type PersistedConstructionArtifactReviewBasis = DesktopArtifactReviewBasis & {
   basisKind: 'persisted_construction_artifact_review'
   constructionArtifactId: string
-  previewHandoff: ConstructionArtifactReplayResponse['review_basis'] extends { preview_handoff: infer T } ? T : never
+  previewHandoff: NonNullable<ConstructionArtifactReplayResponse['review_basis']> extends { preview_handoff: infer T } ? T : never
 }
 
 export type PersistedOptimizerHandoffReviewBasis = DesktopArtifactReviewBasis & {
@@ -701,7 +701,52 @@ export type WorkspaceState = {
   activeNodeId: PortfolioNodeId
   activeDraftId: PortfolioDraftId | null
   selectedExposureSnapshotId?: string | null
+  monitorDefinitionAlertReview?: MonitorDefinitionAlertReviewWorkspaceState | null
   lastOpenedAt: string
+}
+
+export type MonitorDefinitionAlertReviewTimelineSelection =
+  | {
+      eventKind: 'latest_observation_event'
+      observationId: string
+    }
+  | {
+      eventKind: 'evaluation_history_event'
+      historyEntryId: string
+    }
+
+export type MonitorDefinitionAlertReviewWorkspaceState = {
+  source: 'definition_scoped_alert_review_timeline'
+  monitorDefinitionId: string
+  openedAt: string
+  selectedEvent: MonitorDefinitionAlertReviewTimelineSelection
+  cachedTimeline: MonitorDefinitionAlertReviewTimelineResponse
+}
+
+export type MonitorDefinitionAlertReviewLatestObservationOpenState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  row: MonitorDefinitionAlertReviewTimelineObservationRow | null
+  observation: MonitorDefinitionObservationArtifact | null
+  error: string | null
+}
+
+export type MonitorDefinitionAlertReviewAlertHistoryOpenState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  row: MonitorDefinitionAlertReviewTimelineHistoryRow | null
+  entry: MonitorDefinitionEvaluationHistoryEntryResponse | null
+  error: string | null
+}
+
+export type MonitorDefinitionAlertReviewSessionState = {
+  navigation: {
+    monitorDefinitionId: string
+    selectedEvent: MonitorDefinitionAlertReviewTimelineSelection | null
+  } | null
+  timeline: MonitorDefinitionAlertReviewTimelineResponse | null
+  timelineStatus: 'idle' | 'loading' | 'ready' | 'error'
+  timelineError: string | null
+  latestObservation: MonitorDefinitionAlertReviewLatestObservationOpenState
+  alertHistory: MonitorDefinitionAlertReviewAlertHistoryOpenState
 }
 
 export type PersistedConstructionArtifactWorkspaceReview = {

@@ -62,8 +62,9 @@ Goal:
 - extend the shipped `benchmark_trend_overlay_v1` overlay and persisted monitor-definition slice into broader ongoing discipline tools
 
 Remaining work:
-- add alerts plus persisted observations and review history on top of the shipped monitor-definition artifact boundary
-- formalize hysteresis and degraded-monitor semantics beyond the current narrow evaluation outcomes
+- add broader alert workflows, observation discovery surfaces, and review history on top of the shipped narrow monitor-definition observation boundary
+- broaden monitoring beyond the shipped active alert-episode inbox, definition-scoped persisted alert-episode history index, definition-scoped alert-review timeline, and latest persisted alert-episode lifecycle for one persisted `monitor_definition_id`
+- extend the shipped hysteresis and degraded-monitor contract into broader monitoring surfaces and future monitor families
 - support broader overlay and monitor families, including benchmark-relative, factor-drift, and concentration-drift coverage
 
 ### 5. Optimizer Expansion

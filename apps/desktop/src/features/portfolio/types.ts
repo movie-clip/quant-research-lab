@@ -2814,23 +2814,46 @@ export type MonitorDefinitionDiscoveryRowProvenance = 'persisted_monitor_definit
 export type MonitorDefinitionRecentOrderProvenance = 'persisted_artifact_file_mtime'
 export type MonitorDefinitionMonitorId = 'benchmark_trend_overlay_v1'
 export type MonitorDefinitionObservationStatus = 'ok' | 'threshold_breach' | 'degraded' | 'unavailable'
+export type MonitorDefinitionCanonicalCauseCode =
+  | 'benchmark_observation_unconfirmed'
+  | 'benchmark_observation_unavailable'
+  | 'portfolio_truth_non_positive_total_value'
 export type MonitorDefinitionOverlayFamily = 'benchmark_trend'
 export type MonitorDefinitionDiscoveryReviewSupportStatus = 'review_supported'
 export type MonitorDefinitionDiscoveryLifecycleStatus = 'enabled' | 'disabled'
 export type MonitorDefinitionLatestEvaluationSnapshotStatus = 'present' | 'absent'
 export type MonitorDefinitionLatestEvaluationSnapshotRecency = 'recent' | 'stale'
+export type MonitorDefinitionLatestObservationStatus = 'present' | 'absent'
+export type MonitorDefinitionLatestObservationRecency = 'recent' | 'stale'
 export type MonitorDefinitionLatestEvaluationSignificanceStatus =
   | 'informational'
   | 'action_required'
   | 'degraded'
   | 'unavailable'
+export type MonitorDefinitionAlertClassification = MonitorDefinitionLatestEvaluationSignificanceStatus
+export type MonitorDefinitionHysteresisTransition = 'open' | 'remain_open' | 'recover' | 'no_op'
+export type MonitorDefinitionMonitoringSourcePrecedence =
+  | 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry'
+  | 'persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact'
+  | 'persisted_evaluation_history_entry_only'
+  | 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot'
+  | 'persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries'
+  | 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries'
+  | 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation'
+  | 'persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection'
 
 export type MonitorDefinitionDiscoveryFilters = {
   overlay_family: MonitorDefinitionOverlayFamily | null
   monitor_id: MonitorDefinitionMonitorId | null
   review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | null
   lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | null
+  latest_observation_status: MonitorDefinitionLatestObservationStatus | null
+  latest_observation_observation_status: MonitorDefinitionObservationStatus | null
+  latest_observation_alert_classification: MonitorDefinitionAlertClassification | null
+  latest_observation_cause_code: MonitorDefinitionCanonicalCauseCode | null
+  latest_observation_recency: MonitorDefinitionLatestObservationRecency | null
   latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus | null
+  latest_evaluation_snapshot_cause_code: MonitorDefinitionCanonicalCauseCode | null
   latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | null
 }
 
@@ -2843,12 +2866,29 @@ export type MonitorDefinitionLifecycleStatusMetadata = {
 export type MonitorDefinitionLatestEvaluationSnapshotSummary = {
   evaluated_at: string
   outcome_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
   significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
   recency_status: MonitorDefinitionLatestEvaluationSnapshotRecency
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+}
+
+export type MonitorDefinitionLatestObservationSummary = {
+  observation_id: string
+  evaluated_at: string
+  observation_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  alert_classification: MonitorDefinitionAlertClassification
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  recency_status: MonitorDefinitionLatestObservationRecency
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence
 }
 
 export type MonitorDefinitionStatusMetadata = {
   lifecycle: MonitorDefinitionLifecycleStatusMetadata
+  status_source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+  latest_observation_status: MonitorDefinitionLatestObservationStatus
+  latest_observation: MonitorDefinitionLatestObservationSummary | null
   latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus
   latest_evaluation_snapshot: MonitorDefinitionLatestEvaluationSnapshotSummary | null
 }
@@ -2939,6 +2979,315 @@ export type MonitorDefinitionRecentResponse = {
   }
 }
 
+export type MonitorDefinitionObservationOpenHandoff = {
+  handoff_kind: 'monitor_definition_observation_open_handoff_v1'
+  monitor_definition_id: MonitorDefinitionId
+  observation_id: string
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+}
+
+export type MonitorDefinitionEvaluationHistoryReviewHandoff = {
+  handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1'
+  monitor_definition_id: MonitorDefinitionId
+  history_entry_id: string
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+}
+
+export type MonitorDefinitionLatestObservationAlertInboxRowMetadata = {
+  metadata_truth: 'authoritative_persisted_artifact_metadata'
+  row_provenance: 'persisted_monitor_definition_observation_artifact'
+}
+
+export type MonitorDefinitionLatestObservationAlertInboxRow = {
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  observation_id: string
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  review_scope: 'current_portfolio_truth_only'
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  evaluated_at: string
+  observation_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  alert_classification: MonitorDefinitionAlertClassification
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  recency_status: MonitorDefinitionLatestObservationRecency
+  reason: string | null
+  open_handoff: MonitorDefinitionObservationOpenHandoff
+  metadata: MonitorDefinitionLatestObservationAlertInboxRowMetadata
+}
+
+export type MonitorDefinitionLatestObservationAlertInboxResponseMetadata = {
+  contract_version: 'monitor_definition_latest_observation_alert_inbox_v1'
+  provenance: 'authoritative_persisted_monitor_definition_observations_only'
+  row_provenance: 'persisted_monitor_definition_observation_artifact'
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+  ordering: 'newest_first_evaluated_at'
+  returned_limit: number | null
+}
+
+export type MonitorDefinitionLatestObservationAlertInboxResponse = {
+  items: MonitorDefinitionLatestObservationAlertInboxRow[]
+  metadata: MonitorDefinitionLatestObservationAlertInboxResponseMetadata
+}
+
+export type MonitorDefinitionAlertHistoryQueueRow = {
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  history_entry_id: string
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  review_scope: 'current_portfolio_truth_only'
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  evaluated_at: string
+  outcome_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus
+  latest_for_monitor_definition: boolean
+  reason: string | null
+  review_handoff: MonitorDefinitionEvaluationHistoryReviewHandoff
+  metadata: {
+    metadata_truth: 'authoritative_persisted_artifact_metadata'
+    row_provenance: 'persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence'
+  }
+}
+
+export type MonitorDefinitionAlertHistoryQueueResponse = {
+  items: MonitorDefinitionAlertHistoryQueueRow[]
+  metadata: {
+    contract_version: 'monitor_definition_alert_history_queue_v1'
+    provenance: 'persisted_monitor_definitions_with_canonical_latest_snapshot_and_evaluation_history'
+    row_provenance: 'persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence'
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+    ordering: 'newest_first_evaluated_at_then_latest_snapshot_precedence_then_monitor_definition_id_then_history_entry_id'
+    returned_limit: number | null
+    total_queue_rows: number
+  }
+}
+
+export type MonitorDefinitionAlertReviewTimelineOpenHandoff = {
+  handoff_kind: 'monitor_definition_alert_review_timeline_open_handoff_v1'
+  monitor_definition_id: MonitorDefinitionId
+  selected_event_kind: 'latest_observation_event'
+  observation_id: string
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+}
+
+export type MonitorDefinitionAlertEpisodeLatestContributingObservation = {
+  observation_id: string
+  evaluated_at: string
+  observation_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  alert_classification: MonitorDefinitionAlertClassification
+}
+
+export type MonitorDefinitionAlertEpisodeRecoveryBasis = {
+  recovered_from_history_entry_id: string
+  recovered_from_evaluated_at: string
+  recovered_from_outcome_status: MonitorDefinitionObservationStatus
+  recovered_from_cause_code: MonitorDefinitionCanonicalCauseCode | null
+  recovered_from_significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+}
+
+export type MonitorDefinitionAlertEpisode = {
+  contract_version: 'monitor_definition_alert_episode_v1'
+  monitor_definition_id: MonitorDefinitionId
+  episode_id: string
+  episode_status: 'active' | 'recovered'
+  started_at: string
+  ended_at: string | null
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+  latest_contributing_observation: MonitorDefinitionAlertEpisodeLatestContributingObservation
+  recovery_basis: MonitorDefinitionAlertEpisodeRecoveryBasis | null
+}
+
+export type MonitorDefinitionAlertEpisodeHistoryTimelineHandoff = {
+  handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1'
+  monitor_definition_id: MonitorDefinitionId
+  selected_event_kind: 'latest_observation_event' | 'evaluation_history_event'
+  observation_id: string | null
+  history_entry_id: string | null
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+}
+
+export type MonitorDefinitionAlertEpisodeHistoryRow = {
+  schema_version: 'monitor_definition_alert_episode_record_v1'
+  episode_id: string
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  lifecycle_status: 'open' | 'recovered' | 'closed'
+  latest_for_monitor_definition: boolean
+  started_at: string
+  ended_at: string | null
+  latest_event_at: string
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence | null
+  latest_contributing_observation: MonitorDefinitionAlertEpisodeLatestContributingObservation
+  recovery_basis: MonitorDefinitionAlertEpisodeRecoveryBasis | null
+  terminal_history_entry_id: string
+  timeline_handoff: MonitorDefinitionAlertEpisodeHistoryTimelineHandoff
+  metadata: {
+    history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history'
+    row_provenance: 'persisted_monitor_definition_alert_episode_record'
+  }
+}
+
+export type MonitorDefinitionAlertEpisodeHistoryResponse = {
+  items: MonitorDefinitionAlertEpisodeHistoryRow[]
+  metadata: {
+    contract_version: 'monitor_definition_alert_episode_history_v1'
+    history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history'
+    row_provenance: 'persisted_monitor_definition_alert_episode_record'
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+    ordering: 'newest_first_latest_event_at_then_episode_id'
+    windowing: 'before_episode_id_exclusive'
+    monitor_definition_id: MonitorDefinitionId
+    monitor_definition_fingerprint: MonitorDefinitionFingerprint
+    monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+    returned_limit: number | null
+    requested_before_episode_id: string | null
+    next_before_episode_id: string | null
+    total_episodes: number
+  }
+}
+
+export type MonitorDefinitionActiveAlertEpisodeInboxRow = {
+  review_scope: 'current_portfolio_truth_only'
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  alert_episode: MonitorDefinitionAlertEpisodeHistoryRow
+  metadata: {
+    metadata_truth: 'authoritative_persisted_artifact_metadata'
+    row_provenance: 'persisted_monitor_definition_alert_episode_record'
+  }
+}
+
+export type MonitorDefinitionActiveAlertEpisodeInboxResponse = {
+  items: MonitorDefinitionActiveAlertEpisodeInboxRow[]
+  metadata: {
+    contract_version: 'monitor_definition_active_alert_episode_inbox_v1'
+    provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only'
+    row_provenance: 'persisted_monitor_definition_alert_episode_record'
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+    ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id'
+    windowing: 'before_episode_id_exclusive'
+    returned_limit: number | null
+    requested_before_episode_id: string | null
+    next_before_episode_id: string | null
+    total_active_episodes: number
+  }
+}
+
+export type MonitorDefinitionRecoveredAlertReviewQueueRecoveredFrom = {
+  history_entry_id: string
+  evaluated_at: string
+  outcome_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+  reason: string | null
+}
+
+export type MonitorDefinitionRecoveredAlertReviewQueueRow = {
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  observation_id: string
+  latest_history_entry_id: string
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  review_scope: 'current_portfolio_truth_only'
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  evaluated_at: string
+  observation_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  alert_classification: 'informational'
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  recency_status: MonitorDefinitionLatestObservationRecency
+  reason: string | null
+  alert_episode: MonitorDefinitionAlertEpisode
+  recovered_from: MonitorDefinitionRecoveredAlertReviewQueueRecoveredFrom
+  timeline_handoff: MonitorDefinitionAlertReviewTimelineOpenHandoff
+  metadata: {
+    metadata_truth: 'authoritative_persisted_artifact_metadata'
+    row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage'
+  }
+}
+
+export type MonitorDefinitionRecoveredAlertReviewQueueResponse = {
+  items: MonitorDefinitionRecoveredAlertReviewQueueRow[]
+  metadata: {
+    contract_version: 'monitor_definition_recovered_alert_review_queue_v1'
+    provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage'
+    row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage'
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+    ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id'
+    returned_limit: number | null
+    total_queue_rows: number
+  }
+}
+
+export type MonitorDefinitionAlertReviewTimelineObservationRow =
+  Omit<MonitorDefinitionLatestObservationAlertInboxRow, 'metadata'> & {
+    event_kind: 'latest_observation_event'
+    event_semantics: 'observation_rooted'
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata'
+      row_provenance: 'persisted_monitor_definition_observation_artifact'
+    }
+  }
+
+export type MonitorDefinitionAlertReviewTimelineHistoryRow =
+  Omit<MonitorDefinitionAlertHistoryQueueRow, 'metadata'> & {
+    event_kind: 'evaluation_history_event'
+    event_semantics: 'history_entry_rooted'
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata'
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry'
+    }
+  }
+
+export type MonitorDefinitionAlertReviewTimelineRow =
+  | MonitorDefinitionAlertReviewTimelineObservationRow
+  | MonitorDefinitionAlertReviewTimelineHistoryRow
+
+export type MonitorDefinitionAlertReviewTimelineResponse = {
+  items: MonitorDefinitionAlertReviewTimelineRow[]
+  metadata: {
+    contract_version: 'monitor_definition_alert_review_timeline_v1'
+    provenance: 'canonical_latest_observation_artifact_and_append_only_evaluation_history_entries'
+    ordering: 'newest_first_evaluated_at_then_observation_event_then_history_entry_id'
+    monitor_definition_id: MonitorDefinitionId
+    monitor_definition_fingerprint: MonitorDefinitionFingerprint
+    monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+    observation_row_provenance: 'persisted_monitor_definition_observation_artifact'
+    history_row_provenance: 'persisted_monitor_definition_evaluation_history_entry'
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
+    latest_alert_episode: MonitorDefinitionAlertEpisode | null
+    total_rows: number
+    observation_rows: number
+    history_rows: number
+  }
+}
+
 export type BenchmarkTrendOverlayObservationSourceLineage = {
   source_kind: 'benchmark_overlay_signal'
   source_id: string
@@ -3011,7 +3360,30 @@ export type MonitorDefinitionObservationEvaluationResponse = {
   benchmark_symbol: string
   evaluation_mode: MonitorDefinitionEvaluationMode
   observation_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
   reason?: string | null
+  thresholds: BenchmarkTrendOverlayMonitorThresholds
+  benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+  portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+  active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+}
+
+export type MonitorDefinitionObservationArtifact = {
+  schema_version: 'monitor_definition_observation_artifact_v1'
+  observation_id: string
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  monitor_id: MonitorDefinitionMonitorId
+  benchmark_symbol: string
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  evaluated_at: string
+  observation_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  alert_classification: MonitorDefinitionAlertClassification
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence | null
+  reason: string | null
   thresholds: BenchmarkTrendOverlayMonitorThresholds
   benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
   portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
@@ -3039,7 +3411,10 @@ export type MonitorDefinitionEvaluationHistoryEntryArtifact = {
   evaluation_mode: MonitorDefinitionEvaluationMode
   evaluated_at: string
   observation_status: MonitorDefinitionObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
   significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence | null
   reason: string | null
   thresholds: BenchmarkTrendOverlayMonitorThresholds
   benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
@@ -3061,6 +3436,7 @@ export type MonitorDefinitionEvaluationHistoryResponse = {
     contract_version: MonitorDefinitionEvaluationHistoryContractVersion
     history_truth: MonitorDefinitionEvaluationHistoryTruth
     row_provenance: MonitorDefinitionEvaluationHistoryRowProvenance
+    source_precedence: MonitorDefinitionMonitoringSourcePrecedence
     inspection_order: MonitorDefinitionEvaluationHistoryOrder
     monitor_definition_id: MonitorDefinitionId
     monitor_definition_fingerprint: MonitorDefinitionFingerprint
@@ -3087,6 +3463,10 @@ export type MonitoringResearchHandoff = {
   researchTarget: MonitoringResearchHandoffTarget
   contextLabel: string
   replayContext: string | null
+  monitorDefinitionReview?: {
+    source: 'definition_scoped_alert_review_entrypoint'
+    monitorDefinitionId: MonitorDefinitionId
+  } | null
 }
 
 export type CandidateFormationState = {

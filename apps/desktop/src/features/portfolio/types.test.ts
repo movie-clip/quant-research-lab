@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ConstructionArtifactReplayResponse } from './types'
+import type { ConstructionArtifactReplayResponse, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionRecoveredAlertReviewQueueResponse } from './types'
 
 describe('ConstructionArtifactReplayResponse turnover diagnostics contract', () => {
   it('accepts backend-shipped turnover_diagnostics_v1.symbol_contributions', () => {
@@ -265,5 +265,361 @@ describe('ConstructionArtifactReplayResponse turnover diagnostics contract', () 
       },
     ])
     expect(response.replay_provenance.hard_constraints.max_trade_intent_count).toBe(2)
+  })
+})
+
+describe('MonitorDefinitionAlertReviewTimelineResponse contract', () => {
+  it('keeps observation, history, and benchmark or portfolio fields distinct without methodology prose drift', () => {
+    const payload: MonitorDefinitionAlertReviewTimelineResponse = {
+      items: [
+        {
+          monitor_definition_id: 'monitor_definition_abc12345def67890',
+          monitor_definition_fingerprint: 'f'.repeat(64),
+          monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+          observation_id: 'monitor_definition_observation_abc12345',
+          monitor_id: 'benchmark_trend_overlay_v1',
+          benchmark_symbol: 'SPY',
+          review_scope: 'current_portfolio_truth_only',
+          evaluation_mode: 'review_only_observation_evaluation',
+          evaluated_at: '2026-04-21T09:30:00Z',
+          observation_status: 'degraded',
+          cause_code: 'benchmark_observation_unconfirmed',
+          alert_classification: 'degraded',
+          hysteresis_transition: 'open',
+          recency_status: 'recent',
+          reason: 'benchmark observation is unconfirmed',
+          open_handoff: {
+            handoff_kind: 'monitor_definition_observation_open_handoff_v1',
+            monitor_definition_id: 'monitor_definition_abc12345def67890',
+            observation_id: 'monitor_definition_observation_abc12345',
+            monitor_id: 'benchmark_trend_overlay_v1',
+            benchmark_symbol: 'SPY',
+          },
+          event_kind: 'latest_observation_event',
+          event_semantics: 'observation_rooted',
+          thresholds: {
+            minimum_confirmation_count: 2,
+            risk_on_min_risky_weight: 0.95,
+            risk_on_max_cash_weight: 0.05,
+            risk_reduced_max_risky_weight: 0.35,
+            risk_reduced_min_cash_weight: 0.65,
+          },
+          benchmark_observation: {
+            overlay_id: 'benchmark_trend_overlay_v1',
+            status: 'unconfirmed',
+            as_of_month_end: '2024-12-31',
+            benchmark_symbol: 'SPY',
+            signal_basis: '10_month_sma_month_end',
+            confirmation_count: 1,
+            rule_version: 'v1',
+            source_lineage: {
+              source_kind: 'benchmark_overlay_signal',
+              source_id: 'overlay-signal-2024-12-31',
+              observed_at: '2025-01-02T09:30:00Z',
+            },
+          },
+          portfolio_observation: {
+            total_portfolio_value: 600,
+            risky_value: 100,
+            cash_value: 500,
+            risky_weight: 0.16666667,
+            cash_weight: 0.83333333,
+            position_count: 2,
+            source_lineage: {
+              truth_basis: 'imported_portfolio_snapshot',
+              importer: 'interactive_brokers',
+              imported_at: '2024-04-15T09:30:00Z',
+              statement_period: '2024-04',
+              source_paths: ['IB2024.pdf'],
+            },
+          },
+          active_observation: {
+            required_overlay_status: 'unconfirmed',
+            threshold_evaluation_performed: false,
+            required_min_risky_weight: null,
+            required_max_risky_weight: null,
+            required_min_cash_weight: null,
+            required_max_cash_weight: null,
+            actual_risky_weight: null,
+            actual_cash_weight: null,
+            risky_weight_gap: null,
+            cash_weight_gap: null,
+            triggered_thresholds: [],
+          },
+          metadata: {
+            metadata_truth: 'authoritative_persisted_artifact_metadata',
+            row_provenance: 'persisted_monitor_definition_observation_artifact',
+          },
+        },
+      ],
+      metadata: {
+        contract_version: 'monitor_definition_alert_review_timeline_v1',
+        provenance: 'canonical_latest_observation_artifact_and_append_only_evaluation_history_entries',
+        ordering: 'newest_first_evaluated_at_then_observation_event_then_history_entry_id',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        monitor_definition_fingerprint: 'f'.repeat(64),
+        monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+        observation_row_provenance: 'persisted_monitor_definition_observation_artifact',
+        history_row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+        source_precedence: 'persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection',
+        latest_alert_episode: {
+          contract_version: 'monitor_definition_alert_episode_v1',
+          monitor_definition_id: 'monitor_definition_abc12345def67890',
+          episode_id: 'monitor_definition_alert_episode_abc12345def67890',
+          episode_status: 'active',
+          started_at: '2026-04-21T09:30:00Z',
+          ended_at: null,
+          hysteresis_transition: 'open',
+          source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+          latest_contributing_observation: {
+            observation_id: 'monitor_definition_observation_abc12345',
+            evaluated_at: '2026-04-21T09:30:00Z',
+            observation_status: 'degraded',
+            cause_code: 'benchmark_observation_unconfirmed',
+            alert_classification: 'degraded',
+          },
+          recovery_basis: null,
+        },
+        total_rows: 1,
+        observation_rows: 1,
+        history_rows: 0,
+      },
+    }
+
+    expect(payload.items[0].event_semantics).toBe('observation_rooted')
+    expect(payload.items[0].benchmark_observation.benchmark_symbol).toBe('SPY')
+    expect(payload.items[0].portfolio_observation.source_lineage.truth_basis).toBe('imported_portfolio_snapshot')
+    expect(payload.items[0].active_observation.required_overlay_status).toBe('unconfirmed')
+    expect(payload.items[0].reason).toBe('benchmark observation is unconfirmed')
+    expect(payload.metadata.latest_alert_episode?.episode_status).toBe('active')
+    expect(payload.metadata.observation_row_provenance).toBe('persisted_monitor_definition_observation_artifact')
+    expect(payload.metadata.history_row_provenance).toBe('persisted_monitor_definition_evaluation_history_entry')
+  })
+})
+
+describe('MonitorDefinitionRecoveredAlertReviewQueueResponse contract', () => {
+  it('keeps recovered discovery semantics explicit and reopenable by authoritative timeline ids only', () => {
+    const payload: MonitorDefinitionRecoveredAlertReviewQueueResponse = {
+      items: [
+        {
+          monitor_definition_id: 'monitor_definition_abc12345def67890',
+          monitor_definition_fingerprint: 'f'.repeat(64),
+          monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+          observation_id: 'monitor_definition_observation_abc12345',
+          latest_history_entry_id: 'monitor_definition_history_latest_info',
+          monitor_id: 'benchmark_trend_overlay_v1',
+          benchmark_symbol: 'SPY',
+          review_scope: 'current_portfolio_truth_only',
+          evaluation_mode: 'review_only_observation_evaluation',
+          evaluated_at: '2026-04-21T09:30:00Z',
+          observation_status: 'ok',
+          cause_code: null,
+          alert_classification: 'informational',
+          hysteresis_transition: 'recover',
+          recency_status: 'recent',
+          reason: 'latest persisted observation recovered to informational state',
+          alert_episode: {
+            contract_version: 'monitor_definition_alert_episode_v1',
+            monitor_definition_id: 'monitor_definition_abc12345def67890',
+            episode_id: 'monitor_definition_alert_episode_abc12345def67890',
+            episode_status: 'recovered',
+            started_at: '2026-04-20T09:30:00Z',
+            ended_at: '2026-04-21T09:30:00Z',
+            hysteresis_transition: 'recover',
+            source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+            latest_contributing_observation: {
+              observation_id: 'monitor_definition_observation_abc12345',
+              evaluated_at: '2026-04-21T09:30:00Z',
+              observation_status: 'ok',
+              cause_code: null,
+              alert_classification: 'informational',
+            },
+            recovery_basis: {
+              recovered_from_history_entry_id: 'monitor_definition_history_alert',
+              recovered_from_evaluated_at: '2026-04-20T09:30:00Z',
+              recovered_from_outcome_status: 'threshold_breach',
+              recovered_from_cause_code: null,
+              recovered_from_significance_status: 'action_required',
+            },
+          },
+          recovered_from: {
+            history_entry_id: 'monitor_definition_history_alert',
+            evaluated_at: '2026-04-20T09:30:00Z',
+            outcome_status: 'threshold_breach',
+            cause_code: null,
+            significance_status: 'action_required',
+            reason: 'prior persisted alert state',
+          },
+          timeline_handoff: {
+            handoff_kind: 'monitor_definition_alert_review_timeline_open_handoff_v1',
+            monitor_definition_id: 'monitor_definition_abc12345def67890',
+            selected_event_kind: 'latest_observation_event',
+            observation_id: 'monitor_definition_observation_abc12345',
+            monitor_id: 'benchmark_trend_overlay_v1',
+            benchmark_symbol: 'SPY',
+          },
+          metadata: {
+            metadata_truth: 'authoritative_persisted_artifact_metadata',
+            row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage',
+          },
+        },
+      ],
+      metadata: {
+        contract_version: 'monitor_definition_recovered_alert_review_queue_v1',
+        provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage',
+        row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage',
+        source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries',
+        ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id',
+        returned_limit: 20,
+        total_queue_rows: 1,
+      },
+    }
+
+    expect(payload.items[0]?.alert_classification).toBe('informational')
+    expect(payload.items[0]?.alert_episode.episode_status).toBe('recovered')
+    expect(payload.items[0]?.recovered_from.significance_status).toBe('action_required')
+    expect(payload.items[0]?.timeline_handoff.selected_event_kind).toBe('latest_observation_event')
+  })
+})
+
+describe('MonitorDefinitionAlertEpisodeHistoryResponse contract', () => {
+  it('accepts the backend-shipped active alert episode inbox response shape', () => {
+    const payload: MonitorDefinitionActiveAlertEpisodeInboxResponse = {
+      items: [
+        {
+          review_scope: 'current_portfolio_truth_only',
+          evaluation_mode: 'review_only_observation_evaluation',
+          alert_episode: {
+            schema_version: 'monitor_definition_alert_episode_record_v1',
+            episode_id: 'monitor_definition_alert_episode_latest',
+            monitor_definition_id: 'monitor_definition_abc12345def67890',
+            monitor_definition_fingerprint: 'f'.repeat(64),
+            monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+            monitor_id: 'benchmark_trend_overlay_v1',
+            benchmark_symbol: 'SPY',
+            lifecycle_status: 'open',
+            latest_for_monitor_definition: true,
+            started_at: '2026-04-20T09:30:00Z',
+            ended_at: null,
+            latest_event_at: '2026-04-21T09:30:00Z',
+            hysteresis_transition: 'remain_open',
+            source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+            latest_contributing_observation: {
+              observation_id: 'monitor_definition_observation_abc12345',
+              evaluated_at: '2026-04-21T09:30:00Z',
+              observation_status: 'threshold_breach',
+              cause_code: null,
+              alert_classification: 'action_required',
+            },
+            recovery_basis: null,
+            terminal_history_entry_id: 'monitor_definition_history_entry_latest_alert',
+            timeline_handoff: {
+              handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+              monitor_definition_id: 'monitor_definition_abc12345def67890',
+              selected_event_kind: 'latest_observation_event',
+              observation_id: 'monitor_definition_observation_abc12345',
+              history_entry_id: null,
+              monitor_id: 'benchmark_trend_overlay_v1',
+              benchmark_symbol: 'SPY',
+            },
+            metadata: {
+              history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+              row_provenance: 'persisted_monitor_definition_alert_episode_record',
+            },
+          },
+          metadata: {
+            metadata_truth: 'authoritative_persisted_artifact_metadata',
+            row_provenance: 'persisted_monitor_definition_alert_episode_record',
+          },
+        },
+      ],
+      metadata: {
+        contract_version: 'monitor_definition_active_alert_episode_inbox_v1',
+        provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only',
+        row_provenance: 'persisted_monitor_definition_alert_episode_record',
+        source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+        ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id',
+        windowing: 'before_episode_id_exclusive',
+        returned_limit: 20,
+        requested_before_episode_id: null,
+        next_before_episode_id: null,
+        total_active_episodes: 1,
+      },
+    }
+
+    expect(payload.items[0]?.alert_episode.lifecycle_status).toBe('open')
+    expect(payload.items[0]?.alert_episode.timeline_handoff.selected_event_kind).toBe('latest_observation_event')
+    expect(payload.metadata.total_active_episodes).toBe(1)
+  })
+
+  it('keeps ordering, windowing, lifecycle labels, and drill-in handoffs explicit', () => {
+    const payload: MonitorDefinitionAlertEpisodeHistoryResponse = {
+      items: [
+        {
+          schema_version: 'monitor_definition_alert_episode_record_v1',
+          episode_id: 'monitor_definition_alert_episode_latest',
+          monitor_definition_id: 'monitor_definition_abc12345def67890',
+          monitor_definition_fingerprint: 'f'.repeat(64),
+          monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+          monitor_id: 'benchmark_trend_overlay_v1',
+          benchmark_symbol: 'SPY',
+          lifecycle_status: 'recovered',
+          latest_for_monitor_definition: true,
+          started_at: '2026-04-20T09:30:00Z',
+          ended_at: '2026-04-21T09:30:00Z',
+          latest_event_at: '2026-04-21T09:30:00Z',
+          hysteresis_transition: 'recover',
+          source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+          latest_contributing_observation: {
+            observation_id: 'monitor_definition_observation_abc12345',
+            evaluated_at: '2026-04-21T09:30:00Z',
+            observation_status: 'ok',
+            cause_code: null,
+            alert_classification: 'informational',
+          },
+          recovery_basis: {
+            recovered_from_history_entry_id: 'monitor_definition_history_entry_abc12345',
+            recovered_from_evaluated_at: '2026-04-20T09:30:00Z',
+            recovered_from_outcome_status: 'threshold_breach',
+            recovered_from_cause_code: null,
+            recovered_from_significance_status: 'action_required',
+          },
+          terminal_history_entry_id: 'monitor_definition_history_entry_latest_info',
+          timeline_handoff: {
+            handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+            monitor_definition_id: 'monitor_definition_abc12345def67890',
+            selected_event_kind: 'latest_observation_event',
+            observation_id: 'monitor_definition_observation_abc12345',
+            history_entry_id: null,
+            monitor_id: 'benchmark_trend_overlay_v1',
+            benchmark_symbol: 'SPY',
+          },
+          metadata: {
+            history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+            row_provenance: 'persisted_monitor_definition_alert_episode_record',
+          },
+        },
+      ],
+      metadata: {
+        contract_version: 'monitor_definition_alert_episode_history_v1',
+        history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+        row_provenance: 'persisted_monitor_definition_alert_episode_record',
+        source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+        ordering: 'newest_first_latest_event_at_then_episode_id',
+        windowing: 'before_episode_id_exclusive',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        monitor_definition_fingerprint: 'f'.repeat(64),
+        monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+        returned_limit: 20,
+        requested_before_episode_id: null,
+        next_before_episode_id: null,
+        total_episodes: 1,
+      },
+    }
+
+    expect(payload.metadata.ordering).toBe('newest_first_latest_event_at_then_episode_id')
+    expect(payload.metadata.windowing).toBe('before_episode_id_exclusive')
+    expect(payload.items[0]?.lifecycle_status).toBe('recovered')
+    expect(payload.items[0]?.timeline_handoff.selected_event_kind).toBe('latest_observation_event')
   })
 })

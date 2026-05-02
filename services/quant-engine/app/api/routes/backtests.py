@@ -4,7 +4,8 @@ from typing import Literal, cast
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, ConstructionArtifactPreviewOpenRequest, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, CreateMonitorDefinitionRequest, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, MonitorDefinitionArtifact, MonitorDefinitionArtifactListResponse, MonitorDefinitionCatalogResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionDiscoveryLifecycleStatus, MonitorDefinitionDiscoveryReviewSupportStatus, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionEvaluationHistoryResponse, MonitorDefinitionLatestEvaluationSnapshotRecency, MonitorDefinitionLatestEvaluationSnapshotStatus, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionOverlayFamily, MonitorDefinitionRecentResponse, OptimizerHandoffPreviewOpenRequest, OptimizerHandoffReplayEffectiveParams, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonRequest, ReviewSnapshotComparisonResponse, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenRequestEnvelope, ReviewSnapshotOpenResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, ConstructionArtifactPreviewOpenRequest, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, CreateMonitorDefinitionRequest, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, MonitorDefinitionAlertClassification, MonitorDefinitionAlertHistoryQueueResponse, MonitorDefinitionArtifact, MonitorDefinitionArtifactListResponse, MonitorDefinitionCatalogResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionDiscoveryLifecycleStatus, MonitorDefinitionDiscoveryReviewSupportStatus, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionEvaluationHistoryResponse, MonitorDefinitionLatestEvaluationSnapshotRecency, MonitorDefinitionLatestEvaluationSnapshotStatus, MonitorDefinitionLatestObservationAlertInboxResponse, MonitorDefinitionLatestObservationRecency, MonitorDefinitionLatestObservationStatus, MonitorDefinitionObservationArtifact, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionObservationStatus, MonitorDefinitionOverlayFamily, MonitorDefinitionRecentResponse, OptimizerHandoffPreviewOpenRequest, OptimizerHandoffReplayEffectiveParams, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonRequest, ReviewSnapshotComparisonResponse, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenRequestEnvelope, ReviewSnapshotOpenResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
+from app.schemas.backtest_engine import MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionCanonicalCauseCode, MonitorDefinitionRecoveredAlertReviewQueueResponse
 from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, StrategyDefinition
 from app.services.backtest_engine_service import BacktestAnalysisResult, build_backtest_analysis
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
@@ -20,7 +21,7 @@ from app.services.construction_artifact_service import (
 )
 from app.services.review_snapshot_artifact_service import ReviewSnapshotArtifactIntegrityValidationError, ReviewSnapshotArtifactInvalidJsonError, ReviewSnapshotArtifactMissingFileError, ReviewSnapshotArtifactNonObjectPayloadError, ReviewSnapshotArtifactPersistenceError, ReviewSnapshotArtifactSchemaValidationError
 from app.services.optimizer_handoff_constraints import OptimizerHandoffValidationBlockedError, validate_optimizer_handoff_constraints
-from app.services.monitor_definition_artifact_service import MonitorDefinitionDiscoveryMetadataValidationError, MonitorDefinitionIntegrityValidationError, MonitorDefinitionInvalidJsonError, MonitorDefinitionMissingFileError, MonitorDefinitionNonObjectPayloadError, MonitorDefinitionPersistenceError, MonitorDefinitionSchemaValidationError, create_monitor_definition_artifact, inspect_monitor_definition_evaluation_history_entry, list_monitor_definition_artifacts, list_monitor_definition_catalog, list_monitor_definition_evaluation_history, list_recent_monitor_definition_artifacts, load_monitor_definition_artifact
+from app.services.monitor_definition_artifact_service import MonitorDefinitionDiscoveryMetadataValidationError, MonitorDefinitionIntegrityValidationError, MonitorDefinitionInvalidJsonError, MonitorDefinitionMissingFileError, MonitorDefinitionNonObjectPayloadError, MonitorDefinitionPersistenceError, MonitorDefinitionSchemaValidationError, create_monitor_definition_artifact, get_monitor_definition_alert_review_timeline, inspect_monitor_definition_evaluation_history_entry, list_monitor_definition_active_alert_episode_inbox, list_monitor_definition_alert_episode_history, list_monitor_definition_alert_history_queue, list_monitor_definition_artifacts, list_monitor_definition_catalog, list_monitor_definition_evaluation_history, list_monitor_definition_latest_observation_alert_inbox, list_monitor_definition_recovered_alert_review_queue, list_recent_monitor_definition_artifacts, load_monitor_definition_artifact, load_monitor_definition_observation
 from app.services.portfolio_backtest_engine import build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_overlay_aware_hypothetical_replay_preview, build_portfolio_allocation_backtest_analysis, build_review_snapshot_active_thesis_cross_family_queue, build_review_snapshot_family_inbox, build_review_snapshot_family_review, compare_review_snapshots, create_review_snapshot_artifact, evaluate_monitor_definition_observation, open_review_snapshot_artifact, validate_construction_artifact_replay_params
 
 
@@ -282,7 +283,13 @@ def get_monitor_definition_catalog(
     monitor_id: Literal["benchmark_trend_overlay_v1"] | None = Query(default=None),
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None = Query(default=None),
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None = Query(default=None),
+    latest_observation_status: MonitorDefinitionLatestObservationStatus | None = Query(default=None),
+    latest_observation_observation_status: MonitorDefinitionObservationStatus | None = Query(default=None),
+    latest_observation_alert_classification: MonitorDefinitionAlertClassification | None = Query(default=None),
+    latest_observation_cause_code: MonitorDefinitionCanonicalCauseCode | None = Query(default=None),
+    latest_observation_recency: MonitorDefinitionLatestObservationRecency | None = Query(default=None),
     latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus | None = Query(default=None),
+    latest_evaluation_snapshot_cause_code: MonitorDefinitionCanonicalCauseCode | None = Query(default=None),
     latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | None = Query(default=None),
 ) -> MonitorDefinitionCatalogResponse:
     try:
@@ -292,7 +299,13 @@ def get_monitor_definition_catalog(
                 monitor_id=monitor_id,
                 review_support_status=review_support_status,
                 lifecycle_status=lifecycle_status,
+                latest_observation_status=latest_observation_status,
+                latest_observation_observation_status=latest_observation_observation_status,
+                latest_observation_alert_classification=latest_observation_alert_classification,
+                latest_observation_cause_code=latest_observation_cause_code,
+                latest_observation_recency=latest_observation_recency,
                 latest_evaluation_snapshot_status=latest_evaluation_snapshot_status,
+                latest_evaluation_snapshot_cause_code=latest_evaluation_snapshot_cause_code,
                 latest_evaluation_snapshot_recency=latest_evaluation_snapshot_recency,
             )
         )
@@ -307,7 +320,13 @@ def get_recent_monitor_definitions(
     monitor_id: Literal["benchmark_trend_overlay_v1"] | None = Query(default=None),
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None = Query(default=None),
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None = Query(default=None),
+    latest_observation_status: MonitorDefinitionLatestObservationStatus | None = Query(default=None),
+    latest_observation_observation_status: MonitorDefinitionObservationStatus | None = Query(default=None),
+    latest_observation_alert_classification: MonitorDefinitionAlertClassification | None = Query(default=None),
+    latest_observation_cause_code: MonitorDefinitionCanonicalCauseCode | None = Query(default=None),
+    latest_observation_recency: MonitorDefinitionLatestObservationRecency | None = Query(default=None),
     latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus | None = Query(default=None),
+    latest_evaluation_snapshot_cause_code: MonitorDefinitionCanonicalCauseCode | None = Query(default=None),
     latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | None = Query(default=None),
 ) -> MonitorDefinitionRecentResponse:
     try:
@@ -318,11 +337,73 @@ def get_recent_monitor_definitions(
                 monitor_id=monitor_id,
                 review_support_status=review_support_status,
                 lifecycle_status=lifecycle_status,
+                latest_observation_status=latest_observation_status,
+                latest_observation_observation_status=latest_observation_observation_status,
+                latest_observation_alert_classification=latest_observation_alert_classification,
+                latest_observation_cause_code=latest_observation_cause_code,
+                latest_observation_recency=latest_observation_recency,
                 latest_evaluation_snapshot_status=latest_evaluation_snapshot_status,
+                latest_evaluation_snapshot_cause_code=latest_evaluation_snapshot_cause_code,
                 latest_evaluation_snapshot_recency=latest_evaluation_snapshot_recency,
             ),
         )
     except MONITOR_DEFINITION_READ_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/monitor-definitions/latest-observation-alert-inbox",
+    response_model=MonitorDefinitionLatestObservationAlertInboxResponse,
+)
+def get_monitor_definition_latest_observation_alert_inbox(
+    limit: int = Query(default=20, ge=0, le=200),
+) -> MonitorDefinitionLatestObservationAlertInboxResponse:
+    try:
+        return list_monitor_definition_latest_observation_alert_inbox(limit=limit)
+    except MONITOR_DEFINITION_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/monitor-definitions/alert-history-queue",
+    response_model=MonitorDefinitionAlertHistoryQueueResponse,
+)
+def get_monitor_definition_alert_history_queue(
+    limit: int = Query(default=20, ge=0, le=200),
+) -> MonitorDefinitionAlertHistoryQueueResponse:
+    try:
+        return list_monitor_definition_alert_history_queue(limit=limit)
+    except MONITOR_DEFINITION_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/monitor-definitions/recovered-alert-review-queue",
+    response_model=MonitorDefinitionRecoveredAlertReviewQueueResponse,
+)
+def get_monitor_definition_recovered_alert_review_queue(
+    limit: int = Query(default=20, ge=0, le=200),
+) -> MonitorDefinitionRecoveredAlertReviewQueueResponse:
+    try:
+        return list_monitor_definition_recovered_alert_review_queue(limit=limit)
+    except MONITOR_DEFINITION_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/monitor-definitions/active-alert-episode-inbox",
+    response_model=MonitorDefinitionActiveAlertEpisodeInboxResponse,
+)
+def get_monitor_definition_active_alert_episode_inbox(
+    limit: int | None = Query(default=20, ge=0, le=200),
+    before_episode_id: str | None = Query(default=None),
+) -> MonitorDefinitionActiveAlertEpisodeInboxResponse:
+    try:
+        return list_monitor_definition_active_alert_episode_inbox(
+            limit=limit,
+            before_episode_id=before_episode_id,
+        )
+    except MONITOR_DEFINITION_LOAD_ERRORS as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -355,6 +436,19 @@ def evaluate_monitor_definition(
 
 
 @router.get(
+    "/monitor-definitions/{monitor_definition_id}/observation",
+    response_model=MonitorDefinitionObservationArtifact,
+)
+def get_monitor_definition_observation(monitor_definition_id: str) -> MonitorDefinitionObservationArtifact:
+    try:
+        return load_monitor_definition_observation(monitor_definition_id)
+    except MonitorDefinitionMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except MONITOR_DEFINITION_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
     "/monitor-definitions/{monitor_definition_id}/evaluation-history",
     response_model=MonitorDefinitionEvaluationHistoryResponse,
 )
@@ -364,6 +458,42 @@ def get_monitor_definition_evaluation_history(
 ) -> MonitorDefinitionEvaluationHistoryResponse:
     try:
         return list_monitor_definition_evaluation_history(monitor_definition_id, limit=limit)
+    except MonitorDefinitionMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except MONITOR_DEFINITION_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/monitor-definitions/{monitor_definition_id}/alert-episode-history",
+    response_model=MonitorDefinitionAlertEpisodeHistoryResponse,
+)
+def get_monitor_definition_alert_episode_history(
+    monitor_definition_id: str,
+    limit: int | None = Query(default=None, ge=0, le=100),
+    before_episode_id: str | None = Query(default=None),
+) -> MonitorDefinitionAlertEpisodeHistoryResponse:
+    try:
+        return list_monitor_definition_alert_episode_history(
+            monitor_definition_id,
+            limit=limit,
+            before_episode_id=before_episode_id,
+        )
+    except MonitorDefinitionMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except MONITOR_DEFINITION_LOAD_ERRORS as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/monitor-definitions/{monitor_definition_id}/alert-review-timeline",
+    response_model=MonitorDefinitionAlertReviewTimelineResponse,
+)
+def get_monitor_definition_alert_review_timeline_route(
+    monitor_definition_id: str,
+) -> MonitorDefinitionAlertReviewTimelineResponse:
+    try:
+        return get_monitor_definition_alert_review_timeline(monitor_definition_id)
     except MonitorDefinitionMissingFileError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except MONITOR_DEFINITION_LOAD_ERRORS as exc:
@@ -425,7 +555,13 @@ def _monitor_definition_discovery_filters(
     monitor_id: Literal["benchmark_trend_overlay_v1"] | None,
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None,
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None,
+    latest_observation_status: MonitorDefinitionLatestObservationStatus | None,
+    latest_observation_observation_status: MonitorDefinitionObservationStatus | None,
+    latest_observation_alert_classification: MonitorDefinitionAlertClassification | None,
+    latest_observation_cause_code: MonitorDefinitionCanonicalCauseCode | None,
+    latest_observation_recency: MonitorDefinitionLatestObservationRecency | None,
     latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus | None,
+    latest_evaluation_snapshot_cause_code: MonitorDefinitionCanonicalCauseCode | None,
     latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | None,
 ) -> MonitorDefinitionDiscoveryFilters:
     return MonitorDefinitionDiscoveryFilters.model_validate(
@@ -434,7 +570,13 @@ def _monitor_definition_discovery_filters(
             "monitor_id": monitor_id,
             "review_support_status": review_support_status,
             "lifecycle_status": lifecycle_status,
+            "latest_observation_status": latest_observation_status,
+            "latest_observation_observation_status": latest_observation_observation_status,
+            "latest_observation_alert_classification": latest_observation_alert_classification,
+            "latest_observation_cause_code": latest_observation_cause_code,
+            "latest_observation_recency": latest_observation_recency,
             "latest_evaluation_snapshot_status": latest_evaluation_snapshot_status,
+            "latest_evaluation_snapshot_cause_code": latest_evaluation_snapshot_cause_code,
             "latest_evaluation_snapshot_recency": latest_evaluation_snapshot_recency,
         }
     )

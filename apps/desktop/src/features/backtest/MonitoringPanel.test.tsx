@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type {
@@ -106,6 +106,8 @@ const hypotheticalReplay: HypotheticalReplayResponse = {
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('MonitoringPanel', () => {
@@ -145,12 +147,27 @@ describe('MonitoringPanel', () => {
                 review_support_status: 'review_supported',
                 lifecycle_status: 'enabled',
               },
+              status_source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot',
+              latest_observation_status: 'present',
+              latest_observation: {
+                observation_id: 'monitor_definition_observation_abc123',
+                evaluated_at: '2026-04-24T09:30:00Z',
+                observation_status: 'threshold_breach',
+                cause_code: null,
+                alert_classification: 'action_required',
+                hysteresis_transition: 'open',
+                recency_status: 'recent',
+                source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry',
+              },
               latest_evaluation_snapshot_status: 'present',
               latest_evaluation_snapshot: {
                 evaluated_at: '2026-04-24T09:30:00Z',
                 outcome_status: 'threshold_breach',
+                cause_code: null,
                 significance_status: 'action_required',
+                hysteresis_transition: 'open',
                 recency_status: 'recent',
+                source_precedence: 'persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact',
               },
             },
           },
@@ -168,7 +185,13 @@ describe('MonitoringPanel', () => {
           monitor_id: null,
           review_support_status: 'review_supported',
           lifecycle_status: 'enabled',
+          latest_observation_status: null,
+          latest_observation_observation_status: null,
+          latest_observation_alert_classification: null,
+          latest_observation_cause_code: null,
+          latest_observation_recency: null,
           latest_evaluation_snapshot_status: 'present',
+          latest_evaluation_snapshot_cause_code: null,
           latest_evaluation_snapshot_recency: 'recent',
         },
       },
@@ -182,6 +205,8 @@ describe('MonitoringPanel', () => {
     ])
     expect(Object.keys(payload.items[0].metadata.status)).toEqual([
       'lifecycle',
+      'latest_observation_status',
+      'latest_observation',
       'latest_evaluation_snapshot_status',
       'latest_evaluation_snapshot',
     ])
@@ -191,9 +216,19 @@ describe('MonitoringPanel', () => {
       lifecycle_status: 'enabled',
     })
     expect(payload.items[0].metadata.status.latest_evaluation_snapshot_status).toBe('present')
+    expect(payload.items[0].metadata.status.latest_observation_status).toBe('present')
+    expect(payload.items[0].metadata.status.latest_observation).toEqual({
+      observation_id: 'monitor_definition_observation_abc123',
+      evaluated_at: '2026-04-24T09:30:00Z',
+      observation_status: 'threshold_breach',
+      cause_code: null,
+      alert_classification: 'action_required',
+      recency_status: 'recent',
+    })
     expect(payload.items[0].metadata.status.latest_evaluation_snapshot).toEqual({
       evaluated_at: '2026-04-24T09:30:00Z',
       outcome_status: 'threshold_breach',
+      cause_code: null,
       significance_status: 'action_required',
       recency_status: 'recent',
     })
@@ -209,7 +244,13 @@ describe('MonitoringPanel', () => {
         monitor_id: null,
         review_support_status: 'review_supported',
         lifecycle_status: 'enabled',
+        latest_observation_status: null,
+        latest_observation_observation_status: null,
+        latest_observation_alert_classification: null,
+        latest_observation_cause_code: null,
+        latest_observation_recency: null,
         latest_evaluation_snapshot_status: 'present',
+        latest_evaluation_snapshot_cause_code: null,
         latest_evaluation_snapshot_recency: 'recent',
       },
     })
@@ -296,23 +337,40 @@ describe('MonitoringPanel', () => {
     expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
   })
 
-  it('offers explicit Review In Workspace only for supported monitoring items', () => {
+  it('resolves the recent definition and hands off the definition-scoped review contract for supported monitoring items', async () => {
     const onReviewInResearch = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [{ monitor_definition_id: 'monitor_definition_abc12345def67890', monitor_id: 'benchmark_trend_overlay_v1' }],
+        metadata: {},
+      }),
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
 
     render(<MonitoringPanel result={baseReplay} hypotheticalReplayResult={hypotheticalReplay} onReviewInResearch={onReviewInResearch} />)
 
-    expect(screen.getByRole('button', { name: 'Review In Workspace' })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review In Workspace' })).toBeTruthy())
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/recent?limit=1&overlay_family=benchmark_trend&monitor_id=benchmark_trend_overlay_v1&review_support_status=review_supported&lifecycle_status=enabled')
 
     fireEvent.click(screen.getByRole('button', { name: 'Review In Workspace' }))
 
-    expect(onReviewInResearch).toHaveBeenCalledWith(expect.objectContaining({
+    expect(onReviewInResearch).toHaveBeenCalledTimes(1)
+    expect(onReviewInResearch).toHaveBeenCalledWith({
       version: 1,
       source: 'monitoring',
       monitorKey: 'factor-drift',
       monitorTitle: 'Factor Drift',
       researchTarget: 'diagnostics_change',
+      contextLabel: 'Market',
       replayContext: 'AAPL -> IUFS',
-    }))
+      monitorDefinitionReview: {
+        source: 'definition_scoped_alert_review_entrypoint',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+      },
+    })
 
     fireEvent.click(screen.getByRole('button', { name: /Data Quality/i }))
     expect(screen.queryByRole('button', { name: 'Review In Workspace' })).toBeNull()

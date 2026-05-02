@@ -46,8 +46,9 @@ export function buildPortfolioSnapshotFromAnalysis(
   },
   importedFileNames: string[],
 ): PortfolioSnapshot {
+  const sectorPositionBreakdown = analysis.overview?.sector_position_breakdown ?? {}
   const sectorBySymbol = new Map(
-    Object.entries(analysis.overview.sector_position_breakdown).flatMap(([sector, positions]) =>
+    Object.entries(sectorPositionBreakdown).flatMap(([sector, positions]) =>
       positions.map((position) => [String(position.symbol).toUpperCase(), sector] as const),
     ),
   )

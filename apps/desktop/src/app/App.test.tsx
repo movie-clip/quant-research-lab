@@ -8,10 +8,11 @@ import {
   ib2026DashboardGolden,
   ib2026ImportedDashboardGoldenFixture,
 } from '../test/dashboardGoldens'
-import { App } from './App'
+import { App, assertMonitorDefinitionActiveAlertEpisodeInboxResponse, assertMonitorDefinitionAlertEpisodeHistoryResponse, loadMonitorDefinitionAlertReviewTimeline, loadMonitorDefinitionRecoveredAlertReviewQueue, openAlertHistoryReviewFromTimelineRow, openLatestObservationFromTimelineRow, reopenRecoveredAlertReviewRow } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
 import type { ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
+import type { MonitorDefinitionAlertReviewTimelineResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
@@ -51,9 +52,573 @@ function matchingFetchCalls(fetchMock: ReturnType<typeof vi.fn>, pathname: strin
 }
 
 function installFetchMock(handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>) {
-  const fetchMock = vi.fn(handler)
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    try {
+      return await handler(input, init)
+    } catch (error) {
+      if (requestPathname(input) === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && requestMethod(input, init) === 'GET') {
+        return jsonResponse({ items: [], metadata: { contract_version: 'monitor_definition_recovered_alert_review_queue_v1', provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage', row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage', ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id', returned_limit: 20, total_queue_rows: 0 } })
+      }
+      throw error
+    }
+  })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
+}
+
+function makeLatestObservationInboxPayload(overrides: Record<string, unknown> = {}) {
+  const row = {
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    observation_id: 'monitor_definition_observation_abc12345',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'threshold_breach',
+    cause_code: null,
+    alert_classification: 'action_required',
+    hysteresis_transition: 'open',
+    recency_status: 'recent',
+    reason: 'current portfolio truth breaches canonical overlay thresholds',
+    open_handoff: {
+      handoff_kind: 'monitor_definition_observation_open_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      observation_id: 'monitor_definition_observation_abc12345',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_observation_artifact',
+    },
+  }
+  return {
+    items: [row],
+    metadata: {
+      contract_version: 'monitor_definition_latest_observation_alert_inbox_v1',
+      provenance: 'authoritative_persisted_monitor_definition_observations_only',
+      row_provenance: 'persisted_monitor_definition_observation_artifact',
+      source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry',
+      ordering: 'newest_first_evaluated_at',
+      returned_limit: 20,
+    },
+    ...overrides,
+  }
+}
+
+function makeAlertHistoryQueuePayload(overrides: Record<string, unknown> = {}) {
+  const row = {
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    history_entry_id: 'monitor_definition_history_entry_abc12345',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    outcome_status: 'threshold_breach',
+    cause_code: null,
+    significance_status: 'action_required',
+    hysteresis_transition: 'open',
+    review_support_status: 'review_supported',
+    latest_for_monitor_definition: true,
+    reason: 'current portfolio truth breaches canonical overlay thresholds',
+    review_handoff: {
+      handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      history_entry_id: 'monitor_definition_history_entry_abc12345',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence',
+    },
+  }
+  return {
+    items: [row],
+    metadata: {
+      contract_version: 'monitor_definition_alert_history_queue_v1',
+      provenance: 'persisted_monitor_definitions_with_canonical_latest_snapshot_and_evaluation_history',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry_with_latest_snapshot_precedence',
+      source_precedence: 'persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries',
+      ordering: 'newest_first_evaluated_at_then_latest_snapshot_precedence_then_monitor_definition_id_then_history_entry_id',
+      returned_limit: 20,
+      total_queue_rows: 1,
+    },
+    ...overrides,
+  }
+}
+
+function makeAlertReviewTimelinePayload(overrides: Record<string, unknown> = {}) {
+  return {
+    items: [
+      {
+        ...makeLatestObservationInboxPayload().items[0],
+        event_kind: 'latest_observation_event' as const,
+        event_semantics: 'observation_rooted' as const,
+        thresholds: makeObservationOpenPayload().thresholds,
+        benchmark_observation: makeObservationOpenPayload().benchmark_observation,
+        portfolio_observation: makeObservationOpenPayload().portfolio_observation,
+        active_observation: makeObservationOpenPayload().active_observation,
+        metadata: {
+          metadata_truth: 'authoritative_persisted_artifact_metadata',
+          row_provenance: 'persisted_monitor_definition_observation_artifact',
+        },
+      },
+      {
+        ...makeAlertHistoryQueuePayload().items[0],
+        event_kind: 'evaluation_history_event' as const,
+        event_semantics: 'history_entry_rooted' as const,
+        thresholds: makeEvaluationHistoryEntryPayload().item.thresholds,
+        benchmark_observation: makeEvaluationHistoryEntryPayload().item.benchmark_observation,
+        portfolio_observation: makeEvaluationHistoryEntryPayload().item.portfolio_observation,
+        active_observation: makeEvaluationHistoryEntryPayload().item.active_observation,
+        metadata: {
+          metadata_truth: 'authoritative_persisted_artifact_metadata',
+          row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+        },
+      },
+    ],
+    metadata: {
+      contract_version: 'monitor_definition_alert_review_timeline_v1',
+      provenance: 'canonical_latest_observation_artifact_and_append_only_evaluation_history_entries',
+      ordering: 'newest_first_evaluated_at_then_observation_event_then_history_entry_id',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      observation_row_provenance: 'persisted_monitor_definition_observation_artifact',
+      history_row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      source_precedence: 'persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection',
+      latest_alert_episode: {
+        contract_version: 'monitor_definition_alert_episode_v1',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        episode_id: 'monitor_definition_alert_episode_abc12345def67890',
+        episode_status: 'active',
+        started_at: '2026-04-21T09:30:00Z',
+        ended_at: null,
+        hysteresis_transition: 'open',
+        source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+        latest_contributing_observation: {
+          observation_id: 'monitor_definition_observation_abc12345',
+          evaluated_at: '2026-04-21T09:30:00Z',
+          observation_status: 'threshold_breach',
+          cause_code: null,
+          alert_classification: 'action_required',
+        },
+        recovery_basis: null,
+      },
+      total_rows: 2,
+      observation_rows: 1,
+      history_rows: 1,
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineResponse
+}
+
+function makeRecoveredAlertReviewQueuePayload(overrides: Record<string, unknown> = {}) {
+  const row = {
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    observation_id: 'monitor_definition_observation_abc12345',
+    latest_history_entry_id: 'monitor_definition_history_entry_latest_info',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'ok',
+    cause_code: null,
+    alert_classification: 'informational',
+    hysteresis_transition: 'recover',
+    recency_status: 'recent',
+    reason: 'latest persisted observation recovered to informational state',
+    alert_episode: {
+      contract_version: 'monitor_definition_alert_episode_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      episode_id: 'monitor_definition_alert_episode_abc12345def67890',
+      episode_status: 'recovered',
+      started_at: '2026-04-20T09:30:00Z',
+      ended_at: '2026-04-21T09:30:00Z',
+      hysteresis_transition: 'recover',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      latest_contributing_observation: {
+        observation_id: 'monitor_definition_observation_abc12345',
+        evaluated_at: '2026-04-21T09:30:00Z',
+        observation_status: 'ok',
+        cause_code: null,
+        alert_classification: 'informational',
+      },
+      recovery_basis: {
+        recovered_from_history_entry_id: 'monitor_definition_history_entry_alert',
+        recovered_from_evaluated_at: '2026-04-20T09:30:00Z',
+        recovered_from_outcome_status: 'threshold_breach',
+        recovered_from_cause_code: null,
+        recovered_from_significance_status: 'action_required',
+      },
+    },
+    recovered_from: {
+      history_entry_id: 'monitor_definition_history_entry_alert',
+      evaluated_at: '2026-04-20T09:30:00Z',
+      outcome_status: 'threshold_breach',
+      cause_code: null,
+      significance_status: 'action_required',
+      reason: 'prior persisted alert state',
+    },
+    timeline_handoff: {
+      handoff_kind: 'monitor_definition_alert_review_timeline_open_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      selected_event_kind: 'latest_observation_event',
+      observation_id: 'monitor_definition_observation_abc12345',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage',
+    },
+  }
+  return {
+    items: [row],
+    metadata: {
+      contract_version: 'monitor_definition_recovered_alert_review_queue_v1',
+      provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage',
+      row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage',
+      source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_prior_alert_history_entries',
+      ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id',
+      returned_limit: 20,
+      total_queue_rows: 1,
+    },
+    ...overrides,
+  }
+}
+
+function makeAlertEpisodeHistoryPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    items: [
+      {
+        schema_version: 'monitor_definition_alert_episode_record_v1',
+        episode_id: 'monitor_definition_alert_episode_latest',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        monitor_definition_fingerprint: 'f'.repeat(64),
+        monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+        monitor_id: 'benchmark_trend_overlay_v1',
+        benchmark_symbol: 'SPY',
+        lifecycle_status: 'recovered',
+        latest_for_monitor_definition: true,
+        started_at: '2026-04-20T09:30:00Z',
+        ended_at: '2026-04-21T09:30:00Z',
+        latest_event_at: '2026-04-21T09:30:00Z',
+        hysteresis_transition: 'recover',
+        source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+        latest_contributing_observation: {
+          observation_id: 'monitor_definition_observation_abc12345',
+          evaluated_at: '2026-04-21T09:30:00Z',
+          observation_status: 'ok',
+          cause_code: null,
+          alert_classification: 'informational',
+        },
+        recovery_basis: {
+          recovered_from_history_entry_id: 'monitor_definition_history_entry_abc12345',
+          recovered_from_evaluated_at: '2026-04-20T09:30:00Z',
+          recovered_from_outcome_status: 'threshold_breach',
+          recovered_from_cause_code: null,
+          recovered_from_significance_status: 'action_required',
+        },
+        terminal_history_entry_id: 'monitor_definition_history_entry_latest_info',
+        timeline_handoff: {
+          handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+          monitor_definition_id: 'monitor_definition_abc12345def67890',
+          selected_event_kind: 'latest_observation_event',
+          observation_id: 'monitor_definition_observation_abc12345',
+          history_entry_id: null,
+          monitor_id: 'benchmark_trend_overlay_v1',
+          benchmark_symbol: 'SPY',
+        },
+        metadata: {
+          history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+          row_provenance: 'persisted_monitor_definition_alert_episode_record',
+        },
+      },
+      {
+        schema_version: 'monitor_definition_alert_episode_record_v1',
+        episode_id: 'monitor_definition_alert_episode_closed',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        monitor_definition_fingerprint: 'f'.repeat(64),
+        monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+        monitor_id: 'benchmark_trend_overlay_v1',
+        benchmark_symbol: 'SPY',
+        lifecycle_status: 'closed',
+        latest_for_monitor_definition: false,
+        started_at: '2026-04-18T09:30:00Z',
+        ended_at: '2026-04-19T09:30:00Z',
+        latest_event_at: '2026-04-19T09:30:00Z',
+        hysteresis_transition: 'recover',
+        source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+        latest_contributing_observation: {
+          observation_id: 'monitor_definition_observation_closed',
+          evaluated_at: '2026-04-19T09:30:00Z',
+          observation_status: 'threshold_breach',
+          cause_code: null,
+          alert_classification: 'action_required',
+        },
+        recovery_basis: {
+          recovered_from_history_entry_id: 'monitor_definition_history_entry_closed',
+          recovered_from_evaluated_at: '2026-04-19T09:30:00Z',
+          recovered_from_outcome_status: 'threshold_breach',
+          recovered_from_cause_code: null,
+          recovered_from_significance_status: 'action_required',
+        },
+        terminal_history_entry_id: 'monitor_definition_history_entry_closed',
+        timeline_handoff: {
+          handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+          monitor_definition_id: 'monitor_definition_abc12345def67890',
+          selected_event_kind: 'evaluation_history_event',
+          observation_id: null,
+          history_entry_id: 'monitor_definition_history_entry_closed',
+          monitor_id: 'benchmark_trend_overlay_v1',
+          benchmark_symbol: 'SPY',
+        },
+        metadata: {
+          history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+          row_provenance: 'persisted_monitor_definition_alert_episode_record',
+        },
+      },
+    ],
+    metadata: {
+      contract_version: 'monitor_definition_alert_episode_history_v1',
+      history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      ordering: 'newest_first_latest_event_at_then_episode_id',
+      windowing: 'before_episode_id_exclusive',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      returned_limit: 20,
+      requested_before_episode_id: null,
+      next_before_episode_id: null,
+      total_episodes: 2,
+    },
+    ...overrides,
+  }
+}
+
+function makeActiveAlertEpisodeInboxPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    items: [
+      {
+        review_scope: 'current_portfolio_truth_only',
+        evaluation_mode: 'review_only_observation_evaluation',
+        alert_episode: {
+          ...makeAlertEpisodeHistoryPayload().items[0],
+          lifecycle_status: 'open',
+          latest_for_monitor_definition: true,
+          ended_at: null,
+          recovery_basis: null,
+          hysteresis_transition: 'remain_open',
+          source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+          latest_contributing_observation: {
+            observation_id: 'monitor_definition_observation_abc12345',
+            evaluated_at: '2026-04-21T09:30:00Z',
+            observation_status: 'threshold_breach',
+            cause_code: null,
+            alert_classification: 'action_required',
+          },
+          timeline_handoff: {
+            handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+            monitor_definition_id: 'monitor_definition_abc12345def67890',
+            selected_event_kind: 'latest_observation_event',
+            observation_id: 'monitor_definition_observation_abc12345',
+            history_entry_id: null,
+            monitor_id: 'benchmark_trend_overlay_v1',
+            benchmark_symbol: 'SPY',
+          },
+        },
+        metadata: {
+          metadata_truth: 'authoritative_persisted_artifact_metadata',
+          row_provenance: 'persisted_monitor_definition_alert_episode_record',
+        },
+      },
+    ],
+    metadata: {
+      contract_version: 'monitor_definition_active_alert_episode_inbox_v1',
+      provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id',
+      windowing: 'before_episode_id_exclusive',
+      returned_limit: 20,
+      requested_before_episode_id: null,
+      next_before_episode_id: null,
+      total_active_episodes: 1,
+    },
+    ...overrides,
+  }
+}
+
+function makeEvaluationHistoryEntryPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    item: {
+      schema_version: 'monitor_definition_evaluation_history_entry_v1',
+      history_entry_id: 'monitor_definition_history_entry_abc12345',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+      evaluation_mode: 'review_only_observation_evaluation',
+      evaluated_at: '2026-04-21T09:30:00Z',
+      observation_status: 'threshold_breach',
+      cause_code: null,
+      significance_status: 'action_required',
+      hysteresis_transition: 'open',
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      reason: 'current portfolio truth breaches canonical overlay thresholds',
+      thresholds: {
+        minimum_confirmation_count: 2,
+        risk_on_min_risky_weight: 0.95,
+        risk_on_max_cash_weight: 0.05,
+        risk_reduced_max_risky_weight: 0.35,
+        risk_reduced_min_cash_weight: 0.65,
+      },
+      benchmark_observation: {
+        overlay_id: 'benchmark_trend_overlay_v1',
+        status: 'risk_reduced',
+        as_of_month_end: '2024-12-31',
+        benchmark_symbol: 'SPY',
+        signal_basis: '10_month_sma_month_end',
+        confirmation_count: 2,
+        rule_version: 'v1',
+        source_lineage: {
+          source_kind: 'benchmark_overlay_signal',
+          source_id: 'overlay-signal-2024-12-31',
+          observed_at: '2025-01-02T09:30:00Z',
+        },
+      },
+      portfolio_observation: {
+        total_portfolio_value: 685,
+        risky_value: 35,
+        cash_value: 650,
+        risky_weight: 0.05109489,
+        cash_weight: 0.94890511,
+        position_count: 2,
+        source_lineage: {
+          truth_basis: 'imported_portfolio_snapshot',
+          importer: 'interactive_brokers',
+          imported_at: '2024-04-15T09:30:00Z',
+          statement_period: '2024-04',
+          source_paths: ['IB2024.pdf'],
+        },
+      },
+      active_observation: {
+        required_overlay_status: 'risk_reduced',
+        threshold_evaluation_performed: true,
+        required_min_risky_weight: null,
+        required_max_risky_weight: 0.35,
+        required_min_cash_weight: 0.65,
+        required_max_cash_weight: null,
+        actual_risky_weight: 0.05109489,
+        actual_cash_weight: 0.94890511,
+        risky_weight_gap: -0.29890511,
+        cash_weight_gap: 0.29890511,
+        triggered_thresholds: [],
+      },
+      metadata: {
+        history_truth: 'authoritative_persisted_monitor_definition_evaluation_history',
+        row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      },
+    },
+    metadata: {
+      contract_version: 'monitor_definition_evaluation_history_v1',
+      history_truth: 'authoritative_persisted_monitor_definition_evaluation_history',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      inspection_order: 'newest_first_evaluated_at',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      returned_limit: 20,
+      total_entries: 1,
+      retrieved_history_entry_id: 'monitor_definition_history_entry_abc12345',
+    },
+    ...overrides,
+  }
+}
+
+function makeObservationOpenPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: 'monitor_definition_observation_artifact_v1',
+    observation_id: 'monitor_definition_observation_abc12345',
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'threshold_breach',
+    cause_code: null,
+    alert_classification: 'action_required',
+    hysteresis_transition: 'open',
+    source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry',
+    reason: 'current portfolio truth breaches canonical overlay thresholds',
+    thresholds: {
+      minimum_confirmation_count: 2,
+      risk_on_min_risky_weight: 0.95,
+      risk_on_max_cash_weight: 0.05,
+      risk_reduced_max_risky_weight: 0.35,
+      risk_reduced_min_cash_weight: 0.65,
+    },
+    benchmark_observation: {
+      overlay_id: 'benchmark_trend_overlay_v1',
+      status: 'risk_reduced',
+      as_of_month_end: '2024-12-31',
+      benchmark_symbol: 'SPY',
+      signal_basis: '10_month_sma_month_end',
+      confirmation_count: 2,
+      rule_version: 'v1',
+      source_lineage: {
+        source_kind: 'benchmark_overlay_signal',
+        source_id: 'overlay-signal-2024-12-31',
+        observed_at: '2025-01-02T09:30:00Z',
+      },
+    },
+    portfolio_observation: {
+      total_portfolio_value: 685,
+      risky_value: 35,
+      cash_value: 650,
+      risky_weight: 0.05109489,
+      cash_weight: 0.94890511,
+      position_count: 2,
+      source_lineage: {
+        truth_basis: 'imported_portfolio_snapshot',
+        importer: 'interactive_brokers',
+        imported_at: '2024-04-15T09:30:00Z',
+        statement_period: '2024-04',
+        source_paths: ['IB2024.pdf'],
+      },
+    },
+    active_observation: {
+      required_overlay_status: 'risk_reduced',
+      threshold_evaluation_performed: true,
+      required_min_risky_weight: null,
+      required_max_risky_weight: 0.35,
+      required_min_cash_weight: 0.65,
+      required_max_cash_weight: null,
+      actual_risky_weight: 0.05109489,
+      actual_cash_weight: 0.94890511,
+      risky_weight_gap: -0.29890511,
+      cash_weight_gap: 0.29890511,
+      triggered_thresholds: [],
+    },
+    ...overrides,
+  }
 }
 
 function installWorkspaceReviewFetchMock(reviewSnapshotArtifact?: ReviewSnapshotArtifact) {
@@ -1722,6 +2287,548 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([])
   })
 
+  it('loads the authoritative timeline from monitoring handoff and opens persisted observation review by timeline ids only', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload())
+      if (pathname === '/api/backtests/monitor-definitions/recent' && method === 'GET') return jsonResponse({ items: [{ monitor_definition_id: 'monitor_definition_abc12345def67890', monitor_id: 'benchmark_trend_overlay_v1' }], metadata: {} })
+      if (pathname === '/api/backtests/portfolio-allocation' && method === 'POST') return jsonResponse(allocationBacktestPayload)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') return jsonResponse(makeAlertReviewTimelinePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    fireEvent.change(input, { target: { files: [file2025] } })
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
+    fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review In Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Review In Workspace' }))
+    await waitFor(() => expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_observation_abc12345')).toBeTruthy())
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/backtests/monitor-definitions/latest-observation-alert-inbox?limit=20')
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation')
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline')
+  })
+
+  it('fails closed when persisted observation open payload mismatches the selected timeline row', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload())
+      if (pathname === '/api/backtests/monitor-definitions/recent' && method === 'GET') return jsonResponse({ items: [{ monitor_definition_id: 'monitor_definition_abc12345def67890', monitor_id: 'benchmark_trend_overlay_v1' }], metadata: {} })
+      if (pathname === '/api/backtests/portfolio-allocation' && method === 'POST') return jsonResponse(allocationBacktestPayload)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') return jsonResponse(makeAlertReviewTimelinePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload({ observation_id: 'monitor_definition_observation_other' }))
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    fireEvent.change(input, { target: { files: [file2025] } })
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
+    fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review In Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Review In Workspace' }))
+    await waitFor(() => expect(screen.getByText('Unable to open timeline observation review: persisted observation observation_id does not match selected timeline observation event')).toBeTruthy())
+  })
+
+  it('loads the authoritative timeline from monitoring handoff and opens persisted history review by timeline ids only', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload())
+      if (pathname === '/api/backtests/monitor-definitions/recent' && method === 'GET') return jsonResponse({ items: [{ monitor_definition_id: 'monitor_definition_abc12345def67890', monitor_id: 'benchmark_trend_overlay_v1' }], metadata: {} })
+      if (pathname === '/api/backtests/portfolio-allocation' && method === 'POST') return jsonResponse(allocationBacktestPayload)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') return jsonResponse(makeAlertReviewTimelinePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/evaluation-history/monitor_definition_history_entry_abc12345' && method === 'GET') return jsonResponse(makeEvaluationHistoryEntryPayload())
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    fireEvent.change(input, { target: { files: [file2025] } })
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
+    fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review In Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Review In Workspace' }))
+    await waitFor(() => expect(screen.getByText('Open history review')).toBeTruthy())
+    fireEvent.click(screen.getByText('Open history review'))
+    await waitFor(() => expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_history_entry_abc12345')).toBeTruthy())
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/evaluation-history/monitor_definition_history_entry_abc12345')
+  })
+
+  it('fails closed when persisted history open payload mismatches the selected timeline row', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload())
+      if (pathname === '/api/backtests/monitor-definitions/recent' && method === 'GET') return jsonResponse({ items: [{ monitor_definition_id: 'monitor_definition_abc12345def67890', monitor_id: 'benchmark_trend_overlay_v1' }], metadata: {} })
+      if (pathname === '/api/backtests/portfolio-allocation' && method === 'POST') return jsonResponse(allocationBacktestPayload)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') return jsonResponse(makeAlertReviewTimelinePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/evaluation-history/monitor_definition_history_entry_abc12345' && method === 'GET') return jsonResponse(makeEvaluationHistoryEntryPayload({ item: { ...makeEvaluationHistoryEntryPayload().item, history_entry_id: 'monitor_definition_history_entry_other' } }))
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    fireEvent.change(input, { target: { files: [file2025] } })
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
+    fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review In Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Review In Workspace' }))
+    await waitFor(() => expect(screen.getByText('Open history review')).toBeTruthy())
+    fireEvent.click(screen.getByText('Open history review'))
+    await waitFor(() => expect(screen.getByText('Unable to open timeline history review: persisted history entry history_entry_id does not match selected timeline history event')).toBeTruthy())
+  })
+
+  it('loads the shipped alert review timeline payload directly and reopens both review surfaces by authoritative ids only', async () => {
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') return jsonResponse(makeAlertReviewTimelinePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/evaluation-history/monitor_definition_history_entry_abc12345' && method === 'GET') return jsonResponse(makeEvaluationHistoryEntryPayload())
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    const timeline = await loadMonitorDefinitionAlertReviewTimeline('monitor_definition_abc12345def67890')
+    expect(timeline).toEqual(makeAlertReviewTimelinePayload())
+    const observationRow = timeline.items[0] as Parameters<typeof openLatestObservationFromTimelineRow>[0]
+    const historyRow = timeline.items[1] as Parameters<typeof openAlertHistoryReviewFromTimelineRow>[0]
+    expect(observationRow.open_handoff.observation_id).toBe('monitor_definition_observation_abc12345')
+    expect(historyRow.review_handoff.history_entry_id).toBe('monitor_definition_history_entry_abc12345')
+
+    const observationSetState = vi.fn()
+    await openLatestObservationFromTimelineRow(observationRow, observationSetState)
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation')
+
+    const historySetState = vi.fn()
+    await openAlertHistoryReviewFromTimelineRow(historyRow, historySetState)
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/evaluation-history/monitor_definition_history_entry_abc12345')
+  })
+
+  it('fails closed on unsupported alert episode contract state in timeline payloads', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') {
+        return jsonResponse(makeAlertReviewTimelinePayload({
+          metadata: Object.assign({}, makeAlertReviewTimelinePayload().metadata, {
+            latest_alert_episode: Object.assign({}, makeAlertReviewTimelinePayload().metadata.latest_alert_episode, {
+              episode_status: 'unsupported',
+            }),
+          }),
+        }))
+      }
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    await expect(loadMonitorDefinitionAlertReviewTimeline('monitor_definition_abc12345def67890')).rejects.toThrow(
+      'alert review timeline latest_alert_episode episode_status is unsupported',
+    )
+  })
+
+  it('loads the shipped recovered queue payload directly and reopens the authoritative timeline by persisted ids only', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload())
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    const queue = await loadMonitorDefinitionRecoveredAlertReviewQueue()
+    expect(queue).toEqual(makeRecoveredAlertReviewQueuePayload())
+
+    const beginNavigation = vi.fn().mockResolvedValue(undefined)
+    await reopenRecoveredAlertReviewRow(queue.items[0]!, beginNavigation)
+
+    expect(beginNavigation).toHaveBeenCalledWith({
+      monitorDefinitionId: 'monitor_definition_abc12345def67890',
+      selectedEvent: {
+        eventKind: 'latest_observation_event',
+        observationId: 'monitor_definition_observation_abc12345',
+      },
+    })
+  })
+
+  it('fails closed on unsupported alert episode contract state in recovered queue payloads', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') {
+        return jsonResponse(makeRecoveredAlertReviewQueuePayload({
+          items: [{
+            ...makeRecoveredAlertReviewQueuePayload().items[0],
+            alert_episode: {
+              ...makeRecoveredAlertReviewQueuePayload().items[0].alert_episode,
+              episode_status: 'active',
+            },
+          }],
+        }))
+      }
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    await expect(loadMonitorDefinitionRecoveredAlertReviewQueue()).rejects.toThrow(
+      'recovered alert review queue row alert_episode episode_status is unsupported',
+    )
+  })
+
+  it('accepts the shipped alert episode history payload directly for definition-scoped drill-in discovery', () => {
+    const payload = makeAlertEpisodeHistoryPayload()
+    expect(() => assertMonitorDefinitionAlertEpisodeHistoryResponse(payload, 'monitor_definition_abc12345def67890')).not.toThrow()
+    expect(payload.items[0].timeline_handoff.selected_event_kind).toBe('latest_observation_event')
+    expect(payload.items[1].timeline_handoff.selected_event_kind).toBe('evaluation_history_event')
+  })
+
+  it('accepts the shipped active alert episode inbox payload directly for discovery-only open episode rows', () => {
+    const payload = makeActiveAlertEpisodeInboxPayload()
+    expect(() => assertMonitorDefinitionActiveAlertEpisodeInboxResponse(payload)).not.toThrow()
+    expect(payload.items[0].alert_episode.timeline_handoff.selected_event_kind).toBe('latest_observation_event')
+    expect(payload.items[0].alert_episode.latest_contributing_observation.observation_id).toBe('monitor_definition_observation_abc12345')
+  })
+
+  it('fails closed on unsupported active alert episode inbox contract state', () => {
+    const payload = makeActiveAlertEpisodeInboxPayload({
+      items: [{
+        ...makeActiveAlertEpisodeInboxPayload().items[0],
+        alert_episode: {
+          ...makeActiveAlertEpisodeInboxPayload().items[0].alert_episode,
+          lifecycle_status: 'recovered',
+        },
+      }],
+    })
+
+    expect(() => assertMonitorDefinitionActiveAlertEpisodeInboxResponse(payload)).toThrow(
+      'active alert episode inbox row alert_episode lifecycle_status is unsupported',
+    )
+  })
+
+  it('fails closed on unsupported alert episode history contract state', () => {
+    const payload = makeAlertEpisodeHistoryPayload({
+      items: [{
+        ...makeAlertEpisodeHistoryPayload().items[0],
+        lifecycle_status: 'unsupported',
+      }],
+    })
+
+    expect(() => assertMonitorDefinitionAlertEpisodeHistoryResponse(payload, 'monitor_definition_abc12345def67890')).toThrow(
+      'alert episode history row lifecycle_status is unsupported',
+    )
+  })
+
+  it('renders the recovered queue from backend payloads and reopens the definition-scoped timeline by authoritative ids', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') return jsonResponse(makeAlertReviewTimelinePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Recovered Alert Review Queue')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reopen timeline review' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Reopen timeline review' }))
+
+    await waitFor(() => expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_observation_abc12345')).toBeTruthy())
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline')
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation')
+  })
+
+  it('restores cached definition-scoped review state from the authoritative timeline payload', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      activeNodeId: 'node-1',
+      activeDraftId: 'draft-1',
+      selectedExposureSnapshotId: 'draft',
+        monitorDefinitionAlertReview: {
+          source: 'definition_scoped_alert_review_timeline',
+          monitorDefinitionId: 'monitor_definition_abc12345def67890',
+          openedAt: '2026-04-10T00:00:00Z',
+        selectedEvent: {
+          eventKind: 'latest_observation_event',
+          observationId: 'monitor_definition_observation_abc12345',
+        },
+        cachedTimeline: makeAlertReviewTimelinePayload(),
+      },
+      lastOpenedAt: '2026-04-10T00:00:00Z',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_observation_abc12345')).toBeTruthy())
+  })
+
+  it('fails closed when definition-scoped alert review restore cannot build the exposure factor model', async () => {
+    const malformedDiagnosticsPayload = {
+      ...diagnosticsPayload,
+      statistical_factor_model: undefined,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      activeNodeId: 'node-1',
+      activeDraftId: 'draft-1',
+      selectedExposureSnapshotId: 'draft',
+      monitorDefinitionAlertReview: {
+        source: 'definition_scoped_alert_review_timeline',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+        openedAt: '2026-04-10T00:00:00Z',
+        selectedEvent: {
+          eventKind: 'latest_observation_event',
+          observationId: 'monitor_definition_observation_abc12345',
+        },
+        cachedTimeline: makeAlertReviewTimelinePayload(),
+      },
+      lastOpenedAt: '2026-04-10T00:00:00Z',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(malformedDiagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText((content) => content.includes('Unable to restore previous portfolio workspace: definition-scoped alert review analytics require authoritative exposure inputs'))).toBeTruthy())
+    expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(0)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/dashboard-history/run', 'POST')).toHaveLength(0)
+  })
+
+  it('fails closed when definition-scoped alert review restore receives invalid imported diagnostics inputs', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      activeNodeId: 'node-1',
+      activeDraftId: 'draft-1',
+      selectedExposureSnapshotId: 'draft',
+      monitorDefinitionAlertReview: {
+        source: 'definition_scoped_alert_review_timeline',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+        openedAt: '2026-04-10T00:00:00Z',
+        selectedEvent: {
+          eventKind: 'latest_observation_event',
+          observationId: 'monitor_definition_observation_abc12345',
+        },
+        cachedTimeline: makeAlertReviewTimelinePayload(),
+      },
+      lastOpenedAt: '2026-04-10T00:00:00Z',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse({ detail: 'authoritative imported diagnostics payload is malformed' }, 422)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText((content) => content.includes('Unable to restore previous portfolio workspace: definition-scoped alert review analytics require authoritative imported diagnostics and dashboard history inputs; authoritative imported diagnostics payload is malformed'))).toBeTruthy())
+    expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(0)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/dashboard-history/run', 'POST')).toHaveLength(0)
+  })
+
+  it('fails closed when definition-scoped alert review restore receives invalid imported dashboard history inputs', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      activeNodeId: 'node-1',
+      activeDraftId: 'draft-1',
+      selectedExposureSnapshotId: 'draft',
+      monitorDefinitionAlertReview: {
+        source: 'definition_scoped_alert_review_timeline',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+        openedAt: '2026-04-10T00:00:00Z',
+        selectedEvent: {
+          eventKind: 'latest_observation_event',
+          observationId: 'monitor_definition_observation_abc12345',
+        },
+        cachedTimeline: makeAlertReviewTimelinePayload(),
+      },
+      lastOpenedAt: '2026-04-10T00:00:00Z',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse({ detail: 'authoritative imported dashboard history payload is malformed' }, 422)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText((content) => content.includes('Unable to restore previous portfolio workspace: definition-scoped alert review analytics require authoritative imported diagnostics and dashboard history inputs; authoritative imported dashboard history payload is malformed'))).toBeTruthy())
+    expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(0)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/dashboard-history/run', 'POST')).toHaveLength(0)
+  })
+
+  it('preserves generic analytics fallback behavior outside definition-scoped alert review restore', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({
+      workspaceId: 'workspace-1',
+      activeNodeId: 'node-1',
+      activeDraftId: 'draft-1',
+      selectedExposureSnapshotId: 'draft',
+      lastOpenedAt: '2026-04-10T00:00:00Z',
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse({ detail: 'authoritative imported diagnostics payload is malformed' }, 422)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse({ detail: 'authoritative imported dashboard history payload is malformed' }, 422)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    expect(screen.queryByText(/^Unable to restore previous portfolio workspace/)).toBeNull()
+    expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run-imported', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/dashboard-history/run-imported', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/dashboard-history/run', 'POST')).toHaveLength(1)
+  })
+
+  it('fails closed when the monitoring handoff reaches workspace without a monitor definition id', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(mockImportedWorkspace())
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(allocationBacktestPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    fireEvent.change(input, { target: { files: [file2025] } })
+
+    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
+    fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Review In Workspace' })).toBeNull())
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/monitor-definitions/recovered-alert-review-queue', 'GET')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/monitor-definitions/recent', 'GET')).toHaveLength(1)
+  })
+
   it('adds a new imported snapshot node from Dashboard Add Statement', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     const importedWorkspace = mockImportedWorkspace()
@@ -1993,9 +3100,9 @@ describe('App', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ffBootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(ffExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(unavailableHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ffExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -2026,7 +3133,7 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -2891,9 +3998,9 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
 
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -2939,9 +4046,9 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
 
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(ff2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ff2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ff2026DashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ff2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -2966,9 +4073,9 @@ describe('App', () => {
     const saveRankingArtifactSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveIntentBoundSeededEtfReplacementRankingDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -2988,12 +4095,17 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
 
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(allocationBacktestPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/backtests/monitor-definitions/recent' && method === 'GET') return jsonResponse({ items: [{ monitor_definition_id: 'monitor_definition_abc12345def67890', monitor_id: 'benchmark_trend_overlay_v1' }], metadata: {} })
+      if (pathname === '/api/backtests/portfolio-allocation' && method === 'POST') return jsonResponse(allocationBacktestPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -3009,7 +4121,7 @@ describe('App', () => {
     expect(screen.getAllByText('$50000.00').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation', 'POST')).toHaveLength(1))
   })
 
   it('opens Workspace from Monitoring with a dismissible handoff banner', async () => {
@@ -3018,12 +4130,18 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(mockImportedWorkspace())
     vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
 
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(allocationBacktestPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/backtests/monitor-definitions/recent' && method === 'GET') return jsonResponse({ items: [{ monitor_definition_id: 'monitor_definition_abc12345def67890', monitor_id: 'benchmark_trend_overlay_v1' }], metadata: {} })
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      if (pathname === '/api/backtests/portfolio-allocation' && method === 'POST') return jsonResponse(allocationBacktestPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -3036,7 +4154,7 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
 
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation', 'POST')).toHaveLength(1))
 
     fireEvent.click(screen.getByRole('button', { name: 'Review In Workspace' }))
 
@@ -3223,7 +4341,7 @@ describe('App', () => {
       runnerUpCandidate: null,
     })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -3247,10 +4365,14 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getIntentBoundSeededEtfReplacementRankingDraft').mockRejectedValue(new Error('Persisted seeded ranking review cache is missing or invalid open handoff'))
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -3265,7 +4387,7 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockRejectedValue(new Error('IndexedDB unavailable'))
-    vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -3285,10 +4407,15 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockRejectedValue(new Error('Saved proposal is missing authoritative proposalSource'))
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -3406,7 +4533,7 @@ describe('App', () => {
       .mockResolvedValue(restoredReplacementIntent)
     const saveReplacementIntentSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveReplacementIntentDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -3498,9 +4625,9 @@ describe('App', () => {
     })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -3579,7 +4706,7 @@ describe('App', () => {
     })
     vi.spyOn(portfolioWorkspaceStorage, 'saveHypotheticalReplacementReplayDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -3650,7 +4777,6 @@ describe('App', () => {
 
     await waitFor(() => expect(saveProposalSpy).toHaveBeenCalledTimes(1))
     expect(saveReviewSnapshotArtifactSpy).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledTimes(5)
     expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots', 'POST')).toHaveLength(1)
     expect(saveReviewSnapshotArtifactSpy.mock.calls[0]?.[0]).toEqual({
       id: authoritativeSavedProposal.id,
@@ -3724,8 +4850,7 @@ describe('App', () => {
     fireEvent.click(screen.getAllByText('Save Proposal v1')[0])
 
     await waitFor(() => expect(saveProposalSpy).not.toHaveBeenCalled())
-    expect(fetchMock).toHaveBeenCalledTimes(4)
-    expect(requestPathname(fetchMock.mock.calls[3]?.[0] as RequestInfo | URL)).toBe('/api/backtests/review-snapshots')
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots', 'POST')).toHaveLength(1)
     expect(saveReviewSnapshotArtifactSpy).not.toHaveBeenCalled()
     expect(screen.getByText('Saved proposal replayProvenance construction_rule_id does not match reviewSnapshot replay_provenance')).toBeTruthy()
   })
@@ -3811,10 +4936,10 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getConstructionConstraintValidationArtifact').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal])
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -4222,7 +5347,7 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([proposal as any])
     vi.spyOn(portfolioWorkspaceStorage, 'buildReviewSnapshotOpenHandoffFromProposal').mockRejectedValue(new Error('Saved proposal cached reviewSnapshotPMSummary does not match persisted review snapshot artifact pm_summary'))
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -4236,7 +5361,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Viewing For Review' }))
 
     await waitFor(() => expect(screen.getByText('Saved proposal cached reviewSnapshotPMSummary does not match persisted review snapshot artifact pm_summary')).toBeTruthy())
-    expect(globalThis.fetch).toHaveBeenCalledTimes(4)
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/review-snapshots/open', 'POST')).toHaveLength(0)
   })
 
   it('fails closed when reopen response handoff kind is unsupported', async () => {
@@ -4317,9 +5442,9 @@ describe('App', () => {
     } as any)
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -4538,12 +5663,12 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
 
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(variantExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(variantExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -4665,9 +5790,9 @@ describe('App', () => {
     const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:05:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -4821,13 +5946,25 @@ describe('App', () => {
     const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
 
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(variantExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    let exposureCallCount = 0
+    let historyCallCount = 0
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') {
+        historyCallCount += 1
+        return jsonResponse(historyCallCount === 1
+          ? dashboardHistoryPayload
+          : { performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null })
+      }
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') {
+        exposureCallCount += 1
+        return jsonResponse(exposureCallCount === 1 ? exposurePayload : variantExposurePayload)
+      }
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -4867,12 +6004,12 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:13:00Z' })
 
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -4969,12 +6106,12 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
 
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
@@ -5092,9 +6229,9 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:10:00Z' })
 
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
 
     render(<App />)
 
