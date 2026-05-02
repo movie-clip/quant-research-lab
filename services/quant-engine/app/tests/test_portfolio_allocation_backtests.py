@@ -198,6 +198,8 @@ def _write_monitor_definition_observation(
     hysteresis_transition: str | None = None,
     benchmark_symbol: str = "SPY",
 ) -> None:
+    if hysteresis_transition is None:
+        hysteresis_transition = "no_op" if alert_classification == "informational" else "open"
     definition_payload = json.loads((tmp_path / f"{monitor_definition_id}.json").read_text(encoding="utf-8"))
     payload = {
         "schema_version": "monitor_definition_observation_artifact_v1",
@@ -285,6 +287,8 @@ def _write_monitor_definition_history_entry(
     benchmark_symbol: str = "SPY",
     reason: str | None = None,
 ) -> str:
+    if hysteresis_transition is None:
+        hysteresis_transition = "no_op" if significance_status == "informational" else "open"
     definition_payload = json.loads((tmp_path / f"{monitor_definition_id}.json").read_text(encoding="utf-8"))
     payload = {
         "schema_version": "monitor_definition_evaluation_history_entry_v1",
@@ -6869,6 +6873,7 @@ def test_list_monitor_definition_catalog_uses_persisted_artifact_metadata_only(t
                     "review_support_status": "review_supported",
                     "lifecycle_status": "enabled",
                 },
+                "status_source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot",
                 "latest_observation_status": "absent",
                 "latest_observation": None,
                 "latest_evaluation_snapshot_status": "absent",
@@ -6951,6 +6956,7 @@ def test_list_recent_monitor_definition_artifacts_uses_newest_persisted_artifact
                 "review_support_status": "review_supported",
                 "lifecycle_status": "enabled",
             },
+            "status_source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot",
             "latest_observation_status": "absent",
             "latest_observation": None,
             "latest_evaluation_snapshot_status": "absent",
@@ -7292,6 +7298,7 @@ def test_list_monitor_definition_catalog_reads_latest_status_from_snapshot_sidec
             "review_support_status": "review_supported",
             "lifecycle_status": "enabled",
         },
+        "status_source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot",
         "latest_observation_status": "present",
         "latest_observation": {
             "observation_id": latest_observation.observation_id,
@@ -7299,7 +7306,9 @@ def test_list_monitor_definition_catalog_reads_latest_status_from_snapshot_sidec
             "observation_status": "ok",
             "cause_code": None,
             "alert_classification": "informational",
+            "hysteresis_transition": "no_op",
             "recency_status": latest_observation.recency_status,
+            "source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
         },
         "latest_evaluation_snapshot_status": "absent",
         "latest_evaluation_snapshot": None,
@@ -7358,6 +7367,7 @@ def test_list_monitor_definition_latest_observation_alert_inbox_uses_latest_pers
         "contract_version": "monitor_definition_latest_observation_alert_inbox_v1",
         "provenance": "authoritative_persisted_monitor_definition_observations_only",
         "row_provenance": "persisted_monitor_definition_observation_artifact",
+        "source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
         "ordering": "newest_first_evaluated_at",
         "returned_limit": 10,
     }
@@ -7750,17 +7760,6 @@ def test_get_monitor_definition_alert_review_timeline_does_not_emit_recovered_ep
         benchmark_symbol=artifact.benchmark_symbol,
         reason="steady informational state",
     )
-    _write_monitor_definition_history_entry(
-        tmp_path,
-        artifact.monitor_definition_id,
-        evaluated_at="2026-04-20T09:30:00Z",
-        observation_status="threshold_breach",
-        cause_code=None,
-        significance_status="action_required",
-        hysteresis_transition="open",
-        benchmark_symbol=artifact.benchmark_symbol,
-        reason="older alert state",
-    )
 
     timeline = get_monitor_definition_alert_review_timeline(artifact.monitor_definition_id, store=store)
 
@@ -7805,17 +7804,6 @@ def test_list_monitor_definition_recovered_alert_review_queue_excludes_informati
         hysteresis_transition="no_op",
         benchmark_symbol=artifact.benchmark_symbol,
         reason="steady informational state",
-    )
-    _write_monitor_definition_history_entry(
-        tmp_path,
-        artifact.monitor_definition_id,
-        evaluated_at="2026-04-20T09:30:00Z",
-        observation_status="threshold_breach",
-        cause_code=None,
-        significance_status="action_required",
-        hysteresis_transition="open",
-        benchmark_symbol=artifact.benchmark_symbol,
-        reason="older alert state",
     )
 
     response = list_monitor_definition_recovered_alert_review_queue(limit=10, store=store)
@@ -8058,6 +8046,8 @@ def test_evaluate_monitor_definition_observation_persists_authoritative_latest_s
         "outcome_status": "threshold_breach",
         "cause_code": None,
         "significance_status": "action_required",
+        "hysteresis_transition": "open",
+        "source_precedence": "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact",
         "benchmark_observation_lineage": {
             "source_kind": "benchmark_overlay_signal",
             "source_id": "overlay-signal-2024-12-31",

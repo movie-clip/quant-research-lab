@@ -205,6 +205,7 @@ describe('MonitoringPanel', () => {
     ])
     expect(Object.keys(payload.items[0].metadata.status)).toEqual([
       'lifecycle',
+      'status_source_precedence',
       'latest_observation_status',
       'latest_observation',
       'latest_evaluation_snapshot_status',
@@ -215,6 +216,9 @@ describe('MonitoringPanel', () => {
       review_support_status: 'review_supported',
       lifecycle_status: 'enabled',
     })
+    expect(payload.items[0].metadata.status.status_source_precedence).toBe(
+      'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot',
+    )
     expect(payload.items[0].metadata.status.latest_evaluation_snapshot_status).toBe('present')
     expect(payload.items[0].metadata.status.latest_observation_status).toBe('present')
     expect(payload.items[0].metadata.status.latest_observation).toEqual({
@@ -223,14 +227,18 @@ describe('MonitoringPanel', () => {
       observation_status: 'threshold_breach',
       cause_code: null,
       alert_classification: 'action_required',
+      hysteresis_transition: 'open',
       recency_status: 'recent',
+      source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry',
     })
     expect(payload.items[0].metadata.status.latest_evaluation_snapshot).toEqual({
       evaluated_at: '2026-04-24T09:30:00Z',
       outcome_status: 'threshold_breach',
       cause_code: null,
       significance_status: 'action_required',
+      hysteresis_transition: 'open',
       recency_status: 'recent',
+      source_precedence: 'persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact',
     })
     expect(payload.metadata).toEqual({
       contract_version: 'monitor_definition_discovery_v1',
