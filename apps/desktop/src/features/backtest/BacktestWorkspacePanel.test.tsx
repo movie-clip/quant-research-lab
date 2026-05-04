@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { MonitoringResearchHandoff, PortfolioAllocationBacktestResponse } from '../portfolio/types'
 import type { MonitorDefinitionAlertReviewSessionState } from '../portfolio/workspaceTypes'
@@ -48,6 +48,10 @@ const monitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionSt
   alertHistory: { status: 'idle', row: null, entry: null, error: null },
 }
 
+afterEach(() => {
+  cleanup()
+})
+
 describe('BacktestWorkspacePanel', () => {
   it('renders a slim monitoring-origin banner with dismiss action', () => {
     const onDismiss = vi.fn()
@@ -86,6 +90,8 @@ describe('BacktestWorkspacePanel', () => {
         onConstructedCandidateArtifact={() => {}}
         onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
+        workspaceId="workspace-1"
+        workspaceShellActivationKey={0}
       />,
     )
 
@@ -131,10 +137,192 @@ describe('BacktestWorkspacePanel', () => {
         onConstructedCandidateArtifact={() => {}}
         onConstructionConstraintValidationArtifact={() => {}}
         onSelectedConstructionRuleChange={() => {}}
+        workspaceId="workspace-1"
+        workspaceShellActivationKey={0}
       />,
     )
 
-    expect(screen.getAllByText('Portfolio Research Workspace').length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy()
     expect(screen.queryByText('Portfolio improvement research')).toBeNull()
+  })
+
+  it('offers workspace-owned entrypoints for deeper research tools', () => {
+    render(
+      <BacktestWorkspacePanel
+        allocationBacktestResult={replay}
+        onAllocationBacktestResult={() => {}}
+        analysis={null}
+        draftSnapshot={null}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        workspaceSource={null}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={() => {}}
+        openedSavedProposalArtifactId={null}
+        monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
+        onReviewInResearch={() => {}}
+        onSaveProposal={() => {}}
+        onPromoteProposalToThesis={() => {}}
+        onClearActiveThesis={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+        workspaceId="workspace-1"
+        workspaceShellActivationKey={0}
+      />,
+    )
+
+    expect(screen.getAllByTestId('workspace-section-research-tools')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Backtest' }))
+
+    expect(screen.getByTestId('workspace-owned-research-session')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Back To Workspace' })).toBeTruthy()
+    expect(screen.queryByTestId('workspace-section-research-tools')).toBeNull()
+  })
+
+  it('opens a requested compatibility-tab research intent inside the active workspace and consumes it', () => {
+    const onConsumeRequestedResearchTool = vi.fn()
+
+    render(
+      <BacktestWorkspacePanel
+        allocationBacktestResult={replay}
+        onAllocationBacktestResult={() => {}}
+        analysis={null}
+        draftSnapshot={null}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        workspaceSource={null}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={() => {}}
+        openedSavedProposalArtifactId={null}
+        monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
+        onReviewInResearch={() => {}}
+        onSaveProposal={() => {}}
+        onPromoteProposalToThesis={() => {}}
+        onClearActiveThesis={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+        workspaceId="workspace-1"
+        requestedResearchTool="strategy_lab"
+        onConsumeRequestedResearchTool={onConsumeRequestedResearchTool}
+        workspaceShellActivationKey={0}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Embedded Strategy Lab' })).toBeTruthy()
+    expect(onConsumeRequestedResearchTool).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows requested-tool no-workspace copy without opening a synthetic workspace', () => {
+    render(
+      <BacktestWorkspacePanel
+        allocationBacktestResult={replay}
+        onAllocationBacktestResult={() => {}}
+        analysis={null}
+        draftSnapshot={null}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        workspaceSource={null}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={() => {}}
+        openedSavedProposalArtifactId={null}
+        monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
+        onReviewInResearch={() => {}}
+        onSaveProposal={() => {}}
+        onPromoteProposalToThesis={() => {}}
+        onClearActiveThesis={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+        requestedResearchTool="backtest"
+      />,
+    )
+
+    expect(screen.getByTestId('workspace-research-intent-empty-state')).toBeTruthy()
+    expect(screen.getByText('No active workspace is open for Backtest.')).toBeTruthy()
+    expect(screen.queryByTestId('workspace-owned-research-session')).toBeNull()
+  })
+
+  it('persists embedded research session state while moving in and out of workspace-owned tools', () => {
+    render(
+      <BacktestWorkspacePanel
+        allocationBacktestResult={replay}
+        onAllocationBacktestResult={() => {}}
+        analysis={null}
+        draftSnapshot={null}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        workspaceSource={null}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={() => {}}
+        openedSavedProposalArtifactId={null}
+        monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
+        onReviewInResearch={() => {}}
+        onSaveProposal={() => {}}
+        onPromoteProposalToThesis={() => {}}
+        onClearActiveThesis={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+        workspaceId="workspace-1"
+        workspaceShellActivationKey={0}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Backtest' }))
+    fireEvent.change(screen.getByDisplayValue('ES,NQ,CL'), { target: { value: 'RTY' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
+
+    expect(screen.getByTestId('workspace-section-research-tools')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Backtest' }))
+
+    expect(screen.getByDisplayValue('RTY')).toBeTruthy()
   })
 })

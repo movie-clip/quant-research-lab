@@ -2,7 +2,7 @@ import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStor
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
 import type { ConstructionArtifactReplayResponse, ImportedPortfolioSnapshotSource, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse } from '../features/portfolio/types'
-import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewWorkspaceState, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ProposalSourceLabel, ReplacementIntentDraftArtifact, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenHandoff, ReviewSnapshotOpenResponse, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
+import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewWorkspaceState, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ProposalSourceLabel, ReplacementIntentDraftArtifact, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenHandoff, ReviewSnapshotOpenResponse, ReviewSnapshotPMSummaryEnvelope, SavedProposalReviewSnapshotPMSummaryMirror, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
 
@@ -214,7 +214,54 @@ export function assertSavedProposalArtifactProposalSourceIntegrity(proposal: Ver
   return proposal
 }
 
-function buildSavedProposalReviewSnapshotPMSummary(proposal: VersionedProposalArtifact) {
+function buildSavedProposalPMSummaryMethodology(methodology: string, methodologyProvenance: ConstructionArtifactReplayResponse['replay']['methodology_provenance']) {
+  return {
+    methodology,
+    ...(methodologyProvenance ? { methodology_provenance: methodologyProvenance } : {}),
+  }
+}
+
+function requireSavedProposalMirrorMethodologyProvenance(
+  methodologyProvenance: ConstructionArtifactReplayResponse['replay']['methodology_provenance'],
+): NonNullable<ConstructionArtifactReplayResponse['replay']['methodology_provenance']> {
+  if (!methodologyProvenance) {
+    throw new Error('Saved proposal reviewSnapshotPMSummary analytics_summary baseline_analytics methodology_provenance is invalid')
+  }
+
+  return methodologyProvenance
+}
+
+function buildSavedProposalPMSummaryAnalytics(input: {
+  methodology: string
+  methodologyProvenance: ConstructionArtifactReplayResponse['replay']['methodology_provenance']
+  assumptions: ConstructionArtifactReplayResponse['replay']['candidate_result']['assumptions']
+  benchmarkSymbol: string | null
+  metrics: ConstructionArtifactReplayResponse['replay']['candidate_result']['metrics']
+}): SavedProposalReviewSnapshotPMSummaryMirror['analytics_summary']['candidate_analytics'] {
+  return {
+    methodology: input.methodology,
+    ...(input.methodologyProvenance ? { methodology_provenance: input.methodologyProvenance } : {}),
+    assumptions: input.assumptions,
+    benchmark_symbol: input.benchmarkSymbol,
+    benchmark_return_pct: input.metrics.benchmark_return_pct,
+    total_return_pct: input.metrics.total_return_pct,
+    annualized_return_pct: input.metrics.annualized_return_pct,
+    annualized_volatility_pct: input.metrics.annualized_volatility_pct,
+    downside_volatility_pct: input.metrics.downside_volatility_pct,
+    max_drawdown_pct: input.metrics.max_drawdown_pct,
+    sharpe_ratio: input.metrics.sharpe_ratio,
+    sortino_ratio: input.metrics.sortino_ratio,
+    excess_return_pct: input.metrics.excess_return_pct,
+    tracking_error_pct: input.metrics.tracking_error_pct,
+    information_ratio: input.metrics.information_ratio,
+    beta_vs_benchmark: input.metrics.beta_vs_benchmark,
+    correlation_vs_benchmark: input.metrics.correlation_vs_benchmark,
+    total_turnover_pct: input.metrics.total_turnover_pct,
+    total_cost_paid: input.metrics.total_cost_paid,
+  }
+}
+
+function buildSavedProposalReviewSnapshotPMSummary(proposal: VersionedProposalArtifact): SavedProposalReviewSnapshotPMSummaryMirror {
   const proposalReplay = 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay
   const proposalSource = proposal.reviewSnapshot.proposal.proposal_source ?? {
     proposal_source_version: proposal.proposalSource.proposalSourceVersion,
@@ -265,36 +312,22 @@ function buildSavedProposalReviewSnapshotPMSummary(proposal: VersionedProposalAr
       derivation_basis: proposal.replayBasis.derivationBasis,
       candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
     },
-    methodology: {
-      methodology: proposalReplay.methodology,
-      methodology_provenance: proposalReplay.methodology_provenance,
-    },
+    methodology: buildSavedProposalPMSummaryMethodology(
+      proposalReplay.methodology,
+      proposalReplay.methodology_provenance,
+    ),
     assumptions: proposalReplay.candidate_result.assumptions,
     analytics_summary: {
-      candidate_analytics: {
+      candidate_analytics: buildSavedProposalPMSummaryAnalytics({
         methodology: proposalReplay.methodology,
-        methodology_provenance: proposalReplay.methodology_provenance,
+        methodologyProvenance: proposalReplay.methodology_provenance,
         assumptions: proposalReplay.candidate_result.assumptions,
-        benchmark_symbol: proposalReplay.candidate_result.benchmark_symbol,
-        benchmark_return_pct: proposalReplay.candidate_result.metrics.benchmark_return_pct,
-        total_return_pct: proposalReplay.candidate_result.metrics.total_return_pct,
-        annualized_return_pct: proposalReplay.candidate_result.metrics.annualized_return_pct,
-        annualized_volatility_pct: proposalReplay.candidate_result.metrics.annualized_volatility_pct,
-        downside_volatility_pct: proposalReplay.candidate_result.metrics.downside_volatility_pct,
-        max_drawdown_pct: proposalReplay.candidate_result.metrics.max_drawdown_pct,
-        sharpe_ratio: proposalReplay.candidate_result.metrics.sharpe_ratio,
-        sortino_ratio: proposalReplay.candidate_result.metrics.sortino_ratio,
-        excess_return_pct: proposalReplay.candidate_result.metrics.excess_return_pct,
-        tracking_error_pct: proposalReplay.candidate_result.metrics.tracking_error_pct,
-        information_ratio: proposalReplay.candidate_result.metrics.information_ratio,
-        beta_vs_benchmark: proposalReplay.candidate_result.metrics.beta_vs_benchmark,
-        correlation_vs_benchmark: proposalReplay.candidate_result.metrics.correlation_vs_benchmark,
-        total_turnover_pct: proposalReplay.candidate_result.metrics.total_turnover_pct,
-        total_cost_paid: proposalReplay.candidate_result.metrics.total_cost_paid,
-      },
+        benchmarkSymbol: proposalReplay.candidate_result.benchmark_symbol,
+        metrics: proposalReplay.candidate_result.metrics,
+      }),
       baseline_analytics: proposalReplay.reference_result ? {
         methodology: proposalReplay.methodology,
-        methodology_provenance: proposalReplay.methodology_provenance,
+        methodology_provenance: requireSavedProposalMirrorMethodologyProvenance(proposalReplay.methodology_provenance),
         assumptions: proposalReplay.reference_result.assumptions,
         benchmark_symbol: proposalReplay.reference_result.benchmark_symbol,
         benchmark_return_pct: proposalReplay.reference_result.metrics.benchmark_return_pct,
@@ -402,13 +435,28 @@ function assertValidReviewSnapshotPMSummaryEnvelope(
   if (!candidate.methodology || typeof candidate.methodology !== 'object') {
     throw new Error(`${label} methodology is invalid`)
   }
-  if (!isNonEmptyString(candidate.methodology.methodology) || !candidate.methodology.methodology_provenance || typeof candidate.methodology.methodology_provenance !== 'object') {
+  const allowSavedProposalMirrorMethodologyProvenanceOmission = allowedRoles.length === 1 && allowedRoles[0] === 'saved_proposal'
+  if (
+    !isNonEmptyString(candidate.methodology.methodology)
+    || (allowSavedProposalMirrorMethodologyProvenanceOmission
+      ? (candidate.methodology.methodology_provenance != null && typeof candidate.methodology.methodology_provenance !== 'object')
+      : !candidate.methodology.methodology_provenance || typeof candidate.methodology.methodology_provenance !== 'object')
+  ) {
     throw new Error(`${label} methodology is invalid`)
   }
   if (!candidate.analytics_summary || typeof candidate.analytics_summary !== 'object') {
     throw new Error(`${label} analytics_summary is invalid`)
   }
   if (!candidate.analytics_summary.candidate_analytics || typeof candidate.analytics_summary.candidate_analytics !== 'object') {
+    throw new Error(`${label} analytics_summary candidate_analytics is invalid`)
+  }
+  if (
+    !isNonEmptyString(candidate.analytics_summary.candidate_analytics.methodology)
+    || (allowSavedProposalMirrorMethodologyProvenanceOmission
+      ? (candidate.analytics_summary.candidate_analytics.methodology_provenance != null
+        && typeof candidate.analytics_summary.candidate_analytics.methodology_provenance !== 'object')
+      : !candidate.analytics_summary.candidate_analytics.methodology_provenance || typeof candidate.analytics_summary.candidate_analytics.methodology_provenance !== 'object')
+  ) {
     throw new Error(`${label} analytics_summary candidate_analytics is invalid`)
   }
   if (!candidate.diagnostics_summary || typeof candidate.diagnostics_summary !== 'object') {
@@ -1007,7 +1055,10 @@ export function assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnv
   return response as ReviewSnapshotActiveThesisCrossFamilyQueueResponse
 }
 
-function assertSavedProposalArtifactReviewSnapshotIdentity(proposal: VersionedProposalArtifact, reviewSnapshotArtifact: ReviewSnapshotArtifact | null) {
+function assertSavedProposalArtifactReviewSnapshotIdentity(
+  proposal: VersionedProposalArtifact,
+  reviewSnapshotArtifact: ReviewSnapshotArtifact | null,
+) {
   if (!proposal.reviewSnapshotArtifactId) {
     throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
   }
@@ -1966,7 +2017,6 @@ export function buildSavedProposalArtifact(input: {
   reviewSnapshotPMSummary: ReviewSnapshotPMSummaryEnvelope
   hypotheticalReplay: VersionedProposalArtifact['reviewSnapshot']
 }): VersionedProposalArtifact {
-  const activeReplay = 'replay' in input.hypotheticalReplay ? input.hypotheticalReplay.replay : input.hypotheticalReplay.overlay_replay
   const proposalSource = input.proposalCapture.proposal.proposal_source
   return assertSavedProposalArtifactIntegrity({
     id: input.id,
@@ -2067,7 +2117,7 @@ export async function createWorkspaceFromImport(input: {
     workspaceId,
     activeNodeId: rootNodeId,
     activeDraftId: draftId,
-    selectedExposureSnapshotId: 'draft',
+    selectedExposureSnapshotId: rootNodeId,
     lastOpenedAt: importedAt,
   }
 

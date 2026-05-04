@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import * as portfolioWorkspaceStorage from '../../app/portfolioWorkspaceStorage'
 import { createImportedBaselineFixture } from '../../test/portfolioFixtures'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PersistedOptimizerHandoffReviewSection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 import type { HypotheticalReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
@@ -1351,6 +1352,35 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText(/portfolio truth: draft_snapshot_not_applied/)).toBeTruthy()
   })
 
+  it('renders saved proposal readout when PM-summary mirror omits optional methodology provenance fields', () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'assertSavedProposalArtifactIntegrity').mockImplementation((proposal) => proposal)
+    vi.spyOn(portfolioWorkspaceStorage, 'assertSavedProposalArtifactProposalSourceIntegrity').mockImplementation((proposal) => proposal)
+
+    const { methodology_provenance: _omittedMethodologyProvenance, ...candidateAnalyticsWithoutOptionalMirrorProvenance } =
+      savedProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics
+    void _omittedMethodologyProvenance
+
+    const savedProposalWithoutOptionalMirrorProvenance: VersionedProposalArtifact = {
+      ...savedProposal,
+      reviewSnapshotPMSummary: {
+        ...savedProposal.reviewSnapshotPMSummary,
+        methodology: {
+          methodology: savedProposal.reviewSnapshotPMSummary.methodology.methodology,
+        },
+        analytics_summary: {
+          ...savedProposal.reviewSnapshotPMSummary.analytics_summary,
+          candidate_analytics: candidateAnalyticsWithoutOptionalMirrorProvenance,
+        },
+      },
+    }
+
+    expect(() => render(<SavedProposalReadoutSection proposal={savedProposalWithoutOptionalMirrorProvenance} />)).not.toThrow()
+
+    expect(screen.getByText('Saved Proposal Review')).toBeTruthy()
+    expect(screen.getByText('Canonical PM Summary')).toBeTruthy()
+    expect(screen.getByText(/Methodology: m · methodology truth: review_only_replay_methodology/)).toBeTruthy()
+  })
+
   it('fails closed when saved proposal readout receives a conflicting present proposalSource', () => {
     const mismatchedNestedProposal = {
       ...savedProposal,
@@ -1455,4 +1485,5 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText(/Canonical source: typed_preview_handoff/)).toBeTruthy()
     expect(screen.getByText(/Methodology provenance: review_only_replay_methodology/)).toBeTruthy()
   })
+
 })

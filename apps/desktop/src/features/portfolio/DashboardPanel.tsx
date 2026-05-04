@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import type { DashboardAnalysis, DashboardRangeMetrics, ExposureAnalysis, ExposureFactorModelResponse, ImportedStatementImporter } from './types'
 import { investorEconomicsBaseReason } from './investorEconomics'
-import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
 import type { PortfolioSnapshot } from './workspaceTypes'
 
@@ -18,6 +17,15 @@ function formatMoney(value: number | null | undefined) {
 
 function formatNumber(value: number | null | undefined, digits = 2) {
   return value == null ? 'n/a' : value.toFixed(digits)
+}
+
+function formatWholePct(value: number | null | undefined) {
+  return value == null ? 'n/a' : `${Math.round(value)}%`
+}
+
+function formatSignedLoading(value: number | null | undefined) {
+  if (value == null) return 'n/a'
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}`
 }
 
 function formatRangeLabel(range: RangeOption) {
@@ -44,6 +52,10 @@ function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: s
   return `${statementCount > 1 ? 'Loaded statements' : 'Loaded file'}: ${loadedStatementsLabel}`
 }
 
+function isDesktopSafeMode() {
+  return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
+}
+
 function buildPerformanceEmptyState(status: string | null | undefined, range: RangeOption) {
   if (status === 'suppressed') {
     return {
@@ -66,6 +78,90 @@ function buildPerformanceEmptyState(status: string | null | undefined, range: Ra
 function formatBrokerLabel(importer: ImportedStatementImporter) {
   if (importer === 'multi_broker') return 'Multi-Broker'
   return importer === 'freedom24' ? 'Freedom24' : 'Interactive Brokers'
+}
+
+function describeDiversification(weight: number | null | undefined) {
+  if (weight == null) return 'still needs a diversification read'
+  if (weight >= 50) return 'looks highly concentrated'
+  if (weight >= 35) return 'shows meaningful concentration'
+  return 'looks reasonably diversified'
+}
+
+function describeBenchmarkReadiness(status: string | null | undefined, hasFactorModel: boolean) {
+  if (status === 'live' && hasFactorModel) return 'You can review benchmark-relative path, factor behavior, and allocation trade-offs from this import.'
+  if (status === 'live') return 'You can review benchmark-relative path and allocation trade-offs from this import.'
+  if (hasFactorModel) return 'You can review factor behavior and allocation trade-offs, but benchmark history is limited.'
+  return 'Start with the current holdings mix first; richer quant explanation becomes available when history and factor inputs are present.'
+}
+
+function buildNextStepCopy(input: {
+  topPosition: DashboardAnalysis['overview']['top_positions'][number] | null
+  topSector: DashboardAnalysis['overview']['sector_allocation'][number] | null
+  topPositionWeight: number | null | undefined
+  topSectorWeight: number | null | undefined
+}) {
+  if (input.topPosition && input.topPositionWeight != null && input.topPositionWeight >= 15) {
+    return `Start by reviewing ${input.topPosition.symbol}. One holding is carrying ${formatWholePct(input.topPositionWeight)} of portfolio value, so trimming that position is the clearest first diversification test.`
+  }
+  if (input.topSector && input.topSectorWeight != null && input.topSectorWeight >= 35) {
+    return `Start by reviewing your ${input.topSector.sector} exposure. That bucket is ${formatWholePct(input.topSectorWeight)} of the portfolio, so even a small rebalance there could improve diversification.`
+  }
+  if (input.topSector) {
+    return `Start by testing one small variant in ${input.topSector.sector}. Use the allocation editor to compare a cleaner sector mix without changing the whole portfolio at once.`
+  }
+  return 'Start by importing or restoring a portfolio, then use the allocation editor to test one simple diversification change.'
+}
+
+function sumCashBalances(cashByCurrency: Record<string, number> | null | undefined) {
+  if (!cashByCurrency) return 0
+  return Object.values(cashByCurrency).reduce((total, amount) => total + (Number.isFinite(amount) ? amount : 0), 0)
+}
+
+function buildPortfolioHealthSummary(input: {
+  topPosition: DashboardAnalysis['overview']['top_positions'][number] | null
+  topSector: DashboardAnalysis['overview']['sector_allocation'][number] | null
+  topPositionWeightPct: number | null
+  topSectorWeightPct: number | null
+  cashSharePct: number | null
+  hasQuantContext: boolean
+  hasPreviewAction: boolean
+}) {
+  let status: 'Healthy' | 'Watch' | 'Concentrated' = 'Healthy'
+  if ((input.topPositionWeightPct ?? 0) >= 20 || (input.topSectorWeightPct ?? 0) >= 45) {
+    status = 'Concentrated'
+  }
+  else if ((input.topPositionWeightPct ?? 0) >= 15 || (input.topSectorWeightPct ?? 0) >= 35 || (input.cashSharePct ?? 0) >= 15 || !input.hasQuantContext) {
+    status = 'Watch'
+  }
+
+  const reasons: string[] = []
+  if (input.topPosition && input.topPositionWeightPct != null && input.topPositionWeightPct >= 15) {
+    reasons.push(`One position is about ${formatWholePct(input.topPositionWeightPct)} of portfolio value.`)
+  }
+
+  if (input.topSector && input.topSectorWeightPct != null && (input.topSectorWeightPct >= 35 || reasons.length === 0)) {
+    reasons.push(`${input.topSector.sector} is the largest sector at about ${formatWholePct(input.topSectorWeightPct)}.`)
+  }
+
+  if (input.cashSharePct != null && input.cashSharePct >= 15) {
+    reasons.push(`Cash is about ${formatWholePct(input.cashSharePct)} of the account, so deployment still matters.`)
+  }
+
+  if (!input.hasQuantContext) {
+    reasons.push('Quant context is still light, so the validation handoff should wait for Exposure context.')
+  }
+  else if (reasons.length < 3) {
+    reasons.push('Quant context is available for validation in Exposure.')
+  }
+
+  return {
+    status,
+    reasons: reasons.slice(0, 3),
+    handoffState: input.hasPreviewAction ? 'Primary handoff' : 'Pending in this view',
+    handoffDetail: input.hasPreviewAction
+      ? 'Send the selected change to Exposure so the quant engineer can validate it.'
+      : 'Preview is unavailable here, but this remains the next quant-engineer handoff.',
+  }
 }
 
 function dashboardSourceLabel(status: string | undefined) {
@@ -312,6 +408,7 @@ type DashboardPanelProps = {
 }
 
 const DashboardPerformanceChart = lazy(async () => ({ default: (await import('./DashboardPerformanceChart')).DashboardPerformanceChart }))
+const RollingFactorLoadingsCard = lazy(async () => ({ default: (await import('./RollingFactorLoadingsCard')).RollingFactorLoadingsCard }))
 
 function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNames: string[]) {
   const statements = result?.snapshot?.statements ?? []
@@ -477,6 +574,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   const loadedStatementsLabel = formatLoadedStatements(result, lastImportedFileNames)
   const statementCount = statements.length || lastImportedFileNames.length
   const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
+  const desktopSafeMode = isDesktopSafeMode()
   const dashboardSourceSummary = result?.source_status?.performance_history ? dashboardSourceLabel(result.source_status.performance_history) : null
   const dashboardAuditLine = formatDashboardAuditLine(result)
   const dashboardReturnBasisRefusalLine = formatDashboardReturnBasisRefusalLine(result, selectedRangeMetrics)
@@ -510,6 +608,38 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   const visibleHistoryWindow = perf.length ? formatHistoryWindowLabel(perf[0]?.date ?? null, perf[perf.length - 1]?.date ?? null) : 'History window unavailable'
   const rangeMetricsStatusLabel = selectedRangeMetrics ? 'Range metrics live' : 'Range metrics unavailable'
   const workspaceStateLabel = draftStatus ? `Working draft ${draftStatus}` : activeNodeName ? `Viewing ${activeNodeName}` : 'Imported snapshot view'
+  const topPosition = result.overview.top_positions[0] ?? null
+  const topSector = result.overview.sector_allocation[0] ?? null
+  const topPositionWeight = exposureResult?.current_state_concentration.top_1_position_weight ?? topPosition?.weight ?? null
+  const topSectorWeight = exposureResult?.current_state_concentration.top_sector_weight ?? topSector?.weight ?? null
+  const diversificationRead = describeDiversification(topSectorWeight != null ? topSectorWeight * 100 : null)
+  const benchmarkRead = describeBenchmarkReadiness(result.source_status?.performance_history ?? null, factorModel != null)
+  const nextStepCopy = buildNextStepCopy({
+    topPosition,
+    topSector,
+    topPositionWeight: topPositionWeight != null ? topPositionWeight * 100 : null,
+    topSectorWeight: topSectorWeight != null ? topSectorWeight * 100 : null,
+  })
+  const totalCash = sumCashBalances(result.overview.cash_by_currency)
+  const cashDenominator = result.overview.total_market_value + totalCash
+  const cashSharePct = cashDenominator > 0 ? (totalCash / cashDenominator) * 100 : null
+  const hasQuantContext = result.source_status?.performance_history === 'live' || factorModel != null
+  const hasPreviewAction = Boolean(onPreviewExposure && nextDraftSnapshot)
+  const portfolioHealth = buildPortfolioHealthSummary({
+    topPosition,
+    topSector,
+    topPositionWeightPct: topPositionWeight != null ? topPositionWeight * 100 : null,
+    topSectorWeightPct: topSectorWeight != null ? topSectorWeight * 100 : null,
+    cashSharePct,
+    hasQuantContext,
+    hasPreviewAction,
+  })
+  const factorSnapshot = factorModel?.statistical_factor_model.current_factor_snapshot ?? []
+  const factorSnapshotRows = factorSnapshot.slice(0, 4)
+  const factorWindowSummary = factorModel?.statistical_factor_model.windows
+    .filter((item) => item.status === 'ok' || item.status === 'partial')
+    .map((item) => `${item.window_days}d ${item.status}`)
+    .join(' · ') ?? ''
 
   return (
     <article className="panel dashboard-panel">
@@ -551,7 +681,67 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
               <p className="summary-value">{workspaceStateLabel}</p>
               <p className="helper">Current imported view and editable draft status.</p>
             </div>
+        </div>
+      </section>
+
+      <section className="dashboard-guidance-strip" aria-label="Dashboard guidance">
+        <div className="section-header-inline dashboard-guidance-header">
+          <div className="dashboard-section-copy">
+            <h3>Start with what you own, then let quant explain what to improve.</h3>
+            <p className="helper">Review the current portfolio, confirm the health signals that matter for quant validation, then test one focused change.</p>
           </div>
+          <div className="dashboard-guidance-status-shell" aria-label={`Portfolio health ${portfolioHealth.status}`}>
+            <span className={`dashboard-health-status dashboard-health-status-${portfolioHealth.status.toLowerCase()}`}>{portfolioHealth.status}</span>
+            <span className="dashboard-guidance-status-text">Portfolio health</span>
+          </div>
+        </div>
+        <div className="dashboard-guidance-grid">
+          <div className="summary-card dashboard-guidance-card">
+            <p className="stat-label">Current portfolio read</p>
+            <p className="summary-value dashboard-guidance-value">{topSector?.sector ?? 'Portfolio overview'}</p>
+            <p className="helper">
+              {topSector
+                ? `${topSector.sector} is the largest sector at ${formatWholePct((topSectorWeight ?? topSector.weight ?? 0) * 100)} and the portfolio ${diversificationRead}.`
+                : 'Review the current holdings mix first to see where most of the capital sits.'}
+            </p>
+          </div>
+          <div className="summary-card dashboard-guidance-card">
+            <p className="stat-label">Quant and health readiness</p>
+            <p className="summary-value dashboard-guidance-value">{dashboardSourceSummary ?? 'Current-state read'}</p>
+            <p className="helper">{benchmarkRead}</p>
+            <ul className="dashboard-health-reasons">
+              {portfolioHealth.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="summary-card dashboard-guidance-card dashboard-guidance-card-accent">
+            <p className="stat-label">Next step and handoff</p>
+            <p className="summary-value dashboard-guidance-value">{topPosition?.symbol ?? topSector?.sector ?? 'Create one variant'}</p>
+            <p className="helper">{nextStepCopy}</p>
+            <ol className="dashboard-guidance-workflow-list">
+              <li className="dashboard-health-workflow-step">
+                <span className="dashboard-health-workflow-index">1</span>
+                <span className="dashboard-health-workflow-title">Review current holdings</span>
+              </li>
+              <li className="dashboard-health-workflow-step">
+                <span className="dashboard-health-workflow-index">2</span>
+                <span className="dashboard-health-workflow-title">Define one change to test</span>
+              </li>
+              <li className="dashboard-health-workflow-step dashboard-health-workflow-step-handoff">
+                <span className="dashboard-health-workflow-index">3</span>
+                <div className="dashboard-health-workflow-step-copy">
+                  <span className="dashboard-health-workflow-title">Validate in Exposure</span>
+                  <p className="helper dashboard-health-workflow-copy">{portfolioHealth.handoffDetail}</p>
+                  <div className="dashboard-health-handoff-row">
+                    <span className="backtest-source-badge dashboard-health-handoff-badge">{portfolioHealth.handoffState}</span>
+                    {hasPreviewAction ? <button className="secondary-button dashboard-health-preview" type="button" onClick={() => nextDraftSnapshot && onPreviewExposure?.(nextDraftSnapshot)}>Preview in Exposure</button> : null}
+                  </div>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
       </section>
 
       <section className="performance-section dashboard-performance-shell">
@@ -595,6 +785,18 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
             <p className="empty-state-title">{performanceEmptyState.title}</p>
             <p className="helper">{performanceEmptyState.detail}</p>
           </div>
+        ) : desktopSafeMode ? (
+          <div className="summary-card dashboard-guidance-card dashboard-guidance-card-accent">
+            <p className="stat-label">Desktop safe mode</p>
+            <p className="summary-value dashboard-guidance-value">Interactive chart disabled</p>
+            <p className="helper">Desktop safe mode keeps optional chart modules off under CSP while import, restore, and dashboard review remain available.</p>
+            <div className="dashboard-health-reasons">
+              <span>Range: {selectedRange}</span>
+              <span>Window: {visibleHistoryWindow}</span>
+              <span>Portfolio value: {formatMoney(displayedPortfolioValue)}</span>
+              <span>Benchmark: {benchmarkLabel} {showBenchmark ? 'enabled' : 'hidden'}</span>
+            </div>
+          </div>
         ) : (
           <>
             <Suspense fallback={<div className="line-chart-panel performance-chart-panel" />}>
@@ -609,7 +811,40 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
         )}
       </section>
 
-      <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
+      {desktopSafeMode ? (
+        factorModel && exposureResult ? (
+          <section className="dashboard-bottom-grid factor-master-detail-section">
+            <div className="section-header-inline sector-list-header">
+              <div><p className="panel-label">Rolling Factor Analysis</p></div>
+              <p className="helper">Desktop safe mode keeps optional chart modules disabled under CSP. Current factor snapshot remains available for dashboard review{factorWindowSummary ? ` · ${factorWindowSummary}` : ''}.</p>
+            </div>
+            <div className="factor-snapshot-meta-row">
+              <p className="helper">Methodology: {factorModel.methodology}</p>
+              <p className="helper">Benchmark: {factorModel.statistical_factor_model.benchmark_symbol ?? result.benchmark?.symbol ?? 'SPY'}</p>
+              <p className="helper">Model status: {factorModel.statistical_factor_model.status}</p>
+              <p className="helper">Snapshot factors: {factorSnapshot.length}</p>
+            </div>
+            <div className="sector-overview-grid unified-sector-grid">
+              {factorSnapshotRows.length ? factorSnapshotRows.map((factor) => (
+                <div className="summary-card dashboard-guidance-card" key={factor.key}>
+                  <p className="stat-label">{factor.category}</p>
+                  <p className="summary-value dashboard-guidance-value">{factor.label}</p>
+                  <p className="helper">Proxy {factor.us_proxy} · loading {formatSignedLoading(factor.latest_loading)}</p>
+                </div>
+              )) : (
+                <div className="empty-state-panel chart-empty-state">
+                  <p className="empty-state-title">No factor snapshot available.</p>
+                  <p className="helper">Historical factor charting stays disabled in desktop safe mode until a CSP-safe path is available.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null
+      ) : (
+        <Suspense fallback={null}>
+          <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
+        </Suspense>
+      )}
 
       <section className="dashboard-bottom-grid unified-sector-section">
         <div className="section-header-inline sector-list-header dashboard-edit-toolbar">

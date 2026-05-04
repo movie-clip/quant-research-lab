@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from typing import Literal, cast
 from pydantic import ValidationError
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactWorkspaceReviewBasis, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplayProposalSource, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionEvaluationHistoryEntryArtifact, MonitorDefinitionLatestEvaluationBenchmarkObservationLineage, MonitorDefinitionLatestEvaluationPortfolioTruthBasis, MonitorDefinitionLatestEvaluationSnapshotArtifact, MonitorDefinitionObservationArtifact, MonitorDefinitionObservationEvaluationResponse, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffWorkspaceReviewBasis, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotComparisonRequest, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotOpenHandoff, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse, WorkspaceReviewWindow
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactWorkspaceReviewBasis, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplayProposalSource, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionEvaluationHistoryEntryArtifact, MonitorDefinitionLatestEvaluationBenchmarkObservationLineage, MonitorDefinitionLatestEvaluationPortfolioTruthBasis, MonitorDefinitionLatestEvaluationSnapshotArtifact, MonitorDefinitionObservationArtifact, MonitorDefinitionObservationEvaluationResponse, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffWorkspaceReviewBasis, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotComparisonRequest, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotOpenHandoff, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse, WorkspaceReviewWindow
 from app.schemas.optimizer import OptimizationRequest, OptimizerAlphaFundamentalSnapshot, OptimizerObjective, OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerPreviewSnapshotReference, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
 from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
@@ -27,7 +27,7 @@ from app.services.optimizer_alpha_service import build_alpha_quality_package
 from app.services.optimizer_preview_service import build_optimizer_preview
 from app.services.optimizer_service import run_optimizer
 from app.services.monitor_definition_artifact_service import MonitorDefinitionDiscoveryMetadataValidationError, MonitorDefinitionIntegrityValidationError, MonitorDefinitionPersistenceError, MonitorDefinitionSchemaValidationError, MonitorDefinitionArtifactStore, build_stable_monitor_definition_evaluation_history_entry, build_stable_monitor_definition_observation, create_monitor_definition_artifact, get_monitor_definition_alert_review_timeline, inspect_monitor_definition_evaluation_history_entry, list_monitor_definition_active_alert_episode_inbox, list_monitor_definition_alert_history_queue, list_monitor_definition_artifacts, list_monitor_definition_catalog, list_monitor_definition_evaluation_history, list_monitor_definition_latest_observation_alert_inbox, list_monitor_definition_recovered_alert_review_queue, list_recent_monitor_definition_artifacts, load_monitor_definition_artifact, load_monitor_definition_evaluation_history_entry, load_monitor_definition_latest_evaluation_snapshot, load_monitor_definition_observation, persist_monitor_definition_evaluation_artifacts
-from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_review_snapshot_active_thesis_cross_family_queue, build_review_snapshot_family_inbox, build_review_snapshot_family_review, compare_review_snapshots, create_review_snapshot_artifact, evaluate_monitor_definition_observation, open_review_snapshot_artifact, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
+from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, _review_snapshot_family_key_from_artifact, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_review_snapshot_active_thesis_cross_family_queue, build_review_snapshot_family_inbox, build_review_snapshot_family_review, compare_review_snapshots, create_review_snapshot_artifact, evaluate_monitor_definition_observation, open_review_snapshot_artifact, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -3281,6 +3281,52 @@ def test_review_snapshot_compare_rejects_proposal_family_mismatch(tmp_path, mock
             })
         )
 
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected_error"),
+    [
+        ("workspace_id", None, "Input should be a valid string"),
+        ("workspace_id", "", "review snapshot family key workspace_id is required"),
+        ("source_draft_id", None, "Input should be a valid string"),
+        ("source_draft_id", "", "review snapshot family key source_draft_id is required"),
+        ("source_base_node_id", None, "Input should be a valid string"),
+        ("source_base_node_id", "", "review snapshot family key source_base_node_id is required"),
+        ("proposal_family_id", None, "Input should be a valid string"),
+        ("proposal_family_id", "", "review snapshot family key proposal_family_id is required"),
+        ("source_kind", None, "Input should be 'hypothetical_replacement_replay'"),
+        ("source_kind", "", "Input should be 'hypothetical_replacement_replay'"),
+        ("source_kind", "persisted_optimizer_handoff", "Input should be 'hypothetical_replacement_replay'"),
+    ],
+)
+def test_review_snapshot_family_key_schema_fails_closed_for_missing_and_invalid_fields(field: str, value: object, expected_error: str) -> None:
+    payload: dict[str, object] = {
+        "workspace_id": "workspace-1",
+        "source_draft_id": "draft-1",
+        "source_base_node_id": "node-1",
+        "proposal_family_id": "etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z",
+        "source_kind": "hypothetical_replacement_replay",
+    }
+    payload[field] = value
+
+    with pytest.raises(ValidationError, match=expected_error):
+        ReviewSnapshotFamilyKey.model_validate(payload)
+
+
+def test_review_snapshot_family_key_extraction_fails_closed_when_artifact_lineage_fields_are_missing(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    artifact = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    invalid_artifact = artifact.model_copy(
+        update={
+            "lineage": artifact.lineage.model_copy(update={"proposal_family_id": ""}),
+        }
+    )
+
+    with pytest.raises(ValueError, match="review snapshot artifact lineage family_key is invalid: review snapshot family key proposal_family_id is required"):
+        _review_snapshot_family_key_from_artifact(invalid_artifact)
 
 @pytest.mark.parametrize(
     ("mutator", "expected_error"),

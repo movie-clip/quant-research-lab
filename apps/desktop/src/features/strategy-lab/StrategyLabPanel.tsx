@@ -1,6 +1,16 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
+import {
+  applySessionStateUpdate,
+  createStrategyLabPanelState,
+  type SessionStateUpdate,
+  type StrategyLabConstituentHeatmapMetric,
+  type StrategyLabConstituentHistoryMode,
+  type StrategyLabLookbackUnit,
+  type StrategyLabPanelState,
+  type StrategyLabUniversePresetKey,
+} from '../portfolio/workspaceResearchSessionState'
 import type {
   CrossSectionalResearchArtifact,
   CrossSectionalResearchArtifactProvenance,
@@ -34,11 +44,8 @@ const UNIVERSE_PRESETS = {
   },
 } as const
 
-type UniversePresetKey = keyof typeof UNIVERSE_PRESETS
-type LookbackUnit = 'months' | 'quarters'
-type ConstituentHeatmapMetric = 'contribution' | 'return'
-type ConstituentHistoryMode = 'selected_etf' | 'leaders_only'
-type ResearchFilterKey = keyof CrossSectionalResearchDiscoveryFilters
+type ResearchFilterKey = keyof StrategyLabPanelState['researchFilters']
+type CrossSectionalResearchFilters = StrategyLabPanelState['researchFilters']
 
 const CROSS_SECTIONAL_RESEARCH_ARTIFACT_KIND = 'cross_sectional_research_run'
 const CROSS_SECTIONAL_RESEARCH_ARTIFACT_SCHEMA_VERSION = 'cross_sectional_research_artifact_v1'
@@ -303,7 +310,7 @@ function readRecentMethodologyId(
   return readLiteral(value, [CROSS_SECTIONAL_RESEARCH_METHODOLOGY_ID] as const, label)
 }
 
-function readDiscoveryFilters(value: unknown, label: string): CrossSectionalResearchDiscoveryFilters {
+function readDiscoveryFilters(value: unknown, label: string): StrategyLabPanelState['researchFilters'] {
   const record = readRecord(value, label)
   const artifactKind = readOptionalLiteral(record.artifact_kind, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_KIND] as const, `${label}.artifact_kind`)
   const schemaVersion = readOptionalLiteral(record.schema_version, [CROSS_SECTIONAL_RESEARCH_ARTIFACT_SCHEMA_VERSION] as const, `${label}.schema_version`)
@@ -606,7 +613,7 @@ function formatDateLabel(value: string | number | null | undefined) {
   return `${month}/${year.slice(2)}`
 }
 
-function formatStrategyCheckpointLabel(value: string | number | null | undefined, unit: LookbackUnit) {
+function formatStrategyCheckpointLabel(value: string | number | null | undefined, unit: StrategyLabLookbackUnit) {
   if (typeof value !== 'string') return ''
   const [year, month] = value.split('-')
   if (!year || !month) return value
@@ -636,7 +643,7 @@ function leaderSpreadTone(spreadPct: number | null) {
 
 function constituentMetricValue(
   constituent: EtfMomentumResponse['leader_internals'][number]['constituents'][number] | undefined,
-  metric: ConstituentHeatmapMetric,
+  metric: StrategyLabConstituentHeatmapMetric,
 ) {
   if (!constituent) return null
   return metric === 'contribution' ? constituent.weighted_contribution_pct : constituent.trailing_return_pct
@@ -667,7 +674,7 @@ function constituentCellStyle(value: number | null, allValues: number[]): CSSPro
   }
 }
 
-function mergePresetSymbols(keys: UniversePresetKey[]) {
+function mergePresetSymbols(keys: StrategyLabUniversePresetKey[]) {
   const merged = new Set<string>()
   keys.forEach((key) => {
     UNIVERSE_PRESETS[key].symbols.forEach((symbol) => merged.add(symbol))
@@ -675,7 +682,7 @@ function mergePresetSymbols(keys: UniversePresetKey[]) {
   return Array.from(merged)
 }
 
-function filterObservationsForUnit(observations: EtfMomentumResponse['observations'], unit: LookbackUnit, lookbackValue: number) {
+function filterObservationsForUnit(observations: EtfMomentumResponse['observations'], unit: StrategyLabLookbackUnit, lookbackValue: number) {
   const cadenceFiltered = unit === 'months'
     ? observations
     : observations.filter((item) => {
@@ -757,7 +764,7 @@ function researchReplayLabel(status: CrossSectionalResearchArtifact['provenance_
   return 'Replay provenance unsupported'
 }
 
-function buildResearchArtifactQuery(filters: CrossSectionalResearchDiscoveryFilters) {
+function buildResearchArtifactQuery(filters: CrossSectionalResearchFilters) {
   const params = new URLSearchParams({ limit: '5' })
   Object.entries(filters).forEach(([key, value]) => {
     if (value == null) return
@@ -788,64 +795,56 @@ function asLeaderInternalsEntry(entry: EtfMomentumResponse['etf_internals_histor
   }
 }
 
-export function StrategyLabPanel() {
+type StrategyLabPanelProps = {
+  sessionState?: StrategyLabPanelState
+  onSessionStateChange?: (update: SessionStateUpdate<StrategyLabPanelState>) => void
+}
+
+export function StrategyLabPanel({ sessionState, onSessionStateChange }: StrategyLabPanelProps) {
   const apiBase = useMemo(() => '/api', [])
-  const [selectedPresets, setSelectedPresets] = useState<UniversePresetKey[]>(['broad_rotation'])
-  const [presetMenuOpen, setPresetMenuOpen] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
-  const [universe, setUniverse] = useState(UNIVERSE_PRESETS.broad_rotation.symbols.join(','))
-  const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
-  const [signalLookbackValue, setSignalLookbackValue] = useState('4')
-  const [lookbackUnit, setLookbackUnit] = useState<LookbackUnit>('quarters')
-  const [topN, setTopN] = useState('3')
-  const [constituentHeatmapMetric, setConstituentHeatmapMetric] = useState<ConstituentHeatmapMetric>('contribution')
-  const [constituentHistoryMode, setConstituentHistoryMode] = useState<ConstituentHistoryMode>('selected_etf')
-  const [selectedLeaderDate, setSelectedLeaderDate] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [refreshingHoldings, setRefreshingHoldings] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<EtfMomentumResponse | null>(null)
-  const [researchRecentLoading, setResearchRecentLoading] = useState(false)
-  const [researchRecentError, setResearchRecentError] = useState<string | null>(null)
-  const [researchRecent, setResearchRecent] = useState<CrossSectionalResearchRecentResponse | null>(null)
-  const [researchArtifactLoadingId, setResearchArtifactLoadingId] = useState<string | null>(null)
-  const [researchArtifactError, setResearchArtifactError] = useState<string | null>(null)
-  const [researchArtifact, setResearchArtifact] = useState<CrossSectionalResearchArtifact | null>(null)
-  const [researchFilters, setResearchFilters] = useState<CrossSectionalResearchDiscoveryFilters>({
-    artifact_kind: null,
-    schema_version: null,
-    methodology_id: null,
-    dataset_version: null,
-    universe_definition: null,
-    benchmark_symbol: null,
-    rebalance_date: null,
-    as_of_date: null,
-    holdout_start_date: null,
-    methodology_family_id: null,
-    methodology_family_version: null,
-    active_methodology_version: null,
-    alpha_package_version: null,
-    alpha_methodology_id: null,
-    alpha_input_contract_id: null,
-    score_basis: null,
-    benchmark_role: null,
-    partition_rule: null,
-    output_shape: null,
-    artifact_status: null,
-    diagnostics_status: null,
-    coverage_status: null,
-    input_source_kind: null,
-    replay_provenance_status: null,
-    benchmark_source_kind: null,
-    alpha_source_kind: null,
-  })
+  const [internalSessionState, setInternalSessionState] = useState<StrategyLabPanelState>(() => createStrategyLabPanelState())
+  const resolvedSessionState = sessionState ?? internalSessionState
+  const setSessionState = (update: SessionStateUpdate<StrategyLabPanelState>) => {
+    if (onSessionStateChange) {
+      onSessionStateChange(update)
+      return
+    }
+    setInternalSessionState((current) => applySessionStateUpdate(current, update))
+  }
+  const {
+    selectedPresets,
+    presetMenuOpen,
+    detailsOpen,
+    universe,
+    benchmarkSymbol,
+    signalLookbackValue,
+    lookbackUnit,
+    topN,
+    constituentHeatmapMetric,
+    constituentHistoryMode,
+    selectedLeaderDate,
+    loading,
+    refreshingHoldings,
+    error,
+    result,
+    researchRecentLoading,
+    researchRecentError,
+    researchRecent,
+    researchArtifactLoadingId,
+    researchArtifactError,
+    researchArtifact,
+    researchFilters,
+  } = resolvedSessionState
 
   function updateResearchFilter(key: ResearchFilterKey, value: string) {
     const normalizedValue = value.trim()
     const nextValue = normalizedValue ? (key === 'benchmark_symbol' ? normalizedValue.toUpperCase() : normalizedValue) : null
-    setResearchFilters((current) => ({
+    setSessionState((current) => ({
       ...current,
-      [key]: nextValue,
+      researchFilters: {
+        ...current.researchFilters,
+        [key]: nextValue,
+      },
     }))
   }
 
@@ -853,8 +852,11 @@ export function StrategyLabPanel() {
     const nextSelected = selectedPresets.includes(key)
       ? selectedPresets.filter((value) => value !== key)
       : [...selectedPresets, key]
-    setSelectedPresets(nextSelected)
-    setUniverse(mergePresetSymbols(nextSelected).join(','))
+    setSessionState((current) => ({
+      ...current,
+      selectedPresets: nextSelected,
+      universe: mergePresetSymbols(nextSelected).join(','),
+    }))
   }
 
   const presetSummary = selectedPresets.length
@@ -908,33 +910,37 @@ export function StrategyLabPanel() {
   }, [researchArtifact, researchRecent?.items])
 
   async function loadRecentResearchArtifacts() {
-    setResearchRecentLoading(true)
-    setResearchRecentError(null)
+    setSessionState((current) => ({ ...current, researchRecentLoading: true, researchRecentError: null }))
     try {
       const response = await fetch(`${apiBase}/strategy-lab/cross-sectional-research/recent?${buildResearchArtifactQuery(researchFilters)}`)
       const payload = await readJsonResponse<unknown>(response, 'Research recent artifacts are unavailable')
-      setResearchRecent(parseCrossSectionalResearchRecentResponse(payload))
+      setSessionState((current) => ({ ...current, researchRecent: parseCrossSectionalResearchRecentResponse(payload) }))
     } catch (caughtError) {
-      setResearchRecent(null)
-      setResearchRecentError(caughtError instanceof Error ? caughtError.message : 'Research recent artifacts are unavailable')
+      setSessionState((current) => ({
+        ...current,
+        researchRecent: null,
+        researchRecentError: caughtError instanceof Error ? caughtError.message : 'Research recent artifacts are unavailable',
+      }))
     } finally {
-      setResearchRecentLoading(false)
+      setSessionState((current) => ({ ...current, researchRecentLoading: false }))
     }
   }
 
   async function loadResearchArtifact(artifactId: string) {
-    setResearchArtifactLoadingId(artifactId)
-    setResearchArtifactError(null)
+    setSessionState((current) => ({ ...current, researchArtifactLoadingId: artifactId, researchArtifactError: null }))
     try {
       const response = await fetch(`${apiBase}/strategy-lab/cross-sectional-research/artifacts/${artifactId}`)
       const payload = await readJsonResponse<unknown>(response, 'Research artifact reload failed')
       const parsed = parseCrossSectionalResearchReloadResponse(payload, artifactId)
-      setResearchArtifact(parsed.artifact)
+      setSessionState((current) => ({ ...current, researchArtifact: parsed.artifact }))
     } catch (caughtError) {
-      setResearchArtifactError(caughtError instanceof Error ? caughtError.message : 'Research artifact reload failed')
-      setResearchArtifact(null)
+      setSessionState((current) => ({
+        ...current,
+        researchArtifactError: caughtError instanceof Error ? caughtError.message : 'Research artifact reload failed',
+        researchArtifact: null,
+      }))
     } finally {
-      setResearchArtifactLoadingId(null)
+      setSessionState((current) => ({ ...current, researchArtifactLoadingId: null }))
     }
   }
 
@@ -943,20 +949,19 @@ export function StrategyLabPanel() {
     const parsedLookback = lookbackUnit === 'quarters' ? parsedSignalLookbackValue * 3 : parsedSignalLookbackValue
     const parsedTopN = Number(topN)
     if (!parsedUniverse.length) {
-      setError('Enter at least one ETF in the universe.')
+      setSessionState((current) => ({ ...current, error: 'Enter at least one ETF in the universe.' }))
       return
     }
     if (!Number.isInteger(parsedSignalLookbackValue) || parsedSignalLookbackValue < 1) {
-      setError('Signal lookback must be a positive integer.')
+      setSessionState((current) => ({ ...current, error: 'Signal lookback must be a positive integer.' }))
       return
     }
     if (!Number.isInteger(parsedTopN) || parsedTopN < 1 || parsedTopN > parsedUniverse.length) {
-      setError('Top N must be a positive integer and cannot exceed the universe size.')
+      setSessionState((current) => ({ ...current, error: 'Top N must be a positive integer and cannot exceed the universe size.' }))
       return
     }
 
-    setLoading(true)
-    setError(null)
+    setSessionState((current) => ({ ...current, loading: true, error: null }))
     try {
       const response = await fetch(`${apiBase}/strategy-lab/etf-cross-sectional-momentum`, {
         method: 'POST',
@@ -974,12 +979,15 @@ export function StrategyLabPanel() {
         throw new Error(payload.detail ?? 'Strategy run failed')
       }
       const nextResult = (await response.json()) as EtfMomentumResponse
-      setResult(nextResult)
-      setSelectedLeaderDate(nextResult.observations[nextResult.observations.length - 1]?.date ?? null)
+      setSessionState((current) => ({
+        ...current,
+        result: nextResult,
+        selectedLeaderDate: nextResult.observations[nextResult.observations.length - 1]?.date ?? null,
+      }))
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Strategy run failed')
+      setSessionState((current) => ({ ...current, error: caughtError instanceof Error ? caughtError.message : 'Strategy run failed' }))
     } finally {
-      setLoading(false)
+      setSessionState((current) => ({ ...current, loading: false }))
     }
   }
 
@@ -987,7 +995,7 @@ export function StrategyLabPanel() {
     const parsedUniverse = universe.split(',').map((item) => item.trim().toUpperCase()).filter(Boolean)
     if (!parsedUniverse.length) return
 
-    setRefreshingHoldings(true)
+    setSessionState((current) => ({ ...current, refreshingHoldings: true }))
     try {
       const response = await fetch(`${apiBase}/strategy-lab/holdings/refresh`, {
         method: 'POST',
@@ -1000,9 +1008,9 @@ export function StrategyLabPanel() {
       }
       await runStrategy()
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Holdings refresh failed')
+      setSessionState((current) => ({ ...current, error: caughtError instanceof Error ? caughtError.message : 'Holdings refresh failed' }))
     } finally {
-      setRefreshingHoldings(false)
+      setSessionState((current) => ({ ...current, refreshingHoldings: false }))
     }
   }
 
@@ -1021,7 +1029,7 @@ export function StrategyLabPanel() {
                 className={`path-input strategy-preset-trigger${presetMenuOpen ? ' open' : ''}`}
                 aria-expanded={presetMenuOpen}
                 aria-controls="strategy-preset-menu"
-                onClick={() => setPresetMenuOpen((value) => !value)}
+                onClick={() => setSessionState((current) => ({ ...current, presetMenuOpen: !current.presetMenuOpen }))}
               >
                 <span className="strategy-preset-summary">{presetSummary}</span>
                 <span className="strategy-preset-meta">{selectedPresets.length ? `${selectedPresets.length} presets · ${universe.split(',').filter(Boolean).length} ETFs` : 'custom basket'}</span>
@@ -1053,34 +1061,33 @@ export function StrategyLabPanel() {
             <span className="field-label">ETF Universe</span>
             <input
               className="path-input"
-              value={universe}
-              onChange={(event) => {
-                setSelectedPresets([])
-                setUniverse(event.target.value)
-              }}
+                value={universe}
+                onChange={(event) => {
+                  setSessionState((current) => ({ ...current, selectedPresets: [], universe: event.target.value }))
+                }}
               placeholder="XLK,XLF,XLV,XLE,XLI,QQQ,IWM"
             />
           </label>
           <label className="field-group strategy-lab-benchmark-field">
             <span className="field-label">Benchmark</span>
-            <input className="path-input" value={benchmarkSymbol} onChange={(event) => setBenchmarkSymbol(event.target.value.toUpperCase())} />
+            <input className="path-input" value={benchmarkSymbol} onChange={(event) => setSessionState((current) => ({ ...current, benchmarkSymbol: event.target.value.toUpperCase() }))} />
           </label>
         </div>
         <div className="split-grid compact-split-grid strategy-lab-config-grid">
           <label className="field-group">
             <span className="field-label">Signal Lookback</span>
-            <input className="path-input" inputMode="numeric" value={signalLookbackValue} onChange={(event) => setSignalLookbackValue(event.target.value)} />
+            <input className="path-input" inputMode="numeric" value={signalLookbackValue} onChange={(event) => setSessionState((current) => ({ ...current, signalLookbackValue: event.target.value }))} />
           </label>
           <label className="field-group">
             <span className="field-label">View Unit</span>
-            <select className="path-input strategy-select" value={lookbackUnit} onChange={(event) => setLookbackUnit(event.target.value as LookbackUnit)}>
+            <select className="path-input strategy-select" value={lookbackUnit} onChange={(event) => setSessionState((current) => ({ ...current, lookbackUnit: event.target.value as StrategyLabLookbackUnit }))}>
               <option value="months">Months</option>
               <option value="quarters">Quarters</option>
             </select>
           </label>
           <label className="field-group">
             <span className="field-label">Top N</span>
-            <input className="path-input" inputMode="numeric" value={topN} onChange={(event) => setTopN(event.target.value)} />
+            <input className="path-input" inputMode="numeric" value={topN} onChange={(event) => setSessionState((current) => ({ ...current, topN: event.target.value }))} />
           </label>
         </div>
         <div className="actions">
@@ -1349,8 +1356,8 @@ export function StrategyLabPanel() {
                     type="button"
                     key={`leader-header-${item.date}`}
                     className={`strategy-heatmap-header-cell strategy-heatmap-header-button${selectedLeaderObservation?.date === item.date ? ' active' : ''}`}
-                    onClick={() => setSelectedLeaderDate(item.date)}
-                    onMouseEnter={() => setSelectedLeaderDate(item.date)}
+                    onClick={() => setSessionState((current) => ({ ...current, selectedLeaderDate: item.date }))}
+                    onMouseEnter={() => setSessionState((current) => ({ ...current, selectedLeaderDate: item.date }))}
                   >
                     <span>{formatStrategyCheckpointLabel(item.date, lookbackUnit)}</span>
                     <span className="strategy-heatmap-meta">{item.leader ?? 'n/a'}</span>
@@ -1392,12 +1399,12 @@ export function StrategyLabPanel() {
                     </div>
                     <div className="strategy-inline-actions">
                       <div className="strategy-mode-toggle" role="group" aria-label="Constituent History Mode">
-                        <button type="button" className={`toggle-chip${constituentHistoryMode === 'selected_etf' ? ' active' : ''}`} onClick={() => setConstituentHistoryMode('selected_etf')}>Selected ETF history</button>
-                        <button type="button" className={`toggle-chip${constituentHistoryMode === 'leaders_only' ? ' active' : ''}`} onClick={() => setConstituentHistoryMode('leaders_only')}>Actual leaders only</button>
+                        <button type="button" className={`toggle-chip${constituentHistoryMode === 'selected_etf' ? ' active' : ''}`} onClick={() => setSessionState((current) => ({ ...current, constituentHistoryMode: 'selected_etf' }))}>Selected ETF history</button>
+                        <button type="button" className={`toggle-chip${constituentHistoryMode === 'leaders_only' ? ' active' : ''}`} onClick={() => setSessionState((current) => ({ ...current, constituentHistoryMode: 'leaders_only' }))}>Actual leaders only</button>
                       </div>
                       <div className="strategy-mode-toggle" role="group" aria-label="Constituent Heatmap Metric">
-                      <button type="button" className={`toggle-chip${constituentHeatmapMetric === 'contribution' ? ' active' : ''}`} onClick={() => setConstituentHeatmapMetric('contribution')}>Contribution</button>
-                      <button type="button" className={`toggle-chip${constituentHeatmapMetric === 'return' ? ' active' : ''}`} onClick={() => setConstituentHeatmapMetric('return')}>Lookback Price Change</button>
+                      <button type="button" className={`toggle-chip${constituentHeatmapMetric === 'contribution' ? ' active' : ''}`} onClick={() => setSessionState((current) => ({ ...current, constituentHeatmapMetric: 'contribution' }))}>Contribution</button>
+                      <button type="button" className={`toggle-chip${constituentHeatmapMetric === 'return' ? ' active' : ''}`} onClick={() => setSessionState((current) => ({ ...current, constituentHeatmapMetric: 'return' }))}>Lookback Price Change</button>
                       </div>
                     </div>
                   </div>
@@ -1443,7 +1450,7 @@ export function StrategyLabPanel() {
                 <p className="panel-label">Detail Tables</p>
                 <p className="helper">Checkpoint details, contributors, and current sleeves.</p>
               </div>
-              <button className="secondary-button" type="button" onClick={() => setDetailsOpen((value) => !value)}>
+              <button className="secondary-button" type="button" onClick={() => setSessionState((current) => ({ ...current, detailsOpen: !current.detailsOpen }))}>
                 {detailsOpen ? 'Hide details' : 'Show details'}
               </button>
             </div>

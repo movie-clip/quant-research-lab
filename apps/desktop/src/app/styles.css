@@ -178,6 +178,24 @@ textarea {
 .header-tab-bar {
   flex: 1;
   justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.tab-bar-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tab-bar-group-primary {
+  justify-content: center;
+}
+
+.tab-bar-group-secondary {
+  padding-left: 14px;
+  border-left: 1px solid rgba(73, 85, 102, 0.45);
 }
 
 .main-menu {
@@ -199,6 +217,11 @@ textarea {
   background: linear-gradient(180deg, #262f3a 0%, #1a222d 100%);
   border-color: #495566;
   color: var(--text);
+}
+
+.tab-bar-group-primary .tab-button.active {
+  border-color: rgba(201, 75, 69, 0.55);
+  box-shadow: 0 0 0 1px rgba(201, 75, 69, 0.18);
 }
 
 .grid {
@@ -533,6 +556,7 @@ select.path-input option {
 
 .dashboard-quant-header-shell,
 .dashboard-quant-strip,
+.dashboard-guidance-strip,
 .dashboard-performance-shell {
   margin-top: 12px;
   padding: 14px;
@@ -550,6 +574,148 @@ select.path-input option {
 
 .dashboard-quant-header-row {
   margin-bottom: 12px;
+}
+
+.dashboard-guidance-header {
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.dashboard-guidance-status-shell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboard-guidance-status-text {
+  color: var(--text-soft);
+  font-size: 0.84rem;
+}
+
+.dashboard-guidance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-guidance-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.dashboard-guidance-card-accent {
+  border-color: rgba(201, 75, 69, 0.4);
+  background:
+    radial-gradient(circle at top right, rgba(201, 75, 69, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(28, 19, 19, 0.98) 0%, rgba(21, 17, 21, 1) 100%);
+}
+
+.dashboard-guidance-value {
+  font-size: 1.08rem;
+}
+
+.dashboard-guidance-workflow-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-health-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(72, 86, 104, 0.42);
+  border-radius: 999px;
+  background: rgba(19, 26, 35, 0.76);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.dashboard-health-status-healthy {
+  border-color: rgba(62, 179, 127, 0.45);
+  color: #9ee0c1;
+}
+
+.dashboard-health-status-watch {
+  border-color: rgba(225, 191, 103, 0.44);
+  color: #efd694;
+}
+
+.dashboard-health-status-concentrated {
+  border-color: rgba(223, 92, 92, 0.48);
+  color: #f0b2b2;
+}
+
+.dashboard-health-reasons {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-soft);
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-health-workflow-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.dashboard-health-workflow-step-handoff {
+  padding-top: 10px;
+  border-top: 1px solid rgba(72, 86, 104, 0.34);
+}
+
+.dashboard-health-workflow-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #23303c;
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.dashboard-health-workflow-step-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-health-workflow-title {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.dashboard-health-workflow-copy {
+  color: var(--text-soft);
+  line-height: 1.45;
+}
+
+.dashboard-health-handoff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboard-health-handoff-badge {
+  color: var(--text);
+}
+
+.dashboard-health-preview {
+  justify-self: start;
 }
 
 .dashboard-quant-header-copy {
@@ -2799,6 +2965,7 @@ select.path-input option {
   }
 
   .dashboard-quant-context-grid,
+  .dashboard-guidance-grid,
   .dashboard-performance-meta-grid,
   .dashboard-quant-metric-grid {
     grid-template-columns: 1fr;

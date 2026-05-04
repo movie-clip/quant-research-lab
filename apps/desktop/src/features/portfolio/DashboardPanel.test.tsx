@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ff2026DashboardGolden, ib2026DashboardGolden } from '../../test/dashboardGoldens'
@@ -27,6 +27,7 @@ const dashboardFactorModel = buildExposureFactorModel(dashboardExposureView)
 
 afterEach(() => {
   cleanup()
+  delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 })
 
 function parseCurrencyLabel(value: string) {
@@ -46,8 +47,9 @@ describe('DashboardPanel', () => {
 
     expect(screen.getByText('U8516450')).toBeTruthy()
     expect(screen.getByText('Project summary')).toBeTruthy()
+    expect(screen.getByText('Start with what you own, then let quant explain what to improve.')).toBeTruthy()
+    expect(screen.getByText('Portfolio health')).toBeTruthy()
     expect(screen.getByText('Portfolio vs SPY path for the selected range')).toBeTruthy()
-    expect(screen.getByText('Rolling Factor Analysis')).toBeTruthy()
     expect(screen.getByText('Allocation Overview')).toBeTruthy()
     expect(screen.getByText('Interactive Brokers')).toBeTruthy()
     expect(screen.getAllByText('Live market history').length).toBeGreaterThan(0)
@@ -57,15 +59,34 @@ describe('DashboardPanel', () => {
     expect(screen.queryByText('Portfolio Improvement Workspace')).toBeNull()
   })
 
+  it('renders the constrained dashboard optional factor surface after lazy load', async () => {
+    render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
+
+    await waitFor(() => expect(screen.getByText('Rolling Factor Analysis')).toBeTruthy())
+  })
+
   it('renders project summary provenance and workspace state', () => {
     render(<DashboardPanel result={mockDashboardView} />)
 
     expect(screen.getByText('Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.')).toBeTruthy()
+    expect(screen.getByText('Review the current portfolio, confirm the health signals that matter for quant validation, then test one focused change.')).toBeTruthy()
+    expect(screen.getByText('Current portfolio read')).toBeTruthy()
+    expect(screen.getByText('Quant and health readiness')).toBeTruthy()
+    expect(screen.getByText('Next step and handoff')).toBeTruthy()
     expect(screen.getAllByText('Range metrics live').length).toBeGreaterThan(0)
     expect(screen.getByText(/Audit: SPY · live_market_data_unverified_return_basis · portfolio imported_replay · benchmark degraded_unverified_return_basis · monthly imported_replay · 01\/02\/25 to 03\/03\/25 · dataset market_data_service_v1/)).toBeTruthy()
     expect(screen.getByText('Refusals: benchmark return, excess return, and drawdown stay withheld outside the narrow allowlisted exact-slice contract. Investor-economics outputs are withheld because total-return equivalence is unverified. Dashboard policy remains partial-unlock only: exact-slice benchmark return may appear only for the identical admitted slice with independently verified benchmark total-return proof, and excess return still requires the same identical admitted slice pair plus a future server-side runtime enablement. Clients must not treat daily-series subtraction or local derivation as an equivalent path.')).toBeTruthy()
     expect(screen.getByText('Workspace State')).toBeTruthy()
     expect(screen.getByText('Current imported view and editable draft status.')).toBeTruthy()
+    expect(screen.getByText('Portfolio health')).toBeTruthy()
+    expect(screen.getAllByText('Concentrated').length).toBeGreaterThan(0)
+    expect(screen.getByText('One position is about 20% of portfolio value.')).toBeTruthy()
+    expect(screen.getByText('Technology is the largest sector at about 36%.')).toBeTruthy()
+    expect(screen.getByText('Quant context is available for validation in Exposure.')).toBeTruthy()
+    expect(screen.getByText('Review current holdings')).toBeTruthy()
+    expect(screen.getByText('Define one change to test')).toBeTruthy()
+    expect(screen.getByText('Validate in Exposure')).toBeTruthy()
+    expect(screen.getByText('Pending in this view')).toBeTruthy()
   })
 
   it('keeps the refusal copy visible even when an exact-slice scalar is present', () => {
@@ -127,13 +148,28 @@ describe('DashboardPanel', () => {
     expect(mockDashboardView.run_metadata?.investor_economics_partial_unlock.withheld_families).toContain('drawdown_family')
   })
 
-  it('renders the rolling factor chart on dashboard when exposure context is available', () => {
+  it('renders the rolling factor chart on dashboard when exposure context is available', async () => {
     render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
 
-    expect(screen.getByText('Rolling Factor Analysis')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Rolling Factor Analysis')).toBeTruthy())
     expect(screen.getByLabelText('Visible factors on rolling factor chart')).toBeTruthy()
     expect(screen.getAllByText('Market').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Growth').length).toBeGreaterThan(0)
+  })
+
+  it('uses desktop safe-mode fallbacks for optional dashboard charts under Tauri runtime', () => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      value: {},
+      configurable: true,
+    })
+
+    render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
+
+    expect(screen.getByText('Desktop safe mode')).toBeTruthy()
+    expect(screen.getByText('Interactive chart disabled')).toBeTruthy()
+    expect(screen.getByText('Rolling Factor Analysis')).toBeTruthy()
+    expect(screen.queryByLabelText('Visible factors on rolling factor chart')).toBeNull()
+    expect(screen.getByText(/Snapshot factors: \d+/)).toBeTruthy()
   })
 
   it('does not render the dashboard rolling factor chart when factor model data is unavailable', () => {
@@ -220,7 +256,7 @@ describe('DashboardPanel', () => {
 
     expect(scoped.getByText(`Portfolio value: ${ff2026DashboardGolden.portfolioValue}`)).toBeTruthy()
 
-    expect(scoped.getByText('Broad Market')).toBeTruthy()
+    expect(scoped.getAllByText('Broad Market').length).toBeGreaterThan(0)
     expect(scoped.getByText(ff2026DashboardGolden.sectors['Broad Market'])).toBeTruthy()
     expect(scoped.getAllByText(ff2026DashboardGolden.draftCapitalCheck).length).toBeGreaterThan(0)
     expect(scoped.getByText(ff2026DashboardGolden.draftCapitalHelper)).toBeTruthy()
@@ -231,7 +267,7 @@ describe('DashboardPanel', () => {
       expect(screen.getByDisplayValue(symbol)).toBeTruthy()
       expect(screen.getByText(ff2026DashboardGolden.broadMarketHoldingWeights[symbol])).toBeTruthy()
     }
-    expect(screen.getByText('Locked on Broad Market')).toBeTruthy()
+    expect(screen.getAllByText('Broad Market').length).toBeGreaterThan(0)
     expect(screen.getByDisplayValue(ff2026DashboardGolden.vtiValue)).toBeTruthy()
   })
 
@@ -380,7 +416,7 @@ describe('DashboardPanel', () => {
 
     render(<DashboardPanel result={ff2026DashboardView} draftSnapshot={draftSnapshot} />)
 
-    fireEvent.click(screen.getAllByText('Broad Market')[0])
+    fireEvent.click(screen.getAllByText('Broad Market')[screen.getAllByText('Broad Market').length - 1])
     expect(screen.getByText('Locked on Broad Market')).toBeTruthy()
 
     const removeButtons = screen.getAllByText('Remove')
@@ -602,6 +638,54 @@ describe('DashboardPanel', () => {
     expect(screen.queryByText('Working Draft')).toBeNull()
   })
 
+  it('keeps the portfolio health workflow informative when preview is unavailable', () => {
+    render(<DashboardPanel result={mockDashboardView} />)
+
+    const guidance = screen.getByLabelText('Dashboard guidance')
+
+    expect(screen.getByText('Validate in Exposure')).toBeTruthy()
+    expect(screen.getByText('Preview is unavailable here, but this remains the next quant-engineer handoff.')).toBeTruthy()
+    expect(screen.getByText('Pending in this view')).toBeTruthy()
+    expect(within(guidance).queryByRole('button', { name: 'Preview in Exposure' })).toBeNull()
+  })
+
+  it('ties the health workflow handoff to the preview action when available', () => {
+    const previewSpy = vi.fn()
+    const draftSnapshot = buildPortfolioSnapshotFromAnalysis(mockAnalysis, ['IB2025.pdf'])
+
+    render(<DashboardPanel result={mockDashboardView} draftSnapshot={draftSnapshot} onPreviewExposure={previewSpy} />)
+
+    expect(screen.getByText('Primary handoff')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Preview in Exposure' })[0])
+    expect(previewSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks the portfolio health band concentrated when concentration is elevated', () => {
+    render(
+      <DashboardPanel
+        result={buildImportedDashboardView({
+          ...mockAnalysis,
+          overview: {
+            ...mockAnalysis.overview,
+            top_positions: [
+              { symbol: 'NVDA', market_value: 22000, weight: 0.44, unrealized_pnl: 3000 },
+              ...mockAnalysis.overview.top_positions.slice(1),
+            ],
+            sector_allocation: [
+              { sector: 'Technology', market_value: 26000, weight: 0.52 },
+              ...mockAnalysis.overview.sector_allocation.slice(1),
+            ],
+            cash_by_currency: { USD: 12000 },
+          },
+        })}
+      />,
+    )
+
+    expect(screen.getAllByText('Concentrated').length).toBeGreaterThan(0)
+    expect(screen.getByText('One position is about 44% of portfolio value.')).toBeTruthy()
+    expect(screen.getByText('Cash is about 19% of the account, so deployment still matters.')).toBeTruthy()
+  })
+
   it('shows restore shell when only narrow restore data is available', () => {
     const clearSpy = vi.fn()
 
@@ -610,5 +694,12 @@ describe('DashboardPanel', () => {
     expect(screen.getAllByText('Restored on launch').length).toBeGreaterThan(0)
     expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
     expect(screen.getAllByText('Clear Imported Session').length).toBeGreaterThan(0)
+  })
+
+  it('explains the next step in plain language from current portfolio concentration', () => {
+    render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
+
+    expect(screen.getAllByText(/Technology is the largest sector at/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Start by reviewing/)).toBeTruthy()
   })
 })

@@ -1575,7 +1575,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       onReopenRecoveredAlertReview,
     })
 
-    expect(screen.getAllByTestId('recovered-alert-review-queue').at(-1)).toBeTruthy()
+    expect(screen.getAllByTestId('recovered-alert-review-queue')[screen.getAllByTestId('recovered-alert-review-queue').length - 1]).toBeTruthy()
     expect(screen.getByText('Rows: 1 · newest first · discovery-only handoff to the authoritative definition-scoped timeline latest-observation event.')).toBeTruthy()
     expect(screen.getAllByText('Active alert episodes reopen from the persisted active alert-episode inbox by authoritative persisted episode and timeline ids only; this recovered queue stays recovered-only.').length).toBeGreaterThan(0)
     expect(screen.getByTestId('recovered-alert-row-monitor_definition_observation_abc12345')).toBeTruthy()
@@ -2889,6 +2889,29 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.getByText('Artifact review basis is available.')).toBeTruthy()
     expect(ui.getAllByText('Review Basis').length).toBeGreaterThan(0)
     expect(ui.getByText('This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.')).toBeTruthy()
+    expect(ui.queryByTestId('workspace-section-research-tools')).toBeNull()
+  })
+
+  it('routes research tool buttons through workspace-owned embedded sessions', () => {
+    const onOpenGenericBacktests = vi.fn()
+    const onOpenStrategyLab = vi.fn()
+    const onOpenEtfRanking = vi.fn()
+
+    const { container } = renderShell({
+      onOpenGenericBacktests,
+      onOpenStrategyLab,
+      onOpenEtfRanking,
+    })
+
+    const ui = within(container)
+
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open Backtest' }).at(-1)!)
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open Strategy Lab' }).at(-1)!)
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open ETF Ranking' }).at(-1)!)
+
+    expect(onOpenGenericBacktests).toHaveBeenCalledWith('workspace-section-research-tools')
+    expect(onOpenStrategyLab).toHaveBeenCalledWith('workspace-section-research-tools')
+    expect(onOpenEtfRanking).toHaveBeenCalledWith('workspace-section-research-tools')
   })
 
   it('gates candidate and proposal sections in persisted optimizer handoff review mode', () => {
@@ -2910,6 +2933,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.queryByTestId('workspace-section-candidate')).toBeNull()
     expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
     expect(ui.getByText('Candidate review comes from the persisted optimizer handoff reopened by handoff reference.')).toBeTruthy()
+    expect(ui.queryByTestId('workspace-section-research-tools')).toBeNull()
   })
 
   it('shows optimizer handoff overview basis from handoffReference', () => {

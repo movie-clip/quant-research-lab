@@ -8034,6 +8034,123 @@ def test_review_snapshot_compare_route_rejects_proposal_family_mismatch(tmp_path
     assert compare_response.json()["detail"] == "review snapshot comparison requires matching proposal_family_id"
 
 
+@pytest.mark.parametrize(
+    ("route", "service_path", "request_payload_builder", "response_builder"),
+    [
+        (
+            "/backtests/review-snapshots/compare",
+            "app.api.routes.backtests.compare_review_snapshots",
+            lambda: {
+                "baseline": _review_snapshot_comparison_ref_payload("baseline", "review_snapshot_baseline"),
+                "candidate": _review_snapshot_comparison_ref_payload("candidate", "review_snapshot_candidate"),
+            },
+            lambda: {
+                "comparison_kind": "review_snapshot_comparison",
+                "family_key": {
+                    "workspace_id": "workspace-1",
+                    "source_draft_id": "draft-1",
+                    "source_base_node_id": "node-1",
+                    "proposal_family_id": "",
+                    "source_kind": "hypothetical_replacement_replay",
+                },
+                "baseline": {},
+            },
+        ),
+        (
+            "/backtests/review-snapshots/family-review",
+            "app.api.routes.backtests.build_review_snapshot_family_review",
+            lambda: _review_snapshot_family_review_payload("review_snapshot_anchor"),
+            lambda: {
+                "review_kind": "review_snapshot_family_review",
+                "family_key": {
+                    "workspace_id": None,
+                    "source_draft_id": "draft-1",
+                    "source_base_node_id": "node-1",
+                    "proposal_family_id": "etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z",
+                    "source_kind": "hypothetical_replacement_replay",
+                },
+                "provenance": "persisted_review_snapshot_artifacts_only",
+                "compare_selection_policy": "exactly_two_distinct_family_siblings",
+                "anchor": {},
+                "siblings": [{}],
+            },
+        ),
+        (
+            "/backtests/review-snapshots/family-inbox",
+            "app.api.routes.backtests.build_review_snapshot_family_inbox",
+            lambda: _review_snapshot_family_inbox_payload(),
+            lambda: {
+                "inbox_kind": "review_snapshot_family_inbox",
+                "workspace_id": "workspace-1",
+                "provenance": "persisted_review_snapshot_artifacts_only",
+                "rows": [
+                    {
+                        "family_key": {
+                            "workspace_id": "workspace-1",
+                            "source_draft_id": "",
+                            "source_base_node_id": "node-1",
+                            "proposal_family_id": "etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z",
+                            "source_kind": "hypothetical_replacement_replay",
+                        }
+                    }
+                ],
+            },
+        ),
+        (
+            "/backtests/review-snapshots/active-thesis-cross-family-queue",
+            "app.api.routes.backtests.build_review_snapshot_active_thesis_cross_family_queue",
+            lambda: _review_snapshot_active_thesis_cross_family_queue_payload("review_snapshot_active", "proposal-thesis"),
+            lambda: {
+                "queue_kind": "review_snapshot_active_thesis_cross_family_queue",
+                "provenance": "persisted_review_snapshot_artifacts_and_active_thesis_reference_only",
+                "queue_ordering": "latest_saved_at_desc_then_artifact_id_desc",
+                "active_thesis": {
+                    "source_proposal_id": "proposal-thesis",
+                    "handoff": _review_snapshot_open_handoff_payload("review_snapshot_active"),
+                    "identity": {
+                        "artifact_id": "review_snapshot_active",
+                        "artifact_kind": "portfolio_review_snapshot",
+                        "schema_version": "review_snapshot_artifact_v1",
+                        "fingerprint": "a" * 64,
+                        "consumer_kind": "saved_hypothetical_replay_proposal",
+                    },
+                    "lineage": {
+                        "workspace_id": "workspace-1",
+                        "source_draft_id": "draft-1",
+                        "source_base_node_id": "node-1",
+                        "proposal_family_id": "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z",
+                        "proposal_id": "proposal-thesis",
+                        "version_number": 1,
+                        "source_kind": "hypothetical_replacement_replay",
+                    },
+                    "family_key": {
+                        "workspace_id": "workspace-1",
+                        "source_draft_id": "draft-1",
+                        "source_base_node_id": "node-1",
+                        "proposal_family_id": "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z",
+                        "source_kind": None,
+                    },
+                },
+                "rows": [],
+            },
+        ),
+    ],
+)
+def test_review_snapshot_routes_fail_closed_when_response_family_key_is_invalid(
+    mocker,
+    route: str,
+    service_path: str,
+    request_payload_builder,
+    response_builder,
+) -> None:
+    client = TestClient(app, raise_server_exceptions=False)
+    mocker.patch(service_path, return_value=response_builder())
+
+    response = client.post(route, json=request_payload_builder())
+
+    assert response.status_code == 500
+
+
 def test_review_snapshot_open_route_fails_closed_on_malformed_pm_summary_payload(tmp_path, mocker) -> None:
     mocker.patch(
         "app.services.review_snapshot_artifact_service.get_settings",

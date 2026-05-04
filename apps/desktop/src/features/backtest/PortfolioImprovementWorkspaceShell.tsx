@@ -167,9 +167,13 @@ function formatReplayStatusLabel(status: string | null | undefined) {
   return status
 }
 
+function replaceUnderscoresWithSpaces(value: string) {
+  return value.replace(/_/g, ' ')
+}
+
 function formatProposalSourceKind(value: string | null | undefined) {
   if (!value) return 'n/a'
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatCompareReadinessLabel(ready: boolean) {
@@ -260,28 +264,28 @@ type AlertHistoryOpenState = {
 
 function formatObservationStatusLabel(value: MonitorDefinitionObservationArtifact['observation_status'] | MonitorDefinitionAlertReviewTimelineObservationRow['observation_status']) {
   if (value === 'threshold_breach') return 'alert'
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatObservationAlertClassificationLabel(value: MonitorDefinitionAlertReviewTimelineObservationRow['alert_classification']) {
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatObservationCauseCodeLabel(value: MonitorDefinitionAlertReviewTimelineObservationRow['cause_code']) {
-  return value ? value.replaceAll('_', ' ') : 'none'
+  return value ? replaceUnderscoresWithSpaces(value) : 'none'
 }
 
 function formatAlertHistoryOutcomeLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['outcome_status']) {
   if (value === 'threshold_breach') return 'alert'
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatAlertHistorySignificanceLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['significance_status']) {
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatAlertHistoryReviewSupportLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['review_support_status']) {
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function buildReviewSnapshotComparisonRef(
@@ -766,6 +770,54 @@ type Props = {
   monitoringResearchHandoffDismissed?: boolean
   onDismissMonitoringResearchHandoff?: () => void
   onReviewInResearch?: (handoff: MonitoringResearchHandoff) => void
+  onOpenGenericBacktests?: (sectionId?: string) => void
+  onOpenStrategyLab?: (sectionId?: string) => void
+  onOpenEtfRanking?: (sectionId?: string) => void
+}
+
+function ResearchToolsSection({
+  onOpenGenericBacktests,
+  onOpenStrategyLab,
+  onOpenEtfRanking,
+}: {
+  onOpenGenericBacktests?: (sectionId?: string) => void
+  onOpenStrategyLab?: (sectionId?: string) => void
+  onOpenEtfRanking?: (sectionId?: string) => void
+}) {
+  return (
+    <section className="dashboard-bottom-grid" data-testid="workspace-section-research-tools" id="workspace-section-research-tools">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Research Tools</p></div>
+        <p className="helper">Open deeper research surfaces from the workspace without promoting them to primary shell destinations.</p>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Generic Backtests</p>
+          <p className="summary-value">Strategy sandbox</p>
+          <p className="helper">Run generic strategy backtests outside the portfolio-improvement workflow.</p>
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="secondary-button" onClick={() => onOpenGenericBacktests?.('workspace-section-research-tools')} type="button">Open Backtest</button>
+          </div>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Strategy Lab</p>
+          <p className="summary-value">Cross-sectional research</p>
+          <p className="helper">Inspect ETF cross-sectional research artifacts and prototype rotation work.</p>
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="secondary-button" onClick={() => onOpenStrategyLab?.('workspace-section-research-tools')} type="button">Open Strategy Lab</button>
+          </div>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">ETF Ranking</p>
+          <p className="summary-value">Replacement discovery</p>
+          <p className="helper">Rank ETF substitutes and seed a candidate back into the workspace review flow.</p>
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="secondary-button" onClick={() => onOpenEtfRanking?.('workspace-section-research-tools')} type="button">Open ETF Ranking</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 function RecoveredAlertReviewQueueSection({
@@ -2355,6 +2407,13 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
         <div id={WORKFLOW_SECTION_IDS.candidateIdea}>
           <CandidateWorkspaceSection {...shellProps} />
         </div>
+      )}
+      {isArtifactReviewMode(shellProps) ? null : (
+        <ResearchToolsSection
+          onOpenGenericBacktests={shellProps.onOpenGenericBacktests}
+          onOpenStrategyLab={shellProps.onOpenStrategyLab}
+          onOpenEtfRanking={shellProps.onOpenEtfRanking}
+        />
       )}
       <div id={WORKFLOW_SECTION_IDS.constructionConstraints} />
       <CompareWorkspaceSection {...shellProps} />

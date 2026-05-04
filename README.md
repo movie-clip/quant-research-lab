@@ -126,11 +126,14 @@ Desktop app:
 Python quant engine:
 - `services/quant-engine`
 
-Run both dev servers:
+Run the backend and browser/Vite dev servers only:
 
 ```bash
 python scripts/run_dev.py
 ```
+
+This web dev flow is fixed to `http://127.0.0.1:5173`.
+If port `5173` is already in use, the script fails fast and prints an error instead of switching to another port.
 
 Check only:
 
