@@ -2,52 +2,19 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
-import { ExposurePanel, sortTooltipPayloadRows } from './ExposurePanel'
+import { ExposurePanel } from './ExposurePanel'
 import { composeExposureView } from './portfolioAnalysisAdapter'
-import type { ExposureAnalysis, ExposureFactorModelResponse } from './types'
+import type { ExposureAnalysis } from './types'
 
 const mockExposureView: ExposureAnalysis = composeExposureView(createExposureEngineFixture(), createDiagnosticsEngineFixture())
-
-const mockFactorModel: ExposureFactorModelResponse = {
-  benchmark_symbol: 'SPY',
-  methodology: 'm',
-  factor_registry: [],
-  statistical_factor_model: createDiagnosticsEngineFixture().statistical_factor_model,
-}
 
 afterEach(() => {
   cleanup()
 })
 
 describe('ExposurePanel', () => {
-  it('sorts rolling factor tooltip rows by highest visible value first', () => {
-    const rows = sortTooltipPayloadRows(
-      [
-        { dataKey: 'market', value: 1.08 },
-        { dataKey: 'technology', value: 0.22 },
-        { dataKey: 'growth', value: 0.31 },
-      ],
-      { market: 0, growth: 1, technology: 4 },
-    )
-
-    expect(rows.map((row) => row.dataKey)).toEqual(['market', 'growth', 'technology'])
-  })
-
-  it('breaks equal tooltip values with chart line order', () => {
-    const rows = sortTooltipPayloadRows(
-      [
-        { dataKey: 'technology', value: 0.31 },
-        { dataKey: 'growth', value: 0.31 },
-        { dataKey: 'market', value: 1.08 },
-      ],
-      { market: 0, growth: 1, technology: 4 },
-    )
-
-    expect(rows.map((row) => row.dataKey)).toEqual(['market', 'growth', 'technology'])
-  })
-
   it('renders empty state without analysis', () => {
-    render(<ExposurePanel result={null} factorModel={null} />)
+    render(<ExposurePanel result={null} />)
 
     expect(screen.getAllByText('Look-Through Exposure Core').length).toBeGreaterThan(0)
   })
@@ -58,7 +25,6 @@ describe('ExposurePanel', () => {
     render(
       <ExposurePanel
         result={mockExposureView}
-        factorModel={mockFactorModel}
         snapshotOptions={[{ id: 'draft', label: 'Working Draft' }, { id: 'node-1', label: 'Base Import' }]}
         selectedSnapshotId="draft"
         onSnapshotSelect={onSnapshotSelect}
@@ -71,7 +37,7 @@ describe('ExposurePanel', () => {
   })
 
   it('renders the look-through summary first with explicit live coverage messaging', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+    render(<ExposurePanel result={mockExposureView} />)
 
     expect(screen.getByText('Look-Through Exposure Core').closest('article')?.className.includes('exposure-panel')).toBe(true)
     expect(screen.getByLabelText('Exposure Dense Insight Strip')).toBeTruthy()
@@ -89,7 +55,7 @@ describe('ExposurePanel', () => {
   })
 
   it('renders sector composition from look-through-aware composition when available', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+    render(<ExposurePanel result={mockExposureView} />)
 
     expect(screen.getAllByText('Sector Composition').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Basis: sector mix uses look-through composition.').length).toBeGreaterThan(0)
@@ -99,7 +65,7 @@ describe('ExposurePanel', () => {
   })
 
   it('renders current-state concentration facts only', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+    render(<ExposurePanel result={mockExposureView} />)
 
     expect(screen.getByText('Concentration Pack')).toBeTruthy()
     expect(screen.getByText('Current-state concentration')).toBeTruthy()
@@ -139,7 +105,6 @@ describe('ExposurePanel', () => {
             ],
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -165,7 +130,6 @@ describe('ExposurePanel', () => {
             sector_hhi: null,
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -174,8 +138,8 @@ describe('ExposurePanel', () => {
     expect(screen.queryByText('Position HHI')).toBeNull()
   })
 
-  it('renders benchmark-relative positioning separately from historical risk cards', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+  it('renders benchmark-relative positioning as current-state composition only', () => {
+    render(<ExposurePanel result={mockExposureView} />)
 
     const positioningSection = screen.getByText('Benchmark-Relative Positioning').closest('section') as HTMLElement
     expect(screen.getByText('Benchmark-Relative Positioning')).toBeTruthy()
@@ -207,7 +171,6 @@ describe('ExposurePanel', () => {
             note: 'Look-through exposure is partial because some holdings could not be resolved, and benchmark overlap is unavailable because benchmark composition could not be loaded.',
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -230,7 +193,6 @@ describe('ExposurePanel', () => {
             note: 'Benchmark-relative overlap is unavailable because benchmark composition could not be loaded. Current look-through exposure is still shown.',
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -260,7 +222,6 @@ describe('ExposurePanel', () => {
             benchmark_overlap_confidence: 'low',
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -282,7 +243,6 @@ describe('ExposurePanel', () => {
             },
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -308,7 +268,6 @@ describe('ExposurePanel', () => {
             ],
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -332,7 +291,6 @@ describe('ExposurePanel', () => {
             lookthrough_status: 'unavailable',
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
@@ -375,7 +333,6 @@ describe('ExposurePanel', () => {
             lookthrough_status: 'unavailable',
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 

@@ -1,13 +1,10 @@
 import { useMemo } from 'react'
 
 import { DenseInsightStrip, type DenseInsightStripItem, type DenseInsightMarker } from './DenseInsightStrip'
-import type { ExposureAnalysis, ExposureFactorModelResponse } from './types'
-
-export { sortTooltipPayloadRows } from './RollingFactorLoadingsCard'
+import type { ExposureAnalysis } from './types'
 
 type ExposurePanelProps = {
   result: ExposureAnalysis | null
-  factorModel: ExposureFactorModelResponse | null
   snapshotOptions?: Array<{ id: string; label: string }>
   selectedSnapshotId?: string
   onSnapshotSelect?: (snapshotId: string) => void
@@ -339,9 +336,7 @@ function UnavailablePanel({ title, detail }: { title: string; detail: string }) 
   )
 }
 
-export function ExposurePanel({ result, factorModel, snapshotOptions = [], selectedSnapshotId = 'current', onSnapshotSelect }: ExposurePanelProps) {
-  void factorModel
-
+export function ExposurePanel({ result, snapshotOptions = [], selectedSnapshotId = 'current', onSnapshotSelect }: ExposurePanelProps) {
   const sectorModule = useMemo(() => (result ? buildSectorModuleState(result) : null), [result])
   const benchmarkPositioningModule = useMemo(() => (result ? buildBenchmarkPositioningModuleState(result) : null), [result])
   const denseInsightItems = useMemo(

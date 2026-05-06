@@ -2750,7 +2750,6 @@ export function App() {
           <Suspense fallback={<section className="panel"><p className="panel-label">Exposure</p><p className="helper">Loading exposure analytics...</p></section>}>
             <ExposurePanel
               result={exposureAnalysis}
-              factorModel={exposureFactorModel}
               snapshotOptions={[
                 ...(workingDraft ? [{ id: 'draft', label: formatWorkingDraftLabel(activeNode, workspaceNodes) }] : []),
                 ...workspaceNodes.map((node) => ({ id: node.id, label: formatVariantNodeLabel(node, workspaceNodes) })),
