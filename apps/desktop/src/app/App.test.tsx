@@ -3432,12 +3432,76 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Strategy Lab' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Backtest' }))
+    await waitFor(() => expect(screen.getByTestId('workspace-empty-state')).toBeTruthy())
+    expect(screen.getByText('No active workspace is open.')).toBeTruthy()
 
-    await waitFor(() => expect(screen.getByTestId('workspace-research-intent-empty-state')).toBeTruthy())
-    expect(screen.getByText('No active workspace is open for Strategy Lab.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Strategy Lab' }))
+    await waitFor(() => expect(screen.getByTestId('workspace-empty-state')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'ETF Ranking' }))
+    await waitFor(() => expect(screen.getByTestId('workspace-empty-state')).toBeTruthy())
+
+    expect(screen.queryByTestId('workspace-research-intent-empty-state')).toBeNull()
     expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page')
     expect(fetchMock).toHaveBeenCalledTimes(0)
+  })
+
+  it('routes dashboard detailed review to the generic workspace empty state without backend requests when no workspace exists', async () => {
+    vi.resetModules()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const mockedDashboardAnalysis = {
+        performance_series: [{ date: '2024-01-02', equity: 100000 }],
+        daily_states: [],
+        source_status: { performance_history: 'available', monthly_returns: 'available' },
+      }
+
+      vi.doMock('react', async () => {
+        const actualReact = await vi.importActual<typeof import('react')>('react')
+        let stateCallCount = 0
+
+        return {
+          ...actualReact,
+          useEffect: vi.fn(),
+          useState: <T,>(initial: T | (() => T)) => {
+            const resolvedInitial = typeof initial === 'function'
+              ? (initial as () => T)()
+              : initial
+            const hookIndex = stateCallCount % 39
+            stateCallCount += 1
+
+            if (hookIndex === 1) return actualReact.useState(mockedDashboardAnalysis as T)
+            if (hookIndex === 18) return actualReact.useState(false as T)
+            if (hookIndex === 37) return actualReact.useState('backtest' as T)
+            return actualReact.useState(resolvedInitial)
+          },
+        }
+      })
+
+      vi.doMock('../features/portfolio/DashboardPanel', () => ({
+        DashboardPanel: ({ onOpenDetailedReview }: { onOpenDetailedReview?: () => void }) => (
+          <button type="button" onClick={onOpenDetailedReview}>Open detailed review</button>
+        ),
+      }))
+
+      const { App: IsolatedApp } = await import('./App')
+
+      render(<IsolatedApp />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+
+      await waitFor(() => expect(screen.getByTestId('workspace-empty-state')).toBeTruthy())
+      expect(screen.queryByTestId('workspace-research-intent-empty-state')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page')
+      expect(fetchMock).toHaveBeenCalledTimes(0)
+    } finally {
+      vi.doUnmock('react')
+      vi.doUnmock('../features/portfolio/DashboardPanel')
+      vi.resetModules()
+    }
   })
 
   it('keeps Strategy Lab reachable from the Workspace research tools', async () => {

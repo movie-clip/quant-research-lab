@@ -71,6 +71,8 @@ const appTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'etf_ranking', label: 'ETF Ranking' },
 ]
 
+const workspaceOwnedResearchTabs: WorkspaceResearchTool[] = ['backtest', 'strategy_lab', 'etf_ranking']
+
 const idleMonitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionState = {
   navigation: null,
   timeline: null,
@@ -947,6 +949,10 @@ export function assertMonitorDefinitionActiveAlertEpisodeInboxResponse(
   }
 }
 
+function isWorkspaceOwnedResearchTab(tab: AppTab): tab is WorkspaceResearchTool {
+  return workspaceOwnedResearchTabs.includes(tab as WorkspaceResearchTool)
+}
+
 export function assertMonitorDefinitionAlertEpisodeHistoryResponse(
   payload: unknown,
   expectedMonitorDefinitionId: string,
@@ -1461,11 +1467,15 @@ export function App() {
     })
   }
 
+  function routeIntoWorkspace(requestedResearchTool: WorkspaceResearchTool | null = null) {
+    setWorkspaceResearchIntent(activeWorkspace ? requestedResearchTool : null)
+    setTab('workspace')
+  }
+
   function handleTabChange(nextTab: AppTab) {
     userSelectedTabRef.current = true
-    if (nextTab === 'backtest' || nextTab === 'strategy_lab' || nextTab === 'etf_ranking') {
-      setWorkspaceResearchIntent(nextTab)
-      setTab('workspace')
+    if (isWorkspaceOwnedResearchTab(nextTab)) {
+      routeIntoWorkspace(nextTab)
       return
     }
     if (nextTab === 'workspace') {
@@ -2739,7 +2749,7 @@ export function App() {
             detailEligible={dashboardSession.detailEligible}
             onOpenDetailedReview={() => {
               if (!isDashboardDetailedReviewEligible(dashboardSession.result, dashboardSession.activeNodeKind)) return
-              setTab('workspace')
+              routeIntoWorkspace()
             }}
           />
         </section>
