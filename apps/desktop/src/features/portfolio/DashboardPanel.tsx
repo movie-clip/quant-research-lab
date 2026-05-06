@@ -1184,6 +1184,102 @@ function renderReadinessCards(readinessStatus: ReturnType<typeof buildReadinessS
   )
 }
 
+type DashboardWorkflowStep = {
+  title: string
+  detail: string
+  handoff?: boolean
+}
+
+function formatReadinessCheckpoint(readinessStatus: ReturnType<typeof buildReadinessState>) {
+  return [
+    readinessStatus.freshness.value,
+    readinessStatus.coverage.value,
+    readinessStatus.benchmark.value,
+  ].join(' · ')
+}
+
+function buildHandoffCardState(input: {
+  readinessStatus: ReturnType<typeof buildReadinessState>
+  showHandoffButton: boolean
+  activeNodeKind: PortfolioNodeKind | null
+}) {
+  const importedSnapshotInactive = Boolean(
+    input.activeNodeKind
+      && input.activeNodeKind !== 'imported_base'
+      && input.activeNodeKind !== 'imported_snapshot',
+  )
+
+  if (!input.showHandoffButton) {
+    const steps: DashboardWorkflowStep[] = importedSnapshotInactive
+      ? [
+          {
+            title: 'Return to the imported snapshot.',
+            detail: 'Trusted orientation and the detailed-review handoff unlock only from the imported snapshot path.',
+          },
+          {
+            title: 'Keep Dashboard as the current-state checkpoint.',
+            detail: 'Use this shell for summary context until the imported snapshot is active again.',
+          },
+        ]
+      : [
+          {
+            title: 'Restore imported snapshot readiness first.',
+            detail: input.readinessStatus.overall.detail,
+          },
+          {
+            title: 'Use the handoff after the dashboard is loaded.',
+            detail: 'The detailed-review CTA appears only after the imported portfolio is back in a reviewable state.',
+          },
+        ]
+
+    return {
+      value: 'Detailed review unavailable here',
+      detail: importedSnapshotInactive
+        ? 'This shell stays summary-first, and detailed review is unavailable on this path.'
+        : 'This shell stays summary-first, and the handoff unlocks only after imported snapshot readiness is restored.',
+      steps,
+    }
+  }
+
+  if (input.readinessStatus.tone === 'success') {
+    return {
+      value: 'Continue in detailed review',
+      detail: 'Dashboard summary is aligned for a decision-ready first pass. Use the handoff when you are ready to continue.',
+      steps: [
+        {
+          title: 'Confirm the current-state read.',
+          detail: formatReadinessCheckpoint(input.readinessStatus),
+        },
+        {
+          title: 'Hand off when you need the next layer.',
+          detail: 'The CTA keeps Dashboard summary-first while continuing the existing review flow.',
+          handoff: true,
+        },
+      ],
+    }
+  }
+
+  return {
+    value: 'Continue in detailed review',
+    detail: 'Dashboard summary is usable for orientation, but the current support limits should stay in view during the handoff.',
+    steps: [
+      {
+        title: 'Start from imported snapshot truth.',
+        detail: input.readinessStatus.overall.detail,
+      },
+      {
+        title: 'Carry the support flags forward.',
+        detail: formatReadinessCheckpoint(input.readinessStatus),
+      },
+      {
+        title: 'Open detailed review for follow-up.',
+        detail: 'The CTA preserves the current dashboard boundary and routes through the existing handoff.',
+        handoff: true,
+      },
+    ],
+  }
+}
+
 function renderDashboardHighlightsModule(module: DashboardHighlightModule) {
   return <DenseInsightStrip ariaLabel={module.title} items={[module]} className="dashboard-summary-highlight-strip" />
 }
@@ -1316,11 +1412,36 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
   }
 
   function renderHandoffCard(): ReactNode {
+    const handoffCardState = buildHandoffCardState({
+      readinessStatus,
+      showHandoffButton,
+      activeNodeKind,
+    })
+
     return (
       <section className="summary-card dashboard-guidance-card dashboard-guidance-card-accent dashboard-shell-section" aria-label="Next step">
-        <p className="stat-label">Next step</p>
-        <p className="summary-value dashboard-guidance-value">{showHandoffButton ? 'Continue in detailed review' : 'Detailed review unavailable here'}</p>
-        <p className="helper">{showHandoffButton ? 'This shell stays summary-first. Use the handoff when you need deeper review.' : 'This shell stays summary-first, and detailed review is unavailable on this path.'}</p>
+        <div className="section-header-inline dashboard-guidance-header dashboard-shell-section-header">
+          <div className="dashboard-shell-title-block">
+            <p className="stat-label">Next step</p>
+            <p className="summary-value dashboard-guidance-value">{handoffCardState.value}</p>
+          </div>
+          <div className="dashboard-guidance-status-shell">
+            <span className={`dashboard-snapshot-status dashboard-snapshot-status-${readinessStatus.tone}`}>{readinessStatus.tone}</span>
+            <span className="dashboard-guidance-status-text">{readinessStatus.overall.value}</span>
+          </div>
+        </div>
+        <p className="helper">{handoffCardState.detail}</p>
+        <ol className="dashboard-guidance-workflow-list">
+          {handoffCardState.steps.map((step, index) => (
+            <li key={`${step.title}-${index}`} className={`dashboard-health-workflow-step${step.handoff ? ' dashboard-health-workflow-step-handoff' : ''}`}>
+              <span className="dashboard-health-workflow-index">{index + 1}</span>
+              <div className="dashboard-health-workflow-step-copy">
+                <p className="dashboard-health-workflow-title">{step.title}</p>
+                <p className="dashboard-health-workflow-copy">{step.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
         {showHandoffButton ? (
           <div className="dashboard-health-handoff-row">
             <button className="primary-button" type="button" onClick={handleOpenDetailedReview}>Open detailed review</button>

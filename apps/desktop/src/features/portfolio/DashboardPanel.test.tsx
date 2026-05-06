@@ -28,6 +28,10 @@ function getSnapshotShell() {
   return screen.getByLabelText('Trusted Portfolio Snapshot')
 }
 
+function getNextStepShell() {
+  return screen.getByLabelText('Next step')
+}
+
 describe('DashboardPanel', () => {
   it('renders the landing-only shell and keeps deeper review content absent', () => {
     render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
@@ -41,6 +45,14 @@ describe('DashboardPanel', () => {
     expect(screen.getByLabelText('Benchmark-Relative Highlights')).toBeTruthy()
     expect(screen.getByLabelText('Risk / Factor / Stress Headlines')).toBeTruthy()
     expect(screen.getByText('Next step')).toBeTruthy()
+    expect(screen.getAllByText('Partially ready').length).toBeGreaterThan(0)
+    expect(screen.getByText('Dashboard summary is usable for orientation, but the current support limits should stay in view during the handoff.')).toBeTruthy()
+    expect(screen.getByText('Start from imported snapshot truth.')).toBeTruthy()
+    const nextStepShell = getNextStepShell()
+    expect(within(nextStepShell).getByText(/Fresh import timestamp/)).toBeTruthy()
+    expect(within(nextStepShell).getByText(/Look-through coverage ready/)).toBeTruthy()
+    expect(within(nextStepShell).getByText(/Benchmark degraded/)).toBeTruthy()
+    expect(screen.getByText('Open detailed review for follow-up.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy()
     expect(screen.getByText(/Account ID U8516450/)).toBeTruthy()
     expect(screen.getAllByText('Benchmark used').length).toBeGreaterThan(0)
@@ -75,9 +87,56 @@ describe('DashboardPanel', () => {
     expect(onOpenDetailedReview).toHaveBeenCalledTimes(1)
     expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy()
     expect(screen.getByText('Freshness And Coverage Readiness')).toBeTruthy()
+    expect(screen.getByText('Open detailed review for follow-up.')).toBeTruthy()
     expect(screen.queryByText('Detailed review')).toBeNull()
     expect(screen.queryByText('Support layer')).toBeNull()
     expect(screen.queryByText('Draft/tool layer')).toBeNull()
+  })
+
+  it('shows the fully-ready handoff card and keeps the detailed review CTA available', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-15T00:00:00Z'))
+
+    const readyDashboardView = buildImportedDashboardView({
+      ...mockAnalysis,
+      snapshot: {
+        ...mockAnalysis.snapshot,
+        statement_totals: {
+          stock_total: 50000,
+          cash_total: 1000,
+          dividends_total: 0,
+          withholding_tax_total: 0,
+          interest_total: 0,
+          other_fees_total: 0,
+          deposits_total: 0,
+          starting_nav: 48000,
+          ending_nav: 51000,
+          fx_rates: {},
+        },
+      },
+      run_metadata: {
+        ...mockAnalysis.run_metadata!,
+        source_status: {
+          ...mockAnalysis.run_metadata!.source_status,
+          benchmark_history: 'live_market_data_verified_adjusted_close',
+        },
+        reproducibility: {
+          ...mockAnalysis.run_metadata!.reproducibility,
+          snapshot_as_of_date: '2025-12-31',
+        },
+      },
+    })
+
+    render(<DashboardPanel result={readyDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
+
+    const nextStepShell = getNextStepShell()
+    expect(within(nextStepShell).getByText('Continue in detailed review')).toBeTruthy()
+    expect(within(nextStepShell).getByText('Ready for a first pass')).toBeTruthy()
+    expect(within(nextStepShell).getByText('Dashboard summary is aligned for a decision-ready first pass. Use the handoff when you are ready to continue.')).toBeTruthy()
+    expect(within(nextStepShell).getByText('Confirm the current-state read.')).toBeTruthy()
+    expect(within(nextStepShell).getByText('Fresh import timestamp · Look-through coverage ready · Benchmark available')).toBeTruthy()
+    expect(within(nextStepShell).getByText('Hand off when you need the next layer.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy()
   })
 
   it('fails closed when detailed review is ineligible without unlocking inline content', () => {
@@ -92,8 +151,10 @@ describe('DashboardPanel', () => {
     )
 
     expect(screen.getByText('Imported snapshot not active here')).toBeTruthy()
-    expect(screen.getByText('Trusted orientation paused')).toBeTruthy()
+    expect(screen.getAllByText('Trusted orientation paused').length).toBeGreaterThan(0)
     expect(screen.getByText('Detailed review unavailable here')).toBeTruthy()
+    expect(screen.getByText('Return to the imported snapshot.')).toBeTruthy()
+    expect(screen.getByText('Trusted orientation and the detailed-review handoff unlock only from the imported snapshot path.')).toBeTruthy()
     expect(screen.getAllByText('partial').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
     expect(screen.queryByText('Detailed review')).toBeNull()
@@ -144,13 +205,13 @@ describe('DashboardPanel', () => {
     const { rerender } = render(<DashboardPanel result={null} importing lastImportedFileNames={['IB2025.pdf']} />)
 
     expect(screen.getByText('Loading imported snapshot')).toBeTruthy()
-    expect(screen.getByText('Readiness pending')).toBeTruthy()
+    expect(screen.getAllByText('Readiness pending').length).toBeGreaterThan(0)
     expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
 
     rerender(<DashboardPanel result={null} importError="Import failed: unreadable PDF" />)
     expect(screen.getAllByText('Import failed').length).toBeGreaterThan(0)
-    expect(screen.getByText('Readiness unavailable')).toBeTruthy()
+    expect(screen.getAllByText('Readiness unavailable').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
 
     rerender(<DashboardPanel result={null} lastImportedFileNames={['IB2025.pdf']} restoredSession onClearImportedSession={vi.fn()} />)
@@ -167,7 +228,12 @@ describe('DashboardPanel', () => {
     const { rerender } = render(<DashboardPanel result={mockDashboardView} exposureResult={dashboardExposureView} factorModel={dashboardFactorModel} />)
 
     expect(screen.getAllByText('Imported snapshot may be stale').length).toBeGreaterThan(0)
-    expect(screen.getByText('Refresh before confident analysis')).toBeTruthy()
+    expect(screen.getAllByText('Refresh before confident analysis').length).toBeGreaterThan(0)
+    expect(screen.getByText('Carry the support flags forward.')).toBeTruthy()
+    const nextStepShell = getNextStepShell()
+    expect(within(nextStepShell).getByText(/Stale import timestamp/)).toBeTruthy()
+    expect(within(nextStepShell).getByText(/Look-through coverage ready/)).toBeTruthy()
+    expect(within(nextStepShell).getByText(/Benchmark degraded/)).toBeTruthy()
     expect(screen.getAllByText('stale').length).toBeGreaterThan(0)
     expect(screen.queryByText('Portfolio vs SPY path for the selected range')).toBeNull()
 
@@ -223,10 +289,26 @@ describe('DashboardPanel', () => {
     )
 
     expect(screen.getAllByText('Imported snapshot has partial anchors').length).toBeGreaterThan(0)
-    expect(screen.getByText('Partially ready')).toBeTruthy()
+    expect(screen.getAllByText('Partially ready').length).toBeGreaterThan(0)
+    expect(screen.getByText('Start from imported snapshot truth.')).toBeTruthy()
+    const rerenderedNextStepShell = getNextStepShell()
+    expect(within(rerenderedNextStepShell).getByText(/Freshness unavailable/)).toBeTruthy()
+    expect(within(rerenderedNextStepShell).getByText(/Look-through coverage unavailable/)).toBeTruthy()
+    expect(within(rerenderedNextStepShell).getByText(/Benchmark degraded/)).toBeTruthy()
     expect(screen.getAllByText('Exposure highlights stay unavailable until explicit sector or look-through fields are present.').length).toBeGreaterThan(0)
     expect(screen.queryByText('Rolling Factor Analysis')).toBeNull()
     expect(screen.queryByText('Workspace and allocation editor')).toBeNull()
+  })
+
+  it('keeps the handoff card locked to dashboard-local readiness language when no import is loaded', () => {
+    render(<DashboardPanel result={null} />)
+
+    expect(screen.getByText('Detailed review unavailable here')).toBeTruthy()
+    expect(screen.getByText('This shell stays summary-first, and the handoff unlocks only after imported snapshot readiness is restored.')).toBeTruthy()
+    expect(screen.getByText('Restore imported snapshot readiness first.')).toBeTruthy()
+    expect(screen.getAllByText('Load an imported portfolio before relying on dashboard orientation.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Use the handoff after the dashboard is loaded.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
   })
 
   it('labels partial look-through coverage inline and degrades benchmark and diagnostics headlines when inputs degrade', () => {
