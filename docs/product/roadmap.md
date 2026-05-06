@@ -2,6 +2,7 @@
 
 This file is future-looking only.
 Shipped-state detail belongs in `docs/product/current-product-state.md`.
+Living epic execution status belongs in `docs/product/epic-roadmap.md`.
 
 ## Product Thesis
 

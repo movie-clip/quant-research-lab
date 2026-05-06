@@ -1,6 +1,7 @@
 # Current Product State
 
 This document is the canonical source for what is actually shipped today, what is intentionally narrow, and what remains future work.
+Forward-looking epic execution status belongs in `docs/product/epic-roadmap.md`.
 
 ## Current product shape
 

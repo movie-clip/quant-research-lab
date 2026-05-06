@@ -2,6 +2,7 @@
 
 This file is technical and future-looking only.
 Current shipped boundaries belong in `docs/product/current-product-state.md`.
+Living epic execution status belongs in `docs/product/epic-roadmap.md`.
 
 ## Goal
 

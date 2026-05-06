@@ -11,6 +11,41 @@ type RankingArtifactFixture = ReturnType<typeof buildRankingArtifact>
 type RankingArtifactPreflightFixture = ReturnType<typeof buildPreflightResponse>
 type RankingArtifactOpenFixture = ReturnType<typeof buildOpenResponse>
 
+function buildGeneralizedRecentResponse(runs: Array<Record<string, unknown>>, appliedFilters: Record<string, unknown> = { artifact_kind: 'etf_ranking' }) {
+  return {
+    items: runs.map((run) => ({
+      artifact_kind: 'etf_ranking',
+      schema_version: 'etf_ranking_artifact_v1',
+      metadata: {
+        metadata_truth: 'authoritative_persisted_metadata',
+        metadata_provenance: 'persisted_artifact_body',
+        matched_metadata_provenance: 'persisted_artifact_body',
+        recency_same_day_provenance: 'etf_recent_index',
+      },
+      etf_summary: {
+        benchmark_symbol: run.benchmark_symbol,
+        lookback_months: run.lookback_months,
+        effective_peer_group: run.effective_peer_group,
+        universe_size: run.universe_size,
+        evaluated_universe_size: run.evaluated_universe_size,
+        confidence: run.confidence,
+      },
+      replacement_summary: null,
+      ...run,
+    })),
+    metadata: {
+      contract_version: 'ranking_artifact_discovery_v1',
+      metadata_truth: 'authoritative_persisted_metadata',
+      supported_metadata_provenance: ['persisted_artifact_body', 'persisted_etf_recent_index'],
+      supported_artifact_kinds: ['etf_ranking', 'intent_bound_etf_replacement_ranking'],
+      artifact_kind_registry_version: 'ranking_artifact_kind_registry_v1',
+      supported_filters: ['artifact_kind', 'effective_peer_group'],
+      artifact_kind_registry: [],
+      applied_filters: appliedFilters,
+    },
+  }
+}
+
 function buildRankingArtifact(overrides: Record<string, unknown> = {}) {
   return {
     schema_version: 'etf_ranking_artifact_v1',
@@ -164,8 +199,11 @@ function installFetchRouter(options: {
     if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
       return jsonResponse(options.metadata ?? { available_effective_peer_groups: ['Sector UCITS ETF'] }, options.recentMetadataStatus ?? 200)
     }
-    if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
-      return jsonResponse(options.recentRuns ?? [], options.recentRunsStatus ?? 200)
+    if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
+      const appliedFilters: Record<string, unknown> = { artifact_kind: 'etf_ranking' }
+      const peerGroup = new URL(url, 'https://example.test').searchParams.get('effective_peer_group')
+      if (peerGroup) appliedFilters.effective_peer_group = peerGroup
+      return jsonResponse(buildGeneralizedRecentResponse(options.recentRuns ?? [], appliedFilters), options.recentRunsStatus ?? 200)
     }
     if (url.includes('/strategy-lab/ranking-artifacts/preflight/')) {
       const artifact = options.recentArtifact ?? buildRankingArtifact()
@@ -509,8 +547,8 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([]))
+      if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([])))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
         return new Promise<Response>((resolve) => {
@@ -577,11 +615,11 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] })
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return jsonResponse([sectorRun, bondRun])
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([sectorRun, bondRun]))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Bond+UCITS+ETF')) {
-        return jsonResponse([bondRun])
+      if (url.includes('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking&effective_peer_group=Bond+UCITS+ETF')) {
+        return jsonResponse(buildGeneralizedRecentResponse([bondRun], { artifact_kind: 'etf_ranking', effective_peer_group: 'Bond UCITS ETF' }))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_bond_1') && (init?.method ?? 'GET') === 'POST') {
         return jsonResponse(buildPreflightResponse(bondArtifact))
@@ -624,8 +662,8 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return jsonResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_recent_open' })])
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_recent_open' })]))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_recent_open') && (init?.method ?? 'GET') === 'POST') {
         return jsonResponse(preflight)
@@ -749,7 +787,7 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+      if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
         return Promise.resolve(jsonResponse([]))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
@@ -795,8 +833,8 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })])))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
         runCount += 1
@@ -852,8 +890,8 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun()]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
@@ -895,11 +933,11 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_sector_1' }),
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
-        ]))
+        ])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
@@ -942,7 +980,7 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+      if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
         return Promise.resolve(jsonResponse([]))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
@@ -984,8 +1022,8 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun(), buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun(), buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })])))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
         return runRequest.promise
@@ -1026,8 +1064,8 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun()]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
@@ -1070,11 +1108,11 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_sector_1' }),
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
-        ]))
+        ])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))

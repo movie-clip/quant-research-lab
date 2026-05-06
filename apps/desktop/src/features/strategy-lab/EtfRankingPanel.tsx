@@ -19,6 +19,77 @@ import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDr
 const PEER_GROUP_OPTIONS = ['Sector UCITS ETF', 'Bond UCITS ETF', 'Broad Market UCITS ETF', 'Thematic UCITS ETF', 'Commodity UCITS ETF']
 const COMPONENT_ORDER = ['momentum', 'benchmark_relative_strength', 'realized_volatility', 'downside_volatility', 'max_drawdown', 'liquidity', 'implementation_fit'] as const
 
+type GeneralizedRankingRecentResponse = {
+  items?: Array<{
+    artifact_kind?: unknown
+    artifact_id?: unknown
+    ranking_id?: unknown
+    methodology_id?: unknown
+    as_of_date?: unknown
+    ranking_basis_date?: unknown
+    etf_summary?: {
+      benchmark_symbol?: unknown
+      lookback_months?: unknown
+      effective_peer_group?: unknown
+      universe_size?: unknown
+      evaluated_universe_size?: unknown
+      confidence?: unknown
+    } | null
+    replacement_summary?: unknown
+  }>
+  metadata?: {
+    applied_filters?: {
+      artifact_kind?: unknown
+    }
+  }
+}
+
+function parseEtfRecentRunsFromGeneralizedResponse(payload: GeneralizedRankingRecentResponse): EtfRankingArtifactRecentRow[] {
+  if (payload.metadata?.applied_filters?.artifact_kind !== 'etf_ranking') {
+    throw new Error('Recent ETF ranking runs returned unsupported discovery scope')
+  }
+  if (!Array.isArray(payload.items)) {
+    throw new Error('Recent ETF ranking runs returned malformed discovery payload')
+  }
+  return payload.items.map((item) => {
+    if (item.artifact_kind !== 'etf_ranking') {
+      throw new Error('Recent ETF ranking runs returned non-ETF artifact rows')
+    }
+    if (item.replacement_summary != null || !item.etf_summary) {
+      throw new Error('Recent ETF ranking runs returned malformed ETF summaries')
+    }
+    const summary = item.etf_summary
+    if (
+      typeof item.artifact_id !== 'string'
+      || typeof item.ranking_id !== 'string'
+      || typeof item.methodology_id !== 'string'
+      || typeof item.as_of_date !== 'string'
+      || typeof item.ranking_basis_date !== 'string'
+      || typeof summary.benchmark_symbol !== 'string'
+      || typeof summary.lookback_months !== 'number'
+      || !(typeof summary.effective_peer_group === 'string' || summary.effective_peer_group === null)
+      || typeof summary.universe_size !== 'number'
+      || typeof summary.evaluated_universe_size !== 'number'
+      || !['high', 'medium', 'low'].includes(String(summary.confidence))
+    ) {
+      throw new Error('Recent ETF ranking runs returned invalid ETF row metadata')
+    }
+    return {
+      artifact_id: item.artifact_id,
+      ranking_id: item.ranking_id,
+      methodology_id: item.methodology_id,
+      as_of_date: item.as_of_date,
+      ranking_basis_date: item.ranking_basis_date,
+      benchmark_symbol: summary.benchmark_symbol,
+      lookback_months: summary.lookback_months,
+      universe_size: summary.universe_size,
+      evaluated_universe_size: summary.evaluated_universe_size,
+      effective_peer_group: summary.effective_peer_group,
+      confidence: summary.confidence as 'high' | 'medium' | 'low',
+    }
+  })
+}
+
 function formatNumber(value: number | null | undefined, digits = 2) {
   return value == null ? 'n/a' : value.toFixed(digits)
 }
@@ -290,11 +361,13 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
     setSessionState((current) => ({ ...current, recentRunsLoading: true, recentRunsError: null }))
     try {
       const search = new URLSearchParams()
+      search.set('artifact_kind', 'etf_ranking')
       if (effectivePeerGroup) search.set('effective_peer_group', effectivePeerGroup)
       const query = search.toString()
-      const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/recent${query ? `?${query}` : ''}`)
-      const payload = await readJsonResponse<EtfRankingArtifactRecentRow[]>(response, 'Recent ETF ranking runs are unavailable')
-      setSessionState((current) => ({ ...current, recentRuns: payload }))
+      const response = await fetch(`${apiBase}/strategy-lab/ranking-artifacts/recent?${query}`)
+      const payload = await readJsonResponse<GeneralizedRankingRecentResponse>(response, 'Recent ETF ranking runs are unavailable')
+      const recentRuns = parseEtfRecentRunsFromGeneralizedResponse(payload)
+      setSessionState((current) => ({ ...current, recentRuns }))
     } catch (caught) {
       setSessionState((current) => ({
         ...current,

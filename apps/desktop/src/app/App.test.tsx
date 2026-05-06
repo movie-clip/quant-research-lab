@@ -4918,7 +4918,38 @@ describe('App', () => {
       if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
       if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
-      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET') return jsonResponse({
+        items: makeEtfRankingRecentRunsPayload().map((run) => ({
+          artifact_kind: 'etf_ranking',
+          schema_version: 'etf_ranking_artifact_v1',
+          metadata: {
+            metadata_truth: 'authoritative_persisted_metadata',
+            metadata_provenance: 'persisted_artifact_body',
+            matched_metadata_provenance: 'persisted_artifact_body',
+            recency_same_day_provenance: 'etf_recent_index',
+          },
+          etf_summary: {
+            benchmark_symbol: run.benchmark_symbol,
+            lookback_months: run.lookback_months,
+            effective_peer_group: run.effective_peer_group,
+            universe_size: run.universe_size,
+            evaluated_universe_size: run.evaluated_universe_size,
+            confidence: run.confidence,
+          },
+          replacement_summary: null,
+          ...run,
+        })),
+        metadata: {
+          contract_version: 'ranking_artifact_discovery_v1',
+          metadata_truth: 'authoritative_persisted_metadata',
+          supported_metadata_provenance: ['persisted_artifact_body', 'persisted_etf_recent_index'],
+          supported_artifact_kinds: ['etf_ranking', 'intent_bound_etf_replacement_ranking'],
+          artifact_kind_registry_version: 'ranking_artifact_kind_registry_v1',
+          supported_filters: ['artifact_kind', 'effective_peer_group'],
+          artifact_kind_registry: [],
+          applied_filters: { artifact_kind: 'etf_ranking' },
+        },
+      })
       throw new Error(`Unhandled fetch: ${method} ${pathname}`)
     })
 
@@ -4956,7 +4987,38 @@ describe('App', () => {
       if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
       if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
-      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET') return jsonResponse({
+        items: makeEtfRankingRecentRunsPayload().map((run) => ({
+          artifact_kind: 'etf_ranking',
+          schema_version: 'etf_ranking_artifact_v1',
+          metadata: {
+            metadata_truth: 'authoritative_persisted_metadata',
+            metadata_provenance: 'persisted_artifact_body',
+            matched_metadata_provenance: 'persisted_artifact_body',
+            recency_same_day_provenance: 'etf_recent_index',
+          },
+          etf_summary: {
+            benchmark_symbol: run.benchmark_symbol,
+            lookback_months: run.lookback_months,
+            effective_peer_group: run.effective_peer_group,
+            universe_size: run.universe_size,
+            evaluated_universe_size: run.evaluated_universe_size,
+            confidence: run.confidence,
+          },
+          replacement_summary: null,
+          ...run,
+        })),
+        metadata: {
+          contract_version: 'ranking_artifact_discovery_v1',
+          metadata_truth: 'authoritative_persisted_metadata',
+          supported_metadata_provenance: ['persisted_artifact_body', 'persisted_etf_recent_index'],
+          supported_artifact_kinds: ['etf_ranking', 'intent_bound_etf_replacement_ranking'],
+          artifact_kind_registry_version: 'ranking_artifact_kind_registry_v1',
+          supported_filters: ['artifact_kind', 'effective_peer_group'],
+          artifact_kind_registry: [],
+          applied_filters: { artifact_kind: 'etf_ranking' },
+        },
+      })
       if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') return jsonResponse(makeEtfRankingPreflightPayload())
       if (pathname === '/api/strategy-lab/ranking-artifacts/open' && method === 'POST') return jsonResponse(makeEtfRankingOpenPayload())
       throw new Error(`Unhandled fetch: ${method} ${pathname}`)
@@ -5562,7 +5624,38 @@ describe('App', () => {
       if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
       if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
       if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
-      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET') return jsonResponse({
+        items: makeEtfRankingRecentRunsPayload().map((run) => ({
+          artifact_kind: 'etf_ranking',
+          schema_version: 'etf_ranking_artifact_v1',
+          metadata: {
+            metadata_truth: 'authoritative_persisted_metadata',
+            metadata_provenance: 'persisted_artifact_body',
+            matched_metadata_provenance: 'persisted_artifact_body',
+            recency_same_day_provenance: 'etf_recent_index',
+          },
+          etf_summary: {
+            benchmark_symbol: run.benchmark_symbol,
+            lookback_months: run.lookback_months,
+            effective_peer_group: run.effective_peer_group,
+            universe_size: run.universe_size,
+            evaluated_universe_size: run.evaluated_universe_size,
+            confidence: run.confidence,
+          },
+          replacement_summary: null,
+          ...run,
+        })),
+        metadata: {
+          contract_version: 'ranking_artifact_discovery_v1',
+          metadata_truth: 'authoritative_persisted_metadata',
+          supported_metadata_provenance: ['persisted_artifact_body', 'persisted_etf_recent_index'],
+          supported_artifact_kinds: ['etf_ranking', 'intent_bound_etf_replacement_ranking'],
+          artifact_kind_registry_version: 'ranking_artifact_kind_registry_v1',
+          supported_filters: ['artifact_kind', 'effective_peer_group'],
+          artifact_kind_registry: [],
+          applied_filters: { artifact_kind: 'etf_ranking' },
+        },
+      })
       if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') return jsonResponse(makeEtfRankingPreflightPayload())
       if (pathname === '/api/strategy-lab/ranking-artifacts/open' && method === 'POST') return jsonResponse(makeEtfRankingOpenPayload())
       throw new Error(`Unhandled fetch: ${method} ${pathname}`)
