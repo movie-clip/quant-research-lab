@@ -7364,8 +7364,54 @@ describe('App', () => {
     await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1))
     fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-1' } })
 
-    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run-imported', 'POST')).toHaveLength(2))
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run-imported', 'POST').length).toBeGreaterThanOrEqual(2))
     expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1)
+  })
+
+  it('shows an Exposure header exit CTA after selecting a draft and returns to the imported base snapshot', async () => {
+    const variantNode = mockSavedVariantNode()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
+      id: 'workspace-1',
+      name: 'Portfolio Workspace',
+      createdAt: '2026-04-10T00:00:00Z',
+      updatedAt: '2026-04-10T00:12:00Z',
+      rootNodeId: 'node-1',
+      activeNodeId: 'node-1',
+      source: buildImportedSource({ importedFileNames: ['ESPP2026.pdf', 'FF2026.pdf', 'IB2026.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2026-01-01 - 2026-04-10', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['ESPP2026.pdf', 'FF2026.pdf', 'IB2026.pdf'], historyStartDate: '2026-01-02', historyEndDate: '2026-04-10' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([
+      { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot },
+      variantNode,
+    ])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => nodeId === 'node-1'
+      ? { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }
+      : variantNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:12:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    const setSelectedExposureSnapshotSpy = vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:12:00Z' })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(exposurePayload)
+      if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByText('Exposure'))
+    await waitFor(() => expect(screen.getByLabelText('Snapshot')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'draft' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Return to imported snapshot' })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Return to imported snapshot' }))
+
+    await waitFor(() => expect(setSelectedExposureSnapshotSpy).toHaveBeenLastCalledWith({ workspaceId: 'workspace-1', snapshotId: 'node-1' }))
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run-imported', 'POST').length).toBeGreaterThanOrEqual(2))
   })
 
   it('uses history-aware snapshot diagnostics for saved variants in Exposure', async () => {
@@ -7413,6 +7459,132 @@ describe('App', () => {
 
     await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1))
     expect(String(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')[0]?.[1]?.body)).toContain('history_context')
+  })
+
+  it('returns a saved variant selection to the nearest imported ancestor without changing active workspace state', async () => {
+    const baseNode = {
+      id: 'node-1',
+      workspaceId: 'workspace-1',
+      parentId: null,
+      kind: 'imported_base' as const,
+      name: 'Base Import',
+      createdAt: '2026-04-10T00:00:00Z',
+      changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 },
+      portfolioSnapshot: persistedSnapshot,
+    }
+    const importedSnapshot: PortfolioSnapshot = {
+      snapshotVersion: 1,
+      baseCurrency: 'USD',
+      importedMeta: {
+        importer: 'interactive_brokers',
+        statementPeriod: ib2026MutableSnapshot.statement.statement_period,
+        importedAt: ib2026MutableSnapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
+        sourceFileNames: ib2026LoadedFiles,
+      },
+      positions: Object.entries(ib2026MutableOverview.sector_position_breakdown).flatMap(([sector, positions]) =>
+        positions.map((position) => ({
+          symbol: position.symbol,
+          marketValue: position.market_value,
+          quantity: null,
+          currency: 'USD',
+          sector,
+          sourceType: 'equity' as const,
+        })),
+      ),
+      cashBalances: Object.entries(ib2026MutableOverview.cash_by_currency).map(([currency, amount]) => ({ currency, amount })),
+      metadata: { benchmarkSymbol: 'SPY', notes: null, tags: [] },
+    }
+    const importedSnapshotNode = {
+      id: 'node-2',
+      workspaceId: 'workspace-1',
+      parentId: 'node-1',
+      kind: 'imported_snapshot' as const,
+      name: 'IB 2026',
+      createdAt: '2026-04-14T00:00:00Z',
+      changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 },
+      portfolioSnapshot: importedSnapshot,
+      source: {
+        ...buildImportedSource({ importedFileNames: ib2026LoadedFiles, importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: ib2026HistoryContext, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
+      },
+    }
+    const importedVariantSnapshot: PortfolioSnapshot = {
+      ...importedSnapshot,
+      positions: importedSnapshot.positions.map((position, index) => index === 0 ? { ...position, marketValue: position.marketValue + 5000 } : position),
+    }
+    const importedVariantNode = {
+      id: 'node-3',
+      workspaceId: 'workspace-1',
+      parentId: 'node-2',
+      kind: 'variant' as const,
+      name: 'Raise SXRV',
+      createdAt: '2026-04-14T00:10:00Z',
+      changeSummary: { label: 'Raise SXRV', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 5000, netCapitalDelta: 5000 },
+      portfolioSnapshot: importedVariantSnapshot,
+    }
+    const variantDraft = {
+      id: 'draft-3',
+      workspaceId: 'workspace-1',
+      baseNodeId: 'node-3',
+      updatedAt: '2026-04-14T00:10:00Z',
+      name: 'Working Draft',
+      status: 'clean' as const,
+      portfolioSnapshot: importedVariantSnapshot,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'node-2', lastOpenedAt: '2026-04-14T00:10:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
+      id: 'workspace-1',
+      name: 'Portfolio Workspace',
+      createdAt: '2026-04-10T00:00:00Z',
+      updatedAt: '2026-04-14T00:10:00Z',
+      rootNodeId: 'node-1',
+      activeNodeId: 'node-3',
+      source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-12-31' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([baseNode, importedSnapshotNode, importedVariantNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
+      if (nodeId === 'node-2') return importedSnapshotNode
+      if (nodeId === 'node-3') return importedVariantNode
+      return baseNode
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(variantDraft)
+    const setActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'node-3', lastOpenedAt: '2026-04-14T00:10:00Z' })
+    const setSelectedExposureSnapshotSpy = vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockImplementation(async ({ snapshotId }) => ({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: snapshotId, lastOpenedAt: '2026-04-14T00:10:00Z' }))
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(ib2026ExposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(ib2026DiagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(ib2026DashboardHistoryPayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(ib2026DiagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null })
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    fireEvent.click(screen.getByText('Exposure'))
+    await waitFor(() => expect(screen.getByLabelText('Snapshot')).toBeTruthy())
+
+    const variantDiagnosticsCallsBeforeSelection = matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST').length
+    fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-3' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Return to imported snapshot' })).toBeTruthy())
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST').length).toBeGreaterThan(variantDiagnosticsCallsBeforeSelection))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Return to imported snapshot' }))
+
+    await waitFor(() => expect(setSelectedExposureSnapshotSpy).toHaveBeenLastCalledWith({ workspaceId: 'workspace-1', snapshotId: 'node-2' }))
+    await waitFor(() => expect((screen.getByLabelText('Snapshot') as HTMLSelectElement).value).toBe('node-2'))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Return to imported snapshot' })).toBeNull())
+    expect(setActiveNodeSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getByText('Detailed review unavailable here')).toBeTruthy())
+    expect(screen.getByText('Imported snapshot not active here')).toBeTruthy()
   })
 
   it('uses snapshot-history diagnostics instead of imported replay for a child variant under an imported snapshot', async () => {

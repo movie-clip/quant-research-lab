@@ -1723,6 +1723,119 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(compare.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('adds a scan-first landing strip with replay entry actions', () => {
+    const { container } = renderShell({
+      candidateImprovementDraft: {
+        workspaceId: 'workspace-1',
+        draftId: 'draft-1',
+        baseNodeId: 'node-1',
+        seed: {
+          kind: 'etf_replacement_candidate',
+          source: 'etf_ranking',
+          seededAt: '2026-04-15T00:00:00Z',
+          baseSymbol: 'AAPL',
+          candidateSymbol: 'IUFS',
+          candidateRank: 1,
+          peerGroup: 'Sector UCITS ETF',
+          benchmarkSymbol: 'SPY',
+          lookbackMonths: 6,
+          rankingId: 'etf_ranking_engine_v1',
+          methodologyId: 'etf_ranking_methodology_v1',
+          rankingBasisDate: '2026-04-15',
+          confidence: 'medium',
+          holdingsSupport: 'mixed',
+          requestUniverse: ['AAPL', 'IUFS'],
+          evaluatedUniverse: ['IUFS'],
+          warningCount: 1,
+          excludedSymbolsCount: 0,
+        },
+      },
+    })
+
+    const landing = latestByTestIdIn(container, 'workspace-transition-landing')
+    expect(landing).toBeTruthy()
+    expect(within(landing).getByText('Workspace Landing')).toBeTruthy()
+    expect(within(landing).getByText('Intent required')).toBeTruthy()
+    expect(within(landing).getByRole('button', { name: 'Jump to Candidate' })).toBeTruthy()
+    expect(within(landing).getByRole('button', { name: 'Jump to Research Tools' })).toBeTruthy()
+    expect(within(landing).getByText('Compare owns hypothetical replay and diagnostics; the legacy replay bridge stays secondary if needed.')).toBeTruthy()
+  })
+
+  it('jumps from the landing strip into replay and workspace sections', () => {
+    const replayTarget = { scrollIntoView: vi.fn() }
+    const candidateTarget = { scrollIntoView: vi.fn() }
+    const researchTarget = { scrollIntoView: vi.fn() }
+    const getElementByIdSpy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+      if (id === 'workflow-section-hypothetical-replay') return replayTarget as unknown as HTMLElement
+      if (id === 'workflow-section-candidate-idea') return candidateTarget as unknown as HTMLElement
+      if (id === 'workspace-section-research-tools') return researchTarget as unknown as HTMLElement
+      return null
+    })
+
+    const { container } = renderShell({
+      replacementIntentDraft: makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent,
+    })
+
+    const landing = latestByTestIdIn(container, 'workspace-transition-actions')
+
+    fireEvent.click(within(landing).getByRole('button', { name: 'Open Replay Entry' }))
+    fireEvent.click(within(landing).getByRole('button', { name: 'Jump to Candidate' }))
+    fireEvent.click(within(landing).getByRole('button', { name: 'Jump to Research Tools' }))
+
+    expect(replayTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    expect(candidateTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    expect(researchTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+
+    getElementByIdSpy.mockRestore()
+  })
+
+  it('keeps artifact-backed landing actions focused on replay review only', () => {
+    const { container } = renderShell({
+      analysis: null,
+      draftSnapshot: {
+        ...draftSnapshot,
+        importedMeta: { ...draftSnapshot.importedMeta, importer: null, sourceFileNames: ['artifact-123'] },
+      },
+      workspaceSource: {
+        ...makePersistedConstructionArtifactWorkspaceSource(),
+      },
+      persistedConstructionArtifactReview: makePersistedConstructionArtifactReview(),
+      allocationBacktestResult: makeReplay(),
+    })
+
+    const landing = latestByTestIdIn(container, 'workspace-transition-actions')
+    expect(within(landing).getByText('Replay review')).toBeTruthy()
+    expect(within(landing).getByText('Read-only review stays artifact-backed.')).toBeTruthy()
+    expect(within(landing).getByRole('button', { name: 'Open Replay Entry' })).toBeTruthy()
+    expect(within(landing).queryByRole('button', { name: 'Jump to Candidate' })).toBeNull()
+    expect(within(landing).queryByRole('button', { name: 'Jump to Research Tools' })).toBeNull()
+  })
+
+  it('keeps optimizer-handoff landing actions focused on replay review only', () => {
+    const { container } = renderShell({
+      analysis: null,
+      draftSnapshot: {
+        ...draftSnapshot,
+        importedMeta: { ...draftSnapshot.importedMeta, importer: null, sourceFileNames: ['optimizer_handoff_123'] },
+      },
+      workspaceSource: makePersistedOptimizerHandoffWorkspaceSource(),
+      persistedOptimizerHandoffReview: makePersistedOptimizerHandoffReview(),
+      allocationBacktestResult: makeReplay(),
+    })
+
+    const landing = latestByTestIdIn(container, 'workspace-transition-landing')
+    const actions = latestByTestIdIn(container, 'workspace-transition-actions')
+
+    expect(within(landing).getByText('Artifact-backed replay')).toBeTruthy()
+    expect(within(landing).getByText('Optimizer handoff review')).toBeTruthy()
+    expect(within(landing).getByText('optimizer_handoff_123')).toBeTruthy()
+    expect(within(actions).getByText('Replay review')).toBeTruthy()
+    expect(within(actions).getByText('Read-only review stays artifact-backed.')).toBeTruthy()
+    expect(within(actions).getByRole('button', { name: 'Open Replay Entry' })).toBeTruthy()
+    expect(within(actions).queryByRole('button', { name: 'Jump to Candidate' })).toBeNull()
+    expect(within(actions).queryByRole('button', { name: 'Jump to Research Tools' })).toBeNull()
+  })
+
   it('owns the shell-level replay, diagnostics, and proposal framing', () => {
     render(
       <PortfolioImprovementWorkspaceShell

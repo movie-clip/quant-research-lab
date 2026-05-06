@@ -36,6 +36,24 @@ describe('ExposurePanel', () => {
     expect(onSnapshotSelect).toHaveBeenCalledWith('node-1')
   })
 
+  it('renders a header exit CTA back to the imported snapshot when provided', () => {
+    const onSnapshotSelect = vi.fn()
+
+    render(
+      <ExposurePanel
+        result={mockExposureView}
+        snapshotOptions={[{ id: 'draft', label: 'Working Draft' }, { id: 'node-1', label: 'Base Import' }]}
+        selectedSnapshotId="draft"
+        snapshotExitOption={{ id: 'node-1', label: 'Return to imported snapshot' }}
+        onSnapshotSelect={onSnapshotSelect}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Return to imported snapshot' }))
+
+    expect(onSnapshotSelect).toHaveBeenCalledWith('node-1')
+  })
+
   it('renders the look-through summary first with explicit live coverage messaging', () => {
     render(<ExposurePanel result={mockExposureView} />)
 

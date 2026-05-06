@@ -900,6 +900,120 @@ function optimizerHandoffReviewBasisId(props: Props) {
   return 'n/a'
 }
 
+function scrollToSection(sectionId: string) {
+  const target = document.getElementById(sectionId)
+  if (target && 'scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+function WorkspaceLandingSection(props: Props) {
+  const artifactMode = isPersistedConstructionArtifactMode(props)
+  const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
+  const activeCandidatePair = getActiveCandidatePair(props)
+  const activeReplay = getActiveReplay(props)
+  const diagnosticsTakeaway = getTopDiagnosticsTakeaway(activeReplay)
+  const latestProposal = getLatestProposal(props.savedProposals)
+  const latestProposalCapture = latestProposal ? assertSavedProposalCaptureForWorkspaceShell(latestProposal, 'Saved proposal') : null
+  const replayWindow = activeReplay
+    ? formatReplayWindow(activeReplay.candidate_result?.start_date, activeReplay.candidate_result?.end_date)
+    : 'n/a'
+  const replayEntryValue = artifactMode || optimizerHandoffMode
+    ? 'Artifact-backed replay'
+    : activeReplay
+      ? 'Replay ready'
+      : props.replacementIntentDraft
+        ? 'Replay path open'
+        : activeCandidatePair
+          ? 'Intent required'
+          : 'Awaiting candidate'
+  const replayEntryDetail = artifactMode || optimizerHandoffMode
+    ? 'Read-only replay evidence is already attached to this reopened review basis.'
+    : activeReplay
+      ? `Review ${replayWindow} and the current diagnostics evidence from Compare.`
+      : props.replacementIntentDraft
+        ? 'Replay entry lives in Compare once formation, construction, and constraint checks finish for the active intent.'
+        : activeCandidatePair
+          ? 'Promote the selected candidate into an explicit replacement intent before replay can exist.'
+          : 'Start from Candidate or Research Tools before replay entry becomes available.'
+  const basisValue = artifactMode
+    ? formatArtifactReviewBasisLabel((props.workspaceSource && 'kind' in props.workspaceSource && props.workspaceSource.kind === 'persisted_construction_artifact') ? props.workspaceSource : null)
+    : optimizerHandoffMode
+      ? 'Optimizer handoff review'
+      : null
+  const basisDetail = artifactMode
+    ? formatArtifactReviewBasisDetail((props.workspaceSource && 'kind' in props.workspaceSource && props.workspaceSource.kind === 'persisted_construction_artifact') ? props.workspaceSource : null)
+    : optimizerHandoffMode
+      ? optimizerHandoffReviewBasisId(props)
+      : null
+  const primaryActionTarget = artifactMode || optimizerHandoffMode || activeReplay || props.replacementIntentDraft
+    ? WORKFLOW_SECTION_IDS.hypotheticalReplay
+    : WORKFLOW_SECTION_IDS.candidateIdea
+  const primaryActionLabel = artifactMode || optimizerHandoffMode || activeReplay || props.replacementIntentDraft
+    ? 'Open Replay Entry'
+    : 'Go to Candidate'
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="workspace-transition-landing">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Workspace Landing</p></div>
+        <p className="helper">Scan the active workspace state, then jump into the hypothetical replay path from a single entry strip.</p>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Current Pair</p>
+          <p className="summary-value">{activeCandidatePair ? `${activeCandidatePair.baseSymbol} -> ${activeCandidatePair.candidateSymbol}` : 'Not selected'}</p>
+          <p className="helper">
+            {props.replacementIntentDraft
+              ? 'Explicit replacement intent is attached for workspace-only hypothetical review.'
+              : activeCandidatePair
+                ? 'Candidate selection exists, but replay still waits on an explicit replacement intent.'
+                : 'No active candidate pair is attached to this workspace yet.'}
+          </p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Replay Entry</p>
+          <p className="summary-value">{replayEntryValue}</p>
+          <p className="helper">{replayEntryDetail}</p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Diagnostics Signal</p>
+          <p className="summary-value">{diagnosticsTakeaway ? diagnosticsTakeaway.callout.label : activeReplay ? 'Replay loaded' : 'Awaiting replay'}</p>
+          <p className="helper">
+            {diagnosticsTakeaway
+              ? `${diagnosticsTakeaway.group} shows ${diagnosticsValueLabel(diagnosticsTakeaway.callout)}.`
+              : activeReplay
+                ? `Replay window ${replayWindow}. Diagnostics takeaway is not available yet.`
+                : 'Diagnostics populate only after replay evidence exists.'}
+          </p>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">{basisValue ? 'Review Basis' : 'Saved Proposal'}</p>
+          <p className="summary-value">{basisValue ?? (latestProposal ? `v${latestProposal.versionNumber}` : 'No artifact')}</p>
+          <p className="helper">
+            {basisValue
+              ? basisDetail
+              : latestProposal
+                ? `${latestProposalCapture?.proposal.incumbent_symbol} -> ${latestProposalCapture?.proposal.candidate_symbol} is the latest immutable review artifact.`
+                : 'No immutable proposal artifact is recorded for this workflow yet.'}
+          </p>
+        </div>
+        <div className="summary-card" data-testid="workspace-transition-actions">
+          <p className="stat-label">Entry Actions</p>
+          <p className="summary-value">{artifactMode || optimizerHandoffMode ? 'Replay review' : activeReplay ? 'Compare' : props.replacementIntentDraft ? 'Replay path' : 'Candidate path'}</p>
+          <p className="helper">{artifactMode || optimizerHandoffMode ? 'Read-only review stays artifact-backed.' : 'Compare owns hypothetical replay and diagnostics; the legacy replay bridge stays secondary if needed.'}</p>
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="primary-button" onClick={() => scrollToSection(primaryActionTarget)} type="button">{primaryActionLabel}</button>
+            {!artifactMode && !optimizerHandoffMode ? <button className="secondary-button" onClick={() => scrollToSection(WORKFLOW_SECTION_IDS.candidateIdea)} type="button">Jump to Candidate</button> : null}
+            {!artifactMode && !optimizerHandoffMode ? <button className="secondary-button" onClick={() => scrollToSection('workspace-section-research-tools')} type="button">Jump to Research Tools</button> : null}
+            {!basisValue && latestProposal ? <button className="secondary-button" onClick={() => scrollToSection(WORKFLOW_SECTION_IDS.savedProposal)} type="button">Jump to Proposal</button> : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function OverviewSection(props: Props) {
   const artifactMode = isPersistedConstructionArtifactMode(props)
   const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
@@ -2560,6 +2674,7 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
           </div>
         </section>
       ) : null}
+      <WorkspaceLandingSection {...shellProps} />
       <OverviewSection {...shellProps} />
       <div id={WORKFLOW_SECTION_IDS.currentPortfolio} data-testid="workspace-section-current-portfolio">
         <CurrentPortfolioSection analysis={shellProps.analysis} draftSnapshot={shellProps.draftSnapshot} persistedConstructionArtifactReview={shellProps.persistedConstructionArtifactReview} persistedOptimizerHandoffReview={shellProps.persistedOptimizerHandoffReview} />

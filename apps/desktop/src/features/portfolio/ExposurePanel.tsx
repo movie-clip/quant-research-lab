@@ -7,6 +7,7 @@ type ExposurePanelProps = {
   result: ExposureAnalysis | null
   snapshotOptions?: Array<{ id: string; label: string }>
   selectedSnapshotId?: string
+  snapshotExitOption?: { id: string; label: string }
   onSnapshotSelect?: (snapshotId: string) => void
 }
 
@@ -336,7 +337,13 @@ function UnavailablePanel({ title, detail }: { title: string; detail: string }) 
   )
 }
 
-export function ExposurePanel({ result, snapshotOptions = [], selectedSnapshotId = 'current', onSnapshotSelect }: ExposurePanelProps) {
+export function ExposurePanel({
+  result,
+  snapshotOptions = [],
+  selectedSnapshotId = 'current',
+  snapshotExitOption,
+  onSnapshotSelect,
+}: ExposurePanelProps) {
   const sectorModule = useMemo(() => (result ? buildSectorModuleState(result) : null), [result])
   const benchmarkPositioningModule = useMemo(() => (result ? buildBenchmarkPositioningModuleState(result) : null), [result])
   const denseInsightItems = useMemo(
@@ -389,14 +396,21 @@ export function ExposurePanel({ result, snapshotOptions = [], selectedSnapshotId
           <p className="panel-label">Exposure</p>
           <h2>Look-Through Exposure Core</h2>
         </div>
-        {snapshotOptions.length ? (
-          <label className="exposure-snapshot-picker exposure-shell-picker">
-            <span className="field-label">Snapshot</span>
-            <select className="path-input exposure-snapshot-select" value={selectedSnapshotId} onChange={(event) => onSnapshotSelect?.(event.target.value)}>
-              {snapshotOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
-          </label>
-        ) : null}
+        <div className="exposure-shell-picker">
+          {snapshotExitOption ? (
+            <button className="secondary-button" type="button" onClick={() => onSnapshotSelect?.(snapshotExitOption.id)}>
+              {snapshotExitOption.label}
+            </button>
+          ) : null}
+          {snapshotOptions.length ? (
+            <label className="exposure-snapshot-picker">
+              <span className="field-label">Snapshot</span>
+              <select className="path-input exposure-snapshot-select" value={selectedSnapshotId} onChange={(event) => onSnapshotSelect?.(event.target.value)}>
+                {snapshotOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+            </label>
+          ) : null}
+        </div>
       </header>
 
       <div className="exposure-shell-stack">

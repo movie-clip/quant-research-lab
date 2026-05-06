@@ -391,6 +391,39 @@ function resolveSelectedSnapshot(
   return null
 }
 
+function resolveImportedExposureExitNode(
+  selectedSnapshotId: string | null | undefined,
+  nodes: PortfolioNode[],
+  activeNode: PortfolioNode | null,
+  workingDraft: WorkingDraft | null,
+) {
+  const resolvedSnapshot = resolveSelectedSnapshot(selectedSnapshotId, nodes, activeNode, workingDraft)
+  if (!resolvedSnapshot || resolvedSnapshot.id === 'current') return null
+  if (resolvedSnapshot.id !== 'draft') {
+    const selectedNode = nodes.find((item) => item.id === resolvedSnapshot.id) ?? (activeNode?.id === resolvedSnapshot.id ? activeNode : null)
+    if (!selectedNode || selectedNode.kind !== 'variant') {
+      return null
+    }
+  }
+
+  const preferredBaseId = resolvedSnapshot.id === 'draft'
+    ? (workingDraft?.baseNodeId ?? activeNode?.id ?? null)
+    : resolvedSnapshot.id
+  if (!preferredBaseId) return null
+
+  const nodeById = new Map(nodes.map((item) => [item.id, item]))
+  let current = nodeById.get(preferredBaseId) ?? (activeNode?.id === preferredBaseId ? activeNode : null)
+
+  while (current) {
+    if (current.kind === 'imported_base' || current.kind === 'imported_snapshot') {
+      return current
+    }
+    current = current.parentId ? (nodeById.get(current.parentId) ?? null) : null
+  }
+
+  return null
+}
+
 async function loadCandidateImprovementDraftForCurrentDraft(draft: WorkingDraft | null, setCandidateImprovementDraft: (value: CandidateImprovementDraftArtifact | null) => void) {
   if (!draft) {
     setCandidateImprovementDraft(null)
@@ -1416,6 +1449,12 @@ export function App() {
   const artifactReviewMode = isPersistedConstructionArtifactWorkspace(activeWorkspace) || isPersistedOptimizerHandoffWorkspace(activeWorkspace)
   const definitionScopedAlertReviewActive = monitorDefinitionAlertReviewSession.navigation !== null
   const dashboardSnapshot = workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null
+  const importedExposureExitNode = resolveImportedExposureExitNode(
+    selectedExposureSnapshotId,
+    workspaceNodes,
+    activeNode,
+    workingDraft,
+  )
   const dashboardSession = composeDashboardSession({
     result: analysis,
     exposureResult: exposureAnalysis,
@@ -1827,6 +1866,33 @@ export function App() {
       }
     }
     return diagnostics
+  }
+
+  async function handleExposureSnapshotChange(snapshotId: string) {
+    if (!activeWorkspace) return
+    if (snapshotId === 'draft' && workingDraft) {
+      const selectedBaseNode = workspaceNodes.find((item) => item.id === workingDraft.baseNodeId) ?? activeNode
+      const selectedBaseSource = getEffectiveNodeImportSource(selectedBaseNode, workspaceNodes, activeWorkspace)
+      const selectedBaseDirectSource = getDirectNodeImportSource(selectedBaseNode, activeWorkspace)
+      await analyzeExposureSnapshot(workingDraft.portfolioSnapshot, 'draft', activeWorkspace.id, {
+        historySource: canUseImportedReplay(selectedBaseDirectSource) && workingDraft.status === 'clean'
+          ? (getNodeHistorySource(selectedBaseDirectSource) ?? null)
+          : collapseToHistoryContextSource(selectedBaseSource),
+        preserveDashboardAnalysis: true,
+        strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive,
+      })
+      return
+    }
+
+    const node = workspaceNodes.find((item) => item.id === snapshotId) ?? await getNode(snapshotId)
+    if (!node?.portfolioSnapshot) return
+    const nodeSource = getEffectiveNodeImportSource(node, workspaceNodes, activeWorkspace)
+    const directNodeSource = getDirectNodeImportSource(node, activeWorkspace)
+    await analyzeExposureSnapshot(node.portfolioSnapshot, snapshotId, activeWorkspace.id, {
+      historySource: resolveEffectiveHistorySource(nodeSource, directNodeSource),
+      preserveDashboardAnalysis: true,
+      strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive,
+    })
   }
 
   async function analyzeRestoredSnapshot(
@@ -2765,34 +2831,14 @@ export function App() {
                 ...workspaceNodes.map((node) => ({ id: node.id, label: formatVariantNodeLabel(node, workspaceNodes) })),
               ]}
               selectedSnapshotId={selectedExposureSnapshotId}
-              onSnapshotSelect={(snapshotId) => {
-                void (async () => {
-                  if (!activeWorkspace) return
-                  if (snapshotId === 'draft' && workingDraft) {
-                    const selectedBaseNode = workspaceNodes.find((item) => item.id === workingDraft.baseNodeId) ?? activeNode
-                    const selectedBaseSource = getEffectiveNodeImportSource(selectedBaseNode, workspaceNodes, activeWorkspace)
-                    const selectedBaseDirectSource = getDirectNodeImportSource(selectedBaseNode, activeWorkspace)
-                    await analyzeExposureSnapshot(workingDraft.portfolioSnapshot, 'draft', activeWorkspace.id, {
-                      historySource: canUseImportedReplay(selectedBaseDirectSource) && workingDraft.status === 'clean'
-                        ? (getNodeHistorySource(selectedBaseDirectSource) ?? null)
-                        : collapseToHistoryContextSource(selectedBaseSource),
-                      preserveDashboardAnalysis: true,
-                      strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive,
-                    })
-                    return
+              snapshotExitOption={importedExposureExitNode && importedExposureExitNode.id !== selectedExposureSnapshotId
+                ? {
+                    id: importedExposureExitNode.id,
+                    label: 'Return to imported snapshot',
                   }
-
-                  const node = workspaceNodes.find((item) => item.id === snapshotId) ?? await getNode(snapshotId)
-                  if (!node) return
-                  if (!node.portfolioSnapshot) return
-                  const nodeSource = getEffectiveNodeImportSource(node, workspaceNodes, activeWorkspace)
-                  const directNodeSource = getDirectNodeImportSource(node, activeWorkspace)
-                  await analyzeExposureSnapshot(node.portfolioSnapshot, snapshotId, activeWorkspace.id, {
-                    historySource: resolveEffectiveHistorySource(nodeSource, directNodeSource),
-                    preserveDashboardAnalysis: true,
-                    strictDefinitionScopedAlertReview: definitionScopedAlertReviewActive,
-                  })
-                })()
+                : undefined}
+              onSnapshotSelect={(snapshotId) => {
+                void handleExposureSnapshotChange(snapshotId)
               }}
             />
           </Suspense>
