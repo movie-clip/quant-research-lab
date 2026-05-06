@@ -10886,7 +10886,7 @@ def test_exposure_engine_route_accepts_portfolio_snapshot_payload() -> None:
     assert payload["run_metadata"]["engine_id"] == "exposure_engine_v1"
     assert payload["run_metadata"]["source_status"] == {
         "lookthrough_resolution": "live",
-        "benchmark_holdings": "live",
+        "benchmark_holdings": "verified",
     }
     assert payload["run_metadata"]["reproducibility"] == {
         "input_imported_at": "2026-04-10T00:00:00+00:00",

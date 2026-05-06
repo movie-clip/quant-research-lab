@@ -2372,7 +2372,7 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
   }, [shellProps.monitoringResearchHandoff, shellProps.monitoringResearchHandoffDismissed])
 
   return (
-    <section className="workspace-section">
+    <section className="workspace-section panel">
       <h2>Portfolio Research Workspace</h2>
       {savedProposalContractError ? <p className="error" data-testid="saved-proposal-contract-error">{savedProposalContractError}</p> : null}
       {shellProps.monitoringResearchHandoff && !shellProps.monitoringResearchHandoffDismissed ? (

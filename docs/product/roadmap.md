@@ -101,3 +101,5 @@ Any financially meaningful change must update:
 - `docs/finance/financial-methodology.md`
 - relevant field inventory docs
 - tests that lock down formulas, trust semantics, degradation, or withholding behavior
+
+Any product-shape change should keep this file future-looking and keep shipped-state detail in `docs/product/current-product-state.md`.

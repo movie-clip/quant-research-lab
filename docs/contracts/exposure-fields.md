@@ -59,8 +59,10 @@ Current exposure run-metadata semantics:
   - `partial`: some holdings remain unresolved, but at least part of the current snapshot resolved into constituents
   - `unavailable`: no resolvable holdings were produced for the current snapshot
 - `run_metadata.source_status.benchmark_holdings`
-  - `live`: benchmark holdings loaded successfully for the requested benchmark symbol
+  - `verified`: benchmark holdings loaded with effectively complete benchmark composition coverage for the requested symbol
+  - `degraded`: benchmark holdings loaded, but composition coverage is incomplete and benchmark-relative positioning should remain degraded
   - `unavailable`: benchmark holdings could not be loaded; overlap metrics should remain unavailable rather than implying zero overlap
+  - `live` is not a valid benchmark-holdings support state anywhere in exposure contracts
 - `run_metadata.reproducibility.input_imported_at`
   - normalized snapshot import timestamp used by the current exposure run
 - `run_metadata.reproducibility.snapshot_as_of_date`
@@ -105,6 +107,8 @@ When benchmark holdings are available:
 - `active_share = 0.5 * sum(abs(portfolio_weight_i - benchmark_weight_i))` over the union of symbols
 - `portfolio_in_benchmark_weight = sum(portfolio_weight_i)` over shared symbols
 - `benchmark_covered_weight = sum(benchmark_weight_i)` over benchmark constituents loaded into the comparison set
+- `top_overweights` / `top_underweights` derive only from symbols present in both resolved portfolio constituents and benchmark holdings
+- cue ordering must be deterministic and each side emits at most 5 rows
 
 When benchmark holdings are unavailable:
 
@@ -146,8 +150,8 @@ Confidence semantics currently mean:
   - `medium`: current look-through is partial but still usable
   - `low`: current look-through is unavailable / not trustworthy enough to treat as resolved exposure
 - `benchmark_overlap_confidence`
-  - `high`: benchmark-relative overlap is fully available
-  - `medium`: overlap is usable but inherits partial look-through resolution
+  - `high`: benchmark-relative overlap is fully available with verified benchmark holdings support
+  - `medium`: overlap is usable but inherits partial look-through resolution or degraded benchmark-holdings support
   - `low`: benchmark-relative overlap is unavailable or not trustworthy
 - `historical_diagnostics_confidence`
   - `high`: persisted history supports diagnostics sections
@@ -189,6 +193,8 @@ Confidence semantics currently mean:
 | --- | --- | --- | --- | --- | --- |
 | Portfolio in benchmark names | `result.market_overlap.portfolio_in_benchmark_weight` | `analysis.market_overlap.portfolio_in_benchmark_weight` | `engine-derived` | if benchmark holdings unavailable, render `n/a` | share of portfolio weight that overlaps benchmark constituents |
 | Active share | `result.market_overlap.active_share` | `analysis.market_overlap.active_share` | `engine-derived` | if benchmark holdings unavailable, render `n/a` | must not fall back to fake zero or fake low/high active share |
+| Top benchmark-relative overweights | `result.market_overlap.top_overweights` | `analysis.market_overlap.top_overweights` | `engine-derived` | if benchmark inputs or mapped weights are incomplete, suppress invalid rows and render partial/degraded/unavailable state explicitly | composition-based current active bets only |
+| Top benchmark-relative underweights | `result.market_overlap.top_underweights` | `analysis.market_overlap.top_underweights` | `engine-derived` | if benchmark inputs or mapped weights are incomplete, suppress invalid rows and render partial/degraded/unavailable state explicitly | composition-based current active bets only |
 | Current-state overlap section label | `Broad Market Risk` helper copy and `Current-State Overlap` card in `apps/desktop/src/features/portfolio/ExposurePanel.tsx` | overlap + exposure availability state | `unavailable-required` | must keep current-state overlap semantics visually distinct from historical benchmark diagnostics | separation reduces current-state vs historical ambiguity |
 | Overlap helper state | `overlapUnavailable ? 'Benchmark overlap unavailable' : ...` | `analysis.exposure_availability.benchmark_overlap_status` | `unavailable-required` | explicit unavailable helper required when benchmark holdings missing | currently one of the main financial correctness guardrails |
 | Benchmark covered weight | not directly surfaced in cards today | `analysis.market_overlap.benchmark_covered_weight` | `engine-derived` | if benchmark holdings unavailable, keep `null` | useful for future explicit overlap diagnostics |

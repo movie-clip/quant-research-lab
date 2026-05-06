@@ -1,3 +1,5 @@
+from typing import Literal
+
 from app.analytics.portfolio_imports import build_portfolio_overview
 from app.analytics.risk import (
     build_lookthrough_exposure,
@@ -98,6 +100,7 @@ def _build_exposure_source_status(
     benchmark_holdings: list[dict],
 ) -> ExposureRunSourceStatus:
     lookthrough_resolution: str
+    benchmark_holdings_status: Literal["verified", "degraded", "unavailable"] = _classify_benchmark_holdings_support(benchmark_holdings)
     if total_market_value <= 0 or not lookthrough_constituents:
         lookthrough_resolution = "unavailable"
     elif uncovered_positions:
@@ -107,7 +110,7 @@ def _build_exposure_source_status(
 
     return ExposureRunSourceStatus(
         lookthrough_resolution=lookthrough_resolution,
-        benchmark_holdings="live" if benchmark_holdings else "unavailable",
+        benchmark_holdings=benchmark_holdings_status,
     )
 
 
@@ -130,6 +133,7 @@ def _build_exposure_availability(
     uncovered_positions: list[str],
     benchmark_holdings: list[dict],
 ) -> ExposureAvailability:
+    benchmark_holdings_status = _classify_benchmark_holdings_support(benchmark_holdings)
     if total_market_value <= 0 or not lookthrough_constituents:
         return ExposureAvailability(
             lookthrough_status="unavailable",
@@ -141,20 +145,25 @@ def _build_exposure_availability(
 
     lookthrough_status = "partial" if uncovered_positions else "live"
     lookthrough_confidence = "medium" if uncovered_positions else "high"
-    if not benchmark_holdings:
+    if benchmark_holdings_status == "unavailable":
         benchmark_overlap_status = "unavailable"
         benchmark_overlap_confidence = "low"
     elif lookthrough_status != "live":
         benchmark_overlap_status = "partial"
         benchmark_overlap_confidence = "medium"
+    elif benchmark_holdings_status == "degraded":
+        benchmark_overlap_status = "live"
+        benchmark_overlap_confidence = "medium"
     else:
         benchmark_overlap_status = "live"
         benchmark_overlap_confidence = "high"
 
-    if lookthrough_status == "live" and benchmark_overlap_status == "live":
+    if lookthrough_status == "live" and benchmark_overlap_status == "live" and benchmark_holdings_status == "verified":
         note = None
     elif lookthrough_status == "partial" and benchmark_overlap_status == "unavailable":
         note = "Look-through exposure is partial because some holdings could not be resolved, and benchmark overlap is unavailable because benchmark composition could not be loaded."
+    elif benchmark_holdings_status == "degraded":
+        note = "Benchmark-relative overlap is available from incomplete benchmark holdings coverage, so overlap metrics remain usable but benchmark support is degraded."
     elif lookthrough_status == "partial":
         note = "Look-through exposure is partial because some holdings could not be resolved from ETF constituents. Constituent coverage counts only direct single-name positions and ETFs with resolved holdings."
     elif benchmark_overlap_status == "unavailable":
@@ -223,3 +232,20 @@ def _combine_exposure_confidence(*values: str) -> ExposureAvailabilityConfidence
         return confidence
     confidence = "high"
     return confidence
+
+
+def _classify_benchmark_holdings_support(benchmark_holdings: list[dict]) -> Literal["verified", "degraded", "unavailable"]:
+    if not benchmark_holdings:
+        return "unavailable"
+
+    loaded_weight = 0.0
+    for row in benchmark_holdings:
+        symbol = str(row.get("asset") or "").strip().upper()
+        if not symbol:
+            continue
+        loaded_weight += max(float(row.get("weightPercentage") or 0.0), 0.0)
+
+    if loaded_weight <= 0:
+        return "unavailable"
+
+    return "verified" if loaded_weight >= 99.0 else "degraded"

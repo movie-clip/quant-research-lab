@@ -177,6 +177,20 @@ export type MarketOverlapSummary = {
   active_share: number | null
   portfolio_in_benchmark_weight: number | null
   benchmark_covered_weight: number | null
+  top_overweights: Array<{
+    symbol: string
+    name: string
+    portfolio_weight: number
+    benchmark_weight: number
+    active_weight: number
+  }>
+  top_underweights: Array<{
+    symbol: string
+    name: string
+    portfolio_weight: number
+    benchmark_weight: number
+    active_weight: number
+  }>
 }
 
 export type RelativeRiskSummary = {
@@ -1027,7 +1041,7 @@ export type ExposureRunMetadata = {
   price_basis: 'not_applicable'
   source_status: {
     lookthrough_resolution: ExposureAvailabilityStatus
-    benchmark_holdings: 'live' | 'unavailable'
+    benchmark_holdings: 'verified' | 'degraded' | 'unavailable'
   }
   confidence: ExposureAvailabilityConfidence
   reproducibility: {

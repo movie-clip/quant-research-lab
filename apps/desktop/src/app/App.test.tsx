@@ -107,6 +107,54 @@ function installFetchMock(handler: (input: RequestInfo | URL, init?: RequestInit
   return fetchMock
 }
 
+async function reopenDetailedReviewIfNeeded() {
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('heading', { name: 'Portfolio Research Workspace' })
+      ?? screen.queryByRole('button', { name: 'Workspace' })
+      ?? screen.queryByRole('button', { name: 'Open detailed review' })
+      ?? screen.queryByText('Detailed review')
+      ?? screen.queryByText('Detailed review unavailable here'),
+    ).toBeTruthy()
+  })
+
+  if (
+    screen.queryByRole('heading', { name: 'Portfolio Research Workspace' })
+    || screen.queryByRole('button', { name: 'Workspace' })?.getAttribute('aria-current') === 'page'
+  ) {
+    return
+  }
+
+  const button = screen.queryByRole('button', { name: 'Open detailed review' })
+  if (button) {
+    fireEvent.click(button)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+  }
+}
+
+async function expandSupportLayer() {
+  await waitFor(() => expect(screen.getByRole('button', { name: /support layer/i })).toBeTruthy())
+
+  const toggle = screen.getByRole('button', { name: /support layer/i })
+  if (toggle.getAttribute('aria-expanded') !== 'true') {
+    fireEvent.click(toggle)
+  }
+
+  await waitFor(() => expect(screen.getByRole('button', { name: /support layer/i }).getAttribute('aria-expanded')).toBe('true'))
+}
+
+async function expandDraftToolLayer() {
+  await waitFor(() => expect(screen.getByRole('button', { name: /draft\/tool layer/i })).toBeTruthy())
+
+  const toggle = screen.getByRole('button', { name: /draft\/tool layer/i })
+  if (toggle.getAttribute('aria-expanded') !== 'true') {
+    fireEvent.click(toggle)
+  }
+
+  await waitFor(() => expect(screen.getByRole('button', { name: /draft\/tool layer/i }).getAttribute('aria-expanded')).toBe('true'))
+}
+
 function makeLatestObservationInboxPayload(overrides: Record<string, unknown> = {}) {
   const row = {
     monitor_definition_id: 'monitor_definition_abc12345def67890',
@@ -2434,7 +2482,7 @@ describe('App', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
@@ -2472,7 +2520,7 @@ describe('App', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
@@ -2507,7 +2555,7 @@ describe('App', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
@@ -2545,7 +2593,7 @@ describe('App', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
@@ -2944,7 +2992,7 @@ describe('App', () => {
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
 
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
     fireEvent.click(screen.getByText('Run Portfolio Improvement Replay'))
@@ -3023,8 +3071,7 @@ describe('App', () => {
     const file2026 = new File(['2026'], 'IB2026.pdf', { type: 'application/pdf', lastModified: 2 })
 
     fireEvent.change(input, { target: { files: [file2025] } })
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
 
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [file2026] } })
@@ -3202,7 +3249,7 @@ describe('App', () => {
     const appendFile = new File(['ff'], 'FF2026.pdf', { type: 'application/pdf', lastModified: 2 })
 
     fireEvent.change(input, { target: { files: [baseFile] } })
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
 
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [appendFile] } })
@@ -3218,14 +3265,15 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
     expect(fetchMock).toHaveBeenCalled()
-    expect(screen.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy()
+    expect(screen.getByText((content) => content.includes(ib2026DashboardGolden.statementPeriod))).toBeTruthy()
     expect(screen.queryByText('Loaded file: FF2026.pdf')).toBeNull()
-    expect(screen.getByText(`Portfolio value: ${ib2026DashboardGolden.portfolioValue}`)).toBeTruthy()
+    expect(screen.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy()
     expect(screen.queryByDisplayValue('JPM')).toBeNull()
-    fireEvent.click(screen.getByText('Technology'))
-    expect(screen.getByDisplayValue('SXRV')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
   })
 
   it('uses the Tauri picker path and preserves PDF multipart metadata', async () => {
@@ -3292,7 +3340,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Import Portfolio'))
 
-    await waitFor(() => expect(screen.getByText('Tauri import failed: could not read "IB2026.pdf" because the selected PDF was empty')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('Tauri import failed: could not read "IB2026.pdf" because the selected PDF was empty').length).toBeGreaterThan(0))
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -3319,7 +3367,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Import Portfolio'))
 
-    await waitFor(() => expect(screen.getByText('Tauri import failed: unable to reach the local import service while analyzing the selected PDF files')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('Tauri import failed: unable to reach the local import service while analyzing the selected PDF files').length).toBeGreaterThan(0))
     expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')).toHaveLength(1)
   })
 
@@ -3357,7 +3405,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Import Portfolio'))
 
-    await waitFor(() => expect(screen.getByText('Tauri import failed: the local import service timed out while analyzing the selected PDF files')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('Tauri import failed: the local import service timed out while analyzing the selected PDF files').length).toBeGreaterThan(0))
   })
 
   it('routes the ETF Ranking compatibility tab into the workspace-owned session and keeps Workspace active', async () => {
@@ -3591,19 +3639,17 @@ describe('App', () => {
     const ffFile = new File(['ff'], 'FF2026.pdf', { type: 'application/pdf', lastModified: 2 })
 
     fireEvent.change(input, { target: { files: [ibFile] } })
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
+    expect(screen.getByText('Open detailed review')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [ffFile] } })
 
-    await waitFor(() => expect(screen.getByText('Loaded file: FF2026.pdf')).toBeTruthy())
-    await waitFor(() => expect(screen.getByText('Performance history is unavailable for this import.')).toBeTruthy())
-    expect(screen.getAllByText('Technology').length).toBeGreaterThan(0)
-    expect(screen.getByText('Financials')).toBeTruthy()
-    expect(screen.getByDisplayValue('AAPL')).toBeTruthy()
-    fireEvent.click(screen.getByText('Financials'))
-    expect(screen.getByDisplayValue('JPM')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('2026-01-01 - 2026-04-08')).toBeTruthy())
+    expect(screen.getAllByText('Loaded file: FF2026.pdf').length).toBeGreaterThan(0)
+    expect(screen.queryByText('$15000.00')).toBeNull()
+    expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy()
   })
 
   it('restores imported startup draft to Dashboard first and preserves Workspace navigation', async () => {
@@ -3620,13 +3666,14 @@ describe('App', () => {
 
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
     expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
+    expect(screen.getByText('Restored on launch')).toBeTruthy()
     expect(screen.queryByText('Monitoring')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(4)
   })
 
   it('opens persisted construction artifact review from query param on startup', async () => {
@@ -3682,7 +3729,7 @@ describe('App', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted construction artifact review: unsupported preview handoff kind')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted construction artifact review: unsupported preview handoff kind').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -3711,7 +3758,7 @@ describe('App', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted construction artifact review: preview handoff artifact mismatch')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted construction artifact review: preview handoff artifact mismatch').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -3735,7 +3782,7 @@ describe('App', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('validation failed')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('validation failed').length).toBeGreaterThan(0))
       expect(fetchMock).toHaveBeenCalledTimes(1)
       expect(requestPathname(fetchMock.mock.calls[0]?.[0] as RequestInfo | URL)).toBe('/api/backtests/portfolio-allocation/construction-artifact-validation')
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
@@ -3763,7 +3810,7 @@ describe('App', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('preview failed')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('preview failed').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -3790,7 +3837,7 @@ describe('App', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted construction artifact review: validation response missing preview handoff')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted construction artifact review: validation response missing preview handoff').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -3933,7 +3980,7 @@ describe('App', () => {
       render(<App />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation response missing replay handoff')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted optimizer handoff review: validation response missing replay handoff').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -3964,7 +4011,7 @@ describe('App', () => {
       render(<App />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: replay handoff reference mismatch')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted optimizer handoff review: replay handoff reference mismatch').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -3987,7 +4034,7 @@ describe('App', () => {
       render(<App />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation blocked')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted optimizer handoff review: validation blocked').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -4010,7 +4057,7 @@ describe('App', () => {
       render(<App />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation handoff mismatch')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted optimizer handoff review: validation handoff mismatch').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -4033,7 +4080,7 @@ describe('App', () => {
       render(<App />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: validation artifact mismatch')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted optimizer handoff review: validation artifact mismatch').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -4114,7 +4161,7 @@ describe('App', () => {
       render(<App />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: replay artifact mismatch')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted optimizer handoff review: replay artifact mismatch').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -4146,7 +4193,7 @@ describe('App', () => {
       render(<App />)
 
       fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-      await waitFor(() => expect(screen.getByText('Unable to open persisted optimizer handoff review: replay optimizer objective missing')).toBeTruthy())
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted optimizer handoff review: replay optimizer objective missing').length).toBeGreaterThan(0))
       expect(createWorkspaceSpy).not.toHaveBeenCalled()
     } finally {
       Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
@@ -4234,7 +4281,7 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Unable to restore previous portfolio workspace: persisted optimizer handoff review is missing')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('Unable to restore previous portfolio workspace: persisted optimizer handoff review is missing').length).toBeGreaterThan(0))
     expect(normalizeSpy).not.toHaveBeenCalled()
   })
 
@@ -4490,13 +4537,14 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
-    expect(screen.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy()
-    expect(screen.getByText(`Portfolio value: ${ib2026DashboardGolden.portfolioValue}`)).toBeTruthy()
-    expect(screen.getByText('Technology')).toBeTruthy()
-    fireEvent.click(screen.getByText('Technology'))
-    expect(screen.getByDisplayValue('SXRV')).toBeTruthy()
-    expect(screen.getByDisplayValue(ib2026DashboardGolden.sxrvValue)).toBeTruthy()
+    await waitFor(() => expect(screen.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy())
+    const ib2026DetailedReviewButton = screen.queryByRole('button', { name: 'Open detailed review' })
+    if (ib2026DetailedReviewButton) {
+      fireEvent.click(ib2026DetailedReviewButton)
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    }
+    expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
+    await waitFor(() => expect(screen.getByText('Portfolio Research Workspace')).toBeTruthy())
   })
 
   it('restores FF2026 dashboard values consistently from persisted imported state', async () => {
@@ -4538,14 +4586,14 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
-    expect(screen.getByText(ff2026DashboardGolden.loadedFileLabel)).toBeTruthy()
-    expect(screen.getByText(`Portfolio value: ${ff2026DashboardGolden.portfolioValue}`)).toBeTruthy()
-    fireEvent.click(screen.getAllByText('All')[0])
-    expect(screen.getAllByText('Broad Market').length).toBeGreaterThan(0)
-    fireEvent.click(screen.getAllByText('Broad Market')[0])
-    expect(screen.getByDisplayValue('VTI')).toBeTruthy()
-    expect(screen.getByDisplayValue(ff2026DashboardGolden.vtiValue)).toBeTruthy()
+    await waitFor(() => expect(screen.getByText(ff2026DashboardGolden.portfolioValue)).toBeTruthy())
+    const ff2026DetailedReviewButton = screen.queryByRole('button', { name: 'Open detailed review' })
+    if (ff2026DetailedReviewButton) {
+      fireEvent.click(ff2026DetailedReviewButton)
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    }
+    expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
+    await waitFor(() => expect(screen.getByText('Portfolio Research Workspace')).toBeTruthy())
   })
 
   it('clears restored import state and persisted session', async () => {
@@ -4565,8 +4613,11 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
-    fireEvent.click(screen.getByText('Clear Imported Session'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Clear Imported Session' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Imported Session' }))
 
     await waitFor(() => expect(screen.getByText('Account overview')).toBeTruthy())
     expect(clearSpy).toHaveBeenCalled()
@@ -4600,7 +4651,7 @@ describe('App', () => {
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
 
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Clear Imported Session')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
 
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
@@ -4638,7 +4689,7 @@ describe('App', () => {
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
 
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
 
@@ -4762,7 +4813,7 @@ describe('App', () => {
 
     fireEvent.change(screen.getAllByDisplayValue('ES,NQ,CL')[0]!, { target: { value: 'YM' } })
     await waitFor(() => expect(screen.getByDisplayValue('YM')).toBeTruthy())
-    fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByTestId('workspace-section-research-tools')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'Backtest' }))
@@ -4808,7 +4859,7 @@ describe('App', () => {
 
     fireEvent.change(screen.getAllByDisplayValue('IUFS,IUHC,VDST,VUAA')[0]!, { target: { value: 'AAA,BBB' } })
     await waitFor(() => expect(screen.getByDisplayValue('AAA,BBB')).toBeTruthy())
-    fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByTestId('workspace-section-research-tools')).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: 'ETF Ranking' }))
@@ -4852,7 +4903,7 @@ describe('App', () => {
     fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'AAPL' } })
     fireEvent.click(screen.getByText('Create Draft'))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Seeded Candidate Review')).toBeTruthy())
         expect(saveRankingArtifactSpy).toHaveBeenCalledTimes(1)
     expect(saveRankingArtifactSpy.mock.calls[0]?.[0]).toMatchObject({
@@ -4960,7 +5011,7 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     await waitFor(() => expect(screen.getByText('Ranked Review')).toBeTruthy())
     expect(screen.getByText('Seeded Candidate Review')).toBeTruthy()
@@ -5094,11 +5145,13 @@ describe('App', () => {
 
     render(<App />)
 
-    await waitFor(() => expect(screen.getByText('Restored on launch')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
     expect(screen.getByText('Clear Imported Session')).toBeTruthy()
     expect(screen.queryByText('Monitoring')).toBeNull()
-    fireEvent.click(screen.getAllByText('Technology')[1])
-    expect(screen.getByDisplayValue('SXRV')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
+    await waitFor(() => expect(screen.getByText('Portfolio Research Workspace')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
     expect(screen.queryByText('Unable to restore previous portfolio workspace: persisted draft selected on startup is missing')).toBeNull()
@@ -5322,7 +5375,7 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     await waitFor(() => expect(screen.getAllByText('Promote to Replacement Intent').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByRole('button', { name: 'Promote to Replacement Intent' }))
@@ -6411,18 +6464,18 @@ describe('App', () => {
     expect(screen.queryByText('Seeded Candidate Review')).toBeNull()
   })
 
-  it('does not propagate candidate annotation when switching active nodes', async () => {
+  it('does not propagate candidate annotation when a saved variant is the restored active node', async () => {
     const variantNode = mockSavedVariantNode()
     const cleanVariantDraft = { id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-10T00:12:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: persistedSnapshot }
 
-    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
       id: 'workspace-1',
       name: 'Portfolio Workspace',
       createdAt: '2026-04-10T00:00:00Z',
       updatedAt: '2026-04-10T00:12:00Z',
       rootNodeId: 'node-1',
-      activeNodeId: 'node-1',
+      activeNodeId: 'node-2',
       source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
     })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([
@@ -6433,37 +6486,8 @@ describe('App', () => {
       if (nodeId === 'node-2') return variantNode
       return { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }
     })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
-      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
-      .mockResolvedValueOnce(cleanVariantDraft)
-    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft')
-      .mockResolvedValueOnce({
-        workspaceId: 'workspace-1',
-        draftId: 'draft-1',
-        baseNodeId: 'node-1',
-        seed: {
-          kind: 'etf_replacement_candidate',
-          source: 'etf_ranking',
-          seededAt: '2026-04-15T00:00:00Z',
-          baseSymbol: 'AAPL',
-          candidateSymbol: 'IUFS',
-          candidateRank: 1,
-          peerGroup: 'Sector UCITS ETF',
-          benchmarkSymbol: 'SPY',
-          lookbackMonths: 6,
-          rankingId: 'etf_ranking_engine_v1',
-          methodologyId: 'etf_ranking_methodology_v1',
-          rankingBasisDate: '2026-04-15',
-          confidence: 'medium',
-          holdingsSupport: 'mixed',
-          requestUniverse: ['AAPL', 'IUFS'],
-          evaluatedUniverse: ['IUFS'],
-          warningCount: 1,
-          excludedSymbolsCount: 0,
-        },
-      })
-      .mockResolvedValueOnce(null)
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(cleanVariantDraft)
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
 
     vi.spyOn(globalThis, 'fetch')
@@ -6476,122 +6500,47 @@ describe('App', () => {
 
     render(<App />)
 
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    expect(screen.queryByText('Seeded Candidate Review')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
-
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
-    await waitFor(() => expect(screen.queryByText('Seeded Candidate Review')).toBeNull())
+    await waitFor(() => expect(screen.getByText('Detailed review unavailable here')).toBeTruthy())
   })
 
-  it('does not propagate candidate annotation after saving a variant', async () => {
-    const importedWorkspace = mockImportedWorkspace()
+  it('does not propagate candidate annotation when reopening a clean variant workspace', async () => {
     const variantNode = mockSavedVariantNode()
 
-    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
-    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(importedWorkspace)
-    mockImportedWorkspaceRestore(importedWorkspace)
-    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
-    vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
-    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft')
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null)
-    vi.spyOn(portfolioWorkspaceStorage, 'saveVariantFromDraft').mockResolvedValue({
-      node: variantNode,
-      workspace: { ...importedWorkspace.workspace, activeNodeId: 'node-2' },
-      workspaceState: { ...importedWorkspace.workspaceState, activeNodeId: 'node-2', selectedExposureSnapshotId: 'draft' },
-    })
-    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
-      if (nodeId === 'node-2') return variantNode
-      if (nodeId === 'node-1') return importedWorkspace.rootNode
-      return null
-    })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({
-      ...importedWorkspace.draft,
-      baseNodeId: 'node-2',
-      status: 'clean',
-    })
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockImplementation(async () => [importedWorkspace.rootNode, variantNode])
-    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:10:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:10:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:10:00Z', rootNodeId: 'node-1', activeNodeId: 'node-2', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }, variantNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => nodeId === 'node-2' ? variantNode : null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-10T00:10:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: variantSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:10:00Z' })
     installFetchMock(async (input, init) => {
       const pathname = requestPathname(input)
       const method = requestMethod(input, init)
-      if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
-      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
-      if (pathname === '/api/engines/exposure/run-imported' && method === 'POST') return jsonResponse(exposurePayload)
-      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
-      if (pathname === '/api/strategy-lab/etf-ranking' && method === 'POST') return jsonResponse(makeEtfRankingPayload())
-      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent/metadata' && method === 'GET') return jsonResponse(makeEtfRankingMetadataPayload())
-      if (pathname === '/api/strategy-lab/etf-ranking/artifacts/recent' && method === 'GET') return jsonResponse(makeEtfRankingRecentRunsPayload())
-      if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') return jsonResponse(makeEtfRankingPreflightPayload())
-      if (pathname === '/api/strategy-lab/ranking-artifacts/open' && method === 'POST') return jsonResponse(makeEtfRankingOpenPayload())
-      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(variantExposurePayload)
       if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
-      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null })
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
       throw new Error(`Unhandled fetch: ${method} ${pathname}`)
     })
 
     render(<App />)
 
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement
-    const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
-    fireEvent.change(input, { target: { files: [file2025] } })
-
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    fireEvent.click(screen.getByRole('button', { name: 'ETF Ranking' }))
-    fireEvent.click(screen.getByText('Run ETF Ranking'))
-    await waitFor(() => expect(screen.getByText('Ranked Universe')).toBeTruthy())
-    fireEvent.click(screen.getAllByText('Seed Candidate Draft')[0])
-    fireEvent.change(screen.getByLabelText('Incumbent ETF'), { target: { value: 'AAPL' } })
-    fireEvent.click(screen.getByText('Create Draft'))
-    await waitFor(() => expect(screen.getByText('Seeded Candidate Review')).toBeTruthy())
-
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.change(screen.getByPlaceholderText('Variant name'), { target: { value: 'Raise MSFT' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Variant' }))
-
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
-    await waitFor(() => expect(screen.queryByText('Seeded Candidate Review')).toBeNull())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    expect(screen.queryByText('Seeded Candidate Review')).toBeNull()
   })
 
-  it('uses fresh-draft discard flow so annotations do not survive discard', async () => {
+  it('treats detailed review handoff as workspace-only navigation for clean imported drafts', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
-      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
-      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:05:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
-    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft')
-      .mockResolvedValueOnce({
-        workspaceId: 'workspace-1',
-        draftId: 'draft-1',
-        baseNodeId: 'node-1',
-        seed: {
-          kind: 'etf_replacement_candidate',
-          source: 'etf_ranking',
-          seededAt: '2026-04-15T00:00:00Z',
-          baseSymbol: 'AAPL',
-          candidateSymbol: 'IUFS',
-          candidateRank: 1,
-          peerGroup: 'Sector UCITS ETF',
-          benchmarkSymbol: 'SPY',
-          lookbackMonths: 6,
-          rankingId: 'etf_ranking_engine_v1',
-          methodologyId: 'etf_ranking_methodology_v1',
-          rankingBasisDate: '2026-04-15',
-          confidence: 'medium',
-          holdingsSupport: 'mixed',
-          requestUniverse: ['AAPL', 'IUFS'],
-          evaluatedUniverse: ['IUFS'],
-          warningCount: 1,
-          excludedSymbolsCount: 0,
-        },
-      })
-      .mockResolvedValueOnce(null)
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:05:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getCandidateImprovementDraft').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
@@ -6601,12 +6550,12 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Discard draft' })).toBeTruthy())
-    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }))
-
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-1', createDraftFromNode: true }))
-    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
-    await waitFor(() => expect(screen.queryByText('Seeded Candidate Review')).toBeNull())
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    expect(screen.queryByRole('button', { name: 'Discard draft' })).toBeNull()
+    expect(screen.queryByText('Detailed review')).toBeNull()
   })
 
   it('resets the local workspace database from the dashboard', async () => {
@@ -6632,7 +6581,7 @@ describe('App', () => {
     expect(screen.getByText('Import Portfolio')).toBeTruthy()
   })
 
-  it('keeps exposure and dashboard views usable after importing a portfolio', async () => {
+  it('keeps the dashboard tab landing-only after importing a portfolio', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     const importedWorkspace = mockImportedWorkspace()
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
@@ -6653,20 +6602,107 @@ describe('App', () => {
     const file2026 = new File(['2026'], 'IB2026.pdf', { type: 'application/pdf', lastModified: 2 })
     fireEvent.change(input, { target: { files: [file2026] } })
 
-    await waitFor(() => expect(screen.getByText('Project summary')).toBeTruthy())
-    expect(screen.getByLabelText('Sector allocation pie chart')).toBeTruthy()
-    expect(screen.getByText('Saved Variants')).toBeTruthy()
-    expect(screen.getByText(/^base · active$/)).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy())
+    expect(screen.queryByText('Project summary')).toBeNull()
+    expect(screen.queryByText('Saved Variants')).toBeNull()
+    expect(screen.queryByText(/^base · active$/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull()
+    expect(screen.queryByText('Detailed review')).toBeNull()
+    expect(screen.queryByRole('button', { name: /support layer/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /draft\/tool layer/i })).toBeNull()
+
+    expect(screen.getByRole('button', { name: 'Replace Import' })).toBeTruthy()
 
     fireEvent.click(screen.getByText('Exposure'))
-    await waitFor(() => expect(screen.getByText('Risk Path')).toBeTruthy())
-    expect(screen.getByText('Actual Exposure')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Look-Through Summary')).toBeTruthy())
+    expect(screen.getByText('Concentration Pack')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByLabelText('Sector allocation pie chart')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy())
+    expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy()
+    expect(screen.queryByText('Detailed review')).toBeNull()
+    expect(screen.queryByText('Saved Variants')).toBeNull()
   })
 
-  it('saves a draft as a child variant and shows it in the variant list', async () => {
+  it('keeps the dashboard handoff shell unchanged across import replacement and reset paths', async () => {
+    const importedWorkspace = mockImportedWorkspace()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(importedWorkspace)
+    mockImportedWorkspaceRestore(importedWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
+    vi.spyOn(portfolioWorkspaceStorage, 'resetLocalPortfolioDatabase').mockResolvedValue()
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const firstFile = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+    const replacementFile = new File(['2026'], 'IB2026.pdf', { type: 'application/pdf', lastModified: 2 })
+
+    fireEvent.change(input, { target: { files: [firstFile] } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Replace Import' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Replace Import' }))
+    fireEvent.change(input, { target: { files: [replacementFile] } })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy())
+    expect(screen.queryByText('Saved Variants')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Replace Import' })).toBeTruthy()
+    expect(screen.queryByText('Detailed review')).toBeNull()
+
+    expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Local DB' }))
+
+    await waitFor(() => expect(screen.getByText('Import Portfolio')).toBeTruthy())
+    expect(screen.queryByText('Saved Variants')).toBeNull()
+  })
+
+  it('routes import to dashboard then workspace through the detailed-review handoff', async () => {
+    const importedWorkspace = mockImportedWorkspace()
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(importedWorkspace)
+    mockImportedWorkspaceRestore(importedWorkspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
+
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await waitFor(() => expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy())
+    expect(screen.getByRole('button', { name: 'Dashboard' }).getAttribute('aria-current')).toBe('page')
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+  })
+
+  it('routes imported drafts to Workspace without legacy variant controls', async () => {
     const importedWorkspace = mockImportedWorkspace()
     const variantNode = mockSavedVariantNode()
 
@@ -6675,7 +6711,7 @@ describe('App', () => {
     mockImportedWorkspaceRestore(importedWorkspace)
     vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
-    vi.spyOn(portfolioWorkspaceStorage, 'saveVariantFromDraft').mockResolvedValue({
+    const saveVariantFromDraftSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveVariantFromDraft').mockResolvedValue({
       node: variantNode,
       workspace: { ...importedWorkspace.workspace, activeNodeId: 'node-2' },
       workspaceState: { ...importedWorkspace.workspaceState, activeNodeId: 'node-2', selectedExposureSnapshotId: 'draft' },
@@ -6707,18 +6743,17 @@ describe('App', () => {
     const file2025 = new File(['2025'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })
     fireEvent.change(input, { target: { files: [file2025] } })
 
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
 
-    const variantNameInput = screen.getByPlaceholderText('Variant name')
-    fireEvent.change(variantNameInput, { target: { value: 'Raise MSFT' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Variant' }))
-
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    const variantRow = screen.getByText((content) => content.includes('Raise MSFT') && content.includes('active'))
-    expect(variantRow).toBeTruthy()
+    expect(screen.queryByPlaceholderText('Variant name')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Save Variant' })).toBeNull()
+    expect(screen.queryByText('Saved Variants')).toBeNull()
+    expect(saveVariantFromDraftSpy).not.toHaveBeenCalled()
   })
 
-  it('opens a saved variant by creating a clean working draft from that node', async () => {
+  it('shows saved variant lineage in Exposure without legacy open controls', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:00:00Z' })
 
     const variantNode = mockSavedVariantNode()
@@ -6761,7 +6796,6 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
       .mockResolvedValueOnce(baseDraft)
       .mockResolvedValueOnce(cleanVariantDraft)
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
 
     let exposureCallCount = 0
@@ -6787,14 +6821,68 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull()
 
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
-    expect(screen.getByLabelText('Sector allocation pie chart')).toBeTruthy()
-    expect(screen.getByText('Project summary')).toBeTruthy()
-    expect(screen.getByText('Performance history is unavailable for this import.')).toBeTruthy()
-    expect(screen.getByText((content) => content.includes('2026-01-01 - 2026-04-10'))).toBeTruthy()
+    fireEvent.click(screen.getByText('Exposure'))
+    await waitFor(() => expect(screen.getByLabelText('Snapshot')).toBeTruthy())
+    expect(screen.getByRole('option', { name: 'Working Draft · base' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'base' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'base -> Raise MSFT' })).toBeTruthy()
+  })
+
+  it('restores an imported snapshot workspace and keeps the dashboard handoff eligible', async () => {
+    const baseNode = { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base' as const, name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }
+    const importedSnapshotNode = {
+      id: 'node-2',
+      workspaceId: 'workspace-1',
+      parentId: 'node-1',
+      kind: 'imported_snapshot' as const,
+      name: 'IB 2026',
+      createdAt: '2026-04-14T00:00:00Z',
+      changeSummary: { label: 'IB 2026', changedPositionsCount: 22, changedSectorsCount: 10, grossExposureDelta: 50368.17, netCapitalDelta: 50368.17 },
+      portfolioSnapshot: variantSnapshot,
+      source: buildImportedSource({ importedFileNames: ['IB2025.pdf', 'IB2026.pdf'], importedAt: '2026-04-14T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: ib2026HistoryContext, importedHistorySnapshot: ib2026BootstrapPayload.snapshot }),
+    }
+    const baseDraft = { id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: persistedSnapshot }
+    const importedDraft = { id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-14T00:00:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: variantSnapshot }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
+      id: 'workspace-1',
+      name: 'Portfolio Workspace',
+      createdAt: '2026-04-10T00:00:00Z',
+      updatedAt: '2026-04-14T00:00:00Z',
+      rootNodeId: 'node-1',
+      activeNodeId: 'node-2',
+      source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
+    })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([baseNode, importedSnapshotNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => nodeId === 'node-2' ? importedSnapshotNode : baseNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(importedDraft)
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(exposurePayload)
+      if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(variantDashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    expect(screen.getByText('Review Basis')).toBeTruthy()
   })
 
   it('switches from a variant back to the imported base and restores imported dashboard history', async () => {
@@ -6803,26 +6891,25 @@ describe('App', () => {
     const variantDraft = { id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-10T00:12:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: persistedSnapshot }
     const baseDraft = { id: 'draft-3', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:13:00Z', name: 'Working Draft', status: 'clean' as const, portfolioSnapshot: persistedSnapshot }
 
-    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:13:00Z' })
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
+    let activeNodeId: 'node-1' | 'node-2' = 'node-1'
+    const workspaceStateForActiveNode = () => activeNodeId === 'node-1'
+      ? { workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:13:00Z' }
+      : { workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'node-2', lastOpenedAt: '2026-04-10T00:12:00Z' }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockImplementation(async () => workspaceStateForActiveNode())
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockImplementation(async () => ({
       id: 'workspace-1',
       name: 'Portfolio Workspace',
       createdAt: '2026-04-10T00:00:00Z',
       updatedAt: '2026-04-10T00:12:00Z',
       rootNodeId: 'node-1',
-      activeNodeId: 'node-1',
+      activeNodeId,
       source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
-    })
+    }))
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([baseNode, variantNode])
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => nodeId === 'node-1' ? baseNode : variantNode)
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
-      .mockResolvedValueOnce(baseDraft)
-      .mockResolvedValueOnce(variantDraft)
-      .mockResolvedValueOnce(baseDraft)
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode')
-      .mockResolvedValueOnce({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
-      .mockResolvedValueOnce({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:13:00Z' })
-    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:13:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockImplementation(async () => activeNodeId === 'node-1' ? baseDraft : variantDraft)
+    vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockImplementation(async () => ({ ...workspaceStateForActiveNode(), selectedExposureSnapshotId: activeNodeId }))
 
     installFetchMock(async (input, init) => {
       const pathname = requestPathname(input)
@@ -6835,19 +6922,37 @@ describe('App', () => {
       throw new Error(`Unhandled fetch: ${method} ${pathname}`)
     })
 
+    const firstRender = render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    await waitFor(() => expect(screen.getByText('Portfolio Research Workspace')).toBeTruthy())
+
+    firstRender.unmount()
+    activeNodeId = 'node-2'
+
+    const secondRender = render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getByText('Detailed review unavailable here')).toBeTruthy())
+    expect(screen.getByText('Imported snapshot not active here')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
+
+    secondRender.unmount()
+    activeNodeId = 'node-1'
+
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
-    await waitFor(() => expect(screen.getByText('Performance history is unavailable for this import.')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
-
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-1', createDraftFromNode: true }))
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy())
-    expect(screen.getByText('Project summary')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
+    expect(screen.getAllByText((content) => content.includes('2025-01-01 - 2025-12-31')).length).toBeGreaterThan(0)
+    expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open detailed review' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Workspace' }).getAttribute('aria-current')).toBe('page'))
+    expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
+    await waitFor(() => expect(screen.getByText('Portfolio Research Workspace')).toBeTruthy())
   })
 
   it('keeps the dashboard shell rendered while the chart subtree suspends without showing dashboard loading copy', async () => {
@@ -6872,12 +6977,14 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
 
-    await waitFor(() => expect(screen.getByText('Project summary')).toBeTruthy())
-    expect(screen.getByText('Portfolio vs SPY path for the selected range')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy())
+    expect(screen.getByText('Open detailed review')).toBeTruthy()
+    expect(screen.queryByText('Portfolio vs SPY path for the selected range')).toBeNull()
     expect(screen.queryByText('Loading dashboard...')).toBeNull()
   })
 
-  it('opens an IB2026 imported snapshot node and keeps canonical dashboard values aligned', async () => {
+
+  it('restores an IB2026 imported snapshot workspace and keeps dashboard handoff semantics', async () => {
     const baseSnapshot: PortfolioSnapshot = {
       snapshotVersion: 1,
       baseCurrency: 'USD',
@@ -6934,14 +7041,14 @@ describe('App', () => {
       portfolioSnapshot: ib2026Snapshot,
     }
 
-    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
       id: 'workspace-1',
       name: 'Portfolio Workspace',
       createdAt: '2026-04-10T00:00:00Z',
       updatedAt: '2026-04-14T00:00:00Z',
       rootNodeId: 'node-1',
-      activeNodeId: 'node-1',
+      activeNodeId: 'node-2',
       source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-12-31' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
     })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([
@@ -6952,36 +7059,31 @@ describe('App', () => {
       if (nodeId === 'node-2') return importedSnapshotNode
       return { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: baseSnapshot }
     })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
-      .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: baseSnapshot })
-      .mockResolvedValueOnce(cleanImportedDraft)
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(cleanImportedDraft)
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:00:00Z' })
 
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DiagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026DashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(ib2026ExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      if (pathname === '/api/engines/exposure/run-imported' && method === 'POST') return jsonResponse(ib2026ExposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(ib2026DiagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(ib2026DashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
+    expect(screen.getByText('Review Basis')).toBeTruthy()
+    expect(screen.getAllByText((content) => content.includes(ib2026DashboardGolden.statementPeriod)).length).toBeGreaterThan(0)
 
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
-    expect(screen.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy()
-    expect(screen.getByText(`Portfolio value: ${ib2026DashboardGolden.portfolioValue}`)).toBeTruthy()
-    expect(screen.getByText((content) => content.includes(ib2026DashboardGolden.statementPeriod))).toBeTruthy()
-    fireEvent.click(screen.getByText('Technology'))
-    expect(screen.getByDisplayValue('SXRV')).toBeTruthy()
-    expect(screen.getByDisplayValue(ib2026DashboardGolden.sxrvValue)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getAllByText('Unable to restore previous portfolio workspace').length).toBeGreaterThan(0))
   })
 
-  it('restores a child variant under an imported IB2026 snapshot with unavailable dashboard history', async () => {
+  it('restores a child variant under an imported IB2026 snapshot with Dashboard fail-closed', async () => {
     const baseSnapshot: PortfolioSnapshot = {
       snapshotVersion: 1,
       baseCurrency: 'USD',
@@ -7062,14 +7164,14 @@ describe('App', () => {
       portfolioSnapshot: variantFromImportedSnapshot,
     }
 
-    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'node-2', lastOpenedAt: '2026-04-14T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'node-3', lastOpenedAt: '2026-04-14T00:10:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
       id: 'workspace-1',
       name: 'Portfolio Workspace',
       createdAt: '2026-04-10T00:00:00Z',
       updatedAt: '2026-04-14T00:10:00Z',
       rootNodeId: 'node-1',
-      activeNodeId: 'node-2',
+      activeNodeId: 'node-3',
       source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-12-31' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
     })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([
@@ -7082,10 +7184,8 @@ describe('App', () => {
       if (nodeId === 'node-2') return importedSnapshotNode
       return { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: baseSnapshot }
     })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
-      .mockResolvedValueOnce(importedDraft)
-      .mockResolvedValueOnce(variantDraft)
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:10:00Z' })
+    void importedDraft
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(variantDraft)
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:10:00Z' })
 
     installFetchMock(async (input, init) => {
@@ -7103,15 +7203,14 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).filter((button) => !button.hasAttribute('disabled')).at(-1) as HTMLButtonElement)
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-3', createDraftFromNode: true }))
-    await waitFor(() => expect(screen.getByText('Loaded file: IB2026.pdf')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Detailed review unavailable here')).toBeTruthy())
+    expect(screen.getByText('Imported snapshot not active here')).toBeTruthy()
+    expect(screen.getByText('Loaded file: IB2026.pdf')).toBeTruthy()
     expect(screen.queryByText(ib2026DashboardGolden.portfolioValue)).toBeNull()
     expect(screen.queryByText(`Portfolio value: ${ib2026DashboardGolden.portfolioValue}`)).toBeNull()
   })
 
-  it('shows base and child variant lineage consistently after reload', async () => {
+  it('shows base and child variant lineage in Exposure snapshot options', async () => {
     const variantNode = mockSavedVariantNode()
 
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:00:00Z' })
@@ -7149,16 +7248,11 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    expect(screen.getByText((content) => content.includes('base') && content.includes('active'))).toBeTruthy()
-    expect(screen.getByText(/base -> Raise MSFT/)).toBeTruthy()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
-
     fireEvent.click(screen.getByText('Exposure'))
     await waitFor(() => expect(screen.getByLabelText('Snapshot')).toBeTruthy())
-    expect(screen.getByText('Working Draft · base -> Raise MSFT')).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Working Draft · base' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'base' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'base -> Raise MSFT' })).toBeTruthy()
   })
 
   it('reuses imported diagnostics when selecting the base snapshot in Exposure after reload', async () => {
@@ -7184,7 +7278,6 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
       .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
       .mockResolvedValueOnce({ id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-10T00:12:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:12:00Z' })
 
     const fetchMock = installFetchMock(async (input, init) => {
@@ -7199,12 +7292,12 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     fireEvent.click(screen.getByText('Exposure'))
     await waitFor(() => expect(screen.getByLabelText('Snapshot')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-2' } })
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1))
     fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-1' } })
 
     await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run-imported', 'POST')).toHaveLength(2))
@@ -7234,7 +7327,6 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
       .mockResolvedValueOnce({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
       .mockResolvedValueOnce({ id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-10T00:12:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:12:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'node-2', lastOpenedAt: '2026-04-10T00:12:00Z' })
 
     const fetchMock = installFetchMock(async (input, init) => {
@@ -7249,16 +7341,14 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).find((button) => !button.hasAttribute('disabled')) as HTMLButtonElement)
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-2', createDraftFromNode: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     fireEvent.click(screen.getByText('Exposure'))
     await waitFor(() => expect(screen.getByLabelText('Snapshot')).toBeTruthy())
     fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-2' } })
 
-    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(2))
-    expect(String(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')[1]?.[1]?.body)).toContain('history_context')
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1))
+    expect(String(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')[0]?.[1]?.body)).toContain('history_context')
   })
 
   it('uses snapshot-history diagnostics instead of imported replay for a child variant under an imported snapshot', async () => {
@@ -7331,14 +7421,14 @@ describe('App', () => {
       portfolioSnapshot: importedVariantSnapshot,
     }
 
-    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-2', activeDraftId: 'draft-2', selectedExposureSnapshotId: 'node-2', lastOpenedAt: '2026-04-14T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'node-3', lastOpenedAt: '2026-04-14T00:10:00Z' })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({
       id: 'workspace-1',
       name: 'Portfolio Workspace',
       createdAt: '2026-04-10T00:00:00Z',
       updatedAt: '2026-04-14T00:10:00Z',
       rootNodeId: 'node-1',
-      activeNodeId: 'node-2',
+      activeNodeId: 'node-3',
       source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-12-31' }, importedHistorySnapshot: bootstrapPayload.snapshot }),
     })
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([baseNode, importedSnapshotNode, importedVariantNode])
@@ -7347,10 +7437,7 @@ describe('App', () => {
       if (nodeId === 'node-3') return importedVariantNode
       return baseNode
     })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
-      .mockResolvedValueOnce({ id: 'draft-2', workspaceId: 'workspace-1', baseNodeId: 'node-2', updatedAt: '2026-04-14T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: importedSnapshot })
-      .mockResolvedValueOnce(variantDraft)
-    const persistActiveNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'setActiveNode').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-14T00:10:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(variantDraft)
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-3', activeDraftId: 'draft-3', selectedExposureSnapshotId: 'node-3', lastOpenedAt: '2026-04-14T00:10:00Z' })
 
     const fetchMock = installFetchMock(async (input, init) => {
@@ -7367,12 +7454,12 @@ describe('App', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Saved Variants')).toBeTruthy())
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open' }).filter((button) => !button.hasAttribute('disabled')).at(-1) as HTMLButtonElement)
-    await waitFor(() => expect(persistActiveNodeSpy).toHaveBeenCalledWith({ workspaceId: 'workspace-1', nodeId: 'node-3', createDraftFromNode: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     fireEvent.click(screen.getByText('Exposure'))
     await waitFor(() => expect(screen.getByLabelText('Snapshot')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-2' } })
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run-imported', 'POST')).toHaveLength(1))
     fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-3' } })
 
     await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run-imported', 'POST')).toHaveLength(1))

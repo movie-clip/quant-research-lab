@@ -143,7 +143,50 @@ describe('BacktestWorkspacePanel', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy()
     expect(screen.queryByText('Portfolio improvement research')).toBeNull()
+  })
+
+  it('renders the workspace route and embedded sessions without requiring shell-only wrappers', () => {
+    render(
+      <BacktestWorkspacePanel
+        allocationBacktestResult={replay}
+        onAllocationBacktestResult={() => {}}
+        analysis={null}
+        draftSnapshot={null}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={null}
+        workspaceSource={null}
+        persistedConstructionArtifactReview={null}
+        persistedOptimizerHandoffReview={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={() => {}}
+        openedSavedProposalArtifactId={null}
+        monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
+        onReviewInResearch={() => {}}
+        onSaveProposal={() => {}}
+        onPromoteProposalToThesis={() => {}}
+        onClearActiveThesis={() => {}}
+        onHypotheticalReplayResult={() => {}}
+        onFormedCandidateArtifact={() => {}}
+        onConstructedCandidateArtifact={() => {}}
+        onConstructionConstraintValidationArtifact={() => {}}
+        onSelectedConstructionRuleChange={() => {}}
+        workspaceId="workspace-1"
+        workspaceShellActivationKey={0}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Backtest' }))
+
+    expect(screen.getByTestId('workspace-owned-research-session')).toBeTruthy()
   })
 
   it('offers workspace-owned entrypoints for deeper research tools', () => {

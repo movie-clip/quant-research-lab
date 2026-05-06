@@ -242,7 +242,7 @@ def _sample_exposure_result(snapshot: ImportedPortfolioSnapshot) -> ExposureResu
             price_basis="not_applicable",
             source_status=ExposureRunSourceStatus(
                 lookthrough_resolution="live",
-                benchmark_holdings="live",
+                benchmark_holdings="verified",
             ),
             confidence="high",
             reproducibility=ExposureRunReproducibilityMetadata(
@@ -335,7 +335,7 @@ def test_build_exposure_result_populates_structured_run_metadata(mocker) -> None
 
     assert result.run_metadata.source_status.model_dump() == {
         "lookthrough_resolution": "live",
-        "benchmark_holdings": "live",
+        "benchmark_holdings": "verified",
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",

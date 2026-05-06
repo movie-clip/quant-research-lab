@@ -6,9 +6,8 @@ import { canUseImportedReplay, collapseToHistoryContextSource, resolveEffectiveH
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
 import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
-import { VariantList } from '../features/portfolio/VariantList'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
-import { composeDashboardSession, type DashboardSession } from './dashboardSession'
+import { composeDashboardSession, isDashboardDetailedReviewEligible, type DashboardSession } from './dashboardSession'
 import { desktopFeatureFlags } from './featureFlags'
 import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidation'
 import type { ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueResponse, MonitorDefinitionRecoveredAlertReviewQueueRow, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
@@ -62,14 +61,11 @@ const persistedOptimizerHandoffReferenceQueryKey = 'optimizer_handoff_reference'
 const missingPersistedOptimizerHandoffReviewRestoreMessage = 'Unable to restore previous portfolio workspace: persisted optimizer handoff review is missing'
 const missingPersistedStartupNodeListRestoreMessage = 'Unable to restore previous portfolio workspace: authoritative workspace nodes are unavailable on startup'
 
-const primaryShellTabs: Array<{ id: AppTab; label: string }> = [
+const appTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'exposure', label: 'Exposure' },
   { id: 'diagnostics', label: 'Diagnostics' },
   { id: 'workspace', label: 'Workspace' },
-]
-
-const secondaryShellTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'backtest', label: 'Backtest' },
   { id: 'strategy_lab', label: 'Strategy Lab' },
   { id: 'etf_ranking', label: 'ETF Ranking' },
@@ -2704,32 +2700,6 @@ export function App() {
           <p className="eyebrow">Portfolio Workstation</p>
           <p className="helper workflow-status-text">{workflowState}</p>
         </div>
-        <nav className="tab-bar header-tab-bar" aria-label="Main workspace tabs">
-          <div className="tab-bar-group tab-bar-group-primary">
-            {primaryShellTabs.map((shellTab) => (
-              <button
-                key={shellTab.id}
-                className={`tab-button${tab === shellTab.id ? ' active' : ''}`}
-                aria-current={tab === shellTab.id ? 'page' : undefined}
-                onClick={() => handleTabChange(shellTab.id)}
-              >
-                {shellTab.label}
-              </button>
-            ))}
-          </div>
-          <div className="tab-bar-group tab-bar-group-secondary">
-            {secondaryShellTabs.map((shellTab) => (
-              <button
-                key={shellTab.id}
-                className={`tab-button${tab === shellTab.id ? ' active' : ''}`}
-                aria-current={tab === shellTab.id ? 'page' : undefined}
-                onClick={() => handleTabChange(shellTab.id)}
-              >
-                {shellTab.label}
-              </button>
-            ))}
-          </div>
-        </nav>
         <div className="topbar-meta">
           <span className="status-dot" />
           <span>Local Quant Engine</span>
@@ -2738,15 +2708,26 @@ export function App() {
 
       <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" hidden multiple onChange={handleImportFileChange} />
 
+      <nav className="tab-bar main-menu" aria-label="Main workspace tabs">
+        {appTabs.map((appTab) => (
+          <button
+            key={appTab.id}
+            className={`tab-button${tab === appTab.id ? ' active' : ''}`}
+            aria-current={tab === appTab.id ? 'page' : undefined}
+            onClick={() => handleTabChange(appTab.id)}
+          >
+            {appTab.label}
+          </button>
+        ))}
+      </nav>
+
       {tab === 'dashboard' ? (
         <section className="grid grid-single">
           <DashboardPanel
             result={dashboardSession.result}
             exposureResult={dashboardSession.exposureResult}
             factorModel={dashboardSession.factorModel}
-            draftSnapshot={dashboardSession.draftSnapshot}
-            activeNodeName={dashboardSession.activeNodeName}
-            draftStatus={dashboardSession.draftStatus}
+            activeNodeKind={dashboardSession.activeNodeKind}
             importing={dashboardSession.importing}
             importError={dashboardSession.importError}
             lastImportedFileNames={dashboardSession.lastImportedFileNames}
@@ -2755,12 +2736,12 @@ export function App() {
             onAppendStatement={artifactReviewMode ? undefined : dashboardSnapshot && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
             onClearImportedSession={artifactReviewMode ? undefined : activeWorkspace ? handleClearImportedSession : undefined}
             onResetLocalDatabase={handleResetLocalDatabase}
-            onPreviewExposure={artifactReviewMode ? undefined : handlePreviewExposure}
-            onDraftSnapshotChange={artifactReviewMode ? undefined : handleDraftSnapshotChange}
-            onDiscardDraft={artifactReviewMode ? undefined : handleDiscardDraft}
-            onSaveVariant={artifactReviewMode ? undefined : handleSaveVariant}
+            detailEligible={dashboardSession.detailEligible}
+            onOpenDetailedReview={() => {
+              if (!isDashboardDetailedReviewEligible(dashboardSession.result, dashboardSession.activeNodeKind)) return
+              setTab('workspace')
+            }}
           />
-          <VariantList nodes={workspaceNodes} activeNodeId={activeNode?.id ?? null} onOpenNode={handleOpenNode} />
         </section>
       ) : null}
 

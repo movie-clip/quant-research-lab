@@ -1,11 +1,64 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { DashboardAnalysis, DashboardRangeMetrics, ExposureAnalysis, ExposureFactorModelResponse, ImportedStatementImporter } from './types'
+import { DenseInsightStrip, type DenseInsightMarker, type DenseInsightStripItem } from './DenseInsightStrip'
 import { investorEconomicsBaseReason } from './investorEconomics'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
 import type { PortfolioSnapshot } from './workspaceTypes'
+import type { PortfolioNodeKind } from './workspaceTypes'
 
 type RangeOption = '1M' | '3M' | 'YTD' | '1Y' | 'All'
 type EditableHolding = { symbol: string; market_value: number; sector?: string | null }
+type DashboardTrustTone = DenseInsightMarker
+type DashboardHighlightModule = DenseInsightStripItem
+type TrustPathKey = 'benchmark_relative_path' | 'factor_model_path' | 'benchmark_path'
+type ExplicitTrustPathValue = 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function readExplicitTrustPath(sectionTrust: unknown, key: TrustPathKey): ExplicitTrustPathValue | null {
+  if (!isRecord(sectionTrust) || !(key in sectionTrust)) return null
+  const value = sectionTrust[key]
+  if (value === 'verified_adjusted_close' || value === 'degraded_unverified_return_basis' || value === 'unavailable') return value
+  return null
+}
+
+function readDiagnosticsTrustPath(exposureResult: ExposureAnalysis, key: 'benchmark_relative_path' | 'factor_model_path'): ExplicitTrustPathValue | null {
+  return readExplicitTrustPath(exposureResult.diagnostics_run_metadata?.section_trust, key)
+}
+
+function readDashboardTrustPath(result: DashboardAnalysis | null, key: 'benchmark_path'): ExplicitTrustPathValue | null {
+  return readExplicitTrustPath(result?.run_metadata?.section_trust, key)
+}
+
+function trustToneFromPath(path: ExplicitTrustPathValue | null): DashboardTrustTone {
+  if (path === 'verified_adjusted_close') return 'trusted'
+  if (path === 'degraded_unverified_return_basis') return 'degraded'
+  return 'unavailable'
+}
+
+function readStatisticalFactorModel(source: unknown) {
+  return isRecord(source) ? source : null
+}
+
+function readFactorSnapshot(source: unknown) {
+  const model = readStatisticalFactorModel(source)
+  return Array.isArray(model?.current_factor_snapshot) ? model.current_factor_snapshot : []
+}
+
+function readFactorStatus(source: unknown) {
+  const model = readStatisticalFactorModel(source)
+  return typeof model?.status === 'string' && model.status.trim() ? model.status : null
+}
+
+function readFactorExposures(exposureResult: ExposureAnalysis) {
+  return Array.isArray(exposureResult.factor_exposures) ? exposureResult.factor_exposures : []
+}
+
+function readStressScenarios(exposureResult: ExposureAnalysis) {
+  return Array.isArray(exposureResult.stress_scenarios) ? exposureResult.stress_scenarios : []
+}
 
 function formatPct(value: number | null | undefined) {
   return value == null ? 'n/a' : `${value.toFixed(2)}%`
@@ -21,6 +74,10 @@ function formatNumber(value: number | null | undefined, digits = 2) {
 
 function formatWholePct(value: number | null | undefined) {
   return value == null ? 'n/a' : `${Math.round(value)}%`
+}
+
+function formatWeightPct(value: number | null | undefined) {
+  return value == null ? 'n/a' : formatWholePct(value * 100)
 }
 
 function formatSignedLoading(value: number | null | undefined) {
@@ -52,6 +109,249 @@ function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: s
   return `${statementCount > 1 ? 'Loaded statements' : 'Loaded file'}: ${loadedStatementsLabel}`
 }
 
+function formatDateTimeLabel(value: string | null | undefined) {
+  if (!value) return 'Unavailable'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short',
+  }).format(date)
+}
+
+function formatAsOfLabel(value: string | null | undefined) {
+  const label = formatDateLabel(value)
+  return label ?? 'Unavailable'
+}
+
+function formatCountLabel(value: number | null | undefined) {
+  return value == null ? 'Unavailable' : String(value)
+}
+
+function formatUnavailableMoney(value: number | null | undefined) {
+  return value == null ? 'Unavailable' : formatMoney(value)
+}
+
+function formatUnavailableText(value: string | null | undefined) {
+  if (!value) return 'Unavailable'
+  const trimmed = value.trim()
+  return trimmed ? trimmed : 'Unavailable'
+}
+
+function formatSnapshotFreshnessLabel(importedAt: string | null | undefined) {
+  if (!importedAt) return 'Imported timestamp unavailable'
+  const importedMs = Date.parse(importedAt)
+  if (Number.isNaN(importedMs)) return 'Imported timestamp unavailable'
+  const ageMs = Date.now() - importedMs
+  const staleThresholdMs = 1000 * 60 * 60 * 24 * 30
+  return ageMs > staleThresholdMs ? 'Timestamp suggests stale import' : 'Timestamp within freshness window'
+}
+
+function buildSnapshotState(input: {
+  result: DashboardAnalysis | null
+  importing: boolean
+  importError: string | null
+  activeNodeKind: PortfolioNodeKind | null
+  hasFieldGaps: boolean
+}) {
+  if (input.importing) {
+    return {
+      tone: 'loading' as const,
+      title: 'Loading imported snapshot',
+      detail: 'Imported snapshot truth appears when the active import finishes loading.',
+    }
+  }
+  if (input.importError) {
+    return {
+      tone: 'error' as const,
+      title: 'Import failed',
+      detail: input.importError,
+    }
+  }
+  if (!input.result) {
+    return {
+      tone: 'empty' as const,
+      title: 'No imported snapshot loaded',
+      detail: 'Import a broker statement to populate imported snapshot truth.',
+    }
+  }
+  if (input.activeNodeKind && input.activeNodeKind !== 'imported_base' && input.activeNodeKind !== 'imported_snapshot') {
+    return {
+      tone: 'partial' as const,
+      title: 'Imported snapshot not active here',
+      detail: 'Imported snapshot truth stays tied to the imported snapshot. Open it to restore trusted orientation fields.',
+    }
+  }
+  const importedAt = input.result.snapshot?.statements?.[0]?.imported_at ?? null
+  const importedMs = importedAt ? Date.parse(importedAt) : Number.NaN
+  const isStale = !Number.isNaN(importedMs) && (Date.now() - importedMs) > (1000 * 60 * 60 * 24 * 30)
+  if (isStale) {
+    return {
+      tone: 'stale' as const,
+      title: 'Imported snapshot may be stale',
+      detail: 'Imported snapshot truth is still shown, but the timestamp is stale. Refresh before relying on orientation.',
+    }
+  }
+  if (input.hasFieldGaps) {
+    return {
+      tone: 'partial' as const,
+      title: 'Imported snapshot has partial anchors',
+      detail: 'Imported snapshot truth is shown, and unsupported orientation fields stay explicitly unavailable.',
+    }
+  }
+  return {
+    tone: 'success' as const,
+    title: 'Imported snapshot loaded',
+    detail: 'Summary orientation reflects imported snapshot truth only.',
+  }
+}
+
+function sumImportedCashBalances(cashBalances: PortfolioSnapshot['cashBalances'] | DashboardAnalysis['snapshot']['cash_balances'] | null | undefined) {
+  if (!cashBalances) return null
+  let hasValue = false
+  const total = cashBalances.reduce((runningTotal, balance) => {
+    const amount = 'amount' in balance
+      ? balance.amount
+      : balance.ending_cash
+    if (amount == null || !Number.isFinite(amount)) return runningTotal
+    hasValue = true
+    return runningTotal + amount
+  }, 0)
+  return hasValue ? total : null
+}
+
+function buildTopHoldingLabel(snapshot: DashboardAnalysis['snapshot'] | null, overview: DashboardAnalysis['overview'] | null | undefined) {
+  const sortedPositions = [...(snapshot?.positions ?? [])]
+    .filter((position) => Number.isFinite(position.market_value))
+    .sort((left, right) => right.market_value - left.market_value)
+  return sortedPositions[0]?.symbol ?? overview?.top_positions?.[0]?.symbol ?? null
+}
+
+function buildBenchmarkUsedLabel(
+  result: DashboardAnalysis | null,
+  exposureResult: ExposureAnalysis | null,
+  factorModel: ExposureFactorModelResponse | null,
+) {
+  void exposureResult
+  void factorModel
+  const dashboardBenchmark = result?.run_metadata?.reproducibility.benchmark_symbol?.trim()
+  return dashboardBenchmark ? dashboardBenchmark : null
+}
+
+function buildReadinessState(input: {
+  result: DashboardAnalysis | null
+  exposureResult: ExposureAnalysis | null
+  importing: boolean
+  importError: string | null
+  activeNodeKind: PortfolioNodeKind | null
+  snapshotTone: 'success' | 'loading' | 'empty' | 'partial' | 'stale' | 'error'
+  snapshotImportedAt: string | null
+  benchmarkUsed: string | null
+}) {
+  if (input.importing) {
+    return {
+      tone: 'loading' as const,
+      freshness: { value: 'Loading freshness status', detail: 'Import timestamp is still loading.' },
+      coverage: { value: 'Loading coverage status', detail: 'Look-through coverage will appear when exposure context loads.' },
+      benchmark: { value: 'Loading benchmark status', detail: 'Benchmark-relative support will appear when dashboard history loads.' },
+      overall: { value: 'Readiness pending', detail: 'Wait for imported snapshot truth and support states before relying on orientation.' },
+    }
+  }
+
+  if (input.importError) {
+    return {
+      tone: 'error' as const,
+      freshness: { value: 'Import failed', detail: 'Freshness cannot be established after a failed import.' },
+      coverage: { value: 'Coverage unavailable', detail: 'Look-through coverage is unavailable until a valid import succeeds.' },
+      benchmark: { value: 'Benchmark unavailable', detail: 'Benchmark-relative support is unavailable until a valid import succeeds.' },
+      overall: { value: 'Readiness unavailable', detail: 'Dashboard readiness is unavailable because the import failed.' },
+    }
+  }
+
+  if (!input.result) {
+    return {
+      tone: 'empty' as const,
+      freshness: { value: 'No snapshot loaded', detail: 'Import a statement to establish freshness.' },
+      coverage: { value: 'Coverage unavailable', detail: 'Look-through coverage appears only after an imported portfolio loads.' },
+      benchmark: { value: 'Benchmark unavailable', detail: 'Benchmark-relative support appears only after imported history loads.' },
+      overall: { value: 'Not ready', detail: 'Load an imported portfolio before relying on dashboard orientation.' },
+    }
+  }
+
+  const lookthroughStatus = input.exposureResult?.exposure_availability?.lookthrough_status ?? 'unavailable'
+  const benchmarkHistory = input.result.run_metadata?.source_status.benchmark_history ?? 'unavailable'
+  const freshnessTone = input.snapshotTone === 'stale'
+    ? 'stale'
+    : input.snapshotImportedAt && formatSnapshotFreshnessLabel(input.snapshotImportedAt) === 'Timestamp within freshness window'
+      ? 'success'
+      : 'partial'
+
+  const freshness = freshnessTone === 'success'
+    ? { value: 'Fresh import timestamp', detail: 'Import timestamp is within the dashboard freshness window.' }
+    : freshnessTone === 'stale'
+      ? { value: 'Stale import timestamp', detail: 'Refresh before relying on dashboard interpretation.' }
+      : { value: 'Freshness unavailable', detail: 'Imported timestamp is unavailable, so freshness cannot be confirmed.' }
+
+  const coverage = lookthroughStatus === 'live'
+    ? { value: 'Look-through coverage ready', detail: 'Look-through coverage is available for this imported snapshot.' }
+    : lookthroughStatus === 'partial'
+      ? { value: 'Look-through coverage partial', detail: 'Look-through coverage is partial for this imported snapshot.' }
+      : { value: 'Look-through coverage unavailable', detail: 'Look-through coverage is unavailable; rely on imported snapshot truth only.' }
+
+  const benchmark = benchmarkHistory === 'live_market_data_verified_adjusted_close'
+    ? { value: 'Benchmark available', detail: `Benchmark-relative support is available for ${input.benchmarkUsed ?? 'this path'}.` }
+    : benchmarkHistory === 'live_market_data_unverified_return_basis'
+      ? { value: 'Benchmark degraded', detail: `Benchmark-relative support is degraded for ${input.benchmarkUsed ?? 'this path'}.` }
+      : { value: 'Benchmark unavailable', detail: 'Benchmark-relative support is unavailable on the current path.' }
+
+  if (input.activeNodeKind && input.activeNodeKind !== 'imported_base' && input.activeNodeKind !== 'imported_snapshot') {
+    return {
+      tone: 'partial' as const,
+      freshness,
+      coverage,
+      benchmark,
+      overall: { value: 'Trusted orientation paused', detail: 'Return to the imported snapshot to restore trusted orientation.' },
+    }
+  }
+
+  if (input.snapshotTone === 'stale') {
+    return {
+      tone: 'stale' as const,
+      freshness,
+      coverage,
+      benchmark,
+      overall: { value: 'Refresh before confident analysis', detail: 'Imported snapshot truth is still visible, but the stale timestamp should be refreshed first.' },
+    }
+  }
+
+  if (
+    input.snapshotTone === 'partial'
+    || lookthroughStatus !== 'live'
+    || benchmarkHistory !== 'live_market_data_verified_adjusted_close'
+  ) {
+    return {
+      tone: 'partial' as const,
+      freshness,
+      coverage,
+      benchmark,
+      overall: { value: 'Partially ready', detail: 'Use imported snapshot truth first; look-through or benchmark support is still partial, degraded, or unavailable.' },
+    }
+  }
+
+  return {
+    tone: 'success' as const,
+    freshness,
+    coverage,
+    benchmark,
+    overall: { value: 'Ready for a first pass', detail: 'Imported snapshot truth, freshness, look-through coverage, and benchmark support are aligned.' },
+  }
+}
+
 function isDesktopSafeMode() {
   return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
 }
@@ -80,89 +380,468 @@ function formatBrokerLabel(importer: ImportedStatementImporter) {
   return importer === 'freedom24' ? 'Freedom24' : 'Interactive Brokers'
 }
 
-function describeDiversification(weight: number | null | undefined) {
-  if (weight == null) return 'still needs a diversification read'
-  if (weight >= 50) return 'looks highly concentrated'
-  if (weight >= 35) return 'shows meaningful concentration'
-  return 'looks reasonably diversified'
+function isImportedAnalysisContextActive(activeNodeKind: PortfolioNodeKind | null | undefined) {
+  return !activeNodeKind || activeNodeKind === 'imported_base' || activeNodeKind === 'imported_snapshot'
 }
 
-function describeBenchmarkReadiness(status: string | null | undefined, hasFactorModel: boolean) {
-  if (status === 'live' && hasFactorModel) return 'You can review benchmark-relative path, factor behavior, and allocation trade-offs from this import.'
-  if (status === 'live') return 'You can review benchmark-relative path and allocation trade-offs from this import.'
-  if (hasFactorModel) return 'You can review factor behavior and allocation trade-offs, but benchmark history is limited.'
-  return 'Start with the current holdings mix first; richer quant explanation becomes available when history and factor inputs are present.'
+function buildUnavailableHighlightsModule(title: string, detail: string, trust: DashboardTrustTone = 'unavailable'): DashboardHighlightModule {
+  return {
+    title,
+    marker: trust,
+    headline: trust === 'partial' ? 'Limited' : 'Unavailable',
+    facts: [detail],
+  }
 }
 
-function buildNextStepCopy(input: {
-  topPosition: DashboardAnalysis['overview']['top_positions'][number] | null
-  topSector: DashboardAnalysis['overview']['sector_allocation'][number] | null
-  topPositionWeight: number | null | undefined
-  topSectorWeight: number | null | undefined
+function aggregateHighlightTrust(trusts: DashboardTrustTone[]) {
+  const availableTrusts = trusts.filter(Boolean)
+  if (!availableTrusts.length) return 'unavailable'
+  if (availableTrusts.every((trust) => trust === 'unavailable')) return 'unavailable'
+  if (availableTrusts.includes('withheld')) return 'withheld'
+  if (availableTrusts.includes('stale')) return 'stale'
+  if (availableTrusts.includes('degraded')) return 'degraded'
+  if (availableTrusts.includes('partial')) return 'partial'
+  if (availableTrusts.includes('unavailable')) return 'partial'
+  return 'trusted'
+}
+
+function buildExposureHighlightsModule(input: {
+  result: DashboardAnalysis | null
+  exposureResult: ExposureAnalysis | null
+  importing: boolean
+  importError: string | null
+  activeNodeKind: PortfolioNodeKind | null
+  snapshotTone: 'success' | 'loading' | 'empty' | 'partial' | 'stale' | 'error'
+}): DashboardHighlightModule {
+  if (input.importing) {
+    return buildUnavailableHighlightsModule('Exposure Highlights', 'Exposure highlights appear when the imported analysis context finishes loading.')
+  }
+  if (input.importError) {
+    return buildUnavailableHighlightsModule('Exposure Highlights', 'Exposure highlights are unavailable after a failed import.')
+  }
+  if (!input.result || !input.exposureResult) {
+    return buildUnavailableHighlightsModule('Exposure Highlights', 'Exposure highlights require the current imported analysis context.')
+  }
+  if (!isImportedAnalysisContextActive(input.activeNodeKind)) {
+    return buildUnavailableHighlightsModule('Exposure Highlights', 'Exposure highlights stay tied to the imported analysis context only. Return to the imported snapshot to restore them.', 'partial')
+  }
+
+  const lookthroughStatus = input.exposureResult.exposure_availability?.lookthrough_status ?? 'unavailable'
+  const lookthroughCoverage = input.exposureResult.lookthrough?.coverage_ratio ?? null
+  const lookthroughTopSector = input.exposureResult.lookthrough_sector_exposure?.[0] ?? null
+  const snapshotTopSector = input.result.overview?.sector_allocation?.[0] ?? null
+  const facts: string[] = []
+  let headline: string | null = null
+
+  if (lookthroughTopSector && lookthroughStatus !== 'unavailable') {
+    headline = `${lookthroughTopSector.sector} leads at ${formatWeightPct(lookthroughTopSector.weight)}.`
+    facts.push(
+      lookthroughStatus === 'partial'
+        ? `Look-through coverage ${formatWeightPct(lookthroughCoverage)} (partial).`
+        : `Look-through coverage ${formatWeightPct(lookthroughCoverage)}.`,
+    )
+  } else if (snapshotTopSector) {
+    headline = `${snapshotTopSector.sector} leads at ${formatWeightPct(snapshotTopSector.weight)}.`
+    facts.push('Imported snapshot truth only; look-through coverage unavailable.')
+  }
+
+  if (!headline) {
+    return buildUnavailableHighlightsModule('Exposure Highlights', 'Exposure highlights stay unavailable until explicit sector or look-through fields are present.')
+  }
+
+  const trust: DashboardTrustTone = input.snapshotTone === 'stale'
+    ? 'stale'
+    : lookthroughStatus === 'live'
+      ? 'trusted'
+      : lookthroughStatus === 'partial'
+        ? 'partial'
+        : 'partial'
+
+  return {
+    title: 'Exposure Highlights',
+    marker: trust,
+    headline,
+    facts,
+  }
+}
+
+function buildConcentrationHighlightsModule(input: {
+  result: DashboardAnalysis | null
+  exposureResult: ExposureAnalysis | null
+  importing: boolean
+  importError: string | null
+  activeNodeKind: PortfolioNodeKind | null
+  snapshotTone: 'success' | 'loading' | 'empty' | 'partial' | 'stale' | 'error'
+}): DashboardHighlightModule {
+  if (input.importing) {
+    return buildUnavailableHighlightsModule('Concentration Highlights', 'Concentration highlights appear when the imported analysis context finishes loading.')
+  }
+  if (input.importError) {
+    return buildUnavailableHighlightsModule('Concentration Highlights', 'Concentration highlights are unavailable after a failed import.')
+  }
+  if (!input.result || !input.exposureResult) {
+    return buildUnavailableHighlightsModule('Concentration Highlights', 'Concentration highlights require the current imported analysis context.')
+  }
+  if (!isImportedAnalysisContextActive(input.activeNodeKind)) {
+    return buildUnavailableHighlightsModule('Concentration Highlights', 'Concentration highlights stay tied to the imported analysis context only. Return to the imported snapshot to restore them.', 'partial')
+  }
+
+  const concentration = input.exposureResult.current_state_concentration
+  const topPosition = concentration?.top_positions?.[0] ?? null
+  const topPositionWeight = concentration?.top_1_position_weight ?? topPosition?.weight ?? null
+  const topThreeWeight = concentration?.top_3_position_weight ?? null
+  const topFiveWeight = concentration?.top_5_position_weight ?? null
+  const topSectorWeight = concentration?.top_sector_weight ?? null
+  const topThreeSectorWeight = concentration?.top_3_sector_weight ?? null
+  const positionHhi = concentration?.position_hhi ?? null
+  const sectorHhi = concentration?.sector_hhi ?? null
+  const effectiveHoldings = concentration?.effective_holdings ?? null
+  let headline: string | null = null
+  const facts: string[] = []
+
+  if (topPosition && topPositionWeight != null) {
+    headline = `${topPosition.name} is ${formatWeightPct(topPositionWeight)} of the book.`
+    const topPositionFact = [
+      topThreeWeight != null ? `Top 3 ${formatWeightPct(topThreeWeight)}` : null,
+      topFiveWeight != null ? `Top 5 ${formatWeightPct(topFiveWeight)}` : null,
+      topSectorWeight != null ? `top sector ${formatWeightPct(topSectorWeight)}` : null,
+    ].filter(Boolean).join('; ')
+    if (topPositionFact) facts.push(topPositionFact)
+  }
+
+  if (!headline && (topSectorWeight != null || topThreeSectorWeight != null)) {
+    headline = topSectorWeight != null ? `Top sector is ${formatWeightPct(topSectorWeight)} of the book.` : `Top 3 sectors are ${formatWeightPct(topThreeSectorWeight)} of the book.`
+  } else if (!headline && (positionHhi != null || sectorHhi != null)) {
+    headline = positionHhi != null ? `Position HHI is ${formatNumber(positionHhi, 3)}.` : `Sector HHI is ${formatNumber(sectorHhi, 3)}.`
+  }
+
+  if (!facts.length) {
+    const secondaryFact = [
+      topThreeSectorWeight != null ? `Top 3 sectors ${formatWeightPct(topThreeSectorWeight)}` : null,
+      positionHhi != null ? `position HHI ${formatNumber(positionHhi, 3)}` : null,
+      sectorHhi != null ? `sector HHI ${formatNumber(sectorHhi, 3)}` : null,
+      effectiveHoldings != null ? `effective holdings ${formatNumber(effectiveHoldings)}` : null,
+    ].filter(Boolean).join('; ')
+    if (secondaryFact) facts.push(`${secondaryFact}.`)
+  }
+
+  if (!headline) {
+    return buildUnavailableHighlightsModule('Concentration Highlights', 'Concentration inputs are not defensible on the current imported-analysis path.')
+  }
+
+  const trust: DashboardTrustTone = input.snapshotTone === 'stale'
+    ? 'stale'
+    : topPositionWeight != null && effectiveHoldings != null
+      ? 'trusted'
+      : 'partial'
+
+  return {
+    title: 'Concentration Highlights',
+    marker: trust,
+    headline,
+    facts,
+  }
+}
+
+function buildBenchmarkRelativeTrust(input: {
+  result: DashboardAnalysis | null
+  exposureResult: ExposureAnalysis
 }) {
-  if (input.topPosition && input.topPositionWeight != null && input.topPositionWeight >= 15) {
-    return `Start by reviewing ${input.topPosition.symbol}. One holding is carrying ${formatWholePct(input.topPositionWeight)} of portfolio value, so trimming that position is the clearest first diversification test.`
-  }
-  if (input.topSector && input.topSectorWeight != null && input.topSectorWeight >= 35) {
-    return `Start by reviewing your ${input.topSector.sector} exposure. That bucket is ${formatWholePct(input.topSectorWeight)} of the portfolio, so even a small rebalance there could improve diversification.`
-  }
-  if (input.topSector) {
-    return `Start by testing one small variant in ${input.topSector.sector}. Use the allocation editor to compare a cleaner sector mix without changing the whole portfolio at once.`
-  }
-  return 'Start by importing or restoring a portfolio, then use the allocation editor to test one simple diversification change.'
+  const overlapStatus = input.exposureResult.exposure_availability?.benchmark_overlap_status ?? 'unavailable'
+  if (overlapStatus === 'unavailable') return 'unavailable' as const
+  if (overlapStatus === 'partial') return 'partial' as const
+
+  const diagnosticsPath = readDiagnosticsTrustPath(input.exposureResult, 'benchmark_relative_path')
+  const dashboardPath = readDashboardTrustPath(input.result, 'benchmark_path')
+
+  if (!diagnosticsPath || !dashboardPath || diagnosticsPath === 'unavailable' || dashboardPath === 'unavailable') return 'unavailable' as const
+  if (diagnosticsPath === 'degraded_unverified_return_basis' || dashboardPath === 'degraded_unverified_return_basis') return 'degraded' as const
+  if (diagnosticsPath === 'verified_adjusted_close' && dashboardPath === 'verified_adjusted_close') return 'trusted' as const
+  return 'unavailable' as const
 }
+
+function buildBenchmarkInterpretation(symbol: string, overlapWeight: number | null, activeShare: number | null) {
+  if (activeShare != null && overlapWeight != null) {
+    if (activeShare >= 0.6 && overlapWeight <= 0.35) return `Mostly differentiated from ${symbol}.`
+    if (activeShare <= 0.4) return `Portfolio stays fairly close to ${symbol}.`
+    return `Portfolio is partly aligned with ${symbol}, but still meaningfully different.`
+  }
+  if (activeShare != null) {
+    return activeShare >= 0.6 ? `Portfolio is meaningfully differentiated from ${symbol}.` : `Portfolio still behaves fairly close to ${symbol}.`
+  }
+  if (overlapWeight != null) {
+    return overlapWeight >= 0.5 ? `A large share of holdings overlaps ${symbol}.` : `Only part of the portfolio overlaps ${symbol}.`
+  }
+  return 'Benchmark-relative interpretation is unavailable.'
+}
+
+function buildBenchmarkRelativeHighlightsModule(input: {
+  result: DashboardAnalysis | null
+  exposureResult: ExposureAnalysis | null
+  importing: boolean
+  importError: string | null
+  activeNodeKind: PortfolioNodeKind | null
+  snapshotTone: 'success' | 'loading' | 'empty' | 'partial' | 'stale' | 'error'
+}): DashboardHighlightModule {
+  if (input.importing) {
+    return buildUnavailableHighlightsModule('Benchmark-Relative Highlights', 'Benchmark-relative highlights appear when the imported analysis context finishes loading.')
+  }
+  if (input.importError) {
+    return buildUnavailableHighlightsModule('Benchmark-Relative Highlights', 'Benchmark-relative highlights are unavailable after a failed import.')
+  }
+  if (!input.result || !input.exposureResult) {
+    return buildUnavailableHighlightsModule('Benchmark-Relative Highlights', 'Benchmark-relative highlights require imported benchmark support.')
+  }
+  if (!isImportedAnalysisContextActive(input.activeNodeKind)) {
+    return buildUnavailableHighlightsModule('Benchmark-Relative Highlights', 'Benchmark-relative highlights stay tied to the imported analysis context only. Return to the imported snapshot to restore them.', 'partial')
+  }
+
+  const trust = input.snapshotTone === 'stale' ? 'stale' : buildBenchmarkRelativeTrust({ result: input.result, exposureResult: input.exposureResult })
+  const overlap = input.exposureResult.market_overlap
+  const symbol = overlap?.benchmark_symbol ?? buildBenchmarkUsedLabel(input.result, input.exposureResult, null) ?? 'benchmark'
+
+  if (trust === 'unavailable' || (!overlap?.overlap_weight && !overlap?.active_share && overlap?.overlap_weight !== 0 && overlap?.active_share !== 0)) {
+    return buildUnavailableHighlightsModule('Benchmark-Relative Highlights', 'Benchmark-relative support is unavailable on the current imported-analysis path.')
+  }
+
+  return {
+    title: 'Benchmark-Relative Highlights',
+    marker: trust,
+    headline: buildBenchmarkInterpretation(symbol, overlap?.overlap_weight ?? null, overlap?.active_share ?? null),
+    facts: [
+      `${[
+        overlap?.overlap_weight != null ? `Overlap with ${symbol} ${formatWeightPct(overlap.overlap_weight)}` : null,
+        overlap?.active_share != null ? `active share ${formatWeightPct(overlap.active_share)}` : null,
+      ].filter(Boolean).join('; ')}.`,
+    ],
+  }
+}
+
+type DashboardHeadline = { headline: string; facts: string[] }
+
+function buildRiskHeadline(input: { exposureResult: ExposureAnalysis; benchmarkUsed: string | null }): { trust: DashboardTrustTone; item: DashboardHeadline } {
+  const benchmarkPath = readDiagnosticsTrustPath(input.exposureResult, 'benchmark_relative_path')
+  const trackingError = input.exposureResult.relative_risk?.tracking_error_pct ?? null
+  const drawdown = input.exposureResult.volatility_regime?.snapshot?.current_drawdown_pct ?? null
+  const riskSummary = input.exposureResult.risk_summary
+  const symbol = riskSummary?.benchmark_symbol ?? input.benchmarkUsed ?? 'benchmark'
+
+  const trust = trustToneFromPath(benchmarkPath)
+  if (trust === 'unavailable') {
+    return {
+      trust,
+      item: {
+        headline: 'Risk headline unavailable.',
+        facts: ['No defensible imported-analysis risk headline is available here.'],
+      },
+    }
+  }
+
+  if (drawdown != null && trackingError != null) {
+    return {
+      trust,
+      item: {
+        headline: `Current drawdown is ${formatPct(drawdown)} and tracking error is ${formatPct(trackingError)} versus ${symbol}.`,
+        facts: ['Historical risk path follows the current imported-analysis diagnostics context.'],
+      },
+    }
+  }
+  if (riskSummary?.portfolio_beta != null) {
+    return {
+      trust,
+      item: {
+        headline: `Portfolio beta is ${formatNumber(riskSummary.portfolio_beta)} versus ${symbol}.`,
+        facts: riskSummary.portfolio_volatility_pct != null ? [`Portfolio volatility ${formatPct(riskSummary.portfolio_volatility_pct)}.`] : [],
+      },
+    }
+  }
+  if (trackingError != null) {
+    return {
+      trust,
+      item: {
+        headline: `Tracking error is ${formatPct(trackingError)} versus ${symbol}.`,
+        facts: [],
+      },
+    }
+  }
+
+  return {
+    trust: 'unavailable',
+    item: {
+      headline: 'Risk headline unavailable.',
+      facts: ['No defensible imported-analysis risk headline is available here.'],
+    },
+  }
+}
+
+function buildFactorHeadline(input: { exposureResult: ExposureAnalysis; factorModel: ExposureFactorModelResponse | null }): { trust: DashboardTrustTone; item: DashboardHeadline } {
+  const factorPath = readDiagnosticsTrustPath(input.exposureResult, 'factor_model_path')
+  const resolvedFactorSnapshot = readFactorSnapshot(input.factorModel?.statistical_factor_model)
+  const factorSnapshot = resolvedFactorSnapshot.length
+    ? resolvedFactorSnapshot
+    : readFactorSnapshot(input.exposureResult.statistical_factor_model)
+  const factorStatus = readFactorStatus(input.factorModel?.statistical_factor_model)
+    ?? readFactorStatus(input.exposureResult.statistical_factor_model)
+  const preferredSnapshots = factorSnapshot.filter((item) => item.latest_loading != null)
+  const nonMarketSnapshots = preferredSnapshots.filter((item) => item.category !== 'market')
+  const selectedSnapshot = [...(nonMarketSnapshots.length ? nonMarketSnapshots : preferredSnapshots)]
+    .sort((left, right) => Math.abs((right.latest_loading ?? 0)) - Math.abs((left.latest_loading ?? 0)))[0] ?? null
+
+  let trust = trustToneFromPath(factorPath)
+  if (trust === 'trusted' && factorStatus && factorStatus !== 'ok') trust = 'partial'
+  if (trust === 'unavailable') {
+    return {
+      trust,
+      item: {
+        headline: 'Factor headline unavailable.',
+        facts: ['No defensible imported-analysis factor headline is available here.'],
+      },
+    }
+  }
+
+  if (selectedSnapshot?.latest_loading != null) {
+    return {
+      trust,
+      item: {
+        headline: `${selectedSnapshot.label} is the strongest modeled tilt at ${formatSignedLoading(selectedSnapshot.latest_loading)} loading.`,
+        facts: selectedSnapshot.description ? [selectedSnapshot.description] : [],
+      },
+    }
+  }
+
+  const factorExposures = readFactorExposures(input.exposureResult).filter((item) => item.exposure != null)
+  const currentStateFactors = factorExposures.filter((item) => item.basis === 'current_state')
+  const selectedFactor = [...(currentStateFactors.length ? currentStateFactors : factorExposures)]
+    .sort((left, right) => Math.abs((right.exposure ?? 0)) - Math.abs((left.exposure ?? 0)))[0] ?? null
+
+  if (selectedFactor?.exposure != null) {
+    return {
+      trust,
+      item: {
+        headline: `${selectedFactor.factor} is the strongest available tilt at ${formatSignedLoading(selectedFactor.exposure)}.`,
+        facts: selectedFactor.description ? [selectedFactor.description] : [],
+      },
+    }
+  }
+
+  return {
+    trust: 'unavailable',
+    item: {
+      headline: 'Factor headline unavailable.',
+      facts: ['No defensible imported-analysis factor headline is available here.'],
+    },
+  }
+}
+
+function buildStressHeadline(exposureResult: ExposureAnalysis): { trust: DashboardTrustTone; item: DashboardHeadline } {
+  const diagnosticsStatus = exposureResult.availability?.status ?? 'unavailable'
+  const factorPath = readDiagnosticsTrustPath(exposureResult, 'factor_model_path')
+  const scenarios = [...readStressScenarios(exposureResult)].filter((scenario) => scenario.estimated_return_pct != null)
+    .sort((left, right) => Math.abs((right.estimated_return_pct ?? 0)) - Math.abs((left.estimated_return_pct ?? 0)))
+  const selectedScenario = scenarios[0] ?? null
+
+  const trust: DashboardTrustTone = diagnosticsStatus !== 'ok' ? 'unavailable' : trustToneFromPath(factorPath)
+
+  if (selectedScenario?.estimated_return_pct != null) {
+    return {
+      trust,
+      item: {
+        headline: `${selectedScenario.name} is the clearest modeled stress at ${formatPct(selectedScenario.estimated_return_pct)}.`,
+        facts: selectedScenario.description ? [selectedScenario.description] : [],
+      },
+    }
+  }
+
+  return {
+    trust: diagnosticsStatus === 'ok' && factorPath === 'degraded_unverified_return_basis' ? 'degraded' : 'unavailable',
+    item: {
+      headline: 'Stress headline unavailable.',
+      facts: ['No imported-analysis stress scenario is available on this path.'],
+    },
+  }
+}
+
+function buildWhatMattersHeadline(input: {
+  risk: DashboardHeadline
+  factor: DashboardHeadline
+  stress: DashboardHeadline
+  trust: DashboardTrustTone
+  activeNodeKind: PortfolioNodeKind | null
+}): DashboardHeadline {
+  if (!isImportedAnalysisContextActive(input.activeNodeKind)) {
+    return {
+      headline: 'Imported diagnostics stay paused until the imported snapshot is active again.',
+      facts: [],
+    }
+  }
+  if (input.trust === 'unavailable') {
+    return {
+      headline: 'Imported diagnostics are still too limited for a defensible headline set.',
+      facts: [],
+    }
+  }
+  if (input.trust === 'degraded') {
+    return {
+      headline: 'The signal set is useful for orientation, but the current diagnostics path remains degraded.',
+      facts: [],
+    }
+  }
+  return {
+    headline: `${input.risk.headline} ${input.factor.headline} ${input.stress.headline}`,
+    facts: [],
+  }
+}
+
+function buildRiskFactorStressHeadlinesModule(input: {
+  result: DashboardAnalysis | null
+  exposureResult: ExposureAnalysis | null
+  factorModel: ExposureFactorModelResponse | null
+  importing: boolean
+  importError: string | null
+  activeNodeKind: PortfolioNodeKind | null
+  snapshotTone: 'success' | 'loading' | 'empty' | 'partial' | 'stale' | 'error'
+  benchmarkUsed: string | null
+}): DashboardHighlightModule {
+  if (input.importing) {
+    return buildUnavailableHighlightsModule('Risk / Factor / Stress Headlines', 'Risk, factor, and stress headlines appear when imported diagnostics finish loading.')
+  }
+  if (input.importError) {
+    return buildUnavailableHighlightsModule('Risk / Factor / Stress Headlines', 'Risk, factor, and stress headlines are unavailable after a failed import.')
+  }
+  if (!input.result || !input.exposureResult) {
+    return buildUnavailableHighlightsModule('Risk / Factor / Stress Headlines', 'Risk, factor, and stress headlines require the current imported analysis context.')
+  }
+  if (!isImportedAnalysisContextActive(input.activeNodeKind)) {
+    return buildUnavailableHighlightsModule('Risk / Factor / Stress Headlines', 'Risk, factor, and stress headlines stay tied to the imported analysis context only. Return to the imported snapshot to restore them.', 'partial')
+  }
+
+  const riskHeadline = buildRiskHeadline({ exposureResult: input.exposureResult, benchmarkUsed: input.benchmarkUsed })
+  const factorHeadline = buildFactorHeadline({ exposureResult: input.exposureResult, factorModel: input.factorModel })
+  const stressHeadline = buildStressHeadline(input.exposureResult)
+  const trust = input.snapshotTone === 'stale'
+    ? 'stale'
+    : aggregateHighlightTrust([riskHeadline.trust, factorHeadline.trust, stressHeadline.trust])
+
+  return {
+    title: 'Risk / Factor / Stress Headlines',
+    marker: trust,
+    headline: buildWhatMattersHeadline({
+      risk: riskHeadline.item,
+      factor: factorHeadline.item,
+      stress: stressHeadline.item,
+      trust,
+      activeNodeKind: input.activeNodeKind,
+    }).headline,
+    facts: [riskHeadline.item.headline, factorHeadline.item.headline],
+  }
+}
+
 
 function sumCashBalances(cashByCurrency: Record<string, number> | null | undefined) {
   if (!cashByCurrency) return 0
   return Object.values(cashByCurrency).reduce((total, amount) => total + (Number.isFinite(amount) ? amount : 0), 0)
 }
 
-function buildPortfolioHealthSummary(input: {
-  topPosition: DashboardAnalysis['overview']['top_positions'][number] | null
-  topSector: DashboardAnalysis['overview']['sector_allocation'][number] | null
-  topPositionWeightPct: number | null
-  topSectorWeightPct: number | null
-  cashSharePct: number | null
-  hasQuantContext: boolean
-  hasPreviewAction: boolean
-}) {
-  let status: 'Healthy' | 'Watch' | 'Concentrated' = 'Healthy'
-  if ((input.topPositionWeightPct ?? 0) >= 20 || (input.topSectorWeightPct ?? 0) >= 45) {
-    status = 'Concentrated'
-  }
-  else if ((input.topPositionWeightPct ?? 0) >= 15 || (input.topSectorWeightPct ?? 0) >= 35 || (input.cashSharePct ?? 0) >= 15 || !input.hasQuantContext) {
-    status = 'Watch'
-  }
-
-  const reasons: string[] = []
-  if (input.topPosition && input.topPositionWeightPct != null && input.topPositionWeightPct >= 15) {
-    reasons.push(`One position is about ${formatWholePct(input.topPositionWeightPct)} of portfolio value.`)
-  }
-
-  if (input.topSector && input.topSectorWeightPct != null && (input.topSectorWeightPct >= 35 || reasons.length === 0)) {
-    reasons.push(`${input.topSector.sector} is the largest sector at about ${formatWholePct(input.topSectorWeightPct)}.`)
-  }
-
-  if (input.cashSharePct != null && input.cashSharePct >= 15) {
-    reasons.push(`Cash is about ${formatWholePct(input.cashSharePct)} of the account, so deployment still matters.`)
-  }
-
-  if (!input.hasQuantContext) {
-    reasons.push('Quant context is still light, so the validation handoff should wait for Exposure context.')
-  }
-  else if (reasons.length < 3) {
-    reasons.push('Quant context is available for validation in Exposure.')
-  }
-
-  return {
-    status,
-    reasons: reasons.slice(0, 3),
-    handoffState: input.hasPreviewAction ? 'Primary handoff' : 'Pending in this view',
-    handoffDetail: input.hasPreviewAction
-      ? 'Send the selected change to Exposure so the quant engineer can validate it.'
-      : 'Preview is unavailable here, but this remains the next quant-engineer handoff.',
-  }
-}
 
 function dashboardSourceLabel(status: string | undefined) {
   if (status === 'live') return 'Live market history'
@@ -390,9 +1069,8 @@ type DashboardPanelProps = {
   result: DashboardAnalysis | null
   exposureResult?: ExposureAnalysis | null
   factorModel?: ExposureFactorModelResponse | null
-  draftSnapshot?: PortfolioSnapshot | null
-  activeNodeName?: string | null
-  draftStatus?: 'clean' | 'dirty' | null
+  detailEligible?: boolean
+  activeNodeKind?: PortfolioNodeKind | null
   importing?: boolean
   importError?: string | null
   lastImportedFileNames?: string[]
@@ -401,14 +1079,8 @@ type DashboardPanelProps = {
   onAppendStatement?: () => void
   onClearImportedSession?: () => void
   onResetLocalDatabase?: () => void | Promise<void>
-  onPreviewExposure?: (snapshot: PortfolioSnapshot) => void | Promise<void>
-  onDraftSnapshotChange?: (snapshot: PortfolioSnapshot) => void | Promise<void>
-  onDiscardDraft?: () => void | Promise<void>
-  onSaveVariant?: (variantName: string) => void | Promise<void>
+  onOpenDetailedReview?: () => void
 }
-
-const DashboardPerformanceChart = lazy(async () => ({ default: (await import('./DashboardPerformanceChart')).DashboardPerformanceChart }))
-const RollingFactorLoadingsCard = lazy(async () => ({ default: (await import('./RollingFactorLoadingsCard')).RollingFactorLoadingsCard }))
 
 function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNames: string[]) {
   const statements = result?.snapshot?.statements ?? []
@@ -427,573 +1099,311 @@ function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNa
     .join(', ')
 }
 
-export function DashboardPanel({ result, exposureResult = null, factorModel = null, draftSnapshot = null, activeNodeName = null, draftStatus = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onPreviewExposure, onDraftSnapshotChange, onDiscardDraft, onSaveVariant }: DashboardPanelProps) {
-  const [selectedRange, setSelectedRange] = useState<RangeOption>('3M')
-  const [showPortfolio, setShowPortfolio] = useState(true)
-  const [showBenchmark, setShowBenchmark] = useState(true)
-  const [hoveredSector, setHoveredSector] = useState<string | null>(null)
-  const [lockedSector, setLockedSector] = useState<string | null>(null)
-  const [sectorDraft, setSectorDraft] = useState<Record<string, EditableHolding[]>>({})
-  const [variantName, setVariantName] = useState('')
-  useEffect(() => {
-    setSectorDraft(buildEditableSectorDraftFromSnapshot(draftSnapshot))
-  }, [draftSnapshot])
+function renderTrustedSnapshotCards(input: {
+  snapshotBrokerLabel: string | null
+  snapshotAccountId: string | null
+  snapshotStatementPeriod: string | null
+  snapshotAsOf: string
+  snapshotImportedDetail?: string | null
+  snapshotLoadedFilesLabel?: string | null
+  snapshotPortfolioValue: number | null
+  snapshotCashTotal: number | null
+  snapshotImportedAt: string | null
+  snapshotPositionsCount: number | null
+  snapshotTopHolding: string | null
+  snapshotTopSector: string | null
+  benchmarkUsed: string | null
+  snapshotImportedLabel: string
+  snapshotFieldAvailable: boolean
+}) {
+  return (
+    <div className="dashboard-snapshot-grid">
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Broker / importer</p>
+        <p className="summary-value">{formatUnavailableText(input.snapshotBrokerLabel)}</p>
+        <p className="helper">Account ID {formatUnavailableText(input.snapshotAccountId)}</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Statement period</p>
+        <p className="summary-value">{formatUnavailableText(input.snapshotStatementPeriod)}</p>
+        <p className="helper">As of {input.snapshotAsOf}</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Portfolio value / NAV</p>
+        <p className="summary-value">{formatUnavailableMoney(input.snapshotPortfolioValue)}</p>
+        <p className="helper">Imported snapshot truth</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Cash total</p>
+        <p className="summary-value">{formatUnavailableMoney(input.snapshotCashTotal)}</p>
+        <p className="helper">{formatSnapshotFreshnessLabel(input.snapshotImportedAt)}</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Positions count</p>
+        <p className="summary-value">{formatCountLabel(input.snapshotPositionsCount)}</p>
+        <p className="helper">Top holding {formatUnavailableText(input.snapshotTopHolding)}</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Top sector</p>
+        <p className="summary-value">{formatUnavailableText(input.snapshotTopSector)}</p>
+        <p className="helper">Imported snapshot truth only</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Benchmark used</p>
+        <p className="summary-value">{formatUnavailableText(input.snapshotFieldAvailable ? input.benchmarkUsed : null)}</p>
+        <p className="helper">Imported snapshot benchmark context</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Import / as-of timestamp</p>
+        <p className="summary-value">{input.snapshotImportedLabel}</p>
+        <p className="helper">As of {input.snapshotAsOf}</p>
+      </div>
+    </div>
+  )
+}
 
+function renderReadinessCards(readinessStatus: ReturnType<typeof buildReadinessState>) {
+  return (
+    <div className="dashboard-readiness-grid">
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Freshness status</p>
+        <p className="summary-value">{readinessStatus.freshness.value}</p>
+        <p className="helper">{readinessStatus.freshness.detail}</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Look-through coverage status</p>
+        <p className="summary-value">{readinessStatus.coverage.value}</p>
+        <p className="helper">{readinessStatus.coverage.detail}</p>
+      </div>
+      <div className="summary-card dashboard-snapshot-card">
+        <p className="stat-label">Benchmark availability status</p>
+        <p className="summary-value">{readinessStatus.benchmark.value}</p>
+        <p className="helper">{readinessStatus.benchmark.detail}</p>
+      </div>
+    </div>
+  )
+}
+
+function renderDashboardHighlightsModule(module: DashboardHighlightModule) {
+  return <DenseInsightStrip ariaLabel={module.title} items={[module]} className="dashboard-summary-highlight-strip" />
+}
+
+export function DashboardPanel({ result, exposureResult = null, factorModel = null, detailEligible = true, activeNodeKind = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onOpenDetailedReview }: DashboardPanelProps) {
   const snapshot = result?.snapshot ?? null
   const statement = snapshot?.statement ?? null
   const statements = snapshot?.statements ?? []
-  const dailyStates = result?.daily_states ?? []
-  const allPerf = result?.performance_series ?? []
-
-  const perf = useMemo(() => {
-    if (!allPerf.length) {
-      return []
-    }
-
-    if (selectedRange === '1M') {
-      return allPerf.slice(-21)
-    }
-    if (selectedRange === '3M') {
-      return allPerf.slice(-63)
-    }
-    if (selectedRange === 'YTD') {
-      const year = allPerf[allPerf.length - 1].date.slice(0, 4)
-      return allPerf.filter((point) => point.date.startsWith(year))
-    }
-    if (selectedRange === '1Y') {
-      return allPerf.slice(-252)
-    }
-    return allPerf
-  }, [allPerf, selectedRange])
-
-  const visibleStates = useMemo(() => {
-    if (!result) {
-      return []
-    }
-    const visibleDates = new Set(perf.map((point) => point.date))
-    return dailyStates.filter((state) => visibleDates.has(state.date))
-  }, [dailyStates, perf, result])
-
-  const selectedRangeMetrics: DashboardRangeMetrics | null = result?.range_metrics?.[selectedRange] ?? null
-
-  const resolvedSummary = selectedRangeMetrics?.summary
-    ? {
-        startValue: selectedRangeMetrics.summary.start_value,
-        endValue: selectedRangeMetrics.summary.end_value,
-        netContributions: selectedRangeMetrics.summary.net_contributions,
-        investmentGain: selectedRangeMetrics.summary.investment_gain,
-        timeWeightedReturnPct: selectedRangeMetrics.summary.time_weighted_return_pct,
-        moneyWeightedReturnPct: selectedRangeMetrics.summary.money_weighted_return_pct,
-        benchmarkReturnPct: selectedRangeMetrics.summary.benchmark_return_pct,
-        excessReturnPct: selectedRangeMetrics.summary.excess_return_pct,
-      }
-    : buildUnavailableRangeSummary()
-  const latestPerf = perf.length ? perf[perf.length - 1] : null
-  const displayedPortfolioValue = useMemo(
-    () => resolveDisplayedPortfolioValue(result, resolvedSummary.endValue, latestPerf?.portfolio_value ?? null),
-    [latestPerf?.portfolio_value, result, resolvedSummary.endValue],
-  )
-
-  const normalizedPerf = useMemo(() => normalizePerformanceSeries(perf), [perf])
-
-  const hasPerformance = normalizedPerf.length > 0 && visibleStates.length > 0
-  const nextDraftSnapshot = useMemo(() => buildSnapshotFromSectorDraft(draftSnapshot, sectorDraft), [draftSnapshot, sectorDraft])
-  const sectorAllocation = useMemo(() => buildSectorAllocationFromSnapshot(nextDraftSnapshot), [nextDraftSnapshot])
-  const activeSector = hoveredSector ?? lockedSector
-  const selectedSector = activeSector ?? sectorAllocation[0]?.sector ?? null
-  const selectedSectorPositions = selectedSector ? sectorDraft[selectedSector] ?? [] : []
-  const selectedSectorAllocation = selectedSector ? sectorAllocation.find((item) => item.sector === selectedSector) ?? null : null
-  const baseCapital = draftSnapshot?.positions.reduce((total, position) => total + position.marketValue, 0) ?? result?.overview.total_market_value ?? 0
-  const editedNetCapital = nextDraftSnapshot?.positions.reduce((total, position) => total + position.marketValue, 0) ?? 0
-  const grossExposure = Object.values(sectorDraft).flat().reduce((total, position) => total + Math.abs(position.market_value), 0)
-  const leverageRatio = baseCapital > 0 ? grossExposure / baseCapital : 0
-  const remainingCapital = baseCapital - editedNetCapital
-  const pieSegments = useMemo(() => {
-    let cumulative = 0
-    return sectorAllocation.map((item) => {
-      const startAngle = cumulative * Math.PI * 2
-      cumulative += item.weight
-      return { ...item, startAngle, endAngle: cumulative * Math.PI * 2 }
-    })
-  }, [sectorAllocation])
-  const performancePathData = normalizedPerf.map((point) => ({
-    date: point.date,
-    portfolioIndex: point.portfolio_index,
-    benchmarkIndex: point.benchmark_index,
-    portfolioReturnPct: point.portfolio_return_pct,
-    benchmarkReturnPct: point.benchmark_return_pct,
-    flow: visibleStates.find((state) => state.date === point.date)?.external_cash_flow ?? 0,
-  }))
-
-  function handleSectorActivate(sector: string) {
-    setLockedSector((current) => (current === sector ? null : sector))
-  }
-
-  function updateSelectedSectorHolding(index: number, field: 'symbol' | 'market_value', value: string) {
-    if (!selectedSector) return
-    const nextDraft = {
-      ...sectorDraft,
-      [selectedSector]: (sectorDraft[selectedSector] ?? []).map((position, positionIndex) => positionIndex === index
-        ? {
-          ...position,
-          [field]: field === 'market_value' ? Number(value || '0') : value.toUpperCase(),
-        }
-        : position),
-    }
-    setSectorDraft(nextDraft)
-    const nextSnapshot = buildSnapshotFromSectorDraft(draftSnapshot, nextDraft)
-    if (nextSnapshot) void onDraftSnapshotChange?.(nextSnapshot)
-  }
-
-  function removeSelectedSectorHolding(index: number) {
-    if (!selectedSector) return
-    const nextDraft = normalizeSectorDraft({
-      ...sectorDraft,
-      [selectedSector]: (sectorDraft[selectedSector] ?? []).filter((_, positionIndex) => positionIndex !== index),
-    })
-    setSectorDraft(nextDraft)
-    if (!nextDraft[selectedSector]) {
-      setLockedSector(null)
-      setHoveredSector(null)
-    }
-    const nextSnapshot = buildSnapshotFromSectorDraft(draftSnapshot, nextDraft)
-    if (nextSnapshot) void onDraftSnapshotChange?.(nextSnapshot)
-  }
-
-  function addSelectedSectorHolding() {
-    if (!selectedSector) return
-    const nextDraft = {
-      ...sectorDraft,
-      [selectedSector]: [...(sectorDraft[selectedSector] ?? []), { symbol: '', market_value: 0, sector: selectedSector }],
-    }
-    setSectorDraft(nextDraft)
-    const nextSnapshot = buildSnapshotFromSectorDraft(draftSnapshot, nextDraft)
-    if (nextSnapshot) void onDraftSnapshotChange?.(nextSnapshot)
-  }
 
   const loadedStatementsLabel = formatLoadedStatements(result, lastImportedFileNames)
   const statementCount = statements.length || lastImportedFileNames.length
   const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
-  const desktopSafeMode = isDesktopSafeMode()
-  const dashboardSourceSummary = result?.source_status?.performance_history ? dashboardSourceLabel(result.source_status.performance_history) : null
-  const dashboardAuditLine = formatDashboardAuditLine(result)
-  const dashboardReturnBasisRefusalLine = formatDashboardReturnBasisRefusalLine(result, selectedRangeMetrics)
+  const snapshotImportedAt = statement?.imported_at ?? statements[0]?.imported_at ?? null
+  const snapshotAsOfDate = result?.run_metadata?.reproducibility.snapshot_as_of_date ?? statements[0]?.statement_period?.split(' - ')[1] ?? null
+  const benchmarkUsed = buildBenchmarkUsedLabel(result, exposureResult, factorModel)
+  const statementTotals = result?.snapshot?.statement_totals ?? null
+  const snapshotPortfolioValueCandidate = statementTotals?.ending_nav
+    ?? (statementTotals?.stock_total != null && statementTotals?.cash_total != null ? statementTotals.stock_total + statementTotals.cash_total : null)
+    ?? null
+  const snapshotCashTotalCandidate = statementTotals?.cash_total
+    ?? sumImportedCashBalances(snapshot?.cash_balances)
+    ?? sumCashBalances(result?.overview?.cash_by_currency)
+    ?? null
+  const snapshotPositionsCountCandidate = result?.overview?.positions_count ?? (snapshot?.positions?.length ?? null)
+  const snapshotTopHoldingCandidate = buildTopHoldingLabel(snapshot, result?.overview)
+  const snapshotTopSectorCandidate = result?.overview?.sector_allocation?.[0]?.sector ?? null
+  const snapshotHasFieldGaps = Boolean(result) && [
+    statement?.importer ?? null,
+    statement?.account_id ?? null,
+    snapshotPortfolioValueCandidate,
+    snapshotCashTotalCandidate,
+    snapshotPositionsCountCandidate,
+    snapshotTopHoldingCandidate,
+    snapshotTopSectorCandidate,
+    benchmarkUsed,
+    snapshotAsOfDate,
+    snapshotImportedAt,
+  ].some((value) => value == null || value === '')
+  const snapshotStatus = buildSnapshotState({
+    result,
+    importing,
+    importError,
+    activeNodeKind,
+    hasFieldGaps: snapshotHasFieldGaps,
+  })
+  const readinessStatus = buildReadinessState({
+    result,
+    exposureResult,
+    importing,
+    importError,
+    activeNodeKind,
+    snapshotTone: snapshotStatus.tone,
+    snapshotImportedAt,
+    benchmarkUsed,
+  })
+  const landingSnapshotDetail = activeNodeKind && activeNodeKind !== 'imported_base' && activeNodeKind !== 'imported_snapshot'
+    ? 'Imported snapshot truth stays tied to the imported snapshot only.'
+    : snapshotStatus.detail
+  const snapshotFieldAvailable = snapshotStatus.tone !== 'empty' && snapshotStatus.tone !== 'error' && snapshotStatus.tone !== 'loading' && !(activeNodeKind && activeNodeKind !== 'imported_base' && activeNodeKind !== 'imported_snapshot')
+  const snapshotPortfolioValue = snapshotFieldAvailable
+    ? snapshotPortfolioValueCandidate
+    : null
+  const snapshotCashTotal = snapshotFieldAvailable ? snapshotCashTotalCandidate : null
+  const snapshotPositionsCount = snapshotFieldAvailable ? snapshotPositionsCountCandidate : null
+  const snapshotTopHolding = snapshotFieldAvailable ? snapshotTopHoldingCandidate : null
+  const snapshotTopSector = snapshotFieldAvailable ? snapshotTopSectorCandidate : null
+  const snapshotBrokerLabel = snapshotFieldAvailable && statement?.importer ? formatBrokerLabel(statement.importer) : null
+  const snapshotAccountId = snapshotFieldAvailable ? statement?.account_id ?? null : null
+  const snapshotStatementPeriod = snapshotFieldAvailable ? statement?.statement_period ?? null : null
+  const snapshotImportedLabel = snapshotFieldAvailable ? formatDateTimeLabel(snapshotImportedAt) : 'Unavailable'
+  const snapshotAsOf = snapshotFieldAvailable ? formatAsOfLabel(snapshotAsOfDate) : 'Unavailable'
+  const snapshotLoadedFilesLabel = snapshotFieldAvailable ? loadedFilesLabel : null
+  const snapshotImportedDetail = snapshotFieldAvailable
+    ? `Imported ${snapshotImportedLabel}${statementCount > 1 ? ` · ${statementCount} statements combined` : ''}`
+    : null
+  const exposureHighlights = buildExposureHighlightsModule({
+    result,
+    exposureResult,
+    importing,
+    importError,
+    activeNodeKind,
+    snapshotTone: snapshotStatus.tone,
+  })
+  const concentrationHighlights = buildConcentrationHighlightsModule({
+    result,
+    exposureResult,
+    importing,
+    importError,
+    activeNodeKind,
+    snapshotTone: snapshotStatus.tone,
+  })
+  const benchmarkRelativeHighlights = buildBenchmarkRelativeHighlightsModule({
+    result,
+    exposureResult,
+    importing,
+    importError,
+    activeNodeKind,
+    snapshotTone: snapshotStatus.tone,
+  })
+  const riskFactorStressHeadlines = buildRiskFactorStressHeadlinesModule({
+    result,
+    exposureResult,
+    factorModel,
+    importing,
+    importError,
+    activeNodeKind,
+    snapshotTone: snapshotStatus.tone,
+    benchmarkUsed,
+  })
 
-  if (!result || !hasRichDashboardData(result)) {
+  const hasDashboardResult = Boolean(result && hasRichDashboardData(result))
+  const showHandoffButton = hasDashboardResult && detailEligible
+
+  function handleOpenDetailedReview() {
+    if (!showHandoffButton) return
+    onOpenDetailedReview?.()
+  }
+
+  function renderHeaderActions() {
+    if (!(onImportPortfolio || onAppendStatement || onClearImportedSession || onResetLocalDatabase)) return null
+
     return (
-      <article className="panel dashboard-panel">
-        <div className="section-header-inline dashboard-header-actions">
-          <div>
-            <p className="panel-label">Dashboard</p>
-            <h2>Account overview</h2>
-          </div>
-          <div className="dashboard-action-row">
-            {onImportPortfolio ? <button className="secondary-button" onClick={onImportPortfolio} type="button">{importing ? 'Importing...' : loadedStatementsLabel ? 'Replace Import' : 'Import Portfolio'}</button> : null}
-            {onAppendStatement ? <button className="secondary-button dashboard-append-button" onClick={onAppendStatement} type="button">{importing ? 'Importing...' : 'Add Statement'}</button> : null}
-            {onClearImportedSession ? <button className="secondary-button dashboard-clear-button" onClick={onClearImportedSession} type="button">Clear Imported Session</button> : null}
-            {onResetLocalDatabase ? <button className="secondary-button dashboard-clear-button" onClick={() => void onResetLocalDatabase()} type="button">Reset Local DB</button> : null}
-          </div>
-        </div>
-        <p className="lead compact-lead">Import an Interactive Brokers or Freedom24 statement to populate the dashboard with account summary, look-through exposure, and professional risk views.</p>
-        {loadedFilesLabel ? <p className="helper">{loadedFilesLabel}</p> : null}
-        {restoredSession ? <p className="helper">Restored on launch</p> : null}
-        {importError ? <p className="error">{importError}</p> : null}
-      </article>
+      <div className="dashboard-action-row">
+        {onImportPortfolio ? <button className="secondary-button" onClick={onImportPortfolio} type="button">{importing ? 'Importing...' : loadedStatementsLabel ? 'Replace Import' : 'Import Portfolio'}</button> : null}
+        {onAppendStatement ? <button className="secondary-button dashboard-append-button" onClick={onAppendStatement} type="button">{importing ? 'Importing...' : 'Add Statement'}</button> : null}
+        {onClearImportedSession ? <button className="secondary-button dashboard-clear-button" onClick={onClearImportedSession} type="button">Clear Imported Session</button> : null}
+        {onResetLocalDatabase ? <button className="secondary-button dashboard-clear-button" onClick={() => void onResetLocalDatabase()} type="button">Reset Local DB</button> : null}
+      </div>
     )
   }
 
-  const performanceHistoryStatus = result.source_status?.performance_history ?? 'unavailable'
-  const performanceEmptyState = buildPerformanceEmptyState(performanceHistoryStatus, selectedRange)
-  const benchmarkLabel = allPerf.find((point) => point.benchmark_price != null) ? 'SPY' : 'Benchmark'
-  const visibleHistoryWindow = perf.length ? formatHistoryWindowLabel(perf[0]?.date ?? null, perf[perf.length - 1]?.date ?? null) : 'History window unavailable'
-  const rangeMetricsStatusLabel = selectedRangeMetrics ? 'Range metrics live' : 'Range metrics unavailable'
-  const workspaceStateLabel = draftStatus ? `Working draft ${draftStatus}` : activeNodeName ? `Viewing ${activeNodeName}` : 'Imported snapshot view'
-  const topPosition = result.overview.top_positions[0] ?? null
-  const topSector = result.overview.sector_allocation[0] ?? null
-  const topPositionWeight = exposureResult?.current_state_concentration.top_1_position_weight ?? topPosition?.weight ?? null
-  const topSectorWeight = exposureResult?.current_state_concentration.top_sector_weight ?? topSector?.weight ?? null
-  const diversificationRead = describeDiversification(topSectorWeight != null ? topSectorWeight * 100 : null)
-  const benchmarkRead = describeBenchmarkReadiness(result.source_status?.performance_history ?? null, factorModel != null)
-  const nextStepCopy = buildNextStepCopy({
-    topPosition,
-    topSector,
-    topPositionWeight: topPositionWeight != null ? topPositionWeight * 100 : null,
-    topSectorWeight: topSectorWeight != null ? topSectorWeight * 100 : null,
-  })
-  const totalCash = sumCashBalances(result.overview.cash_by_currency)
-  const cashDenominator = result.overview.total_market_value + totalCash
-  const cashSharePct = cashDenominator > 0 ? (totalCash / cashDenominator) * 100 : null
-  const hasQuantContext = result.source_status?.performance_history === 'live' || factorModel != null
-  const hasPreviewAction = Boolean(onPreviewExposure && nextDraftSnapshot)
-  const portfolioHealth = buildPortfolioHealthSummary({
-    topPosition,
-    topSector,
-    topPositionWeightPct: topPositionWeight != null ? topPositionWeight * 100 : null,
-    topSectorWeightPct: topSectorWeight != null ? topSectorWeight * 100 : null,
-    cashSharePct,
-    hasQuantContext,
-    hasPreviewAction,
-  })
-  const factorSnapshot = factorModel?.statistical_factor_model.current_factor_snapshot ?? []
-  const factorSnapshotRows = factorSnapshot.slice(0, 4)
-  const factorWindowSummary = factorModel?.statistical_factor_model.windows
-    .filter((item) => item.status === 'ok' || item.status === 'partial')
-    .map((item) => `${item.window_days}d ${item.status}`)
-    .join(' · ') ?? ''
+  function renderHandoffCard(): ReactNode {
+    return (
+      <section className="summary-card dashboard-guidance-card dashboard-guidance-card-accent dashboard-shell-section" aria-label="Next step">
+        <p className="stat-label">Next step</p>
+        <p className="summary-value dashboard-guidance-value">{showHandoffButton ? 'Continue in detailed review' : 'Detailed review unavailable here'}</p>
+        <p className="helper">{showHandoffButton ? 'This shell stays summary-first. Use the handoff when you need deeper review.' : 'This shell stays summary-first, and detailed review is unavailable on this path.'}</p>
+        {showHandoffButton ? (
+          <div className="dashboard-health-handoff-row">
+            <button className="primary-button" type="button" onClick={handleOpenDetailedReview}>Open detailed review</button>
+          </div>
+        ) : null}
+      </section>
+    )
+  }
 
   return (
-    <article className="panel dashboard-panel">
-      <section className="dashboard-quant-header-shell">
-        <div className="section-header-inline dashboard-header-actions dashboard-quant-header-row">
-          <div className="dashboard-quant-header-copy">
-            <p className="panel-label">Dashboard</p>
-            <h2>Project summary</h2>
-            <p className="lead compact-lead">Dashboard stays focused on current portfolio truth, the selected-range portfolio path, rolling factor analysis, and allocation overview.</p>
-            <div className="dashboard-meta-row dashboard-meta-row-quant">
-              <span className="broker-badge">{formatBrokerLabel(statement?.importer ?? 'interactive_brokers')}</span>
-              <span className="backtest-source-badge">{rangeMetricsStatusLabel}</span>
-              {dashboardSourceSummary ? <span className="backtest-source-badge">{dashboardSourceSummary}</span> : null}
-              <span className="backtest-source-badge">{workspaceStateLabel}</span>
-              {restoredSession ? <span className="backtest-source-badge">Restored on launch</span> : null}
-            </div>
-            {importError ? <p className="error">{importError}</p> : null}
-          </div>
-          <div className="dashboard-action-row">
-            {onImportPortfolio ? <button className="secondary-button" onClick={onImportPortfolio} type="button">{importing ? 'Importing...' : 'Replace Import'}</button> : null}
-            {onAppendStatement ? <button className="secondary-button dashboard-append-button" onClick={onAppendStatement} type="button">{importing ? 'Importing...' : 'Add Statement'}</button> : null}
-            {onClearImportedSession ? <button className="secondary-button dashboard-clear-button" onClick={onClearImportedSession} type="button">Clear Imported Session</button> : null}
-            {onResetLocalDatabase ? <button className="secondary-button dashboard-clear-button" onClick={() => void onResetLocalDatabase()} type="button">Reset Local DB</button> : null}
-          </div>
+    <article className="panel dashboard-panel dashboard-shell-frame">
+      <header className="section-header-inline dashboard-header-actions dashboard-shell-header">
+        <div className="dashboard-shell-heading">
+          <p className="panel-label">Dashboard</p>
+          <h2>Account overview</h2>
         </div>
-          <div className="dashboard-quant-context-grid">
-            <div className="summary-card dashboard-quant-context-card">
-              <p className="stat-label">Account Summary</p>
-            <p className="summary-value">{statement?.account_id ?? 'Unknown'}</p>
-            <p className="helper">{formatBrokerLabel(statement?.importer ?? 'interactive_brokers')} · {statement?.statement_period ?? 'Statement period unavailable'}{statementCount > 1 ? ` · ${statementCount} statements combined` : ''}</p>
-          </div>
-            <div className="summary-card dashboard-quant-context-card">
-              <p className="stat-label">Import Provenance</p>
-              <p className="summary-value">{statementCount}</p>
-              <p className="helper">{loadedFilesLabel ?? 'No loaded file metadata'}</p>
-            </div>
-            <div className="summary-card dashboard-quant-context-card">
-              <p className="stat-label">Workspace State</p>
-              <p className="summary-value">{workspaceStateLabel}</p>
-              <p className="helper">Current imported view and editable draft status.</p>
-            </div>
-        </div>
-      </section>
+        {renderHeaderActions()}
+      </header>
 
-      <section className="dashboard-guidance-strip" aria-label="Dashboard guidance">
-        <div className="section-header-inline dashboard-guidance-header">
-          <div className="dashboard-section-copy">
-            <h3>Start with what you own, then let quant explain what to improve.</h3>
-            <p className="helper">Review the current portfolio, confirm the health signals that matter for quant validation, then test one focused change.</p>
+      <div className="dashboard-shell-stack">
+        <section className="dashboard-snapshot-shell dashboard-shell-section" aria-label="Trusted Portfolio Snapshot">
+          <div className="section-header-inline dashboard-snapshot-header dashboard-shell-section-header">
+            <div className="dashboard-shell-title-block">
+              <p className="panel-label">Trusted Portfolio Snapshot</p>
+              <h3>{snapshotStatus.title}</h3>
+            </div>
+            <span className={`dashboard-snapshot-status dashboard-snapshot-status-${snapshotStatus.tone}`}>{snapshotStatus.tone}</span>
           </div>
-          <div className="dashboard-guidance-status-shell" aria-label={`Portfolio health ${portfolioHealth.status}`}>
-            <span className={`dashboard-health-status dashboard-health-status-${portfolioHealth.status.toLowerCase()}`}>{portfolioHealth.status}</span>
-            <span className="dashboard-guidance-status-text">Portfolio health</span>
-          </div>
-        </div>
-        <div className="dashboard-guidance-grid">
-          <div className="summary-card dashboard-guidance-card">
-            <p className="stat-label">Current portfolio read</p>
-            <p className="summary-value dashboard-guidance-value">{topSector?.sector ?? 'Portfolio overview'}</p>
-            <p className="helper">
-              {topSector
-                ? `${topSector.sector} is the largest sector at ${formatWholePct((topSectorWeight ?? topSector.weight ?? 0) * 100)} and the portfolio ${diversificationRead}.`
-                : 'Review the current holdings mix first to see where most of the capital sits.'}
-            </p>
-          </div>
-          <div className="summary-card dashboard-guidance-card">
-            <p className="stat-label">Quant and health readiness</p>
-            <p className="summary-value dashboard-guidance-value">{dashboardSourceSummary ?? 'Current-state read'}</p>
-            <p className="helper">{benchmarkRead}</p>
-            <ul className="dashboard-health-reasons">
-              {portfolioHealth.reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="summary-card dashboard-guidance-card dashboard-guidance-card-accent">
-            <p className="stat-label">Next step and handoff</p>
-            <p className="summary-value dashboard-guidance-value">{topPosition?.symbol ?? topSector?.sector ?? 'Create one variant'}</p>
-            <p className="helper">{nextStepCopy}</p>
-            <ol className="dashboard-guidance-workflow-list">
-              <li className="dashboard-health-workflow-step">
-                <span className="dashboard-health-workflow-index">1</span>
-                <span className="dashboard-health-workflow-title">Review current holdings</span>
-              </li>
-              <li className="dashboard-health-workflow-step">
-                <span className="dashboard-health-workflow-index">2</span>
-                <span className="dashboard-health-workflow-title">Define one change to test</span>
-              </li>
-              <li className="dashboard-health-workflow-step dashboard-health-workflow-step-handoff">
-                <span className="dashboard-health-workflow-index">3</span>
-                <div className="dashboard-health-workflow-step-copy">
-                  <span className="dashboard-health-workflow-title">Validate in Exposure</span>
-                  <p className="helper dashboard-health-workflow-copy">{portfolioHealth.handoffDetail}</p>
-                  <div className="dashboard-health-handoff-row">
-                    <span className="backtest-source-badge dashboard-health-handoff-badge">{portfolioHealth.handoffState}</span>
-                    {hasPreviewAction ? <button className="secondary-button dashboard-health-preview" type="button" onClick={() => nextDraftSnapshot && onPreviewExposure?.(nextDraftSnapshot)}>Preview in Exposure</button> : null}
-                  </div>
-                </div>
-              </li>
-            </ol>
-          </div>
-        </div>
-      </section>
+          <p className="helper">{landingSnapshotDetail}</p>
+          {renderTrustedSnapshotCards({
+            snapshotBrokerLabel: hasDashboardResult ? snapshotBrokerLabel : null,
+            snapshotAccountId: hasDashboardResult ? snapshotAccountId : null,
+            snapshotStatementPeriod: hasDashboardResult ? snapshotStatementPeriod : null,
+            snapshotAsOf: hasDashboardResult ? snapshotAsOf : 'Unavailable',
+            snapshotImportedDetail: hasDashboardResult ? snapshotImportedDetail : null,
+            snapshotLoadedFilesLabel: hasDashboardResult ? snapshotLoadedFilesLabel : null,
+            snapshotPortfolioValue: hasDashboardResult ? snapshotPortfolioValue : null,
+            snapshotCashTotal: hasDashboardResult ? snapshotCashTotal : null,
+            snapshotImportedAt: hasDashboardResult ? snapshotImportedAt : null,
+            snapshotPositionsCount: hasDashboardResult ? snapshotPositionsCount : null,
+            snapshotTopHolding: hasDashboardResult ? snapshotTopHolding : null,
+            snapshotTopSector: hasDashboardResult ? snapshotTopSector : null,
+            benchmarkUsed: hasDashboardResult ? benchmarkUsed : null,
+            snapshotImportedLabel: hasDashboardResult ? snapshotImportedLabel : 'Unavailable',
+            snapshotFieldAvailable: hasDashboardResult && snapshotFieldAvailable,
+          })}
+        </section>
 
-      <section className="performance-section dashboard-performance-shell">
-        <div className="performance-toolbar dashboard-performance-toolbar">
-          <div className="section-header-inline performance-header-static dashboard-performance-header">
-            <div className="dashboard-performance-copy">
-              <p className="panel-label">Portfolio Path</p>
-              <h3>Portfolio vs SPY path for the selected range</h3>
-              <p className="helper">The chart stays normalized to the first funded point in the visible range.</p>
-              <div className="dashboard-meta-row dashboard-performance-badges">
-                <span className="backtest-source-badge">{dashboardSourceSummary ?? 'Performance source unavailable'}</span>
-                <span className="backtest-source-badge">{rangeMetricsStatusLabel}</span>
-                <span className="backtest-source-badge">Visible window: {hasPerformance ? visibleHistoryWindow : 'Unavailable'}</span>
-                <span className="backtest-source-badge">Portfolio value: {formatMoney(displayedPortfolioValue)}</span>
-              </div>
-              {dashboardAuditLine ? <p className="helper">{dashboardAuditLine}</p> : null}
-              {dashboardReturnBasisRefusalLine ? <p className="helper">{dashboardReturnBasisRefusalLine}</p> : null}
+        <section className="summary-card dashboard-readiness-shell dashboard-shell-section" aria-label="Freshness And Coverage Readiness">
+          <div className="section-header-inline dashboard-snapshot-header dashboard-shell-section-header">
+            <div className="dashboard-shell-title-block">
+              <p className="panel-label">Freshness And Coverage Readiness</p>
+              <h3>{readinessStatus.overall.value}</h3>
             </div>
-            <div className="chart-controls dashboard-performance-controls">
-              <div className="dashboard-control-stack">
-                <span className="dashboard-control-label">Series</span>
-                <div className="toggle-group">
-                  <button className={`toggle-chip${showPortfolio ? ' active' : ''}`} onClick={() => setShowPortfolio((value) => !value)} type="button">Portfolio</button>
-                  <button className={`toggle-chip${showBenchmark ? ' active' : ''}`} onClick={() => setShowBenchmark((value) => !value)} type="button">Benchmark</button>
-                </div>
-              </div>
-              <div className="dashboard-control-stack">
-                <span className="dashboard-control-label">Range</span>
-                <div className="range-group">
-                  {(['1M', '3M', 'YTD', '1Y', 'All'] as RangeOption[]).map((range) => (
-                    <button key={range} className={`range-chip${selectedRange === range ? ' active' : ''}`} onClick={() => setSelectedRange(range)} type="button">{range}</button>
-                  ))}
-                </div>
-              </div>
+            <span className={`dashboard-snapshot-status dashboard-snapshot-status-${readinessStatus.tone}`}>{readinessStatus.tone}</span>
+          </div>
+          <p className="helper">{readinessStatus.overall.detail}</p>
+          {renderReadinessCards(readinessStatus)}
+        </section>
+
+        <section className="dashboard-dense-insight-shell dashboard-shell-section" aria-label="Dense Insight Strip">
+          <div className="section-header-inline dashboard-snapshot-header dashboard-shell-section-header">
+            <div className="dashboard-shell-title-block">
+              <p className="panel-label">Dense Insight Strip</p>
+              <h3>Scan-first portfolio cues</h3>
             </div>
           </div>
-        </div>
-
-        {!hasPerformance ? (
-          <div className="empty-state-panel dashboard-performance-empty-state">
-            <p className="empty-state-title">{performanceEmptyState.title}</p>
-            <p className="helper">{performanceEmptyState.detail}</p>
+          <div className="dashboard-summary-highlights-grid">
+            {renderDashboardHighlightsModule(exposureHighlights)}
+            {renderDashboardHighlightsModule(concentrationHighlights)}
+            {renderDashboardHighlightsModule(benchmarkRelativeHighlights)}
+            {renderDashboardHighlightsModule(riskFactorStressHeadlines)}
           </div>
-        ) : desktopSafeMode ? (
-          <div className="summary-card dashboard-guidance-card dashboard-guidance-card-accent">
-            <p className="stat-label">Desktop safe mode</p>
-            <p className="summary-value dashboard-guidance-value">Interactive chart disabled</p>
-            <p className="helper">Desktop safe mode keeps optional chart modules off under CSP while import, restore, and dashboard review remain available.</p>
-            <div className="dashboard-health-reasons">
-              <span>Range: {selectedRange}</span>
-              <span>Window: {visibleHistoryWindow}</span>
-              <span>Portfolio value: {formatMoney(displayedPortfolioValue)}</span>
-              <span>Benchmark: {benchmarkLabel} {showBenchmark ? 'enabled' : 'hidden'}</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            <Suspense fallback={<div className="line-chart-panel performance-chart-panel" />}>
-              <DashboardPerformanceChart performanceView="twr" capitalChartData={[]} performancePathData={performancePathData} showPortfolio={showPortfolio} showBenchmark={showBenchmark} />
-            </Suspense>
+        </section>
 
-            <div className="chart-legend">
-              {showPortfolio ? <span><i className="legend-swatch legend-swatch-portfolio" /> Portfolio</span> : null}
-              {showBenchmark ? <span><i className="legend-swatch legend-swatch-benchmark" /> {benchmarkLabel}</span> : null}
-            </div>
-          </>
-        )}
-      </section>
+        {renderHandoffCard()}
+      </div>
 
-      {desktopSafeMode ? (
-        factorModel && exposureResult ? (
-          <section className="dashboard-bottom-grid factor-master-detail-section">
-            <div className="section-header-inline sector-list-header">
-              <div><p className="panel-label">Rolling Factor Analysis</p></div>
-              <p className="helper">Desktop safe mode keeps optional chart modules disabled under CSP. Current factor snapshot remains available for dashboard review{factorWindowSummary ? ` · ${factorWindowSummary}` : ''}.</p>
-            </div>
-            <div className="factor-snapshot-meta-row">
-              <p className="helper">Methodology: {factorModel.methodology}</p>
-              <p className="helper">Benchmark: {factorModel.statistical_factor_model.benchmark_symbol ?? result.benchmark?.symbol ?? 'SPY'}</p>
-              <p className="helper">Model status: {factorModel.statistical_factor_model.status}</p>
-              <p className="helper">Snapshot factors: {factorSnapshot.length}</p>
-            </div>
-            <div className="sector-overview-grid unified-sector-grid">
-              {factorSnapshotRows.length ? factorSnapshotRows.map((factor) => (
-                <div className="summary-card dashboard-guidance-card" key={factor.key}>
-                  <p className="stat-label">{factor.category}</p>
-                  <p className="summary-value dashboard-guidance-value">{factor.label}</p>
-                  <p className="helper">Proxy {factor.us_proxy} · loading {formatSignedLoading(factor.latest_loading)}</p>
-                </div>
-              )) : (
-                <div className="empty-state-panel chart-empty-state">
-                  <p className="empty-state-title">No factor snapshot available.</p>
-                  <p className="helper">Historical factor charting stays disabled in desktop safe mode until a CSP-safe path is available.</p>
-                </div>
-              )}
-            </div>
-          </section>
-        ) : null
-      ) : (
-        <Suspense fallback={null}>
-          <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
-        </Suspense>
-      )}
-
-      <section className="dashboard-bottom-grid unified-sector-section">
-        <div className="section-header-inline sector-list-header dashboard-edit-toolbar">
-          <div className="dashboard-section-copy dashboard-allocation-copy">
-            <p className="panel-label">Allocation Overview</p>
-            <h3>Allocation editor</h3>
-            <p className="helper">Review sector mix, lock a bucket, then size holdings before previewing Exposure.</p>
-          </div>
-          <div className="actions dashboard-edit-actions dashboard-edit-actions-global dashboard-edit-actions-compact dashboard-allocation-toolbar">
-            <label className="dashboard-inline-field">
-              <span className="field-label">Variant</span>
-              <input className="path-input dashboard-variant-input" value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder="Variant name" aria-label="Variant name" />
-            </label>
-            <button className="secondary-button" type="button" onClick={() => { setSectorDraft(buildEditableSectorDraftFromSnapshot(draftSnapshot)); void onDiscardDraft?.() }}>Discard draft</button>
-            <button className="secondary-button" type="button" onClick={() => { if (variantName.trim()) void onSaveVariant?.(variantName.trim()) }} disabled={!variantName.trim()}>Save Variant</button>
-            <button className="primary-button" type="button" onClick={() => nextDraftSnapshot && onPreviewExposure?.(nextDraftSnapshot)}>Preview in Exposure</button>
-          </div>
-        </div>
-
-        <div className="sector-overview-grid unified-sector-grid">
-          <div className="summary-card dashboard-allocation-panel sector-pie-wrap sector-pie-panel">
-            <div className="section-header-inline sector-list-header dashboard-subpanel-header">
-              <div className="dashboard-section-copy">
-                <p className="panel-label">Sector Mix</p>
-                <h3>Edited allocation map</h3>
-                <p className="helper">Hover to preview and click to lock a sector.</p>
-              </div>
-            </div>
-            {sectorAllocation.length ? (
-              <svg className="sector-pie" viewBox="0 0 220 220" role="img" aria-label="Sector allocation pie chart">
-                {pieSegments.map((segment) => {
-                  const isHovered = hoveredSector === segment.sector
-                  const isLocked = lockedSector === segment.sector
-                  const isActive = isHovered || isLocked
-                  const isDimmed = activeSector != null && !isActive
-                  const midAngle = (segment.startAngle + segment.endAngle) / 2
-                  const labelRadius = 60
-                  const labelX = 110 + (labelRadius * Math.cos(midAngle - (Math.PI / 2)))
-                  const labelY = 110 + (labelRadius * Math.sin(midAngle - (Math.PI / 2)))
-
-                  return (
-                    <g key={segment.sector}>
-                      <path
-                        d={describePieSlice(segment.startAngle, segment.endAngle)}
-                        fill={segment.color}
-                        stroke="rgba(9, 13, 19, 0.88)"
-                        strokeWidth={isActive ? '1.8' : '0.8'}
-                        opacity={isDimmed ? 0.26 : 1}
-                        className="sector-slice"
-                        onMouseEnter={() => setHoveredSector(segment.sector)}
-                        onMouseLeave={() => setHoveredSector(null)}
-                        onClick={() => handleSectorActivate(segment.sector)}
-                      />
-                      {segment.weight >= 0.06 ? (
-                        <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="middle" className="sector-pie-label" pointerEvents="none">
-                          {abbreviateSectorLabel(segment.sector)}
-                        </text>
-                      ) : null}
-                    </g>
-                  )
-                })}
-              </svg>
-            ) : (
-              <div className="empty-state-panel compact-empty-state">
-                <p className="empty-state-title">No positions available for sector breakdown.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="summary-card dashboard-allocation-panel dashboard-legend-panel">
-            <div className="section-header-inline sector-list-header dashboard-subpanel-header">
-              <div className="dashboard-section-copy">
-                <p className="panel-label">Diversification by Sector</p>
-                <h3>Weights by bucket</h3>
-                <p className="helper">Edited capital {formatMoney(editedNetCapital)} across {sectorAllocation.length || 0} sectors.</p>
-              </div>
-            </div>
-            {sectorAllocation.length ? (
-              <div className="sector-legend">
-                {sectorAllocation.map((item) => (
-                  <div
-                    className={`sector-row${selectedSector === item.sector ? ' active' : ''}${lockedSector === item.sector ? ' locked' : ''}`}
-                    key={item.sector}
-                    onMouseEnter={() => setHoveredSector(item.sector)}
-                    onMouseLeave={() => setHoveredSector(null)}
-                    onClick={() => handleSectorActivate(item.sector)}
-                  >
-                    <span className="sector-name"><i className="legend-swatch" style={{ background: item.color }} /> {item.sector}</span>
-                    <span
-                      className="sector-badge"
-                      style={{
-                        color: `hsl(145 45% ${72 - (item.intensity * 18)}%)`,
-                      }}
-                    >
-                      {(item.weight * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="summary-card dashboard-allocation-panel dashboard-holdings-panel">
-            <div className="section-header-inline sector-list-header dashboard-subpanel-header">
-              <div className="dashboard-section-copy dashboard-subpanel-header-copy">
-                <p className="panel-label">{selectedSector ? `${selectedSector} Holdings` : 'Sector Holdings'}</p>
-                <h3>{selectedSector ? 'Holdings editor' : 'Choose a sector to edit'}</h3>
-                <p className="helper">{selectedSectorAllocation ? `${formatPct(selectedSectorAllocation.weight * 100)} of edited capital` : 'Select a sector from the pie or legend to inspect holdings.'}</p>
-              </div>
-              <div className="dashboard-subpanel-meta">
-                {lockedSector ? <p className="helper">Locked on {lockedSector}</p> : <p className="helper">No sector locked</p>}
-              </div>
-            </div>
-            <div className="summary-card strategy-summary-card dashboard-edit-summary-card">
-              <p className="stat-label">Draft Capital Check</p>
-              <p className={`summary-value ${remainingCapital < 0 ? 'negative-text' : 'positive-text'}`}>{formatMoney(remainingCapital)}</p>
-              <p className="helper">Remaining capital after edits · Leverage {formatNumber(leverageRatio, 2)}x</p>
-            </div>
-            {selectedSectorPositions.length ? (
-              <div className="list-table dashboard-editor-table">
-                <div className="list-row dashboard-edit-row dashboard-edit-row-head" aria-hidden="true">
-                  <span>Ticker</span>
-                  <span>Market value</span>
-                  <span>Weight</span>
-                  <span>Action</span>
-                </div>
-                {selectedSectorPositions.map((position, index) => (
-                  <div className="list-row dashboard-edit-row" key={`${selectedSector}-${position.symbol}-${index}`}>
-                    <input className="path-input dashboard-edit-symbol" value={String(position.symbol)} onChange={(event) => updateSelectedSectorHolding(index, 'symbol', event.target.value)} placeholder="Ticker" aria-label={`${selectedSector} holding ticker ${index + 1}`} />
-                    <input className="path-input dashboard-edit-value" inputMode="decimal" value={String(position.market_value)} onChange={(event) => updateSelectedSectorHolding(index, 'market_value', event.target.value)} placeholder="Market value" aria-label={`${selectedSector} holding market value ${index + 1}`} />
-                    <span className="dashboard-edit-cell-muted">{formatPct(editedNetCapital > 0 ? (Number(position.market_value) / editedNetCapital) * 100 : 0)}</span>
-                    <button className="secondary-button" type="button" onClick={() => removeSelectedSectorHolding(index)}>Remove</button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state-panel compact-empty-state">
-                <p className="empty-state-title">Hover or click a sector to inspect its holdings.</p>
-              </div>
-            )}
-            {selectedSector ? (
-              <div className="actions dashboard-edit-actions">
-                <button className="secondary-button" type="button" onClick={addSelectedSectorHolding}>Add holding</button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
+      <div className="dashboard-shell-footer-notes">
+        {loadedFilesLabel ? <p className="helper">{loadedFilesLabel}</p> : null}
+        {restoredSession ? <p className="helper">Restored on launch</p> : null}
+        {importError ? <p className="error">{importError}</p> : null}
+      </div>
     </article>
   )
 }

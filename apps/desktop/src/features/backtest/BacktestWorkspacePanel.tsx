@@ -79,7 +79,7 @@ function WorkspaceResearchSession({
   children: ReactNode
 }) {
   return (
-    <section className="workspace-section" data-testid="workspace-owned-research-session">
+    <section className="workspace-section panel" data-testid="workspace-owned-research-session">
       <div className="section-header-inline sector-list-header">
         <div>
           <p className="panel-label">Workspace Research Session</p>
@@ -260,7 +260,7 @@ export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationB
         />
       ) : null}
       {!workspaceId && requestedToolLabel ? (
-        <section className="workspace-section" data-testid="workspace-research-intent-empty-state">
+        <section className="workspace-section panel" data-testid="workspace-research-intent-empty-state">
           <h2>Portfolio Research Workspace</h2>
           <div className="empty-state-panel compact-empty-state">
             <p className="empty-state-title">No active workspace is open for {requestedToolLabel}.</p>
@@ -269,7 +269,7 @@ export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationB
         </section>
       ) : null}
       {!workspaceId && !requestedToolLabel ? (
-        <section className="workspace-section" data-testid="workspace-empty-state">
+        <section className="workspace-section panel" data-testid="workspace-empty-state">
           <h2>Portfolio Research Workspace</h2>
           <div className="empty-state-panel compact-empty-state">
             <p className="empty-state-title">No active workspace is open.</p>
