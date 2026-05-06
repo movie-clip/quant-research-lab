@@ -13,7 +13,7 @@ import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
 import type { ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
 import type { MonitorDefinitionAlertReviewTimelineResponse } from '../features/portfolio/types'
-import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
+import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, SavedProposalReviewSnapshotPMSummaryMirror, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const dashboardPerformanceChartMock = vi.hoisted(() => ({
   shouldSuspend: false,
@@ -87,9 +87,13 @@ function requestJsonBody(init?: RequestInit) {
   return JSON.parse(typeof init?.body === 'string' ? init.body : String(init?.body ?? '{}'))
 }
 
-function matchingFetchCalls(fetchMock: ReturnType<typeof vi.fn>, pathname: string, method?: string) {
-  return fetchMock.mock.calls.filter(([input, init]) => requestPathname(input as RequestInfo | URL) === pathname
-    && (method == null || requestMethod(input as RequestInfo | URL, init) === method.toUpperCase()))
+function matchingFetchCalls(fetchMock: { mock: { calls: ReadonlyArray<ReadonlyArray<unknown>> } }, pathname: string, method?: string) {
+  return fetchMock.mock.calls.filter((call) => {
+    const input = call[0] as RequestInfo | URL
+    const init = call[1] as RequestInit | undefined
+    return requestPathname(input) === pathname
+      && (method == null || requestMethod(input, init) === method.toUpperCase())
+  }) as Array<[RequestInfo | URL, RequestInit | undefined]>
 }
 
 function installFetchMock(handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>) {
@@ -867,6 +871,8 @@ const ff2026MutableOverview = cloneMutable<PortfolioOverview>(ff2026ImportedDash
 
 const ib2026LoadedFiles = [...ib2026DashboardGolden.loadedFiles]
 const ff2026LoadedFiles = [...ff2026DashboardGolden.loadedFiles]
+const ib2026ImportedDailyStates = ib2026ImportedDashboardGoldenFixture.daily_states as Array<{ date: string }>
+const ff2026ImportedDailyStates = ff2026ImportedDashboardGoldenFixture.daily_states as Array<{ date: string }>
 
 const ib2026DashboardHistoryPayload = {
   performance_series: ib2026ImportedDashboardGoldenFixture.performance_series,
@@ -887,8 +893,8 @@ const ib2026BootstrapPayload = {
      imported_at: ib2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
      importer: ib2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
      source_file_names: ib2026LoadedFiles,
-     history_start_date: ib2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
-     history_end_date: ib2026ImportedDashboardGoldenFixture.daily_states[ib2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
+      history_start_date: ib2026ImportedDailyStates[0]?.date ?? null,
+      history_end_date: ib2026ImportedDailyStates[ib2026ImportedDailyStates.length - 1]?.date ?? null,
    },
 }
 const ff2026DashboardHistoryPayload = {
@@ -910,8 +916,8 @@ const ff2026BootstrapPayload = {
      imported_at: ff2026ImportedDashboardGoldenFixture.snapshot.statement.imported_at ?? '2026-04-14T00:00:00Z',
      importer: ff2026ImportedDashboardGoldenFixture.snapshot.statement.importer,
      source_file_names: ff2026LoadedFiles,
-     history_start_date: ff2026ImportedDashboardGoldenFixture.daily_states[0]?.date ?? null,
-     history_end_date: ff2026ImportedDashboardGoldenFixture.daily_states[ff2026ImportedDashboardGoldenFixture.daily_states.length - 1]?.date ?? null,
+      history_start_date: ff2026ImportedDailyStates[0]?.date ?? null,
+      history_end_date: ff2026ImportedDailyStates[ff2026ImportedDailyStates.length - 1]?.date ?? null,
    },
 }
 const appendedExposurePayload = {
@@ -1863,9 +1869,7 @@ function makeSavedProposalArtifact(input?: {
   reviewSnapshot.proposal = {
     ...reviewSnapshot.proposal,
     candidate_symbol: candidateSymbol,
-    proposal_source: {
-      ...reviewSnapshot.proposal.proposal_source,
-    },
+    proposal_source: { ...reviewSnapshot.proposal.proposal_source! },
   }
 
   const proposal = {
@@ -1946,11 +1950,92 @@ function makeSavedProposalArtifact(input?: {
 
   return {
     ...proposal,
-    reviewSnapshotPMSummary: makeReviewSnapshotArtifactFromProposal(proposal).pm_summary,
+    reviewSnapshotPMSummary: makeReviewSnapshotArtifactFromProposal(proposal).pm_summary as SavedProposalReviewSnapshotPMSummaryMirror,
   }
 }
 
 function makeReviewSnapshotArtifactFromProposal(proposal: VersionedProposalArtifact): ReviewSnapshotArtifact {
+  const effectiveReplay = 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay
+  const methodologyProvenance = effectiveReplay.methodology_provenance!
+  const pmSummary: SavedProposalReviewSnapshotPMSummaryMirror = {
+    pm_summary_version: 1,
+    role: 'saved_proposal',
+    provenance: {
+      source: 'persisted_review_snapshot_artifact',
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+      lineage: {
+        workspace_id: proposal.workspaceId,
+        source_draft_id: proposal.sourceDraftId,
+        source_base_node_id: proposal.sourceBaseNodeId,
+        proposal_family_id: proposal.proposalFamilyId,
+        proposal_id: proposal.id,
+        version_number: proposal.versionNumber,
+        source_kind: 'hypothetical_replacement_replay',
+      },
+      proposal_source: proposal.reviewSnapshot.proposal.proposal_source!,
+      replay_provenance: proposal.replayBasis.replayProvenance,
+    },
+    truth_labels: {
+      proposal_truth: 'review_only_hypothetical_proposal',
+      portfolio_truth: 'draft_snapshot_not_applied',
+      analytics_truth: 'hypothetical_replay_analytics_only',
+      review_scope: 'proposal_review_context_only',
+    },
+    replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware',
+    replay_status: effectiveReplay.candidate_result.status,
+    investor_economics_status: effectiveReplay.investor_economics_status,
+    review_basis: {
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+      replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
+      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+      commission_bps: proposal.replayBasis.commissionBps,
+      slippage_bps: proposal.replayBasis.slippageBps,
+      derivation_basis: proposal.replayBasis.derivationBasis,
+      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+    },
+    methodology: {
+      methodology: effectiveReplay.methodology,
+      methodology_provenance: methodologyProvenance,
+    },
+    assumptions: effectiveReplay.candidate_result.assumptions,
+    analytics_summary: {
+      candidate_analytics: {
+        methodology: effectiveReplay.methodology,
+        methodology_provenance: methodologyProvenance,
+        assumptions: effectiveReplay.candidate_result.assumptions,
+        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+        benchmark_return_pct: 1,
+        total_return_pct: 1,
+        annualized_return_pct: 1,
+        annualized_volatility_pct: 1,
+        downside_volatility_pct: 1,
+        max_drawdown_pct: -1,
+        sharpe_ratio: 1,
+        sortino_ratio: 1,
+        excess_return_pct: 0,
+        tracking_error_pct: 1,
+        information_ratio: 0,
+        beta_vs_benchmark: 1,
+        correlation_vs_benchmark: 1,
+        total_turnover_pct: 0,
+        total_cost_paid: 0,
+      },
+      baseline_analytics: null,
+      analytics_comparison: null,
+    },
+    diagnostics_summary: {
+      diagnostics_available: false,
+      top_factor_exposure_change: null,
+      top_volatility_change: null,
+      top_risk_contribution_change: null,
+      top_concentration_change: null,
+      top_stress_scenario_change: null,
+    },
+  }
+
   return {
     identity: {
       artifact_id: proposal.reviewSnapshotArtifactId!,
@@ -1987,12 +2072,12 @@ function makeReviewSnapshotArtifactFromProposal(proposal: VersionedProposalArtif
     },
     compact_summary: {
       replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware',
-      replay_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.status,
-      investor_economics_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).investor_economics_status,
+      replay_status: effectiveReplay.candidate_result.status,
+      investor_economics_status: effectiveReplay.investor_economics_status,
       candidate_analytics: {
-        methodology: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology,
-        methodology_provenance: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology_provenance,
-        assumptions: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.assumptions,
+        methodology: effectiveReplay.methodology,
+        methodology_provenance: methodologyProvenance,
+        assumptions: effectiveReplay.candidate_result.assumptions,
         benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
         benchmark_return_pct: 1,
         total_return_pct: 1,
@@ -2022,84 +2107,7 @@ function makeReviewSnapshotArtifactFromProposal(proposal: VersionedProposalArtif
       },
     },
     proposal_capture: proposal.proposalCapture,
-    pm_summary: {
-      pm_summary_version: 1,
-      role: 'saved_proposal',
-      provenance: {
-        source: 'persisted_review_snapshot_artifact',
-        artifact_kind: 'portfolio_review_snapshot',
-        schema_version: 'review_snapshot_artifact_v1',
-        consumer_kind: 'saved_hypothetical_replay_proposal',
-        lineage: {
-          workspace_id: proposal.workspaceId,
-          source_draft_id: proposal.sourceDraftId,
-          source_base_node_id: proposal.sourceBaseNodeId,
-          proposal_family_id: proposal.proposalFamilyId,
-          proposal_id: proposal.id,
-          version_number: proposal.versionNumber,
-          source_kind: 'hypothetical_replacement_replay',
-        },
-        proposal_source: proposal.reviewSnapshot.proposal.proposal_source!,
-        replay_provenance: proposal.replayBasis.replayProvenance,
-      },
-      truth_labels: {
-        proposal_truth: 'review_only_hypothetical_proposal',
-        portfolio_truth: 'draft_snapshot_not_applied',
-        analytics_truth: 'hypothetical_replay_analytics_only',
-        review_scope: 'proposal_review_context_only',
-      },
-      replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware',
-      replay_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.status,
-      investor_economics_status: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).investor_economics_status,
-      review_basis: {
-        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
-        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
-        replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
-        rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
-        commission_bps: proposal.replayBasis.commissionBps,
-        slippage_bps: proposal.replayBasis.slippageBps,
-        derivation_basis: proposal.replayBasis.derivationBasis,
-        candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
-      },
-      methodology: {
-        methodology: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology,
-        methodology_provenance: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology_provenance,
-      },
-      assumptions: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.assumptions,
-      analytics_summary: {
-        candidate_analytics: {
-          methodology: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology,
-          methodology_provenance: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).methodology_provenance,
-          assumptions: ('replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay).candidate_result.assumptions,
-          benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
-          benchmark_return_pct: 1,
-          total_return_pct: 1,
-          annualized_return_pct: 1,
-          annualized_volatility_pct: 1,
-          downside_volatility_pct: 1,
-          max_drawdown_pct: -1,
-          sharpe_ratio: 1,
-          sortino_ratio: 1,
-          excess_return_pct: 0,
-          tracking_error_pct: 1,
-          information_ratio: 0,
-          beta_vs_benchmark: 1,
-          correlation_vs_benchmark: 1,
-          total_turnover_pct: 0,
-          total_cost_paid: 0,
-        },
-        baseline_analytics: null,
-        analytics_comparison: null,
-      },
-      diagnostics_summary: {
-        diagnostics_available: false,
-        top_factor_exposure_change: null,
-        top_volatility_change: null,
-        top_risk_contribution_change: null,
-        top_concentration_change: null,
-        top_stress_scenario_change: null,
-      },
-    },
+    pm_summary: pmSummary as unknown as ReviewSnapshotArtifact['pm_summary'],
     source_payload: {
       replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware',
       replay: 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot : null,
@@ -3269,7 +3277,7 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalled()
     expect(screen.getByText((content) => content.includes(ib2026DashboardGolden.statementPeriod))).toBeTruthy()
     expect(screen.queryByText('Loaded file: FF2026.pdf')).toBeNull()
-    expect(screen.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy()
+    expect(screen.getByText('$62875.19')).toBeTruthy()
     expect(screen.queryByDisplayValue('JPM')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
@@ -4601,7 +4609,7 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText(ib2026DashboardGolden.portfolioValue)).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('$62875.19')).toBeTruthy())
     const ib2026DetailedReviewButton = screen.queryByRole('button', { name: 'Open detailed review' })
     if (ib2026DetailedReviewButton) {
       fireEvent.click(ib2026DetailedReviewButton)
@@ -5618,7 +5626,7 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Replacement Intent')).toBeTruthy())
-    expect(screen.getByText('Portfolio Improvement Decision Summary')).toBeTruthy()
+    expect(screen.getByText('Workflow Spine')).toBeTruthy()
     expect(screen.getAllByText('Candidate Formation').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Construction Rule').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
@@ -5702,7 +5710,7 @@ describe('App', () => {
     expect(screen.getAllByText('Saved Proposal Review').length).toBeGreaterThan(0)
     expect(screen.getAllByText('v1').length).toBeGreaterThan(0)
     expect(screen.getByText('Latest Saved Artifact')).toBeTruthy()
-    expect(screen.getByText('Recorded v1')).toBeTruthy()
+    expect(screen.getByText('An immutable proposal artifact has been recorded for this workflow. Nothing else is needed right now. Next up: saved-proposal reopen, comparison, or thesis-promotion review.')).toBeTruthy()
     expect(screen.getAllByText('Viewing For Review').length).toBeGreaterThan(0)
   })
 
@@ -5945,8 +5953,8 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Portfolio Research Workspace' })).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0))
-    expect(screen.getByText('Constraint validation blocked replay with 1 hard-block result.')).toBeTruthy()
-    expect(screen.getByText('Hypothetical replay remains unavailable until the current constructed candidate passes construction constraints.')).toBeTruthy()
+    expect(screen.getByText('Constraint validation blocked the current constructed candidate, so replay remains unavailable. Missing now: a constraint-compliant construction handoff. Unlocks next: the hypothetical replay once constraints pass.')).toBeTruthy()
+    expect(screen.getByText('Hypothetical replay cannot run yet. Missing now: passed construction constraints. Unlocks next: the hypothetical replay once constraint validation passes.')).toBeTruthy()
   })
 
   it('restores saved proposal review UI without needing live draft replay state', async () => {

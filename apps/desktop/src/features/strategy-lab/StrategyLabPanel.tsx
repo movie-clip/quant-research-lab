@@ -848,7 +848,7 @@ export function StrategyLabPanel({ sessionState, onSessionStateChange }: Strateg
     }))
   }
 
-  function togglePreset(key: UniversePresetKey) {
+  function togglePreset(key: StrategyLabUniversePresetKey) {
     const nextSelected = selectedPresets.includes(key)
       ? selectedPresets.filter((value) => value !== key)
       : [...selectedPresets, key]
@@ -914,7 +914,8 @@ export function StrategyLabPanel({ sessionState, onSessionStateChange }: Strateg
     try {
       const response = await fetch(`${apiBase}/strategy-lab/cross-sectional-research/recent?${buildResearchArtifactQuery(researchFilters)}`)
       const payload = await readJsonResponse<unknown>(response, 'Research recent artifacts are unavailable')
-      setSessionState((current) => ({ ...current, researchRecent: parseCrossSectionalResearchRecentResponse(payload) }))
+      const parsed = parseCrossSectionalResearchRecentResponse(payload)
+      setSessionState((current) => ({ ...current, researchRecent: parsed }))
     } catch (caughtError) {
       setSessionState((current) => ({
         ...current,
@@ -1037,7 +1038,7 @@ export function StrategyLabPanel({ sessionState, onSessionStateChange }: Strateg
               {presetMenuOpen ? (
                 <div className="strategy-preset-menu" id="strategy-preset-menu" role="group" aria-label="Universe Presets">
                   {Object.entries(UNIVERSE_PRESETS).map(([key, option]) => {
-                    const presetKey = key as UniversePresetKey
+                    const presetKey = key as StrategyLabUniversePresetKey
                     const active = selectedPresets.includes(presetKey)
                     return (
                       <label key={key} className={`strategy-preset-option${active ? ' active' : ''}`}>

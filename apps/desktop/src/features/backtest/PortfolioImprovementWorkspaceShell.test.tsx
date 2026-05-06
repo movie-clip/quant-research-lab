@@ -2226,7 +2226,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    const savedProposalCard = screen.getAllByTestId('workflow-spine-card-saved-proposal-status').at(-1) as HTMLElement
+    const savedProposalCard = screen.getAllByTestId('workflow-spine-card-saved-proposal-status').slice(-1)[0] as HTMLElement
     expect(within(savedProposalCard).getByText('Recorded')).toBeTruthy()
     expect(within(savedProposalCard).getByText('An immutable proposal artifact has been recorded for this workflow. Nothing else is needed right now. Next up: saved-proposal reopen, comparison, or thesis-promotion review.')).toBeTruthy()
   })
@@ -3036,9 +3036,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     const ui = within(container)
 
-    fireEvent.click(ui.getAllByRole('button', { name: 'Open Backtest' }).at(-1)!)
-    fireEvent.click(ui.getAllByRole('button', { name: 'Open Strategy Lab' }).at(-1)!)
-    fireEvent.click(ui.getAllByRole('button', { name: 'Open ETF Ranking' }).at(-1)!)
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open Backtest' }).slice(-1)[0]!)
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open Strategy Lab' }).slice(-1)[0]!)
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open ETF Ranking' }).slice(-1)[0]!)
 
     expect(onOpenGenericBacktests).toHaveBeenCalledWith('workspace-section-research-tools')
     expect(onOpenStrategyLab).toHaveBeenCalledWith('workspace-section-research-tools')

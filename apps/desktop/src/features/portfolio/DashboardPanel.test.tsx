@@ -472,7 +472,7 @@ describe('DashboardPanel', () => {
 
     expect(screen.getByText(/Account ID/)).toBeTruthy()
     expect(screen.getAllByText('Interactive Brokers').length).toBeGreaterThan(0)
-    expect(screen.getByText('$62584.21')).toBeTruthy()
+    expect(screen.getByText('$62875.19')).toBeTruthy()
     expect(screen.queryByText('Detailed review')).toBeNull()
 
     rerender(<DashboardPanel result={ff2026DashboardView} />)

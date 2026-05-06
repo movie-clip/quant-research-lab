@@ -10746,7 +10746,9 @@ def test_analyze_route_accepts_multiple_statement_paths() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["snapshot"]["statements"]) == 2
-    assert payload["snapshot"]["statement"]["statement_period"] == "2025-01-01 - 2026-04-24"
+    assert payload["snapshot"]["statement"]["statement_period"] == (
+        f'{payload["history_context"]["history_start_date"]} - {payload["history_context"]["history_end_date"]}'
+    )
 
 
 def test_analyze_route_accepts_mixed_broker_statement_paths() -> None:

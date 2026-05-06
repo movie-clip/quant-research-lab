@@ -467,6 +467,14 @@ function assertValidReviewSnapshotPMSummaryEnvelope(
   }
 }
 
+export function assertValidSavedProposalReviewSnapshotPMSummaryMirror(
+  value: unknown,
+  label = 'Saved proposal reviewSnapshotPMSummary',
+): SavedProposalReviewSnapshotPMSummaryMirror {
+  assertValidReviewSnapshotPMSummaryEnvelope(value, label, ['saved_proposal'])
+  return value as SavedProposalReviewSnapshotPMSummaryMirror
+}
+
 function assertCachedSavedProposalPMSummaryMatchesPersisted(
   proposal: VersionedProposalArtifact,
   reviewSnapshotArtifact: ReviewSnapshotArtifact,
@@ -841,8 +849,9 @@ export function assertValidReviewSnapshotFamilyReviewResponseEnvelope(response: 
     if (!Array.isArray(summary.comparison_eligibility.compatible_sibling_artifact_ids)) {
       throw new Error(`${label} comparison_eligibility is invalid`)
     }
-    assertReviewSnapshotFamilyKeyMatchesLineage(candidate.family_key, summary.lineage, `${label} lineage`)
-    assertReviewSnapshotFamilyKeyMatchesLineage(candidate.family_key, summary.pm_summary.provenance.lineage, `${label} pm_summary provenance lineage`)
+    const familyKey = candidate.family_key!
+    assertReviewSnapshotFamilyKeyMatchesLineage(familyKey, summary.lineage, `${label} lineage`)
+    assertReviewSnapshotFamilyKeyMatchesLineage(familyKey, summary.pm_summary.provenance.lineage, `${label} pm_summary provenance lineage`)
     if (JSON.stringify(summary.lineage) !== JSON.stringify(summary.pm_summary.provenance.lineage)) {
       throw new Error(`${label} lineage does not match pm_summary provenance lineage`)
     }
@@ -1058,7 +1067,7 @@ export function assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnv
 function assertSavedProposalArtifactReviewSnapshotIdentity(
   proposal: VersionedProposalArtifact,
   reviewSnapshotArtifact: ReviewSnapshotArtifact | null,
-) {
+): asserts reviewSnapshotArtifact is ReviewSnapshotArtifact {
   if (!proposal.reviewSnapshotArtifactId) {
     throw new Error('Saved proposal is missing authoritative reviewSnapshotArtifactId')
   }
@@ -2014,7 +2023,7 @@ export function buildSavedProposalArtifact(input: {
   sourceIntent: ReplacementIntentDraftArtifact
   proposalCapture: VersionedProposalArtifact['proposalCapture']
   reviewSnapshotArtifactId: string
-  reviewSnapshotPMSummary: ReviewSnapshotPMSummaryEnvelope
+  reviewSnapshotPMSummary: SavedProposalReviewSnapshotPMSummaryMirror
   hypotheticalReplay: VersionedProposalArtifact['reviewSnapshot']
 }): VersionedProposalArtifact {
   const proposalSource = input.proposalCapture.proposal.proposal_source

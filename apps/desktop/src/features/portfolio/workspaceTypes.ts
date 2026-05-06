@@ -346,6 +346,8 @@ export type VersionedProposalArtifact = {
   reviewSnapshot: HypotheticalReplayResponse
 }
 
+export type RawPersistedVersionedProposalArtifact = VersionedProposalArtifact
+
 export type ReviewSnapshotArtifactIdentity = {
   artifact_id: string
   artifact_kind: 'portfolio_review_snapshot'
