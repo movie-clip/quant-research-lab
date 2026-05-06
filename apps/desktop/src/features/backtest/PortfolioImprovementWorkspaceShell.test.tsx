@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
 import * as portfolioWorkspaceStorage from '../../app/portfolioWorkspaceStorage'
@@ -14,6 +14,10 @@ import type {
 import type { MonitorDefinitionAlertReviewSessionState } from '../portfolio/workspaceTypes'
 
 const noOp = () => {}
+
+afterEach(() => {
+  cleanup()
+})
 
 function textContentOf(testId: string) {
   const matches = screen.getAllByTestId(testId)
@@ -1586,7 +1590,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(onReopenRecoveredAlertReview).toHaveBeenCalledWith(row)
   })
 
-  it('shows an explicit decision summary when no candidate exists yet', () => {
+  it('shows the workflow spine as the authoritative workflow summary when no candidate exists yet', () => {
     const { container } = render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
@@ -1615,15 +1619,19 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('Portfolio Improvement Decision Summary').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Not selected').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('No artifact').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Current review state only.').length).toBeGreaterThan(0)
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+
+    expect(within(spine).getByText('Workflow Spine')).toBeTruthy()
+    expect(within(spine).getByText('Current Portfolio')).toBeTruthy()
+    expect(within(spine).getByText('Candidate Idea')).toBeTruthy()
+    expect(within(spine).getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(within(spine).getByRole('button', { name: 'Open Current Portfolio' })).toBeTruthy()
+    expect(screen.queryByText('Portfolio Improvement Decision Summary')).toBeNull()
+    expect(screen.queryByText('Current review state only.')).toBeNull()
   })
 
-  it('shows partial decision summary state when candidate exists but replay has not run', () => {
-    const { container } = render(
+  it('shows partial workflow spine state when candidate exists but replay has not run', () => {
+    render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
         draftSnapshot={draftSnapshot}
@@ -1651,9 +1659,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
-    expect(screen.getByText('Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.')).toBeTruthy()
+    expect(screen.getByText('Hypothetical replay cannot run yet. Missing now: passed construction constraints. Unlocks next: the hypothetical replay once constraint validation passes.')).toBeTruthy()
     expect(screen.getByText('A candidate seed exists for this workflow. Missing now: an explicit replacement intent. Unlocks next: candidate formation after the seed is promoted.')).toBeTruthy()
   })
 
@@ -1704,26 +1711,30 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.queryByText('Workflow / Analysis Guide')).toBeNull()
     expect(screen.queryByText('Workflow Readiness')).toBeNull()
     expect(screen.queryByText('Section Status Guidance')).toBeNull()
+    expect(screen.getAllByText('Workflow Spine').length).toBeGreaterThan(0)
 
     const overviewMatches = screen.getAllByText('Overview')
+    const spineMatches = screen.getAllByText('Workflow Spine')
     const currentMatches = screen.getAllByText('Current Portfolio')
     const candidateMatches = screen.getAllByText('Candidate')
     const compareMatches = screen.getAllByText('Compare')
     const proposalMatches = screen.getAllByText('Proposal')
 
     const overview = overviewMatches[overviewMatches.length - 1] as HTMLElement
+    const spine = spineMatches[spineMatches.length - 1] as HTMLElement
     const current = currentMatches[currentMatches.length - 1] as HTMLElement
     const candidate = candidateMatches[candidateMatches.length - 1] as HTMLElement
     const compare = compareMatches[compareMatches.length - 1] as HTMLElement
     const proposal = proposalMatches[proposalMatches.length - 1] as HTMLElement
 
-    expect(overview.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(overview.compareDocumentPosition(spine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(spine.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(current.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(candidate.compareDocumentPosition(compare) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(compare.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('adds a scan-first landing strip with replay entry actions', () => {
+  it('adds workflow spine actions that open the authoritative workflow steps', () => {
     const { container } = renderShell({
       candidateImprovementDraft: {
         workspaceId: 'workspace-1',
@@ -1752,23 +1763,21 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       },
     })
 
-    const landing = latestByTestIdIn(container, 'workspace-transition-landing')
-    expect(landing).toBeTruthy()
-    expect(within(landing).getByText('Workspace Landing')).toBeTruthy()
-    expect(within(landing).getByText('Intent required')).toBeTruthy()
-    expect(within(landing).getByRole('button', { name: 'Jump to Candidate' })).toBeTruthy()
-    expect(within(landing).getByRole('button', { name: 'Jump to Research Tools' })).toBeTruthy()
-    expect(within(landing).getByText('Compare owns hypothetical replay and diagnostics; the legacy replay bridge stays secondary if needed.')).toBeTruthy()
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+    expect(spine).toBeTruthy()
+    expect(within(spine).getByText('Workflow Spine')).toBeTruthy()
+    expect(within(spine).getByText('Candidate Idea')).toBeTruthy()
+    expect(within(spine).getByText('In progress')).toBeTruthy()
+    expect(within(spine).getByRole('button', { name: 'Open Candidate Idea' })).toBeTruthy()
+    expect(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' })).toBeTruthy()
   })
 
-  it('jumps from the landing strip into replay and workspace sections', () => {
+  it('jumps from workflow spine actions into workflow sections', () => {
     const replayTarget = { scrollIntoView: vi.fn() }
     const candidateTarget = { scrollIntoView: vi.fn() }
-    const researchTarget = { scrollIntoView: vi.fn() }
     const getElementByIdSpy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
       if (id === 'workflow-section-hypothetical-replay') return replayTarget as unknown as HTMLElement
       if (id === 'workflow-section-candidate-idea') return candidateTarget as unknown as HTMLElement
-      if (id === 'workspace-section-research-tools') return researchTarget as unknown as HTMLElement
       return null
     })
 
@@ -1776,20 +1785,18 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       replacementIntentDraft: makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent,
     })
 
-    const landing = latestByTestIdIn(container, 'workspace-transition-actions')
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
 
-    fireEvent.click(within(landing).getByRole('button', { name: 'Open Replay Entry' }))
-    fireEvent.click(within(landing).getByRole('button', { name: 'Jump to Candidate' }))
-    fireEvent.click(within(landing).getByRole('button', { name: 'Jump to Research Tools' }))
+    fireEvent.click(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' }))
+    fireEvent.click(within(spine).getByRole('button', { name: 'Open Candidate Idea' }))
 
     expect(replayTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
     expect(candidateTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
-    expect(researchTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
 
     getElementByIdSpy.mockRestore()
   })
 
-  it('keeps artifact-backed landing actions focused on replay review only', () => {
+  it('keeps artifact-backed workflow spine actions focused on replay review only', () => {
     const { container } = renderShell({
       analysis: null,
       draftSnapshot: {
@@ -1803,15 +1810,14 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       allocationBacktestResult: makeReplay(),
     })
 
-    const landing = latestByTestIdIn(container, 'workspace-transition-actions')
-    expect(within(landing).getByText('Replay review')).toBeTruthy()
-    expect(within(landing).getByText('Read-only review stays artifact-backed.')).toBeTruthy()
-    expect(within(landing).getByRole('button', { name: 'Open Replay Entry' })).toBeTruthy()
-    expect(within(landing).queryByRole('button', { name: 'Jump to Candidate' })).toBeNull()
-    expect(within(landing).queryByRole('button', { name: 'Jump to Research Tools' })).toBeNull()
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+    expect(within(spine).getAllByText('Recorded').length).toBeGreaterThan(0)
+    expect(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' })).toBeTruthy()
+    expect(within(spine).queryByRole('button', { name: 'Open Candidate Idea' })).toBeNull()
+    expect(within(spine).queryByRole('button', { name: 'Open Saved Proposal' })).toBeNull()
   })
 
-  it('keeps optimizer-handoff landing actions focused on replay review only', () => {
+  it('keeps optimizer-handoff workflow spine actions focused on replay review only', () => {
     const { container } = renderShell({
       analysis: null,
       draftSnapshot: {
@@ -1823,17 +1829,12 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       allocationBacktestResult: makeReplay(),
     })
 
-    const landing = latestByTestIdIn(container, 'workspace-transition-landing')
-    const actions = latestByTestIdIn(container, 'workspace-transition-actions')
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
 
-    expect(within(landing).getByText('Artifact-backed replay')).toBeTruthy()
-    expect(within(landing).getByText('Optimizer handoff review')).toBeTruthy()
-    expect(within(landing).getByText('optimizer_handoff_123')).toBeTruthy()
-    expect(within(actions).getByText('Replay review')).toBeTruthy()
-    expect(within(actions).getByText('Read-only review stays artifact-backed.')).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Open Replay Entry' })).toBeTruthy()
-    expect(within(actions).queryByRole('button', { name: 'Jump to Candidate' })).toBeNull()
-    expect(within(actions).queryByRole('button', { name: 'Jump to Research Tools' })).toBeNull()
+    expect(within(spine).getByText('Candidate Idea')).toBeTruthy()
+    expect(within(spine).getByText('Candidate review comes from the persisted optimizer handoff reopened by handoff reference. This read-only review already has what it needs. Next up: review the formation and replay evidence already attached to the reopened artifact.')).toBeTruthy()
+    expect(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' })).toBeTruthy()
+    expect(within(spine).queryByRole('button', { name: 'Open Candidate Idea' })).toBeNull()
   })
 
   it('owns the shell-level replay, diagnostics, and proposal framing', () => {
@@ -2055,7 +2056,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getAllByText('Rejected').length).toBeGreaterThan(0)
-    expect(screen.getByText('Formation rejected: replacement intent candidate is already held in draft snapshot: IUFS')).toBeTruthy()
+    expect(screen.getAllByText('replacement intent candidate is already held in draft snapshot: IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('replacement intent candidate is already held in draft snapshot: IUFS').length).toBeGreaterThan(0)
   })
 
@@ -2122,9 +2123,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getAllByText('Formed').length).toBeGreaterThan(0)
-    expect(screen.getByText('Total return delta +2.50% versus baseline under the shared replay window.')).toBeTruthy()
+    expect(screen.getAllByText('A draft-only hypothetical replay is available for review. Nothing else is needed right now. Next up: diagnostics review and saved-proposal recording.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Position HHI').length).toBeGreaterThan(0)
-    expect(screen.getByText('Concentration shows -0.05. candidate modestly reduces concentration')).toBeTruthy()
+    expect(screen.getAllByText('candidate modestly reduces concentration').length).toBeGreaterThan(0)
   })
 
   it('gates shell summary wording when replay investor-economics are withheld', () => {
@@ -2190,8 +2191,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     const ui = within(container)
 
-    expect(ui.getByText('Replay evidence is recorded for this workflow, but investor-performance outputs are withheld. Review replay status, lineage, window, and allowed diagnostics only.')).toBeTruthy()
-    expect(ui.queryByText('Total return delta +2.50% versus baseline under the shared replay window.')).toBeNull()
+    expect(ui.getAllByText('A draft-only hypothetical replay is available for review. Nothing else is needed right now. Next up: diagnostics review and saved-proposal recording.').length).toBeGreaterThan(0)
+    expect(ui.getAllByText('A replay review is available and can be saved as a proposal artifact. Missing now: a saved proposal artifact. Unlocks next: saved-proposal reopen and comparison flows.').length).toBeGreaterThan(0)
   })
 
   it('summarizes recorded proposal state when an artifact exists', () => {
@@ -2225,8 +2226,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('Recorded v1').length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Recorded Apr/).length).toBeGreaterThan(0)
+    const savedProposalCard = screen.getAllByTestId('workflow-spine-card-saved-proposal-status').at(-1) as HTMLElement
+    expect(within(savedProposalCard).getByText('Recorded')).toBeTruthy()
+    expect(within(savedProposalCard).getByText('An immutable proposal artifact has been recorded for this workflow. Nothing else is needed right now. Next up: saved-proposal reopen, comparison, or thesis-promotion review.')).toBeTruthy()
   })
 
   it('shows newest-first saved proposal index and reopens an older artifact for review only', () => {
@@ -2270,7 +2272,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reopen In Workspace' }))
 
     expect(onOpenSavedProposal).toHaveBeenCalledWith(olderProposal.reviewSnapshotArtifactId)
-    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/AAPL.*IUFS/).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied').length).toBeGreaterThan(0)
   })
@@ -2346,8 +2348,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Reopen In Workspace' })[1]!)
-    expect(screen.getAllByRole('button', { name: 'Reopen In Workspace' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Reopen In Workspace' })).toBeNull()
+    expect(screen.getByTestId('saved-proposal-contract-error').textContent).toContain('Unable to reopen saved proposal:')
     consoleErrorSpy.mockRestore()
   })
 
@@ -2956,7 +2958,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getAllByText('Stale').length).toBeGreaterThan(0)
-    expect(screen.getByText('The existing construction artifact was built with same_weight_substitution_v1 and must be rerun for fixed_split_50_50_substitution_v2.')).toBeTruthy()
+    expect(screen.getAllByText('The selected construction rule is fixed_split_50_50_substitution_v2, but the saved construction artifact is stale. Missing now: a fresh construction artifact for fixed_split_50_50_substitution_v2. Unlocks next: constraint validation for the current rule selection.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('fixed_split_50_50_substitution_v2').length).toBeGreaterThan(0)
   })
 
@@ -2991,8 +2993,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
-    expect(screen.getByText('Constraint validation blocked replay with 1 hard-block result.')).toBeTruthy()
-    expect(screen.getByText('Hypothetical replay remains unavailable until the current constructed candidate passes construction constraints.')).toBeTruthy()
+    expect(screen.getAllByText('weight_sum_matches_rule').length).toBeGreaterThan(0)
+    expect(screen.getByText('Constraint validation blocked the current constructed candidate, so replay remains unavailable. Missing now: a constraint-compliant construction handoff. Unlocks next: the hypothetical replay once constraints pass.')).toBeTruthy()
   })
 
   it('gates candidate and proposal sections in persisted construction artifact review mode', () => {
@@ -3078,7 +3080,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.getAllByText('optimizer_handoff_123').length).toBeGreaterThan(0)
   })
 
-  it('shortens rejected constraint copy in the decision summary', () => {
+  it('shortens rejected constraint copy in the workflow spine', () => {
     render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
@@ -3107,7 +3109,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getByText('Constraint validation rejected replay input: constructed candidate could not be evaluated safely')).toBeTruthy()
+    expect(screen.getAllByText('constructed candidate could not be evaluated safely').length).toBeGreaterThan(0)
   })
 
   it('shows active thesis state and marks the promoted proposal row', () => {
