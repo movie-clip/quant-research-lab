@@ -1654,6 +1654,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
     expect(screen.getByText('Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.')).toBeTruthy()
+    expect(screen.getByText('A candidate seed exists for this workflow. Missing now: an explicit replacement intent. Unlocks next: candidate formation after the seed is promoted.')).toBeTruthy()
   })
 
   it('renders seeded replacement review from canonical open handoff only', () => {
@@ -1793,8 +1794,23 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(screen.getAllByText('Recorded').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow. Nothing else is needed right now. Next up: saved-proposal reopen, comparison, or thesis-promotion review.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied').length).toBeGreaterThan(0)
+  })
+
+  it('shows missing-now and unlocks-next guidance across the hypothetical path', () => {
+    renderShell({
+      replacementIntentDraft: makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent,
+      formedCandidateArtifact: makeFormedCandidate(),
+      constructedCandidateArtifact: makeConstructedCandidate(),
+    })
+
+    expect(screen.getAllByText('A replacement intent is attached and ready for replay review. Nothing else is needed right now. Next up: candidate formation for the active hypothetical path.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('A formed candidate artifact is available for review-only replay handoff. Nothing else is needed right now. Next up: construction for the active rule selection.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('A construction artifact is available for review-only replay handoff under same_weight_substitution_v1. Nothing else is needed right now. Next up: construction-constraint validation for this handoff.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Construction output is ready for constraint validation. Missing now: a constraint-validation result for the current constructed candidate. Unlocks next: the hypothetical replay handoff.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Hypothetical replay cannot run yet. Missing now: passed construction constraints. Unlocks next: the hypothetical replay once constraint validation passes.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Diagnostics change cannot be reviewed yet. Missing now: hypothetical replay evidence. Unlocks next: diagnostics review after replay runs.').length).toBeGreaterThan(0)
   })
 
   it('shows constructed candidate replay lineage with the actual construction rule', () => {
@@ -2886,7 +2902,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.queryByTestId('workspace-section-candidate')).toBeNull()
     expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
     expect(ui.getAllByText('Recorded').length).toBeGreaterThan(0)
-    expect(ui.getByText('Artifact review basis is available.')).toBeTruthy()
+    expect(ui.getByText('Artifact review basis is available. This read-only review already has what it needs. Next up: review the candidate and replay evidence already attached to this artifact-backed path.')).toBeTruthy()
     expect(ui.getAllByText('Review Basis').length).toBeGreaterThan(0)
     expect(ui.getByText('This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.')).toBeTruthy()
     expect(ui.queryByTestId('workspace-section-research-tools')).toBeNull()
@@ -2932,7 +2948,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.getByText('Review basis: optimizer_handoff_123')).toBeTruthy()
     expect(ui.queryByTestId('workspace-section-candidate')).toBeNull()
     expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
-    expect(ui.getByText('Candidate review comes from the persisted optimizer handoff reopened by handoff reference.')).toBeTruthy()
+    expect(ui.getByText('Candidate review comes from the persisted optimizer handoff reopened by handoff reference. This read-only review already has what it needs. Next up: review the formation and replay evidence already attached to the reopened artifact.')).toBeTruthy()
     expect(ui.queryByTestId('workspace-section-research-tools')).toBeNull()
   })
 

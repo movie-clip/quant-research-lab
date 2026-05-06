@@ -1588,6 +1588,27 @@ function workflowStatusCardClass(status: WorkflowSectionStatus) {
   return 'metric-card-neutral'
 }
 
+function formatWorkflowTaskGuidance({
+  summary,
+  missing,
+  unlocksNext,
+}: {
+  summary: string
+  missing: string
+  unlocksNext: string
+}) {
+  if (missing.startsWith('nothing ')) {
+    return `${summary} Nothing else is needed right now. Next up: ${unlocksNext}.`
+  }
+  if (missing === 'proposal recording is intentionally disabled in this read-only mode') {
+    return `${summary} Proposal recording stays unavailable in this read-only review. Next up: ${unlocksNext}.`
+  }
+  if (missing.startsWith('no additional ')) {
+    return `${summary} This read-only review already has what it needs. Next up: ${unlocksNext}.`
+  }
+  return `${summary} Missing now: ${missing}. Unlocks next: ${unlocksNext}.`
+}
+
 function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
   const hasCurrentPortfolio = Boolean(props.analysis || props.draftSnapshot)
   const artifactMode = isArtifactReviewMode(props)
@@ -1659,102 +1680,242 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
       title: 'Current Portfolio',
       value: workflowStatusLabel(hasCurrentPortfolio ? 'ready' : 'blocked'),
       detail: hasCurrentPortfolio
-        ? artifactMode ? 'Artifact review basis is available.' : 'Portfolio basis is available.'
-        : 'Import or restore a portfolio basis.',
+        ? formatWorkflowTaskGuidance({
+          summary: artifactMode ? 'Artifact review basis is available.' : 'Portfolio basis is available.',
+          missing: artifactMode ? 'no additional current-portfolio input for this reopened review basis' : 'nothing at the portfolio-basis step',
+          unlocksNext: artifactMode ? 'review the candidate and replay evidence already attached to this artifact-backed path' : 'candidate selection and replacement-intent work',
+        })
+        : formatWorkflowTaskGuidance({
+          summary: 'Portfolio basis is not loaded.',
+          missing: 'an imported or restored portfolio basis',
+          unlocksNext: 'candidate selection once current portfolio truth is available',
+        }),
     },
     {
       key: 'candidate-idea-status',
       title: 'Candidate Idea',
       value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked'),
       detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'Candidate review comes from the persisted optimizer handoff reopened by handoff reference.' : 'Candidate review comes from the persisted construction artifact payload.'
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'Candidate review comes from the persisted optimizer handoff reopened by handoff reference.' : 'Candidate review comes from the persisted construction artifact payload.',
+           missing: 'no additional candidate-selection input in this read-only mode',
+           unlocksNext: 'review the formation and replay evidence already attached to the reopened artifact',
+         })
         : hasReplacementIntent
-        ? 'A replacement intent is attached and ready for replay.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'A replacement intent is attached and ready for replay review.',
+          missing: 'nothing at the candidate-idea step',
+          unlocksNext: 'candidate formation for the active hypothetical path',
+        })
         : hasCandidateSeed
-          ? 'A candidate seed exists; promote it into an explicit replacement intent next.'
-          : 'No seeded candidate is attached yet; use ETF Ranking to choose one.',
+          ? formatWorkflowTaskGuidance({
+            summary: 'A candidate seed exists for this workflow.',
+            missing: 'an explicit replacement intent',
+            unlocksNext: 'candidate formation after the seed is promoted',
+          })
+          : formatWorkflowTaskGuidance({
+            summary: 'No seeded candidate is attached yet.',
+            missing: 'a seeded candidate or explicit replacement intent',
+            unlocksNext: 'the hypothetical path once ETF Ranking provides a candidate',
+          }),
     },
     {
       key: 'candidate-formation-status',
       title: 'Candidate Formation',
       value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked'),
       detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'Formation is already embedded in the persisted optimizer handoff review lineage reopened by handoff reference.' : 'Formation is already embedded in the persisted construction artifact review lineage.'
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'Formation is already embedded in the persisted optimizer handoff review lineage reopened by handoff reference.' : 'Formation is already embedded in the persisted construction artifact review lineage.',
+           missing: 'no additional formation task in this read-only mode',
+           unlocksNext: 'review the construction and replay lineage already reopened in workspace',
+         })
         : hasFormedCandidate
-        ? 'A formed candidate artifact is available for review-only replay handoff.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'A formed candidate artifact is available for review-only replay handoff.',
+          missing: 'nothing at candidate formation',
+          unlocksNext: 'construction for the active rule selection',
+        })
         : hasRejectedFormation
-          ? 'Candidate formation rejected the active replacement intent.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'Candidate formation rejected the active replacement intent.',
+            missing: 'a formable replacement intent',
+            unlocksNext: 'construction after formation succeeds',
+          })
           : hasReplacementIntent
-            ? 'The workflow can form a review-only candidate next.'
-            : 'Create a replacement intent before candidate formation can run.',
+            ? formatWorkflowTaskGuidance({
+              summary: 'The workflow can form a review-only candidate now.',
+              missing: 'a formed candidate artifact',
+              unlocksNext: 'construction once formation completes',
+            })
+            : formatWorkflowTaskGuidance({
+              summary: 'Candidate formation cannot run yet.',
+              missing: 'an explicit replacement intent',
+              unlocksNext: 'candidate formation once the intent is created',
+            }),
     },
     {
       key: 'construction-rule-status',
       title: 'Construction Rule',
       value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked'),
       detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'The persisted optimizer handoff reference is the replay handoff under review.' : 'The persisted construction artifact is the replay handoff under review.'
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'The persisted optimizer handoff reference is the replay handoff under review.' : 'The persisted construction artifact is the replay handoff under review.',
+           missing: 'no additional construction rerun in this read-only mode',
+           unlocksNext: 'review constraint, replay, and diagnostics evidence from the reopened artifact',
+         })
         : hasConstructedCandidate
-        ? `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`
+        ? formatWorkflowTaskGuidance({
+          summary: `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`,
+          missing: 'nothing at the construction step',
+          unlocksNext: 'construction-constraint validation for this handoff',
+        })
         : hasRejectedConstruction
-          ? 'Construction rule rejected the active replacement intent.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'Construction rule rejected the active replacement intent.',
+            missing: `a constructible candidate for ${props.selectedConstructionRuleId}`,
+            unlocksNext: 'constraint validation after construction succeeds',
+          })
           : hasStaleConstruction
-            ? `The selected construction rule is ${props.selectedConstructionRuleId}; rerun construction because the saved artifact is stale.`
+            ? formatWorkflowTaskGuidance({
+              summary: `The selected construction rule is ${props.selectedConstructionRuleId}, but the saved construction artifact is stale.`,
+              missing: `a fresh construction artifact for ${props.selectedConstructionRuleId}`,
+              unlocksNext: 'constraint validation for the current rule selection',
+            })
           : hasFormedCandidate
-            ? `The workflow can build review-only construction output next with ${props.selectedConstructionRuleId}.`
-            : 'Form a valid candidate before the construction rule can run.',
+            ? formatWorkflowTaskGuidance({
+              summary: `The workflow can build review-only construction output now with ${props.selectedConstructionRuleId}.`,
+              missing: `a construction artifact for ${props.selectedConstructionRuleId}`,
+              unlocksNext: 'construction-constraint validation once construction completes',
+            })
+            : formatWorkflowTaskGuidance({
+              summary: 'Construction cannot run yet.',
+              missing: 'a valid formed candidate artifact',
+              unlocksNext: 'construction once candidate formation succeeds',
+            }),
       },
     {
       key: 'construction-constraints-status',
       title: 'Construction Constraints',
       value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasPassingConstraintValidation ? 'ready' : hasBlockedConstraintValidation || hasRejectedConstraintValidation ? 'blocked' : hasConstructedCandidate ? 'in_progress' : 'blocked'),
       detail: artifactMode
-         ? 'Truth-separation and persisted replay provenance are available for review from the artifact payload.'
+         ? formatWorkflowTaskGuidance({
+           summary: 'Truth-separation and persisted replay provenance are available for review from the artifact payload.',
+           missing: 'no additional constraint-validation task in this read-only mode',
+           unlocksNext: 'review the reopened replay evidence already backed by the artifact lineage',
+         })
         : hasPassingConstraintValidation
-        ? 'Constraint validation passed for the current constructed candidate and replay can use that handoff.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'Constraint validation passed for the current constructed candidate and replay can use that handoff.',
+          missing: 'nothing at the constraint-validation step',
+          unlocksNext: 'the hypothetical replay run',
+        })
         : hasBlockedConstraintValidation
-          ? 'Constraint validation blocked the current constructed candidate, so replay remains unavailable.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'Constraint validation blocked the current constructed candidate, so replay remains unavailable.',
+            missing: 'a constraint-compliant construction handoff',
+            unlocksNext: 'the hypothetical replay once constraints pass',
+          })
           : hasRejectedConstraintValidation
-            ? 'Constraint validation rejected the current constructed candidate and replay remains unavailable.'
+            ? formatWorkflowTaskGuidance({
+              summary: 'Constraint validation rejected the current constructed candidate and replay remains unavailable.',
+              missing: 'a safe-to-evaluate construction handoff',
+              unlocksNext: 'the hypothetical replay once validation succeeds',
+            })
             : hasConstructedCandidate
-              ? 'Run construction constraints next to validate the current constructed candidate before replay.'
-              : 'Build a valid constructed candidate before construction constraints can run.',
+              ? formatWorkflowTaskGuidance({
+                summary: 'Construction output is ready for constraint validation.',
+                missing: 'a constraint-validation result for the current constructed candidate',
+                unlocksNext: 'the hypothetical replay handoff',
+              })
+              : formatWorkflowTaskGuidance({
+                summary: 'Construction constraints cannot run yet.',
+                missing: 'a current accepted construction artifact',
+                unlocksNext: 'constraint validation once construction succeeds',
+              }),
     },
     {
       key: 'hypothetical-replay-status',
       title: 'Hypothetical Replay',
       value: workflowStatusLabel((artifactMode || props.hypotheticalReplayResult) ? 'ready' : hasPassingConstraintValidation ? 'in_progress' : 'blocked'),
       detail: artifactMode
-         ? 'Replay evidence is loaded from the artifact review basis.'
+         ? formatWorkflowTaskGuidance({
+           summary: 'Replay evidence is loaded from the artifact review basis.',
+           missing: 'no additional replay run inside this read-only mode',
+           unlocksNext: 'review diagnostics and artifact-backed replay evidence already in workspace',
+         })
         : props.hypotheticalReplayResult
-        ? 'A draft-only hypothetical replay is available for review.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'A draft-only hypothetical replay is available for review.',
+          missing: 'nothing at the replay step',
+          unlocksNext: 'diagnostics review and saved-proposal recording',
+        })
         : hasPassingConstraintValidation
-          ? 'The workflow can run a hypothetical replay next from the validated construction handoff.'
-          : 'Construction constraints must pass before hypothetical replay can run.',
+          ? formatWorkflowTaskGuidance({
+            summary: 'The workflow can run a hypothetical replay now from the validated construction handoff.',
+            missing: 'replay evidence for the current validated handoff',
+            unlocksNext: 'diagnostics review and proposal recording',
+          })
+          : formatWorkflowTaskGuidance({
+            summary: 'Hypothetical replay cannot run yet.',
+            missing: 'passed construction constraints',
+            unlocksNext: 'the hypothetical replay once constraint validation passes',
+          }),
     },
     {
       key: 'diagnostics-change-status',
       title: 'Diagnostics Change',
       value: workflowStatusLabel((artifactMode || hasDiagnostics) ? 'ready' : hasReplay ? 'in_progress' : 'blocked'),
       detail: artifactMode
-         ? 'Diagnostics change comes from the replay attached to the artifact review basis.'
+         ? formatWorkflowTaskGuidance({
+           summary: 'Diagnostics change comes from the replay attached to the artifact review basis.',
+           missing: 'no additional diagnostics-generation task in this read-only mode',
+           unlocksNext: 'artifact-backed diagnostics review from the loaded replay',
+         })
         : hasDiagnostics
-        ? 'Diagnostics delta review is available from the active replay.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'Diagnostics delta review is available from the active replay.',
+          missing: 'nothing at the diagnostics step',
+          unlocksNext: 'proposal recording if you want an immutable review artifact',
+        })
         : hasReplay
-          ? 'Replay exists, but diagnostics comparison is not available yet.'
-          : 'Run a replay before diagnostics change can be reviewed.',
+          ? formatWorkflowTaskGuidance({
+            summary: 'Replay exists, but diagnostics comparison is not available yet.',
+            missing: 'diagnostics comparison output from replay',
+            unlocksNext: 'diagnostics review once the replay includes diagnostics deltas',
+          })
+          : formatWorkflowTaskGuidance({
+            summary: 'Diagnostics change cannot be reviewed yet.',
+            missing: 'hypothetical replay evidence',
+            unlocksNext: 'diagnostics review after replay runs',
+          }),
     },
     {
       key: 'saved-proposal-status',
       title: 'Saved Proposal',
       value: artifactMode ? workflowStatusLabel('blocked') : workflowStatusLabel(hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked'),
       detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'Saved proposal flows are not exposed in persisted optimizer handoff review mode.' : 'Saved proposal flows are not exposed in persisted construction artifact review mode.'
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'Saved proposal flows are not exposed in persisted optimizer handoff review mode.' : 'Saved proposal flows are not exposed in persisted construction artifact review mode.',
+           missing: 'proposal recording is intentionally disabled in this read-only mode',
+           unlocksNext: 'open and review the existing artifact-backed evidence only',
+         })
         : hasSavedProposal
-        ? 'An immutable proposal artifact has been recorded for this workflow.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'An immutable proposal artifact has been recorded for this workflow.',
+          missing: 'nothing at the proposal-recording step',
+          unlocksNext: 'saved-proposal reopen, comparison, or thesis-promotion review',
+        })
         : props.hypotheticalReplayResult
-          ? 'A replay review is available; save it to record a proposal artifact.'
-          : 'No saved proposal exists yet; review a hypothetical replay first.',
+          ? formatWorkflowTaskGuidance({
+            summary: 'A replay review is available and can be saved as a proposal artifact.',
+            missing: 'a saved proposal artifact',
+            unlocksNext: 'saved-proposal reopen and comparison flows',
+          })
+          : formatWorkflowTaskGuidance({
+            summary: 'No saved proposal exists yet.',
+            missing: 'a completed hypothetical replay review',
+            unlocksNext: 'proposal recording after replay review exists',
+          }),
     },
   ]
 }
