@@ -2,10 +2,18 @@ import { useMemo, useState } from 'react'
 
 import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { BacktestRunResponse } from '../portfolio/types'
+import {
+  applySessionStateUpdate,
+  createStrategyBacktestPanelState,
+  type SessionStateUpdate,
+  type StrategyBacktestPanelState,
+} from '../portfolio/workspaceResearchSessionState'
 
 type Props = {
   backtestResult: BacktestRunResponse | null
   onBacktestResult: (result: BacktestRunResponse) => void
+  sessionState?: StrategyBacktestPanelState
+  onSessionStateChange?: (update: SessionStateUpdate<StrategyBacktestPanelState>) => void
 }
 
 function parseUniverse(value: string) {
@@ -22,16 +30,27 @@ function investorEconomicsHelper(status: BacktestRunResponse['investor_economics
   return 'Investor-performance metrics are available on this run.'
 }
 
-export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Props) {
+export function StrategyBacktestPanel({ backtestResult, onBacktestResult, sessionState, onSessionStateChange }: Props) {
   const apiBase = useMemo(() => '/api', [])
-  const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
-  const [strategyId, setStrategyId] = useState('book_trend_breakout')
-  const [universe, setUniverse] = useState('ES,NQ,CL')
-  const [startDate, setStartDate] = useState('2024-01-01')
-  const [endDate, setEndDate] = useState('2024-12-31')
-  const [initialCapital, setInitialCapital] = useState('100000')
-  const [backtestLoading, setBacktestLoading] = useState(false)
-  const [backtestError, setBacktestError] = useState<string | null>(null)
+  const [internalSessionState, setInternalSessionState] = useState<StrategyBacktestPanelState>(() => createStrategyBacktestPanelState())
+  const resolvedSessionState = sessionState ?? internalSessionState
+  const setSessionState = (update: SessionStateUpdate<StrategyBacktestPanelState>) => {
+    if (onSessionStateChange) {
+      onSessionStateChange(update)
+      return
+    }
+    setInternalSessionState((current) => applySessionStateUpdate(current, update))
+  }
+  const {
+    benchmarkSymbol,
+    strategyId,
+    universe,
+    startDate,
+    endDate,
+    initialCapital,
+    backtestLoading,
+    backtestError,
+  } = resolvedSessionState
 
   const sourceSummary = useMemo(() => {
     if (!backtestResult) return null
@@ -55,24 +74,23 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
     const capital = Number(initialCapital)
 
     if (!parsedUniverse.length) {
-      setBacktestError('Please enter at least one symbol in the backtest universe.')
+      setSessionState((current) => ({ ...current, backtestError: 'Please enter at least one symbol in the backtest universe.' }))
       return
     }
     if (!startDate || !endDate) {
-      setBacktestError('Please provide both a start date and an end date.')
+      setSessionState((current) => ({ ...current, backtestError: 'Please provide both a start date and an end date.' }))
       return
     }
     if (endDate < startDate) {
-      setBacktestError('End date must be on or after start date.')
+      setSessionState((current) => ({ ...current, backtestError: 'End date must be on or after start date.' }))
       return
     }
     if (!Number.isFinite(capital) || capital <= 0) {
-      setBacktestError('Initial capital must be a positive number.')
+      setSessionState((current) => ({ ...current, backtestError: 'Initial capital must be a positive number.' }))
       return
     }
 
-    setBacktestLoading(true)
-    setBacktestError(null)
+    setSessionState((current) => ({ ...current, backtestLoading: true, backtestError: null }))
 
     try {
       const response = await fetch(`${apiBase}/backtests/run`, {
@@ -93,9 +111,9 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
       }
       onBacktestResult((await response.json()) as BacktestRunResponse)
     } catch (caughtError) {
-      setBacktestError(caughtError instanceof Error ? caughtError.message : 'Backtest failed')
+      setSessionState((current) => ({ ...current, backtestError: caughtError instanceof Error ? caughtError.message : 'Backtest failed' }))
     } finally {
-      setBacktestLoading(false)
+      setSessionState((current) => ({ ...current, backtestLoading: false }))
     }
   }
 
@@ -110,36 +128,36 @@ export function StrategyBacktestPanel({ backtestResult, onBacktestResult }: Prop
         <div className="split-grid compact-split-grid">
           <label className="field-group">
             <span className="field-label">Strategy Id</span>
-            <select className="path-input" value={strategyId} onChange={(event) => setStrategyId(event.target.value)}>
+            <select className="path-input" value={strategyId} onChange={(event) => setSessionState((current) => ({ ...current, strategyId: event.target.value }))}>
               <option value="book_trend_breakout">Book Trend Breakout</option>
               <option value="book_ma_filter">Book Moving Average Filter</option>
             </select>
           </label>
           <label className="field-group">
             <span className="field-label">Benchmark Symbol</span>
-            <input className="path-input" value={benchmarkSymbol} onChange={(event) => setBenchmarkSymbol(event.target.value.toUpperCase())} />
+            <input className="path-input" value={benchmarkSymbol} onChange={(event) => setSessionState((current) => ({ ...current, benchmarkSymbol: event.target.value.toUpperCase() }))} />
           </label>
         </div>
 
         <label className="field-group">
           <span className="field-label">Universe</span>
-          <input className="path-input" value={universe} onChange={(event) => setUniverse(event.target.value)} placeholder="ES,NQ,CL" />
+          <input className="path-input" value={universe} onChange={(event) => setSessionState((current) => ({ ...current, universe: event.target.value }))} placeholder="ES,NQ,CL" />
         </label>
 
         <div className="split-grid compact-split-grid">
           <label className="field-group">
             <span className="field-label">Start Date</span>
-            <input className="path-input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+            <input className="path-input" type="date" value={startDate} onChange={(event) => setSessionState((current) => ({ ...current, startDate: event.target.value }))} />
           </label>
           <label className="field-group">
             <span className="field-label">End Date</span>
-            <input className="path-input" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+            <input className="path-input" type="date" value={endDate} onChange={(event) => setSessionState((current) => ({ ...current, endDate: event.target.value }))} />
           </label>
         </div>
 
         <label className="field-group">
           <span className="field-label">Initial Capital</span>
-          <input className="path-input" inputMode="decimal" value={initialCapital} onChange={(event) => setInitialCapital(event.target.value)} />
+          <input className="path-input" inputMode="decimal" value={initialCapital} onChange={(event) => setSessionState((current) => ({ ...current, initialCapital: event.target.value }))} />
         </label>
 
         <div className="actions">

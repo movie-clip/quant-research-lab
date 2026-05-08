@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import {
+  applySessionStateUpdate,
+  createEtfRankingPanelState,
+  type EtfRankingPanelState,
+  type SessionStateUpdate,
+} from '../portfolio/workspaceResearchSessionState'
 import type {
+  ConstructionArtifactRunResponse,
+  ConstructionDiscoveredPolicy,
+  ConstructionRankingArtifactPreflightResponse,
   EtfRankingArtifact,
   EtfRankingArtifactRecentMetadata,
   EtfRankingArtifactRecentRow,
@@ -9,9 +18,92 @@ import type {
   RankingArtifactPreflightResponse,
 } from '../portfolio/types'
 import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, IntentBoundSeededEtfReplacementRankingCandidateSnapshot } from '../portfolio/workspaceTypes'
+import {
+  buildConstructionPolicyRunInput,
+  getConstructionLaunchPolicyReadback,
+  RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+  useConstructionPolicyCatalog,
+} from '../backtest/constructionPolicyCatalog'
+import {
+  DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+  DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
+  validateRankingConstructionPositionWeightInputs,
+} from '../backtest/rankingConstructionMaxPositionWeight'
+import { runRankingArtifactConstructionHandoff } from '../backtest/rankingArtifactConstructionHandoff'
 
 const PEER_GROUP_OPTIONS = ['Sector UCITS ETF', 'Bond UCITS ETF', 'Broad Market UCITS ETF', 'Thematic UCITS ETF', 'Commodity UCITS ETF']
 const COMPONENT_ORDER = ['momentum', 'benchmark_relative_strength', 'realized_volatility', 'downside_volatility', 'max_drawdown', 'liquidity', 'implementation_fit'] as const
+
+type GeneralizedRankingRecentResponse = {
+  items?: Array<{
+    artifact_kind?: unknown
+    artifact_id?: unknown
+    ranking_id?: unknown
+    methodology_id?: unknown
+    as_of_date?: unknown
+    ranking_basis_date?: unknown
+    etf_summary?: {
+      benchmark_symbol?: unknown
+      lookback_months?: unknown
+      effective_peer_group?: unknown
+      universe_size?: unknown
+      evaluated_universe_size?: unknown
+      confidence?: unknown
+    } | null
+    replacement_summary?: unknown
+  }>
+  metadata?: {
+    applied_filters?: {
+      artifact_kind?: unknown
+    }
+  }
+}
+
+function parseEtfRecentRunsFromGeneralizedResponse(payload: GeneralizedRankingRecentResponse): EtfRankingArtifactRecentRow[] {
+  if (payload.metadata?.applied_filters?.artifact_kind !== 'etf_ranking') {
+    throw new Error('Recent ETF ranking runs returned unsupported discovery scope')
+  }
+  if (!Array.isArray(payload.items)) {
+    throw new Error('Recent ETF ranking runs returned malformed discovery payload')
+  }
+  return payload.items.map((item) => {
+    if (item.artifact_kind !== 'etf_ranking') {
+      throw new Error('Recent ETF ranking runs returned non-ETF artifact rows')
+    }
+    if (item.replacement_summary != null || !item.etf_summary) {
+      throw new Error('Recent ETF ranking runs returned malformed ETF summaries')
+    }
+    const summary = item.etf_summary
+    if (
+      typeof item.artifact_id !== 'string'
+      || typeof item.ranking_id !== 'string'
+      || typeof item.methodology_id !== 'string'
+      || typeof item.as_of_date !== 'string'
+      || typeof item.ranking_basis_date !== 'string'
+      || typeof summary.benchmark_symbol !== 'string'
+      || typeof summary.lookback_months !== 'number'
+      || !(typeof summary.effective_peer_group === 'string' || summary.effective_peer_group === null)
+      || typeof summary.universe_size !== 'number'
+      || typeof summary.evaluated_universe_size !== 'number'
+      || !['high', 'medium', 'low'].includes(String(summary.confidence))
+    ) {
+      throw new Error('Recent ETF ranking runs returned invalid ETF row metadata')
+    }
+    return {
+      artifact_id: item.artifact_id,
+      ranking_id: item.ranking_id,
+      methodology_id: item.methodology_id,
+      as_of_date: item.as_of_date,
+      ranking_basis_date: item.ranking_basis_date,
+      benchmark_symbol: summary.benchmark_symbol,
+      lookback_months: summary.lookback_months,
+      universe_size: summary.universe_size,
+      evaluated_universe_size: summary.evaluated_universe_size,
+      effective_peer_group: summary.effective_peer_group,
+      confidence: summary.confidence as 'high' | 'medium' | 'low',
+    }
+  })
+}
 
 function formatNumber(value: number | null | undefined, digits = 2) {
   return value == null ? 'n/a' : value.toFixed(digits)
@@ -207,32 +299,76 @@ function buildIntentBoundSeededRankingArtifact(
 
 type EtfRankingPanelProps = {
   draftSymbols?: string[]
+  currentPortfolio?: {
+    artifact_id: string
+    as_of_timestamp: string
+    weights: Array<{ symbol: string; weight: number }>
+  } | null
   onSeedCandidateDraft?: (input: { seed: CandidateImprovementSeed; rankingArtifact: IntentBoundSeededEtfReplacementRankingDraftArtifactInput | null }) => void
+  onReviewInConstruction?: (input: {
+    rankingArtifactId: string
+    preflight: ConstructionRankingArtifactPreflightResponse
+    run: ConstructionArtifactRunResponse
+  }) => void | Promise<void>
+  requestedRecentArtifactId?: string | null
+  onConsumeRequestedRecentArtifactId?: () => void
+  sessionState?: EtfRankingPanelState
+  onSessionStateChange?: (update: SessionStateUpdate<EtfRankingPanelState>) => void
 }
 
-export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: EtfRankingPanelProps) {
+function policyNameForReview(policyId: string, policies: ConstructionDiscoveredPolicy[]) {
+  return policies.find((policy) => policy.policy_id === policyId)?.name ?? policyId
+}
+
+function formatConstructionPolicyReadback(
+  selectedConstructionPolicyId: string,
+  policies: ConstructionDiscoveredPolicy[],
+) {
+  const readback = getConstructionLaunchPolicyReadback(selectedConstructionPolicyId, policies)
+  if (!readback) return null
+  return `${readback.policyName} (${readback.statusLabel}); fixed top_n=${readback.topN}; requires ${readback.requiredConstraint}; optional ${readback.optionalConstraints.join(', ')}`
+}
+
+export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, onSeedCandidateDraft, onReviewInConstruction, requestedRecentArtifactId = null, onConsumeRequestedRecentArtifactId, sessionState, onSessionStateChange }: EtfRankingPanelProps) {
   const apiBase = useMemo(() => '/api', [])
   const resultRequestOwnerRef = useRef(0)
-  const [universe, setUniverse] = useState('IUFS,IUHC,VDST,VUAA')
-  const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
-  const [lookbackMonths, setLookbackMonths] = useState('6')
-  const [peerGroup, setPeerGroup] = useState('Sector UCITS ETF')
-  const [runLoading, setRunLoading] = useState(false)
-  const [runError, setRunError] = useState<string | null>(null)
-  const [result, setResult] = useState<EtfRankingArtifact | null>(null)
-  const [resultSource, setResultSource] = useState<'fresh' | 'recent' | null>(null)
-  const [recentMetadataLoading, setRecentMetadataLoading] = useState(false)
-  const [recentMetadataError, setRecentMetadataError] = useState<string | null>(null)
-  const [recentMetadata, setRecentMetadata] = useState<EtfRankingArtifactRecentMetadata | null>(null)
-  const [selectedRecentPeerGroup, setSelectedRecentPeerGroup] = useState('')
-  const [recentRunsLoading, setRecentRunsLoading] = useState(false)
-  const [recentRunsError, setRecentRunsError] = useState<string | null>(null)
-  const [recentRuns, setRecentRuns] = useState<EtfRankingArtifactRecentRow[]>([])
-  const [artifactLoadingId, setArtifactLoadingId] = useState<string | null>(null)
-  const [artifactLoadError, setArtifactLoadError] = useState<string | null>(null)
-  const [seedTarget, setSeedTarget] = useState<EtfRankingResponse['ranked_universe'][number] | null>(null)
-  const [selectedBaseSymbol, setSelectedBaseSymbol] = useState('')
-  const [seedSuccess, setSeedSuccess] = useState<string | null>(null)
+  const [internalSessionState, setInternalSessionState] = useState<EtfRankingPanelState>(() => createEtfRankingPanelState())
+  const [constructionReviewLoadingId, setConstructionReviewLoadingId] = useState<string | null>(null)
+  const [constructionReviewError, setConstructionReviewError] = useState<string | null>(null)
+  const [selectedConstructionPolicyId, setSelectedConstructionPolicyId] = useState<string>('')
+  const resolvedSessionState = sessionState ?? internalSessionState
+  const constructionPolicyCatalog = useConstructionPolicyCatalog(apiBase)
+  const setSessionState = (update: SessionStateUpdate<EtfRankingPanelState>) => {
+    if (onSessionStateChange) {
+      onSessionStateChange(update)
+      return
+    }
+    setInternalSessionState((current) => applySessionStateUpdate(current, update))
+  }
+  const {
+    universe,
+    benchmarkSymbol,
+    lookbackMonths,
+    peerGroup,
+    constructionMaxPositionWeight,
+    constructionMinPositionWeight,
+    runLoading,
+    runError,
+    result,
+    resultSource,
+    recentMetadataLoading,
+    recentMetadataError,
+    recentMetadata,
+    selectedRecentPeerGroup,
+    recentRunsLoading,
+    recentRunsError,
+    recentRuns,
+    artifactLoadingId,
+    artifactLoadError,
+    seedTarget,
+    selectedBaseSymbol,
+    seedSuccess,
+  } = resolvedSessionState
 
   const rankedUniverse = result?.ranked_universe ?? []
   const winner = rankedUniverse[0] ?? null
@@ -243,40 +379,75 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
   const resolvedSourceStatus = result ? rankingSourceStatus(result) : null
   const resolvedExcludedSymbols = result ? rankingExcludedSymbols(result) : []
   const incumbentOptions = useMemo(() => Array.from(new Set(draftSymbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))).sort(), [draftSymbols])
+  const resolvedConstructionMaxPositionWeight = constructionMaxPositionWeight ?? DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT
+  const resolvedConstructionMinPositionWeight = constructionMinPositionWeight ?? DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT
+
+  const constructionPositionWeightValidation = useMemo(
+    () => validateRankingConstructionPositionWeightInputs({
+      maxPositionWeightInput: resolvedConstructionMaxPositionWeight,
+      minPositionWeightInput: resolvedConstructionMinPositionWeight,
+    }),
+    [resolvedConstructionMaxPositionWeight, resolvedConstructionMinPositionWeight],
+  )
+  const constructionMaxPositionWeightValidation = constructionPositionWeightValidation.maxPositionWeight
+  const constructionMinPositionWeightValidation = constructionPositionWeightValidation.minPositionWeight
+  const selectedConstructionPolicyReadback = useMemo(
+    () => formatConstructionPolicyReadback(selectedConstructionPolicyId, constructionPolicyCatalog.policies),
+    [constructionPolicyCatalog.policies, selectedConstructionPolicyId],
+  )
+
+  useEffect(() => {
+    if (constructionPolicyCatalog.status !== 'ready') return
+    setSelectedConstructionPolicyId((current) => {
+      if (current && constructionPolicyCatalog.policies.some((policy) => policy.policy_id === current)) {
+        return current
+      }
+      return constructionPolicyCatalog.defaultPolicyId ?? ''
+    })
+  }, [constructionPolicyCatalog.defaultPolicyId, constructionPolicyCatalog.policies, constructionPolicyCatalog.status])
 
   async function loadRecentMetadata() {
-    setRecentMetadataLoading(true)
-    setRecentMetadataError(null)
+    setSessionState((current) => ({ ...current, recentMetadataLoading: true, recentMetadataError: null }))
     try {
       const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/recent/metadata`)
       const payload = await readJsonResponse<EtfRankingArtifactRecentMetadata>(response, 'Recent ETF ranking metadata is unavailable')
-      setRecentMetadata(payload)
-      if (selectedRecentPeerGroup && !payload.available_effective_peer_groups.includes(selectedRecentPeerGroup)) {
-        setSelectedRecentPeerGroup('')
-      }
+      setSessionState((current) => ({
+        ...current,
+        recentMetadata: payload,
+        selectedRecentPeerGroup: current.selectedRecentPeerGroup && !payload.available_effective_peer_groups.includes(current.selectedRecentPeerGroup)
+          ? ''
+          : current.selectedRecentPeerGroup,
+      }))
     } catch (caught) {
-      setRecentMetadata(null)
-      setRecentMetadataError(caught instanceof Error ? caught.message : 'Recent ETF ranking metadata is unavailable')
+      setSessionState((current) => ({
+        ...current,
+        recentMetadata: null,
+        recentMetadataError: caught instanceof Error ? caught.message : 'Recent ETF ranking metadata is unavailable',
+      }))
     } finally {
-      setRecentMetadataLoading(false)
+      setSessionState((current) => ({ ...current, recentMetadataLoading: false }))
     }
   }
 
   async function loadRecentRuns(effectivePeerGroup: string) {
-    setRecentRunsLoading(true)
-    setRecentRunsError(null)
+    setSessionState((current) => ({ ...current, recentRunsLoading: true, recentRunsError: null }))
     try {
       const search = new URLSearchParams()
+      search.set('artifact_kind', 'etf_ranking')
       if (effectivePeerGroup) search.set('effective_peer_group', effectivePeerGroup)
       const query = search.toString()
-      const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/recent${query ? `?${query}` : ''}`)
-      const payload = await readJsonResponse<EtfRankingArtifactRecentRow[]>(response, 'Recent ETF ranking runs are unavailable')
-      setRecentRuns(payload)
+      const response = await fetch(`${apiBase}/strategy-lab/ranking-artifacts/recent?${query}`)
+      const payload = await readJsonResponse<GeneralizedRankingRecentResponse>(response, 'Recent ETF ranking runs are unavailable')
+      const recentRuns = parseEtfRecentRunsFromGeneralizedResponse(payload)
+      setSessionState((current) => ({ ...current, recentRuns }))
     } catch (caught) {
-      setRecentRuns([])
-      setRecentRunsError(caught instanceof Error ? caught.message : 'Recent ETF ranking runs are unavailable')
+      setSessionState((current) => ({
+        ...current,
+        recentRuns: [],
+        recentRunsError: caught instanceof Error ? caught.message : 'Recent ETF ranking runs are unavailable',
+      }))
     } finally {
-      setRecentRunsLoading(false)
+      setSessionState((current) => ({ ...current, recentRunsLoading: false }))
     }
   }
 
@@ -288,16 +459,25 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
     void loadRecentRuns(selectedRecentPeerGroup)
   }, [selectedRecentPeerGroup])
 
+  useEffect(() => {
+    if (!requestedRecentArtifactId) return
+    onConsumeRequestedRecentArtifactId?.()
+    void loadRecentArtifact(requestedRecentArtifactId)
+  }, [requestedRecentArtifactId])
+
   function beginResultRequest(nextSource: 'fresh' | 'recent', artifactId?: string) {
     const owner = resultRequestOwnerRef.current + 1
     resultRequestOwnerRef.current = owner
-    setRunLoading(nextSource === 'fresh')
-    setArtifactLoadingId(nextSource === 'recent' ? artifactId ?? null : null)
-    setRunError(null)
-    setArtifactLoadError(null)
-    setSeedTarget(null)
-    setSelectedBaseSymbol('')
-    setSeedSuccess(null)
+    setSessionState((current) => ({
+      ...current,
+      runLoading: nextSource === 'fresh',
+      artifactLoadingId: nextSource === 'recent' ? artifactId ?? null : null,
+      runError: null,
+      artifactLoadError: null,
+      seedTarget: null,
+      selectedBaseSymbol: '',
+      seedSuccess: null,
+    }))
     return owner
   }
 
@@ -320,18 +500,19 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
       })
       const payload = await readJsonResponse<EtfRankingArtifact>(response, 'ETF ranking request failed')
       if (!isActiveResultRequest(owner)) return
-      setResult(payload)
-      setResultSource('fresh')
-      setRunLoading(false)
+      setSessionState((current) => ({ ...current, result: payload, resultSource: 'fresh', runLoading: false }))
       void loadRecentMetadata()
       void loadRecentRuns(selectedRecentPeerGroup)
     } catch (caught) {
       if (!isActiveResultRequest(owner)) return
-      setRunError(caught instanceof Error ? caught.message : 'ETF ranking request failed')
-      setRunLoading(false)
+      setSessionState((current) => ({
+        ...current,
+        runError: caught instanceof Error ? caught.message : 'ETF ranking request failed',
+        runLoading: false,
+      }))
     } finally {
       if (isActiveResultRequest(owner)) {
-        setRunLoading(false)
+        setSessionState((current) => ({ ...current, runLoading: false }))
       }
     }
   }
@@ -351,24 +532,63 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
       const opened = await readJsonResponse<RankingArtifactOpenResponse>(openResponse, 'ETF ranking artifact could not be opened')
       const payload = resolveEtfRankingArtifactFromOpenResponse(preflight, opened)
       if (!isActiveResultRequest(owner)) return
-      setResult(payload)
-      setResultSource('recent')
-      setArtifactLoadingId(null)
+      setSessionState((current) => ({ ...current, result: payload, resultSource: 'recent', artifactLoadingId: null }))
     } catch (caught) {
       if (!isActiveResultRequest(owner)) return
-      setArtifactLoadError(caught instanceof Error ? caught.message : 'ETF ranking artifact could not be loaded')
-      setArtifactLoadingId(null)
+      setSessionState((current) => ({
+        ...current,
+        artifactLoadError: caught instanceof Error ? caught.message : 'ETF ranking artifact could not be loaded',
+        artifactLoadingId: null,
+      }))
     } finally {
       if (isActiveResultRequest(owner)) {
-        setArtifactLoadingId(null)
+        setSessionState((current) => ({ ...current, artifactLoadingId: null }))
       }
     }
   }
 
+  async function reviewRecentArtifactInConstruction(artifactId: string) {
+    if (constructionMaxPositionWeightValidation.value == null) {
+      setConstructionReviewError(constructionMaxPositionWeightValidation.error)
+      return
+    }
+    if (constructionMinPositionWeightValidation.error) {
+      setConstructionReviewError(constructionMinPositionWeightValidation.error)
+      return
+    }
+    if (!currentPortfolio) {
+      setConstructionReviewError('Review In Construction requires an active workspace draft and current portfolio.')
+      return
+    }
+    const selectedPolicy = buildConstructionPolicyRunInput(
+      selectedConstructionPolicyId,
+      RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+    )
+    if (!selectedPolicy) {
+      setConstructionReviewError('Review In Construction requires selecting a compatible construction policy.')
+      return
+    }
+    setConstructionReviewLoadingId(artifactId)
+    setConstructionReviewError(null)
+    try {
+      const handoff = await runRankingArtifactConstructionHandoff({
+        apiBase,
+        artifactId,
+        maxPositionWeight: constructionMaxPositionWeightValidation.value,
+        minPositionWeight: constructionMinPositionWeightValidation.value,
+        currentPortfolio,
+        policy: selectedPolicy,
+      })
+      await onReviewInConstruction?.({ rankingArtifactId: artifactId, preflight: handoff.preflight, run: handoff.run })
+    } catch (caught) {
+      setConstructionReviewError(caught instanceof Error ? caught.message : 'ETF ranking construction handoff failed')
+    } finally {
+      setConstructionReviewLoadingId(null)
+    }
+  }
+
   function openSeedDraftConfirmation(row: EtfRankingResponse['ranked_universe'][number]) {
-    setSeedTarget(row)
-    setSelectedBaseSymbol('')
-    setSeedSuccess(null)
+    setSessionState((current) => ({ ...current, seedTarget: row, selectedBaseSymbol: '', seedSuccess: null }))
   }
 
   function confirmSeedDraft() {
@@ -377,9 +597,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
       seed: buildCandidateImprovementSeed(result, seedTarget, selectedBaseSymbol),
       rankingArtifact: buildIntentBoundSeededRankingArtifact(result, seedTarget, selectedBaseSymbol),
     })
-    setSeedSuccess('Candidate draft created for review.')
-    setSeedTarget(null)
-    setSelectedBaseSymbol('')
+    setSessionState((current) => ({ ...current, seedSuccess: 'Candidate draft created for review.', seedTarget: null, selectedBaseSymbol: '' }))
   }
 
   return (
@@ -392,19 +610,19 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
         <div className="split-grid compact-split-grid strategy-lab-config-grid">
           <label className="field-group">
             <span className="field-label">ETF Universe</span>
-            <input className="path-input" value={universe} onChange={(event) => setUniverse(event.target.value)} />
+            <input className="path-input" value={universe} onChange={(event) => setSessionState((current) => ({ ...current, universe: event.target.value }))} />
           </label>
           <label className="field-group">
             <span className="field-label">Benchmark</span>
-            <input className="path-input" value={benchmarkSymbol} onChange={(event) => setBenchmarkSymbol(event.target.value)} />
+            <input className="path-input" value={benchmarkSymbol} onChange={(event) => setSessionState((current) => ({ ...current, benchmarkSymbol: event.target.value }))} />
           </label>
           <label className="field-group">
             <span className="field-label">Lookback (months)</span>
-            <input className="path-input" value={lookbackMonths} onChange={(event) => setLookbackMonths(event.target.value)} />
+            <input className="path-input" value={lookbackMonths} onChange={(event) => setSessionState((current) => ({ ...current, lookbackMonths: event.target.value }))} />
           </label>
           <label className="field-group">
             <span className="field-label">Peer Group</span>
-            <select className="path-input" value={peerGroup} onChange={(event) => setPeerGroup(event.target.value)}>
+            <select className="path-input" value={peerGroup} onChange={(event) => setSessionState((current) => ({ ...current, peerGroup: event.target.value }))}>
               {PEER_GROUP_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </label>
@@ -421,14 +639,34 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
           <div className="split-grid compact-split-grid strategy-lab-config-grid">
             <label className="field-group">
               <span className="field-label">Peer Group Filter</span>
-              <select className="path-input" value={selectedRecentPeerGroup} onChange={(event) => setSelectedRecentPeerGroup(event.target.value)} disabled={recentMetadataLoading}>
+              <select className="path-input" value={selectedRecentPeerGroup} onChange={(event) => setSessionState((current) => ({ ...current, selectedRecentPeerGroup: event.target.value }))} disabled={recentMetadataLoading}>
                 <option value="">All peer groups</option>
                 {(recentMetadata?.available_effective_peer_groups ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
+            <label className="field-group">
+              <span className="field-label">Construction Policy</span>
+              <select className="path-input" value={selectedConstructionPolicyId} onChange={(event) => setSelectedConstructionPolicyId(event.target.value)} disabled={constructionPolicyCatalog.status === 'loading' || constructionPolicyCatalog.status === 'error'}>
+                <option value="">Select compatible policy</option>
+                {constructionPolicyCatalog.policies.map((policy) => <option key={policy.policy_id} value={policy.policy_id}>{policy.name}</option>)}
+              </select>
+            </label>
+            <label className="field-group">
+              <span className="field-label">Max Position Weight</span>
+              <input aria-label="Max Position Weight" className="path-input" value={resolvedConstructionMaxPositionWeight} onChange={(event) => setSessionState((current) => ({ ...current, constructionMaxPositionWeight: event.target.value }))} />
+               <p className="helper">Decimal weight only. Must stay between 0.5 and 1 while the shipped ranking launch keeps top_n fixed at 2.</p>
+              {constructionMaxPositionWeightValidation.error ? <p className="helper">{constructionMaxPositionWeightValidation.error}</p> : null}
+            </label>
+            <label className="field-group">
+              <span className="field-label">Min Position Weight (optional)</span>
+              <input aria-label="Min Position Weight (optional)" className="path-input" value={resolvedConstructionMinPositionWeight} onChange={(event) => setSessionState((current) => ({ ...current, constructionMinPositionWeight: event.target.value }))} />
+              <p className="helper">Leave blank to omit. If set, use a decimal greater than 0 and up to 0.5, and no higher than max.</p>
+              {constructionMinPositionWeightValidation.error ? <p className="helper">{constructionMinPositionWeightValidation.error}</p> : null}
+            </label>
             <div className="field-group">
-              <span className="field-label">Discovery Source</span>
-              <p className="helper">Backend metadata routes define the filter list; recent open reuses typed preflight and open handoffs.</p>
+              <span className="field-label">Policy Source</span>
+              <p className="helper">Authoritative `/construction/policies` discovery defines the compatible review-only policy set and the fixed top_n=2 launch boundary.</p>
+              {selectedConstructionPolicyReadback ? <p className="helper">{selectedConstructionPolicyReadback}</p> : null}
             </div>
           </div>
           <div className="dashboard-edit-actions dashboard-edit-actions-compact">
@@ -455,6 +693,29 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
               <p className="empty-state-title">Recent artifact load failed.</p>
               <p className="helper">The selected persisted ranking artifact could not be opened.</p>
               <p className="helper">{artifactLoadError}</p>
+            </div>
+          ) : null}
+
+          {constructionReviewError ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Construction review handoff failed.</p>
+              <p className="helper">The selected ETF ranking artifact could not be handed into construction review.</p>
+              <p className="helper">{constructionReviewError}</p>
+            </div>
+          ) : null}
+
+          {constructionPolicyCatalog.status === 'loading' ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Loading construction policies.</p>
+              <p className="helper">Requesting authoritative compatible policy discovery for review-only construction.</p>
+            </div>
+          ) : null}
+
+          {constructionPolicyCatalog.status === 'error' ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Construction policies are unavailable.</p>
+              <p className="helper">Review In Construction is blocked until authoritative policy discovery succeeds.</p>
+              <p className="helper">{constructionPolicyCatalog.error}</p>
             </div>
           ) : null}
 
@@ -496,6 +757,22 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
               {recentRuns.map((item) => {
                 const isLoaded = resultSource === 'recent' && result?.artifact_id === item.artifact_id
                 const isLoadingArtifact = artifactLoadingId === item.artifact_id
+                const constructionReviewBlockedReason = constructionMaxPositionWeightValidation.error
+                  ?? constructionMinPositionWeightValidation.error
+                  ?? (!currentPortfolio
+                    ? 'Open a workspace with an authoritative current portfolio to review this ranking in construction'
+                    : null)
+                  ?? (constructionPolicyCatalog.status === 'error'
+                    ? constructionPolicyCatalog.error ?? 'Construction policy catalog unavailable'
+                    : constructionPolicyCatalog.status === 'loading'
+                      ? 'Loading construction policies...'
+                      : !selectedConstructionPolicyId
+                        ? 'Select a compatible construction policy'
+                        : null)
+                const selectedPolicyLabel = selectedConstructionPolicyId
+                  ? policyNameForReview(selectedConstructionPolicyId, constructionPolicyCatalog.policies)
+                  : null
+                const selectedPolicyReadback = selectedConstructionPolicyReadback
                 return (
                   <div className={`risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide ${isLoaded ? 'strategy-ranking-row-top' : ''}`} key={item.artifact_id}>
                     <span>{item.ranking_basis_date}</span>
@@ -506,7 +783,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                     <span>{item.universe_size}</span>
                     <span>{item.evaluated_universe_size}</span>
                     <span>{item.artifact_id}</span>
-                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><small>Open persisted result via typed handoff.</small></span>
+                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><button className={`secondary-button${constructionReviewLoadingId === item.artifact_id ? ' button-loading' : ''}`} type="button" onClick={() => void reviewRecentArtifactInConstruction(item.artifact_id)} disabled={constructionReviewLoadingId === item.artifact_id || constructionReviewBlockedReason != null} title={constructionReviewBlockedReason ?? 'Ready for construction review'}>{constructionReviewLoadingId === item.artifact_id ? 'Opening...' : 'Review In Construction'}</button><small>{constructionReviewBlockedReason ?? (selectedPolicyReadback ?? (selectedPolicyLabel ? `Ready for construction review with ${selectedPolicyLabel}` : 'Ready for construction review'))}</small></span>
                   </div>
                 )
               })}
@@ -560,7 +837,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                 <p className="helper">Carry the selected ETF and ranking context into a draft review.</p>
                 <label className="field-group">
                   <span className="field-label">Incumbent ETF</span>
-                  <select className="path-input" value={selectedBaseSymbol} onChange={(event) => setSelectedBaseSymbol(event.target.value)}>
+                    <select className="path-input" value={selectedBaseSymbol} onChange={(event) => setSessionState((current) => ({ ...current, selectedBaseSymbol: event.target.value }))}>
                     <option value="">Select incumbent ETF</option>
                     {incumbentOptions.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}
                   </select>
@@ -578,7 +855,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft }: Etf
                 </div>
                 <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
                   <button className="primary-button" type="button" onClick={confirmSeedDraft} disabled={!selectedBaseSymbol || selectedBaseSymbol === seedTarget.symbol}>Create Draft</button>
-                  <button className="secondary-button" type="button" onClick={() => { setSeedTarget(null); setSelectedBaseSymbol('') }}>Cancel</button>
+                  <button className="secondary-button" type="button" onClick={() => setSessionState((current) => ({ ...current, seedTarget: null, selectedBaseSymbol: '' }))}>Cancel</button>
                 </div>
                 {selectedBaseSymbol === seedTarget.symbol ? <p className="helper">Incumbent and candidate must be different symbols.</p> : null}
               </div>

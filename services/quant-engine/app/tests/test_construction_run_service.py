@@ -16,8 +16,11 @@ from app.schemas.construction import (
     ConstructionPolicyInput,
     ConstructionRunRequest,
 )
-from app.schemas.construction import EtfRankingArtifactConstructionHandoff
-from app.schemas.research import EtfRankingArtifact
+from app.schemas.construction import (
+    EtfRankingArtifactConstructionHandoff,
+    IntentBoundEtfReplacementRankingArtifactConstructionHandoff,
+)
+from app.schemas.research import EtfRankingArtifact, IntentBoundEtfReplacementRankingArtifact
 from app.services.construction_run_service import build_construction_run_request_from_ranking_artifact_handoff
 from app.services.construction_artifact_service import (
     ConstructionArtifactIntegrityValidationError,
@@ -32,8 +35,14 @@ from app.services.construction_artifact_service import (
 )
 from app.services import construction_policy_catalog
 from app.services.construction_run_service import build_construction_run
+from app.services.construction_run_service import (
+    build_construction_preflight_response_from_etf_ranking_artifact,
+    build_construction_preflight_response_from_replacement_ranking_artifact,
+)
 from app.services.strategy_lab import build_etf_ranking_analysis
 from app.services.etf_ranking_artifact_service import build_stable_etf_ranking_artifact
+from app.services.replacement_ranking import build_intent_bound_etf_replacement_ranking
+from app.services.replacement_ranking_artifact_service import build_stable_replacement_ranking_artifact
 
 
 def _request(
@@ -97,6 +106,106 @@ def _persisted_etf_ranking_artifact_for_construction():
     return build_stable_etf_ranking_artifact(ranking)
 
 
+def _persisted_replacement_ranking_artifact_for_construction() -> IntentBoundEtfReplacementRankingArtifact:
+    from app.schemas.research import (
+        IntentBoundEtfReplacementRankingRequest,
+        IntentBoundReplacementIntent,
+        IntentBoundSeedContext,
+        Instrument,
+    )
+    from app.services import replacement_ranking as replacement_ranking_module
+
+    class _FakeRegistry:
+        def __init__(self, instruments):
+            self._instruments = instruments
+
+        def get_instrument(self, symbol: str):
+            return self._instruments.get(symbol)
+
+    class _FakeMarketData:
+        def __init__(self, histories):
+            self._histories = histories
+
+        def get_historical_prices_for_symbols(self, symbols, from_date, to_date):  # noqa: ANN001
+            return {symbol: self._histories.get(symbol, []) for symbol in symbols}
+
+        def get_last_fetch_meta(self, symbol: str):
+            return {"resolved_symbol": symbol, "cached": True}
+
+    def _instrument(symbol: str) -> Instrument:
+        return Instrument(
+            instrument_id=f"instrument-{symbol.lower()}",
+            symbol=symbol,
+            name=symbol,
+            asset_class="etf",
+            kind="spot",
+            sector="Technology",
+            category="Sector UCITS ETF",
+            exchange="TEST",
+            currency="USD",
+        )
+
+    def _history(days: int, *, start_price: float = 100.0, step: float = 1.0, volume: float = 1000.0) -> list[dict]:
+        from datetime import date, timedelta
+
+        end = date(2025, 12, 31)
+        start = end - timedelta(days=days - 1)
+        rows: list[dict] = []
+        for index in range(days):
+            price = start_price + (index * step)
+            rows.append(
+                {
+                    "date": (start + timedelta(days=index)).isoformat(),
+                    "close": round(price, 6),
+                    "volume": volume,
+                    "adjClose": round(price, 6),
+                }
+            )
+        return rows
+
+    histories = {
+        "BASE": _history(260),
+        "ETF1": _history(260, step=0.5),
+        "ETF2": _history(260, step=0.25),
+    }
+    instruments = {symbol: _instrument(symbol) for symbol in histories}
+    original_registry = replacement_ranking_module.InstrumentRegistry
+    original_market_data = replacement_ranking_module.MarketDataService
+    replacement_ranking_module.InstrumentRegistry = lambda: _FakeRegistry(instruments)
+    replacement_ranking_module.MarketDataService = lambda: _FakeMarketData(histories)
+    try:
+        response = build_intent_bound_etf_replacement_ranking(
+            IntentBoundEtfReplacementRankingRequest(
+                replacement_intent=IntentBoundReplacementIntent(
+                    draft_id="draft-1",
+                    workspace_id="workspace-1",
+                    base_node_id="node-1",
+                    base_symbol="BASE",
+                    candidate_symbol="ETF1",
+                    seed_ranking_id="etf_ranking_engine_v1",
+                    seed_methodology_id="etf_ranking_methodology_v1",
+                    seed_ranking_basis_date="2025-12-31",
+                    peer_group="Sector UCITS ETF",
+                    benchmark_symbol="SPY",
+                    lookback_months=6,
+                ),
+                seed_context=IntentBoundSeedContext(
+                    ranking_id="etf_ranking_engine_v1",
+                    methodology_id="etf_ranking_methodology_v1",
+                    ranking_basis_date="2025-12-31",
+                    peer_group="Sector UCITS ETF",
+                    benchmark_symbol="SPY",
+                    lookback_months=6,
+                    seeded_symbols=["BASE", "ETF1", "ETF2"],
+                ),
+            )
+        )
+    finally:
+        replacement_ranking_module.InstrumentRegistry = original_registry
+        replacement_ranking_module.MarketDataService = original_market_data
+    return build_stable_replacement_ranking_artifact(response)
+
+
 def _handoff_supporting_inputs(
     artifact: EtfRankingArtifact,
 ) -> tuple[ConstructionCurrentPortfolioInput, ConstructionPolicyInput, ConstructionHardConstraints]:
@@ -124,6 +233,65 @@ def _inline_request_from_etf_ranking_artifact(artifact) -> ConstructionRunReques
     return ConstructionRunRequest.model_validate(
         {
             "request_id": "construction-artifact-handoff-parity",
+            "ranked_universe": {
+                "artifact_id": artifact.artifact_id,
+                "ranking_id": artifact.ranking_id,
+                "methodology_id": artifact.run_metadata.methodology_id,
+                "as_of_date": artifact.run_metadata.as_of_date,
+                "ranked_candidates": ranked_candidates,
+            },
+            "current_portfolio": {
+                "artifact_id": "portfolio_snapshot_1",
+                "as_of_timestamp": "2026-04-23T09:30:00",
+                "weights": current_weights,
+            },
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 2},
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+            },
+        }
+    )
+
+
+def _inline_request_from_replacement_ranking_artifact(
+    artifact: IntentBoundEtfReplacementRankingArtifact,
+) -> ConstructionRunRequest:
+    eligible_rows = sorted(
+        [row for row in artifact.ranked_candidates if row.rank is not None],
+        key=lambda row: (row.rank or 10**9, row.symbol),
+    )
+    top_symbols = [row.symbol for row in eligible_rows[:2]]
+    trailing_symbol = eligible_rows[2].symbol if len(eligible_rows) > 2 else top_symbols[-1]
+    current_weights = [
+        {"symbol": top_symbols[1], "weight": 0.4},
+        {"symbol": trailing_symbol, "weight": 0.35},
+        {"symbol": "GLD", "weight": 0.25},
+    ]
+    ranked_candidates = [
+        {
+            "symbol": row.symbol,
+            "rank": row.rank,
+            "eligible": True,
+            "score": row.composite_score,
+        }
+        for row in eligible_rows
+    ] + [
+        {
+            "symbol": row.symbol,
+            "rank": row.rank,
+            "eligible": False,
+            "score": row.composite_score,
+            "exclusion_reason": row.exclusion_reason,
+        }
+        for row in artifact.excluded_candidates
+        if row.rank is not None
+    ]
+    return ConstructionRunRequest.model_validate(
+        {
+            "request_id": "construction-artifact-handoff-parity-replacement",
             "ranked_universe": {
                 "artifact_id": artifact.artifact_id,
                 "ranking_id": artifact.ranking_id,
@@ -1516,6 +1684,34 @@ def test_handoff_backed_construction_run_matches_inline_construction_outputs(tmp
     assert handoff_result.status == inline_result.status
 
 
+def test_etf_construction_preflight_returns_ineligible_response_for_valid_but_empty_ranked_universe() -> None:
+    artifact = _persisted_etf_ranking_artifact_for_construction().model_copy(update={"ranked_universe": []})
+
+    response = build_construction_preflight_response_from_etf_ranking_artifact(artifact)
+
+    assert response.artifact.artifact_kind == "etf_ranking"
+    assert response.eligibility.model_dump(mode="json") == {
+        "eligible": False,
+        "reason": "persisted etf ranking artifact has no eligible ranked candidates for construction",
+    }
+    assert response.handoff is None
+
+
+def test_replacement_construction_preflight_returns_ineligible_response_for_valid_but_empty_ranked_candidates() -> None:
+    artifact = _persisted_replacement_ranking_artifact_for_construction().model_copy(
+        update={"ranked_candidates": []}
+    )
+
+    response = build_construction_preflight_response_from_replacement_ranking_artifact(artifact)
+
+    assert response.artifact.artifact_kind == "intent_bound_etf_replacement_ranking"
+    assert response.eligibility.model_dump(mode="json") == {
+        "eligible": False,
+        "reason": "persisted replacement ranking artifact has no eligible ranked candidates for construction",
+    }
+    assert response.handoff is None
+
+
 def test_handoff_backed_construction_run_persists_authoritative_ranking_provenance(tmp_path: Path) -> None:
     artifact = _persisted_etf_ranking_artifact_for_construction()
     inline_request = _inline_request_from_etf_ranking_artifact(artifact)
@@ -1541,6 +1737,226 @@ def test_handoff_backed_construction_run_persists_authoritative_ranking_provenan
     assert result.normalized_inputs.ranking_id == artifact.ranking_id
     assert result.normalized_inputs.ranking_methodology_id == artifact.run_metadata.methodology_id
     assert result.normalized_inputs.ranking_as_of_date == artifact.run_metadata.as_of_date
+    assert result.normalized_inputs.current_portfolio_artifact_id == inline_request.current_portfolio.artifact_id
+    assert result.normalized_inputs.current_portfolio_as_of_timestamp == inline_request.current_portfolio.as_of_timestamp
+
+
+def test_handoff_backed_construction_run_request_fails_closed_when_top_n_is_outside_launch_boundary() -> None:
+    artifact = _persisted_etf_ranking_artifact_for_construction()
+    current_portfolio, _, hard_constraints = _handoff_supporting_inputs(artifact)
+
+    with pytest.raises(
+        ValueError,
+        match="ranking artifact handoff launch requires policy.top_n=2 for the shipped desktop boundary",
+    ):
+        build_construction_run_request_from_ranking_artifact_handoff(
+            request_id="construction-handoff-invalid-top-n",
+            handoff=EtfRankingArtifactConstructionHandoff(
+                artifact_id=artifact.artifact_id,
+                ranking_id=artifact.ranking_id,
+                methodology_id=artifact.run_metadata.methodology_id,
+                as_of_date=artifact.run_metadata.as_of_date,
+            ),
+            artifact=artifact,
+            current_portfolio=current_portfolio,
+            policy=ConstructionPolicyInput(policy_id="top_n_equal_weight_v1", top_n=3),
+            hard_constraints=hard_constraints,
+        )
+
+
+def test_replacement_handoff_backed_construction_run_matches_inline_construction_outputs(tmp_path: Path) -> None:
+    artifact = _persisted_replacement_ranking_artifact_for_construction()
+    inline_request = _inline_request_from_replacement_ranking_artifact(artifact)
+    handoff = IntentBoundEtfReplacementRankingArtifactConstructionHandoff(
+        artifact_id=artifact.artifact_id,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.run_metadata.as_of_date,
+    )
+    handoff_request = build_construction_run_request_from_ranking_artifact_handoff(
+        request_id=inline_request.request_id,
+        handoff=handoff,
+        artifact=artifact,
+        current_portfolio=inline_request.current_portfolio,
+        policy=inline_request.policy,
+        hard_constraints=inline_request.hard_constraints,
+    )
+
+    inline_result = build_construction_run(inline_request, artifact_store=ConstructionArtifactStore(str(tmp_path / "inline-replacement")))
+    handoff_result = build_construction_run(handoff_request, artifact_store=ConstructionArtifactStore(str(tmp_path / "handoff-replacement")))
+
+    assert [item.model_dump(mode="json") for item in handoff_result.selected_names] == [
+        item.model_dump(mode="json") for item in inline_result.selected_names
+    ]
+    assert [item.model_dump(mode="json") for item in handoff_result.final_target_weights] == [
+        item.model_dump(mode="json") for item in inline_result.final_target_weights
+    ]
+    assert [item.model_dump(mode="json") for item in handoff_result.constraint_evaluations] == [
+        item.model_dump(mode="json") for item in inline_result.constraint_evaluations
+    ]
+    assert handoff_result.status == inline_result.status
+
+
+def test_replacement_handoff_backed_construction_run_persists_authoritative_ranking_provenance(tmp_path: Path) -> None:
+    artifact = _persisted_replacement_ranking_artifact_for_construction()
+    inline_request = _inline_request_from_replacement_ranking_artifact(artifact)
+    handoff_request = build_construction_run_request_from_ranking_artifact_handoff(
+        request_id=inline_request.request_id,
+        handoff=IntentBoundEtfReplacementRankingArtifactConstructionHandoff(
+            artifact_id=artifact.artifact_id,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.run_metadata.methodology_id,
+            as_of_date=artifact.run_metadata.as_of_date,
+        ),
+        artifact=artifact,
+        current_portfolio=inline_request.current_portfolio,
+        policy=inline_request.policy,
+        hard_constraints=inline_request.hard_constraints,
+    )
+
+    result = build_construction_run(handoff_request, artifact_store=ConstructionArtifactStore(str(tmp_path)))
+
+    assert result.normalized_inputs.ranked_universe_artifact_kind == "intent_bound_etf_replacement_ranking"
+    assert result.normalized_inputs.ranked_universe_artifact_id == artifact.artifact_id
+    assert result.normalized_inputs.ranked_universe_artifact_schema_version == "intent_bound_etf_replacement_ranking_artifact_v1"
+    assert result.normalized_inputs.ranking_id == artifact.ranking_id
+    assert result.normalized_inputs.ranking_methodology_id == artifact.run_metadata.methodology_id
+    assert result.normalized_inputs.ranking_as_of_date == artifact.run_metadata.as_of_date
+    assert result.normalized_inputs.current_portfolio_artifact_id == inline_request.current_portfolio.artifact_id
+    assert result.normalized_inputs.current_portfolio_as_of_timestamp == inline_request.current_portfolio.as_of_timestamp
+
+
+@pytest.mark.parametrize(
+    ("field_name", "expected_detail"),
+    [
+        (
+            "artifact_id",
+            "ranking artifact handoff requests require current_portfolio.artifact_id",
+        ),
+        (
+            "as_of_timestamp",
+            "ranking artifact handoff requests require current_portfolio.as_of_timestamp",
+        ),
+    ],
+)
+def test_build_construction_run_request_from_ranking_artifact_handoff_requires_authoritative_current_portfolio_identity(
+    field_name: str,
+    expected_detail: str,
+) -> None:
+    artifact = _persisted_etf_ranking_artifact_for_construction()
+    current_portfolio, policy, hard_constraints = _handoff_supporting_inputs(artifact)
+    handoff = EtfRankingArtifactConstructionHandoff(
+        artifact_id=artifact.artifact_id,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.run_metadata.as_of_date,
+    )
+    invalid_current_portfolio = current_portfolio.model_copy(update={field_name: None})
+
+    with pytest.raises(ValueError, match=expected_detail):
+        build_construction_run_request_from_ranking_artifact_handoff(
+            request_id="construction-handoff-missing-current-portfolio-lineage",
+            handoff=handoff,
+            artifact=artifact,
+            current_portfolio=invalid_current_portfolio,
+            policy=policy,
+            hard_constraints=hard_constraints,
+        )
+
+
+@pytest.mark.parametrize(
+    ("scenario", "artifact_mutator", "expected_detail"),
+    [
+        (
+            "unsupported_persisted_schema_version",
+            lambda artifact: artifact.model_copy(update={"schema_version": "intent_bound_etf_replacement_ranking_artifact_v0"}),
+            "unsupported replacement ranking schema_version",
+        ),
+        (
+            "persisted_artifact_identity_integrity_mismatch",
+            lambda artifact: artifact.model_copy(update={"artifact_id": "intent_bound_etf_replacement_ranking_artifact_other"}),
+            "ranking artifact handoff artifact_id does not match persisted artifact",
+        ),
+        (
+            "persisted_construction_unusable_empty_ranked_candidates",
+            lambda artifact: artifact.model_copy(update={"ranked_candidates": []}),
+            "persisted replacement ranking artifact has no eligible ranked candidates for construction",
+        ),
+        (
+            "persisted_construction_unusable_missing_rank",
+            lambda artifact: artifact.model_copy(
+                update={
+                    "ranked_candidates": [
+                        artifact.ranked_candidates[0].model_copy(update={"rank": None}),
+                        *artifact.ranked_candidates[1:],
+                    ]
+                }
+            ),
+            "replacement ranking candidate rank is required for construction",
+        ),
+    ],
+)
+def test_build_construction_run_request_from_replacement_ranking_artifact_handoff_fails_closed_for_invalid_persisted_states(
+    scenario: str,
+    artifact_mutator,
+    expected_detail: str,
+) -> None:
+    artifact = _persisted_replacement_ranking_artifact_for_construction()
+    inline_request = _inline_request_from_replacement_ranking_artifact(artifact)
+    handoff = IntentBoundEtfReplacementRankingArtifactConstructionHandoff(
+        artifact_id=artifact.artifact_id,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.run_metadata.as_of_date,
+    )
+    mutated_artifact = artifact_mutator(artifact)
+
+    with pytest.raises(ValueError, match=expected_detail):
+        build_construction_run_request_from_ranking_artifact_handoff(
+            request_id=f"construction-replacement-handoff-fail-closed-{scenario}",
+            handoff=handoff,
+            artifact=mutated_artifact,
+            current_portfolio=inline_request.current_portfolio,
+            policy=inline_request.policy,
+            hard_constraints=inline_request.hard_constraints,
+        )
+
+
+def test_build_construction_run_request_from_replacement_ranking_artifact_handoff_keeps_valid_persisted_state_unchanged() -> None:
+    artifact = _persisted_replacement_ranking_artifact_for_construction()
+    inline_request = _inline_request_from_replacement_ranking_artifact(artifact)
+    handoff = IntentBoundEtfReplacementRankingArtifactConstructionHandoff(
+        artifact_id=artifact.artifact_id,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.run_metadata.as_of_date,
+    )
+
+    request = build_construction_run_request_from_ranking_artifact_handoff(
+        request_id="construction-replacement-handoff-valid-state",
+        handoff=handoff,
+        artifact=artifact,
+        current_portfolio=inline_request.current_portfolio,
+        policy=inline_request.policy,
+        hard_constraints=inline_request.hard_constraints,
+    )
+
+    assert request.ranking_artifact_handoff == handoff
+    assert request.ranked_universe is not None
+    assert request.ranked_universe.artifact_id == artifact.artifact_id
+    assert request.ranked_universe.ranking_id == artifact.ranking_id
+    assert request.ranked_universe.methodology_id == artifact.run_metadata.methodology_id
+    assert request.ranked_universe.as_of_date == artifact.run_metadata.as_of_date
+    assert [candidate.model_dump(mode="json") for candidate in request.ranked_universe.ranked_candidates] == [
+        {
+            "symbol": row.symbol,
+            "rank": row.rank,
+            "eligible": True,
+            "score": row.composite_score,
+            "exclusion_reason": row.exclusion_reason,
+        }
+        for row in artifact.ranked_candidates
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1795,6 +2211,68 @@ def test_build_construction_run_changes_canonical_fingerprint_when_policy_defini
     assert baseline.final_target_weights == updated.final_target_weights
     assert baseline.fingerprint != updated.fingerprint
     assert baseline.artifact_id != updated.artifact_id
+
+
+def test_list_construction_policies_fails_closed_when_canonical_launch_profile_has_multiple_defaults(monkeypatch) -> None:
+    original_definition = construction_policy_catalog.get_construction_policy_definition("top_n_linear_rank_weight_v1")
+    assert original_definition is not None
+    monkeypatch.setitem(
+        construction_policy_catalog._POLICY_BY_ID,
+        "top_n_linear_rank_weight_v1",
+        replace(
+            original_definition,
+            catalog_entry=original_definition.catalog_entry.model_copy(
+                update={
+                    "launch_profile": original_definition.catalog_entry.launch_profile.model_copy(
+                        update={"policy_status": "default"}
+                    )
+                }
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        construction_policy_catalog,
+        "POLICY_CATALOG",
+        tuple(construction_policy_catalog._POLICY_BY_ID[policy_id] for policy_id in [
+            "top_n_equal_weight_v1",
+            "top_n_inverse_rank_weight_v1",
+            "top_n_linear_rank_weight_v1",
+        ]),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="construction policy catalog must define exactly one default launch policy for ranking-artifact review handoff",
+    ):
+        construction_policy_catalog.list_construction_policies()
+
+
+def test_list_construction_policies_fails_closed_when_launch_profile_metadata_disagrees_with_policy_identity(monkeypatch) -> None:
+    original_definition = construction_policy_catalog.get_construction_policy_definition("top_n_linear_rank_weight_v1")
+    assert original_definition is not None
+    monkeypatch.setitem(
+        construction_policy_catalog._POLICY_BY_ID,
+        "top_n_linear_rank_weight_v1",
+        replace(
+            original_definition,
+            catalog_entry=original_definition.catalog_entry.model_copy(update={"ranking_support": "selection_only"}),
+        ),
+    )
+    monkeypatch.setattr(
+        construction_policy_catalog,
+        "POLICY_CATALOG",
+        tuple(construction_policy_catalog._POLICY_BY_ID[policy_id] for policy_id in [
+            "top_n_equal_weight_v1",
+            "top_n_inverse_rank_weight_v1",
+            "top_n_linear_rank_weight_v1",
+        ]),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="construction policy top_n_linear_rank_weight_v1 launch profile metadata disagrees with ranking_support",
+    ):
+        construction_policy_catalog.list_construction_policies()
 
 
 def test_load_construction_artifact_rejects_corrupted_payload(tmp_path: Path) -> None:
@@ -2303,7 +2781,14 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "max_trade_intent_count_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
+            "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "default",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_inverse_rank_weight_v1",
@@ -2324,7 +2809,14 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "max_trade_intent_count_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
+            "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "excluded",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_linear_rank_weight_v1",
@@ -2345,7 +2837,14 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "max_trade_intent_count_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
+            "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "opt_in",
+                "launch_top_n": 2,
+            },
         },
     ]
 
@@ -2394,7 +2893,14 @@ def test_construction_route_filters_policy_catalog_by_authoritative_metadata() -
             "max_trade_intent_count_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
+            "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "excluded",
+                "launch_top_n": 2,
+            },
         }
     ]
 
@@ -2444,6 +2950,53 @@ def test_construction_route_filters_policy_catalog_by_trade_intent_count_capabil
         "top_n_inverse_rank_weight_v1",
         "top_n_linear_rank_weight_v1",
     ]
+
+
+def test_construction_route_filters_policy_catalog_by_launch_top_n() -> None:
+    client = TestClient(app)
+
+    response = client.get(
+        "/construction/policies",
+        params={"launch_top_n": "2"},
+    )
+
+    assert response.status_code == 200
+    assert [item["policy_id"] for item in response.json()] == [
+        "top_n_equal_weight_v1",
+        "top_n_inverse_rank_weight_v1",
+        "top_n_linear_rank_weight_v1",
+    ]
+
+
+def test_construction_route_policy_catalog_exposes_canonical_launch_profile_statuses() -> None:
+    client = TestClient(app)
+
+    response = client.get("/construction/policies")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [
+        (item["policy_id"], item["launch_profile"]["policy_status"])
+        for item in payload
+    ] == [
+        ("top_n_equal_weight_v1", "default"),
+        ("top_n_inverse_rank_weight_v1", "excluded"),
+        ("top_n_linear_rank_weight_v1", "opt_in"),
+    ]
+
+
+def test_construction_route_rejects_invalid_launch_top_n_policy_catalog_filter_value() -> None:
+    client = TestClient(app)
+
+    response = client.get(
+        "/construction/policies",
+        params={"launch_top_n": "3"},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "invalid construction policy filter value for 'launch_top_n': '3'; supported values: 2"
+    }
 
 
 def test_construction_route_rejects_unsupported_policy_catalog_filter_key() -> None:

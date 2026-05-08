@@ -164,7 +164,7 @@ function isOverlayAwareReplayResponse(value: HypotheticalReplayResponse | null |
 
 function activeReplayFromHypothetical(result: HypotheticalReplayResponse | null | undefined) {
   if (!result) return null
-  return isOverlayAwareReplayResponse(result) ? result.overlay_replay : result.replay
+  return isOverlayAwareReplayResponse(result) ? result.overlay_replay ?? result.base_replay : result.replay
 }
 
 function formatReplayCandidateInputSourceLabel(value: HypotheticalReplayResponse['replay_provenance']['candidate_input_source']) {
@@ -189,6 +189,15 @@ function formatReplayLineageHelper(result: HypotheticalReplayResponse) {
 function standardReplayFromHypothetical(result: HypotheticalReplayResponse | null | undefined) {
   if (!result) return null
   return isOverlayAwareReplayResponse(result) ? result.base_replay : result.replay
+}
+
+function formatOptionalReplayLineageHelper(result: HypotheticalReplayResponse | null | undefined) {
+  if (!result?.replay_provenance) return 'Replay lineage: n/a'
+  return formatReplayLineageHelper(result)
+}
+
+function formatStringList(values: string[] | null | undefined, fallback = 'none') {
+  return values?.join(', ') || fallback
 }
 
 function defaultOverlayState(benchmarkSymbol: string): OverlayStateInput {
@@ -1117,6 +1126,9 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
   const proposalDiagnosticsSections = diagnosticsSectionConfigs(proposalReplay)
   const proposalPMSummary = canonicalProposal.reviewSnapshotPMSummary
   const proposalCapture = canonicalProposal.proposalCapture
+  const proposalCaptureReviewBasis = proposalCapture.review_basis ?? null
+  const proposalSummaryReviewBasis = proposalPMSummary.review_basis ?? null
+  const proposalReviewBasis = proposalCaptureReviewBasis ?? proposalSummaryReviewBasis
 
   return (
     <section className="dashboard-bottom-grid">
@@ -1139,7 +1151,7 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
         </div>
         <div className="summary-card">
           <p className="stat-label">Proposal Basis</p>
-          <p className="summary-value">{proposalCapture.review_basis.derivation_basis}</p>
+          <p className="summary-value">{proposalReviewBasis?.derivation_basis ?? 'n/a'}</p>
           <p className="helper">Review-only basis captured from the persisted review snapshot artifact. This surface does not depend on current draft, live replay cache, or imported snapshot reconstruction.</p>
         </div>
         <div className="summary-card">
@@ -1151,19 +1163,19 @@ export function SavedProposalReadoutSection({ proposal }: { proposal: VersionedP
       <div className="summary-card">
         <p className="panel-label">Proposal Lineage</p>
         <p className="helper">Workspace: {canonicalProposal.workspaceId} · Draft: {canonicalProposal.sourceDraftId} · Base node: {canonicalProposal.sourceBaseNodeId} · Saved at: {canonicalProposal.createdAt}</p>
-        <p className="helper">Source: {proposalCapture.proposal.source} · Construction rule: {proposalCapture.review_basis.candidate_construction_rule}</p>
-        <p className="helper">{formatReplayLineageHelper(canonicalProposal.reviewSnapshot)}</p>
+        <p className="helper">Source: {proposalCapture.proposal.source} · Construction rule: {proposalReviewBasis?.candidate_construction_rule ?? 'n/a'}</p>
+        <p className="helper">{formatOptionalReplayLineageHelper(canonicalProposal.reviewSnapshot)}</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Canonical PM Summary</p>
-        <p className="helper">Role: {proposalPMSummary?.role ?? 'saved_proposal'} · provenance: {proposalPMSummary?.provenance.source ?? 'persisted_review_snapshot_artifact'} · benchmark separation: {proposalPMSummary?.review_basis.benchmark_separation ?? 'explicit_per_snapshot_benchmark_fields'}</p>
-        <p className="helper">Methodology: {proposalPMSummary?.methodology.methodology ?? proposalReplay.methodology} · methodology truth: {proposalPMSummary?.methodology.methodology_provenance.methodology_truth ?? proposalReplay.methodology_provenance?.methodology_truth ?? 'n/a'} · assumptions truth: {proposalPMSummary?.methodology.methodology_provenance.assumptions_truth ?? proposalReplay.methodology_provenance?.assumptions_truth ?? 'n/a'}</p>
-        <p className="helper">Analytics truth: {proposalPMSummary?.truth_labels.analytics_truth ?? proposalReplay.methodology_provenance?.analytics_truth ?? 'n/a'} · replay type: {proposalPMSummary?.replay_type ?? ('replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware')} · diagnostics available: {proposalPMSummary?.diagnostics_summary.diagnostics_available ? 'yes' : 'no'}</p>
+        <p className="helper">Role: {proposalPMSummary.role ?? 'saved_proposal'} · provenance: {proposalPMSummary.provenance.source ?? 'persisted_review_snapshot_artifact'} · benchmark separation: {proposalSummaryReviewBasis?.benchmark_separation ?? 'explicit_per_snapshot_benchmark_fields'}</p>
+        <p className="helper">Methodology: {proposalPMSummary.methodology?.methodology ?? proposalReplay.methodology} · methodology truth: {proposalPMSummary.methodology?.methodology_provenance?.methodology_truth ?? proposalReplay.methodology_provenance?.methodology_truth ?? 'n/a'} · assumptions truth: {proposalPMSummary.methodology?.methodology_provenance?.assumptions_truth ?? proposalReplay.methodology_provenance?.assumptions_truth ?? 'n/a'}</p>
+        <p className="helper">Analytics truth: {proposalPMSummary.truth_labels?.analytics_truth ?? proposalReplay.methodology_provenance?.analytics_truth ?? 'n/a'} · replay type: {proposalPMSummary.replay_type ?? ('replay' in proposal.reviewSnapshot ? 'standard' : 'overlay_aware')} · diagnostics available: {proposalPMSummary.diagnostics_summary?.diagnostics_available ? 'yes' : 'no'}</p>
       </div>
       <div className="dashboard-summary compact-summary-grid backtest-workspace-summary">
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{proposalCapture.review_basis.benchmark_symbol}</p></div>
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(proposalCapture.review_basis.replay_window.start_date, proposalCapture.review_basis.replay_window.end_date)}</p></div>
-        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{proposalCapture.review_basis.rebalance_frequency}</p><p className="helper">{proposalCapture.review_basis.commission_bps} commission bps / {proposalCapture.review_basis.slippage_bps} slippage bps</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{proposalReviewBasis?.benchmark_symbol ?? 'N/A'}</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(proposalReviewBasis?.replay_window?.start_date, proposalReviewBasis?.replay_window?.end_date)}</p></div>
+        <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{proposalReviewBasis?.rebalance_frequency ?? 'N/A'}</p><p className="helper">{proposalReviewBasis ? `${proposalReviewBasis.commission_bps} commission bps / ${proposalReviewBasis.slippage_bps} slippage bps` : 'N/A'}</p></div>
         <div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{proposalReplay?.candidate_result.status ?? 'N/A'}</p><p className="helper">Snapshot of the saved hypothetical current-vs-candidate replay results captured with the proposal.</p></div>
       </div>
       {'overlay_application' in canonicalProposal.reviewSnapshot ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{canonicalProposal.reviewSnapshot.overlay_application.overlay_status}</p><p className="helper">As of {canonicalProposal.reviewSnapshot.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(canonicalProposal.reviewSnapshot.overlay_application.cash_residual_weight)}</p><p className="helper">Stored with the saved overlay-aware replay</p></div></div> : null}
@@ -1204,6 +1216,8 @@ export function PersistedConstructionArtifactReviewSection({ review }: { review:
   const replay = review.replay.replay
   const summaryRows = buildSummaryRows(replay)
   const replayDeltaCallouts = buildReplayDeltaCallouts(summaryRows)
+  const reviewBasis = review.reviewBasisSource ?? review.replay.review_basis ?? null
+  const replayProvenance = review.replay.replay_provenance ?? null
 
   return (
     <section className="dashboard-bottom-grid" data-testid="persisted-construction-artifact-review">
@@ -1215,7 +1229,7 @@ export function PersistedConstructionArtifactReviewSection({ review }: { review:
         <div className="summary-card">
           <p className="stat-label">Review Basis Id</p>
           <p className="summary-value">{review.constructionArtifactId}</p>
-          <p className="helper">Canonical source: {review.reviewBasisSource?.canonical_source ?? review.replay.review_basis.canonical_source} · provenance: {review.reviewBasisSource?.basis_provenance_label ?? review.replay.review_basis.basis_provenance_label}</p>
+          <p className="helper">Canonical source: {reviewBasis?.canonical_source ?? 'n/a'} · provenance: {reviewBasis?.basis_provenance_label ?? 'n/a'}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Truth Separation</p>
@@ -1235,10 +1249,10 @@ export function PersistedConstructionArtifactReviewSection({ review }: { review:
       </div>
       <div className="summary-card">
         <p className="panel-label">Replay Provenance</p>
-        <p className="helper">Source: {review.replay.replay_provenance.source} · Policy: {review.replay.replay_provenance.policy_id} · Definition: {review.replay.replay_provenance.policy_definition_id}</p>
-        <p className="helper">Ranking artifact: {review.replay.replay_provenance.ranked_universe_artifact_id ?? 'n/a'} · Ranking id: {review.replay.replay_provenance.ranking_id ?? 'n/a'} · Methodology: {review.replay.replay_provenance.ranking_methodology_id ?? 'n/a'}</p>
-        <p className="helper">Current portfolio artifact: {review.replay.replay_provenance.current_portfolio_artifact_id ?? 'n/a'} · Baseline input: {review.replay.replay_provenance.baseline_input_source} · Candidate input: {review.replay.replay_provenance.candidate_input_source}</p>
-        <p className="helper">Methodology provenance: {review.replay.replay.methodology_provenance.methodology_truth} · assumptions: {review.replay.replay.methodology_provenance.assumptions_truth} · analytics: {review.replay.replay.methodology_provenance.analytics_truth}</p>
+        <p className="helper">Source: {replayProvenance?.source ?? 'n/a'} · Policy: {replayProvenance?.policy_id ?? 'n/a'} · Definition: {replayProvenance?.policy_definition_id ?? 'n/a'}</p>
+        <p className="helper">Ranking artifact: {replayProvenance?.ranked_universe_artifact_id ?? 'n/a'} · Ranking id: {replayProvenance?.ranking_id ?? 'n/a'} · Methodology: {replayProvenance?.ranking_methodology_id ?? 'n/a'}</p>
+        <p className="helper">Current portfolio artifact: {replayProvenance?.current_portfolio_artifact_id ?? 'n/a'} · Baseline input: {replayProvenance?.baseline_input_source ?? 'n/a'} · Candidate input: {replayProvenance?.candidate_input_source ?? 'n/a'}</p>
+        <p className="helper">Methodology provenance: {review.replay.replay.methodology_provenance?.methodology_truth ?? 'n/a'} · assumptions: {review.replay.replay.methodology_provenance?.assumptions_truth ?? 'n/a'} · analytics: {review.replay.replay.methodology_provenance?.analytics_truth ?? 'n/a'}</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Selection Rule Trace</p>
@@ -1249,7 +1263,7 @@ export function PersistedConstructionArtifactReviewSection({ review }: { review:
             <span>Input</span>
             <span>Output</span>
           </div>
-          {review.replay.replay_provenance.selection_rule_trace.steps.map((step) => (
+          {(replayProvenance?.selection_rule_trace?.steps ?? []).map((step) => (
             <div className="list-row list-row-wide" key={`${step.rule_id}-${step.rule_order}`}>
               <span>{step.rule_id}</span>
               <span>{step.rule_order}</span>
@@ -1289,7 +1303,10 @@ export function PersistedOptimizerHandoffReviewSection({ review }: { review: Per
   const replay = review.replay.replay
   const summaryRows = buildSummaryRows(replay)
   const replayDeltaCallouts = buildReplayDeltaCallouts(summaryRows)
-  const outputPolicy = review.replay.replay_provenance.replay_output_policy
+  const reviewBasis = review.reviewBasisSource ?? review.replay.review_basis ?? null
+  const replayProvenance = review.replay.replay_provenance ?? null
+  const outputPolicy = replayProvenance?.replay_output_policy ?? review.validation.provenance?.replay_output_policy ?? null
+  const returnBasisAttestation = replayProvenance?.return_basis_attestation ?? null
 
   if (review.replay.optimizer_context && !review.replay.optimizer_context.objective) {
     throw new Error('Persisted optimizer handoff review is missing replay optimizer objective')
@@ -1305,7 +1322,7 @@ export function PersistedOptimizerHandoffReviewSection({ review }: { review: Per
         <div className="summary-card">
           <p className="stat-label">Review Basis Id</p>
           <p className="summary-value">{review.handoffReference.handoff_id}</p>
-          <p className="helper">Canonical source: {review.reviewBasisSource?.canonical_source ?? review.replay.review_basis.canonical_source} · provenance: {review.reviewBasisSource?.basis_provenance_label ?? review.replay.review_basis.basis_provenance_label}</p>
+          <p className="helper">Canonical source: {reviewBasis?.canonical_source ?? 'n/a'} · provenance: {reviewBasis?.basis_provenance_label ?? 'n/a'}</p>
         </div>
         <div className="summary-card">
           <p className="stat-label">Artifact Lineage Id</p>
@@ -1330,19 +1347,19 @@ export function PersistedOptimizerHandoffReviewSection({ review }: { review: Per
       </div>
       <div className="summary-card">
         <p className="panel-label">Replay Provenance</p>
-        <p className="helper">Source: {review.replay.replay_provenance.source} · Benchmark: {review.replay.replay_provenance.benchmark_symbol} · Constraint fingerprint: {review.replay.replay_provenance.constraint_set_fingerprint}</p>
-        <p className="helper">Artifact state: {review.replay.replay_provenance.artifact_state} · Optimizer status: {review.replay.replay_provenance.optimizer_status}</p>
-        <p className="helper">Methodology provenance: {review.replay.replay.methodology_provenance.methodology_truth} · assumptions: {review.replay.replay.methodology_provenance.assumptions_truth} · analytics: {review.replay.replay.methodology_provenance.analytics_truth}</p>
+        <p className="helper">Source: {replayProvenance?.source ?? 'n/a'} · Benchmark: {replayProvenance?.benchmark_symbol ?? 'n/a'} · Constraint fingerprint: {replayProvenance?.constraint_set_fingerprint ?? 'n/a'}</p>
+        <p className="helper">Artifact state: {replayProvenance?.artifact_state ?? 'n/a'} · Optimizer status: {replayProvenance?.optimizer_status ?? 'n/a'}</p>
+        <p className="helper">Methodology provenance: {review.replay.replay.methodology_provenance?.methodology_truth ?? 'n/a'} · assumptions: {review.replay.replay.methodology_provenance?.assumptions_truth ?? 'n/a'} · analytics: {review.replay.replay.methodology_provenance?.analytics_truth ?? 'n/a'}</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Replay Output Policy</p>
-        <p className="helper">Benchmark-relative path: {outputPolicy.section_trust.benchmark_relative_path} · factor path: {outputPolicy.section_trust.factor_model_path} · risk path: {outputPolicy.section_trust.risk_contribution_path}</p>
-        <p className="helper">Eligible families: {outputPolicy.eligible_families.join(', ') || 'none'} · withheld families: {outputPolicy.withheld_families.join(', ') || 'none'}</p>
+        <p className="helper">Benchmark-relative path: {outputPolicy?.section_trust?.benchmark_relative_path ?? 'n/a'} · factor path: {outputPolicy?.section_trust?.factor_model_path ?? 'n/a'} · risk path: {outputPolicy?.section_trust?.risk_contribution_path ?? 'n/a'}</p>
+        <p className="helper">Eligible families: {formatStringList(outputPolicy?.eligible_families)} · withheld families: {formatStringList(outputPolicy?.withheld_families)}</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Return Basis Attestation</p>
-        <p className="helper">Benchmark symbol: {review.replay.replay_provenance.return_basis_attestation.benchmark_symbol} · attested window: {formatReplayWindow(review.replay.replay_provenance.return_basis_attestation.history_start_date, review.replay.replay_provenance.return_basis_attestation.history_end_date)}</p>
-        <p className="helper">Benchmark contract: {review.replay.replay_provenance.return_basis_attestation.benchmark_return_basis_contract} · factor contract: {review.replay.replay_provenance.return_basis_attestation.factor_return_basis_contract}</p>
+        <p className="helper">Benchmark symbol: {returnBasisAttestation?.benchmark_symbol ?? 'n/a'} · attested window: {formatReplayWindow(returnBasisAttestation?.history_start_date, returnBasisAttestation?.history_end_date)}</p>
+        <p className="helper">Benchmark contract: {returnBasisAttestation?.benchmark_return_basis_contract ?? 'n/a'} · factor contract: {returnBasisAttestation?.factor_return_basis_contract ?? 'n/a'}</p>
       </div>
       {review.replay.optimizer_context ? (
         <div className="summary-card">
@@ -1441,6 +1458,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
   const summaryRows = buildSummaryRows(activeReplay)
   const replayDeltaCallouts = useMemo(() => buildReplayDeltaCallouts(summaryRows), [summaryRows])
   const replayMetricRefusalLine = buildReplayMetricRefusalLine(activeReplay)
+  const hypotheticalReplayWindow = activeReplay?.candidate_result ?? baselineReplay?.candidate_result ?? null
   const overlayState = useMemo<OverlayStateInput | null>(() => {
     if (!replacementIntentDraft || replayBasisMode !== 'overlay_aware') return null
     return {
@@ -1608,7 +1626,7 @@ export function HypotheticalReplaySection({ result, draftSnapshot, replacementIn
               <div className="summary-card"><p className="helper">Baseline: current portfolio basis</p><p className="helper">Candidate: hypothetical replacement-intent variant</p><p className="helper">Status: not applied to holdings</p></div>
               <section><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Decision Readout</p></div></div><p className="helper">Start here before reading the charts and tables. Confirm what this replay compares, what changed in the candidate, and what did not.</p><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">Replay Type</p><p className="summary-value">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? 'Overlay-aware hypothetical replay' : 'Hypothetical current-vs-candidate'}</p></div><div className="summary-card"><p className="stat-label">Intent Pair</p><p className="summary-value">{hypotheticalReplayResult.proposal.incumbent_symbol} -&gt; {hypotheticalReplayResult.proposal.candidate_symbol}</p></div><div className="summary-card"><p className="stat-label">Baseline Basis</p><p className="summary-value">Current draft or imported portfolio state</p></div><div className="summary-card"><p className="stat-label">Candidate Basis</p><p className="summary-value">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? 'Single replacement-intent variant with overlay-aware candidate scaling' : 'Single replacement-intent variant'}</p></div></div><div className="dashboard-summary compact-summary-grid"><div className="summary-card"><p className="stat-label">What Changed</p><p className="helper">{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? `The candidate replay first replaces ${hypotheticalReplayResult.proposal.incumbent_symbol} with ${hypotheticalReplayResult.proposal.candidate_symbol}, then applies the selected overlay state to the hypothetical candidate only.` : `The candidate replay changes one thing only: it replaces ${hypotheticalReplayResult.proposal.incumbent_symbol} with ${hypotheticalReplayResult.proposal.candidate_symbol} inside a hypothetical draft-only portfolio variant.`}</p></div><div className="summary-card"><p className="stat-label">What Did Not Change</p><p className="helper">No holdings have been updated. No construction, optimization, turnover repair, or execution logic has been applied.</p></div></div></section>
               <div className="summary-card"><p className="panel-label">Replay Metadata</p><p className="helper">Source: {hypotheticalReplayResult.proposal.source} · Draft: {hypotheticalReplayResult.proposal.draft_id} · Base node: {hypotheticalReplayResult.proposal.base_node_id}</p><p className="helper">Derivation: {hypotheticalReplayResult.derivation.baseline_basis} · {hypotheticalReplayResult.derivation.candidate_construction_rule}</p>{isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <p className="helper">Overlay basis: {hypotheticalReplayResult.overlay_application.overlay_id} · {hypotheticalReplayResult.overlay_application.overlay_status} · Cash residual {formatWeightPct(hypotheticalReplayResult.overlay_application.cash_residual_weight)}</p> : null}<div className="actions dashboard-edit-actions dashboard-edit-actions-compact"><button className="primary-button" type="button" onClick={() => void onSaveProposal()}>Save Proposal v{savedProposalCount + 1}</button><p className="helper">Create an immutable reviewed proposal artifact from this hypothetical replay. It remains separate from portfolio truth and does not apply any holdings change.</p></div></div>
-              <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{activeReplay?.candidate_result?.status ?? 'N/A'}</p><p className="helper">Candidate replay status under the shared implementation window</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{activeReplay?.candidate_result?.benchmark_symbol ?? 'N/A'}</p><p className="helper">Shared benchmark for baseline and candidate replay</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(activeReplay?.candidate_result?.start_date, activeReplay?.candidate_result?.end_date)}</p><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{activeReplay?.candidate_result?.rebalance_frequency ?? 'N/A'}</p><p className="helper">{activeReplay?.candidate_result ? `${activeReplay.candidate_result.commission_bps} commission bps / ${activeReplay.candidate_result.slippage_bps} slippage bps` : 'N/A'}</p></div></div>
+              <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Status</p><p className="summary-value">{activeReplay?.candidate_result?.status ?? 'N/A'}</p><p className="helper">Candidate replay status under the shared implementation window</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{hypotheticalReplayWindow?.benchmark_symbol ?? 'N/A'}</p><p className="helper">Shared benchmark for baseline and candidate replay</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Window</p><p className="summary-value">{formatReplayWindow(hypotheticalReplayWindow?.start_date, hypotheticalReplayWindow?.end_date)}</p><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Replay Setup</p><p className="summary-value">{hypotheticalReplayWindow?.rebalance_frequency ?? 'N/A'}</p><p className="helper">{hypotheticalReplayWindow ? `${hypotheticalReplayWindow.commission_bps} commission bps / ${hypotheticalReplayWindow.slippage_bps} slippage bps` : 'N/A'}</p></div></div>
               {isOverlayAwareReplayResponse(hypotheticalReplayResult) ? <div className="dashboard-summary compact-summary-grid backtest-workspace-summary"><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay State</p><p className="summary-value">{hypotheticalReplayResult.overlay_application.overlay_status}</p><p className="helper">As of {hypotheticalReplayResult.overlay_application.as_of_month_end}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Overlay Basis</p><p className="summary-value">{hypotheticalReplayResult.overlay_application.overlay_id}</p><p className="helper">Candidate-only application: {hypotheticalReplayResult.overlay_application.applied_to_candidate_only ? 'yes' : 'no'}</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Risky Weight Scale</p><p className="summary-value">{formatWeightPct(hypotheticalReplayResult.overlay_application.risky_weight_scale)}</p><p className="helper">Backend-authored overlay scaling</p></div><div className="summary-card metric-card metric-card-neutral backtest-summary-card"><p className="stat-label">Cash Residual</p><p className="summary-value">{formatWeightPct(hypotheticalReplayResult.overlay_application.cash_residual_weight)}</p><p className="helper">Residual held as hypothetical cash only</p></div></div> : null}
               <section className="dashboard-bottom-grid"><div className="section-header-inline sector-list-header"><div><p className="panel-label">Replay Summary</p></div><p className="helper">Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.</p></div>{replayMetricRefusalLine ? <p className="helper">{replayMetricRefusalLine}</p> : null}{summaryRows.length && replayDeltaCallouts.length ? <div className="dashboard-summary compact-summary-grid">{replayDeltaCallouts.map((callout) => <div className="summary-card" key={callout.key}><p className="stat-label">{callout.label}</p><p className={`summary-value ${deltaToneClass(callout.tone)}`}>{callout.value}</p><p className="helper">{callout.rationale}</p></div>)}</div> : null}{summaryRows.length ? <ComparisonTable rows={summaryRows} /> : <div className="empty-state-panel compact-empty-state"><p className="empty-state-title">Run with baseline comparison enabled to view before/after replay metrics.</p></div>}</section>
               {activeReplay ? <BacktestCurve result={activeReplay} /> : null}

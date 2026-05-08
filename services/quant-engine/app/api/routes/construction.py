@@ -10,13 +10,18 @@ from app.schemas.construction import (
     ConstructionPolicyDeterminism,
     ConstructionPolicyFamily,
     ConstructionPolicyInputs,
+    ConstructionPolicyLaunchTopN,
     ConstructionPolicyOptionalConstraintSupport,
     ConstructionPolicyRankingSupport,
     ConstructionPolicyRequiredConstraintSupport,
     ConstructionPolicyRequiredInputSupport,
     ConstructionRunRequest,
 )
-from app.services.construction_ranking_handoff_service import preflight_etf_ranking_artifact_for_construction
+from app.schemas.ranking import infer_ranking_artifact_kind_from_artifact_id
+from app.services.construction_ranking_handoff_service import (
+    preflight_etf_ranking_artifact_for_construction,
+    preflight_intent_bound_etf_replacement_ranking_artifact_for_construction,
+)
 from app.services.construction_artifact_service import (
     ConstructionArtifactIntegrityValidationError,
     ConstructionArtifactInvalidJsonError,
@@ -40,9 +45,19 @@ from app.services.etf_ranking_artifact_service import (
     EtfRankingArtifactSchemaValidationError,
     load_etf_ranking_artifact,
 )
+from app.services.replacement_ranking_artifact_service import (
+    ReplacementRankingArtifactIntegrityValidationError,
+    ReplacementRankingArtifactInvalidJsonError,
+    ReplacementRankingArtifactMissingFileError,
+    ReplacementRankingArtifactNonObjectPayloadError,
+    ReplacementRankingArtifactPersistenceError,
+    ReplacementRankingArtifactSchemaValidationError,
+    load_replacement_ranking_artifact,
+)
 
 
 router = APIRouter(prefix="/construction", tags=["construction"])
+_CROSS_SECTIONAL_RESEARCH_ARTIFACT_ID_PREFIX = "cross_sectional_research_artifact_"
 
 _CONSTRUCTION_POLICY_FILTER_ALLOWLIST = frozenset(
     {
@@ -60,6 +75,7 @@ _CONSTRUCTION_POLICY_FILTER_ALLOWLIST = frozenset(
         "max_trade_intent_count_constraint",
         "ranked_universe_input",
         "current_portfolio_input",
+        "launch_top_n",
     }
 )
 
@@ -78,6 +94,7 @@ _CONSTRUCTION_POLICY_FILTER_ALLOWED_VALUES = {
     "max_trade_intent_count_constraint": frozenset(get_args(ConstructionPolicyOptionalConstraintSupport)),
     "ranked_universe_input": frozenset(get_args(ConstructionPolicyRequiredInputSupport)),
     "current_portfolio_input": frozenset(get_args(ConstructionPolicyRequiredInputSupport)),
+    "launch_top_n": frozenset(str(value) for value in get_args(ConstructionPolicyLaunchTopN)),
 }
 
 
@@ -117,8 +134,19 @@ def _validate_construction_policy_filters(request: Request) -> None:
 )
 def preflight_construction_ranking_artifact(artifact_id: str) -> ConstructionRankingArtifactPreflightResponse:
     try:
-        return preflight_etf_ranking_artifact_for_construction(artifact_id)
+        if artifact_id.startswith(_CROSS_SECTIONAL_RESEARCH_ARTIFACT_ID_PREFIX):
+            raise ValueError(
+                "unsupported ranking artifact family for construction preflight: cross_sectional_research_run"
+            )
+        artifact_kind = infer_ranking_artifact_kind_from_artifact_id(artifact_id)
+        if artifact_kind == "etf_ranking":
+            return preflight_etf_ranking_artifact_for_construction(artifact_id)
+        if artifact_kind == "intent_bound_etf_replacement_ranking":
+            return preflight_intent_bound_etf_replacement_ranking_artifact_for_construction(artifact_id)
+        raise ValueError("unsupported ranking artifact kind")
     except EtfRankingArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ReplacementRankingArtifactMissingFileError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (
         EtfRankingArtifactInvalidJsonError,
@@ -126,6 +154,11 @@ def preflight_construction_ranking_artifact(artifact_id: str) -> ConstructionRan
         EtfRankingArtifactSchemaValidationError,
         EtfRankingArtifactIntegrityValidationError,
         EtfRankingArtifactPersistenceError,
+        ReplacementRankingArtifactInvalidJsonError,
+        ReplacementRankingArtifactNonObjectPayloadError,
+        ReplacementRankingArtifactSchemaValidationError,
+        ReplacementRankingArtifactIntegrityValidationError,
+        ReplacementRankingArtifactPersistenceError,
         ValueError,
     ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -136,7 +169,12 @@ def run_construction(request: ConstructionRunRequest) -> ConstructionArtifact:
     try:
         resolved_request = request
         if request.ranking_artifact_handoff is not None:
-            artifact = load_etf_ranking_artifact(request.ranking_artifact_handoff.artifact_id)
+            if request.ranking_artifact_handoff.artifact_kind == "etf_ranking":
+                artifact = load_etf_ranking_artifact(request.ranking_artifact_handoff.artifact_id)
+            elif request.ranking_artifact_handoff.artifact_kind == "intent_bound_etf_replacement_ranking":
+                artifact = load_replacement_ranking_artifact(request.ranking_artifact_handoff.artifact_id)
+            else:
+                raise ValueError("unsupported ranking artifact kind")
             resolved_request = build_construction_run_request_from_ranking_artifact_handoff(
                 request_id=request.request_id,
                 handoff=request.ranking_artifact_handoff,
@@ -148,12 +186,19 @@ def run_construction(request: ConstructionRunRequest) -> ConstructionArtifact:
         return build_construction_run(resolved_request)
     except EtfRankingArtifactMissingFileError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ReplacementRankingArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (
         EtfRankingArtifactInvalidJsonError,
         EtfRankingArtifactNonObjectPayloadError,
         EtfRankingArtifactSchemaValidationError,
         EtfRankingArtifactIntegrityValidationError,
         EtfRankingArtifactPersistenceError,
+        ReplacementRankingArtifactInvalidJsonError,
+        ReplacementRankingArtifactNonObjectPayloadError,
+        ReplacementRankingArtifactSchemaValidationError,
+        ReplacementRankingArtifactIntegrityValidationError,
+        ReplacementRankingArtifactPersistenceError,
     ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
@@ -177,6 +222,7 @@ def get_construction_policies(
     max_trade_intent_count_constraint: str | None = Query(default=None),
     ranked_universe_input: str | None = Query(default=None),
     current_portfolio_input: str | None = Query(default=None),
+    launch_top_n: str | None = Query(default=None),
 ) -> list[ConstructionPolicyCatalogEntry]:
     _validate_construction_policy_filters(request)
     return list_construction_policies(
@@ -194,6 +240,7 @@ def get_construction_policies(
         max_trade_intent_count_constraint=max_trade_intent_count_constraint,
         ranked_universe_input=ranked_universe_input,
         current_portfolio_input=current_portfolio_input,
+        launch_top_n=int(launch_top_n) if launch_top_n is not None else None,
     )
 
 

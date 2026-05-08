@@ -1063,7 +1063,7 @@ function createImportedExposureFixture(snapshot: ReturnType<typeof createImporte
       price_basis: 'not_applicable',
       source_status: {
         lookthrough_resolution: 'live',
-        benchmark_holdings: 'live',
+        benchmark_holdings: 'verified',
       },
       confidence: 'low',
       reproducibility: {
@@ -1096,6 +1096,14 @@ function createImportedExposureFixture(snapshot: ReturnType<typeof createImporte
       active_share: 0.62,
       portfolio_in_benchmark_weight: 0.55,
       benchmark_covered_weight: 1,
+      top_overweights: [
+        { symbol: 'AAPL', name: 'Apple', portfolio_weight: 0.24, benchmark_weight: 0.07, active_weight: 0.17 },
+        { symbol: 'MSFT', name: 'Microsoft', portfolio_weight: 0.18, benchmark_weight: 0.06, active_weight: 0.12 },
+      ],
+      top_underweights: [
+        { symbol: 'AMZN', name: 'Amazon', portfolio_weight: 0.01, benchmark_weight: 0.04, active_weight: -0.03 },
+        { symbol: 'GOOG', name: 'Alphabet', portfolio_weight: 0.02, benchmark_weight: 0.05, active_weight: -0.03 },
+      ],
     },
     current_state_concentration: {
       top_positions: [

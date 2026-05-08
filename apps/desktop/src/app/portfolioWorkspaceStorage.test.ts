@@ -1,12 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createImportedBootstrapResponseFixture } from '../test/portfolioFixtures'
+import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
 import * as portfolioDb from './portfolioDb'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { buildPersistedImportedSource } from './portfolioWorkspaceStorage'
 import type { ConstructionArtifactReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference } from '../features/portfolio/types'
 import type {
   ImportedHistoryContext,
+  RawPersistedVersionedProposalArtifact,
+  SavedProposalReviewSnapshotPMSummaryMirror,
   WorkspaceState,
   PersistedOptimizerHandoffWorkspaceReview,
   PortfolioNode,
@@ -14,6 +17,7 @@ import type {
   ReviewSnapshotActiveThesisCrossFamilyQueueResponse,
   ReviewSnapshotArtifact,
   ReviewSnapshotComparisonResponse,
+  ReviewSnapshotFamilyInboxResponse,
   ReviewSnapshotFamilyKey,
   ReviewSnapshotFamilyReviewResponse,
   VersionedProposalArtifact,
@@ -80,6 +84,19 @@ function createConstructionArtifactReplayResponse(): ConstructionArtifactReplayR
           symbol_overrides: {},
         },
       },
+      launch_context: {
+        construction_artifact_id: 'artifact-123',
+        ranked_universe_artifact_id: 'ranked-1',
+        ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+        ranking_id: 'ranking-1',
+        ranking_methodology_id: 'method-1',
+        ranking_as_of_date: '2026-04-23',
+        current_portfolio_artifact_id: 'portfolio-1',
+        current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+        policy_id: 'policy-1',
+        policy_definition_id: 'policy-def-1',
+        top_n: 2,
+      },
       benchmark_symbol: 'SPY',
       base_currency: 'USD',
       replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
@@ -92,9 +109,13 @@ function createConstructionArtifactReplayResponse(): ConstructionArtifactReplayR
       policy_id: 'policy-1',
       policy_definition_id: 'policy-def-1',
       ranked_universe_artifact_id: 'ranked-1',
+      ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
       ranking_id: 'ranking-1',
       ranking_methodology_id: 'method-1',
+      ranking_as_of_date: '2026-04-23',
       current_portfolio_artifact_id: 'portfolio-1',
+      current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+      top_n: 2,
       hard_constraints: {
         full_investment: true,
         long_only: true,
@@ -371,6 +392,7 @@ function createConstructionArtifactWorkspaceReviewBasisFixture() {
     candidateTruth: 'hypothetical_construction_artifact' as const,
     constructionArtifactId: 'artifact-123',
     previewHandoff: createConstructionArtifactReplayResponse().review_basis!.preview_handoff,
+    launchContext: createConstructionArtifactReplayResponse().review_basis!.launch_context,
     openedAt: '2026-04-23T00:00:00Z',
     benchmarkSymbol: 'SPY',
     baseCurrency: 'USD',
@@ -380,23 +402,209 @@ function createConstructionArtifactWorkspaceReviewBasisFixture() {
   }
 }
 
-function createSavedProposalArtifactFixtureBase(): Omit<VersionedProposalArtifact, 'reviewSnapshotPMSummary'> {
-  const reviewSnapshotArtifactId = 'review_snapshot_1234567890abcdef'
+type SavedProposalFixtureOptions = {
+  includeMethodologyProvenance?: boolean
+  replayType?: ReviewSnapshotArtifact['source_payload']['replay_type']
+}
+
+function createMethodologyProvenanceFixture() {
+  return {
+    provenance_version: 1 as const,
+    source: 'portfolio_allocation_backtest_engine' as const,
+    methodology_truth: 'review_only_replay_methodology' as const,
+    assumptions_truth: 'review_only_replay_assumptions' as const,
+    analytics_truth: 'hypothetical_replay_analytics_only' as const,
+    review_scope: 'workspace_review_context_only' as const,
+  }
+}
+
+function buildFixtureMethodology(methodology: string, methodologyProvenance: ConstructionArtifactReplayResponse['replay']['methodology_provenance']) {
+  return {
+    methodology,
+    ...(methodologyProvenance ? { methodology_provenance: methodologyProvenance } : {}),
+  }
+}
+
+function buildFixtureAnalyticsSummary(input: {
+  methodology: string
+  methodologyProvenance: ConstructionArtifactReplayResponse['replay']['methodology_provenance']
+  assumptions: ConstructionArtifactReplayResponse['replay']['candidate_result']['assumptions']
+  benchmarkSymbol: string | null
+  metrics: ConstructionArtifactReplayResponse['replay']['candidate_result']['metrics']
+}): SavedProposalReviewSnapshotPMSummaryMirror['analytics_summary']['candidate_analytics'] {
+  return {
+    methodology: input.methodology,
+    ...(input.methodologyProvenance ? { methodology_provenance: input.methodologyProvenance } : {}),
+    assumptions: input.assumptions,
+    benchmark_symbol: input.benchmarkSymbol,
+    benchmark_return_pct: input.metrics.benchmark_return_pct,
+    total_return_pct: input.metrics.total_return_pct,
+    annualized_return_pct: input.metrics.annualized_return_pct,
+    annualized_volatility_pct: input.metrics.annualized_volatility_pct,
+    downside_volatility_pct: input.metrics.downside_volatility_pct,
+    max_drawdown_pct: input.metrics.max_drawdown_pct,
+    sharpe_ratio: input.metrics.sharpe_ratio,
+    sortino_ratio: input.metrics.sortino_ratio,
+    excess_return_pct: input.metrics.excess_return_pct,
+    tracking_error_pct: input.metrics.tracking_error_pct,
+    information_ratio: input.metrics.information_ratio,
+    beta_vs_benchmark: input.metrics.beta_vs_benchmark,
+    correlation_vs_benchmark: input.metrics.correlation_vs_benchmark,
+    total_turnover_pct: input.metrics.total_turnover_pct,
+    total_cost_paid: input.metrics.total_cost_paid,
+  }
+}
+
+function buildFixtureArtifactAnalyticsSummary(input: {
+  methodology: string
+  methodologyProvenance: NonNullable<ConstructionArtifactReplayResponse['replay']['methodology_provenance']>
+  assumptions: ConstructionArtifactReplayResponse['replay']['candidate_result']['assumptions']
+  benchmarkSymbol: string | null
+  metrics: ConstructionArtifactReplayResponse['replay']['candidate_result']['metrics']
+}): ReviewSnapshotArtifact['compact_summary']['candidate_analytics'] {
+  return {
+    methodology: input.methodology,
+    methodology_provenance: input.methodologyProvenance,
+    assumptions: input.assumptions,
+    benchmark_symbol: input.benchmarkSymbol,
+    benchmark_return_pct: input.metrics.benchmark_return_pct,
+    total_return_pct: input.metrics.total_return_pct,
+    annualized_return_pct: input.metrics.annualized_return_pct,
+    annualized_volatility_pct: input.metrics.annualized_volatility_pct,
+    downside_volatility_pct: input.metrics.downside_volatility_pct,
+    max_drawdown_pct: input.metrics.max_drawdown_pct,
+    sharpe_ratio: input.metrics.sharpe_ratio,
+    sortino_ratio: input.metrics.sortino_ratio,
+    excess_return_pct: input.metrics.excess_return_pct,
+    tracking_error_pct: input.metrics.tracking_error_pct,
+    information_ratio: input.metrics.information_ratio,
+    beta_vs_benchmark: input.metrics.beta_vs_benchmark,
+    correlation_vs_benchmark: input.metrics.correlation_vs_benchmark,
+    total_turnover_pct: input.metrics.total_turnover_pct,
+    total_cost_paid: input.metrics.total_cost_paid,
+  }
+}
+
+function createReplayCandidateResultFixture(): ConstructionArtifactReplayResponse['replay']['candidate_result'] {
+  return {
+    portfolio_name: 'Candidate',
+    benchmark_symbol: 'SPY',
+    start_date: '2024-01-01',
+    end_date: '2024-12-31',
+    observation_count: 2,
+    rebalance_frequency: 'monthly',
+    commission_bps: 0,
+    slippage_bps: 0,
+    drift_tolerance_pct: null,
+    assumptions: {
+      price_basis: 'adjusted_close',
+      execution_price_field: 'close',
+      execution_lag_days: 1,
+      calendar_policy: 'intersection_common_dates',
+      fractional_shares: true,
+      long_only: true,
+      leverage_allowed: false,
+      tax_treatment: 'pre_tax',
+      investor_base_currency: 'USD',
+    },
+    status: 'ok',
+    investor_economics_status: availableInvestorEconomicsStatus,
+    instrument_metadata: [],
+    starting_weights: [],
+    ending_weights: [],
+    metrics: {
+      total_return_pct: 1,
+      annualized_return_pct: 1,
+      annualized_volatility_pct: 1,
+      downside_volatility_pct: 1,
+      max_drawdown_pct: -1,
+      sharpe_ratio: 1,
+      sortino_ratio: 1,
+      benchmark_return_pct: 1,
+      excess_return_pct: 0,
+      tracking_error_pct: 1,
+      information_ratio: 0,
+      beta_vs_benchmark: 1,
+      correlation_vs_benchmark: 1,
+      total_turnover_pct: 0,
+      turnover_events_count: 0,
+      total_cost_paid: 0,
+    },
+    equity_curve: [],
+    rebalance_events: [],
+    trades: [],
+  }
+}
+
+function createPortfolioAllocationReplayFixture(
+  methodologyProvenance: ConstructionArtifactReplayResponse['replay']['methodology_provenance'],
+): ConstructionArtifactReplayResponse['replay'] {
+  return {
+    methodology: 'm',
+    ...(methodologyProvenance ? { methodology_provenance: methodologyProvenance } : {}),
+    investor_economics_status: availableInvestorEconomicsStatus,
+    reference_result: null,
+    candidate_result: createReplayCandidateResultFixture(),
+    comparison: null,
+    reference_diagnostics: null,
+    candidate_diagnostics: null,
+    diagnostics_comparison: null,
+  }
+}
+
+function createSnapshotProposalSourceFixture() {
+  return {
+    proposal_source_version: 1 as const,
+    proposal_source_kind: 'draft_replacement_intent_review_only' as const,
+    proposal_truth: 'review_only_hypothetical_proposal' as const,
+    portfolio_truth: 'draft_snapshot_not_applied' as const,
+    review_scope: 'proposal_review_context_only' as const,
+  }
+}
+
+function createProposalSourceFixture(): VersionedProposalArtifact['proposalSource'] {
+  return {
+    proposalSourceVersion: 1,
+    proposalSourceKind: 'draft_replacement_intent_review_only',
+    proposalTruth: 'review_only_hypothetical_proposal',
+    portfolioTruth: 'draft_snapshot_not_applied',
+    reviewScope: 'proposal_review_context_only',
+  }
+}
+
+function createHypotheticalReplayProvenanceFixture(): VersionedProposalArtifact['replayBasis']['replayProvenance'] {
+  return {
+    candidate_input_source: 'replacement_intent_preview',
+    construction_rule_id: 'same_weight_substitution_v1',
+    upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
+    seed_ranking_id: 'etf_ranking_engine_v1',
+    seed_methodology_id: 'etf_ranking_methodology_v1',
+    constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
+  }
+}
+
+function createSavedProposalReviewSnapshotFixtureSource(options: SavedProposalFixtureOptions = {}) {
+  const methodologyProvenance = options.includeMethodologyProvenance === false ? undefined : createMethodologyProvenanceFixture()
+  const replayType = options.replayType ?? 'standard'
+  const snapshotProposalSource = createSnapshotProposalSourceFixture()
+  const replayProvenance = createHypotheticalReplayProvenanceFixture()
+  const activeReplay = createPortfolioAllocationReplayFixture(methodologyProvenance)
+
   return {
     id: 'proposal-1',
-    kind: 'single_replacement_hypothetical_replay_proposal',
-    schemaVersion: 1,
+    kind: 'single_replacement_hypothetical_replay_proposal' as const,
+    schemaVersion: 1 as const,
     createdAt: '2026-04-16T00:00:00Z',
     workspaceId: 'workspace-1',
     sourceDraftId: 'draft-1',
     sourceBaseNodeId: 'node-1',
     proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
     versionNumber: 1,
-    savedFrom: 'desktop_hypothetical_replay_review',
-    reviewStatus: 'recorded',
+    savedFrom: 'desktop_hypothetical_replay_review' as const,
+    reviewStatus: 'recorded' as const,
     sourceIntent: {
-      kind: 'etf_replacement_intent',
-      source: 'candidate_seed',
+      kind: 'etf_replacement_intent' as const,
+      source: 'candidate_seed' as const,
       createdAt: '2026-04-15T00:05:00Z',
       draftId: 'draft-1',
       workspaceId: 'workspace-1',
@@ -410,69 +618,12 @@ function createSavedProposalArtifactFixtureBase(): Omit<VersionedProposalArtifac
       peerGroup: 'Sector UCITS ETF',
       benchmarkSymbol: 'SPY',
       lookbackMonths: 6,
-      confidence: 'medium',
-      holdingsSupport: 'mixed',
+      confidence: 'medium' as const,
+      holdingsSupport: 'mixed' as const,
       warningCount: 1,
     },
-    proposalCapture: {
-      capture_version: 1,
-      capture_kind: 'workspace_review_saved_proposal',
-      open_handoff: {
-        handoff_kind: 'review_snapshot_open_handoff_v1',
-        artifact_id: reviewSnapshotArtifactId,
-        artifact_kind: 'portfolio_review_snapshot',
-        schema_version: 'review_snapshot_artifact_v1',
-        consumer_kind: 'saved_hypothetical_replay_proposal',
-      },
-      lineage: {
-        workspace_id: 'workspace-1',
-        source_draft_id: 'draft-1',
-        source_base_node_id: 'node-1',
-        proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
-        proposal_id: 'proposal-1',
-        version_number: 1,
-        source_kind: 'hypothetical_replacement_replay',
-      },
-      proposal: {
-        source: 'draft_replacement_intent',
-        proposal_source: {
-          proposal_source_version: 1,
-          proposal_source_kind: 'draft_replacement_intent_review_only',
-          proposal_truth: 'review_only_hypothetical_proposal',
-          portfolio_truth: 'draft_snapshot_not_applied',
-          review_scope: 'proposal_review_context_only',
-        },
-        incumbent_symbol: 'AAPL',
-        candidate_symbol: 'IUFS',
-      },
-      replay_type: 'standard',
-      replay_provenance: {
-        candidate_input_source: 'replacement_intent_preview',
-        construction_rule_id: 'same_weight_substitution_v1',
-        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
-        seed_ranking_id: 'etf_ranking_engine_v1',
-        seed_methodology_id: 'etf_ranking_methodology_v1',
-        constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
-      },
-      review_basis: {
-        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
-        benchmark_symbol: 'SPY',
-        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
-        rebalance_frequency: 'monthly',
-        commission_bps: 0,
-        slippage_bps: 0,
-        derivation_basis: 'draft_snapshot_positions_normalized',
-        candidate_construction_rule: 'same_weight_substitution_v1',
-      },
-    },
-    proposalSource: {
-      proposalSourceVersion: 1,
-      proposalSourceKind: 'draft_replacement_intent_review_only',
-      proposalTruth: 'review_only_hypothetical_proposal',
-      portfolioTruth: 'draft_snapshot_not_applied',
-      reviewScope: 'proposal_review_context_only',
-    },
-    reviewSnapshotArtifactId,
+    proposalSource: createProposalSourceFixture(),
+    reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
     replayBasis: {
       benchmarkSymbol: 'SPY',
       startDate: '2024-01-01',
@@ -480,98 +631,323 @@ function createSavedProposalArtifactFixtureBase(): Omit<VersionedProposalArtifac
       rebalanceFrequency: 'monthly',
       commissionBps: 0,
       slippageBps: 0,
-      derivationBasis: 'draft_snapshot_positions_normalized',
-      candidateConstructionRule: 'same_weight_substitution_v1',
-      replayProvenance: {
-        candidate_input_source: 'replacement_intent_preview',
-        construction_rule_id: 'same_weight_substitution_v1',
-        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
-        seed_ranking_id: 'etf_ranking_engine_v1',
-        seed_methodology_id: 'etf_ranking_methodology_v1',
-        constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
-      },
+      derivationBasis: 'draft_snapshot_positions_normalized' as const,
+      candidateConstructionRule: 'same_weight_substitution_v1' as const,
+      replayProvenance: replayProvenance,
     },
-    reviewSnapshot: {
-      proposal: {
-        source: 'draft_replacement_intent',
-        proposal_source: {
-          proposal_source_version: 1,
-          proposal_source_kind: 'draft_replacement_intent_review_only',
-          proposal_truth: 'review_only_hypothetical_proposal',
-          portfolio_truth: 'draft_snapshot_not_applied',
-          review_scope: 'proposal_review_context_only',
+    reviewSnapshot: replayType === 'overlay_aware'
+      ? {
+          proposal: {
+            source: 'draft_replacement_intent' as const,
+            proposal_source: snapshotProposalSource,
+            incumbent_symbol: 'AAPL',
+            candidate_symbol: 'IUFS',
+            draft_id: 'draft-1',
+            base_node_id: 'node-1',
+          },
+          derivation: {
+            baseline_basis: 'draft_snapshot_positions_normalized' as const,
+            candidate_construction_rule: 'same_weight_substitution_v1' as const,
+          },
+          replay_provenance: replayProvenance,
+          overlay_application: {
+            overlay_id: 'benchmark_trend_overlay_v1' as const,
+            overlay_status: 'risk_on' as const,
+            as_of_month_end: '2024-12-31',
+            benchmark_symbol: 'SPY',
+            risky_weight_scale: 1,
+            cash_residual_weight: 0,
+            applied_to_candidate_only: true,
+          },
+          baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
+          candidate_weights_pre_overlay: [{ symbol: 'IUFS', target_weight: 1 }],
+          candidate_weights_post_overlay: [{ symbol: 'IUFS', target_weight: 1 }],
+          base_replay: createPortfolioAllocationReplayFixture(methodologyProvenance),
+          overlay_replay: activeReplay,
+          warnings: [],
+        }
+      : {
+          proposal: {
+            source: 'draft_replacement_intent' as const,
+            proposal_source: snapshotProposalSource,
+            incumbent_symbol: 'AAPL',
+            candidate_symbol: 'IUFS',
+            draft_id: 'draft-1',
+            base_node_id: 'node-1',
+          },
+          derivation: {
+            baseline_basis: 'draft_snapshot_positions_normalized' as const,
+            candidate_construction_rule: 'same_weight_substitution_v1' as const,
+          },
+          replay_provenance: replayProvenance,
+          baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
+          candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
+          replay: activeReplay,
+          warnings: [],
         },
-        incumbent_symbol: 'AAPL',
-        candidate_symbol: 'IUFS',
-        draft_id: 'draft-1',
-        base_node_id: 'node-1',
-      },
-      derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' },
-      replay_provenance: {
-        candidate_input_source: 'replacement_intent_preview',
-        construction_rule_id: 'same_weight_substitution_v1',
-        upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' },
-        seed_ranking_id: 'etf_ranking_engine_v1',
-        seed_methodology_id: 'etf_ranking_methodology_v1',
-        constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null },
-      },
-      baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
-      candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
-      replay: {
-        methodology: 'm',
-        methodology_provenance: {
-          provenance_version: 1,
-          source: 'portfolio_allocation_backtest_engine',
-          methodology_truth: 'review_only_replay_methodology',
-          assumptions_truth: 'review_only_replay_assumptions',
-          analytics_truth: 'hypothetical_replay_analytics_only',
-          review_scope: 'workspace_review_context_only',
-        },
-        investor_economics_status: availableInvestorEconomicsStatus,
-        reference_result: null,
-        candidate_result: {
-          portfolio_name: 'Candidate',
-          benchmark_symbol: 'SPY',
-          start_date: '2024-01-01',
-          end_date: '2024-12-31',
-          observation_count: 2,
-          rebalance_frequency: 'monthly',
-          commission_bps: 0,
-          slippage_bps: 0,
-          drift_tolerance_pct: null,
-          assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
-          status: 'ok',
-          investor_economics_status: availableInvestorEconomicsStatus,
-          instrument_metadata: [],
-          starting_weights: [],
-          ending_weights: [],
-          metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
-          equity_curve: [],
-          rebalance_events: [],
-          trades: [],
-        },
-        comparison: null,
-        reference_diagnostics: null,
-        candidate_diagnostics: null,
-        diagnostics_comparison: null,
-      },
-      warnings: [],
+  }
+}
+
+function requireFixtureMethodologyProvenance(
+  methodologyProvenance: ConstructionArtifactReplayResponse['replay']['methodology_provenance'],
+): NonNullable<ConstructionArtifactReplayResponse['replay']['methodology_provenance']> {
+  if (!methodologyProvenance) {
+    throw new Error('Fixture methodology provenance is required')
+  }
+
+  return methodologyProvenance
+}
+
+function deriveFixtureEffectiveReplay(
+  reviewSnapshotPayload: VersionedProposalArtifact['reviewSnapshot'] | ReviewSnapshotArtifact['source_payload'],
+) {
+  const replayPayload = 'proposal' in reviewSnapshotPayload
+    ? reviewSnapshotPayload
+    : reviewSnapshotPayload.overlay_replay ?? reviewSnapshotPayload.replay
+
+  if (!replayPayload) {
+    throw new Error('Fixture review snapshot replay payload is missing')
+  }
+
+  if ('replay' in replayPayload) {
+    return {
+      replayPayload,
+      replayType: 'standard' as const,
+      replay: replayPayload.replay,
+    }
+  }
+
+  return {
+    replayPayload,
+    replayType: 'overlay_aware' as const,
+    replay: replayPayload.overlay_replay,
+  }
+}
+
+function createReviewSnapshotArtifactSourcePayloadFixture(
+  reviewSnapshotPayload: VersionedProposalArtifact['reviewSnapshot'],
+): ReviewSnapshotArtifact['source_payload'] {
+  const effectiveReplay = deriveFixtureEffectiveReplay(reviewSnapshotPayload)
+
+  return effectiveReplay.replayType === 'standard'
+    ? {
+        replay_type: 'standard',
+        replay: effectiveReplay.replayPayload as Extract<VersionedProposalArtifact['reviewSnapshot'], { replay: unknown }>,
+        overlay_replay: null,
+      }
+    : {
+        replay_type: 'overlay_aware',
+        replay: null,
+        overlay_replay: effectiveReplay.replayPayload as Extract<VersionedProposalArtifact['reviewSnapshot'], { overlay_replay: unknown }>,
+      }
+}
+
+function createProposalCaptureFixture(
+  proposal: Omit<VersionedProposalArtifact, 'reviewSnapshotPMSummary'>,
+): VersionedProposalArtifact['proposalCapture'] {
+  const effectiveReplay = deriveFixtureEffectiveReplay(proposal.reviewSnapshot)
+
+  return {
+    capture_version: 1,
+    capture_kind: 'workspace_review_saved_proposal',
+    open_handoff: {
+      handoff_kind: 'review_snapshot_open_handoff_v1',
+      artifact_id: proposal.reviewSnapshotArtifactId,
+      artifact_kind: 'portfolio_review_snapshot',
+      schema_version: 'review_snapshot_artifact_v1',
+      consumer_kind: 'saved_hypothetical_replay_proposal',
+    },
+    lineage: {
+      workspace_id: proposal.workspaceId,
+      source_draft_id: proposal.sourceDraftId,
+      source_base_node_id: proposal.sourceBaseNodeId,
+      proposal_family_id: proposal.proposalFamilyId,
+      proposal_id: proposal.id,
+      version_number: proposal.versionNumber,
+      source_kind: 'hypothetical_replacement_replay',
+    },
+    proposal: {
+      source: proposal.reviewSnapshot.proposal.source,
+      proposal_source: proposal.reviewSnapshot.proposal.proposal_source ?? createSnapshotProposalSourceFixture(),
+      incumbent_symbol: proposal.reviewSnapshot.proposal.incumbent_symbol,
+      candidate_symbol: proposal.reviewSnapshot.proposal.candidate_symbol,
+    },
+    replay_type: effectiveReplay.replayType,
+    replay_provenance: proposal.reviewSnapshot.replay_provenance,
+    review_basis: {
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
+      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+      replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
+      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+      commission_bps: proposal.replayBasis.commissionBps,
+      slippage_bps: proposal.replayBasis.slippageBps,
+      derivation_basis: proposal.replayBasis.derivationBasis,
+      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
     },
   }
 }
 
-function createSavedProposalArtifactFixture(): VersionedProposalArtifact {
-  const proposal = createSavedProposalArtifactFixtureBase() as VersionedProposalArtifact
+function createReviewSnapshotPMSummaryFixture(proposal: VersionedProposalArtifact): SavedProposalReviewSnapshotPMSummaryMirror {
+  const effectiveReplay = deriveFixtureEffectiveReplay(proposal.reviewSnapshot)
+  const methodologyProvenance = effectiveReplay.replay.methodology_provenance
+  const proposalSource = proposal.reviewSnapshot.proposal.proposal_source ?? {
+    proposal_source_version: 1,
+    proposal_source_kind: 'draft_replacement_intent_review_only',
+    proposal_truth: 'review_only_hypothetical_proposal',
+    portfolio_truth: 'draft_snapshot_not_applied',
+    review_scope: 'proposal_review_context_only',
+  }
 
-  proposal.reviewSnapshotPMSummary = createReviewSnapshotArtifactFixture().pm_summary
+  return {
+    pm_summary_version: 1 as const,
+    role: 'saved_proposal' as const,
+    provenance: {
+      source: 'persisted_review_snapshot_artifact' as const,
+      artifact_kind: 'portfolio_review_snapshot' as const,
+      schema_version: 'review_snapshot_artifact_v1' as const,
+      consumer_kind: 'saved_hypothetical_replay_proposal' as const,
+      lineage: {
+        workspace_id: proposal.workspaceId,
+        source_draft_id: proposal.sourceDraftId,
+        source_base_node_id: proposal.sourceBaseNodeId,
+        proposal_family_id: proposal.proposalFamilyId,
+        proposal_id: proposal.id,
+        version_number: proposal.versionNumber,
+        source_kind: 'hypothetical_replacement_replay' as const,
+      },
+      proposal_source: proposalSource,
+      replay_provenance: proposal.reviewSnapshot.replay_provenance,
+    },
+    truth_labels: {
+      proposal_truth: 'review_only_hypothetical_proposal' as const,
+      portfolio_truth: 'draft_snapshot_not_applied' as const,
+      analytics_truth: 'hypothetical_replay_analytics_only' as const,
+      review_scope: 'proposal_review_context_only' as const,
+    },
+    replay_type: effectiveReplay.replayType,
+    replay_status: effectiveReplay.replay.candidate_result.status,
+    investor_economics_status: effectiveReplay.replay.investor_economics_status,
+    review_basis: {
+      benchmark_separation: 'explicit_per_snapshot_benchmark_fields' as const,
+      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
+      replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
+      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
+      commission_bps: proposal.replayBasis.commissionBps,
+      slippage_bps: proposal.replayBasis.slippageBps,
+      derivation_basis: proposal.replayBasis.derivationBasis,
+      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
+    },
+    methodology: buildFixtureMethodology(effectiveReplay.replay.methodology, methodologyProvenance),
+    assumptions: effectiveReplay.replay.candidate_result.assumptions,
+    analytics_summary: {
+      candidate_analytics: buildFixtureAnalyticsSummary({
+        methodology: effectiveReplay.replay.methodology,
+        methodologyProvenance,
+        assumptions: effectiveReplay.replay.candidate_result.assumptions,
+        benchmarkSymbol: proposal.replayBasis.benchmarkSymbol,
+        metrics: effectiveReplay.replay.candidate_result.metrics,
+      }),
+      baseline_analytics: effectiveReplay.replay.reference_result ? buildFixtureArtifactAnalyticsSummary({
+        methodology: effectiveReplay.replay.methodology,
+        methodologyProvenance: requireFixtureMethodologyProvenance(methodologyProvenance),
+        assumptions: effectiveReplay.replay.reference_result.assumptions,
+        benchmarkSymbol: effectiveReplay.replay.reference_result.benchmark_symbol,
+        metrics: effectiveReplay.replay.reference_result.metrics,
+      }) : null,
+      analytics_comparison: effectiveReplay.replay.comparison,
+    },
+    diagnostics_summary: {
+      diagnostics_available: effectiveReplay.replay.diagnostics_comparison != null,
+      top_factor_exposure_change: effectiveReplay.replay.diagnostics_comparison?.top_factor_exposure_change ?? null,
+      top_volatility_change: effectiveReplay.replay.diagnostics_comparison?.top_volatility_change ?? null,
+      top_risk_contribution_change: effectiveReplay.replay.diagnostics_comparison?.top_risk_contribution_change ?? null,
+      top_concentration_change: effectiveReplay.replay.diagnostics_comparison?.top_concentration_change ?? null,
+      top_stress_scenario_change: effectiveReplay.replay.diagnostics_comparison?.top_stress_scenario_change ?? null,
+    },
+  }
+}
+
+function createSavedProposalArtifactFixtureBase(options: SavedProposalFixtureOptions = {}): Omit<VersionedProposalArtifact, 'reviewSnapshotPMSummary'> {
+  const source = createSavedProposalReviewSnapshotFixtureSource(options)
+  const proposal = {
+    id: source.id,
+    kind: source.kind,
+    schemaVersion: source.schemaVersion,
+    createdAt: source.createdAt,
+    workspaceId: source.workspaceId,
+    sourceDraftId: source.sourceDraftId,
+    sourceBaseNodeId: source.sourceBaseNodeId,
+    proposalFamilyId: source.proposalFamilyId,
+    versionNumber: source.versionNumber,
+    savedFrom: source.savedFrom,
+    reviewStatus: source.reviewStatus,
+    sourceIntent: source.sourceIntent,
+    proposalCapture: null as unknown as VersionedProposalArtifact['proposalCapture'],
+    proposalSource: source.proposalSource,
+    reviewSnapshotArtifactId: source.reviewSnapshotArtifactId,
+    replayBasis: source.replayBasis,
+    reviewSnapshot: source.reviewSnapshot,
+  } satisfies Omit<VersionedProposalArtifact, 'reviewSnapshotPMSummary'>
+
+  proposal.proposalCapture = createProposalCaptureFixture(proposal)
   return proposal
 }
 
-function createReviewSnapshotArtifactFixture(): ReviewSnapshotArtifact {
-  const proposal = createSavedProposalArtifactFixtureBase() as VersionedProposalArtifact
+function createReviewSnapshotCompactSummaryFixture(proposal: VersionedProposalArtifact): ReviewSnapshotArtifact['compact_summary'] {
+  const effectiveReplay = deriveFixtureEffectiveReplay(proposal.reviewSnapshot)
+  const methodologyProvenance = effectiveReplay.replay.methodology_provenance
+  if (!methodologyProvenance) {
+    throw new Error('Fixture review snapshot compact summary requires methodology provenance')
+  }
+
+  return {
+    replay_type: effectiveReplay.replayType,
+    replay_status: effectiveReplay.replay.candidate_result.status,
+    investor_economics_status: effectiveReplay.replay.investor_economics_status,
+    candidate_analytics: buildFixtureArtifactAnalyticsSummary({
+      methodology: effectiveReplay.replay.methodology,
+      methodologyProvenance: requireFixtureMethodologyProvenance(methodologyProvenance),
+      assumptions: effectiveReplay.replay.candidate_result.assumptions,
+      benchmarkSymbol: effectiveReplay.replay.candidate_result.benchmark_symbol,
+      metrics: effectiveReplay.replay.candidate_result.metrics,
+    }),
+    baseline_analytics: effectiveReplay.replay.reference_result ? buildFixtureArtifactAnalyticsSummary({
+      methodology: effectiveReplay.replay.methodology,
+      methodologyProvenance: requireFixtureMethodologyProvenance(methodologyProvenance),
+      assumptions: effectiveReplay.replay.reference_result.assumptions,
+      benchmarkSymbol: effectiveReplay.replay.reference_result.benchmark_symbol,
+      metrics: effectiveReplay.replay.reference_result.metrics,
+    }) : null,
+    analytics_comparison: effectiveReplay.replay.comparison,
+    diagnostics_summary: {
+      diagnostics_available: effectiveReplay.replay.diagnostics_comparison != null,
+      top_factor_exposure_change: effectiveReplay.replay.diagnostics_comparison?.top_factor_exposure_change ?? null,
+      top_volatility_change: effectiveReplay.replay.diagnostics_comparison?.top_volatility_change ?? null,
+      top_risk_contribution_change: effectiveReplay.replay.diagnostics_comparison?.top_risk_contribution_change ?? null,
+      top_concentration_change: effectiveReplay.replay.diagnostics_comparison?.top_concentration_change ?? null,
+      top_stress_scenario_change: effectiveReplay.replay.diagnostics_comparison?.top_stress_scenario_change ?? null,
+    },
+  }
+}
+
+function createSavedProposalReviewSnapshotFixtureBundle(options: SavedProposalFixtureOptions = {}) {
+  const proposal = createSavedProposalArtifactFixtureBase(options) as VersionedProposalArtifact
+
+  proposal.reviewSnapshotPMSummary = createReviewSnapshotPMSummaryFixture(proposal)
+  return {
+    proposal,
+    reviewSnapshotArtifact: createReviewSnapshotArtifactFromProposalFixture(proposal),
+  }
+}
+
+function createSavedProposalArtifactFixture(options: SavedProposalFixtureOptions = {}): VersionedProposalArtifact {
+  return createSavedProposalReviewSnapshotFixtureBundle(options).proposal
+}
+
+function createReviewSnapshotArtifactFromProposalFixture(proposal: VersionedProposalArtifact): ReviewSnapshotArtifact {
   return {
     identity: {
-      artifact_id: 'review_snapshot_1234567890abcdef',
+      artifact_id: proposal.reviewSnapshotArtifactId,
       artifact_kind: 'portfolio_review_snapshot',
       schema_version: 'review_snapshot_artifact_v1',
       fingerprint: 'f'.repeat(64),
@@ -603,127 +979,15 @@ function createReviewSnapshotArtifactFixture(): ReviewSnapshotArtifact {
       analytics_truth: 'hypothetical_replay_analytics_only',
       review_scope: 'proposal_review_context_only',
     },
-    compact_summary: {
-      replay_type: 'standard',
-      replay_status: 'ok',
-      investor_economics_status: availableInvestorEconomicsStatus,
-      candidate_analytics: {
-        methodology: 'm',
-        methodology_provenance: proposal.reviewSnapshot.replay.methodology_provenance!,
-        assumptions: proposal.reviewSnapshot.replay.candidate_result.assumptions,
-        benchmark_symbol: 'SPY',
-        benchmark_return_pct: 1,
-        total_return_pct: 1,
-        annualized_return_pct: 1,
-        annualized_volatility_pct: 1,
-        downside_volatility_pct: 1,
-        max_drawdown_pct: -1,
-        sharpe_ratio: 1,
-        sortino_ratio: 1,
-        excess_return_pct: 0,
-        tracking_error_pct: 1,
-        information_ratio: 0,
-        beta_vs_benchmark: 1,
-        correlation_vs_benchmark: 1,
-        total_turnover_pct: 0,
-        total_cost_paid: 0,
-      },
-      baseline_analytics: null,
-      analytics_comparison: null,
-      diagnostics_summary: {
-        diagnostics_available: false,
-        top_factor_exposure_change: null,
-        top_volatility_change: null,
-        top_risk_contribution_change: null,
-        top_concentration_change: null,
-        top_stress_scenario_change: null,
-      },
-    },
+    compact_summary: createReviewSnapshotCompactSummaryFixture(proposal),
     proposal_capture: proposal.proposalCapture,
-    pm_summary: {
-      pm_summary_version: 1,
-      role: 'saved_proposal',
-      provenance: {
-        source: 'persisted_review_snapshot_artifact',
-        artifact_kind: 'portfolio_review_snapshot',
-        schema_version: 'review_snapshot_artifact_v1',
-        consumer_kind: 'saved_hypothetical_replay_proposal',
-        lineage: {
-          workspace_id: proposal.workspaceId,
-          source_draft_id: proposal.sourceDraftId,
-          source_base_node_id: proposal.sourceBaseNodeId,
-          proposal_family_id: proposal.proposalFamilyId,
-          proposal_id: proposal.id,
-          version_number: proposal.versionNumber,
-          source_kind: 'hypothetical_replacement_replay',
-        },
-        proposal_source: proposal.reviewSnapshot.proposal.proposal_source!,
-        replay_provenance: proposal.replayBasis.replayProvenance,
-      },
-      truth_labels: {
-        proposal_truth: 'review_only_hypothetical_proposal',
-        portfolio_truth: 'draft_snapshot_not_applied',
-        analytics_truth: 'hypothetical_replay_analytics_only',
-        review_scope: 'proposal_review_context_only',
-      },
-      replay_type: 'standard',
-      replay_status: 'ok',
-      investor_economics_status: availableInvestorEconomicsStatus,
-      review_basis: {
-        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
-        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
-        replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
-        rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
-        commission_bps: proposal.replayBasis.commissionBps,
-        slippage_bps: proposal.replayBasis.slippageBps,
-        derivation_basis: proposal.replayBasis.derivationBasis,
-        candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
-      },
-      methodology: {
-        methodology: 'm',
-        methodology_provenance: proposal.reviewSnapshot.replay.methodology_provenance!,
-      },
-      assumptions: proposal.reviewSnapshot.replay.candidate_result.assumptions,
-      analytics_summary: {
-        candidate_analytics: {
-          methodology: 'm',
-          methodology_provenance: proposal.reviewSnapshot.replay.methodology_provenance!,
-          assumptions: proposal.reviewSnapshot.replay.candidate_result.assumptions,
-          benchmark_symbol: 'SPY',
-          benchmark_return_pct: 1,
-          total_return_pct: 1,
-          annualized_return_pct: 1,
-          annualized_volatility_pct: 1,
-          downside_volatility_pct: 1,
-          max_drawdown_pct: -1,
-          sharpe_ratio: 1,
-          sortino_ratio: 1,
-          excess_return_pct: 0,
-          tracking_error_pct: 1,
-          information_ratio: 0,
-          beta_vs_benchmark: 1,
-          correlation_vs_benchmark: 1,
-          total_turnover_pct: 0,
-          total_cost_paid: 0,
-        },
-        baseline_analytics: null,
-        analytics_comparison: null,
-      },
-      diagnostics_summary: {
-        diagnostics_available: false,
-        top_factor_exposure_change: null,
-        top_volatility_change: null,
-        top_risk_contribution_change: null,
-        top_concentration_change: null,
-        top_stress_scenario_change: null,
-      },
-    },
-    source_payload: {
-      replay_type: 'standard',
-      replay: proposal.reviewSnapshot as any,
-      overlay_replay: null,
-    },
+    pm_summary: proposal.reviewSnapshotPMSummary as unknown as ReviewSnapshotArtifact['pm_summary'],
+    source_payload: createReviewSnapshotArtifactSourcePayloadFixture(proposal.reviewSnapshot),
   }
+}
+
+function createReviewSnapshotArtifactFixture(options: SavedProposalFixtureOptions = {}): ReviewSnapshotArtifact {
+  return createSavedProposalReviewSnapshotFixtureBundle(options).reviewSnapshotArtifact
 }
 
 function createReviewSnapshotFamilyInboxRowFixture(artifact: ReviewSnapshotArtifact) {
@@ -744,7 +1008,7 @@ function createReviewSnapshotFamilyInboxRowFixture(artifact: ReviewSnapshotArtif
   }
 }
 
-function createReviewSnapshotFamilyInboxResponseFixture(artifact: ReviewSnapshotArtifact) {
+function createReviewSnapshotFamilyInboxResponseFixture(artifact: ReviewSnapshotArtifact): ReviewSnapshotFamilyInboxResponse {
   return {
     inbox_kind: 'review_snapshot_family_inbox' as const,
     workspace_id: artifact.lineage.workspace_id,
@@ -930,96 +1194,11 @@ function createReviewSnapshotFamilyReviewResponseFixture(artifact: ReviewSnapsho
 }
 
 function buildLegacySavedProposalMirrorFromProposal(proposal: VersionedProposalArtifact) {
-  const activeReplay = 'replay' in proposal.reviewSnapshot ? proposal.reviewSnapshot.replay : proposal.reviewSnapshot.overlay_replay
-  const proposalSource = proposal.reviewSnapshot.proposal.proposal_source ?? {
-    proposal_source_version: 1,
-    proposal_source_kind: 'draft_replacement_intent_review_only',
-    proposal_truth: 'review_only_hypothetical_proposal',
-    portfolio_truth: 'draft_snapshot_not_applied',
-    review_scope: 'proposal_review_context_only',
-  }
-  return {
-    pm_summary_version: 1 as const,
-    role: 'saved_proposal' as const,
-    provenance: {
-      source: 'persisted_review_snapshot_artifact' as const,
-      artifact_kind: 'portfolio_review_snapshot' as const,
-      schema_version: 'review_snapshot_artifact_v1' as const,
-      consumer_kind: 'saved_hypothetical_replay_proposal' as const,
-      lineage: {
-        workspace_id: proposal.workspaceId,
-        source_draft_id: proposal.sourceDraftId,
-        source_base_node_id: proposal.sourceBaseNodeId,
-        proposal_family_id: proposal.proposalFamilyId,
-        proposal_id: proposal.id,
-        version_number: proposal.versionNumber,
-        source_kind: 'hypothetical_replacement_replay' as const,
-      },
-      proposal_source: proposalSource,
-      replay_provenance: proposal.reviewSnapshot.replay_provenance,
-    },
-    truth_labels: {
-      proposal_truth: 'review_only_hypothetical_proposal' as const,
-      portfolio_truth: 'draft_snapshot_not_applied' as const,
-      analytics_truth: 'hypothetical_replay_analytics_only' as const,
-      review_scope: 'proposal_review_context_only' as const,
-    },
-    replay_type: 'replay' in proposal.reviewSnapshot ? 'standard' as const : 'overlay_aware' as const,
-    replay_status: activeReplay.candidate_result.status,
-    investor_economics_status: activeReplay.investor_economics_status,
-    review_basis: {
-      benchmark_separation: 'explicit_per_snapshot_benchmark_fields' as const,
-      benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
-      replay_window: { start_date: proposal.replayBasis.startDate, end_date: proposal.replayBasis.endDate },
-      rebalance_frequency: proposal.replayBasis.rebalanceFrequency,
-      commission_bps: proposal.replayBasis.commissionBps,
-      slippage_bps: proposal.replayBasis.slippageBps,
-      derivation_basis: proposal.replayBasis.derivationBasis,
-      candidate_construction_rule: proposal.replayBasis.candidateConstructionRule,
-    },
-    methodology: {
-      methodology: activeReplay.methodology,
-      methodology_provenance: activeReplay.methodology_provenance!,
-    },
-    assumptions: activeReplay.candidate_result.assumptions,
-    analytics_summary: {
-      candidate_analytics: {
-        methodology: activeReplay.methodology,
-        methodology_provenance: activeReplay.methodology_provenance!,
-        assumptions: activeReplay.candidate_result.assumptions,
-        benchmark_symbol: proposal.replayBasis.benchmarkSymbol,
-        benchmark_return_pct: 1,
-        total_return_pct: 1,
-        annualized_return_pct: 1,
-        annualized_volatility_pct: 1,
-        downside_volatility_pct: 1,
-        max_drawdown_pct: -1,
-        sharpe_ratio: 1,
-        sortino_ratio: 1,
-        excess_return_pct: 0,
-        tracking_error_pct: 1,
-        information_ratio: 0,
-        beta_vs_benchmark: 1,
-        correlation_vs_benchmark: 1,
-        total_turnover_pct: 0,
-        total_cost_paid: 0,
-      },
-      baseline_analytics: null,
-      analytics_comparison: null,
-    },
-    diagnostics_summary: {
-      diagnostics_available: false,
-      top_factor_exposure_change: null,
-      top_volatility_change: null,
-      top_risk_contribution_change: null,
-      top_concentration_change: null,
-      top_stress_scenario_change: null,
-    },
-  }
+  return createReviewSnapshotPMSummaryFixture(proposal)
 }
 
 function mockProposalAndArtifactLoad(
-  proposals: VersionedProposalArtifact[],
+  proposals: RawPersistedVersionedProposalArtifact[],
   artifactsById: Record<string, ReviewSnapshotArtifact> = {},
 ) {
   return vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
@@ -1102,6 +1281,37 @@ describe('portfolioWorkspaceStorage', () => {
     expect('historySource' in cleanWorkspace.source && cleanWorkspace.source.historySource.kind).toBe('imported_replay')
   })
 
+  it('creates imported workspaces with dashboard-first startup selection', async () => {
+    const persisted = new Map<string, unknown>()
+    vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+      const transaction = {
+        objectStore(name: string) {
+          return {
+            put(value: unknown) {
+              const key = (value as { id?: string; workspaceId?: string }).workspaceId ?? (value as { id?: string }).id
+              if (key) persisted.set(`${name}:${key}`, structuredClone(value))
+              const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+              queueMicrotask(() => request.onsuccess?.())
+              return request
+            },
+          }
+        },
+      } as unknown as IDBTransaction
+      return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+    })
+
+    const bootstrap = createImportedBootstrapResponseFixture()
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromImport({
+      analysis: projectImportedBootstrap(bootstrap).workspace,
+      importedFileNames: ['IB2025.pdf'],
+      historyContext: createHistoryContext(),
+      importedHistorySnapshot: importedSnapshot,
+    })
+
+    expect(created.workspaceState.activeDraftId).toBe(created.draft.id)
+    expect(created.workspaceState.selectedExposureSnapshotId).toBe(created.rootNode.id)
+  })
+
   it('creates and restores persisted construction artifact workspace reviews', async () => {
     const replay = createConstructionArtifactReplayResponse()
     const persisted = new Map<string, unknown>()
@@ -1156,6 +1366,7 @@ describe('portfolioWorkspaceStorage', () => {
         candidateTruth: 'hypothetical_construction_artifact',
         constructionArtifactId: 'artifact-123',
         previewHandoff: replay.review_basis!.preview_handoff,
+        launchContext: replay.review_basis!.launch_context,
         openedAt: '2026-04-23T00:00:00Z',
         benchmarkSymbol: 'SPY',
         baseCurrency: 'USD',
@@ -1177,6 +1388,7 @@ describe('portfolioWorkspaceStorage', () => {
       constructionArtifactId: 'artifact-123',
       basisKind: 'persisted_construction_artifact_review',
       previewHandoff: replay.review_basis!.preview_handoff,
+      launchContext: replay.review_basis!.launch_context,
     })
     expect(created.review).toMatchObject({
       workspaceId: created.workspace.id,
@@ -1313,6 +1525,7 @@ describe('portfolioWorkspaceStorage', () => {
         reviewBasis: {
           basisKind: 'persisted_construction_artifact_review',
           previewHandoff: review.replay.review_basis!.preview_handoff,
+          launchContext: review.replay.review_basis!.launch_context,
         },
       })
     expect(normalized.node).toMatchObject({
@@ -1513,6 +1726,35 @@ describe('portfolioWorkspaceStorage', () => {
         },
       },
     })).rejects.toThrow('Persisted construction artifact review payload review_basis preview handoff conflicts with canonical replay params')
+  })
+
+  it('fails closed when construction artifact review payload review_basis launch context is missing', async () => {
+    await expect(portfolioWorkspaceStorage.createWorkspaceFromPersistedConstructionArtifact({
+      constructionArtifactId: 'artifact-123',
+      replay: {
+        ...createConstructionArtifactReplayResponse(),
+        review_basis: {
+          ...createConstructionArtifactReplayResponse().review_basis!,
+          launch_context: undefined,
+        },
+      } as unknown as ConstructionArtifactReplayResponse,
+    })).rejects.toThrow('Persisted construction artifact review payload review_basis is missing canonical launch context')
+  })
+
+  it('fails closed when construction artifact review payload review_basis launch context conflicts with replay provenance launch lineage', async () => {
+    await expect(portfolioWorkspaceStorage.createWorkspaceFromPersistedConstructionArtifact({
+      constructionArtifactId: 'artifact-123',
+      replay: {
+        ...createConstructionArtifactReplayResponse(),
+        review_basis: {
+          ...createConstructionArtifactReplayResponse().review_basis!,
+          launch_context: {
+            ...createConstructionArtifactReplayResponse().review_basis!.launch_context,
+            top_n: 3,
+          },
+        },
+      } as unknown as ConstructionArtifactReplayResponse,
+    })).rejects.toThrow('Persisted construction artifact review payload review_basis launch context conflicts with replay provenance launch lineage')
   })
 
   it('fails closed when optimizer handoff review payload is missing canonical review_basis', async () => {
@@ -3441,188 +3683,13 @@ describe('portfolioWorkspaceStorage', () => {
   })
 
   it('persists proposal artifacts by workspace id', async () => {
+    const proposalFixture = createSavedProposalArtifactFixture()
     const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveProposalArtifact').mockResolvedValue()
     const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([
-      {
-        id: 'proposal-1',
-        kind: 'single_replacement_hypothetical_replay_proposal',
-        schemaVersion: 1,
-        createdAt: '2026-04-16T00:00:00Z',
-        workspaceId: 'workspace-1',
-        sourceDraftId: 'draft-1',
-        sourceBaseNodeId: 'node-1',
-        proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
-        versionNumber: 1,
-        savedFrom: 'desktop_hypothetical_replay_review',
-        reviewStatus: 'recorded',
-        sourceIntent: {
-          kind: 'etf_replacement_intent',
-          source: 'candidate_seed',
-          createdAt: '2026-04-15T00:05:00Z',
-          draftId: 'draft-1',
-          workspaceId: 'workspace-1',
-          baseNodeId: 'node-1',
-          baseSymbol: 'AAPL',
-          candidateSymbol: 'IUFS',
-          seededFromDraftId: 'draft-1',
-          seedRankingId: 'etf_ranking_engine_v1',
-          seedMethodologyId: 'etf_ranking_methodology_v1',
-          seedRankingBasisDate: '2026-04-15',
-          peerGroup: 'Sector UCITS ETF',
-          benchmarkSymbol: 'SPY',
-          lookbackMonths: 6,
-          confidence: 'medium',
-          holdingsSupport: 'mixed',
-          warningCount: 1,
-        },
-        proposalSource: {
-          proposalSourceVersion: 1,
-          proposalSourceKind: 'draft_replacement_intent_review_only',
-          proposalTruth: 'review_only_hypothetical_proposal',
-          portfolioTruth: 'draft_snapshot_not_applied',
-          reviewScope: 'proposal_review_context_only',
-        },
-        replayBasis: {
-          benchmarkSymbol: 'SPY',
-          startDate: '2024-01-01',
-          endDate: '2024-12-31',
-          rebalanceFrequency: 'monthly',
-          commissionBps: 0,
-          slippageBps: 0,
-          derivationBasis: 'draft_snapshot_positions_normalized',
-          candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-        },
-        reviewSnapshot: {
-          proposal: { source: 'draft_replacement_intent', proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' }, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
-          derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-          baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
-          candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
-          replay: {
-            methodology: 'm',
-            methodology_provenance: { provenance_version: 1, source: 'portfolio_allocation_backtest_engine', methodology_truth: 'review_only_replay_methodology', assumptions_truth: 'review_only_replay_assumptions', analytics_truth: 'hypothetical_replay_analytics_only', review_scope: 'workspace_review_context_only' },
-            investor_economics_status: availableInvestorEconomicsStatus,
-            reference_result: null,
-            candidate_result: {
-              portfolio_name: 'Candidate',
-              benchmark_symbol: 'SPY',
-              start_date: '2024-01-01',
-              end_date: '2024-12-31',
-              observation_count: 2,
-              rebalance_frequency: 'monthly',
-              commission_bps: 0,
-              slippage_bps: 0,
-              drift_tolerance_pct: null,
-              assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
-              status: 'ok',
-              investor_economics_status: availableInvestorEconomicsStatus,
-              instrument_metadata: [],
-              starting_weights: [],
-              ending_weights: [],
-              metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
-              equity_curve: [],
-              rebalance_events: [],
-              trades: [],
-            },
-            comparison: null,
-            reference_diagnostics: null,
-            candidate_diagnostics: null,
-            diagnostics_comparison: null,
-          },
-          warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'],
-        },
-      },
+      proposalFixture,
     ])
 
-  await portfolioWorkspaceStorage.saveProposalArtifact({
-      id: 'proposal-1',
-      kind: 'single_replacement_hypothetical_replay_proposal',
-      schemaVersion: 1,
-      createdAt: '2026-04-16T00:00:00Z',
-      workspaceId: 'workspace-1',
-      sourceDraftId: 'draft-1',
-      sourceBaseNodeId: 'node-1',
-      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
-      versionNumber: 1,
-      savedFrom: 'desktop_hypothetical_replay_review',
-      reviewStatus: 'recorded',
-      sourceIntent: {
-        kind: 'etf_replacement_intent',
-        source: 'candidate_seed',
-        createdAt: '2026-04-15T00:05:00Z',
-        draftId: 'draft-1',
-        workspaceId: 'workspace-1',
-        baseNodeId: 'node-1',
-        baseSymbol: 'AAPL',
-        candidateSymbol: 'IUFS',
-        seededFromDraftId: 'draft-1',
-        seedRankingId: 'etf_ranking_engine_v1',
-        seedMethodologyId: 'etf_ranking_methodology_v1',
-        seedRankingBasisDate: '2026-04-15',
-        peerGroup: 'Sector UCITS ETF',
-        benchmarkSymbol: 'SPY',
-        lookbackMonths: 6,
-        confidence: 'medium',
-        holdingsSupport: 'mixed',
-        warningCount: 1,
-      },
-      proposalSource: {
-        proposalSourceVersion: 1,
-        proposalSourceKind: 'draft_replacement_intent_review_only',
-        proposalTruth: 'review_only_hypothetical_proposal',
-        portfolioTruth: 'draft_snapshot_not_applied',
-        reviewScope: 'proposal_review_context_only',
-      },
-      reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
-      reviewSnapshotPMSummary: createReviewSnapshotArtifactFixture().pm_summary,
-      replayBasis: {
-        benchmarkSymbol: 'SPY',
-        startDate: '2024-01-01',
-        endDate: '2024-12-31',
-        rebalanceFrequency: 'monthly',
-        commissionBps: 0,
-        slippageBps: 0,
-        derivationBasis: 'draft_snapshot_positions_normalized',
-        candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-      },
-      reviewSnapshot: {
-        proposal: { source: 'draft_replacement_intent', proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' }, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
-        derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-        baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
-        candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
-        replay: {
-          methodology: 'm',
-          methodology_provenance: { provenance_version: 1, source: 'portfolio_allocation_backtest_engine', methodology_truth: 'review_only_replay_methodology', assumptions_truth: 'review_only_replay_assumptions', analytics_truth: 'hypothetical_replay_analytics_only', review_scope: 'workspace_review_context_only' },
-          investor_economics_status: availableInvestorEconomicsStatus,
-          reference_result: null,
-          candidate_result: {
-            portfolio_name: 'Candidate',
-            benchmark_symbol: 'SPY',
-            start_date: '2024-01-01',
-            end_date: '2024-12-31',
-            observation_count: 2,
-            rebalance_frequency: 'monthly',
-            commission_bps: 0,
-            slippage_bps: 0,
-            drift_tolerance_pct: null,
-            assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
-            status: 'ok',
-            investor_economics_status: availableInvestorEconomicsStatus,
-            instrument_metadata: [],
-            starting_weights: [],
-            ending_weights: [],
-            metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
-            equity_curve: [],
-            rebalance_events: [],
-            trades: [],
-          },
-          comparison: null,
-          reference_diagnostics: null,
-          candidate_diagnostics: null,
-          diagnostics_comparison: null,
-        },
-        warnings: ['Candidate weights are derived from a single-symbol replacement intent and remain hypothetical replay inputs only.'],
-      },
-    })
+    await portfolioWorkspaceStorage.saveProposalArtifact(proposalFixture)
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(await portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')).toMatchObject([{ id: 'proposal-1', versionNumber: 1 }])
@@ -3630,6 +3697,8 @@ describe('portfolioWorkspaceStorage', () => {
   })
 
   it('builds saved proposal artifacts with canonical proposal source labels', () => {
+    const canonicalFixture = createSavedProposalArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFromProposalFixture(canonicalFixture)
     const proposal = portfolioWorkspaceStorage.buildSavedProposalArtifact({
       id: 'proposal-1',
       createdAt: '2026-04-16T00:00:00Z',
@@ -3659,30 +3728,9 @@ describe('portfolioWorkspaceStorage', () => {
         warningCount: 1,
       },
       reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
-      proposalCapture: createReviewSnapshotArtifactFixture().proposal_capture,
-      reviewSnapshotPMSummary: createReviewSnapshotArtifactFixture().pm_summary,
-      hypotheticalReplay: {
-        proposal: { source: 'draft_replacement_intent', proposal_source: { proposal_source_version: 1, proposal_source_kind: 'draft_replacement_intent_review_only', proposal_truth: 'review_only_hypothetical_proposal', portfolio_truth: 'draft_snapshot_not_applied', review_scope: 'proposal_review_context_only' }, incumbent_symbol: 'AAPL', candidate_symbol: 'IUFS', draft_id: 'draft-1', base_node_id: 'node-1' },
-        derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-        baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
-        candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
-        replay: {
-          methodology: 'm',
-          methodology_provenance: { provenance_version: 1, source: 'portfolio_allocation_backtest_engine', methodology_truth: 'review_only_replay_methodology', assumptions_truth: 'review_only_replay_assumptions', analytics_truth: 'hypothetical_replay_analytics_only', review_scope: 'workspace_review_context_only' },
-          investor_economics_status: availableInvestorEconomicsStatus,
-          reference_result: null,
-          candidate_result: {
-            portfolio_name: 'Candidate', benchmark_symbol: 'SPY', start_date: '2024-01-01', end_date: '2024-12-31', observation_count: 2, rebalance_frequency: 'monthly', commission_bps: 0, slippage_bps: 0, drift_tolerance_pct: null,
-            assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
-            status: 'ok', investor_economics_status: availableInvestorEconomicsStatus, instrument_metadata: [], starting_weights: [], ending_weights: [], metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 }, equity_curve: [], rebalance_events: [], trades: [],
-          },
-          comparison: null,
-          reference_diagnostics: null,
-          candidate_diagnostics: null,
-          diagnostics_comparison: null,
-        },
-        warnings: [],
-      },
+      proposalCapture: reviewSnapshotArtifact.proposal_capture,
+      reviewSnapshotPMSummary: reviewSnapshotArtifact.pm_summary as SavedProposalReviewSnapshotPMSummaryMirror,
+      hypotheticalReplay: canonicalFixture.reviewSnapshot,
     })
 
     expect(proposal.proposalSource).toEqual({
@@ -3693,56 +3741,52 @@ describe('portfolioWorkspaceStorage', () => {
       reviewScope: 'proposal_review_context_only',
     })
     expect(proposal.reviewSnapshotArtifactId).toBe('review_snapshot_1234567890abcdef')
-    expect(proposal.reviewSnapshotPMSummary).toEqual(createReviewSnapshotArtifactFixture().pm_summary)
-    expect(proposal.proposalCapture).toEqual({
-      capture_version: 1,
-      capture_kind: 'workspace_review_saved_proposal',
-      open_handoff: {
-        handoff_kind: 'review_snapshot_open_handoff_v1',
-        artifact_id: 'review_snapshot_1234567890abcdef',
-        artifact_kind: 'portfolio_review_snapshot',
-        schema_version: 'review_snapshot_artifact_v1',
-        consumer_kind: 'saved_hypothetical_replay_proposal',
-      },
-      lineage: {
-        workspace_id: 'workspace-1',
-        source_draft_id: 'draft-1',
-        source_base_node_id: 'node-1',
-        proposal_family_id: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
-        proposal_id: 'proposal-1',
-        version_number: 1,
-        source_kind: 'hypothetical_replacement_replay',
-      },
-      proposal: {
-        source: 'draft_replacement_intent',
-        proposal_source: {
-          proposal_source_version: 1,
-          proposal_source_kind: 'draft_replacement_intent_review_only',
-          proposal_truth: 'review_only_hypothetical_proposal',
-          portfolio_truth: 'draft_snapshot_not_applied',
-          review_scope: 'proposal_review_context_only',
-        },
-        incumbent_symbol: 'AAPL',
-        candidate_symbol: 'IUFS',
-      },
-      replay_type: 'standard',
-      replay_provenance: proposal.reviewSnapshot.replay_provenance,
-      review_basis: {
-        benchmark_separation: 'explicit_per_snapshot_benchmark_fields',
-        benchmark_symbol: 'SPY',
-        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
-        rebalance_frequency: 'monthly',
-        commission_bps: 0,
-        slippage_bps: 0,
-        derivation_basis: 'draft_snapshot_positions_normalized',
-        candidate_construction_rule: 'same_weight_substitution_v1',
-      },
+    expect(proposal.reviewSnapshotPMSummary).toEqual(reviewSnapshotArtifact.pm_summary)
+    expect(proposal.proposalCapture).toEqual(reviewSnapshotArtifact.proposal_capture)
+  })
+
+  it('builds canonical saved proposal and review snapshot fixtures from overlay-aware replay state', () => {
+    const proposal = createSavedProposalArtifactFixture({ replayType: 'overlay_aware' })
+    const artifact = createReviewSnapshotArtifactFromProposalFixture(proposal)
+
+    expect(proposal.proposalCapture.replay_type).toBe('overlay_aware')
+    expect(proposal.reviewSnapshotPMSummary.replay_type).toBe('overlay_aware')
+    expect(artifact.compact_summary.replay_type).toBe('overlay_aware')
+    expect(artifact.source_payload).toEqual({
+      replay_type: 'overlay_aware',
+      replay: null,
+      overlay_replay: proposal.reviewSnapshot,
     })
+    expect(artifact.pm_summary).toEqual(proposal.reviewSnapshotPMSummary)
+    expect(artifact.proposal_capture).toEqual(proposal.proposalCapture)
+  })
+
+  it('builds saved proposal artifacts when methodology provenance is absent', () => {
+    const baseProposal = createSavedProposalArtifactFixtureBase({ includeMethodologyProvenance: false }) as VersionedProposalArtifact
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture() as ReviewSnapshotArtifact & { pm_summary: SavedProposalReviewSnapshotPMSummaryMirror }
+
+    const proposal = portfolioWorkspaceStorage.buildSavedProposalArtifact({
+      id: 'proposal-1',
+      createdAt: '2026-04-16T00:00:00Z',
+      workspaceId: 'workspace-1',
+      sourceDraftId: 'draft-1',
+      sourceBaseNodeId: 'node-1',
+      proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
+      versionNumber: 1,
+      sourceIntent: baseProposal.sourceIntent,
+      reviewSnapshotArtifactId: 'review_snapshot_1234567890abcdef',
+      proposalCapture: reviewSnapshotArtifact.proposal_capture,
+      reviewSnapshotPMSummary: createReviewSnapshotPMSummaryFixture(baseProposal),
+      hypotheticalReplay: baseProposal.reviewSnapshot,
+    })
+
+    expect(proposal.reviewSnapshotPMSummary.methodology).not.toHaveProperty('methodology_provenance')
+    expect(proposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics).not.toHaveProperty('methodology_provenance')
   })
 
   it('builds review snapshot open handoff from persisted artifact only', async () => {
     const proposal = createSavedProposalArtifactFixture()
-    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture() as ReviewSnapshotArtifact & { pm_summary: SavedProposalReviewSnapshotPMSummaryMirror }
 
     vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
       const requestTemplate = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: undefined as unknown }
@@ -3904,7 +3948,7 @@ describe('portfolioWorkspaceStorage', () => {
 
     delete (proposal as { reviewSnapshotPMSummary?: unknown }).reviewSnapshotPMSummary
 
-    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal as VersionedProposalArtifact, reviewSnapshotArtifact)).toThrow(
+    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal as RawPersistedVersionedProposalArtifact, reviewSnapshotArtifact)).toThrow(
       'Saved proposal cached reviewSnapshotPMSummary is missing while persisted review snapshot artifact pm_summary exists',
     )
   })
@@ -3915,7 +3959,7 @@ describe('portfolioWorkspaceStorage', () => {
 
     delete (proposal as { proposalCapture?: unknown }).proposalCapture
 
-    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal as VersionedProposalArtifact, reviewSnapshotArtifact)).toThrow(
+    expect(() => portfolioWorkspaceStorage.assertSavedProposalArtifactRestoreIntegrity(proposal as RawPersistedVersionedProposalArtifact, reviewSnapshotArtifact)).toThrow(
       'Saved proposal proposalCapture is missing',
     )
   })
@@ -4208,8 +4252,8 @@ describe('portfolioWorkspaceStorage', () => {
 
     const invalidCompareReadinessResponse = createReviewSnapshotFamilyInboxResponseFixture(artifact)
     invalidCompareReadinessResponse.rows[0]!.compare_readiness = {
-      ready: true,
-      reason: 'compatible_family_pair_available',
+      ready: true as boolean,
+      reason: 'compatible_family_pair_available' as 'compatible_family_pair_available' | 'no_compatible_family_pair',
       compatible_pair_count: 0,
     }
     expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotFamilyInboxResponseEnvelope(
@@ -4371,6 +4415,40 @@ describe('portfolioWorkspaceStorage', () => {
     )
   })
 
+  it('fails closed when review snapshot active thesis cross-family queue family_key fields are missing, null, empty, or invalid', () => {
+    const artifact = createReviewSnapshotArtifactFixture()
+
+    const missingActiveWorkspaceId = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    delete (missingActiveWorkspaceId.active_thesis.family_key as { workspace_id?: string }).workspace_id
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(missingActiveWorkspaceId)).toThrow(
+      'Review snapshot active thesis cross-family queue response active_thesis family_key is invalid',
+    )
+
+    const nullActiveSourceDraftId = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    ;(nullActiveSourceDraftId.active_thesis.family_key as { source_draft_id: string | null }).source_draft_id = null
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(nullActiveSourceDraftId)).toThrow(
+      'Review snapshot active thesis cross-family queue response active_thesis family_key is invalid',
+    )
+
+    const emptyRowSourceBaseNodeId = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    emptyRowSourceBaseNodeId.rows[0]!.family_key.source_base_node_id = ''
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(emptyRowSourceBaseNodeId)).toThrow(
+      'Review snapshot active thesis cross-family queue response row 1 family_key is invalid',
+    )
+
+    const nullRowProposalFamilyId = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    ;(nullRowProposalFamilyId.rows[0]!.family_key as { proposal_family_id: string | null }).proposal_family_id = null
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(nullRowProposalFamilyId)).toThrow(
+      'Review snapshot active thesis cross-family queue response row 1 family_key is invalid',
+    )
+
+    const invalidActiveSourceKind = createReviewSnapshotActiveThesisCrossFamilyQueueResponseFixture(artifact)
+    invalidActiveSourceKind.active_thesis.family_key.source_kind = 'persisted_optimizer_handoff' as never
+    expect(() => portfolioWorkspaceStorage.assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope(invalidActiveSourceKind)).toThrow(
+      'Review snapshot active thesis cross-family queue response active_thesis family_key is invalid',
+    )
+  })
+
   it('rejects review snapshot comparison refs when proposal family differs', async () => {
     const baseline = createSavedProposalArtifactFixture()
     const candidate = createSavedProposalArtifactFixture()
@@ -4415,7 +4493,7 @@ describe('portfolioWorkspaceStorage', () => {
     delete (legacyProposal as { reviewSnapshotPMSummary?: unknown }).reviewSnapshotPMSummary
     const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
     reviewSnapshotArtifact.source_payload.replay = legacyProposal.reviewSnapshot as any
-    reviewSnapshotArtifact.pm_summary = buildLegacySavedProposalMirrorFromProposal(legacyProposal)
+    reviewSnapshotArtifact.pm_summary = buildLegacySavedProposalMirrorFromProposal(legacyProposal) as unknown as ReviewSnapshotArtifact['pm_summary']
 
     mockProposalAndArtifactLoad([legacyProposal], { [legacyProposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
 
@@ -4432,6 +4510,26 @@ describe('portfolioWorkspaceStorage', () => {
     ])
     expect(legacyProposal.proposalSource).toBeUndefined()
     expect(legacyProposal.reviewSnapshot.proposal.proposal_source).toBeUndefined()
+  })
+
+  it('hydrates legacy saved proposal PM summaries when methodology provenance is absent', async () => {
+    const legacyProposal = createSavedProposalArtifactFixtureBase({ includeMethodologyProvenance: false }) as VersionedProposalArtifact
+    legacyProposal.proposalCapture = createProposalCaptureFixture(legacyProposal)
+    legacyProposal.reviewSnapshotPMSummary = buildLegacySavedProposalMirrorFromProposal(legacyProposal)
+    delete (legacyProposal as { proposalSource?: unknown }).proposalSource
+    delete (legacyProposal.reviewSnapshot.proposal as { proposal_source?: unknown }).proposal_source
+    delete (legacyProposal.proposalCapture.proposal as { proposal_source?: unknown }).proposal_source
+    delete (legacyProposal as { reviewSnapshotPMSummary?: unknown }).reviewSnapshotPMSummary
+    const reviewSnapshotArtifact = createReviewSnapshotArtifactFixture()
+    reviewSnapshotArtifact.source_payload.replay = legacyProposal.reviewSnapshot as any
+    reviewSnapshotArtifact.pm_summary = buildLegacySavedProposalMirrorFromProposal(legacyProposal) as unknown as ReviewSnapshotArtifact['pm_summary']
+
+    mockProposalAndArtifactLoad([legacyProposal], { [legacyProposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
+
+    const loaded = await portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')
+
+    expect(loaded[0]?.reviewSnapshotPMSummary.methodology).not.toHaveProperty('methodology_provenance')
+    expect(loaded[0]?.reviewSnapshotPMSummary.analytics_summary.candidate_analytics).not.toHaveProperty('methodology_provenance')
   })
 
   it('fails closed when loaded saved proposal mirror pm summary conflicts with persisted artifact pm_summary', async () => {
@@ -4487,6 +4585,19 @@ describe('portfolioWorkspaceStorage', () => {
     const loaded = await portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')
     expect(loaded[0]?.proposalSource).toEqual(proposal.proposalSource)
     expect(loaded[0]?.reviewSnapshot.proposal.proposal_source).toEqual(proposal.reviewSnapshot.proposal.proposal_source)
+  })
+
+  it('restores overlay-aware saved proposal artifacts from canonical proposal and persisted review snapshot fixtures', async () => {
+    const { proposal, reviewSnapshotArtifact } = createSavedProposalReviewSnapshotFixtureBundle({ replayType: 'overlay_aware' })
+
+    mockProposalAndArtifactLoad([proposal], { [proposal.reviewSnapshotArtifactId]: reviewSnapshotArtifact })
+
+    const loaded = await portfolioWorkspaceStorage.getWorkspaceProposalArtifacts('workspace-1')
+
+    expect(loaded).toHaveLength(1)
+    expect(loaded[0]?.proposalCapture.replay_type).toBe('overlay_aware')
+    expect(loaded[0]?.reviewSnapshotPMSummary.replay_type).toBe('overlay_aware')
+    expect(loaded[0]?.reviewSnapshot).toEqual(proposal.reviewSnapshot)
   })
 
   it('hydrates the exact dual-omission legacy case but rejects top-level-only omission even when nested fallback exists', async () => {
@@ -4739,216 +4850,19 @@ describe('portfolioWorkspaceStorage', () => {
 
   it('persists active thesis by workspace id', async () => {
     const saveSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveActiveThesis').mockResolvedValue()
+    const thesisProposal = createSavedProposalArtifactFixture()
     const getSpy = vi.spyOn(portfolioWorkspaceStorage, 'getActiveThesis').mockResolvedValue({
       workspaceId: 'workspace-1',
       promotedAt: '2026-04-17T00:00:00Z',
       sourceProposalId: 'proposal-1',
-      thesisProposal: {
-        id: 'proposal-1',
-        kind: 'single_replacement_hypothetical_replay_proposal',
-        schemaVersion: 1,
-        createdAt: '2026-04-16T00:00:00Z',
-        workspaceId: 'workspace-1',
-        sourceDraftId: 'draft-1',
-        sourceBaseNodeId: 'node-1',
-        proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
-        versionNumber: 1,
-        savedFrom: 'desktop_hypothetical_replay_review',
-        reviewStatus: 'recorded',
-        sourceIntent: {
-          kind: 'etf_replacement_intent',
-          source: 'candidate_seed',
-          createdAt: '2026-04-15T00:05:00Z',
-          draftId: 'draft-1',
-          workspaceId: 'workspace-1',
-          baseNodeId: 'node-1',
-          baseSymbol: 'AAPL',
-          candidateSymbol: 'IUFS',
-          seededFromDraftId: 'draft-1',
-          seedRankingId: 'etf_ranking_engine_v1',
-          seedMethodologyId: 'etf_ranking_methodology_v1',
-          seedRankingBasisDate: '2026-04-15',
-          peerGroup: 'Sector UCITS ETF',
-          benchmarkSymbol: 'SPY',
-          lookbackMonths: 6,
-          confidence: 'medium',
-          holdingsSupport: 'mixed',
-          warningCount: 1,
-        },
-        proposalSource: {
-          proposalSourceVersion: 1,
-          proposalSourceKind: 'draft_replacement_intent_review_only',
-          proposalTruth: 'review_only_hypothetical_proposal',
-          portfolioTruth: 'draft_snapshot_not_applied',
-          reviewScope: 'proposal_review_context_only',
-        },
-        replayBasis: {
-          benchmarkSymbol: 'SPY',
-          startDate: '2024-01-01',
-          endDate: '2024-12-31',
-          rebalanceFrequency: 'monthly',
-          commissionBps: 0,
-          slippageBps: 0,
-          derivationBasis: 'draft_snapshot_positions_normalized',
-          candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-        },
-        reviewSnapshot: {
-          proposal: {
-            source: 'draft_replacement_intent',
-            proposal_source: {
-              proposal_source_version: 1,
-              proposal_source_kind: 'draft_replacement_intent_review_only',
-              proposal_truth: 'review_only_hypothetical_proposal',
-              portfolio_truth: 'draft_snapshot_not_applied',
-              review_scope: 'proposal_review_context_only',
-            },
-            incumbent_symbol: 'AAPL',
-            candidate_symbol: 'IUFS',
-            draft_id: 'draft-1',
-            base_node_id: 'node-1',
-          },
-          derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-          baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
-          candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
-        replay: {
-          methodology: 'm',
-          investor_economics_status: availableInvestorEconomicsStatus,
-          reference_result: null,
-            candidate_result: {
-              portfolio_name: 'Candidate',
-              benchmark_symbol: 'SPY',
-              start_date: '2024-01-01',
-              end_date: '2024-12-31',
-              observation_count: 2,
-              rebalance_frequency: 'monthly',
-              commission_bps: 0,
-              slippage_bps: 0,
-              drift_tolerance_pct: null,
-              assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
-              status: 'ok',
-              investor_economics_status: availableInvestorEconomicsStatus,
-              instrument_metadata: [],
-              starting_weights: [],
-              ending_weights: [],
-              metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
-              equity_curve: [],
-              rebalance_events: [],
-              trades: [],
-            },
-            comparison: null,
-            reference_diagnostics: null,
-            candidate_diagnostics: null,
-            diagnostics_comparison: null,
-          },
-          warnings: [],
-        },
-      },
+      thesisProposal,
     })
 
     await portfolioWorkspaceStorage.saveActiveThesis({
       workspaceId: 'workspace-1',
       promotedAt: '2026-04-17T00:00:00Z',
       sourceProposalId: 'proposal-1',
-      thesisProposal: {
-        id: 'proposal-1',
-        kind: 'single_replacement_hypothetical_replay_proposal',
-        schemaVersion: 1,
-        createdAt: '2026-04-16T00:00:00Z',
-        workspaceId: 'workspace-1',
-        sourceDraftId: 'draft-1',
-        sourceBaseNodeId: 'node-1',
-        proposalFamilyId: 'etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z',
-        versionNumber: 1,
-        savedFrom: 'desktop_hypothetical_replay_review',
-        reviewStatus: 'recorded',
-        sourceIntent: {
-          kind: 'etf_replacement_intent',
-          source: 'candidate_seed',
-          createdAt: '2026-04-15T00:05:00Z',
-          draftId: 'draft-1',
-          workspaceId: 'workspace-1',
-          baseNodeId: 'node-1',
-          baseSymbol: 'AAPL',
-          candidateSymbol: 'IUFS',
-          seededFromDraftId: 'draft-1',
-          seedRankingId: 'etf_ranking_engine_v1',
-          seedMethodologyId: 'etf_ranking_methodology_v1',
-          seedRankingBasisDate: '2026-04-15',
-          peerGroup: 'Sector UCITS ETF',
-          benchmarkSymbol: 'SPY',
-          lookbackMonths: 6,
-          confidence: 'medium',
-          holdingsSupport: 'mixed',
-          warningCount: 1,
-        },
-        proposalSource: {
-          proposalSourceVersion: 1,
-          proposalSourceKind: 'draft_replacement_intent_review_only',
-          proposalTruth: 'review_only_hypothetical_proposal',
-          portfolioTruth: 'draft_snapshot_not_applied',
-          reviewScope: 'proposal_review_context_only',
-        },
-        replayBasis: {
-          benchmarkSymbol: 'SPY',
-          startDate: '2024-01-01',
-          endDate: '2024-12-31',
-          rebalanceFrequency: 'monthly',
-          commissionBps: 0,
-          slippageBps: 0,
-          derivationBasis: 'draft_snapshot_positions_normalized',
-          candidateConstructionRule: 'same_weight_substitution_v1', replayProvenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-        },
-        reviewSnapshot: {
-          proposal: {
-            source: 'draft_replacement_intent',
-            proposal_source: {
-              proposal_source_version: 1,
-              proposal_source_kind: 'draft_replacement_intent_review_only',
-              proposal_truth: 'review_only_hypothetical_proposal',
-              portfolio_truth: 'draft_snapshot_not_applied',
-              review_scope: 'proposal_review_context_only',
-            },
-            incumbent_symbol: 'AAPL',
-            candidate_symbol: 'IUFS',
-            draft_id: 'draft-1',
-            base_node_id: 'node-1',
-          },
-          derivation: { baseline_basis: 'draft_snapshot_positions_normalized', candidate_construction_rule: 'same_weight_substitution_v1' }, replay_provenance: { candidate_input_source: 'replacement_intent_preview', construction_rule_id: 'same_weight_substitution_v1', upstream_ids: { draft_id: 'draft-1', workspace_id: 'workspace-1', base_node_id: 'node-1' }, seed_ranking_id: 'etf_ranking_engine_v1', seed_methodology_id: 'etf_ranking_methodology_v1', constraint_validation: { supplied: false, validation_status: null, constraint_set_id: null } },
-          baseline_weights: [{ symbol: 'AAPL', target_weight: 1 }],
-          candidate_weights: [{ symbol: 'IUFS', target_weight: 1 }],
-          replay: {
-            methodology: 'm',
-            investor_economics_status: availableInvestorEconomicsStatus,
-            reference_result: null,
-            candidate_result: {
-              portfolio_name: 'Candidate',
-              benchmark_symbol: 'SPY',
-              start_date: '2024-01-01',
-              end_date: '2024-12-31',
-              observation_count: 2,
-              rebalance_frequency: 'monthly',
-              commission_bps: 0,
-              slippage_bps: 0,
-              drift_tolerance_pct: null,
-              assumptions: { price_basis: 'adjusted_close', execution_price_field: 'close', execution_lag_days: 1, calendar_policy: 'intersection_common_dates', fractional_shares: true, long_only: true, leverage_allowed: false, tax_treatment: 'pre_tax', investor_base_currency: 'USD' },
-              status: 'ok',
-              investor_economics_status: availableInvestorEconomicsStatus,
-              instrument_metadata: [],
-              starting_weights: [],
-              ending_weights: [],
-              metrics: { total_return_pct: 1, annualized_return_pct: 1, annualized_volatility_pct: 1, downside_volatility_pct: 1, max_drawdown_pct: -1, sharpe_ratio: 1, sortino_ratio: 1, benchmark_return_pct: 1, excess_return_pct: 0, tracking_error_pct: 1, information_ratio: 0, beta_vs_benchmark: 1, correlation_vs_benchmark: 1, total_turnover_pct: 0, turnover_events_count: 0, total_cost_paid: 0 },
-              equity_curve: [],
-              rebalance_events: [],
-              trades: [],
-            },
-            comparison: null,
-            reference_diagnostics: null,
-            candidate_diagnostics: null,
-            diagnostics_comparison: null,
-          },
-          warnings: [],
-        },
-      },
+      thesisProposal,
     })
 
     expect(saveSpy).toHaveBeenCalledTimes(1)

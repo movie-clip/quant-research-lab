@@ -29,6 +29,7 @@ from app.schemas.backtest_engine import (
     ConstructionArtifactReplayValidationResponse,
     ConstructionArtifactPreviewHandoff,
     ConstructionArtifactWorkspaceReviewBasis,
+    ConstructionArtifactWorkspaceLaunchContext,
     CurrentPortfolioTruthLineage,
     EvaluateMonitorDefinitionObservationRequest,
     DistributionPolicy,
@@ -558,6 +559,19 @@ def build_construction_artifact_replay_preview(
                 construction_artifact_id=artifact.artifact_id,
                 effective_replay_params=effective_params,
             ),
+            launch_context=ConstructionArtifactWorkspaceLaunchContext(
+                construction_artifact_id=artifact.artifact_id,
+                ranked_universe_artifact_id=artifact.normalized_inputs.ranked_universe_artifact_id,
+                ranked_universe_artifact_schema_version=artifact.normalized_inputs.ranked_universe_artifact_schema_version,
+                ranking_id=artifact.normalized_inputs.ranking_id,
+                ranking_methodology_id=artifact.normalized_inputs.ranking_methodology_id,
+                ranking_as_of_date=artifact.normalized_inputs.ranking_as_of_date,
+                current_portfolio_artifact_id=artifact.normalized_inputs.current_portfolio_artifact_id,
+                current_portfolio_as_of_timestamp=artifact.normalized_inputs.current_portfolio_as_of_timestamp,
+                policy_id=artifact.normalized_inputs.policy_id,
+                policy_definition_id=artifact.normalized_inputs.policy_definition_id,
+                top_n=artifact.normalized_inputs.top_n,
+            ),
             benchmark_symbol=effective_params.benchmark_symbol,
             base_currency=effective_params.base_currency,
             replay_window=WorkspaceReviewWindow(
@@ -572,9 +586,13 @@ def build_construction_artifact_replay_preview(
             policy_id=artifact.normalized_inputs.policy_id,
             policy_definition_id=artifact.normalized_inputs.policy_definition_id,
             ranked_universe_artifact_id=artifact.normalized_inputs.ranked_universe_artifact_id,
+            ranked_universe_artifact_schema_version=artifact.normalized_inputs.ranked_universe_artifact_schema_version,
             ranking_id=artifact.normalized_inputs.ranking_id,
             ranking_methodology_id=artifact.normalized_inputs.ranking_methodology_id,
+            ranking_as_of_date=artifact.normalized_inputs.ranking_as_of_date,
             current_portfolio_artifact_id=artifact.normalized_inputs.current_portfolio_artifact_id,
+            current_portfolio_as_of_timestamp=artifact.normalized_inputs.current_portfolio_as_of_timestamp,
+            top_n=artifact.normalized_inputs.top_n,
             hard_constraints=artifact.hard_constraints,
             selection_rule_trace=artifact.selection_rule_trace,
             turnover_diagnostics_status=artifact.turnover_diagnostics_status,
@@ -1068,16 +1086,77 @@ def _review_snapshot_pm_summary_for_role(
     return artifact.pm_summary.model_copy(update={"role": role})
 
 
+def _build_review_snapshot_family_key(
+    *,
+    workspace_id: object,
+    source_draft_id: object,
+    source_base_node_id: object,
+    proposal_family_id: object,
+    source_kind: object,
+    context: str,
+) -> ReviewSnapshotFamilyKey:
+    try:
+        return ReviewSnapshotFamilyKey.model_validate(
+            {
+                "workspace_id": workspace_id,
+                "source_draft_id": source_draft_id,
+                "source_base_node_id": source_base_node_id,
+                "proposal_family_id": proposal_family_id,
+                "source_kind": source_kind,
+            }
+        )
+    except ValidationError as exc:
+        message = exc.errors()[0]["msg"]
+        if message.startswith("Value error, "):
+            message = message.removeprefix("Value error, ")
+        raise ValueError(f"{context} family_key is invalid: {message}") from exc
+
+
+def _assert_review_snapshot_family_key_matches_lineage(
+    family_key: ReviewSnapshotFamilyKey,
+    lineage: ReviewSnapshotArtifactLineage,
+    *,
+    context: str,
+) -> None:
+    if lineage.workspace_id != family_key.workspace_id:
+        raise ValueError(f"{context} workspace_id does not match family_key")
+    if lineage.source_draft_id != family_key.source_draft_id:
+        raise ValueError(f"{context} source_draft_id does not match family_key")
+    if lineage.source_base_node_id != family_key.source_base_node_id:
+        raise ValueError(f"{context} source_base_node_id does not match family_key")
+    if lineage.proposal_family_id != family_key.proposal_family_id:
+        raise ValueError(f"{context} proposal_family_id does not match family_key")
+    if lineage.source_kind != family_key.source_kind:
+        raise ValueError(f"{context} source_kind does not match family_key")
+
+
 def _review_snapshot_family_key_from_artifact(
     artifact: ReviewSnapshotArtifact,
 ) -> ReviewSnapshotFamilyKey:
-    return ReviewSnapshotFamilyKey(
+    family_key = _build_review_snapshot_family_key(
         workspace_id=artifact.lineage.workspace_id,
         source_draft_id=artifact.lineage.source_draft_id,
         source_base_node_id=artifact.lineage.source_base_node_id,
         proposal_family_id=artifact.lineage.proposal_family_id,
         source_kind=artifact.lineage.source_kind,
+        context="review snapshot artifact lineage",
     )
+    _assert_review_snapshot_family_key_matches_lineage(
+        family_key,
+        artifact.lineage,
+        context="review snapshot artifact lineage",
+    )
+    _assert_review_snapshot_family_key_matches_lineage(
+        family_key,
+        artifact.pm_summary.provenance.lineage,
+        context="review snapshot artifact pm_summary provenance lineage",
+    )
+    _assert_review_snapshot_family_key_matches_lineage(
+        family_key,
+        artifact.proposal_capture.lineage,
+        context="review snapshot artifact proposal_capture lineage",
+    )
+    return family_key
 
 
 def _review_snapshot_family_sort_key(
@@ -1095,12 +1174,13 @@ def _review_snapshot_family_sort_key(
 def _family_key_from_tuple(
     value: tuple[str, str, str, str, Literal["hypothetical_replacement_replay"]],
 ) -> ReviewSnapshotFamilyKey:
-    return ReviewSnapshotFamilyKey(
+    return _build_review_snapshot_family_key(
         workspace_id=value[0],
         source_draft_id=value[1],
         source_base_node_id=value[2],
         proposal_family_id=value[3],
         source_kind=value[4],
+        context="review snapshot family grouping",
     )
 
 

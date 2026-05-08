@@ -95,6 +95,7 @@ export type PersistedConstructionArtifactReviewBasis = DesktopArtifactReviewBasi
   basisKind: 'persisted_construction_artifact_review'
   constructionArtifactId: string
   previewHandoff: NonNullable<ConstructionArtifactReplayResponse['review_basis']> extends { preview_handoff: infer T } ? T : never
+  launchContext: NonNullable<ConstructionArtifactReplayResponse['review_basis']> extends { launch_context: infer T } ? T : never
 }
 
 export type PersistedOptimizerHandoffReviewBasis = DesktopArtifactReviewBasis & {
@@ -331,7 +332,7 @@ export type VersionedProposalArtifact = {
   proposalCapture: ReviewSnapshotProposalCapture
   proposalSource: ProposalSourceLabel
   reviewSnapshotArtifactId: string
-  reviewSnapshotPMSummary: ReviewSnapshotPMSummaryEnvelope
+  reviewSnapshotPMSummary: SavedProposalReviewSnapshotPMSummaryMirror
   replayBasis: {
     benchmarkSymbol: string
     startDate: string
@@ -345,6 +346,8 @@ export type VersionedProposalArtifact = {
   }
   reviewSnapshot: HypotheticalReplayResponse
 }
+
+export type RawPersistedVersionedProposalArtifact = VersionedProposalArtifact
 
 export type ReviewSnapshotArtifactIdentity = {
   artifact_id: string
@@ -393,13 +396,17 @@ export type ReviewSnapshotArtifactAnalyticsSummary = {
   total_cost_paid: number | null
 }
 
+type NonNullDiagnosticsComparison = NonNullable<
+  ConstructionArtifactReplayResponse['replay']['diagnostics_comparison']
+>
+
 export type ReviewSnapshotArtifactDiagnosticsSummary = {
   diagnostics_available: boolean
-  top_factor_exposure_change: ConstructionArtifactReplayResponse['replay']['diagnostics_comparison']['top_factor_exposure_change'] | null
-  top_volatility_change: ConstructionArtifactReplayResponse['replay']['diagnostics_comparison']['top_volatility_change'] | null
-  top_risk_contribution_change: ConstructionArtifactReplayResponse['replay']['diagnostics_comparison']['top_risk_contribution_change'] | null
-  top_concentration_change: ConstructionArtifactReplayResponse['replay']['diagnostics_comparison']['top_concentration_change'] | null
-  top_stress_scenario_change: ConstructionArtifactReplayResponse['replay']['diagnostics_comparison']['top_stress_scenario_change'] | null
+  top_factor_exposure_change: NonNullDiagnosticsComparison['top_factor_exposure_change'] | null
+  top_volatility_change: NonNullDiagnosticsComparison['top_volatility_change'] | null
+  top_risk_contribution_change: NonNullDiagnosticsComparison['top_risk_contribution_change'] | null
+  top_concentration_change: NonNullDiagnosticsComparison['top_concentration_change'] | null
+  top_stress_scenario_change: NonNullDiagnosticsComparison['top_stress_scenario_change'] | null
 }
 
 export type ReviewSnapshotOpenHandoff = {
@@ -478,6 +485,19 @@ export type ReviewSnapshotPMSummaryEnvelope = {
     analytics_comparison: ConstructionArtifactReplayResponse['replay']['comparison']
   }
   diagnostics_summary: ReviewSnapshotArtifactDiagnosticsSummary
+}
+
+export type SavedProposalReviewSnapshotPMSummaryMirror = Omit<ReviewSnapshotPMSummaryEnvelope, 'role' | 'methodology' | 'analytics_summary'> & {
+  role: 'saved_proposal'
+  methodology: Omit<ReviewSnapshotPMSummaryEnvelope['methodology'], 'methodology_provenance'> & {
+    methodology_provenance?: NonNullable<ConstructionArtifactReplayResponse['replay']['methodology_provenance']>
+  }
+  analytics_summary: Omit<ReviewSnapshotPMSummaryEnvelope['analytics_summary'], 'candidate_analytics'> & {
+    candidate_analytics: Omit<ReviewSnapshotArtifactAnalyticsSummary, 'methodology_provenance'> & {
+      methodology_provenance?: NonNullable<ConstructionArtifactReplayResponse['replay']['methodology_provenance']>
+    }
+    baseline_analytics: ReviewSnapshotPMSummaryEnvelope['analytics_summary']['baseline_analytics']
+  }
 }
 
 export type ReviewSnapshotArtifact = {

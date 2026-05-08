@@ -642,6 +642,13 @@ describe('StrategyLabPanel', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 
+  it('surfaces a static unsupported construction note for cross-sectional research artifacts', () => {
+    render(<StrategyLabPanel />)
+
+    expect(screen.getByText('Construction launch remains unsupported here; `cross_sectional_research_run` artifacts do not hand off into `/construction/run`.')).toBeTruthy()
+    expect(screen.queryByText('Review In Construction')).toBeNull()
+  })
+
   it('sends additive backend-owned research metadata filters through the shipped recent contract', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = String(input)

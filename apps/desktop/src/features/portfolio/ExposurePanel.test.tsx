@@ -1,112 +1,22 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
-import { ExposurePanel, sortTooltipPayloadRows } from './ExposurePanel'
+import { ExposurePanel } from './ExposurePanel'
 import { composeExposureView } from './portfolioAnalysisAdapter'
-import type { DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse } from './types'
+import type { ExposureAnalysis } from './types'
 
-const mockExposureEngineResult: ExposureEngineResponse = createExposureEngineFixture()
-const mockDiagnosticsResult: DiagnosticsEngineResponse = createDiagnosticsEngineFixture()
-
-const mockFactorModel: ExposureFactorModelResponse = {
-  benchmark_symbol: 'SPY',
-  methodology: 'Orthogonalized rolling ridge factor model using US ETF proxies for market, style, sector, and macro exposures; UCITS symbols are shown separately as EU execution examples.',
-  factor_registry: [
-    ...mockDiagnosticsResult.factor_registry,
-    { key: 'value', label: 'Value', category: 'style', us_proxy: 'IVE', target_exposure: 'US value', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IWVL'], mapping_quality: 'medium-high', default_enabled: true, orthogonalization_order: 3, description: 'Value tilt.' },
-    { key: 'small_cap', label: 'Small Cap', category: 'style', us_proxy: 'IWM', target_exposure: 'US small cap', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IUSN'], mapping_quality: 'medium-high', default_enabled: true, orthogonalization_order: 4, description: 'Small-cap tilt.' },
-    { key: 'technology', label: 'Technology', category: 'sector', us_proxy: 'XLK', target_exposure: 'US technology', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'high', default_enabled: true, orthogonalization_order: 5, description: 'Technology sector.' },
-    { key: 'financials', label: 'Financials', category: 'sector', us_proxy: 'XLF', target_exposure: 'US financials', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IUFS'], mapping_quality: 'medium-high', default_enabled: true, orthogonalization_order: 6, description: 'Financial sector.' },
-    { key: 'health_care', label: 'Health Care', category: 'sector', us_proxy: 'XLV', target_exposure: 'US health care', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IUHC'], mapping_quality: 'medium-high', default_enabled: true, orthogonalization_order: 7, description: 'Health care sector.' },
-    { key: 'energy', label: 'Energy', category: 'sector', us_proxy: 'XLE', target_exposure: 'US energy', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IUES'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 8, description: 'Energy sector.' },
-    { key: 'industrials', label: 'Industrials', category: 'sector', us_proxy: 'XLI', target_exposure: 'US industrials', primary_mapping: null, alternative_mappings: [], ucits_examples: ['EXH1'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 9, description: 'Industrials sector.' },
-    { key: 'consumer_staples', label: 'Consumer Staples', category: 'sector', us_proxy: 'XLP', target_exposure: 'US consumer staples', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 10, description: 'Consumer staples sector.' },
-    { key: 'utilities', label: 'Utilities', category: 'sector', us_proxy: 'XLU', target_exposure: 'US utilities', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 11, description: 'Utilities sector.' },
-    { key: 'consumer_discretionary', label: 'Consumer Discretionary', category: 'sector', us_proxy: 'XLY', target_exposure: 'US consumer discretionary', primary_mapping: null, alternative_mappings: [], ucits_examples: [], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 12, description: 'Consumer discretionary sector.' },
-    { key: 'rates_ief', label: '1-3Y Rates', category: 'macro', us_proxy: 'IEF', target_exposure: 'Intermediate rates', primary_mapping: null, alternative_mappings: [], ucits_examples: ['VDST'], mapping_quality: 'medium-high', default_enabled: false, orthogonalization_order: 13, description: 'Intermediate duration rates.' },
-    { key: 'rates_tlt', label: 'Long Rates', category: 'macro', us_proxy: 'TLT', target_exposure: 'Long rates', primary_mapping: null, alternative_mappings: [], ucits_examples: ['IDTL'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 14, description: 'Long duration rates.' },
-    { key: 'credit', label: 'Credit', category: 'macro', us_proxy: 'LQD', target_exposure: 'Investment grade credit', primary_mapping: null, alternative_mappings: [], ucits_examples: ['LQDE'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 15, description: 'Credit spread risk.' },
-    { key: 'commodities', label: 'Commodities', category: 'macro', us_proxy: 'DBC', target_exposure: 'Broad commodities', primary_mapping: null, alternative_mappings: [], ucits_examples: ['ICOM'], mapping_quality: 'medium', default_enabled: false, orthogonalization_order: 16, description: 'Commodities basket.' },
-  ],
-  statistical_factor_model: mockDiagnosticsResult.statistical_factor_model,
-}
-
-const mockExposureView: ExposureAnalysis = composeExposureView(mockExposureEngineResult, mockDiagnosticsResult)
+const mockExposureView: ExposureAnalysis = composeExposureView(createExposureEngineFixture(), createDiagnosticsEngineFixture())
 
 afterEach(() => {
   cleanup()
 })
 
 describe('ExposurePanel', () => {
-  it('sorts rolling factor tooltip rows by highest visible value first', () => {
-    const rows = sortTooltipPayloadRows(
-      [
-        { dataKey: 'market', value: 1.08 },
-        { dataKey: 'technology', value: 0.22 },
-        { dataKey: 'growth', value: 0.31 },
-      ],
-      { market: 0, growth: 1, technology: 4 },
-    )
-
-    expect(rows.map((row) => row.dataKey)).toEqual(['market', 'growth', 'technology'])
-  })
-
-  it('breaks equal tooltip values with chart line order', () => {
-    const rows = sortTooltipPayloadRows(
-      [
-        { dataKey: 'technology', value: 0.31 },
-        { dataKey: 'growth', value: 0.31 },
-        { dataKey: 'market', value: 1.08 },
-      ],
-      { market: 0, growth: 1, technology: 4 },
-    )
-
-    expect(rows.map((row) => row.dataKey)).toEqual(['market', 'growth', 'technology'])
-  })
-
-  it('renders volatility regime metrics and n/a values', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    expect(screen.getByText('Historical diagnostics live')).toBeTruthy()
-    expect(screen.getByText('Look-through live')).toBeTruthy()
-    expect(screen.getByText('Overlap live')).toBeTruthy()
-    expect(screen.getByText(/Audit: snapshot .*SPY.*look-through live.*benchmark holdings live.*dataset market_data_service_v1/)).toBeTruthy()
-    expect(screen.getByText('Benchmark-relative return readouts intentionally refuse active return and information ratio. Investor-economics outputs are withheld because total-return equivalence is unverified.')).toBeTruthy()
-    expect(screen.getByText('Volatility')).toBeTruthy()
-    expect(screen.getByText('Drawdown')).toBeTruthy()
-    expect(screen.getByText('Benchmark Sensitivity')).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: '20d' }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('button', { name: '60d' }).length).toBeGreaterThan(0)
-    expect(screen.getAllByRole('button', { name: '252d' }).length).toBeGreaterThan(0)
-    expect(screen.getByText('Volatility & Regime')).toBeTruthy()
-    expect(screen.getByText(/Historical volatility and regime diagnostics from persisted portfolio history/)).toBeTruthy()
-    expect(screen.getAllByText('18.40%').length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Min /).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Max /).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('normal').length).toBeGreaterThan(0)
-  })
-
-  it('renders factor mapping tables and lets users switch windows', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    expect(screen.getByText('Current Factor Snapshot')).toBeTruthy()
-    expect(screen.getByText(/Current loadings stay here; historical 60d values remain in the table/)).toBeTruthy()
-    expect(screen.queryByLabelText('Visible factors on rolling factor chart')).toBeNull()
-    expect(screen.getByText('EU Execution Mapping')).toBeTruthy()
-    expect(screen.getByText('Current Snapshot Loading')).toBeTruthy()
-    expect(screen.getByText('Historical 60d Loading')).toBeTruthy()
-    expect(screen.getAllByText('0.31').length).toBeGreaterThan(0)
-    fireEvent.click(screen.getAllByRole('button', { name: '20d' })[1])
-    expect(screen.getByText('Historical 20d Loading')).toBeTruthy()
-    expect(screen.getAllByText('0.35').length).toBeGreaterThan(0)
-  })
-
   it('renders empty state without analysis', () => {
-    render(<ExposurePanel result={null} factorModel={null} />)
+    render(<ExposurePanel result={null} />)
 
-    expect(screen.getAllByText('Core exposure and factor model').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Look-Through Exposure Core').length).toBeGreaterThan(0)
   })
 
   it('renders snapshot selector options when provided', () => {
@@ -115,7 +25,6 @@ describe('ExposurePanel', () => {
     render(
       <ExposurePanel
         result={mockExposureView}
-        factorModel={mockFactorModel}
         snapshotOptions={[{ id: 'draft', label: 'Working Draft' }, { id: 'node-1', label: 'Base Import' }]}
         selectedSnapshotId="draft"
         onSnapshotSelect={onSnapshotSelect}
@@ -123,112 +32,154 @@ describe('ExposurePanel', () => {
     )
 
     fireEvent.change(screen.getByLabelText('Snapshot'), { target: { value: 'node-1' } })
+    expect(screen.getByText('Look-Through Exposure Core').closest('article')?.className.includes('exposure-panel')).toBe(true)
     expect(onSnapshotSelect).toHaveBeenCalledWith('node-1')
   })
 
-  it('renders current-state overlap and look-through sections', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+  it('renders a header exit CTA back to the imported snapshot when provided', () => {
+    const onSnapshotSelect = vi.fn()
 
-    expect(screen.getByText('Benchmark Alignment')).toBeTruthy()
-    expect(screen.getByText('Current Concentration Snapshot')).toBeTruthy()
-    expect(screen.getByText(/Snapshot holdings concentration only; separate from history-derived diagnostics concentration measures./)).toBeTruthy()
-    expect(screen.getByText('Top Positions')).toBeTruthy()
-    expect(screen.getByText('Top Sectors')).toBeTruthy()
-    expect(screen.getByText('24.00%')).toBeTruthy()
-    expect(screen.getByText('Current Overlap Snapshot')).toBeTruthy()
-    expect(screen.getByText('Historical Benchmark Diagnostics')).toBeTruthy()
-    expect(screen.getByText(/Historical benchmark-relative path for sensitivity, active risk, realized volatility, and regime/)).toBeTruthy()
-    expect(screen.getByText(/Historical broad-market sensitivity aligned with the drawdown horizon/)).toBeTruthy()
-    expect(screen.getAllByText('Information Ratio').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Active return n/a').length).toBeGreaterThan(0)
-    expect(screen.getByText('Actual Exposure')).toBeTruthy()
-    expect(screen.getByText('Look-Through Sectors')).toBeTruthy()
-    expect(screen.getAllByText('AAPL').length).toBeGreaterThan(0)
-    expect(screen.getByText('62.00%')).toBeTruthy()
-    expect(screen.getByText(/Constituent Coverage 100.00%/)).toBeTruthy()
-  })
-
-  it('renders stress scenarios and factor exposure summaries', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    expect(screen.getByText('Stress Scenarios')).toBeTruthy()
-    expect(screen.getByText('Factor Tilts')).toBeTruthy()
-    expect(screen.getByText('Broad Market Selloff')).toBeTruthy()
-    expect(screen.getAllByText('SPY Overlap').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Growth Tilt').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Consumer Discretionary Tilt').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Consumer Staples Tilt').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Utilities Tilt').length).toBeGreaterThan(0)
-  })
-
-  it('renders reliability and collinearity diagnostics', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    expect(screen.getByText('Model Confidence')).toBeTruthy()
-    expect(screen.getByText(/Current loadings stay here; historical 60d values remain in the table/)).toBeTruthy()
-    expect(screen.getByText('Current Snapshot Loading')).toBeTruthy()
-    expect(screen.getByText('Collinearity Warning')).toBeTruthy()
-    expect(screen.getAllByText('No major collinearity warnings').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('No high-collinearity pairs detected.').length).toBeGreaterThan(0)
-  })
-
-  it('renders statistical snapshot values from imported diagnostics', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    expect(screen.getAllByText('1.08').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('0.66').length).toBeGreaterThan(0)
-  })
-
-  it('falls back gracefully when factor model is missing', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={null} />)
-
-    expect(screen.getByText('Current Factor Snapshot')).toBeTruthy()
-  })
-
-  it('renders imported benchmark label when available', () => {
-    render(<ExposurePanel result={{ ...mockExposureView, benchmark: { symbol: 'SPY', start_price: 100, end_price: 105, return_pct: 5 } }} factorModel={mockFactorModel} />)
-
-    expect(screen.getAllByText('SPY').length).toBeGreaterThan(0)
-  })
-
-  it('explains when historical diagnostics are unavailable but current exposure still exists', () => {
     render(
       <ExposurePanel
-        result={{
-          ...mockExposureView,
-          availability: {
-            historical_sections_available: false,
-            history_context_required: true,
-            note: 'Historical diagnostics are unavailable from snapshot-only input.',
-            status: 'unavailable' as const,
-          },
-        }}
-        factorModel={mockFactorModel}
+        result={mockExposureView}
+        snapshotOptions={[{ id: 'draft', label: 'Working Draft' }, { id: 'node-1', label: 'Base Import' }]}
+        selectedSnapshotId="draft"
+        snapshotExitOption={{ id: 'node-1', label: 'Return to imported snapshot' }}
+        onSnapshotSelect={onSnapshotSelect}
       />,
     )
 
-    expect(screen.getByText('Current exposure is available, but historical diagnostics are unavailable for this snapshot.')).toBeTruthy()
-    expect(screen.getByText('Historical diagnostics unavailable')).toBeTruthy()
-    expect(screen.getByText('Actual Exposure')).toBeTruthy()
-    expect(screen.getByText(/Historical broad-market beta versus SPY\. Currently unavailable because historical diagnostics are unavailable for this snapshot\./)).toBeTruthy()
-    expect(screen.getByText(/Historical benchmark-relative path for sensitivity, active risk, realized volatility, and regime/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Return to imported snapshot' }))
+
+    expect(onSnapshotSelect).toHaveBeenCalledWith('node-1')
   })
 
-  it('explains partial look-through and unavailable benchmark overlap states', () => {
+  it('renders the look-through summary first with explicit live coverage messaging', () => {
+    render(<ExposurePanel result={mockExposureView} />)
+
+    expect(screen.getByText('Look-Through Exposure Core').closest('article')?.className.includes('exposure-panel')).toBe(true)
+    expect(screen.getByLabelText('Exposure Dense Insight Strip')).toBeTruthy()
+    expect(screen.getByText('Look-through coverage is 100.00% of the portfolio.')).toBeTruthy()
+    expect(screen.getByText('Technology leads sector mix at 40.00%.')).toBeTruthy()
+    expect(screen.getByText('Active share is 62.00% versus SPY.')).toBeTruthy()
+    expect(screen.getByText('Look-Through Summary')).toBeTruthy()
+    expect(screen.getByText('Coverage state')).toBeTruthy()
+    expect(screen.getByText('live')).toBeTruthy()
+    expect(screen.getByText('Covered market value')).toBeTruthy()
+    expect(screen.getByText('Coverage ratio')).toBeTruthy()
+    expect(screen.getByText('Top Constituents')).toBeTruthy()
+    expect(screen.getByText('Basis: imported snapshot truth plus resolved ETF constituents.')).toBeTruthy()
+    expect(screen.getByText('Look-through coverage 100.00% ($50000.00 of $50000.00).')).toBeTruthy()
+  })
+
+  it('renders sector composition from look-through-aware composition when available', () => {
+    render(<ExposurePanel result={mockExposureView} />)
+
+    expect(screen.getAllByText('Sector Composition').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Basis: sector mix uses look-through composition.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Technology').length).toBeGreaterThan(0)
+    expect(screen.getByText('40.00%')).toBeTruthy()
+    expect(screen.getByText('Health Care')).toBeTruthy()
+  })
+
+  it('renders current-state concentration facts only', () => {
+    render(<ExposurePanel result={mockExposureView} />)
+
+    expect(screen.getByText('Concentration Pack')).toBeTruthy()
+    expect(screen.getByText('Current-state concentration')).toBeTruthy()
+    expect(screen.getByText('Composition only')).toBeTruthy()
+    expect(screen.getByText('available')).toBeTruthy()
+    expect(screen.getByText('Top 1 position')).toBeTruthy()
+    expect(screen.getAllByText('24.00%').length).toBeGreaterThan(0)
+    expect(screen.getByText('Top 5 positions')).toBeTruthy()
+    expect(screen.getByText('Position HHI')).toBeTruthy()
+    expect(screen.getByText('Sector HHI')).toBeTruthy()
+    expect(screen.getByText('Top Positions')).toBeTruthy()
+    expect(screen.getByText('Top Sectors')).toBeTruthy()
+  })
+
+  it('renders ranked compact concentration lists with five visible rows max', () => {
     render(
       <ExposurePanel
         result={{
           ...mockExposureView,
-          run_metadata: {
-            ...mockExposureView.run_metadata!,
-            source_status: {
-              lookthrough_resolution: 'partial',
-              benchmark_holdings: 'unavailable',
-            },
+          current_state_concentration: {
+            ...mockExposureView.current_state_concentration,
+            top_positions: [
+              { name: 'AAPL', market_value: 10000, weight: 0.2 },
+              { name: 'JPM', market_value: 9000, weight: 0.18 },
+              { name: 'MSFT', market_value: 8000, weight: 0.16 },
+              { name: 'GOOG', market_value: 7000, weight: 0.14 },
+              { name: 'AMZN', market_value: 6000, weight: 0.12 },
+              { name: 'META', market_value: 5000, weight: 0.1 },
+            ],
+            top_sectors: [
+              { name: 'Technology', market_value: 18000, weight: 0.36 },
+              { name: 'Financials', market_value: 12000, weight: 0.24 },
+              { name: 'Health Care', market_value: 7000, weight: 0.14 },
+              { name: 'Industrials', market_value: 5000, weight: 0.1 },
+              { name: 'Energy', market_value: 4000, weight: 0.08 },
+              { name: 'Utilities', market_value: 3000, weight: 0.06 },
+            ],
           },
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('1').length).toBeGreaterThan(1)
+    expect(screen.getAllByText('AMZN').length).toBeGreaterThan(0)
+    expect(screen.queryByText('META')).toBeNull()
+    expect(screen.getByText('Energy')).toBeTruthy()
+    expect(screen.queryByText('Utilities')).toBeNull()
+  })
+
+  it('marks concentration availability partial when only part of the pack is present', () => {
+    render(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
+          current_state_concentration: {
+            ...mockExposureView.current_state_concentration,
+            top_positions: [],
+            top_sectors: [],
+            top_5_position_weight: null,
+            top_3_sector_weight: null,
+            position_hhi: null,
+            sector_hhi: null,
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('partial').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Top 5 positions')).toBeNull()
+    expect(screen.queryByText('Position HHI')).toBeNull()
+  })
+
+  it('renders benchmark-relative positioning as current-state composition only', () => {
+    render(<ExposurePanel result={mockExposureView} />)
+
+    const positioningSection = screen.getByText('Benchmark-Relative Positioning').closest('section') as HTMLElement
+    expect(screen.getByText('Benchmark-Relative Positioning')).toBeTruthy()
+    expect(screen.getByText('Current-state active bets only.')).toBeTruthy()
+    expect(screen.getByText('Portfolio in benchmark')).toBeTruthy()
+    expect(screen.getByText('Active share')).toBeTruthy()
+    expect(screen.getByText('Top Overweights')).toBeTruthy()
+    expect(within(positioningSection).getByText('AAPL')).toBeTruthy()
+    expect(within(positioningSection).getByText('17.00% active')).toBeTruthy()
+    expect(screen.queryByText(/partly aligned/i)).toBeNull()
+  })
+
+  it('keeps partial look-through trust inline and does not imply full resolution', () => {
+    render(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
           lookthrough: {
             ...mockExposureView.lookthrough,
+            covered_market_value: 5000,
             coverage_ratio: 0.1,
+            uncovered_positions: ['VUAA'],
           },
           exposure_availability: {
             lookthrough_status: 'partial',
@@ -238,72 +189,173 @@ describe('ExposurePanel', () => {
             note: 'Look-through exposure is partial because some holdings could not be resolved, and benchmark overlap is unavailable because benchmark composition could not be loaded.',
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
-    expect(screen.getByText('Look-through confidence is medium; benchmark overlap confidence is low.')).toBeTruthy()
-    expect(screen.getByText(/Audit: snapshot .*SPY.*look-through partial.*benchmark holdings unavailable.*dataset market_data_service_v1/)).toBeTruthy()
-    expect(screen.getByText('Look-through partial')).toBeTruthy()
-    expect(screen.getByText('Overlap unavailable')).toBeTruthy()
-    expect(screen.getByText(/benchmark composition could not be loaded/i)).toBeTruthy()
-    expect(screen.getByText(/partial ETF resolution/i)).toBeTruthy()
-    expect(screen.getByText(/Current overlap stays separate from historical benchmark diagnostics/)).toBeTruthy()
-    expect(screen.getByText(/Constituent Coverage 10.00%/)).toBeTruthy()
-    expect(screen.getAllByText('n/a').length).toBeGreaterThan(0)
-    expect(screen.getByText(/SPY constituents when benchmark holdings are available\. Currently unavailable because benchmark holdings could not be loaded\./)).toBeTruthy()
+    expect(screen.getAllByText('partial').length).toBeGreaterThan(0)
+    expect(screen.getByText('Look-through coverage is 10.00% (partial).')).toBeTruthy()
+    expect(screen.getByText('Basis: imported snapshot truth plus resolved ETF constituents; unresolved ETFs stay partial.')).toBeTruthy()
+    expect(screen.getByText('Look-through coverage 10.00% ($5000.00 of $50000.00).')).toBeTruthy()
+    expect(screen.getByText(/Limitation: partial look-through leaves VUAA unresolved/)).toBeTruthy()
+    expect(screen.getByText('Limitation: partial look-through can still shift sector mix.')).toBeTruthy()
+    expect(screen.queryByText(/benchmark overlap is unavailable/i)).toBeNull()
   })
 
-  it('keeps scenario preview sections hidden when absent', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
-
-    expect(screen.queryByText('Scenario Preview')).toBeNull()
-  })
-
-  it('renders scenario preview when provided', () => {
+  it('suppresses benchmark-relative availability notes inside Look-Through Exposure Core', () => {
     render(
       <ExposurePanel
         result={{
           ...mockExposureView,
-          scenario_preview: {
-            mode: 'size_only',
-            methodology: 'm',
-            base_capital: 50000,
-            gross_exposure: 52000,
-            net_capital: 50000,
-            leverage_ratio: 1.04,
-            scenario_aware_sections: ['exposure'],
-            historical_baseline_sections: ['diagnostics'],
-            sector_drifts: [],
-            position_drifts: [],
-            factor_drifts: [],
+          exposure_availability: {
+            ...mockExposureView.exposure_availability!,
+            note: 'Benchmark-relative overlap is unavailable because benchmark composition could not be loaded. Current look-through exposure is still shown.',
           },
         }}
-        factorModel={mockFactorModel}
       />,
     )
 
-    expect(screen.getByText('Scenario Preview')).toBeTruthy()
-    expect(screen.getByText(/Scenario-only current-state approximation/)).toBeTruthy()
-    expect(screen.getByText(/historical sections remain baseline and are not recomputed from scenario trades/i)).toBeTruthy()
-    expect(screen.getByText(/Current loadings stay here; historical 60d values remain in the table/)).toBeTruthy()
-    expect(screen.getAllByText(/current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Scenario edits do not rerun this historical regime path/)).toBeTruthy()
+    const lookthroughSection = screen.getByText('Look-Through Summary').closest('section')
+    expect(lookthroughSection).toBeTruthy()
+    const sliceText = lookthroughSection?.textContent ?? ''
+
+    expect(sliceText.includes('Benchmark-relative overlap is unavailable')).toBe(false)
+    expect(sliceText.includes('benchmark composition could not be loaded')).toBe(false)
   })
 
-  it('renders factor registry categories and UCITS ideas', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+  it('marks benchmark-relative positioning unavailable instead of implying neutrality', () => {
+    render(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
+          market_overlap: {
+            ...mockExposureView.market_overlap,
+            active_share: null,
+            portfolio_in_benchmark_weight: null,
+            top_overweights: [],
+            top_underweights: [],
+          },
+          exposure_availability: {
+            ...mockExposureView.exposure_availability!,
+            benchmark_overlap_status: 'unavailable',
+            benchmark_overlap_confidence: 'low',
+          },
+        }}
+      />,
+    )
 
-    expect(screen.getByText('Factor Registry')).toBeTruthy()
-    expect(screen.getAllByText('Market').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Style').length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/CSPX/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Benchmark-relative positioning unavailable')).toBeTruthy()
+    expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
+    expect(screen.queryByText('0.00% active')).toBeNull()
   })
 
-  it('renders imported holdings metadata in current-state sections', () => {
-    render(<ExposurePanel result={mockExposureView} factorModel={mockFactorModel} />)
+  it('shows degraded benchmark-relative trust when benchmark holdings support is incomplete', () => {
+    render(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
+          run_metadata: {
+            ...mockExposureView.run_metadata!,
+            source_status: {
+              ...mockExposureView.run_metadata!.source_status,
+              benchmark_holdings: 'degraded',
+            },
+          },
+        }}
+      />,
+    )
 
-    expect(screen.getAllByText('Technology').length).toBeGreaterThan(0)
-    expect(screen.getByText('Health Care')).toBeTruthy()
+    expect(screen.getAllByText('degraded').length).toBeGreaterThan(0)
+    expect(screen.getByText('Benchmark-relative positioning is degraded versus SPY.')).toBeTruthy()
+  })
+
+  it('orders benchmark-relative cues deterministically and suppresses invalid rows', () => {
+    render(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
+          market_overlap: {
+            ...mockExposureView.market_overlap,
+            top_overweights: [
+              { symbol: 'MSFT', name: 'Microsoft', portfolio_weight: 0.18, benchmark_weight: 0.06, active_weight: 0.12 },
+              { symbol: 'AAPL', name: 'Apple', portfolio_weight: 0.24, benchmark_weight: 0.07, active_weight: 0.17 },
+              { symbol: 'NVDA', name: 'NVIDIA', portfolio_weight: null as unknown as number, benchmark_weight: 0.05, active_weight: 0.11 },
+            ],
+            top_underweights: [
+              { symbol: 'AMZN', name: 'Amazon', portfolio_weight: 0.0, benchmark_weight: 0.04, active_weight: -0.04 },
+              { symbol: 'GOOG', name: 'Alphabet', portfolio_weight: 0.01, benchmark_weight: 0.04, active_weight: -0.03 },
+            ],
+          },
+        }}
+      />,
+    )
+
+    const overweightRows = screen.getAllByText(/active$/).map((node) => node.textContent)
+    expect(overweightRows[0]).toBe('17.00% active')
+    expect(overweightRows[1]).toBe('12.00% active')
+    expect(screen.queryByText('NVDA')).toBeNull()
+    const activeRows = screen.getAllByText(/active$/).map((node) => node.textContent)
+    expect(activeRows).toContain('4.00% active')
+    expect(activeRows).toContain('3.00% active')
+  })
+
+  it('falls back to holdings truth for sectors when look-through sectors are unavailable', () => {
+    render(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
+          lookthrough_sector_exposure: [],
+          exposure_availability: {
+            ...mockExposureView.exposure_availability!,
+            lookthrough_status: 'unavailable',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('Basis: sector mix uses imported snapshot truth only.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Look-through coverage unavailable for sector mix.')).toBeTruthy()
+    expect(screen.getByText('Limitation: sector mix does not include constituent ETF unpacking.')).toBeTruthy()
+  })
+
+  it('withholds sector and concentration modules when inputs are unavailable', () => {
+    render(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
+          lookthrough: {
+            ...mockExposureView.lookthrough,
+            covered_market_value: 0,
+            coverage_ratio: 0,
+            top_constituents: [],
+          },
+          overview: {
+            ...mockExposureView.overview,
+            sector_allocation: [],
+          },
+          lookthrough_sector_exposure: [],
+          current_state_concentration: {
+            ...mockExposureView.current_state_concentration,
+            top_positions: [],
+            top_sectors: [],
+            top_1_position_weight: null,
+            top_3_position_weight: null,
+            top_5_position_weight: null,
+            top_sector_weight: null,
+            top_3_sector_weight: null,
+            position_hhi: null,
+            sector_hhi: null,
+            effective_holdings: null,
+          },
+          exposure_availability: {
+            ...mockExposureView.exposure_availability!,
+            lookthrough_status: 'unavailable',
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Top constituents unavailable')).toBeTruthy()
+    expect(screen.getByText('Sector composition unavailable')).toBeTruthy()
+    expect(screen.getByText('Concentration read unavailable')).toBeTruthy()
   })
 })

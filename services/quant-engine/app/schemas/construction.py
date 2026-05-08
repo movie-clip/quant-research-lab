@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
-from app.schemas.ranking import ETF_RANKING_ARTIFACT_SCHEMA_VERSION
+from app.schemas.ranking import (
+    ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
+    INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
+)
 
 
 ConstructionRunStatus = Literal["feasible", "infeasible", "rejected"]
@@ -34,8 +37,15 @@ ConstructionPolicyRankingSupport = Literal[
 ConstructionPolicyRequiredConstraintSupport = Literal["required"]
 ConstructionPolicyOptionalConstraintSupport = Literal["supported_optional"]
 ConstructionPolicyRequiredInputSupport = Literal["required"]
+ConstructionPolicyLaunchTopN = Literal[2]
+ConstructionPolicyLaunchProfileId = Literal["ranking_artifact_review_handoff_v1"]
+ConstructionPolicyLaunchProfileKind = Literal["ranking_artifact_review_handoff"]
+ConstructionPolicyLaunchProfilePolicyStatus = Literal["default", "opt_in", "excluded"]
 ConstructionRankingArtifactPreflightContractVersion = Literal["construction_ranking_artifact_preflight_v1"]
-ConstructionRankingArtifactHandoffKind = Literal["etf_ranking_artifact_construction_handoff_v1"]
+ConstructionRankingArtifactHandoffKind = Literal[
+    "etf_ranking_artifact_construction_handoff_v1",
+    "intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1",
+]
 ConstructionWeightingTraceVersion = Literal["weighting_trace_v1"]
 ConstructionWeightingTraceStatus = Literal["available", "unavailable_legacy_artifact"]
 ConstructionWeightingTraceSource = Literal["persisted_construction_artifact"]
@@ -117,6 +127,14 @@ class ConstructionCurrentPortfolioInput(BaseModel):
     as_of_timestamp: str | None = None
     weights: list[ConstructionWeight] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _validate_identity_pairing(self) -> "ConstructionCurrentPortfolioInput":
+        if (self.artifact_id is None) != (self.as_of_timestamp is None):
+            raise ValueError(
+                "current_portfolio.artifact_id and current_portfolio.as_of_timestamp must be provided together"
+            )
+        return self
+
 
 class ConstructionPolicyInput(BaseModel):
     policy_id: ConstructionPolicyId = "top_n_equal_weight_v1"
@@ -144,7 +162,18 @@ class ConstructionPolicyCatalogEntry(BaseModel):
     max_trade_intent_count_constraint: ConstructionPolicyOptionalConstraintSupport
     ranked_universe_input: ConstructionPolicyRequiredInputSupport
     current_portfolio_input: ConstructionPolicyRequiredInputSupport
+    launch_top_n: ConstructionPolicyLaunchTopN
     selection_rule_ids: list[ConstructionSelectionRuleId] = Field(default_factory=list)
+    launch_profile: "ConstructionPolicyLaunchProfile"
+
+
+class ConstructionPolicyLaunchProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile_id: ConstructionPolicyLaunchProfileId
+    profile_kind: ConstructionPolicyLaunchProfileKind
+    policy_status: ConstructionPolicyLaunchProfilePolicyStatus
+    launch_top_n: ConstructionPolicyLaunchTopN
 
 
 class ConstructionHardConstraints(BaseModel):
@@ -169,7 +198,9 @@ class ConstructionHardConstraints(BaseModel):
 class EtfRankingArtifactConstructionHandoff(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    handoff_kind: ConstructionRankingArtifactHandoffKind = "etf_ranking_artifact_construction_handoff_v1"
+    handoff_kind: Literal["etf_ranking_artifact_construction_handoff_v1"] = (
+        "etf_ranking_artifact_construction_handoff_v1"
+    )
     artifact_kind: str = "etf_ranking"
     artifact_id: str
     schema_version: str = ETF_RANKING_ARTIFACT_SCHEMA_VERSION
@@ -186,10 +217,41 @@ class EtfRankingArtifactConstructionHandoff(BaseModel):
         return self
 
 
+class IntentBoundEtfReplacementRankingArtifactConstructionHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: Literal[
+        "intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1"
+    ] = "intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1"
+    artifact_kind: str = "intent_bound_etf_replacement_ranking"
+    artifact_id: str
+    schema_version: str = INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION
+    ranking_id: str
+    methodology_id: str
+    as_of_date: str
+
+    @model_validator(mode="after")
+    def _validate_supported_contract(
+        self,
+    ) -> "IntentBoundEtfReplacementRankingArtifactConstructionHandoff":
+        if self.artifact_kind != "intent_bound_etf_replacement_ranking":
+            raise ValueError("unsupported ranking artifact kind")
+        if self.schema_version != INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION:
+            raise ValueError("unsupported replacement ranking schema_version")
+        return self
+
+
+ConstructionRankingArtifactHandoff = Annotated[
+    EtfRankingArtifactConstructionHandoff
+    | IntentBoundEtfReplacementRankingArtifactConstructionHandoff,
+    Field(discriminator="handoff_kind"),
+]
+
+
 class ConstructionRunRequest(BaseModel):
     request_id: str | None = None
     ranked_universe: ConstructionRankedUniverseInput | None = None
-    ranking_artifact_handoff: EtfRankingArtifactConstructionHandoff | None = None
+    ranking_artifact_handoff: ConstructionRankingArtifactHandoff | None = None
     current_portfolio: ConstructionCurrentPortfolioInput
     policy: ConstructionPolicyInput
     hard_constraints: ConstructionHardConstraints
@@ -204,7 +266,10 @@ class ConstructionRunRequest(BaseModel):
             return value
         if "handoff_kind" not in handoff:
             raise ValueError("ranking_artifact_handoff.handoff_kind is required")
-        if handoff["handoff_kind"] != "etf_ranking_artifact_construction_handoff_v1":
+        if handoff["handoff_kind"] not in {
+            "etf_ranking_artifact_construction_handoff_v1",
+            "intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1",
+        }:
             raise ValueError(
                 f"unsupported ranking_artifact_handoff.handoff_kind: {handoff['handoff_kind']}"
             )
@@ -218,13 +283,22 @@ class ConstructionRunRequest(BaseModel):
             raise ValueError(
                 "construction run request must provide exactly one of ranked_universe or ranking_artifact_handoff"
             )
+        if has_ranking_artifact_handoff:
+            if not self.current_portfolio.artifact_id:
+                raise ValueError(
+                    "ranking artifact handoff requests require current_portfolio.artifact_id"
+                )
+            if not self.current_portfolio.as_of_timestamp:
+                raise ValueError(
+                    "ranking artifact handoff requests require current_portfolio.as_of_timestamp"
+                )
         return self
 
 
 class ConstructionRankingArtifactPreflightArtifact(BaseModel):
-    artifact_kind: str = "etf_ranking"
+    artifact_kind: Literal["etf_ranking"] = "etf_ranking"
     artifact_id: str
-    schema_version: str = ETF_RANKING_ARTIFACT_SCHEMA_VERSION
+    schema_version: Literal["etf_ranking_artifact_v1"] = ETF_RANKING_ARTIFACT_SCHEMA_VERSION
     ranking_id: str
     methodology_id: str
     as_of_date: str
@@ -238,15 +312,50 @@ class ConstructionRankingArtifactPreflightArtifact(BaseModel):
         return self
 
 
+class IntentBoundEtfReplacementRankingConstructionPreflightArtifact(BaseModel):
+    artifact_kind: Literal["intent_bound_etf_replacement_ranking"] = "intent_bound_etf_replacement_ranking"
+    artifact_id: str
+    schema_version: Literal["intent_bound_etf_replacement_ranking_artifact_v1"] = (
+        INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION
+    )
+    ranking_id: str
+    methodology_id: str
+    as_of_date: str
+
+    @model_validator(mode="after")
+    def _validate_supported_contract(
+        self,
+    ) -> "IntentBoundEtfReplacementRankingConstructionPreflightArtifact":
+        if self.artifact_kind != "intent_bound_etf_replacement_ranking":
+            raise ValueError("unsupported ranking artifact kind")
+        if self.schema_version != INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION:
+            raise ValueError("unsupported replacement ranking schema_version")
+        return self
+
+
+ConstructionRankingArtifactPreflightArtifactUnion = Annotated[
+    ConstructionRankingArtifactPreflightArtifact
+    | IntentBoundEtfReplacementRankingConstructionPreflightArtifact,
+    Field(discriminator="artifact_kind"),
+]
+
+
 class ConstructionRankingArtifactPreflightResponse(BaseModel):
     contract_version: ConstructionRankingArtifactPreflightContractVersion = (
         "construction_ranking_artifact_preflight_v1"
     )
-    artifact: ConstructionRankingArtifactPreflightArtifact
-    handoff: EtfRankingArtifactConstructionHandoff
+    artifact: ConstructionRankingArtifactPreflightArtifactUnion
+    eligibility: "ConstructionRankingArtifactEligibility"
+    handoff: ConstructionRankingArtifactHandoff | None = None
 
     @model_validator(mode="after")
     def _validate_alignment(self) -> "ConstructionRankingArtifactPreflightResponse":
+        if self.eligibility.eligible and self.handoff is None:
+            raise ValueError("handoff is required when eligibility.eligible=true")
+        if not self.eligibility.eligible and self.handoff is not None:
+            raise ValueError("handoff must be omitted when eligibility.eligible=false")
+        if self.handoff is None:
+            return self
         if self.handoff.artifact_kind != self.artifact.artifact_kind:
             raise ValueError("handoff.artifact_kind must match artifact.artifact_kind")
         if self.handoff.artifact_id != self.artifact.artifact_id:
@@ -259,6 +368,19 @@ class ConstructionRankingArtifactPreflightResponse(BaseModel):
             raise ValueError("handoff.methodology_id must match artifact.methodology_id")
         if self.handoff.as_of_date != self.artifact.as_of_date:
             raise ValueError("handoff.as_of_date must match artifact.as_of_date")
+        return self
+
+
+class ConstructionRankingArtifactEligibility(BaseModel):
+    eligible: bool
+    reason: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_reason_presence(self) -> "ConstructionRankingArtifactEligibility":
+        if self.eligible and self.reason is not None:
+            raise ValueError("eligibility.reason must be omitted when eligibility.eligible=true")
+        if not self.eligible and not self.reason:
+            raise ValueError("eligibility.reason is required when eligibility.eligible=false")
         return self
 
 

@@ -1,1164 +1,627 @@
-import { useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
-import { Brush, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
-import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
+import { useMemo } from 'react'
 
-import { DEFAULT_FACTOR_MODEL_METHODOLOGY } from './exposureFactorModel'
-import { investorEconomicsBaseReason } from './investorEconomics'
-import type { ExposureAnalysis, ExposureFactorModelResponse } from './types'
+import { DenseInsightStrip, type DenseInsightStripItem, type DenseInsightMarker } from './DenseInsightStrip'
+import type { ExposureAnalysis } from './types'
 
-export { sortTooltipPayloadRows } from './RollingFactorLoadingsCard'
-
-type RollingWindow = 20 | 60 | 252
-type SignalTone = 'hot' | 'warm' | 'cool' | 'neutral'
-type RollingRiskPoint = ExposureAnalysis['rolling_risk'][number]
-type VolatilityPoint = ExposureAnalysis['volatility_regime']['rolling_series'][number]
-type RollingRiskMetricKey = keyof Pick<RollingRiskPoint, 'beta_20d' | 'beta_60d' | 'beta_252d' | 'correlation_20d' | 'correlation_60d' | 'correlation_252d'>
-type PortfolioVolSeriesKey = 'realized_vol_20d' | 'realized_vol_60d' | 'realized_vol_252d' | 'benchmark_vol_20d' | 'benchmark_vol_60d' | 'benchmark_vol_252d'
-type DownsideVolSeriesKey = 'downside_vol_20d' | 'downside_vol_60d' | 'downside_vol_252d'
-type TrackingErrorSeriesKey = 'tracking_error_20d' | 'tracking_error_60d' | 'tracking_error_252d'
-
-const ROLLING_WINDOW_OPTIONS: RollingWindow[] = [20, 60, 252]
-const DEFAULT_PORTFOLIO_VOL_SERIES: PortfolioVolSeriesKey[] = ['realized_vol_20d', 'realized_vol_60d', 'benchmark_vol_20d']
-const DEFAULT_DOWNSIDE_VOL_SERIES: DownsideVolSeriesKey[] = ['downside_vol_20d', 'downside_vol_60d']
-const DEFAULT_TRACKING_ERROR_SERIES: TrackingErrorSeriesKey[] = ['tracking_error_20d', 'tracking_error_60d']
-
-const PORTFOLIO_VOL_SERIES_LABELS: Record<PortfolioVolSeriesKey, string> = {
-  realized_vol_20d: 'Realized Vol 20d',
-  realized_vol_60d: 'Realized Vol 60d',
-  realized_vol_252d: 'Realized Vol 252d',
-  benchmark_vol_20d: 'Benchmark Vol 20d',
-  benchmark_vol_60d: 'Benchmark Vol 60d',
-  benchmark_vol_252d: 'Benchmark Vol 252d',
+type ExposurePanelProps = {
+  result: ExposureAnalysis | null
+  snapshotOptions?: Array<{ id: string; label: string }>
+  selectedSnapshotId?: string
+  snapshotExitOption?: { id: string; label: string }
+  onSnapshotSelect?: (snapshotId: string) => void
 }
 
-const DOWNSIDE_VOL_SERIES_LABELS: Record<DownsideVolSeriesKey, string> = {
-  downside_vol_20d: 'Downside Vol 20d',
-  downside_vol_60d: 'Downside Vol 60d',
-  downside_vol_252d: 'Downside Vol 252d',
+type SectorModuleState = {
+  title: string
+  items: Array<{ name: string; marketValue: number; weight: number }>
+  basisNote: string
+  coverageNote: string
+  limitationNote: string | null
 }
 
-const TRACKING_ERROR_SERIES_LABELS: Record<TrackingErrorSeriesKey, string> = {
-  tracking_error_20d: 'Tracking Error 20d',
-  tracking_error_60d: 'Tracking Error 60d',
-  tracking_error_252d: 'Tracking Error 252d',
+type BenchmarkPositioningTrust = 'verified' | 'degraded' | 'partial' | 'unavailable'
+
+type BenchmarkPositioningRow = {
+  symbol: string
+  name: string
+  portfolioWeight: number
+  benchmarkWeight: number
+  activeWeight: number
 }
 
-const PORTFOLIO_VOL_SERIES_COLORS: Record<PortfolioVolSeriesKey, string> = {
-  realized_vol_20d: '#5b87c5',
-  realized_vol_60d: '#3cb79f',
-  realized_vol_252d: '#7a8da8',
-  benchmark_vol_20d: '#b4c2d9',
-  benchmark_vol_60d: '#89a9d0',
-  benchmark_vol_252d: '#6f84a5',
+type BenchmarkPositioningModuleState = {
+  trust: BenchmarkPositioningTrust
+  benchmarkSymbol: string
+  portfolioInBenchmarkWeight: number | null
+  activeShare: number | null
+  overweights: BenchmarkPositioningRow[]
+  underweights: BenchmarkPositioningRow[]
+  basisNote: string
+  coverageNote: string
+  limitationNote: string | null
 }
 
-const DOWNSIDE_VOL_SERIES_COLORS: Record<DownsideVolSeriesKey, string> = {
-  downside_vol_20d: '#cf8a4a',
-  downside_vol_60d: '#d6a45e',
-  downside_vol_252d: '#de7047',
+type ConcentrationAvailabilityTone = 'trusted' | 'partial' | 'unavailable'
+
+type ConcentrationMetric = {
+  label: string
+  value: string
 }
 
-const TRACKING_ERROR_SERIES_COLORS: Record<TrackingErrorSeriesKey, string> = {
-  tracking_error_20d: '#9aa7bf',
-  tracking_error_60d: '#b6a36a',
-  tracking_error_252d: '#d7bf5c',
-}
-
-const FACTOR_CATEGORY_LABELS: Record<string, string> = {
-  market: 'Market',
-  style: 'Style',
-  sector: 'Sector',
-  macro: 'Macro',
-}
-
-const MAPPING_QUALITY_LABELS: Record<string, string> = {
-  high: 'Exact-ish',
-  'medium-high': 'Close proxy',
-  medium: 'Loose proxy',
-  low: 'Loose proxy',
-}
-
-function formatDateLabel(value: string | number | null | undefined) {
-  if (typeof value !== 'string') {
-    return ''
-  }
-  const [year, month, day] = value.split('-')
-  if (!year || !month || !day) {
-    return value
-  }
-  return `${month}/${day}/${year.slice(2)}`
-}
-
-function formatPct(value: number | null | undefined) {
-  return value == null ? 'n/a' : `${value.toFixed(2)}%`
+function normalizeExposureMarker(marker: string): DenseInsightMarker {
+  if (marker === 'trusted' || marker === 'partial' || marker === 'degraded' || marker === 'stale' || marker === 'withheld' || marker === 'unavailable') return marker
+  return marker === 'verified' ? 'trusted' : 'unavailable'
 }
 
 function formatMoney(value: number | null | undefined) {
-  return value == null ? 'n/a' : `$${value.toFixed(2)}`
+  return value == null ? 'Unavailable' : `$${value.toFixed(2)}`
 }
 
 function formatCompactMoney(value: number | null | undefined) {
-  if (value == null) return 'n/a'
+  if (value == null) return 'Unavailable'
   if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(2)}k`
   return formatMoney(value)
 }
 
-function formatRatio(value: number | null | undefined) {
-  return value == null ? 'n/a' : value.toFixed(2)
+function formatPct(value: number | null | undefined) {
+  return value == null ? 'Unavailable' : `${value.toFixed(2)}%`
 }
 
-function formatPercentile(value: number | null | undefined) {
-  return value == null ? 'n/a' : `${(value * 100).toFixed(0)}%`
+function formatWeightPct(value: number | null | undefined) {
+  return value == null ? 'Unavailable' : formatPct(value * 100)
 }
 
 function formatNumber(value: number | null | undefined, digits = 2) {
-  return value == null ? 'n/a' : value.toFixed(digits)
+  return value == null ? 'Unavailable' : value.toFixed(digits)
 }
 
-function formatSignedNumber(value: number | null | undefined, digits = 2) {
-  if (value == null) return 'n/a'
-  return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}`
-}
+function buildConcentrationAvailabilityState(concentration: ExposureAnalysis['current_state_concentration'] | null | undefined): {
+  label: 'available' | 'partial' | 'withheld'
+  tone: ConcentrationAvailabilityTone
+} {
+  const summaryMetricCount = [
+    concentration?.top_1_position_weight,
+    concentration?.top_3_position_weight,
+    concentration?.top_5_position_weight,
+    concentration?.top_sector_weight,
+    concentration?.top_3_sector_weight,
+    concentration?.position_hhi,
+    concentration?.sector_hhi,
+    concentration?.effective_holdings,
+  ].filter((value) => value != null).length
+  const hasTopPositions = Boolean(concentration?.top_positions?.length)
+  const hasTopSectors = Boolean(concentration?.top_sectors?.length)
 
-function formatSignedPct(value: number | null | undefined) {
-  if (value == null) return 'n/a'
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
-}
-
-function formatLoading(value: number | null | undefined) {
-  return value == null ? 'Insufficient data' : value.toFixed(2)
-}
-
-function formatMappingScore(value: number | null | undefined) {
-  return value == null ? 'n/a' : `${value.toFixed(0)}%`
-}
-
-function toneFromMappingMatch(score: number | null | undefined): SignalTone {
-  if (score == null) return 'neutral'
-  if (score >= 90) return 'cool'
-  if (score >= 80) return 'cool'
-  if (score >= 65) return 'warm'
-  if (score >= 50) return 'warm'
-  return 'hot'
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
-
-function signalToneClass(tone: SignalTone) {
-  if (tone === 'hot') return 'risk-hot'
-  if (tone === 'warm') return 'risk-warm'
-  if (tone === 'cool') return 'risk-cool'
-  return 'risk-neutral'
-}
-
-function metricCardClass(tone: SignalTone) {
-  return `summary-card metric-card metric-card-${tone}`
-}
-
-type MetricRangeStats = {
-  min: number
-  max: number
-  current: number
-  position: number
-}
-
-function getSeriesStats(data: Array<Record<string, number | string | null>>, key: string): MetricRangeStats | null {
-  const values = data
-    .map((point) => point[key])
-    .filter((value) => typeof value === 'number' && Number.isFinite(value)) as number[]
-
-  if (!values.length) return null
-
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const current = [...data]
-    .reverse()
-    .map((point) => point[key])
-    .find((value) => typeof value === 'number' && Number.isFinite(value)) as number | undefined
-
-  if (current == null) return null
-
-  const position = min === max ? 0.5 : clamp((current - min) / (max - min), 0, 1)
-
-  return { min, max, current, position }
-}
-
-function toneFromRangePosition(position: number | null | undefined): SignalTone {
-  if (position == null) return 'neutral'
-  if (position >= 0.8) return 'hot'
-  if (position >= 0.6) return 'warm'
-  if (position <= 0.25) return 'cool'
-  return 'neutral'
-}
-
-function toneFromBeta(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value >= 1.2 || value < 0) return 'hot'
-  if (value >= 1.05) return 'warm'
-  if (value <= 0.75) return 'cool'
-  return 'neutral'
-}
-
-function toneFromCorrelation(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value >= 0.9) return 'hot'
-  if (value >= 0.75) return 'warm'
-  if (value <= 0.45) return 'cool'
-  return 'neutral'
-}
-
-function toneFromTrackingError(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value >= 12) return 'hot'
-  if (value >= 7) return 'warm'
-  if (value <= 4) return 'cool'
-  return 'neutral'
-}
-
-function toneFromInformationRatio(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value < 0) return 'hot'
-  if (value < 0.35) return 'warm'
-  if (value >= 0.75) return 'cool'
-  return 'neutral'
-}
-
-function toneFromOverlap(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value >= 70) return 'hot'
-  if (value >= 50) return 'warm'
-  if (value <= 30) return 'cool'
-  return 'neutral'
-}
-
-function toneFromActiveShare(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value <= 35) return 'hot'
-  if (value <= 50) return 'warm'
-  if (value >= 70) return 'cool'
-  return 'neutral'
-}
-
-function toneFromDrawdown(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value <= -15) return 'hot'
-  if (value <= -8) return 'warm'
-  if (value >= -3) return 'cool'
-  return 'neutral'
-}
-
-function toneFromVolPercentile(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value >= 0.85) return 'hot'
-  if (value >= 0.65) return 'warm'
-  if (value <= 0.35) return 'cool'
-  return 'neutral'
-}
-
-function toneFromVolRatio(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  if (value >= 1.25) return 'hot'
-  if (value >= 1.05) return 'warm'
-  if (value <= 0.85) return 'cool'
-  return 'neutral'
-}
-
-function toneFromConfidence(value: string | null | undefined): SignalTone {
-  if (!value) return 'neutral'
-  if (value === 'high') return 'cool'
-  if (value === 'medium') return 'neutral'
-  if (value === 'low') return 'warm'
-  return 'neutral'
-}
-
-function toneFromFactorLoading(value: number | null | undefined): SignalTone {
-  if (value == null) return 'neutral'
-  const absolute = Math.abs(value)
-  if (absolute >= 1) return 'hot'
-  if (absolute >= 0.45) return 'warm'
-  if (absolute <= 0.15) return 'cool'
-  return 'neutral'
-}
-
-function mappingQualityBadge(value: string) {
-  return MAPPING_QUALITY_LABELS[value] ?? value
-}
-
-function mappingMatchScore(
-  factor: ExposureFactorModelResponse['statistical_factor_model']['current_factor_snapshot'][number],
-  registry: Record<string, ExposureFactorModelResponse['factor_registry'][number]>,
-) {
-  return factor.primary_mapping?.match_summary?.score_pct ?? registry[factor.key]?.primary_mapping?.match_summary?.score_pct ?? null
-}
-
-function mappingMatchCaption(
-  factor: ExposureFactorModelResponse['statistical_factor_model']['current_factor_snapshot'][number],
-  registry: Record<string, ExposureFactorModelResponse['factor_registry'][number]>,
-) {
-  return factor.primary_mapping?.match_summary?.label ?? registry[factor.key]?.primary_mapping?.match_summary?.label ?? 'Match'
-}
-
-function trimLeadingNullPoints<T extends { date: string }>(data: T[], keys: string[]) {
-  if (!Array.isArray(data) || !data.length) {
-    return []
+  if (!summaryMetricCount && !hasTopPositions && !hasTopSectors) {
+    return { label: 'withheld', tone: 'unavailable' }
   }
-  const firstIndex = data.findIndex((point) => keys.some((key) => point[key as keyof T] != null))
-  if (firstIndex < 0) {
-    return []
+
+  if (summaryMetricCount === 8 && hasTopPositions && hasTopSectors) {
+    return { label: 'available', tone: 'trusted' }
   }
-  return firstIndex > 0 ? data.slice(firstIndex) : data
+
+  return { label: 'partial', tone: 'partial' }
 }
 
-function getRollingLoadingsSeries(result: ExposureFactorModelResponse, window: RollingWindow) {
-  if (window === 60) return result.statistical_factor_model.rolling_loadings_60d
-  if (window === 252) return result.statistical_factor_model.rolling_loadings_252d
-  return result.statistical_factor_model.rolling_loadings_20d
+function buildConcentrationSummaryMetrics(concentration: ExposureAnalysis['current_state_concentration'] | null | undefined): ConcentrationMetric[] {
+  return [
+    concentration?.top_1_position_weight != null ? { label: 'Top 1 position', value: formatWeightPct(concentration.top_1_position_weight) } : null,
+    concentration?.top_3_position_weight != null ? { label: 'Top 3 positions', value: formatWeightPct(concentration.top_3_position_weight) } : null,
+    concentration?.top_5_position_weight != null ? { label: 'Top 5 positions', value: formatWeightPct(concentration.top_5_position_weight) } : null,
+    concentration?.top_sector_weight != null ? { label: 'Top sector', value: formatWeightPct(concentration.top_sector_weight) } : null,
+    concentration?.top_3_sector_weight != null ? { label: 'Top 3 sectors', value: formatWeightPct(concentration.top_3_sector_weight) } : null,
+    concentration?.position_hhi != null ? { label: 'Position HHI', value: formatNumber(concentration.position_hhi, 3) } : null,
+    concentration?.sector_hhi != null ? { label: 'Sector HHI', value: formatNumber(concentration.sector_hhi, 3) } : null,
+    concentration?.effective_holdings != null ? { label: 'Effective holdings', value: formatNumber(concentration.effective_holdings, 2) } : null,
+  ].filter((metric): metric is ConcentrationMetric => metric != null)
 }
 
-function getWindowSummary(result: ExposureFactorModelResponse, window: RollingWindow) {
-  return result.statistical_factor_model.windows.find((item) => item.window_days === window) ?? null
+function formatCoverageState(status: ExposureAnalysis['exposure_availability']) {
+  const state = status?.lookthrough_status ?? 'unavailable'
+  if (state === 'live') return 'live'
+  if (state === 'partial') return 'partial'
+  return 'unavailable'
 }
 
-function getSelectedWindowFactorLoading(
-  result: ExposureFactorModelResponse | null,
-  window: RollingWindow,
-  factorKey: string,
-): number | null {
-  if (!result) return null
-  const series = getRollingLoadingsSeries(result, window)
-  for (let index = series.length - 1; index >= 0; index -= 1) {
-    const point = series[index]
-    const value = point?.[factorKey as keyof typeof point]
-    if (typeof value === 'number') {
-      return value
+function buildLookthroughBasisNote(result: ExposureAnalysis) {
+  const status = result.exposure_availability?.lookthrough_status ?? 'unavailable'
+  if (status === 'live') return 'Basis: imported snapshot truth plus resolved ETF constituents.'
+  if (status === 'partial') return 'Basis: imported snapshot truth plus resolved ETF constituents; unresolved ETFs stay partial.'
+  return 'Basis: imported snapshot truth only; constituent look-through unavailable.'
+}
+
+function buildLookthroughCoverageNote(result: ExposureAnalysis) {
+  const lookthrough = result.lookthrough
+  const status = result.exposure_availability?.lookthrough_status ?? 'unavailable'
+  if (status === 'unavailable') return 'Look-through coverage unavailable for this snapshot.'
+  return `Look-through coverage ${formatWeightPct(lookthrough.coverage_ratio)} (${formatMoney(lookthrough.covered_market_value)} of ${formatMoney(lookthrough.portfolio_market_value)}).`
+}
+
+function buildLookthroughLimitationNote(result: ExposureAnalysis) {
+  const status = result.exposure_availability?.lookthrough_status ?? 'unavailable'
+  if (status === 'live') return null
+  if (status === 'partial') {
+    const uncovered = result.lookthrough.uncovered_positions
+    return uncovered.length
+      ? `Limitation: partial look-through leaves ${uncovered.join(', ')} unresolved.`
+      : 'Limitation: partial look-through leaves constituent and sector reads incomplete.'
+  }
+  return 'Limitation: constituent ownership is withheld because look-through is unavailable.'
+}
+
+function buildSectorModuleState(result: ExposureAnalysis): SectorModuleState | null {
+  const availability = result.exposure_availability
+  const lookthroughStatus = availability?.lookthrough_status ?? 'unavailable'
+  const lookthroughSectors = (result.lookthrough_sector_exposure ?? []).filter((item) => item.weight > 0)
+  const holdingsSectors = (result.overview.sector_allocation ?? []).filter((item) => item.weight > 0)
+
+  if (lookthroughStatus !== 'unavailable' && lookthroughSectors.length) {
+    return {
+      title: 'Sector Composition',
+      items: lookthroughSectors.slice(0, 8).map((item) => ({ name: item.sector, marketValue: item.market_value, weight: item.weight })),
+      basisNote: lookthroughStatus === 'live'
+        ? 'Basis: sector mix uses look-through composition.'
+        : 'Basis: sector mix uses look-through where resolved and imported snapshot truth elsewhere.',
+      coverageNote: `Look-through coverage ${formatWeightPct(result.lookthrough.coverage_ratio)} (${lookthroughStatus}).`,
+      limitationNote: lookthroughStatus === 'partial'
+        ? 'Limitation: partial look-through can still shift sector mix.'
+        : null,
     }
   }
+
+  if (holdingsSectors.length) {
+    return {
+      title: 'Sector Composition',
+      items: holdingsSectors.slice(0, 8).map((item) => ({ name: item.sector, marketValue: item.market_value, weight: item.weight })),
+      basisNote: 'Basis: sector mix uses imported snapshot truth only.',
+      coverageNote: 'Look-through coverage unavailable for sector mix.',
+      limitationNote: lookthroughStatus === 'partial'
+        ? 'Limitation: sector mix falls back to imported snapshot truth despite partial look-through elsewhere.'
+        : 'Limitation: sector mix does not include constituent ETF unpacking.',
+    }
+  }
+
   return null
 }
 
-function getCoverage<T extends { date: string }>(data: T[]) {
-  if (!data.length) return null
-  return { observations: data.length, startDate: data[0].date, endDate: data[data.length - 1].date }
+function getBenchmarkPositioningTrust(result: ExposureAnalysis): BenchmarkPositioningTrust {
+  const availability = result.exposure_availability
+  const overlapStatus = availability?.benchmark_overlap_status ?? 'unavailable'
+  if (overlapStatus === 'unavailable') return 'unavailable'
+  if (overlapStatus === 'partial') return 'partial'
+
+  const holdingsSupport = result.run_metadata?.source_status?.benchmark_holdings ?? 'unavailable'
+  if (holdingsSupport === 'verified') return 'verified'
+  if (holdingsSupport === 'degraded') return 'degraded'
+  return 'unavailable'
 }
 
-function formatCoverageLabel(coverage: { observations: number; startDate: string; endDate: string } | null) {
-  if (!coverage) return 'Insufficient history for the selected window'
-  return `${coverage.observations} observations · ${formatDateLabel(coverage.startDate)} to ${formatDateLabel(coverage.endDate)}`
-}
+function normalizeBenchmarkPositioningRows(
+  rows: ExposureAnalysis['market_overlap']['top_overweights'] | ExposureAnalysis['market_overlap']['top_underweights'] | undefined,
+  direction: 'overweight' | 'underweight',
+): BenchmarkPositioningRow[] {
+  const filtered = (rows ?? []).filter((row) => {
+    if (row.portfolio_weight == null || row.benchmark_weight == null || row.active_weight == null) return false
+    if (direction === 'overweight') return row.active_weight > 0
+    return row.active_weight < 0
+  })
 
-function formatTooltipValue(value: ValueType | undefined) {
-  if (value == null) return 'n/a'
-  return typeof value === 'number' ? value.toFixed(2) : String(value)
-}
-
-function formatAxisPct(value: number | string) {
-  return `${Number(value).toFixed(0)}%`
-}
-
-function historicalDiagnosticsBadge(result: ExposureAnalysis) {
-  return result.availability?.historical_sections_available === false ? 'Historical diagnostics unavailable' : 'Historical diagnostics live'
-}
-
-function lookthroughBadge(result: ExposureAnalysis) {
-  const status = result.exposure_availability?.lookthrough_status ?? 'live'
-  if (status === 'partial') return 'Look-through partial'
-  if (status === 'unavailable') return 'Look-through unavailable'
-  return 'Look-through live'
-}
-
-function overlapBadge(result: ExposureAnalysis) {
-  const status = result.exposure_availability?.benchmark_overlap_status ?? 'live'
-  if (status === 'partial') return 'Overlap partial'
-  if (status === 'unavailable') return 'Overlap unavailable'
-  return 'Overlap live'
-}
-
-function formatExposureAuditLine(result: ExposureAnalysis) {
-  const runMetadata = result.run_metadata
-  if (!runMetadata) return null
-
-  const reproducibility = runMetadata.reproducibility
-  const snapshotDate = reproducibility.snapshot_as_of_date ? formatDateLabel(reproducibility.snapshot_as_of_date) : 'Snapshot date n/a'
-  const benchmarkStatus = runMetadata.source_status.benchmark_holdings === 'live' ? 'benchmark holdings live' : 'benchmark holdings unavailable'
-
-  return `Audit: snapshot ${snapshotDate} · ${reproducibility.benchmark_symbol} · look-through ${runMetadata.source_status.lookthrough_resolution} · ${benchmarkStatus} · dataset ${reproducibility.dataset_version}`
-}
-
-function formatExposureRelativeReturnRefusalLine(result: ExposureAnalysis) {
-  const diagnosticsAvailable = result.availability?.historical_sections_available !== false
-  const diagnosticsRunMetadata = result.diagnostics_run_metadata
-  const relativeRisk = result.relative_risk
-  const relativeReturnRefused = relativeRisk != null && relativeRisk.active_return_pct == null && relativeRisk.information_ratio == null
-  if (!diagnosticsAvailable || !diagnosticsRunMetadata || !relativeReturnRefused) return null
-  if (diagnosticsRunMetadata.investor_economics_status.status !== 'withheld') return null
-
-  const baseReason = investorEconomicsBaseReason(diagnosticsRunMetadata.investor_economics_status)
-  if (!baseReason) return null
-
-  return `Benchmark-relative return readouts intentionally refuse active return and information ratio. ${baseReason}`
-}
-
-
-function NumericChartTooltip({ active, payload, label }: TooltipContentProps<ValueType, NameType>) {
-  if (!active || !payload?.length) return null
-  const rows = payload.filter((item) => item.value != null)
-  if (!rows.length) return null
-
-  return (
-    <div className="chart-tooltip-card">
-      <p className="chart-tooltip-date">{formatDateLabel(label)}</p>
-      {rows.map((item) => {
-        const key = typeof item.name === 'string' ? item.name : String(item.name)
-        return (
-          <div className="chart-tooltip-row" key={key}>
-            <span className="chart-tooltip-label">
-              <span className="chart-tooltip-swatch" style={{ backgroundColor: item.color ?? '#748295' }} />
-              {key}
-            </span>
-            <span>{formatTooltipValue(item.value)}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function ExposureChartCard({
-  title,
-  helper,
-  helperRight,
-  controls,
-  chartClassName,
-  data,
-  yAxisFormatter,
-  rightAxisFormatter,
-  showZeroReference = false,
-  lines,
-}: {
-  title: string
-  helper?: string
-  helperRight?: string
-  controls?: ReactNode
-  chartClassName: string
-  data: Array<Record<string, number | string | null | undefined>>
-  yAxisFormatter: (value: number | string) => string
-  rightAxisFormatter?: (value: number | string) => string
-  showZeroReference?: boolean
-  lines: Array<{ key: string; label: string; color: string; strokeWidth?: number; axisId?: 'left' | 'right' }>
-}) {
-  const hasRenderableSeries = data.length > 1 && lines.some((line) => data.some((point) => typeof point[line.key] === 'number' && Number.isFinite(point[line.key] as number)))
-
-  return (
-    <section className="exposure-chart-card">
-      <div className="exposure-chart-topbar">
-        <div className="section-header-inline sector-list-header exposure-chart-header">
-          <div className="exposure-chart-title-block"><p className="panel-label">{title}</p></div>
-          {controls ? <div className="exposure-chart-header-controls">{controls}</div> : <span className="exposure-chart-header-controls exposure-chart-header-controls-placeholder" aria-hidden="true" />}
-          {helperRight ? <p className="helper exposure-chart-helper exposure-chart-helper-right">{helperRight}</p> : <span className="exposure-chart-helper exposure-chart-helper-right exposure-chart-helper-placeholder" aria-hidden="true" />}
-        </div>
-        <div className="exposure-chart-subhead">
-          {helper ? <p className="helper exposure-chart-helper">{helper}</p> : <span className="exposure-chart-helper exposure-chart-helper-placeholder" aria-hidden="true" />}
-        </div>
-      </div>
-      <div className={`line-chart-panel compact-chart-panel ${chartClassName}`}>
-        {hasRenderableSeries ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <LineChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 12 }}>
-              <CartesianGrid stroke="rgba(70, 82, 98, 0.18)" strokeDasharray="3 3" />
-              {showZeroReference ? <ReferenceLine y={0} stroke="rgba(156, 169, 184, 0.34)" strokeDasharray="5 5" /> : null}
-              <XAxis dataKey="date" tick={{ fill: '#748295', fontSize: 10 }} minTickGap={28} interval="preserveStartEnd" padding={{ left: 0, right: 0 }} tickFormatter={formatDateLabel} />
-              <YAxis yAxisId="left" tick={{ fill: '#748295', fontSize: 10 }} width={48} tickFormatter={yAxisFormatter} />
-              {rightAxisFormatter ? <YAxis yAxisId="right" orientation="right" tick={{ fill: '#748295', fontSize: 10 }} width={40} tickFormatter={rightAxisFormatter} /> : null}
-              <Tooltip content={(props) => <NumericChartTooltip {...props} />} />
-              {lines.map((line) => <Line key={line.key} yAxisId={line.axisId ?? 'left'} type="monotone" dataKey={line.key} name={line.label} stroke={line.color} dot={false} strokeWidth={line.strokeWidth ?? 1.9} isAnimationActive={false} />)}
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="empty-state-panel chart-empty-state">
-            <p className="empty-state-title">Not enough history to render this chart.</p>
-            <p className="helper">Load at least two valid observations for the selected series.</p>
-          </div>
-        )}
-      </div>
-    </section>
-  )
-}
-
-function RangeContext({
-  stats,
-  formatter,
-  tone,
-}: {
-  stats: MetricRangeStats | null
-  formatter: (value: number | null | undefined) => string
-  tone: SignalTone
-}) {
-  if (!stats) {
-    return <p className="helper metric-range-empty">No trailing range yet.</p>
-  }
-
-  return (
-    <div className="metric-range-block">
-      <div className="metric-range-labels">
-        <span>Min {formatter(stats.min)}</span>
-        <span>Max {formatter(stats.max)}</span>
-      </div>
-      <div className="metric-range-track" aria-hidden="true">
-        <span className={`metric-range-marker metric-range-marker-${tone}`} style={{ left: `${stats.position * 100}%` }} />
-      </div>
-      <p className="helper metric-range-current">Now {formatter(stats.current)}</p>
-    </div>
-  )
-}
-
-function MiniRangeContext({
-  stats,
-  formatter,
-  tone,
-}: {
-  stats: MetricRangeStats | null
-  formatter: (value: number | null | undefined) => string
-  tone: SignalTone
-}) {
-  if (!stats) {
-    return <span className="helper mini-range-empty">No range</span>
-  }
-
-  return (
-    <span className="mini-range-block">
-      <span className="mini-range-track" aria-hidden="true">
-        <span className={`mini-range-marker mini-range-marker-${tone}`} style={{ left: `${stats.position * 100}%` }} />
-      </span>
-      <span className="mini-range-current">Now <span className={signalToneClass(tone)}>{formatter(stats.current)}</span></span>
-      <span className="mini-range-labels">
-        <span>{formatter(stats.min)}</span>
-        <span>{formatter(stats.max)}</span>
-      </span>
-    </span>
-  )
-}
-
-export function ExposurePanel({ result, factorModel, snapshotOptions = [], selectedSnapshotId = 'current', onSnapshotSelect }: { result: ExposureAnalysis | null; factorModel: ExposureFactorModelResponse | null; snapshotOptions?: Array<{ id: string; label: string }>; selectedSnapshotId?: string; onSnapshotSelect?: (snapshotId: string) => void }) {
-  const [rollingWindow, setRollingWindow] = useState<RollingWindow>(60)
-  const [factorSnapshotCollapsed, setFactorSnapshotCollapsed] = useState(false)
-  const [combinedRiskWindow, setCombinedRiskWindow] = useState<RollingWindow>(20)
-  const resolvedFactorModel = factorModel
-  const rollingRisk = result?.rolling_risk ?? []
-  const volatilityRegime = result?.volatility_regime ?? null
-  const volatilitySnapshot = volatilityRegime?.snapshot ?? null
-  const volatilitySeries = volatilityRegime?.rolling_series ?? []
-  const riskSummary = result?.risk_summary ?? null
-  const marketOverlap = result?.market_overlap ?? null
-  const relativeRisk = result?.relative_risk ?? null
-  const modelReliability = result?.model_reliability ?? null
-  const currentStateConcentration = result?.current_state_concentration ?? null
-  const lookthrough = result?.lookthrough ?? null
-  const stressScenarios = result?.stress_scenarios ?? []
-  const overlapBenchmarkSymbol = marketOverlap?.benchmark_symbol ?? riskSummary?.benchmark_symbol ?? result?.benchmark?.symbol ?? 'benchmark'
-  const riskBenchmarkSymbol = riskSummary?.benchmark_symbol ?? result?.benchmark?.symbol ?? 'benchmark'
-
-  const topLookthrough = lookthrough?.top_constituents?.slice(0, 10) ?? []
-  const topLookthroughSectors = result?.lookthrough_sector_exposure?.slice(0, 8) ?? []
-  const topConcentrationPositions = currentStateConcentration?.top_positions?.slice(0, 5) ?? []
-  const topConcentrationSectors = currentStateConcentration?.top_sectors?.slice(0, 5) ?? []
-  const factorExposures = result?.factor_exposures ?? []
-  const scenarioPreview = result?.scenario_preview ?? null
-  const sectorDrifts = scenarioPreview?.sector_drifts?.slice(0, 5) ?? []
-  const positionDrifts = scenarioPreview?.position_drifts?.slice(0, 5) ?? []
-  const factorDrifts = scenarioPreview?.factor_drifts?.slice(0, 5) ?? []
-  const scenarioStressScenarios = scenarioPreview?.scenario_stress_scenarios ?? null
-  const scenarioRiskContribution = scenarioPreview?.scenario_risk_contribution ?? null
-  const factorRegistry = resolvedFactorModel?.factor_registry ?? []
-  const factorRegistryByKey = useMemo(() => Object.fromEntries(factorRegistry.map((factor) => [factor.key, factor])), [factorRegistry])
-  const factorSnapshot = resolvedFactorModel?.statistical_factor_model.current_factor_snapshot ?? []
-  const selectedWindowSummary = resolvedFactorModel ? getWindowSummary(resolvedFactorModel, rollingWindow) : null
-  const selectedCollinearity = resolvedFactorModel?.statistical_factor_model.collinearity_diagnostics.find((item) => item.window_days === rollingWindow) ?? null
-
-  const rollingRiskSeries = useMemo(() => {
-    return trimLeadingNullPoints(rollingRisk, [`beta_${rollingWindow}d`, `correlation_${rollingWindow}d`])
-  }, [rollingRisk, rollingWindow])
-
-  const rollingRiskCoverage = useMemo(() => getCoverage(rollingRiskSeries), [rollingRiskSeries])
-  const volatilityCoverage = useMemo(() => getCoverage(volatilitySeries), [volatilitySeries])
-  const sortedSnapshotFactors = useMemo(() => [...factorSnapshot].sort((left, right) => Math.abs(right.latest_loading ?? 0) - Math.abs(left.latest_loading ?? 0)), [factorSnapshot])
-  const factorLoadingSeries = useMemo(() => (resolvedFactorModel ? getRollingLoadingsSeries(resolvedFactorModel, rollingWindow) : []), [resolvedFactorModel, rollingWindow])
-  const riskBetaStats = useMemo(() => getSeriesStats(rollingRisk, `beta_${rollingWindow}d` as RollingRiskMetricKey), [rollingRisk, rollingWindow])
-  const riskCorrelationStats = useMemo(() => getSeriesStats(rollingRisk, `correlation_${rollingWindow}d` as RollingRiskMetricKey), [rollingRisk, rollingWindow])
-  const drawdownRiskSeries = useMemo(() => {
-    const rollingRiskByDate = new Map(rollingRisk.map((point) => [point.date, point]))
-    return volatilitySeries.map((point) => {
-      const rollingRiskPoint = rollingRiskByDate.get(point.date)
-      return {
-        ...point,
-        [`beta_${rollingWindow}d`]: rollingRiskPoint?.[`beta_${rollingWindow}d`] ?? null,
-        [`correlation_${rollingWindow}d`]: rollingRiskPoint?.[`correlation_${rollingWindow}d`] ?? null,
-      }
+  return filtered
+    .map((row) => ({
+      symbol: row.symbol,
+      name: row.name,
+      portfolioWeight: row.portfolio_weight,
+      benchmarkWeight: row.benchmark_weight,
+      activeWeight: row.active_weight,
+    }))
+    .sort((left, right) => {
+      const activeDelta = Math.abs(right.activeWeight) - Math.abs(left.activeWeight)
+      if (activeDelta !== 0) return activeDelta
+      const portfolioDelta = right.portfolioWeight - left.portfolioWeight
+      if (portfolioDelta !== 0) return portfolioDelta
+      const benchmarkDelta = right.benchmarkWeight - left.benchmarkWeight
+      if (benchmarkDelta !== 0) return benchmarkDelta
+      return left.symbol.localeCompare(right.symbol)
     })
-  }, [rollingRisk, rollingWindow, volatilitySeries])
-  const combinedRiskLines = useMemo(() => {
-    const suffix = `${combinedRiskWindow}d`
-    return [
-      {
-        key: `realized_vol_${suffix}` as PortfolioVolSeriesKey,
-        label: `Portfolio Volatility ${suffix}`,
-        color: PORTFOLIO_VOL_SERIES_COLORS[`realized_vol_${suffix}` as PortfolioVolSeriesKey],
-      },
-      {
-        key: `benchmark_vol_${suffix}` as PortfolioVolSeriesKey,
-        label: `Benchmark Volatility ${suffix}`,
-        color: PORTFOLIO_VOL_SERIES_COLORS[`benchmark_vol_${suffix}` as PortfolioVolSeriesKey],
-      },
-      {
-        key: `downside_vol_${suffix}` as DownsideVolSeriesKey,
-        label: `Downside Volatility ${suffix}`,
-        color: DOWNSIDE_VOL_SERIES_COLORS[`downside_vol_${suffix}` as DownsideVolSeriesKey],
-      },
-      {
-        key: `tracking_error_${suffix}` as TrackingErrorSeriesKey,
-        label: `Tracking Error ${suffix}`,
-        color: TRACKING_ERROR_SERIES_COLORS[`tracking_error_${suffix}` as TrackingErrorSeriesKey],
-      },
-    ]
-  }, [combinedRiskWindow])
-  const vol20Stats = useMemo(() => getSeriesStats(volatilitySeries, 'realized_vol_20d'), [volatilitySeries])
-  const vol60Stats = useMemo(() => getSeriesStats(volatilitySeries, 'realized_vol_60d'), [volatilitySeries])
-  const vol252Stats = useMemo(() => getSeriesStats(volatilitySeries, 'realized_vol_252d'), [volatilitySeries])
-  const benchmarkVol20Stats = useMemo(() => getSeriesStats(volatilitySeries, 'benchmark_vol_20d'), [volatilitySeries])
-  const benchmarkVol60Stats = useMemo(() => getSeriesStats(volatilitySeries, 'benchmark_vol_60d'), [volatilitySeries])
-  const benchmarkVol252Stats = useMemo(() => getSeriesStats(volatilitySeries, 'benchmark_vol_252d'), [volatilitySeries])
-  const downside20Stats = useMemo(() => getSeriesStats(volatilitySeries, 'downside_vol_20d'), [volatilitySeries])
-  const downside60Stats = useMemo(() => getSeriesStats(volatilitySeries, 'downside_vol_60d'), [volatilitySeries])
-  const downside252Stats = useMemo(() => getSeriesStats(volatilitySeries, 'downside_vol_252d'), [volatilitySeries])
-  const tracking20Stats = useMemo(() => getSeriesStats(volatilitySeries, 'tracking_error_20d'), [volatilitySeries])
-  const tracking60Stats = useMemo(() => getSeriesStats(volatilitySeries, 'tracking_error_60d'), [volatilitySeries])
-  const tracking252Stats = useMemo(() => getSeriesStats(volatilitySeries, 'tracking_error_252d'), [volatilitySeries])
-  const drawdownStats = useMemo(() => getSeriesStats(volatilitySeries, 'drawdown_pct'), [volatilitySeries])
-  const betaTone = toneFromBeta(riskSummary?.portfolio_beta)
-  const correlationTone = toneFromCorrelation(riskSummary?.portfolio_correlation)
-  const overlapTone = toneFromOverlap(marketOverlap?.portfolio_in_benchmark_weight != null ? marketOverlap.portfolio_in_benchmark_weight * 100 : null)
-  const activeShareTone = toneFromActiveShare(marketOverlap?.active_share != null ? marketOverlap.active_share * 100 : null)
-  const trackingErrorTone = toneFromTrackingError(relativeRisk?.tracking_error_pct)
-  const informationRatioTone = toneFromInformationRatio(relativeRisk?.information_ratio)
-  const realizedVol20Tone = toneFromRangePosition(vol20Stats?.position)
-  const realizedVol60Tone = toneFromRangePosition(vol60Stats?.position)
-  const realizedVol252Tone = toneFromRangePosition(vol252Stats?.position)
-  const benchmarkVol20Tone = toneFromRangePosition(benchmarkVol20Stats?.position)
-  const benchmarkVol60Tone = toneFromRangePosition(benchmarkVol60Stats?.position)
-  const benchmarkVol252Tone = toneFromRangePosition(benchmarkVol252Stats?.position)
-  const downsideVol20Tone = toneFromRangePosition(downside20Stats?.position)
-  const downsideVol60Tone = toneFromRangePosition(downside60Stats?.position)
-  const downsideVol252Tone = toneFromRangePosition(downside252Stats?.position)
-  const tracking20Tone = toneFromRangePosition(tracking20Stats?.position)
-  const tracking60Tone = toneFromRangePosition(tracking60Stats?.position)
-  const tracking252Tone = toneFromRangePosition(tracking252Stats?.position)
-  const currentDrawdownTone = toneFromDrawdown(volatilitySnapshot?.current_drawdown_pct)
-  const maxDrawdownTone = toneFromDrawdown(volatilitySnapshot?.max_drawdown_pct)
-  const volRatio2060Tone = toneFromVolRatio(volatilitySnapshot?.vol_ratio_20_60)
-  const volRatio20252Tone = toneFromVolRatio(volatilitySnapshot?.vol_ratio_20_252)
-  const volPercentileTone = toneFromVolPercentile(volatilitySnapshot?.current_20d_vol_percentile)
-  const confidenceTone = toneFromConfidence(volatilityRegime?.regime?.confidence)
-  const modelReliabilityTone = toneFromConfidence(modelReliability?.confidence)
+}
+
+function buildBenchmarkPositioningModuleState(result: ExposureAnalysis): BenchmarkPositioningModuleState {
+  const trust = getBenchmarkPositioningTrust(result)
+  const benchmarkSymbol = result.market_overlap?.benchmark_symbol ?? result.run_metadata?.reproducibility?.benchmark_symbol ?? 'benchmark'
+  const overweights = normalizeBenchmarkPositioningRows(result.market_overlap?.top_overweights, 'overweight')
+  const underweights = normalizeBenchmarkPositioningRows(result.market_overlap?.top_underweights, 'underweight')
+
+  let basisNote = 'Basis: benchmark-relative positioning compares current composition with the selected benchmark composition.'
+  let coverageNote = 'Benchmark-relative positioning unavailable for this snapshot.'
+  let limitationNote: string | null = 'Limitation: no benchmark-relative cues are shown rather than implying neutral benchmark positioning.'
+
+  if (trust === 'verified') {
+    coverageNote = `Benchmark-relative positioning is available versus ${benchmarkSymbol}.`
+    limitationNote = 'Limitation: current active bets only.'
+  } else if (trust === 'degraded') {
+    coverageNote = `Benchmark-relative positioning is degraded versus ${benchmarkSymbol}.`
+    limitationNote = 'Limitation: incomplete benchmark composition can omit active bets.'
+  } else if (trust === 'partial') {
+    coverageNote = `Benchmark-relative positioning is partial versus ${benchmarkSymbol}.`
+    limitationNote = result.lookthrough.uncovered_positions.length
+      ? `Limitation: unresolved holdings (${result.lookthrough.uncovered_positions.join(', ')}) leave some active bets only partially mapped.`
+      : 'Limitation: partial look-through leaves some active bets only partially mapped.'
+  }
+
+  return {
+    trust,
+    benchmarkSymbol,
+    portfolioInBenchmarkWeight: result.market_overlap?.portfolio_in_benchmark_weight ?? null,
+    activeShare: result.market_overlap?.active_share ?? null,
+    overweights,
+    underweights,
+    basisNote,
+    coverageNote,
+    limitationNote,
+  }
+}
+
+function buildExposureDenseInsightItems(
+  result: ExposureAnalysis,
+  sectorModule: SectorModuleState | null,
+  benchmarkPositioningModule: BenchmarkPositioningModuleState | null,
+): DenseInsightStripItem[] {
+  const lookthroughStatus = result.exposure_availability?.lookthrough_status ?? 'unavailable'
+  const items: DenseInsightStripItem[] = []
+
+    items.push({
+      title: 'Look-Through Coverage',
+      headline: lookthroughStatus === 'live'
+        ? `Look-through coverage is ${formatWeightPct(result.lookthrough.coverage_ratio)} of the portfolio.`
+      : lookthroughStatus === 'partial'
+        ? `Look-through coverage is ${formatWeightPct(result.lookthrough.coverage_ratio)} (partial).`
+        : 'Look-through coverage unavailable.',
+    facts: [
+      `Covered market value ${formatMoney(result.lookthrough.covered_market_value)}.`,
+      result.lookthrough.top_constituents[0]
+        ? `${result.lookthrough.top_constituents[0].symbol} is the largest resolved constituent at ${formatWeightPct(result.lookthrough.top_constituents[0].portfolio_weight)}.`
+        : 'Top constituent unavailable.',
+    ],
+    marker: lookthroughStatus === 'live' ? 'trusted' : lookthroughStatus === 'partial' ? 'partial' : 'unavailable',
+  })
+
+    items.push({
+      title: 'Sector Composition',
+      headline: sectorModule?.items[0]
+        ? `${sectorModule.items[0].name} leads sector mix at ${formatWeightPct(sectorModule.items[0].weight)}.`
+        : 'Sector composition unavailable.',
+    facts: [
+      sectorModule?.items[1] ? `${sectorModule.items[1].name} is next at ${formatWeightPct(sectorModule.items[1].weight)}.` : 'Second sector unavailable.',
+      sectorModule?.basisNote ?? 'Sector basis unavailable.',
+    ],
+    marker: lookthroughStatus === 'live' && result.lookthrough_sector_exposure?.length ? 'trusted' : sectorModule ? 'partial' : 'unavailable',
+  })
+
+  if (benchmarkPositioningModule) {
+    items.push({
+      title: 'Benchmark Positioning',
+      headline: benchmarkPositioningModule.activeShare != null
+        ? `Active share is ${formatWeightPct(benchmarkPositioningModule.activeShare)} versus ${benchmarkPositioningModule.benchmarkSymbol}.`
+        : 'Benchmark positioning is unavailable.',
+      facts: [
+        benchmarkPositioningModule.portfolioInBenchmarkWeight != null
+          ? `Portfolio in benchmark ${formatWeightPct(benchmarkPositioningModule.portfolioInBenchmarkWeight)}.`
+          : 'Portfolio in benchmark unavailable.',
+        benchmarkPositioningModule.overweights[0]
+          ? `${benchmarkPositioningModule.overweights[0].symbol} is the largest overweight at ${formatWeightPct(benchmarkPositioningModule.overweights[0].activeWeight)} active.`
+          : 'Largest overweight unavailable.',
+      ],
+      marker: normalizeExposureMarker(benchmarkPositioningModule.trust),
+    })
+  }
+
+  return items
+}
+
+function SummaryMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="summary-card metric-card metric-card-neutral">
+      <p className="stat-label">{label}</p>
+      <p className="summary-value">{value}</p>
+      {detail ? <p className="helper">{detail}</p> : null}
+    </div>
+  )
+}
+
+function UnavailablePanel({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="empty-state-panel compact-empty-state">
+      <p className="empty-state-title">{title}</p>
+      <p className="helper">{detail}</p>
+    </div>
+  )
+}
+
+export function ExposurePanel({
+  result,
+  snapshotOptions = [],
+  selectedSnapshotId = 'current',
+  snapshotExitOption,
+  onSnapshotSelect,
+}: ExposurePanelProps) {
+  const sectorModule = useMemo(() => (result ? buildSectorModuleState(result) : null), [result])
+  const benchmarkPositioningModule = useMemo(() => (result ? buildBenchmarkPositioningModuleState(result) : null), [result])
+  const denseInsightItems = useMemo(
+    () => (result ? buildExposureDenseInsightItems(result, sectorModule, benchmarkPositioningModule) : []),
+    [benchmarkPositioningModule, result, sectorModule],
+  )
 
   if (!result) {
     return (
-      <article className="panel">
-        <p className="panel-label">Exposure</p>
-        <h2>Core exposure and factor model</h2>
-        <p className="lead compact-lead">Import a portfolio from the Dashboard to inspect benchmark risk, factor loadings, regime metrics, and look-through exposure.</p>
+      <article className="panel exposure-panel exposure-shell-frame">
+        <div className="exposure-shell-heading">
+          <p className="panel-label">Exposure</p>
+          <h2>Look-Through Exposure Core</h2>
+        </div>
+        <p className="lead compact-lead">Import a portfolio from the Dashboard to review current ownership, sector composition, concentration, and benchmark-relative positioning.</p>
       </article>
     )
   }
 
-  const diagnosticsUnavailable = result.availability?.historical_sections_available === false
-  const exposureAvailability = result.exposure_availability ?? null
-  const lookthroughDegraded = exposureAvailability?.lookthrough_status === 'partial'
-  const overlapUnavailable = exposureAvailability?.benchmark_overlap_status === 'unavailable'
-  const exposureAuditLine = formatExposureAuditLine(result)
-  const exposureRelativeReturnRefusalLine = formatExposureRelativeReturnRefusalLine(result)
-
-  const topRiskPath = [
-    {
-      label: `Beta vs ${riskSummary?.benchmark_symbol ?? 'benchmark'}`,
-      value: formatNumber(riskSummary?.portfolio_beta, 2),
-      tone: betaTone,
-      detail: riskBetaStats ? `${formatNumber(riskBetaStats.min, 2)} to ${formatNumber(riskBetaStats.max, 2)}` : `${riskSummary?.observations ?? 0} obs`,
-    },
-    {
-      label: 'Tracking Error',
-      value: formatPct(relativeRisk?.tracking_error_pct),
-      tone: trackingErrorTone,
-      detail: relativeRisk?.active_return_pct == null ? 'Active return n/a' : `Active return ${formatPct(relativeRisk.active_return_pct)}`,
-    },
-    {
-      label: '20d Realized Vol',
-      value: formatPct(volatilitySnapshot?.realized_vol_20d),
-      tone: realizedVol20Tone,
-      detail: vol20Stats ? `${formatPct(vol20Stats.min)} to ${formatPct(vol20Stats.max)}` : 'Range n/a',
-    },
-    {
-      label: 'Regime',
-      value: volatilityRegime?.regime?.label ?? 'n/a',
-      tone: confidenceTone,
-      detail: `${volatilityRegime?.regime?.confidence ?? 'n/a'} confidence`,
-    },
-  ]
+  const lookthroughState = formatCoverageState(result.exposure_availability)
+  const limitationNote = buildLookthroughLimitationNote(result)
+  const topConstituents = (result.lookthrough.top_constituents ?? []).slice(0, 8)
+  const concentration = result.current_state_concentration
+  const concentrationAvailability = buildConcentrationAvailabilityState(concentration)
+  const concentrationSummaryMetrics = buildConcentrationSummaryMetrics(concentration)
+  const topPositions = (concentration?.top_positions ?? []).slice(0, 5)
+  const topSectors = (concentration?.top_sectors ?? []).slice(0, 5)
+  const hasBenchmarkPositioningRows = Boolean(
+    benchmarkPositioningModule
+    && (benchmarkPositioningModule.overweights.length || benchmarkPositioningModule.underweights.length),
+  )
+  const hasConcentrationFacts = Boolean(
+    concentrationSummaryMetrics.length
+    || topPositions.length
+    || topSectors.length
+    || concentration?.top_1_position_weight != null
+    || concentration?.top_3_position_weight != null
+    || concentration?.top_5_position_weight != null
+    || concentration?.top_sector_weight != null
+    || concentration?.top_3_sector_weight != null
+    || concentration?.position_hhi != null
+    || concentration?.sector_hhi != null
+    || concentration?.effective_holdings != null,
+  )
 
   return (
-    <article className="panel">
-      <div className="section-header-inline exposure-header-row">
-        <div>
+    <article className="panel exposure-panel exposure-shell-frame">
+      <header className="section-header-inline exposure-header-row exposure-shell-header">
+        <div className="exposure-shell-heading">
           <p className="panel-label">Exposure</p>
-          <h2>Core exposure and factor model</h2>
-          <div className="tab-bar" style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
-            <span className="backtest-source-badge">{historicalDiagnosticsBadge(result)}</span>
-            <span className="backtest-source-badge">{lookthroughBadge(result)}</span>
-            <span className="backtest-source-badge">{overlapBadge(result)}</span>
-          </div>
+          <h2>Look-Through Exposure Core</h2>
         </div>
-        {snapshotOptions.length ? (
-          <label className="exposure-snapshot-picker">
-            <span className="field-label">Snapshot</span>
-            <select className="path-input exposure-snapshot-select" value={selectedSnapshotId} onChange={(event) => onSnapshotSelect?.(event.target.value)}>
-              {snapshotOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
-            </select>
-          </label>
+        <div className="exposure-shell-picker">
+          {snapshotExitOption ? (
+            <button className="secondary-button" type="button" onClick={() => onSnapshotSelect?.(snapshotExitOption.id)}>
+              {snapshotExitOption.label}
+            </button>
+          ) : null}
+          {snapshotOptions.length ? (
+            <label className="exposure-snapshot-picker">
+              <span className="field-label">Snapshot</span>
+              <select className="path-input exposure-snapshot-select" value={selectedSnapshotId} onChange={(event) => onSnapshotSelect?.(event.target.value)}>
+                {snapshotOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+            </label>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="exposure-shell-stack">
+        {denseInsightItems.length ? (
+          <DenseInsightStrip
+            ariaLabel="Exposure Dense Insight Strip"
+            heading="Dense Insight Strip"
+            subheading="Current-state composition"
+            className="exposure-dense-insight-strip exposure-shell-section"
+            items={denseInsightItems}
+          />
         ) : null}
-      </div>
-      {diagnosticsUnavailable ? (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">Current exposure is available, but historical diagnostics are unavailable for this snapshot.</p>
-          <p className="helper">{result.availability?.note ?? 'Current holdings, look-through exposure, and overlap are shown below. Historical factor and risk sections require persisted import history.'}</p>
-        </div>
-      ) : null}
-      {exposureAvailability?.note ? (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">Look-through confidence is {exposureAvailability.lookthrough_confidence}; benchmark overlap confidence is {exposureAvailability.benchmark_overlap_confidence}.</p>
-          <p className="helper">{exposureAvailability.note}</p>
-        </div>
-      ) : null}
-      {exposureAuditLine ? <p className="helper">{exposureAuditLine}</p> : null}
-      {exposureRelativeReturnRefusalLine ? <p className="helper">{exposureRelativeReturnRefusalLine}</p> : null}
-      {scenarioPreview ? (
-        <div className="summary-card strategy-summary-card dashboard-edit-summary-card">
-          <p className="stat-label">Scenario Preview</p>
-          <p className="summary-value">{formatRatio(scenarioPreview.leverage_ratio)}x leverage</p>
-          <p className="helper">Net {formatMoney(scenarioPreview.net_capital)} vs base {formatMoney(scenarioPreview.base_capital)} · gross {formatMoney(scenarioPreview.gross_exposure)}</p>
-          <p className="helper">{scenarioPreview.methodology}</p>
-          <p className="helper">Scenario-only current-state approximation. Historical diagnostics and historical overlap/risk sections are not rerun from edited holdings unless explicitly labeled otherwise.</p>
-        </div>
-      ) : null}
 
-      {scenarioPreview ? (
-        <section className="dashboard-bottom-grid exposure-primary-section exposure-top-path-section">
-          <div className="section-header-inline sector-list-header">
-            <div><p className="panel-label">Scenario Drift</p></div>
-            <p className="helper">Current-state sections update from draft holdings edits; historical sections remain baseline and are not recomputed from scenario trades.</p>
+        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section exposure-top-path-section">
+          <div className="section-header-inline sector-list-header exposure-section-header">
+            <div className="panel-section-title-block"><p className="panel-label">Look-Through Summary</p></div>
+            <p className="helper">Current-state composition only.</p>
           </div>
-          <div className="split-grid">
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Sector Shift</p></div><p className="helper">Largest weight changes vs imported portfolio</p></div>
-              <div className="list-table">
-                {sectorDrifts.map((item) => (
-                  <div className="list-row" key={`scenario-sector-${item.name}`}>
+        <div className="dashboard-summary compact-summary-grid">
+          <SummaryMetric label="Coverage state" value={lookthroughState} detail="Explicit look-through state." />
+          <SummaryMetric label="Covered market value" value={formatMoney(result.lookthrough.covered_market_value)} detail="Imported market value resolved through look-through." />
+          <SummaryMetric label="Coverage ratio" value={lookthroughState === 'unavailable' ? 'Unavailable' : formatWeightPct(result.lookthrough.coverage_ratio)} detail="Actual look-through coverage only." />
+          <SummaryMetric label="Resolved constituents shown" value={String(topConstituents.length)} detail="Top resolved constituents shown." />
+        </div>
+        <div className="empty-state-panel compact-empty-state">
+          <p className="empty-state-title">{buildLookthroughBasisNote(result)}</p>
+          <p className="helper">{buildLookthroughCoverageNote(result)}</p>
+          {limitationNote ? <p className="helper">{limitationNote}</p> : null}
+        </div>
+        {topConstituents.length ? (
+          <section>
+            <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
+              <div className="panel-section-title-block"><p className="panel-label">Top Constituents</p></div>
+              <p className="helper">Current-state look-through only.</p>
+            </div>
+            <div className="list-table">
+              {topConstituents.map((item) => (
+                <div className="list-row" key={`lookthrough-${item.symbol}`}>
+                  <span>{item.symbol}</span>
+                  <span>{formatCompactMoney(item.effective_market_value)} · {formatWeightPct(item.portfolio_weight)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <UnavailablePanel title="Top constituents unavailable" detail="No defensible constituent list is shown because current look-through inputs did not resolve one." />
+        )}
+        </section>
+
+        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
+          <div className="section-header-inline sector-list-header exposure-section-header">
+            <div className="panel-section-title-block"><p className="panel-label">Sector Composition</p></div>
+            <p className="helper">Look-through when available; otherwise imported snapshot truth.</p>
+          </div>
+        {sectorModule ? (
+          <>
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">{sectorModule.basisNote}</p>
+              <p className="helper">{sectorModule.coverageNote}</p>
+              {sectorModule.limitationNote ? <p className="helper">{sectorModule.limitationNote}</p> : null}
+            </div>
+            <div className="allocation-list">
+              {sectorModule.items.map((item) => (
+                <div className="allocation-row" key={`sector-${item.name}`}>
+                  <div className="allocation-head">
                     <span>{item.name}</span>
-                    <span>{formatPct(item.scenario_weight * 100)} ({formatSignedPct(item.delta_weight * 100)})</span>
+                    <span>{formatWeightPct(item.weight)}</span>
                   </div>
-                ))}
-              </div>
-            </section>
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Position Shift</p></div><p className="helper">Largest size changes in the draft scenario</p></div>
-              <div className="list-table">
-                {positionDrifts.map((item) => (
-                  <div className="list-row" key={`scenario-position-${item.symbol}`}>
-                    <span>{item.symbol}</span>
-                    <span>{formatMoney(item.scenario_market_value)} ({formatSignedNumber(item.delta_market_value)})</span>
+                  <div className="allocation-bar">
+                    <div className="allocation-fill" style={{ width: `${Math.max(item.weight * 100, 2)}%` }} />
                   </div>
-                ))}
-              </div>
-            </section>
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Shift</p></div><p className="helper">Current snapshot deltas from the baseline import</p></div>
-              <div className="list-table">
-                {factorDrifts.map((item) => (
-                  <div className="list-row" key={`scenario-factor-${item.factor}`}>
-                    <span>{item.factor}</span>
-                    <span>{item.unit === 'ratio' ? `${formatNumber(item.scenario_exposure, 2)} (${formatSignedNumber(item.delta_exposure, 2)})` : `${formatPct(item.scenario_exposure * 100)} (${formatSignedPct(item.delta_exposure * 100)})`}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="dashboard-bottom-grid exposure-primary-section exposure-top-path-section">
-        <div className="section-header-inline sector-list-header">
-          <div><p className="panel-label">Risk Path</p></div>
-          <p className="helper">Historical benchmark-relative path for sensitivity, active risk, realized volatility, and regime.{scenarioPreview ? ' Historical baseline only.' : ''}</p>
-        </div>
-        <div className="risk-path-grid">
-          {topRiskPath.map((item) => (
-            <div className={metricCardClass(item.tone)} key={item.label}>
-              <p className="stat-label">{item.label}</p>
-              <p className={`summary-value ${signalToneClass(item.tone)} regime-value`}>{item.value}</p>
-              <p className="helper">{item.detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="dashboard-bottom-grid exposure-primary-section exposure-priority-grid">
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Alignment</p></div><p className="helper">Current overlap stays separate from historical benchmark diagnostics.{scenarioPreview ? ' Historical diagnostics remain baseline.' : ''}</p></div>
-        <div className="market-risk-layout">
-          <div className="dashboard-summary market-risk-grid market-risk-grid-dense">
-          <div className="summary-card metric-card metric-card-neutral">
-            <p className="stat-label">Current Overlap Snapshot</p>
-            <p className="helper">Current holdings only.</p>
-          </div>
-          <div className={metricCardClass(overlapTone)}>
-            <p className="stat-label">Portfolio in {overlapBenchmarkSymbol} Names</p>
-            <p className={`summary-value ${signalToneClass(overlapTone)}`}>{formatPct(marketOverlap?.portfolio_in_benchmark_weight != null ? marketOverlap.portfolio_in_benchmark_weight * 100 : null)}</p>
-            <p className="helper">Overlap inside benchmark constituents.</p>
-          </div>
-          <div className={metricCardClass(activeShareTone)}>
-            <p className="stat-label">Active Share vs {overlapBenchmarkSymbol}</p>
-            <p className={`summary-value ${signalToneClass(activeShareTone)}`}>{formatPct(marketOverlap?.active_share != null ? marketOverlap.active_share * 100 : null)}</p>
-            <p className="helper">Lower reads closer to benchmark construction.</p>
-          </div>
-          <div className="summary-card metric-card metric-card-neutral">
-            <p className="stat-label">Historical Benchmark Diagnostics</p>
-            <p className="helper">Persisted import history.</p>
-          </div>
-          <div className={metricCardClass(trackingErrorTone)}>
-            <p className="stat-label">Tracking Error</p>
-            <p className={`summary-value ${signalToneClass(trackingErrorTone)}`}>{formatPct(relativeRisk?.tracking_error_pct)}</p>
-            <p className="helper">Daily active-risk estimate.</p>
-          </div>
-          <div className={metricCardClass(informationRatioTone)}>
-            <p className="stat-label">Information Ratio</p>
-            <p className={`summary-value ${signalToneClass(informationRatioTone)}`}>{formatRatio(relativeRisk?.information_ratio)}</p>
-            <p className="helper">Active return {formatPct(relativeRisk?.active_return_pct)}</p>
-          </div>
-          </div>
-          <div className="summary-card market-risk-method-card">
-            <p className="stat-label">Method</p>
-            <p className="helper">{riskSummary?.methodology ?? 'n/a'}</p>
-            <div className="market-risk-method-meta">
-              <p className="helper">Volatility {formatPct(riskSummary?.portfolio_volatility_pct)} vs {riskBenchmarkSymbol} {formatPct(riskSummary?.benchmark_volatility_pct)}</p>
-              <p className="helper">Window {riskSummary?.start_date ?? 'n/a'} to {riskSummary?.end_date ?? 'n/a'}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="split-grid dashboard-bottom-grid volatility-chart-grid exposure-volatility-row">
-        <ExposureChartCard
-          title="Volatility"
-          controls={<div className="toggle-group risk-window-selector" aria-label="Combined risk window selector">{ROLLING_WINDOW_OPTIONS.map((window) => <button className={`toggle-chip${combinedRiskWindow === window ? ' active' : ''}`} key={window} onClick={() => setCombinedRiskWindow(window)} type="button">{window}d</button>)}</div>}
-          chartClassName="risk-combined-chart-panel"
-          data={volatilitySeries}
-          yAxisFormatter={formatAxisPct}
-          lines={combinedRiskLines}
-        />
-
-        <ExposureChartCard
-          title="Drawdown"
-          helperRight={`Wealth Index ${formatNumber(volatilitySeries[volatilitySeries.length - 1]?.wealth_index, 2)}`}
-          chartClassName="risk-drawdown-chart-panel"
-          data={drawdownRiskSeries}
-          yAxisFormatter={formatAxisPct}
-          rightAxisFormatter={(value) => formatNumber(Number(value), 2)}
-          showZeroReference
-          lines={[
-            { key: 'drawdown_pct', label: 'Drawdown', color: '#d85a51', strokeWidth: 2.1, axisId: 'left' },
-            { key: `beta_${rollingWindow}d`, label: `Beta ${rollingWindow}d`, color: '#cf8a4a', strokeWidth: 1.9, axisId: 'right' },
-            { key: `correlation_${rollingWindow}d`, label: `Correlation ${rollingWindow}d`, color: '#6c88a6', strokeWidth: 1.8, axisId: 'right' },
-          ]}
-        />
-      </div>
-
-      <section className="dashboard-bottom-grid exposure-primary-section">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Benchmark Sensitivity</p></div><p className="helper">Historical broad-market sensitivity aligned with the drawdown horizon. {formatCoverageLabel(rollingRiskCoverage)}{scenarioPreview ? ' Historical baseline only.' : ''}</p></div>
-        <div className="dashboard-summary compact-summary-grid">
-          <div className={metricCardClass(betaTone)}>
-            <p className="stat-label">Beta vs {riskBenchmarkSymbol}</p>
-            <p className={`summary-value ${signalToneClass(betaTone)}`}>{formatNumber(riskSummary?.portfolio_beta, 2)}</p>
-            <RangeContext stats={riskBetaStats} formatter={(value) => formatNumber(value, 2)} tone={betaTone} />
-          </div>
-          <div className={metricCardClass(correlationTone)}>
-            <p className="stat-label">Correlation vs {riskBenchmarkSymbol}</p>
-            <p className={`summary-value ${signalToneClass(correlationTone)}`}>{formatNumber(riskSummary?.portfolio_correlation, 2)}</p>
-            <p className="helper">R-squared {formatNumber(riskSummary?.r_squared, 2)}</p>
-            <RangeContext stats={riskCorrelationStats} formatter={(value) => formatNumber(value, 2)} tone={correlationTone} />
-          </div>
-        </div>
-      </section>
-      <section className="dashboard-bottom-grid factor-master-detail-section">
-        <div className="section-header-inline sector-list-header">
-          <div><p className="panel-label">Current Factor Snapshot</p></div>
-          <p className="helper">Current loadings stay here; historical {rollingWindow}d values remain in the table.{scenarioPreview ? ' Current values are scenario-aware; rolling-window values stay baseline historical.' : ''}</p>
-        </div>
-        <div className="dashboard-summary compact-summary-grid">
-          <div className={metricCardClass(modelReliabilityTone)}>
-            <p className="stat-label">Model Confidence</p>
-            <p className={`summary-value ${signalToneClass(modelReliabilityTone)}`}>{modelReliability?.confidence ?? 'n/a'}</p>
-            <p className="helper">{modelReliability?.status ?? 'n/a'} · {modelReliability?.observation_count ?? 0} obs</p>
-          </div>
-          <div className="summary-card metric-card metric-card-neutral">
-            <p className="stat-label">R-Squared</p>
-            <p className="summary-value">{formatNumber(modelReliability?.r_squared, 2)}</p>
-            <p className="helper">Current {modelReliability?.window_days ?? 'n/a'}d regression fit</p>
-          </div>
-          <div className="summary-card metric-card metric-card-neutral">
-            <p className="stat-label">Residual Vol</p>
-            <p className="summary-value">{formatPct(modelReliability?.residual_volatility)}</p>
-            <p className="helper">Unexplained volatility after factors</p>
-          </div>
-          <div className="summary-card metric-card metric-card-neutral">
-            <p className="stat-label">Collinearity Pairs</p>
-            <p className="summary-value">{modelReliability?.collinearity_pair_count ?? 0}</p>
-            <p className="helper">High-overlap factor pairs in the active window</p>
-          </div>
-        </div>
-        <div className="factor-master-detail-layout factor-master-detail-layout-full">
-          <div>
-            <div className="section-header-inline sector-list-header factor-detail-header">
-              <div><p className="panel-label">Snapshot Detail</p></div>
-              <div className="factor-chart-toolbar-group">
-                <div className="toggle-group factor-toggle-group" aria-label="Rolling loading window selector">{ROLLING_WINDOW_OPTIONS.map((window) => <button className={`toggle-chip factor-toggle-chip${rollingWindow === window ? ' active' : ''}`} key={window} onClick={() => setRollingWindow(window)} type="button">{window}d</button>)}</div>
-              </div>
-              <button
-                className="toggle-chip factor-toggle-chip factor-snapshot-collapse-chip"
-                onClick={() => setFactorSnapshotCollapsed((value) => !value)}
-                aria-expanded={!factorSnapshotCollapsed}
-                type="button"
-              >
-                {factorSnapshotCollapsed ? 'Show details' : 'Hide details'}
-              </button>
-            </div>
-            {!factorSnapshotCollapsed ? (
-              <>
-                <div className="factor-snapshot-meta-row">
-                  <p className="helper">Methodology: {resolvedFactorModel?.methodology ?? result.factor_methodology ?? DEFAULT_FACTOR_MODEL_METHODOLOGY}</p>
-                  <p className="helper">Window status: {selectedWindowSummary?.status ?? resolvedFactorModel?.statistical_factor_model.status ?? 'n/a'}</p>
-                  <p className="helper">Observations: {selectedWindowSummary?.observations ?? 0}</p>
-                  <p className="helper">Benchmark: {resolvedFactorModel?.statistical_factor_model.benchmark_symbol ?? result.benchmark?.symbol ?? 'SPY'}</p>
-                  <p className="helper">Reliability: {modelReliability?.confidence ?? 'n/a'} confidence{scenarioPreview ? ' · current snapshot values in this table are scenario-aware, while rolling-window values stay baseline historical' : ''}</p>
+                  <p className="helper">{formatCompactMoney(item.marketValue)}</p>
                 </div>
-                <div className="factor-snapshot-table-wrap">
-              <div className="factor-snapshot-table-grid factor-snapshot-header-row">
-                <span>Factor</span>
-                <span>Proxy</span>
-                <span>Current Snapshot Loading</span>
-                <span>Historical {rollingWindow}d Loading</span>
-                <span>Category</span>
-                <span>UCITS Examples</span>
-                <span>Mapping Match</span>
-                <span>Description</span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <UnavailablePanel title="Sector composition unavailable" detail="Sector output is withheld because neither defensible look-through sector composition nor holdings-level sector truth is available." />
+        )}
+        </section>
+
+        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
+          <div className="section-header-inline sector-list-header exposure-section-header">
+            <div className="panel-section-title-block"><p className="panel-label">Benchmark-Relative Positioning</p></div>
+            <p className="helper">Current-state active bets only.</p>
+          </div>
+        {benchmarkPositioningModule ? (
+          <>
+            <div className="empty-state-panel compact-empty-state">
+              <div className="benchmark-positioning-header-row">
+                <p className="empty-state-title">{benchmarkPositioningModule.basisNote}</p>
+                <span className={`dashboard-snapshot-status dashboard-snapshot-status-${benchmarkPositioningModule.trust === 'verified' ? 'trusted' : benchmarkPositioningModule.trust}`}>
+                  {benchmarkPositioningModule.trust}
+                </span>
               </div>
-                  {sortedSnapshotFactors.map((factor) => {
-                    const loadingStats = getSeriesStats(factorLoadingSeries as Array<Record<string, number | string | null>>, factor.key)
-                    const selectedWindowLoading = getSelectedWindowFactorLoading(resolvedFactorModel, rollingWindow, factor.key)
-                    const loadingTone = toneFromFactorLoading(factor.latest_loading)
-                    const selectedWindowTone = toneFromFactorLoading(selectedWindowLoading)
-                    const matchScore = mappingMatchScore(factor, factorRegistryByKey)
-                    const matchTone = toneFromMappingMatch(matchScore)
-                    return (
-                      <div className="factor-snapshot-table-grid factor-snapshot-data-row" key={factor.key}>
-                        <span className="factor-snapshot-primary-cell"><span className="factor-snapshot-primary">{factor.label}</span></span>
-                        <span className="factor-snapshot-proxy">{factor.us_proxy}</span>
-                        <span className="factor-loading-cell"><span className={`factor-loading-value ${signalToneClass(loadingTone)}`}>{formatLoading(factor.latest_loading)}</span><MiniRangeContext stats={loadingStats} formatter={(value) => formatNumber(value, 2)} tone={loadingTone} /></span>
-                        <span className={`factor-loading-value ${signalToneClass(selectedWindowTone)}`}>{formatLoading(selectedWindowLoading)}</span>
-                        <span><span className="factor-category-badge">{FACTOR_CATEGORY_LABELS[factor.category] ?? factor.category}</span></span>
-                        <span className={`factor-snapshot-ucits${factor.ucits_examples.length ? '' : ' factor-snapshot-ucits-empty'}`}>{factor.ucits_examples.length ? factor.ucits_examples.join(', ') : 'No mapped UCITS example yet'}</span>
-                        <span className="mapping-cell">
-                          <span className="mapping-score-stack">
-                            <span className="mapping-score-caption">{mappingMatchCaption(factor, factorRegistryByKey)}</span>
-                            <span className={`mapping-score-value ${signalToneClass(matchTone)}`}>{formatMappingScore(matchScore)}</span>
-                          </span>
-                          <span className={`mapping-badge mapping-${factor.mapping_quality}`}>{mappingQualityBadge(factor.mapping_quality)}</span>
-                        </span>
-                        <span className="factor-snapshot-description">{factor.description}</span>
+              <p className="helper">{benchmarkPositioningModule.coverageNote}</p>
+              {benchmarkPositioningModule.limitationNote ? <p className="helper">{benchmarkPositioningModule.limitationNote}</p> : null}
+            </div>
+            <div className="dashboard-summary compact-summary-grid">
+              <SummaryMetric label="Portfolio in benchmark" value={formatWeightPct(benchmarkPositioningModule.portfolioInBenchmarkWeight)} detail="Current portfolio weight mapped to benchmark constituents only." />
+              <SummaryMetric label="Active share" value={formatWeightPct(benchmarkPositioningModule.activeShare)} detail="Current composition difference versus the selected benchmark." />
+              <SummaryMetric label="Largest overweight" value={benchmarkPositioningModule.overweights[0] ? `${benchmarkPositioningModule.overweights[0].symbol} ${formatWeightPct(benchmarkPositioningModule.overweights[0].activeWeight)}` : 'Unavailable'} detail="Largest composition-based overweight with valid inputs." />
+              <SummaryMetric label="Largest underweight" value={benchmarkPositioningModule.underweights[0] ? `${benchmarkPositioningModule.underweights[0].symbol} ${formatWeightPct(Math.abs(benchmarkPositioningModule.underweights[0].activeWeight))}` : 'Unavailable'} detail="Largest composition-based underweight with valid inputs." />
+            </div>
+            {hasBenchmarkPositioningRows ? (
+              <div className="split-grid dashboard-bottom-grid">
+                <section>
+                  <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
+                    <div className="panel-section-title-block"><p className="panel-label">Top Overweights</p></div>
+                    <p className="helper">Current-state composition deltas only.</p>
+                  </div>
+                  <div className="list-table">
+                    {benchmarkPositioningModule.overweights.map((item) => (
+                      <div className="list-row list-row-wide comparison-data-row comparison-tone-positive benchmark-positioning-row" key={`benchmark-overweight-${item.symbol}`}>
+                        <span>{item.symbol}</span>
+                        <span>{formatWeightPct(item.activeWeight)} active</span>
+                        <span>{formatWeightPct(item.portfolioWeight)} portfolio vs {formatWeightPct(item.benchmarkWeight)} benchmark</span>
                       </div>
-                    )
-                  })}
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Volatility & Regime</p></div><p className="helper">Historical volatility and regime diagnostics from persisted portfolio history. {formatCoverageLabel(volatilityCoverage)}{scenarioPreview ? ' Scenario edits do not rerun this historical regime path.' : ''}</p></div>
-        <div className="factor-snapshot-meta-row">
-          <p className="helper">Methodology: {volatilityRegime?.methodology ?? 'n/a'}</p>
-          <p className="helper">Return Basis: {volatilityRegime?.assumptions?.return_basis ?? 'n/a'}</p>
-          <p className="helper">Drawdown Basis: {volatilityRegime?.assumptions?.drawdown_basis ?? 'n/a'}</p>
-          <p className="helper">Benchmark Basis: {volatilityRegime?.assumptions?.benchmark_basis ?? 'n/a'}</p>
-        </div>
-        <div className="dashboard-summary volatility-summary-grid">
-          <div className={metricCardClass(realizedVol20Tone)}><p className="stat-label">Realized Vol 20d</p><p className={`summary-value ${signalToneClass(realizedVol20Tone)}`}>{formatPct(volatilitySnapshot?.realized_vol_20d)}</p><RangeContext stats={vol20Stats} formatter={formatPct} tone={realizedVol20Tone} /></div>
-          <div className={metricCardClass(realizedVol60Tone)}><p className="stat-label">Realized Vol 60d</p><p className={`summary-value ${signalToneClass(realizedVol60Tone)}`}>{formatPct(volatilitySnapshot?.realized_vol_60d)}</p><RangeContext stats={vol60Stats} formatter={formatPct} tone={realizedVol60Tone} /></div>
-          <div className={metricCardClass(realizedVol252Tone)}><p className="stat-label">Realized Vol 252d</p><p className={`summary-value ${signalToneClass(realizedVol252Tone)}`}>{formatPct(volatilitySnapshot?.realized_vol_252d)}</p><RangeContext stats={vol252Stats} formatter={formatPct} tone={realizedVol252Tone} /></div>
-          <div className={metricCardClass(benchmarkVol20Tone)}><p className="stat-label">Benchmark Vol 20d</p><p className={`summary-value ${signalToneClass(benchmarkVol20Tone)}`}>{formatPct(volatilitySnapshot?.benchmark_vol_20d)}</p><RangeContext stats={benchmarkVol20Stats} formatter={formatPct} tone={benchmarkVol20Tone} /></div>
-          <div className={metricCardClass(benchmarkVol60Tone)}><p className="stat-label">Benchmark Vol 60d</p><p className={`summary-value ${signalToneClass(benchmarkVol60Tone)}`}>{formatPct(volatilitySnapshot?.benchmark_vol_60d)}</p><RangeContext stats={benchmarkVol60Stats} formatter={formatPct} tone={benchmarkVol60Tone} /></div>
-          <div className={metricCardClass(benchmarkVol252Tone)}><p className="stat-label">Benchmark Vol 252d</p><p className={`summary-value ${signalToneClass(benchmarkVol252Tone)}`}>{formatPct(volatilitySnapshot?.benchmark_vol_252d)}</p><RangeContext stats={benchmarkVol252Stats} formatter={formatPct} tone={benchmarkVol252Tone} /></div>
-          <div className={metricCardClass(downsideVol20Tone)}><p className="stat-label">Downside Vol 20d</p><p className={`summary-value ${signalToneClass(downsideVol20Tone)}`}>{formatPct(volatilitySnapshot?.downside_vol_20d)}</p><RangeContext stats={downside20Stats} formatter={formatPct} tone={downsideVol20Tone} /></div>
-          <div className={metricCardClass(downsideVol60Tone)}><p className="stat-label">Downside Vol 60d</p><p className={`summary-value ${signalToneClass(downsideVol60Tone)}`}>{formatPct(volatilitySnapshot?.downside_vol_60d)}</p><RangeContext stats={downside60Stats} formatter={formatPct} tone={downsideVol60Tone} /></div>
-          <div className={metricCardClass(downsideVol252Tone)}><p className="stat-label">Downside Vol 252d</p><p className={`summary-value ${signalToneClass(downsideVol252Tone)}`}>{formatPct(volatilitySnapshot?.downside_vol_252d)}</p><RangeContext stats={downside252Stats} formatter={formatPct} tone={downsideVol252Tone} /></div>
-          <div className={metricCardClass(tracking20Tone)}><p className="stat-label">Tracking Error 20d</p><p className={`summary-value ${signalToneClass(tracking20Tone)}`}>{formatPct(volatilitySnapshot?.tracking_error_20d)}</p><RangeContext stats={tracking20Stats} formatter={formatPct} tone={tracking20Tone} /></div>
-          <div className={metricCardClass(tracking60Tone)}><p className="stat-label">Tracking Error 60d</p><p className={`summary-value ${signalToneClass(tracking60Tone)}`}>{formatPct(volatilitySnapshot?.tracking_error_60d)}</p><RangeContext stats={tracking60Stats} formatter={formatPct} tone={tracking60Tone} /></div>
-          <div className={metricCardClass(tracking252Tone)}><p className="stat-label">Tracking Error 252d</p><p className={`summary-value ${signalToneClass(tracking252Tone)}`}>{formatPct(volatilitySnapshot?.tracking_error_252d)}</p><RangeContext stats={tracking252Stats} formatter={formatPct} tone={tracking252Tone} /></div>
-          <div className={metricCardClass(currentDrawdownTone)}><p className="stat-label">Current Drawdown</p><p className={`summary-value ${signalToneClass(currentDrawdownTone)}`}>{formatPct(volatilitySnapshot?.current_drawdown_pct)}</p><RangeContext stats={drawdownStats} formatter={formatPct} tone={currentDrawdownTone} /></div>
-          <div className={metricCardClass(maxDrawdownTone)}><p className={`stat-label ${signalToneClass(maxDrawdownTone)}`}>Max Drawdown</p><p className={`summary-value ${signalToneClass(maxDrawdownTone)}`}>{formatPct(volatilitySnapshot?.max_drawdown_pct)}</p></div>
-          <div className={metricCardClass(volRatio2060Tone)}><p className="stat-label">Vol Ratio 20/60</p><p className={`summary-value ${signalToneClass(volRatio2060Tone)}`}>{formatRatio(volatilitySnapshot?.vol_ratio_20_60)}</p></div>
-          <div className={metricCardClass(volRatio20252Tone)}><p className="stat-label">Vol Ratio 20/252</p><p className={`summary-value ${signalToneClass(volRatio20252Tone)}`}>{formatRatio(volatilitySnapshot?.vol_ratio_20_252)}</p></div>
-          <div className={metricCardClass(volPercentileTone)}><p className="stat-label">20d Vol Percentile</p><p className={`summary-value ${signalToneClass(volPercentileTone)}`}>{formatPercentile(volatilitySnapshot?.current_20d_vol_percentile)}</p></div>
-          <div className="summary-card metric-card metric-card-neutral"><p className="stat-label">Regime</p><p className="summary-value regime-value">{volatilityRegime?.regime?.label ?? 'n/a'}</p></div>
-          <div className={metricCardClass(confidenceTone)}><p className="stat-label">Confidence</p><p className={`summary-value ${signalToneClass(confidenceTone)}`}>{volatilityRegime?.regime?.confidence ?? 'n/a'}</p></div>
-        </div>
-      </section>
-
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Tilts</p></div><p className="helper">Current benchmark, style, sector, and macro sleeves.{scenarioPreview ? ' Scenario-aware from edited holdings as a current-state approximation only.' : ''}</p></div>
-        <div className="dashboard-summary">
-          {factorExposures.map((item) => {
-            const unavailableBecauseBenchmarkHoldings = item.basis === 'benchmark_holdings_required' && overlapUnavailable
-            const unavailableBecauseHistoricalDiagnostics = item.basis === 'historical_benchmark_relative' && diagnosticsUnavailable
-            const displayExposure = unavailableBecauseBenchmarkHoldings || unavailableBecauseHistoricalDiagnostics ? null : item.exposure
-            const helperSuffix = unavailableBecauseHistoricalDiagnostics
-              ? ' Currently unavailable because historical diagnostics are unavailable for this snapshot.'
-              : unavailableBecauseBenchmarkHoldings
-                ? ' Currently unavailable because benchmark holdings could not be loaded.'
-                : ''
-
-            return (
-              <div className="summary-card" key={`factor-${item.factor}`}>
-                <p className="stat-label">{item.factor}</p>
-                <p className="summary-value">{item.factor === 'Market' ? formatNumber(displayExposure, 2) : formatPct(displayExposure != null ? displayExposure * 100 : null)}</p>
-                <p className="helper">{item.description}{helperSuffix}</p>
+                    ))}
+                  </div>
+                </section>
+                <section>
+                  <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
+                    <div className="panel-section-title-block"><p className="panel-label">Top Underweights</p></div>
+                    <p className="helper">Rows without complete inputs stay suppressed.</p>
+                  </div>
+                  {benchmarkPositioningModule.underweights.length ? (
+                    <div className="list-table">
+                      {benchmarkPositioningModule.underweights.map((item) => (
+                        <div className="list-row list-row-wide comparison-data-row comparison-tone-negative benchmark-positioning-row" key={`benchmark-underweight-${item.symbol}`}>
+                          <span>{item.symbol}</span>
+                          <span>{formatWeightPct(Math.abs(item.activeWeight))} active</span>
+                          <span>{formatWeightPct(item.portfolioWeight)} portfolio vs {formatWeightPct(item.benchmarkWeight)} benchmark</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <UnavailablePanel title="Top underweights unavailable" detail="No benchmark constituents with valid underweight inputs are available for this snapshot." />}
+                </section>
               </div>
-            )
-          })}
-        </div>
-      </section>
+            ) : (
+              <UnavailablePanel title="Benchmark-relative positioning unavailable" detail="Current-state benchmark-relative cues are withheld until benchmark composition and mapped portfolio weights are defensible." />
+            )}
+          </>
+        ) : null}
+        </section>
 
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">EU Execution Mapping</p></div><p className="helper">US ETF analytical proxies with UCITS execution examples.</p></div>
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">{resolvedFactorModel?.methodology ?? result.factor_methodology ?? DEFAULT_FACTOR_MODEL_METHODOLOGY}</p>
-        </div>
-      </section>
-
-      <div className="split-grid dashboard-bottom-grid">
-        <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Registry</p></div><p className="helper">US analytical proxies and EU execution context</p></div>
-          <div className="factor-registry-grid">
-            {Object.entries(FACTOR_CATEGORY_LABELS).map(([categoryKey, label]) => {
-              const factors = factorRegistry.filter((factor) => factor.category === categoryKey)
-              if (!factors.length) return null
-              return (
-                <div className="factor-registry-card" key={categoryKey}>
-                  <p className="stat-label">{label}</p>
-                  {factors.map((factor) => <div className="factor-registry-row" key={factor.key}><span>{factor.label} / {factor.us_proxy}</span><span>{factor.ucits_examples.length ? factor.ucits_examples.join(', ') : 'No mapped UCITS example yet'}</span></div>)}
+        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
+          <div className="section-header-inline sector-list-header exposure-section-header">
+            <div className="panel-section-title-block"><p className="panel-label">Concentration Pack</p></div>
+            <p className="helper">Current-state composition only.</p>
+          </div>
+        {hasConcentrationFacts ? (
+          <>
+            <div className="concentration-pack-status-strip">
+              <span className="backtest-source-badge concentration-pack-badge"><span className="concentration-pack-badge-label">Basis</span><span>Current-state concentration</span></span>
+              <span className="backtest-source-badge concentration-pack-badge"><span className="concentration-pack-badge-label">Scope</span><span>Composition only</span></span>
+              <span className={`dashboard-snapshot-status dashboard-snapshot-status-${concentrationAvailability.tone}`}><span className="concentration-pack-badge-label">Availability</span><span>{concentrationAvailability.label}</span></span>
+            </div>
+            {concentrationSummaryMetrics.length ? (
+              <div className="dashboard-summary compact-summary-grid concentration-pack-summary-grid">
+                {concentrationSummaryMetrics.map((metric) => (
+                  <SummaryMetric key={metric.label} label={metric.label} value={metric.value} />
+                ))}
+              </div>
+            ) : (
+              <UnavailablePanel title="Concentration summary unavailable" detail="Current-state concentration metrics are withheld for this snapshot." />
+            )}
+            <div className="split-grid dashboard-bottom-grid concentration-pack-grid">
+              <section>
+                <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
+                  <div className="panel-section-title-block"><p className="panel-label">Top Positions</p></div>
+                  <p className="helper">Top 5 current holdings.</p>
                 </div>
-              )
-            })}
-          </div>
-        </section>
-        <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Collinearity Warning</p></div><p className="helper">Informational diagnostic for overlapping factors</p></div>
-          <div className="list-table">
-            {selectedCollinearity?.high_collinearity_pairs?.length ? selectedCollinearity.high_collinearity_pairs.map((item) => <div className="list-row" key={`collinearity-${item.left_key}-${item.right_key}`}><span>{item.left_key} / {item.right_key}</span><span>{formatNumber(item.correlation, 2)}</span></div>) : <div className="list-row"><span>No major collinearity warnings</span><span>OK</span></div>}
-            {selectedCollinearity?.note ? <p className="helper collinearity-note">{selectedCollinearity.note}</p> : null}
-          </div>
-        </section>
-      </div>
-
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header"><div><p className="panel-label">Stress Scenarios</p></div><p className="helper">Factor-shock estimates based on the 12-factor model{scenarioPreview ? ' · scenario-aware current-state approximation only' : ''}</p></div>
-        <div className="list-table">
-          {scenarioStressScenarios
-            ? scenarioStressScenarios.map((item) => <div className="list-row" key={`stress-${item.name}`}><span>{item.name}</span><span>{formatPct(item.estimated_return_pct)} ({formatSignedPct(item.delta_return_pct)})</span></div>)
-            : stressScenarios.map((item) => <div className="list-row" key={`stress-${item.name}`}><span>{item.name}</span><span>{formatPct(item.estimated_return_pct)}</span></div>)}
-        </div>
-        {scenarioStressScenarios ? <p className="helper">Scenario stress estimates scale baseline shocks from edited holdings mix and current factor tilts; they do not rerun historical stress regressions.</p> : null}
-      </section>
-
-      {scenarioRiskContribution ? (
-        <section className="dashboard-bottom-grid">
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Risk Contribution</p></div><p className="helper">{scenarioRiskContribution.window_days}d / {scenarioRiskContribution.observation_count} obs / {scenarioRiskContribution.status} · scenario-aware current-state approximation only</p></div>
-          <div className="dashboard-summary compact-summary-grid">
-            <div className="summary-card"><p className="stat-label">Factor Total Variance</p><p className="summary-value">{formatNumber(scenarioRiskContribution.factor_total_variance, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Specific Variance</p><p className="summary-value">{formatNumber(scenarioRiskContribution.specific_variance, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Total Variance</p><p className="summary-value">{formatNumber(scenarioRiskContribution.total_variance, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Factor Risk Share</p><p className="summary-value">{formatPct(scenarioRiskContribution.factor_risk_share_total != null ? scenarioRiskContribution.factor_risk_share_total * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Specific Risk Share</p><p className="summary-value">{formatPct(scenarioRiskContribution.specific_risk_share != null ? scenarioRiskContribution.specific_risk_share * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Residual Volatility</p><p className="summary-value">{formatPct(scenarioRiskContribution.residual_volatility)}</p></div>
-          </div>
-          <div className="split-grid dashboard-bottom-grid">
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Factor Contributions</p></div><p className="helper">Approximate current factor concentration from scenario weights</p></div>
-              <div className="list-table">{scenarioRiskContribution.factor_contributions.slice(0, 6).map((item) => <div className="list-row" key={`scenario-factor-contrib-${item.key}`}><span>{item.label}</span><span>{formatPct(item.risk_share != null ? item.risk_share * 100 : null)}</span></div>)}</div>
-            </section>
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Position Contributions</p></div><p className="helper">Approximate current position concentration from scenario weights</p></div>
-              <div className="list-table">{scenarioRiskContribution.position_contributions.slice(0, 6).map((item) => <div className="list-row" key={`scenario-position-contrib-${item.symbol}`}><span>{item.symbol}</span><span>{formatPct(item.risk_share != null ? item.risk_share * 100 : null)}</span></div>)}</div>
-            </section>
-          </div>
-          <div className="dashboard-summary compact-summary-grid">
-            <div className="summary-card"><p className="stat-label">Top 1 Factor Risk Share</p><p className="summary-value">{formatPct(scenarioRiskContribution.concentration.top_1_factor_risk_share != null ? scenarioRiskContribution.concentration.top_1_factor_risk_share * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 3 Factor Risk Share</p><p className="summary-value">{formatPct(scenarioRiskContribution.concentration.top_3_factor_risk_share != null ? scenarioRiskContribution.concentration.top_3_factor_risk_share * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 1 Position Risk Share</p><p className="summary-value">{formatPct(scenarioRiskContribution.concentration.top_1_position_risk_share != null ? scenarioRiskContribution.concentration.top_1_position_risk_share * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 5 Position Risk Share</p><p className="summary-value">{formatPct(scenarioRiskContribution.concentration.top_5_position_risk_share != null ? scenarioRiskContribution.concentration.top_5_position_risk_share * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Factor HHI</p><p className="summary-value">{formatNumber(scenarioRiskContribution.concentration.factor_hhi, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(scenarioRiskContribution.concentration.position_hhi, 4)}</p></div>
-          </div>
-          <p className="helper">Scenario risk contribution uses edited holdings weights and current snapshot loadings as a current-state proxy. It does not rerun the underlying historical covariance engine.</p>
-        </section>
-      ) : null}
-
-      <div className="split-grid dashboard-bottom-grid">
-        <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Current Concentration Snapshot</p></div><p className="helper">Snapshot holdings concentration only; separate from history-derived diagnostics concentration measures.</p></div>
-          <div className="dashboard-summary compact-summary-grid">
-            <div className="summary-card"><p className="stat-label">Top 1 Position Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_1_position_weight != null ? currentStateConcentration.top_1_position_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 3 Position Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_3_position_weight != null ? currentStateConcentration.top_3_position_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 5 Position Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_5_position_weight != null ? currentStateConcentration.top_5_position_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top Sector Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_sector_weight != null ? currentStateConcentration.top_sector_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Top 3 Sectors Weight</p><p className="summary-value">{formatPct(currentStateConcentration?.top_3_sector_weight != null ? currentStateConcentration.top_3_sector_weight * 100 : null)}</p></div>
-            <div className="summary-card"><p className="stat-label">Position HHI</p><p className="summary-value">{formatNumber(currentStateConcentration?.position_hhi, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Sector HHI</p><p className="summary-value">{formatNumber(currentStateConcentration?.sector_hhi, 4)}</p></div>
-            <div className="summary-card"><p className="stat-label">Effective Holdings</p><p className="summary-value">{formatNumber(currentStateConcentration?.effective_holdings, 2)}</p></div>
-          </div>
-          <div className="split-grid dashboard-bottom-grid">
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Top Positions</p></div><p className="helper">Largest current holdings by market value</p></div>
-              <div className="list-table">{topConcentrationPositions.map((item) => <div className="list-row" key={`concentration-position-${item.name}`}><span>{item.name}</span><span>{formatCompactMoney(item.market_value)} · {formatPct(item.weight * 100)}</span></div>)}</div>
-            </section>
-            <section>
-              <div className="section-header-inline sector-list-header"><div><p className="panel-label">Top Sectors</p></div><p className="helper">Largest current sector allocations from holdings metadata</p></div>
-              <div className="list-table">{topConcentrationSectors.map((item) => <div className="list-row" key={`concentration-sector-${item.name}`}><span>{item.name}</span><span>{formatCompactMoney(item.market_value)} · {formatPct(item.weight * 100)}</span></div>)}</div>
-            </section>
-          </div>
-        </section>
-        <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Actual Exposure</p></div><p className="helper">Top look-through constituents by snapshot market value{lookthroughDegraded ? ' · partial ETF resolution' : ''}{scenarioPreview ? ' in the draft scenario' : ''}</p></div>
-          <div className="list-table">{topLookthrough.map((item) => <div className="list-row" key={`lookthrough-${item.symbol}`}><span>{item.symbol}</span><span>{formatCompactMoney(item.effective_market_value)} · {formatPct(item.portfolio_weight * 100)}</span></div>)}</div>
-          <p className="helper">Constituent Coverage {formatPct(lookthrough?.coverage_ratio != null ? lookthrough.coverage_ratio * 100 : null)} · direct single-name positions and ETFs with resolved holdings only</p>
-        </section>
-        <section>
-          <div className="section-header-inline sector-list-header"><div><p className="panel-label">Look-Through Sectors</p></div><p className="helper">Economic exposure after ETF unpacking{lookthroughDegraded ? ' with unresolved holdings left at direct-position level' : ''}{scenarioPreview ? ' for the draft scenario' : ''}</p></div>
-          <div className="allocation-list">{topLookthroughSectors.map((item) => <div className="allocation-row" key={`lt-sector-${item.sector}`}><div className="allocation-head"><span>{item.sector}</span><span>{formatPct(item.weight * 100)}</span></div><div className="allocation-bar"><div className="allocation-fill" style={{ width: `${Math.max(item.weight * 100, 2)}%` }} /></div></div>)}</div>
+                {topPositions.length ? (
+                  <div className="list-table">
+                    {topPositions.map((item, index) => (
+                      <div className="list-row concentration-pack-row" key={`concentration-position-${item.name}`}>
+                        <span className="concentration-pack-rank">{index + 1}</span>
+                        <span className="concentration-pack-name">{item.name}</span>
+                        <span className="concentration-pack-weight">{formatWeightPct(item.weight)}</span>
+                        <span className="concentration-pack-value">{formatCompactMoney(item.market_value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <UnavailablePanel title="Top positions unavailable" detail="No imported holdings concentration list is available for this snapshot." />}
+              </section>
+              <section>
+                <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
+                  <div className="panel-section-title-block"><p className="panel-label">Top Sectors</p></div>
+                  <p className="helper">Top 5 current sectors.</p>
+                </div>
+                {topSectors.length ? (
+                  <div className="list-table">
+                    {topSectors.map((item, index) => (
+                      <div className="list-row concentration-pack-row" key={`concentration-sector-${item.name}`}>
+                        <span className="concentration-pack-rank">{index + 1}</span>
+                        <span className="concentration-pack-name">{item.name}</span>
+                        <span className="concentration-pack-weight">{formatWeightPct(item.weight)}</span>
+                        <span className="concentration-pack-value">{formatCompactMoney(item.market_value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <UnavailablePanel title="Top sectors unavailable" detail="No current-state sector concentration list is available for this snapshot." />}
+              </section>
+            </div>
+          </>
+        ) : (
+          <UnavailablePanel title="Concentration read unavailable" detail="Current-state concentration facts are unavailable for this snapshot, so the module is withheld rather than filled with estimates." />
+        )}
         </section>
       </div>
-
     </article>
   )
 }

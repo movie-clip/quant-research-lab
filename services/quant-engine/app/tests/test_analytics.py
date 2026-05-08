@@ -169,6 +169,45 @@ def _compute_dashboard_max_drawdown(performance_series: list, *, allow_drawdown_
     return round(max_drawdown, 2)
 
 
+def _mock_ib2026_dashboard_market_data(mocker, snapshot: ImportedPortfolioSnapshot) -> None:
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    valuation_dates = [
+        "2026-01-08",
+        "2026-01-31",
+        "2026-02-28",
+        "2026-03-31",
+        "2026-04-30",
+    ]
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-01-08", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-01-31", "price": 101.5, "adjClose": 101.5},
+        {"date": "2026-02-28", "price": 99.8, "adjClose": 99.8},
+        {"date": "2026-03-31", "price": 98.4, "adjClose": 98.4},
+        {"date": "2026-04-30", "price": 103.1, "adjClose": 103.1},
+    ]
+    service.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    service.get_historical_prices_for_symbols.return_value = {
+        position.symbol: [
+            {"date": valuation_date, "price": float(position.close_price), "basis": "broker_proven_mark_to_market"}
+            for valuation_date in valuation_dates
+        ]
+        for position in snapshot.positions
+    }
+
+
 def _sample_snapshot() -> ImportedPortfolioSnapshot:
     return ImportedPortfolioSnapshot(
         statement=ImportedStatement(
@@ -242,7 +281,7 @@ def _sample_exposure_result(snapshot: ImportedPortfolioSnapshot) -> ExposureResu
             price_basis="not_applicable",
             source_status=ExposureRunSourceStatus(
                 lookthrough_resolution="live",
-                benchmark_holdings="live",
+                benchmark_holdings="verified",
             ),
             confidence="high",
             reproducibility=ExposureRunReproducibilityMetadata(
@@ -335,7 +374,7 @@ def test_build_exposure_result_populates_structured_run_metadata(mocker) -> None
 
     assert result.run_metadata.source_status.model_dump() == {
         "lookthrough_resolution": "live",
-        "benchmark_holdings": "live",
+        "benchmark_holdings": "verified",
     }
     assert result.run_metadata.reproducibility.model_dump() == {
         "input_imported_at": "2026-04-10T00:00:00",
@@ -392,14 +431,14 @@ def test_build_portfolio_overview_classifies_2026_ucits_and_thematic_holdings() 
     overview = build_portfolio_overview(snapshot)
 
     assert "FICO" not in {position.symbol for position in snapshot.positions}
-    assert any(item["symbol"] == "IUFS" for item in overview.sector_position_breakdown["Financials"])
-    assert any(item["symbol"] == "IUHC" for item in overview.sector_position_breakdown["Health Care"])
     assert any(item["symbol"] == "DFND" for item in overview.sector_position_breakdown["Defense"])
     assert any(item["symbol"] == "IUIT" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "SEMI" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "SXRV" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "VUAA" for item in overview.sector_position_breakdown["Broad Market"])
     assert any(item["symbol"] == "VDST" for item in overview.sector_position_breakdown["Fixed Income"])
+    assert all(item["symbol"] != "IUFS" for item in overview.sector_position_breakdown.get("Financials", []))
+    assert all(item["symbol"] != "IUHC" for item in overview.sector_position_breakdown.get("Health Care", []))
 
 
 def test_attach_snapshot_metadata_classifies_isln_as_commodities() -> None:
@@ -6398,9 +6437,9 @@ def test_portfolio_state_engine_reconciles_terminal_state_to_statement_totals() 
     assert states[-1].total_portfolio_value == 1200.0
 
 
-def test_run_imported_dashboard_history_matches_ib2026_statement_ending_value() -> None:
-
+def test_run_imported_dashboard_history_matches_ib2026_statement_ending_value(mocker) -> None:
     snapshot = import_statement(STATEMENT_2026_PATH)
+    _mock_ib2026_dashboard_market_data(mocker, snapshot)
     result = run_imported_dashboard_history(snapshot, "SPY")
 
     assert snapshot.statement_totals is not None
@@ -6410,9 +6449,9 @@ def test_run_imported_dashboard_history_matches_ib2026_statement_ending_value() 
     assert round(result.performance_series[-1].portfolio_value, 2) == ending_nav
 
 
-def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement() -> None:
-
+def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement(mocker) -> None:
     snapshot = import_statement(STATEMENT_2026_PATH)
+    _mock_ib2026_dashboard_market_data(mocker, snapshot)
     history = run_imported_dashboard_history(snapshot, "SPY")
     overview = build_portfolio_overview(snapshot)
     visible_summary = _compute_dashboard_visible_summary(history.daily_states, history.performance_series)

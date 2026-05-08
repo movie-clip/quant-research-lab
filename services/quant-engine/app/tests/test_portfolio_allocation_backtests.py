@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from typing import Literal, cast
 from pydantic import ValidationError
 
-from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactWorkspaceReviewBasis, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplayProposalSource, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionEvaluationHistoryEntryArtifact, MonitorDefinitionLatestEvaluationBenchmarkObservationLineage, MonitorDefinitionLatestEvaluationPortfolioTruthBasis, MonitorDefinitionLatestEvaluationSnapshotArtifact, MonitorDefinitionObservationArtifact, MonitorDefinitionObservationEvaluationResponse, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffWorkspaceReviewBasis, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotComparisonRequest, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotOpenHandoff, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse, WorkspaceReviewWindow
+from app.schemas.backtest_engine import AllocationBacktestAssumptions, AllocationBacktestMetrics, AllocationBacktestPoint, AllocationBacktestResult, AllocationBacktestWeight, BenchmarkTrendOverlayMonitorBenchmarkObservationInput, BenchmarkTrendOverlayObservationSourceLineage, CandidateConstructionRuleInput, ConstructedCandidateReplayInput, ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayProvenance, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactWorkspaceReviewBasis, CreateMonitorDefinitionRequest, DraftPortfolioImportedMetaInput, DraftPortfolioSnapshotInput, DraftPortfolioPositionInput, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplayProposalSource, HypotheticalReplacementReplayRequest, MonitorDefinitionArtifactListResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionEvaluationHistoryEntryArtifact, MonitorDefinitionLatestEvaluationBenchmarkObservationLineage, MonitorDefinitionLatestEvaluationPortfolioTruthBasis, MonitorDefinitionLatestEvaluationSnapshotArtifact, MonitorDefinitionObservationArtifact, MonitorDefinitionObservationEvaluationResponse, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffWorkspaceReviewBasis, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsComparisonRow, PortfolioDiagnosticsProvenance, PortfolioDiagnosticsSnapshot, PortfolioDiagnosticsTopCallout, PortfolioWeightInput, ReplacementIntentReplayInput, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotComparisonRequest, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotOpenHandoff, SingleReplacementCandidateConstructionRequest, SingleReplacementConstraintValidationState, SingleReplacementConstructionConstraintSetInput, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse, WorkspaceReviewWindow
 from app.schemas.optimizer import OptimizationRequest, OptimizerAlphaFundamentalSnapshot, OptimizerObjective, OptimizerPreviewBenchmarkInput, OptimizerPreviewRequest, OptimizerPreviewSnapshotReference, OptimizerBenchmarkRelativeConstraint, OptimizerHardConstraints, OptimizerPositionLimitConstraint, OptimizerReturnBasisAttestation, OptimizerReturnBasisEvidenceBundle, OptimizerReturnBasisSectionTrust, OptimizerTurnoverConstraint, OptimizerUniverseAsset, OptimizerWeight
 from app.schemas.research import InvestorEconomicsStatus
 from app.schemas.reconciliation import FactorRiskContributionItem, RiskConcentrationSnapshot, RiskContributionBreakdownPayload, SnapshotItem, StressScenarioResult, VolatilitySnapshot
@@ -27,7 +27,7 @@ from app.services.optimizer_alpha_service import build_alpha_quality_package
 from app.services.optimizer_preview_service import build_optimizer_preview
 from app.services.optimizer_service import run_optimizer
 from app.services.monitor_definition_artifact_service import MonitorDefinitionDiscoveryMetadataValidationError, MonitorDefinitionIntegrityValidationError, MonitorDefinitionPersistenceError, MonitorDefinitionSchemaValidationError, MonitorDefinitionArtifactStore, build_stable_monitor_definition_evaluation_history_entry, build_stable_monitor_definition_observation, create_monitor_definition_artifact, get_monitor_definition_alert_review_timeline, inspect_monitor_definition_evaluation_history_entry, list_monitor_definition_active_alert_episode_inbox, list_monitor_definition_alert_history_queue, list_monitor_definition_artifacts, list_monitor_definition_catalog, list_monitor_definition_evaluation_history, list_monitor_definition_latest_observation_alert_inbox, list_monitor_definition_recovered_alert_review_queue, list_recent_monitor_definition_artifacts, load_monitor_definition_artifact, load_monitor_definition_evaluation_history_entry, load_monitor_definition_latest_evaluation_snapshot, load_monitor_definition_observation, persist_monitor_definition_evaluation_artifacts
-from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_review_snapshot_active_thesis_cross_family_queue, build_review_snapshot_family_inbox, build_review_snapshot_family_review, compare_review_snapshots, create_review_snapshot_artifact, evaluate_monitor_definition_observation, open_review_snapshot_artifact, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
+from app.services.portfolio_backtest_engine import _apply_return_basis_attestation_to_replay_comparison, _apply_return_basis_attestation_to_replay_result, _build_backtest_diagnostics_inputs, _build_candidate_weights_from_replacement_intent, _build_diagnostics_comparison, _build_snapshot_baseline_weights, _build_synthetic_snapshot_from_weights, _compare_results, _review_snapshot_family_key_from_artifact, build_construction_artifact_replay_preview, build_hypothetical_replacement_replay_preview, build_optimizer_handoff_replay_preview, build_review_snapshot_active_thesis_cross_family_queue, build_review_snapshot_family_inbox, build_review_snapshot_family_review, compare_review_snapshots, create_review_snapshot_artifact, evaluate_monitor_definition_observation, open_review_snapshot_artifact, preflight_construction_artifact_replay, resolve_and_validate_construction_artifact_replay_params, resolve_construction_artifact_replay_params, validate_construction_artifact_replay_params
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
 from app.services.candidate_construction import RULE_ID_FIXED_SPLIT, build_single_replacement_candidate_construction
 from fastapi.testclient import TestClient
@@ -2150,9 +2150,13 @@ def test_build_construction_artifact_replay_preview_uses_persisted_final_target_
         "policy_id": "top_n_equal_weight_v1",
         "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
         "ranked_universe_artifact_id": "ranking_artifact_1",
+        "ranked_universe_artifact_schema_version": None,
         "ranking_id": "ranked_candidates_v1",
         "ranking_methodology_id": "ranked_candidates_methodology_v1",
+        "ranking_as_of_date": "2026-04-23",
         "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "current_portfolio_as_of_timestamp": "2026-04-23T09:30:00",
+        "top_n": 2,
         "hard_constraints": artifact.hard_constraints.model_dump(mode="json"),
         "baseline_input_source": "normalized_inputs.current_portfolio_weights",
         "candidate_input_source": "final_target_weights",
@@ -2812,6 +2816,19 @@ def test_build_construction_artifact_replay_preview_emits_canonical_review_basis
             "construction_artifact_id": artifact.artifact_id,
             "effective_replay_params": replay_response.effective_replay_params.model_dump(mode="json"),
         },
+        "launch_context": {
+            "construction_artifact_id": artifact.artifact_id,
+            "ranked_universe_artifact_id": "ranking_artifact_1",
+            "ranked_universe_artifact_schema_version": None,
+            "ranking_id": "ranked_candidates_v1",
+            "ranking_methodology_id": "ranked_candidates_methodology_v1",
+            "ranking_as_of_date": "2026-04-23",
+            "current_portfolio_artifact_id": "portfolio_snapshot_1",
+            "current_portfolio_as_of_timestamp": "2026-04-23T09:30:00",
+            "policy_id": "top_n_equal_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "top_n": 2,
+        },
         "benchmark_symbol": "QQQ",
         "base_currency": "EUR",
         "replay_window": {
@@ -3283,6 +3300,52 @@ def test_review_snapshot_compare_rejects_proposal_family_mismatch(tmp_path, mock
 
 
 @pytest.mark.parametrize(
+    ("field", "value", "expected_error"),
+    [
+        ("workspace_id", None, "Input should be a valid string"),
+        ("workspace_id", "", "review snapshot family key workspace_id is required"),
+        ("source_draft_id", None, "Input should be a valid string"),
+        ("source_draft_id", "", "review snapshot family key source_draft_id is required"),
+        ("source_base_node_id", None, "Input should be a valid string"),
+        ("source_base_node_id", "", "review snapshot family key source_base_node_id is required"),
+        ("proposal_family_id", None, "Input should be a valid string"),
+        ("proposal_family_id", "", "review snapshot family key proposal_family_id is required"),
+        ("source_kind", None, "Input should be 'hypothetical_replacement_replay'"),
+        ("source_kind", "", "Input should be 'hypothetical_replacement_replay'"),
+        ("source_kind", "persisted_optimizer_handoff", "Input should be 'hypothetical_replacement_replay'"),
+    ],
+)
+def test_review_snapshot_family_key_schema_fails_closed_for_missing_and_invalid_fields(field: str, value: object, expected_error: str) -> None:
+    payload: dict[str, object] = {
+        "workspace_id": "workspace-1",
+        "source_draft_id": "draft-1",
+        "source_base_node_id": "node-1",
+        "proposal_family_id": "etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z",
+        "source_kind": "hypothetical_replacement_replay",
+    }
+    payload[field] = value
+
+    with pytest.raises(ValidationError, match=expected_error):
+        ReviewSnapshotFamilyKey.model_validate(payload)
+
+
+def test_review_snapshot_family_key_extraction_fails_closed_when_artifact_lineage_fields_are_missing(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.review_snapshot_artifact_service.get_settings",
+        return_value=SimpleNamespace(review_snapshot_artifact_dir=str(tmp_path)),
+    )
+
+    artifact = create_review_snapshot_artifact(ReviewSnapshotCreateRequest.model_validate(_review_snapshot_request("IUFS")))
+    invalid_artifact = artifact.model_copy(
+        update={
+            "lineage": artifact.lineage.model_copy(update={"proposal_family_id": ""}),
+        }
+    )
+
+    with pytest.raises(ValueError, match="review snapshot artifact lineage family_key is invalid: review snapshot family key proposal_family_id is required"):
+        _review_snapshot_family_key_from_artifact(invalid_artifact)
+
+@pytest.mark.parametrize(
     ("mutator", "expected_error"),
     [
         (lambda payload: payload["review_basis"].__setitem__("benchmark_symbol", "QQQ"), "persisted review snapshot artifact failed schema validation"),
@@ -3345,6 +3408,19 @@ def test_construction_artifact_replay_response_rejects_review_basis_identity_mis
                         "symbol_overrides": {},
                     },
                 },
+                "launch_context": {
+                    "construction_artifact_id": "artifact-other",
+                    "ranked_universe_artifact_id": "ranking-1",
+                    "ranked_universe_artifact_schema_version": None,
+                    "ranking_id": "ranking-id-1",
+                    "ranking_methodology_id": "ranking-method-1",
+                    "ranking_as_of_date": None,
+                    "current_portfolio_artifact_id": "portfolio-1",
+                    "current_portfolio_as_of_timestamp": None,
+                    "policy_id": "policy-1",
+                    "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+                    "top_n": 2,
+                },
                 "benchmark_symbol": "SPY",
                 "base_currency": "USD",
                 "replay_window": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
@@ -3357,9 +3433,13 @@ def test_construction_artifact_replay_response_rejects_review_basis_identity_mis
                 "policy_id": "policy-1",
                 "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
                 "ranked_universe_artifact_id": "ranking-1",
+                "ranked_universe_artifact_schema_version": None,
                 "ranking_id": "ranking-id-1",
                 "ranking_methodology_id": "ranking-method-1",
+                "ranking_as_of_date": None,
                 "current_portfolio_artifact_id": "portfolio-1",
+                "current_portfolio_as_of_timestamp": None,
+                "top_n": 2,
                 "hard_constraints": {
                     "full_investment": True,
                     "long_only": True,
@@ -3438,6 +3518,152 @@ def test_construction_artifact_replay_response_rejects_review_basis_identity_mis
                 },
             }).model_dump(mode="json"),
         })
+
+
+def test_construction_artifact_replay_response_rejects_launch_context_lineage_mismatch() -> None:
+    payload = {
+        "construction_artifact_id": "artifact-123",
+        "review_basis": {
+            "basis_version": 1,
+            "basis_kind": "persisted_construction_artifact_review",
+            "review_scope": "workspace_review_only",
+            "canonical_source": "typed_preview_handoff",
+            "basis_provenance_label": "artifact_backed_review_basis",
+            "portfolio_truth": "imported_portfolio_snapshot",
+            "candidate_truth": "hypothetical_construction_artifact",
+            "construction_artifact_id": "artifact-123",
+            "preview_handoff": {
+                "handoff_kind": "construction_artifact_preview_handoff_v1",
+                "construction_artifact_id": "artifact-123",
+                "effective_replay_params": {
+                    "benchmark_symbol": "SPY",
+                    "start_date": "2024-01-01",
+                    "end_date": "2024-12-31",
+                    "initial_capital": 100000.0,
+                    "rebalance_frequency": "monthly",
+                    "base_currency": "USD",
+                    "commission_bps": 0.0,
+                    "slippage_bps": 0.0,
+                    "drift_tolerance_pct": None,
+                    "price_basis": "adjusted_close",
+                    "execution_price_field": "close",
+                    "execution_lag_days": 1,
+                    "symbol_overrides": {},
+                },
+            },
+            "launch_context": {
+                "construction_artifact_id": "artifact-123",
+                "ranked_universe_artifact_id": "ranking-1",
+                "ranked_universe_artifact_schema_version": None,
+                "ranking_id": "ranking-id-1",
+                "ranking_methodology_id": "ranking-method-1",
+                "ranking_as_of_date": "2026-04-23",
+                "current_portfolio_artifact_id": "portfolio-1",
+                "current_portfolio_as_of_timestamp": "2026-04-23T09:30:00",
+                "policy_id": "policy-1",
+                "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+                "top_n": 3,
+            },
+            "benchmark_symbol": "SPY",
+            "base_currency": "USD",
+            "replay_window": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
+            "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+            "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+        },
+        "replay_provenance": {
+            "source": "construction_artifact_reference",
+            "construction_artifact_id": "artifact-123",
+            "policy_id": "policy-1",
+            "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "ranked_universe_artifact_id": "ranking-1",
+            "ranked_universe_artifact_schema_version": None,
+            "ranking_id": "ranking-id-1",
+            "ranking_methodology_id": "ranking-method-1",
+            "ranking_as_of_date": "2026-04-23",
+            "current_portfolio_artifact_id": "portfolio-1",
+            "current_portfolio_as_of_timestamp": "2026-04-23T09:30:00",
+            "top_n": 2,
+            "hard_constraints": {
+                "full_investment": True,
+                "long_only": True,
+                "eligible_ranked_universe_only": True,
+                "max_position_weight": 0.6,
+                "min_position_weight": None,
+                "max_turnover_weight": None,
+                "max_trade_intent_count": None,
+            },
+            "baseline_input_source": "normalized_inputs.current_portfolio_weights",
+            "candidate_input_source": "final_target_weights",
+            "selection_rule_trace": {
+                "rule_ids": ["eligible_only"],
+                "steps": [{
+                    "rule_id": "eligible_only",
+                    "rule_order": 1,
+                    "input_candidate_symbols": ["AAA"],
+                    "output_candidate_symbols": ["AAA"],
+                }],
+            },
+            "turnover_diagnostics_status": "unavailable_legacy_artifact",
+            "turnover_diagnostics_v1": None,
+            "weighting_trace_status": "unavailable_legacy_artifact",
+            "weighting_trace_v1": None,
+        },
+        "baseline_weights": [{"symbol": "AAA", "target_weight": 0.6}],
+        "candidate_weights": [{"symbol": "BBB", "target_weight": 0.4}],
+        "effective_replay_params": {
+            "benchmark_symbol": "SPY",
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "initial_capital": 100000.0,
+            "rebalance_frequency": "monthly",
+            "base_currency": "USD",
+            "commission_bps": 0.0,
+            "slippage_bps": 0.0,
+            "drift_tolerance_pct": None,
+            "price_basis": "adjusted_close",
+            "execution_price_field": "close",
+            "execution_lag_days": 1,
+            "symbol_overrides": {},
+        },
+        "replay": PortfolioAllocationBacktestResponse.model_validate({
+            "methodology": "m",
+            "investor_economics_status": {"status": "available", "reason": None},
+            "candidate_result": {
+                "portfolio_name": "Candidate",
+                "benchmark_symbol": "SPY",
+                "start_date": "2024-01-01",
+                "end_date": "2024-12-31",
+                "observation_count": 2,
+                "rebalance_frequency": "monthly",
+                "commission_bps": 0.0,
+                "slippage_bps": 0.0,
+                "drift_tolerance_pct": None,
+                "assumptions": {
+                    "price_basis": "adjusted_close",
+                    "execution_price_field": "close",
+                    "execution_lag_days": 1,
+                    "calendar_policy": "intersection_common_dates",
+                    "fractional_shares": True,
+                    "long_only": True,
+                    "leverage_allowed": False,
+                    "tax_treatment": "pre_tax",
+                    "investor_base_currency": "USD",
+                },
+                "status": "ok",
+                "investor_economics_status": {"status": "available", "reason": None},
+                "instrument_metadata": [],
+                "starting_weights": [],
+                "ending_weights": [],
+                "metrics": {},
+                "equity_curve": [],
+                "rebalance_events": [],
+                "trades": [],
+            },
+        }).model_dump(mode="json"),
+    }
+
+    with pytest.raises(ValidationError, match="review_basis.launch_context must match replay_provenance launch lineage"):
+        ConstructionArtifactReplayResponse.model_validate(payload)
 
 
 def test_optimizer_handoff_replay_response_rejects_review_basis_identity_mismatch() -> None:
@@ -3817,9 +4043,13 @@ def test_build_construction_artifact_replay_preview_remains_compatible_with_turn
         "policy_id": "top_n_equal_weight_v1",
         "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
         "ranked_universe_artifact_id": "ranking_artifact_1",
+        "ranked_universe_artifact_schema_version": None,
         "ranking_id": "ranked_candidates_v1",
         "ranking_methodology_id": "ranked_candidates_methodology_v1",
+        "ranking_as_of_date": "2026-04-23",
         "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "current_portfolio_as_of_timestamp": "2026-04-23T09:30:00",
+        "top_n": 2,
         "hard_constraints": artifact.hard_constraints.model_dump(mode="json"),
         "baseline_input_source": "normalized_inputs.current_portfolio_weights",
         "candidate_input_source": "final_target_weights",
@@ -4358,6 +4588,7 @@ def test_construction_artifact_replay_provenance_accepts_explicit_empty_selectio
             "construction_artifact_id": "construction_artifact_1234567890abcdef",
             "policy_id": "top_n_equal_weight_v1",
             "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "top_n": 2,
             "hard_constraints": {
                 "full_investment": True,
                 "long_only": True,

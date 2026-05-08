@@ -3,6 +3,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { EtfRankingPanel } from './EtfRankingPanel'
 
+const authoritativeCurrentPortfolio = {
+  artifact_id: 'workspace_current_portfolio_1',
+  as_of_timestamp: '2026-04-10T00:00:00Z',
+  weights: [
+    { symbol: 'VUAA', weight: 0.6 },
+    { symbol: 'IWDA', weight: 0.4 },
+  ],
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
@@ -10,6 +19,132 @@ function jsonResponse(body: unknown, status = 200) {
 type RankingArtifactFixture = ReturnType<typeof buildRankingArtifact>
 type RankingArtifactPreflightFixture = ReturnType<typeof buildPreflightResponse>
 type RankingArtifactOpenFixture = ReturnType<typeof buildOpenResponse>
+
+function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_weight_v1', 'top_n_inverse_rank_weight_v1', 'top_n_linear_rank_weight_v1']) {
+  const catalog = {
+    top_n_equal_weight_v1: {
+      policy_id: 'top_n_equal_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+      name: 'Top N Equal Weight v1',
+      description: 'Select eligible top-ranked names and assign equal target weights.',
+      family: 'top_n_equal_weight',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'selection_only',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'default',
+        launch_top_n: 2,
+      },
+    },
+    top_n_inverse_rank_weight_v1: {
+      policy_id: 'top_n_inverse_rank_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_inverse_rank_weight_v1',
+      name: 'Top N Inverse Rank Weight v1',
+      description: 'Select eligible top-ranked names and weight them by inverse selected-order rank.',
+      family: 'top_n_rank_weighted',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'inverse_selected_order_weighting',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'excluded',
+        launch_top_n: 2,
+      },
+    },
+    top_n_linear_rank_weight_v1: {
+      policy_id: 'top_n_linear_rank_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_linear_rank_weight_v1',
+      name: 'Top N Linear Rank Weight v1',
+      description: 'Select eligible top-ranked names and weight them by selected-order linear rank numerators N..1.',
+      family: 'top_n_rank_weighted',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'linear_selected_order_weighting',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'opt_in',
+        launch_top_n: 2,
+      },
+    },
+  } as const
+
+  return policyIds.map((policyId) => catalog[policyId as keyof typeof catalog])
+}
+
+function buildGeneralizedRecentResponse(runs: Array<Record<string, unknown>>, appliedFilters: Record<string, unknown> = { artifact_kind: 'etf_ranking' }) {
+  return {
+    items: runs.map((run) => ({
+      artifact_kind: 'etf_ranking',
+      schema_version: 'etf_ranking_artifact_v1',
+      metadata: {
+        metadata_truth: 'authoritative_persisted_metadata',
+        metadata_provenance: 'persisted_artifact_body',
+        matched_metadata_provenance: 'persisted_artifact_body',
+        recency_same_day_provenance: 'etf_recent_index',
+      },
+      etf_summary: {
+        benchmark_symbol: run.benchmark_symbol,
+        lookback_months: run.lookback_months,
+        effective_peer_group: run.effective_peer_group,
+        universe_size: run.universe_size,
+        evaluated_universe_size: run.evaluated_universe_size,
+        confidence: run.confidence,
+      },
+      replacement_summary: null,
+      ...run,
+    })),
+    metadata: {
+      contract_version: 'ranking_artifact_discovery_v1',
+      metadata_truth: 'authoritative_persisted_metadata',
+      supported_metadata_provenance: ['persisted_artifact_body', 'persisted_etf_recent_index'],
+      supported_artifact_kinds: ['etf_ranking', 'intent_bound_etf_replacement_ranking'],
+      artifact_kind_registry_version: 'ranking_artifact_kind_registry_v1',
+      supported_filters: ['artifact_kind', 'effective_peer_group'],
+      artifact_kind_registry: [],
+      applied_filters: appliedFilters,
+    },
+  }
+}
 
 function buildRankingArtifact(overrides: Record<string, unknown> = {}) {
   return {
@@ -145,27 +280,36 @@ function buildOpenResponse(
 
 function installFetchRouter(options: {
   metadata?: { available_effective_peer_groups: string[] }
+  constructionPolicies?: Array<Record<string, unknown>>
   recentRuns?: Array<Record<string, unknown>>
   recentArtifact?: RankingArtifactFixture
   recentArtifactPreflight?: RankingArtifactPreflightFixture
   recentArtifactOpen?: RankingArtifactOpenFixture
   runArtifact?: RankingArtifactFixture
   recentMetadataStatus?: number
+  constructionPoliciesStatus?: number
   recentRunsStatus?: number
   runStatus?: number
   artifactPreflightStatus?: number
   artifactOpenStatus?: number
   runErrorBody?: unknown
+  constructionPoliciesErrorBody?: unknown
   artifactPreflightErrorBody?: unknown
   artifactOpenErrorBody?: unknown
 }) {
   const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = String(input)
+    if (url.includes('/construction/policies')) {
+      return jsonResponse(options.constructionPoliciesErrorBody ?? options.constructionPolicies ?? buildConstructionPoliciesResponse(), options.constructionPoliciesStatus ?? 200)
+    }
     if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
       return jsonResponse(options.metadata ?? { available_effective_peer_groups: ['Sector UCITS ETF'] }, options.recentMetadataStatus ?? 200)
     }
-    if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
-      return jsonResponse(options.recentRuns ?? [], options.recentRunsStatus ?? 200)
+    if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
+      const appliedFilters: Record<string, unknown> = { artifact_kind: 'etf_ranking' }
+      const peerGroup = new URL(url, 'https://example.test').searchParams.get('effective_peer_group')
+      if (peerGroup) appliedFilters.effective_peer_group = peerGroup
+      return jsonResponse(buildGeneralizedRecentResponse(options.recentRuns ?? [], appliedFilters), options.recentRunsStatus ?? 200)
     }
     if (url.includes('/strategy-lab/ranking-artifacts/preflight/')) {
       const artifact = options.recentArtifact ?? buildRankingArtifact()
@@ -506,11 +650,14 @@ describe('EtfRankingPanel', () => {
     let resolveFetch!: (value: Response | PromiseLike<Response>) => void
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return Promise.resolve(jsonResponse(buildConstructionPoliciesResponse()))
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([]))
+      if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([])))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
         return new Promise<Response>((resolve) => {
@@ -574,14 +721,17 @@ describe('EtfRankingPanel', () => {
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] })
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return jsonResponse([sectorRun, bondRun])
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([sectorRun, bondRun]))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent?effective_peer_group=Bond+UCITS+ETF')) {
-        return jsonResponse([bondRun])
+      if (url.includes('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking&effective_peer_group=Bond+UCITS+ETF')) {
+        return jsonResponse(buildGeneralizedRecentResponse([bondRun], { artifact_kind: 'etf_ranking', effective_peer_group: 'Bond UCITS ETF' }))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_bond_1') && (init?.method ?? 'GET') === 'POST') {
         return jsonResponse(buildPreflightResponse(bondArtifact))
@@ -611,8 +761,392 @@ describe('EtfRankingPanel', () => {
     expect(screen.getByText('Artifact: etf_ranking_artifact_bond_1')).toBeTruthy()
     expect(screen.getByText('Peer Group: Bond UCITS ETF')).toBeTruthy()
     expect(screen.getByText('Confidence: high')).toBeTruthy()
-    expect(screen.getByText('Open persisted result via typed handoff.')).toBeTruthy()
+    expect(screen.getByText('Open a workspace with an authoritative current portfolio to review this ranking in construction')).toBeTruthy()
     expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it('offers Review In Construction for persisted ETF rankings and routes the handoff without inline ranked_universe', async () => {
+    const onReviewInConstruction = vi.fn()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()]))
+      }
+      if (url.endsWith('/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.endsWith('/construction/run') && (init?.method ?? 'GET') === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}'))
+        expect(body.ranked_universe).toBeUndefined()
+        expect(body.policy).toEqual({ policy_id: 'top_n_equal_weight_v1', top_n: 2 })
+        expect(body.hard_constraints).toEqual({
+          full_investment: true,
+          long_only: true,
+          eligible_ranked_universe_only: true,
+          max_position_weight: 0.6,
+          min_position_weight: 0.2,
+        })
+        expect(body.ranking_artifact_handoff).toEqual({
+          handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+          artifact_kind: 'etf_ranking',
+          artifact_id: 'etf_ranking_artifact_sector_1',
+          schema_version: 'etf_ranking_artifact_v1',
+          ranking_id: 'etf_ranking_engine_v1',
+          methodology_id: 'etf_ranking_methodology_v1',
+          as_of_date: '2026-04-15',
+        })
+        return jsonResponse({
+          schema_version: 'construction_artifact_v1',
+          artifact_id: 'construction_artifact_123',
+          normalized_inputs: {
+            ranked_universe_artifact_kind: 'etf_ranking',
+            ranked_universe_artifact_id: 'etf_ranking_artifact_sector_1',
+            ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            ranking_methodology_id: 'etf_ranking_methodology_v1',
+            ranking_as_of_date: '2026-04-15',
+            current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+            current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+            policy_id: 'top_n_equal_weight_v1',
+            policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+            top_n: 2,
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} currentPortfolio={authoritativeCurrentPortfolio} onReviewInConstruction={onReviewInConstruction} />)
+
+    fireEvent.change(screen.getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
+    await waitFor(() => expect(screen.getByText('Review In Construction')).toBeTruthy())
+    fireEvent.click(screen.getByText('Review In Construction'))
+
+    await waitFor(() => expect(onReviewInConstruction).toHaveBeenCalledWith(expect.objectContaining({
+      rankingArtifactId: 'etf_ranking_artifact_sector_1',
+      run: expect.objectContaining({ artifact_id: 'construction_artifact_123' }),
+    })))
+    expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it('passes an edited max position weight into Review In Construction', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()]))
+      }
+      if (url.endsWith('/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.endsWith('/construction/run') && (init?.method ?? 'GET') === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}'))
+        expect(body.hard_constraints).toEqual({
+          full_investment: true,
+          long_only: true,
+          eligible_ranked_universe_only: true,
+          max_position_weight: 0.75,
+          min_position_weight: 0.25,
+        })
+        return jsonResponse({
+          schema_version: 'construction_artifact_v1',
+          artifact_id: 'construction_artifact_123',
+          normalized_inputs: {
+            ranked_universe_artifact_kind: 'etf_ranking',
+            ranked_universe_artifact_id: 'etf_ranking_artifact_sector_1',
+            ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            ranking_methodology_id: 'etf_ranking_methodology_v1',
+            ranking_as_of_date: '2026-04-15',
+            current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+            current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+            policy_id: 'top_n_equal_weight_v1',
+            policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+            top_n: 2,
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} currentPortfolio={authoritativeCurrentPortfolio} />)
+
+    fireEvent.change(screen.getByLabelText('Max Position Weight'), { target: { value: '0.75' } })
+    fireEvent.change(screen.getByLabelText('Min Position Weight (optional)'), { target: { value: '0.25' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review In Construction' })).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Review In Construction' }))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/construction/run'),
+      expect.objectContaining({ method: 'POST' }),
+    ))
+  })
+
+  it('blocks Review In Construction locally when no active workspace draft is available', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()]))
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel />)
+
+    await waitFor(() => expect(screen.getByText('Review In Construction')).toBeTruthy())
+    expect(screen.getByText('Open a workspace with an authoritative current portfolio to review this ranking in construction')).toBeTruthy()
+  })
+
+  it('blocks Review In Construction locally when max position weight is blank or out of range', async () => {
+    installFetchRouter({ recentRuns: [buildRecentRun()] })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
+
+    const maxPositionWeightInput = await screen.findByLabelText('Max Position Weight')
+    const reviewButton = screen.getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement
+
+    fireEvent.change(maxPositionWeightInput, { target: { value: '' } })
+    await waitFor(() => expect(reviewButton.disabled).toBe(true))
+    expect(screen.getAllByText('Enter a max position weight as a decimal between 0.5 and 1.').length).toBeGreaterThan(0)
+
+    fireEvent.change(maxPositionWeightInput, { target: { value: '1.1' } })
+    await waitFor(() => expect(reviewButton.disabled).toBe(true))
+    expect(screen.getAllByText('Max position weight must be between 0.5 and 1.').length).toBeGreaterThan(0)
+  })
+
+  it('omits min position weight when left blank and blocks invalid local min values', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()]))
+      }
+      if (url.endsWith('/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.endsWith('/construction/run') && (init?.method ?? 'GET') === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}'))
+        expect(body.hard_constraints).toEqual({
+          full_investment: true,
+          long_only: true,
+          eligible_ranked_universe_only: true,
+          max_position_weight: 0.6,
+        })
+        return jsonResponse({
+          schema_version: 'construction_artifact_v1',
+          artifact_id: 'construction_artifact_123',
+          normalized_inputs: {
+            ranked_universe_artifact_kind: 'etf_ranking',
+            ranked_universe_artifact_id: 'etf_ranking_artifact_sector_1',
+            ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            ranking_methodology_id: 'etf_ranking_methodology_v1',
+            ranking_as_of_date: '2026-04-15',
+            current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+            current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+            policy_id: 'top_n_equal_weight_v1',
+            policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+            top_n: 2,
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} currentPortfolio={authoritativeCurrentPortfolio} />)
+
+    const reviewButton = await screen.findByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement
+    fireEvent.change(screen.getByLabelText('Min Position Weight (optional)'), { target: { value: '0.7' } })
+    await waitFor(() => expect(reviewButton.disabled).toBe(true))
+    expect(screen.getAllByText('Min position weight must be less than or equal to 0.5.').length).toBeGreaterThan(0)
+
+    fireEvent.change(screen.getByLabelText('Min Position Weight (optional)'), { target: { value: '' } })
+    await waitFor(() => expect(reviewButton.disabled).toBe(false))
+    fireEvent.click(reviewButton)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/construction/run'),
+      expect.objectContaining({ method: 'POST' }),
+    ))
+  })
+
+  it('surfaces only equal-weight and linear-rank launch policies', async () => {
+    installFetchRouter({ recentRuns: [buildRecentRun()] })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} currentPortfolio={authoritativeCurrentPortfolio} />)
+
+    const policySelect = await screen.findByLabelText('Construction Policy')
+    expect(screen.getByRole('option', { name: 'Top N Equal Weight v1' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Top N Linear Rank Weight v1' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'Top N Inverse Rank Weight v1' })).toBeNull()
+    expect((policySelect as HTMLSelectElement).value).toBe('top_n_equal_weight_v1')
+    expect(screen.getAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count').length).toBeGreaterThan(0)
+  })
+
+  it('fails closed when equal weight is not discovered in the canonical launch profile', async () => {
+    installFetchRouter({
+      recentRuns: [buildRecentRun()],
+      constructionPolicies: buildConstructionPoliciesResponse(['top_n_inverse_rank_weight_v1', 'top_n_linear_rank_weight_v1']),
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} currentPortfolio={authoritativeCurrentPortfolio} />)
+
+    await waitFor(() => expect(screen.getByText('Construction policies are unavailable.')).toBeTruthy())
+    expect(screen.getAllByText('Construction policy catalog must define exactly one default launch policy').length).toBeGreaterThan(0)
+  })
+
+  it('fails closed when construction policy discovery returns an unsupported launch_top_n', async () => {
+    installFetchRouter({
+      recentRuns: [buildRecentRun()],
+      constructionPolicies: buildConstructionPoliciesResponse().map((policy) => ({
+        ...policy,
+        launch_top_n: policy.policy_id === 'top_n_equal_weight_v1' ? 3 : policy.launch_top_n,
+      })),
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
+
+    await waitFor(() => expect(screen.getByText('Construction policies are unavailable.')).toBeTruthy())
+    expect(screen.getAllByText('Construction policy catalog returned an unsupported launch_top_n').length).toBeGreaterThan(0)
+  })
+
+  it('fails closed when construction policy discovery returns policy-status metadata inconsistent with policy identity', async () => {
+    installFetchRouter({
+      recentRuns: [buildRecentRun()],
+      constructionPolicies: buildConstructionPoliciesResponse().map((policy) => ({
+        ...policy,
+        launch_profile: {
+          ...policy.launch_profile,
+          policy_status: policy.policy_id === 'top_n_linear_rank_weight_v1' ? 'default' : policy.launch_profile.policy_status,
+        },
+      })),
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
+
+    await waitFor(() => expect(screen.getByText('Construction policies are unavailable.')).toBeTruthy())
+    expect(screen.getAllByText('Construction policy catalog returned policy metadata inconsistent with launch_profile.policy_status').length).toBeGreaterThan(0)
+  })
+
+  it('opens a requested persisted ETF ranking artifact on entry', async () => {
+    const preflight = buildPreflightResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_recent_open' }))
+    const open = buildOpenResponse(buildRankingArtifact({ artifact_id: 'etf_ranking_artifact_recent_open' }), preflight)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
+        return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_recent_open' })]))
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_recent_open') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse(preflight)
+      }
+      if (url.endsWith('/strategy-lab/ranking-artifacts/open') && (init?.method ?? 'GET') === 'POST') {
+        return jsonResponse(open)
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    const onConsumeRequestedRecentArtifactId = vi.fn()
+
+    render(<EtfRankingPanel requestedRecentArtifactId="etf_ranking_artifact_recent_open" onConsumeRequestedRecentArtifactId={onConsumeRequestedRecentArtifactId} />)
+
+    await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
+    expect(onConsumeRequestedRecentArtifactId).toHaveBeenCalledTimes(1)
   })
 
   it('opens recent artifacts through preflight handoff and typed open payload', async () => {
@@ -621,11 +1155,14 @@ describe('EtfRankingPanel', () => {
     const open = buildOpenResponse(recentArtifact, preflight)
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] })
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return jsonResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_recent_open' })])
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return jsonResponse(buildGeneralizedRecentResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_recent_open' })]))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_recent_open') && (init?.method ?? 'GET') === 'POST') {
         return jsonResponse(preflight)
@@ -746,10 +1283,13 @@ describe('EtfRankingPanel', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return Promise.resolve(jsonResponse(buildConstructionPoliciesResponse()))
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+      if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
         return Promise.resolve(jsonResponse([]))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
@@ -792,11 +1332,14 @@ describe('EtfRankingPanel', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return Promise.resolve(jsonResponse(buildConstructionPoliciesResponse()))
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })])))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
         runCount += 1
@@ -849,11 +1392,14 @@ describe('EtfRankingPanel', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return Promise.resolve(jsonResponse(buildConstructionPoliciesResponse()))
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun()]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
@@ -895,11 +1441,11 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_sector_1' }),
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
-        ]))
+        ])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
@@ -939,10 +1485,13 @@ describe('EtfRankingPanel', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return Promise.resolve(jsonResponse(buildConstructionPoliciesResponse()))
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.includes('/strategy-lab/etf-ranking/artifacts/recent')) {
+      if (url.includes('/strategy-lab/ranking-artifacts/recent')) {
         return Promise.resolve(jsonResponse([]))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
@@ -981,11 +1530,14 @@ describe('EtfRankingPanel', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return Promise.resolve(jsonResponse(buildConstructionPoliciesResponse()))
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun(), buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun(), buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' })])))
       }
       if (url.endsWith('/strategy-lab/etf-ranking') && (init?.method ?? 'GET') === 'POST') {
         return runRequest.promise
@@ -1026,8 +1578,8 @@ describe('EtfRankingPanel', () => {
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([buildRecentRun()]))
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([buildRecentRun()])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))
@@ -1067,14 +1619,17 @@ describe('EtfRankingPanel', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
       const url = String(input)
+      if (url.includes('/construction/policies')) {
+        return Promise.resolve(jsonResponse(buildConstructionPoliciesResponse()))
+      }
       if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent/metadata')) {
         return Promise.resolve(jsonResponse({ available_effective_peer_groups: ['Sector UCITS ETF', 'Bond UCITS ETF'] }))
       }
-      if (url.endsWith('/strategy-lab/etf-ranking/artifacts/recent')) {
-        return Promise.resolve(jsonResponse([
+      if (url.endsWith('/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking')) {
+        return Promise.resolve(jsonResponse(buildGeneralizedRecentResponse([
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_sector_1' }),
           buildRecentRun({ artifact_id: 'etf_ranking_artifact_bond_1', effective_peer_group: 'Bond UCITS ETF', benchmark_symbol: 'AGG', confidence: 'high' }),
-        ]))
+        ])))
       }
       if (url.endsWith('/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && (init?.method ?? 'GET') === 'POST') {
         return Promise.resolve(jsonResponse(buildPreflightResponse(sectorArtifact)))

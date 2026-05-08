@@ -853,6 +853,31 @@ class ReviewSnapshotFamilyKey(BaseModel):
     proposal_family_id: str
     source_kind: ReviewSnapshotSourceKind = "hypothetical_replacement_replay"
 
+    @field_validator("workspace_id", "source_draft_id", "source_base_node_id", "proposal_family_id")
+    @classmethod
+    def _validate_required_family_key_fields(cls, value: str, info) -> str:
+        if not value or not value.strip():
+            raise ValueError(f"review snapshot family key {info.field_name} is required")
+        return value
+
+
+def _validate_review_snapshot_family_key_matches_lineage(
+    family_key: ReviewSnapshotFamilyKey,
+    lineage: ReviewSnapshotArtifactLineage,
+    *,
+    context: str,
+) -> None:
+    if lineage.workspace_id != family_key.workspace_id:
+        raise ValueError(f"{context} workspace_id does not match family_key")
+    if lineage.source_draft_id != family_key.source_draft_id:
+        raise ValueError(f"{context} source_draft_id does not match family_key")
+    if lineage.source_base_node_id != family_key.source_base_node_id:
+        raise ValueError(f"{context} source_base_node_id does not match family_key")
+    if lineage.proposal_family_id != family_key.proposal_family_id:
+        raise ValueError(f"{context} proposal_family_id does not match family_key")
+    if lineage.source_kind != family_key.source_kind:
+        raise ValueError(f"{context} source_kind does not match family_key")
+
 
 class ReviewSnapshotSiblingComparisonEligibility(BaseModel):
     eligible: bool
@@ -945,16 +970,11 @@ class ReviewSnapshotFamilyInboxRow(BaseModel):
             candidate_construction_rule=self.proposal_capture.review_basis.candidate_construction_rule,
         ):
             raise ValueError("review snapshot family inbox row pm_summary review_basis does not match proposal_capture review_basis")
-        if self.lineage.workspace_id != self.family_key.workspace_id:
-            raise ValueError("review snapshot family inbox row workspace_id does not match family_key")
-        if self.lineage.source_draft_id != self.family_key.source_draft_id:
-            raise ValueError("review snapshot family inbox row source_draft_id does not match family_key")
-        if self.lineage.source_base_node_id != self.family_key.source_base_node_id:
-            raise ValueError("review snapshot family inbox row source_base_node_id does not match family_key")
-        if self.lineage.proposal_family_id != self.family_key.proposal_family_id:
-            raise ValueError("review snapshot family inbox row proposal_family_id does not match family_key")
-        if self.lineage.source_kind != self.family_key.source_kind:
-            raise ValueError("review snapshot family inbox row source_kind does not match family_key")
+        _validate_review_snapshot_family_key_matches_lineage(
+            self.family_key,
+            self.lineage,
+            context="review snapshot family inbox row",
+        )
         if not self.latest_saved_at:
             raise ValueError("review snapshot family inbox row latest_saved_at is required")
         return self
@@ -1036,26 +1056,16 @@ class ReviewSnapshotComparisonResponse(BaseModel):
             raise ValueError("review snapshot comparison baseline_pm_summary assumptions do not match assumptions envelope")
         if self.candidate_pm_summary.assumptions != self.assumptions.candidate_assumptions:
             raise ValueError("review snapshot comparison candidate_pm_summary assumptions do not match assumptions envelope")
-        if self.baseline_pm_summary.provenance.lineage.proposal_family_id != self.family_key.proposal_family_id:
-            raise ValueError("review snapshot comparison baseline_pm_summary proposal_family_id does not match family_key")
-        if self.candidate_pm_summary.provenance.lineage.proposal_family_id != self.family_key.proposal_family_id:
-            raise ValueError("review snapshot comparison candidate_pm_summary proposal_family_id does not match family_key")
-        if self.baseline_pm_summary.provenance.lineage.workspace_id != self.family_key.workspace_id:
-            raise ValueError("review snapshot comparison baseline_pm_summary workspace_id does not match family_key")
-        if self.candidate_pm_summary.provenance.lineage.workspace_id != self.family_key.workspace_id:
-            raise ValueError("review snapshot comparison candidate_pm_summary workspace_id does not match family_key")
-        if self.baseline_pm_summary.provenance.lineage.source_draft_id != self.family_key.source_draft_id:
-            raise ValueError("review snapshot comparison baseline_pm_summary source_draft_id does not match family_key")
-        if self.candidate_pm_summary.provenance.lineage.source_draft_id != self.family_key.source_draft_id:
-            raise ValueError("review snapshot comparison candidate_pm_summary source_draft_id does not match family_key")
-        if self.baseline_pm_summary.provenance.lineage.source_base_node_id != self.family_key.source_base_node_id:
-            raise ValueError("review snapshot comparison baseline_pm_summary source_base_node_id does not match family_key")
-        if self.candidate_pm_summary.provenance.lineage.source_base_node_id != self.family_key.source_base_node_id:
-            raise ValueError("review snapshot comparison candidate_pm_summary source_base_node_id does not match family_key")
-        if self.baseline_pm_summary.provenance.lineage.source_kind != self.family_key.source_kind:
-            raise ValueError("review snapshot comparison baseline_pm_summary source_kind does not match family_key")
-        if self.candidate_pm_summary.provenance.lineage.source_kind != self.family_key.source_kind:
-            raise ValueError("review snapshot comparison candidate_pm_summary source_kind does not match family_key")
+        _validate_review_snapshot_family_key_matches_lineage(
+            self.family_key,
+            self.baseline_pm_summary.provenance.lineage,
+            context="review snapshot comparison baseline_pm_summary",
+        )
+        _validate_review_snapshot_family_key_matches_lineage(
+            self.family_key,
+            self.candidate_pm_summary.provenance.lineage,
+            context="review snapshot comparison candidate_pm_summary",
+        )
         return self
 
 
@@ -1144,16 +1154,11 @@ class ReviewSnapshotActiveThesisCrossFamilyQueueRow(BaseModel):
 
     @model_validator(mode="after")
     def _validate_cross_family_queue_row(self) -> "ReviewSnapshotActiveThesisCrossFamilyQueueRow":
-        if self.lineage.workspace_id != self.family_key.workspace_id:
-            raise ValueError("review snapshot active thesis cross-family queue row workspace_id does not match family_key")
-        if self.lineage.source_draft_id != self.family_key.source_draft_id:
-            raise ValueError("review snapshot active thesis cross-family queue row source_draft_id does not match family_key")
-        if self.lineage.source_base_node_id != self.family_key.source_base_node_id:
-            raise ValueError("review snapshot active thesis cross-family queue row source_base_node_id does not match family_key")
-        if self.lineage.proposal_family_id != self.family_key.proposal_family_id:
-            raise ValueError("review snapshot active thesis cross-family queue row proposal_family_id does not match family_key")
-        if self.lineage.source_kind != self.family_key.source_kind:
-            raise ValueError("review snapshot active thesis cross-family queue row source_kind does not match family_key")
+        _validate_review_snapshot_family_key_matches_lineage(
+            self.family_key,
+            self.lineage,
+            context="review snapshot active thesis cross-family queue row",
+        )
         if self.family_separation.queue_proposal_family_id != self.family_key.proposal_family_id:
             raise ValueError("review snapshot active thesis cross-family queue row family_separation queue_proposal_family_id does not match family_key")
         if self.latest_identity.artifact_id == "":
@@ -1184,16 +1189,11 @@ class ReviewSnapshotActiveThesisCrossFamilyQueueActiveThesis(BaseModel):
             raise ValueError("review snapshot active thesis cross-family queue handoff schema_version does not match active thesis identity")
         if self.handoff.consumer_kind != self.identity.consumer_kind:
             raise ValueError("review snapshot active thesis cross-family queue handoff consumer_kind does not match active thesis identity")
-        if self.lineage.workspace_id != self.family_key.workspace_id:
-            raise ValueError("review snapshot active thesis cross-family queue active thesis workspace_id does not match family_key")
-        if self.lineage.source_draft_id != self.family_key.source_draft_id:
-            raise ValueError("review snapshot active thesis cross-family queue active thesis source_draft_id does not match family_key")
-        if self.lineage.source_base_node_id != self.family_key.source_base_node_id:
-            raise ValueError("review snapshot active thesis cross-family queue active thesis source_base_node_id does not match family_key")
-        if self.lineage.proposal_family_id != self.family_key.proposal_family_id:
-            raise ValueError("review snapshot active thesis cross-family queue active thesis proposal_family_id does not match family_key")
-        if self.lineage.source_kind != self.family_key.source_kind:
-            raise ValueError("review snapshot active thesis cross-family queue active thesis source_kind does not match family_key")
+        _validate_review_snapshot_family_key_matches_lineage(
+            self.family_key,
+            self.lineage,
+            context="review snapshot active thesis cross-family queue active thesis",
+        )
         return self
 
 
@@ -1211,17 +1211,17 @@ class ReviewSnapshotFamilyReviewResponse(BaseModel):
             raise ValueError("review snapshot family review requires at least one sibling")
         if not any(sibling.identity.artifact_id == self.anchor.identity.artifact_id for sibling in self.siblings):
             raise ValueError("review snapshot family review anchor must be present in siblings")
+        _validate_review_snapshot_family_key_matches_lineage(
+            self.family_key,
+            self.anchor.lineage,
+            context="review snapshot family review anchor",
+        )
         for sibling in self.siblings:
-            if sibling.lineage.workspace_id != self.family_key.workspace_id:
-                raise ValueError("review snapshot family review sibling workspace_id does not match family_key")
-            if sibling.lineage.source_draft_id != self.family_key.source_draft_id:
-                raise ValueError("review snapshot family review sibling source_draft_id does not match family_key")
-            if sibling.lineage.source_base_node_id != self.family_key.source_base_node_id:
-                raise ValueError("review snapshot family review sibling source_base_node_id does not match family_key")
-            if sibling.lineage.proposal_family_id != self.family_key.proposal_family_id:
-                raise ValueError("review snapshot family review sibling proposal_family_id does not match family_key")
-            if sibling.lineage.source_kind != self.family_key.source_kind:
-                raise ValueError("review snapshot family review sibling source_kind does not match family_key")
+            _validate_review_snapshot_family_key_matches_lineage(
+                self.family_key,
+                sibling.lineage,
+                context="review snapshot family review sibling",
+            )
         return self
 
 
@@ -1307,9 +1307,13 @@ class ConstructionArtifactReplayProvenance(BaseModel):
     policy_id: str
     policy_definition_id: ConstructionPolicyDefinitionId
     ranked_universe_artifact_id: str | None = None
+    ranked_universe_artifact_schema_version: str | None = None
     ranking_id: str | None = None
     ranking_methodology_id: str | None = None
+    ranking_as_of_date: str | None = None
     current_portfolio_artifact_id: str | None = None
+    current_portfolio_as_of_timestamp: str | None = None
+    top_n: int = Field(ge=1)
     hard_constraints: ConstructionHardConstraints
     baseline_input_source: Literal["normalized_inputs.current_portfolio_weights"] = "normalized_inputs.current_portfolio_weights"
     candidate_input_source: Literal["final_target_weights"] = "final_target_weights"
@@ -1352,6 +1356,22 @@ class ConstructionArtifactReplayResponse(BaseModel):
             raise ValueError("review_basis.construction_artifact_id must match construction_artifact_id")
         if self.review_basis.preview_handoff.effective_replay_params != self.effective_replay_params:
             raise ValueError("review_basis.preview_handoff.effective_replay_params must match effective_replay_params")
+        if self.replay_provenance.construction_artifact_id != self.construction_artifact_id:
+            raise ValueError("replay_provenance.construction_artifact_id must match construction_artifact_id")
+        if self.review_basis.launch_context != ConstructionArtifactWorkspaceLaunchContext(
+            construction_artifact_id=self.replay_provenance.construction_artifact_id,
+            ranked_universe_artifact_id=self.replay_provenance.ranked_universe_artifact_id,
+            ranked_universe_artifact_schema_version=self.replay_provenance.ranked_universe_artifact_schema_version,
+            ranking_id=self.replay_provenance.ranking_id,
+            ranking_methodology_id=self.replay_provenance.ranking_methodology_id,
+            ranking_as_of_date=self.replay_provenance.ranking_as_of_date,
+            current_portfolio_artifact_id=self.replay_provenance.current_portfolio_artifact_id,
+            current_portfolio_as_of_timestamp=self.replay_provenance.current_portfolio_as_of_timestamp,
+            policy_id=self.replay_provenance.policy_id,
+            policy_definition_id=self.replay_provenance.policy_definition_id,
+            top_n=self.replay_provenance.top_n,
+        ):
+            raise ValueError("review_basis.launch_context must match replay_provenance launch lineage")
         return self
 
 
@@ -1368,6 +1388,20 @@ class WorkspaceReviewWindow(BaseModel):
     end_date: str | None = None
 
 
+class ConstructionArtifactWorkspaceLaunchContext(BaseModel):
+    construction_artifact_id: str
+    ranked_universe_artifact_id: str | None = None
+    ranked_universe_artifact_schema_version: str | None = None
+    ranking_id: str | None = None
+    ranking_methodology_id: str | None = None
+    ranking_as_of_date: str | None = None
+    current_portfolio_artifact_id: str | None = None
+    current_portfolio_as_of_timestamp: str | None = None
+    policy_id: str
+    policy_definition_id: ConstructionPolicyDefinitionId
+    top_n: int = Field(ge=1)
+
+
 class ConstructionArtifactWorkspaceReviewBasis(BaseModel):
     basis_version: Literal[1] = 1
     basis_kind: Literal["persisted_construction_artifact_review"] = "persisted_construction_artifact_review"
@@ -1378,6 +1412,7 @@ class ConstructionArtifactWorkspaceReviewBasis(BaseModel):
     candidate_truth: Literal["hypothetical_construction_artifact"] = "hypothetical_construction_artifact"
     construction_artifact_id: str
     preview_handoff: ConstructionArtifactPreviewHandoff
+    launch_context: ConstructionArtifactWorkspaceLaunchContext
     benchmark_symbol: str | None = None
     base_currency: str | None = None
     replay_window: WorkspaceReviewWindow
@@ -1388,6 +1423,8 @@ class ConstructionArtifactWorkspaceReviewBasis(BaseModel):
     def _validate_preview_handoff_identity(self) -> "ConstructionArtifactWorkspaceReviewBasis":
         if self.preview_handoff.construction_artifact_id != self.construction_artifact_id:
             raise ValueError("review_basis.preview_handoff.construction_artifact_id must match construction_artifact_id")
+        if self.launch_context.construction_artifact_id != self.construction_artifact_id:
+            raise ValueError("review_basis.launch_context.construction_artifact_id must match construction_artifact_id")
         return self
 
 

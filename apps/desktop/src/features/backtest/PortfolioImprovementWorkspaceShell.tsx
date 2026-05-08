@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { PersistedReplacementRankingBrowser } from './PersistedReplacementRankingBrowser'
+import { PersistedEtfRankingConstructionBrowser } from './PersistedEtfRankingConstructionBrowser'
+import { buildAuthoritativeCurrentPortfolio } from './currentPortfolio'
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
-import { investorEconomicsBaseReason } from '../portfolio/investorEconomics'
 import type { MonitoringResearchHandoff, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewSessionState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotOpenResponse, ReplacementIntentDraftArtifact, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyReviewResponse, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { assertSavedProposalProposalCaptureIntegrity, assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope, assertValidReviewSnapshotComparisonResponseEnvelope, assertValidReviewSnapshotFamilyInboxResponseEnvelope, assertValidReviewSnapshotFamilyReviewResponseEnvelope, assertValidReviewSnapshotOpenResponseEnvelope, buildReviewSnapshotComparisonRefs, buildReviewSnapshotOpenHandoffFromProposal } from '../../app/portfolioWorkspaceStorage'
@@ -71,18 +73,6 @@ function formatSignedNumber(value: number | null | undefined) {
   return `${value > 0 ? '+' : ''}${value.toFixed(2)}`
 }
 
-function formatCandidateFormationStatus(status: 'ok' | 'rejected' | null | undefined) {
-  if (status === 'ok') return 'Formed'
-  if (status === 'rejected') return 'Rejected'
-  return 'Not yet formed'
-}
-
-function formatConstructionStatus(status: 'ok' | 'rejected' | null | undefined) {
-  if (status === 'ok') return 'Constructed'
-  if (status === 'rejected') return 'Rejected'
-  return 'Not yet constructed'
-}
-
 function diagnosticsValueLabel(row: PortfolioDiagnosticsTopCallout) {
   if (row.key.includes('hhi') || row.key.includes('beta') || row.key.includes('correlation')) {
     return formatSignedNumber(row.delta_value)
@@ -90,23 +80,13 @@ function diagnosticsValueLabel(row: PortfolioDiagnosticsTopCallout) {
   return formatSignedPct(row.delta_value)
 }
 
-type DecisionSummaryCard = {
+type WorkflowSpineCard = {
   key: string
   title: string
   value: string
   detail: string
-}
-
-type DiagnosticsTakeaway = {
-  group: string
-  callout: PortfolioDiagnosticsTopCallout
-}
-
-function getLatestProposal(proposals: VersionedProposalArtifact[]) {
-  return [...proposals].sort((left, right) => {
-    if (left.versionNumber !== right.versionNumber) return right.versionNumber - left.versionNumber
-    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-  })[0] ?? null
+  sectionId: string | null
+  status: WorkflowSectionStatus
 }
 
 function getActiveReplay(props: Props) {
@@ -139,19 +119,6 @@ function getActiveCandidatePair(props: Props) {
   return null
 }
 
-function getTopDiagnosticsTakeaway(activeReplay: PortfolioAllocationBacktestResponse | null): DiagnosticsTakeaway | null {
-  if (!activeReplay?.diagnostics_comparison) return null
-
-  const candidates: DiagnosticsTakeaway[] = [
-    activeReplay.diagnostics_comparison.top_concentration_change ? { group: 'Concentration', callout: activeReplay.diagnostics_comparison.top_concentration_change } : null,
-    activeReplay.diagnostics_comparison.top_factor_exposure_change ? { group: 'Factor Exposure', callout: activeReplay.diagnostics_comparison.top_factor_exposure_change } : null,
-    activeReplay.diagnostics_comparison.top_volatility_change ? { group: 'Volatility & Drawdown', callout: activeReplay.diagnostics_comparison.top_volatility_change } : null,
-    activeReplay.diagnostics_comparison.top_risk_contribution_change ? { group: 'Risk Contribution', callout: activeReplay.diagnostics_comparison.top_risk_contribution_change } : null,
-    activeReplay.diagnostics_comparison.top_stress_scenario_change ? { group: 'Stress / Scenario', callout: activeReplay.diagnostics_comparison.top_stress_scenario_change } : null,
-  ].filter((candidate): candidate is DiagnosticsTakeaway => candidate != null)
-
-  return candidates[0] ?? null
-}
 
 function getProposalReplayType(proposal: VersionedProposalArtifact) {
   return 'replay' in proposal.reviewSnapshot ? 'Standard replay' : 'Overlay-aware replay'
@@ -167,9 +134,13 @@ function formatReplayStatusLabel(status: string | null | undefined) {
   return status
 }
 
+function replaceUnderscoresWithSpaces(value: string) {
+  return value.replace(/_/g, ' ')
+}
+
 function formatProposalSourceKind(value: string | null | undefined) {
   if (!value) return 'n/a'
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatCompareReadinessLabel(ready: boolean) {
@@ -260,28 +231,28 @@ type AlertHistoryOpenState = {
 
 function formatObservationStatusLabel(value: MonitorDefinitionObservationArtifact['observation_status'] | MonitorDefinitionAlertReviewTimelineObservationRow['observation_status']) {
   if (value === 'threshold_breach') return 'alert'
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatObservationAlertClassificationLabel(value: MonitorDefinitionAlertReviewTimelineObservationRow['alert_classification']) {
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatObservationCauseCodeLabel(value: MonitorDefinitionAlertReviewTimelineObservationRow['cause_code']) {
-  return value ? value.replaceAll('_', ' ') : 'none'
+  return value ? replaceUnderscoresWithSpaces(value) : 'none'
 }
 
 function formatAlertHistoryOutcomeLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['outcome_status']) {
   if (value === 'threshold_breach') return 'alert'
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatAlertHistorySignificanceLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['significance_status']) {
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function formatAlertHistoryReviewSupportLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['review_support_status']) {
-  return value.replaceAll('_', ' ')
+  return replaceUnderscoresWithSpaces(value)
 }
 
 function buildReviewSnapshotComparisonRef(
@@ -499,234 +470,6 @@ function SavedProposalComparisonView({
   )
 }
 
-function buildDecisionSummaryCards(props: Props): DecisionSummaryCard[] {
-  const baselinePositions = props.draftSnapshot?.positions.length ?? props.analysis?.snapshot.positions.length ?? null
-  const baselineBenchmark = props.draftSnapshot?.metadata.benchmarkSymbol ?? null
-  const activeCandidatePair = getActiveCandidatePair(props)
-  const activeFormation = props.formedCandidateArtifact?.formation ?? null
-  const activeConstruction = props.constructedCandidateArtifact?.construction ?? null
-  const formationMatchesIntent = Boolean(
-    props.replacementIntentDraft
-    && props.formedCandidateArtifact
-    && props.formedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
-    && props.formedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
-    && props.formedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol,
-  )
-  const constructionMatchesIntent = Boolean(
-    props.replacementIntentDraft
-    && props.constructedCandidateArtifact
-    && props.constructedCandidateArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
-      && props.constructedCandidateArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
-      && props.constructedCandidateArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol,
-  )
-  const constructionMatchesRule = Boolean(
-    props.constructedCandidateArtifact
-    && props.constructedCandidateArtifact.constructionRuleId === props.selectedConstructionRuleId
-    && props.constructedCandidateArtifact.construction.construction.rule_id === props.selectedConstructionRuleId,
-  )
-  const activeConstraintValidation = props.constructionConstraintValidationArtifact?.validation ?? null
-  const constraintValidationMatchesIntent = Boolean(
-    props.replacementIntentDraft
-    && props.constructionConstraintValidationArtifact
-    && props.constructionConstraintValidationArtifact.replacementIntentCreatedAt === props.replacementIntentDraft.createdAt
-    && props.constructionConstraintValidationArtifact.replacementIntentBaseSymbol === props.replacementIntentDraft.baseSymbol
-    && props.constructionConstraintValidationArtifact.replacementIntentCandidateSymbol === props.replacementIntentDraft.candidateSymbol,
-  )
-  const constraintValidationMatchesRule = Boolean(
-    props.constructionConstraintValidationArtifact
-    && props.constructionConstraintValidationArtifact.constructionRuleId === props.selectedConstructionRuleId,
-  )
-  const hasPassingConstraintValidation = Boolean(
-    constraintValidationMatchesIntent
-    && constraintValidationMatchesRule
-    && activeConstraintValidation?.validation.status === 'ok',
-  )
-  const hasBlockedConstraintValidation = Boolean(
-    constraintValidationMatchesIntent
-    && constraintValidationMatchesRule
-    && activeConstraintValidation?.validation.status === 'blocked',
-  )
-  const hasRejectedConstraintValidation = Boolean(
-    constraintValidationMatchesIntent
-    && constraintValidationMatchesRule
-    && activeConstraintValidation?.validation.status === 'rejected',
-  )
-  const activeReplay = getActiveReplay(props)
-  const replayInvestorEconomicsWithheld = investorEconomicsBaseReason(activeReplay?.investor_economics_status) != null
-  const replayTotalReturnDelta = activeReplay?.comparison?.total_return_diff_pct ?? null
-  const replayCandidateTotalReturn = activeReplay?.candidate_result?.metrics?.total_return_pct ?? null
-  const diagnosticsTakeaway = getTopDiagnosticsTakeaway(activeReplay)
-  const latestProposal = getLatestProposal(props.savedProposals)
-  const latestProposalCapture = latestProposal ? assertSavedProposalCaptureForWorkspaceShell(latestProposal, 'Saved proposal') : null
-
-  return [
-    {
-      key: 'baseline',
-      title: 'Baseline',
-      value: baselinePositions != null || baselineBenchmark
-        ? `${formatValue(baselinePositions)} positions · ${formatValue(baselineBenchmark)} benchmark`
-        : 'Not loaded',
-      detail: baselinePositions != null || baselineBenchmark
-        ? 'Current portfolio basis is available from imported or draft portfolio truth.'
-        : 'No current portfolio basis is loaded yet, so the workflow remains review-incomplete.',
-    },
-    {
-      key: 'candidate',
-      title: 'Active Candidate',
-      value: activeCandidatePair
-        ? `${activeCandidatePair.baseSymbol} -> ${activeCandidatePair.candidateSymbol}`
-        : 'Not selected',
-      detail: props.replacementIntentDraft
-        ? 'An explicit replacement intent is attached for draft-only replay review. It is not an applied holdings change.'
-        : activeCandidatePair
-          ? 'A candidate has been selected, but it has not yet been promoted into an explicit replacement intent.'
-          : 'No active candidate or replacement intent exists yet for this workflow.',
-    },
-    {
-      key: 'formation',
-      title: 'Candidate Formation',
-      value: !props.replacementIntentDraft
-        ? 'Blocked'
-        : !props.formedCandidateArtifact
-          ? formatCandidateFormationStatus(null)
-          : !formationMatchesIntent
-            ? 'Stale'
-            : formatCandidateFormationStatus(activeFormation?.formation.status),
-      detail: !props.replacementIntentDraft
-        ? 'Candidate formation remains unavailable until an explicit replacement intent exists.'
-        : !props.formedCandidateArtifact
-          ? 'An explicit replacement intent exists, but no formed candidate review artifact has been created yet.'
-        : !formationMatchesIntent
-          ? 'The existing formed candidate artifact no longer matches the active replacement intent and cannot be used for replay.'
-          : activeFormation?.rejection_reason
-              ? `Formation rejected: ${activeFormation.rejection_reason}`
-              : 'A formed candidate artifact is available as review-only replay input.',
-    },
-    {
-      key: 'construction',
-      title: 'Construction Rule',
-      value: !props.replacementIntentDraft
-        ? 'Blocked'
-        : !formationMatchesIntent || activeFormation?.formation.status !== 'ok'
-          ? 'Blocked'
-          : !props.constructedCandidateArtifact
-            ? `${props.selectedConstructionRuleId} selected`
-            : !constructionMatchesIntent || !constructionMatchesRule
-              ? 'Stale'
-            : formatConstructionStatus(activeConstruction?.construction.status),
-      detail: !props.replacementIntentDraft
-        ? 'Construction remains blocked until an explicit replacement intent exists.'
-        : !formationMatchesIntent || activeFormation?.formation.status !== 'ok'
-          ? 'Construction requires a valid formed candidate artifact first.'
-        : !props.constructedCandidateArtifact
-            ? `Selected rule ${props.selectedConstructionRuleId} is ready to construct, but no construction review artifact has been created yet.`
-            : !constructionMatchesIntent
-              ? 'The existing construction artifact no longer matches the active replacement intent and cannot be used for replay.'
-              : !constructionMatchesRule
-                ? `The existing construction artifact was built with ${props.constructedCandidateArtifact.constructionRuleId} and must be rerun for ${props.selectedConstructionRuleId}.`
-              : activeConstruction?.rejection_reason
-                ? `Construction rejected: ${activeConstruction.rejection_reason}`
-                : `A construction artifact is available as review-only replay input for ${props.selectedConstructionRuleId}.`,
-    },
-    {
-      key: 'constraints',
-      title: 'Construction Constraints',
-      value: !props.replacementIntentDraft
-        ? 'Blocked'
-        : !constructionMatchesIntent || !constructionMatchesRule || activeConstruction?.construction.status !== 'ok'
-          ? 'Blocked'
-          : !activeConstraintValidation
-            ? 'Not yet validated'
-            : !constraintValidationMatchesIntent || !constraintValidationMatchesRule
-              ? 'Stale'
-              : activeConstraintValidation.validation.status === 'ok'
-                ? 'Pass'
-                : activeConstraintValidation.validation.status === 'blocked'
-                  ? 'Blocked'
-                  : 'Rejected',
-      detail: !props.replacementIntentDraft
-        ? 'Constraint validation remains unavailable until an explicit replacement intent exists.'
-        : !constructionMatchesIntent || !constructionMatchesRule || activeConstruction?.construction.status !== 'ok'
-          ? 'Constraint validation requires a current accepted construction artifact first.'
-          : !activeConstraintValidation
-            ? 'The constructed candidate is ready for backend constraint validation before replay.'
-            : !constraintValidationMatchesIntent || !constraintValidationMatchesRule
-              ? 'The saved constraint validation no longer matches the active replacement intent or selected rule.'
-              : activeConstraintValidation.validation.status === 'ok'
-                ? 'The constructed candidate passed the locked backend constraint set and can be handed into replay review.'
-                : activeConstraintValidation.validation.status === 'blocked'
-                  ? `Constraint validation blocked replay with ${activeConstraintValidation.blocking_constraint_ids.length} hard-block result${activeConstraintValidation.blocking_constraint_ids.length === 1 ? '' : 's'}.`
-                  : `Constraint validation rejected replay input: ${activeConstraintValidation.rejection_reason ?? 'constructed candidate could not be evaluated safely'}`,
-    },
-    {
-      key: 'selected-rule',
-      title: 'Selected Rule',
-      value: props.selectedConstructionRuleId,
-      detail: props.constructedCandidateArtifact && constructionMatchesIntent && constructionMatchesRule
-        ? 'The saved construction artifact matches the active selected rule.'
-        : 'Rule selection is shell state only until construction is rerun and a matching review artifact is saved.',
-    },
-    {
-      key: 'replay',
-      title: 'Replay Status',
-      value: props.hypotheticalReplayResult
-        ? activeReplay?.candidate_result?.status ?? 'n/a'
-        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok' && hasPassingConstraintValidation
-          ? 'Not yet run'
-          : props.replacementIntentDraft || activeCandidatePair
-            ? 'Blocked'
-            : 'Unavailable',
-      detail: props.hypotheticalReplayResult && activeReplay
-        ? replayInvestorEconomicsWithheld
-          ? 'Replay evidence is recorded for this workflow, but investor-performance outputs are withheld. Review replay status, lineage, window, and allowed diagnostics only.'
-          : replayTotalReturnDelta != null
-          ? `Total return delta ${formatSignedPct(replayTotalReturnDelta)} versus baseline under the shared replay window.`
-          : replayCandidateTotalReturn != null
-            ? `Candidate total return ${formatPct(activeReplay.candidate_result?.metrics?.total_return_pct)} under the shared replay window.`
-            : 'Replay evidence is recorded for this workflow. Review replay status, lineage, window, and allowed diagnostics only.'
-        : constructionMatchesIntent && constructionMatchesRule && activeConstruction?.construction.status === 'ok' && hasPassingConstraintValidation
-          ? 'A validated construction artifact exists, but no hypothetical replay review has been run yet.'
-          : hasBlockedConstraintValidation
-            ? 'Hypothetical replay remains unavailable until the current constructed candidate passes construction constraints.'
-            : hasRejectedConstraintValidation
-              ? 'Hypothetical replay remains unavailable because the current constructed candidate could not be evaluated safely by construction constraints.'
-          : props.replacementIntentDraft
-            ? 'Hypothetical replay cannot run until construction and constraint validation produce a valid replay handoff.'
-            : activeCandidatePair
-              ? 'Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.'
-            : 'No replay state exists yet for this workflow.',
-    },
-    {
-      key: 'diagnostics',
-      title: 'Diagnostics Takeaway',
-      value: diagnosticsTakeaway
-        ? diagnosticsTakeaway.callout.label
-        : activeReplay
-          ? 'Not available'
-          : 'Not yet run',
-      detail: diagnosticsTakeaway
-        ? `${diagnosticsTakeaway.group} shows ${diagnosticsValueLabel(diagnosticsTakeaway.callout)}. ${diagnosticsTakeaway.callout.rationale}`
-        : activeReplay
-          ? 'Replay state exists, but no diagnostics-change takeaway is available for review yet.'
-          : 'Diagnostics change is not available until replay evidence exists.',
-    },
-    {
-      key: 'proposal',
-      title: 'Proposal State',
-      value: latestProposal
-        ? `Recorded v${latestProposal.versionNumber}`
-        : props.hypotheticalReplayResult
-          ? 'Not yet saved'
-          : 'No artifact',
-      detail: latestProposal
-        ? `Latest immutable artifact captures ${latestProposalCapture?.proposal.incumbent_symbol} -> ${latestProposalCapture?.proposal.candidate_symbol} for review only.`
-        : props.hypotheticalReplayResult
-          ? 'A replay review exists, but no immutable proposal artifact has been recorded yet.'
-          : 'No saved proposal artifact exists yet for this workflow.',
-    },
-  ]
-}
-
 type Props = {
   analysis: PortfolioBaselineView | null
   draftSnapshot: PortfolioSnapshot | null
@@ -766,6 +509,56 @@ type Props = {
   monitoringResearchHandoffDismissed?: boolean
   onDismissMonitoringResearchHandoff?: () => void
   onReviewInResearch?: (handoff: MonitoringResearchHandoff) => void
+  onOpenGenericBacktests?: (sectionId?: string) => void
+  onOpenStrategyLab?: (sectionId?: string) => void
+  onOpenEtfRanking?: (sectionId?: string) => void
+  onOpenPersistedConstructionArtifactReview?: (constructionArtifactId: string) => void | Promise<void>
+  onOpenPersistedEtfRankingReview?: (artifactId: string) => void | Promise<void>
+}
+
+function ResearchToolsSection({
+  onOpenGenericBacktests,
+  onOpenStrategyLab,
+  onOpenEtfRanking,
+}: {
+  onOpenGenericBacktests?: (sectionId?: string) => void
+  onOpenStrategyLab?: (sectionId?: string) => void
+  onOpenEtfRanking?: (sectionId?: string) => void
+}) {
+  return (
+    <section className="dashboard-bottom-grid" data-testid="workspace-section-research-tools" id="workspace-section-research-tools">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Research Tools</p></div>
+        <p className="helper">Open deeper research surfaces from the workspace without promoting them to primary shell destinations.</p>
+      </div>
+      <div className="dashboard-summary compact-summary-grid">
+        <div className="summary-card">
+          <p className="stat-label">Generic Backtests</p>
+          <p className="summary-value">Strategy sandbox</p>
+          <p className="helper">Run generic strategy backtests outside the portfolio-improvement workflow.</p>
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="secondary-button" onClick={() => onOpenGenericBacktests?.('workspace-section-research-tools')} type="button">Open Backtest</button>
+          </div>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">Strategy Lab</p>
+          <p className="summary-value">Cross-sectional research</p>
+          <p className="helper">Inspect ETF cross-sectional research artifacts and prototype rotation work.</p>
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="secondary-button" onClick={() => onOpenStrategyLab?.('workspace-section-research-tools')} type="button">Open Strategy Lab</button>
+          </div>
+        </div>
+        <div className="summary-card">
+          <p className="stat-label">ETF Ranking</p>
+          <p className="summary-value">Replacement discovery</p>
+          <p className="helper">Rank ETF substitutes and seed a candidate back into the workspace review flow.</p>
+          <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+            <button className="secondary-button" onClick={() => onOpenEtfRanking?.('workspace-section-research-tools')} type="button">Open ETF Ranking</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 function RecoveredAlertReviewQueueSection({
@@ -848,6 +641,13 @@ function optimizerHandoffReviewBasisId(props: Props) {
   return 'n/a'
 }
 
+function scrollToSection(sectionId: string) {
+  const target = document.getElementById(sectionId)
+  if (target && 'scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
 function OverviewSection(props: Props) {
   const artifactMode = isPersistedConstructionArtifactMode(props)
   const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
@@ -883,7 +683,6 @@ function OverviewSection(props: Props) {
         </div>
       </div>
       <MonitoringPanel result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} onReviewInResearch={props.onReviewInResearch} />
-      <PortfolioImprovementDecisionSummary props={props} />
     </section>
   )
 }
@@ -892,6 +691,7 @@ function CandidateWorkspaceSection(props: Props) {
   if (isArtifactReviewMode(props)) {
     return null
   }
+  const currentPortfolio = buildAuthoritativeCurrentPortfolio(props.draftSnapshot)
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-candidate">
       <div className="section-header-inline sector-list-header">
@@ -901,8 +701,12 @@ function CandidateWorkspaceSection(props: Props) {
         candidateImprovementDraft={props.candidateImprovementDraft}
         intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
         replacementIntentDraft={props.replacementIntentDraft}
+        currentPortfolio={currentPortfolio}
         onCreateReplacementIntent={props.onCreateReplacementIntent}
         onClearReplacementIntent={props.onClearReplacementIntent}
+        onOpenPersistedConstructionArtifactReview={props.onOpenPersistedConstructionArtifactReview}
+        onOpenEtfRanking={props.onOpenEtfRanking}
+        onOpenPersistedEtfRankingReview={props.onOpenPersistedEtfRankingReview}
       />
       <div id={WORKFLOW_SECTION_IDS.candidateFormation}>
         <CandidateFormationSection
@@ -1536,7 +1340,28 @@ function workflowStatusCardClass(status: WorkflowSectionStatus) {
   return 'metric-card-neutral'
 }
 
-function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
+function formatWorkflowTaskGuidance({
+  summary,
+  missing,
+  unlocksNext,
+}: {
+  summary: string
+  missing: string
+  unlocksNext: string
+}) {
+  if (missing.startsWith('nothing ')) {
+    return `${summary} Nothing else is needed right now. Next up: ${unlocksNext}.`
+  }
+  if (missing === 'proposal recording is intentionally disabled in this read-only mode') {
+    return `${summary} Proposal recording stays unavailable in this read-only review. Next up: ${unlocksNext}.`
+  }
+  if (missing.startsWith('no additional ')) {
+    return `${summary} This read-only review already has what it needs. Next up: ${unlocksNext}.`
+  }
+  return `${summary} Missing now: ${missing}. Unlocks next: ${unlocksNext}.`
+}
+
+function buildWorkflowStatusCards(props: Props): WorkflowSpineCard[] {
   const hasCurrentPortfolio = Boolean(props.analysis || props.draftSnapshot)
   const artifactMode = isArtifactReviewMode(props)
   const hasCandidateSeed = Boolean(props.candidateImprovementDraft || props.intentBoundSeededEtfReplacementRankingDraft)
@@ -1600,128 +1425,295 @@ function buildWorkflowStatusCards(props: Props): DecisionSummaryCard[] {
   const hasReplay = Boolean(activeReplay)
   const hasDiagnostics = Boolean(activeReplay?.diagnostics_comparison)
   const hasSavedProposal = props.savedProposals.length > 0
+  const workflowStatusCard = (key: string, title: string, status: WorkflowSectionStatus, detail: string): WorkflowSpineCard => ({
+    key,
+    title,
+    status,
+    value: workflowStatusLabel(status),
+    detail,
+    sectionId: workflowSectionIdForCard(key, props),
+  })
 
   return [
-    {
-      key: 'current-portfolio-status',
-      title: 'Current Portfolio',
-      value: workflowStatusLabel(hasCurrentPortfolio ? 'ready' : 'blocked'),
-      detail: hasCurrentPortfolio
-        ? artifactMode ? 'Artifact review basis is available.' : 'Portfolio basis is available.'
-        : 'Import or restore a portfolio basis.',
-    },
-    {
-      key: 'candidate-idea-status',
-      title: 'Candidate Idea',
-      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked'),
-      detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'Candidate review comes from the persisted optimizer handoff reopened by handoff reference.' : 'Candidate review comes from the persisted construction artifact payload.'
+    workflowStatusCard(
+      'current-portfolio-status',
+      'Current Portfolio',
+      hasCurrentPortfolio ? 'ready' : 'blocked',
+      hasCurrentPortfolio
+        ? formatWorkflowTaskGuidance({
+          summary: artifactMode ? 'Artifact review basis is available.' : 'Portfolio basis is available.',
+          missing: artifactMode ? 'no additional current-portfolio input for this reopened review basis' : 'nothing at the portfolio-basis step',
+          unlocksNext: artifactMode ? 'review the candidate and replay evidence already attached to this artifact-backed path' : 'candidate selection and replacement-intent work',
+        })
+        : formatWorkflowTaskGuidance({
+          summary: 'Portfolio basis is not loaded.',
+          missing: 'an imported or restored portfolio basis',
+          unlocksNext: 'candidate selection once current portfolio truth is available',
+        }),
+    ),
+    workflowStatusCard(
+      'candidate-idea-status',
+      'Candidate Idea',
+      artifactMode ? 'recorded' : hasReplacementIntent ? 'ready' : hasCandidateSeed ? 'in_progress' : 'blocked',
+      artifactMode
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'Candidate review comes from the persisted optimizer handoff reopened by handoff reference.' : 'Candidate review comes from the persisted construction artifact payload.',
+           missing: 'no additional candidate-selection input in this read-only mode',
+           unlocksNext: 'review the formation and replay evidence already attached to the reopened artifact',
+         })
         : hasReplacementIntent
-        ? 'A replacement intent is attached and ready for replay.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'A replacement intent is attached and ready for replay review.',
+          missing: 'nothing at the candidate-idea step',
+          unlocksNext: 'candidate formation for the active hypothetical path',
+        })
         : hasCandidateSeed
-          ? 'A candidate seed exists; promote it into an explicit replacement intent next.'
-          : 'No seeded candidate is attached yet; use ETF Ranking to choose one.',
-    },
-    {
-      key: 'candidate-formation-status',
-      title: 'Candidate Formation',
-      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked'),
-      detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'Formation is already embedded in the persisted optimizer handoff review lineage reopened by handoff reference.' : 'Formation is already embedded in the persisted construction artifact review lineage.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'A candidate seed exists for this workflow.',
+            missing: 'an explicit replacement intent',
+            unlocksNext: 'candidate formation after the seed is promoted',
+          })
+          : formatWorkflowTaskGuidance({
+              summary: 'No seeded candidate is attached yet.',
+              missing: 'a seeded candidate or explicit replacement intent',
+              unlocksNext: 'the hypothetical path once ETF Ranking provides a candidate',
+          }),
+    ),
+    workflowStatusCard(
+      'candidate-formation-status',
+      'Candidate Formation',
+      artifactMode ? 'recorded' : hasFormedCandidate ? 'ready' : hasRejectedFormation ? 'blocked' : hasReplacementIntent ? 'in_progress' : 'blocked',
+      artifactMode
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'Formation is already embedded in the persisted optimizer handoff review lineage reopened by handoff reference.' : 'Formation is already embedded in the persisted construction artifact review lineage.',
+           missing: 'no additional formation task in this read-only mode',
+           unlocksNext: 'review the construction and replay lineage already reopened in workspace',
+         })
         : hasFormedCandidate
-        ? 'A formed candidate artifact is available for review-only replay handoff.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'A formed candidate artifact is available for review-only replay handoff.',
+          missing: 'nothing at candidate formation',
+          unlocksNext: 'construction for the active rule selection',
+        })
         : hasRejectedFormation
-          ? 'Candidate formation rejected the active replacement intent.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'Candidate formation rejected the active replacement intent.',
+            missing: 'a formable replacement intent',
+            unlocksNext: 'construction after formation succeeds',
+          })
           : hasReplacementIntent
-            ? 'The workflow can form a review-only candidate next.'
-            : 'Create a replacement intent before candidate formation can run.',
-    },
-    {
-      key: 'construction-rule-status',
-      title: 'Construction Rule',
-      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked'),
-      detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'The persisted optimizer handoff reference is the replay handoff under review.' : 'The persisted construction artifact is the replay handoff under review.'
+            ? formatWorkflowTaskGuidance({
+              summary: 'The workflow can form a review-only candidate now.',
+              missing: 'a formed candidate artifact',
+              unlocksNext: 'construction once formation completes',
+            })
+            : formatWorkflowTaskGuidance({
+              summary: 'Candidate formation cannot run yet.',
+              missing: 'an explicit replacement intent',
+              unlocksNext: 'candidate formation once the intent is created',
+            }),
+    ),
+    workflowStatusCard(
+      'construction-rule-status',
+      'Construction Rule',
+      artifactMode ? 'recorded' : hasConstructedCandidate ? 'ready' : hasRejectedConstruction ? 'blocked' : hasFormedCandidate ? 'in_progress' : 'blocked',
+      artifactMode
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'The persisted optimizer handoff reference is the replay handoff under review.' : 'The persisted construction artifact is the replay handoff under review.',
+           missing: 'no additional construction rerun in this read-only mode',
+           unlocksNext: 'review constraint, replay, and diagnostics evidence from the reopened artifact',
+         })
         : hasConstructedCandidate
-        ? `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`
+        ? formatWorkflowTaskGuidance({
+          summary: `A construction artifact is available for review-only replay handoff under ${props.selectedConstructionRuleId}.`,
+          missing: 'nothing at the construction step',
+          unlocksNext: 'construction-constraint validation for this handoff',
+        })
         : hasRejectedConstruction
-          ? 'Construction rule rejected the active replacement intent.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'Construction rule rejected the active replacement intent.',
+            missing: `a constructible candidate for ${props.selectedConstructionRuleId}`,
+            unlocksNext: 'constraint validation after construction succeeds',
+          })
           : hasStaleConstruction
-            ? `The selected construction rule is ${props.selectedConstructionRuleId}; rerun construction because the saved artifact is stale.`
+            ? formatWorkflowTaskGuidance({
+              summary: `The selected construction rule is ${props.selectedConstructionRuleId}, but the saved construction artifact is stale.`,
+              missing: `a fresh construction artifact for ${props.selectedConstructionRuleId}`,
+              unlocksNext: 'constraint validation for the current rule selection',
+            })
           : hasFormedCandidate
-            ? `The workflow can build review-only construction output next with ${props.selectedConstructionRuleId}.`
-            : 'Form a valid candidate before the construction rule can run.',
-      },
-    {
-      key: 'construction-constraints-status',
-      title: 'Construction Constraints',
-      value: artifactMode ? workflowStatusLabel('recorded') : workflowStatusLabel(hasPassingConstraintValidation ? 'ready' : hasBlockedConstraintValidation || hasRejectedConstraintValidation ? 'blocked' : hasConstructedCandidate ? 'in_progress' : 'blocked'),
-      detail: artifactMode
-         ? 'Truth-separation and persisted replay provenance are available for review from the artifact payload.'
+            ? formatWorkflowTaskGuidance({
+              summary: `The workflow can build review-only construction output now with ${props.selectedConstructionRuleId}.`,
+              missing: `a construction artifact for ${props.selectedConstructionRuleId}`,
+              unlocksNext: 'construction-constraint validation once construction completes',
+            })
+            : formatWorkflowTaskGuidance({
+              summary: 'Construction cannot run yet.',
+              missing: 'a valid formed candidate artifact',
+              unlocksNext: 'construction once candidate formation succeeds',
+            }),
+    ),
+    workflowStatusCard(
+      'construction-constraints-status',
+      'Construction Constraints',
+      artifactMode ? 'recorded' : hasPassingConstraintValidation ? 'ready' : hasBlockedConstraintValidation || hasRejectedConstraintValidation ? 'blocked' : hasConstructedCandidate ? 'in_progress' : 'blocked',
+      artifactMode
+         ? formatWorkflowTaskGuidance({
+           summary: 'Truth-separation and persisted replay provenance are available for review from the artifact payload.',
+           missing: 'no additional constraint-validation task in this read-only mode',
+           unlocksNext: 'review the reopened replay evidence already backed by the artifact lineage',
+         })
         : hasPassingConstraintValidation
-        ? 'Constraint validation passed for the current constructed candidate and replay can use that handoff.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'Constraint validation passed for the current constructed candidate and replay can use that handoff.',
+          missing: 'nothing at the constraint-validation step',
+          unlocksNext: 'the hypothetical replay run',
+        })
         : hasBlockedConstraintValidation
-          ? 'Constraint validation blocked the current constructed candidate, so replay remains unavailable.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'Constraint validation blocked the current constructed candidate, so replay remains unavailable.',
+            missing: 'a constraint-compliant construction handoff',
+            unlocksNext: 'the hypothetical replay once constraints pass',
+          })
           : hasRejectedConstraintValidation
-            ? 'Constraint validation rejected the current constructed candidate and replay remains unavailable.'
+            ? formatWorkflowTaskGuidance({
+              summary: 'Constraint validation rejected the current constructed candidate and replay remains unavailable.',
+              missing: 'a safe-to-evaluate construction handoff',
+              unlocksNext: 'the hypothetical replay once validation succeeds',
+            })
             : hasConstructedCandidate
-              ? 'Run construction constraints next to validate the current constructed candidate before replay.'
-              : 'Build a valid constructed candidate before construction constraints can run.',
-    },
-    {
-      key: 'hypothetical-replay-status',
-      title: 'Hypothetical Replay',
-      value: workflowStatusLabel((artifactMode || props.hypotheticalReplayResult) ? 'ready' : hasPassingConstraintValidation ? 'in_progress' : 'blocked'),
-      detail: artifactMode
-         ? 'Replay evidence is loaded from the artifact review basis.'
+              ? formatWorkflowTaskGuidance({
+                summary: 'Construction output is ready for constraint validation.',
+                missing: 'a constraint-validation result for the current constructed candidate',
+                unlocksNext: 'the hypothetical replay handoff',
+              })
+              : formatWorkflowTaskGuidance({
+                summary: 'Construction constraints cannot run yet.',
+                missing: 'a current accepted construction artifact',
+                unlocksNext: 'constraint validation once construction succeeds',
+              }),
+    ),
+    workflowStatusCard(
+      'hypothetical-replay-status',
+      'Hypothetical Replay',
+      (artifactMode || props.hypotheticalReplayResult) ? 'ready' : hasPassingConstraintValidation ? 'in_progress' : 'blocked',
+      artifactMode
+         ? formatWorkflowTaskGuidance({
+           summary: 'Replay evidence is loaded from the artifact review basis.',
+           missing: 'no additional replay run inside this read-only mode',
+           unlocksNext: 'review diagnostics and artifact-backed replay evidence already in workspace',
+         })
         : props.hypotheticalReplayResult
-        ? 'A draft-only hypothetical replay is available for review.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'A draft-only hypothetical replay is available for review.',
+          missing: 'nothing at the replay step',
+          unlocksNext: 'diagnostics review and saved-proposal recording',
+        })
         : hasPassingConstraintValidation
-          ? 'The workflow can run a hypothetical replay next from the validated construction handoff.'
-          : 'Construction constraints must pass before hypothetical replay can run.',
-    },
-    {
-      key: 'diagnostics-change-status',
-      title: 'Diagnostics Change',
-      value: workflowStatusLabel((artifactMode || hasDiagnostics) ? 'ready' : hasReplay ? 'in_progress' : 'blocked'),
-      detail: artifactMode
-         ? 'Diagnostics change comes from the replay attached to the artifact review basis.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'The workflow can run a hypothetical replay now from the validated construction handoff.',
+            missing: 'replay evidence for the current validated handoff',
+            unlocksNext: 'diagnostics review and proposal recording',
+          })
+          : formatWorkflowTaskGuidance({
+             summary: 'Hypothetical replay cannot run yet.',
+             missing: 'passed construction constraints',
+             unlocksNext: 'the hypothetical replay once constraint validation passes',
+          }),
+    ),
+    workflowStatusCard(
+      'diagnostics-change-status',
+      'Diagnostics Change',
+      (artifactMode || hasDiagnostics) ? 'ready' : hasReplay ? 'in_progress' : 'blocked',
+      artifactMode
+         ? formatWorkflowTaskGuidance({
+           summary: 'Diagnostics change comes from the replay attached to the artifact review basis.',
+           missing: 'no additional diagnostics-generation task in this read-only mode',
+           unlocksNext: 'artifact-backed diagnostics review from the loaded replay',
+         })
         : hasDiagnostics
-        ? 'Diagnostics delta review is available from the active replay.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'Diagnostics delta review is available from the active replay.',
+          missing: 'nothing at the diagnostics step',
+          unlocksNext: 'proposal recording if you want an immutable review artifact',
+        })
         : hasReplay
-          ? 'Replay exists, but diagnostics comparison is not available yet.'
-          : 'Run a replay before diagnostics change can be reviewed.',
-    },
-    {
-      key: 'saved-proposal-status',
-      title: 'Saved Proposal',
-      value: artifactMode ? workflowStatusLabel('blocked') : workflowStatusLabel(hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked'),
-      detail: artifactMode
-         ? isPersistedOptimizerHandoffMode(props) ? 'Saved proposal flows are not exposed in persisted optimizer handoff review mode.' : 'Saved proposal flows are not exposed in persisted construction artifact review mode.'
+          ? formatWorkflowTaskGuidance({
+            summary: 'Replay exists, but diagnostics comparison is not available yet.',
+            missing: 'diagnostics comparison output from replay',
+            unlocksNext: 'diagnostics review once the replay includes diagnostics deltas',
+          })
+          : formatWorkflowTaskGuidance({
+             summary: 'Diagnostics change cannot be reviewed yet.',
+             missing: 'hypothetical replay evidence',
+             unlocksNext: 'diagnostics review after replay runs',
+          }),
+    ),
+    workflowStatusCard(
+      'saved-proposal-status',
+      'Saved Proposal',
+      artifactMode ? 'blocked' : hasSavedProposal ? 'recorded' : props.hypotheticalReplayResult ? 'in_progress' : 'blocked',
+      artifactMode
+         ? formatWorkflowTaskGuidance({
+           summary: isPersistedOptimizerHandoffMode(props) ? 'Saved proposal flows are not exposed in persisted optimizer handoff review mode.' : 'Saved proposal flows are not exposed in persisted construction artifact review mode.',
+           missing: 'proposal recording is intentionally disabled in this read-only mode',
+           unlocksNext: 'open and review the existing artifact-backed evidence only',
+         })
         : hasSavedProposal
-        ? 'An immutable proposal artifact has been recorded for this workflow.'
+        ? formatWorkflowTaskGuidance({
+          summary: 'An immutable proposal artifact has been recorded for this workflow.',
+          missing: 'nothing at the proposal-recording step',
+          unlocksNext: 'saved-proposal reopen, comparison, or thesis-promotion review',
+        })
         : props.hypotheticalReplayResult
-          ? 'A replay review is available; save it to record a proposal artifact.'
-          : 'No saved proposal exists yet; review a hypothetical replay first.',
-    },
+          ? formatWorkflowTaskGuidance({
+            summary: 'A replay review is available and can be saved as a proposal artifact.',
+            missing: 'a saved proposal artifact',
+            unlocksNext: 'saved-proposal reopen and comparison flows',
+          })
+          : formatWorkflowTaskGuidance({
+              summary: 'No saved proposal exists yet.',
+              missing: 'a completed hypothetical replay review',
+              unlocksNext: 'proposal recording after replay review exists',
+          }),
+    ),
   ]
 }
 
-function PortfolioImprovementDecisionSummary({ props }: { props: Props }) {
-  const decisionSummaryCards = [...buildDecisionSummaryCards(props), ...buildWorkflowStatusCards(props)]
+function workflowSectionIdForCard(cardKey: string, props: Props) {
+  const artifactMode = isArtifactReviewMode(props)
+
+  if (cardKey === 'current-portfolio-status') return WORKFLOW_SECTION_IDS.currentPortfolio
+  if (cardKey === 'candidate-idea-status') return artifactMode ? null : WORKFLOW_SECTION_IDS.candidateIdea
+  if (cardKey === 'candidate-formation-status') return artifactMode ? null : WORKFLOW_SECTION_IDS.candidateFormation
+  if (cardKey === 'construction-rule-status') return artifactMode ? null : WORKFLOW_SECTION_IDS.constructionRule
+  if (cardKey === 'construction-constraints-status') return artifactMode ? null : WORKFLOW_SECTION_IDS.constructionConstraints
+  if (cardKey === 'hypothetical-replay-status') return WORKFLOW_SECTION_IDS.hypotheticalReplay
+  if (cardKey === 'diagnostics-change-status') return WORKFLOW_SECTION_IDS.diagnosticsChange
+  if (cardKey === 'saved-proposal-status') return artifactMode ? null : WORKFLOW_SECTION_IDS.savedProposal
+  return null
+}
+
+function WorkflowSpineSection({ props }: { props: Props }) {
+  const workflowCards = buildWorkflowStatusCards(props)
 
   return (
-    <section className="dashboard-bottom-grid">
+    <section className="dashboard-bottom-grid" data-testid="workspace-workflow-spine">
       <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Portfolio Improvement Decision Summary</p></div>
-        <p className="helper">Current review state only.</p>
+        <div><p className="panel-label">Workflow Spine</p></div>
+        <p className="helper">Authoritative workflow state for the active workspace. Research tools stay adjacent and are not workflow steps.</p>
       </div>
       <div className="dashboard-summary compact-summary-grid">
-        {decisionSummaryCards.map((card) => (
-          <div className="summary-card metric-card metric-card-neutral backtest-summary-card" key={card.key}>
+        {workflowCards.map((card) => (
+          <div className={`summary-card metric-card ${workflowStatusCardClass(card.status)} backtest-summary-card`} data-testid={`workflow-spine-card-${card.key}`} key={card.key}>
             <p className="stat-label">{card.title}</p>
             <p className="summary-value">{card.value}</p>
             <p className="helper">{card.detail}</p>
+            {card.sectionId ? (
+              <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+                <button className="secondary-button" onClick={() => scrollToSection(card.sectionId!)} type="button">Open {card.title}</button>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
@@ -1755,31 +1747,29 @@ function CandidateIdeaSection({
   candidateImprovementDraft,
   intentBoundSeededEtfReplacementRankingDraft,
   replacementIntentDraft,
+  currentPortfolio,
   onCreateReplacementIntent,
   onClearReplacementIntent,
+  onOpenPersistedConstructionArtifactReview,
+  onOpenEtfRanking,
+  onOpenPersistedEtfRankingReview,
 }: {
   candidateImprovementDraft: CandidateImprovementDraftArtifact | null
   intentBoundSeededEtfReplacementRankingDraft: IntentBoundSeededEtfReplacementRankingDraftArtifact | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  currentPortfolio: {
+    artifact_id: string
+    as_of_timestamp: string
+    weights: Array<{ symbol: string; weight: number }>
+  } | null
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
+  onOpenPersistedConstructionArtifactReview?: (constructionArtifactId: string) => void | Promise<void>
+  onOpenEtfRanking?: (sectionId?: string) => void
+  onOpenPersistedEtfRankingReview?: (artifactId: string) => void | Promise<void>
 }) {
   const [showReplacementIntentConfirmation, setShowReplacementIntentConfirmation] = useState(false)
-
-  if (!candidateImprovementDraft && !intentBoundSeededEtfReplacementRankingDraft && !replacementIntentDraft) {
-    return (
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header">
-          <div><p className="panel-label">Candidate Idea</p></div>
-          <p className="helper">Ranking-derived review metadata only.</p>
-        </div>
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">No candidate idea is attached to this draft yet.</p>
-          <p className="helper">Seed a candidate from ETF Ranking to continue.</p>
-        </div>
-      </section>
-    )
-  }
+  const hasLocalCandidateIdea = Boolean(candidateImprovementDraft || intentBoundSeededEtfReplacementRankingDraft || replacementIntentDraft)
 
   return (
     <section className="dashboard-bottom-grid">
@@ -1787,6 +1777,21 @@ function CandidateIdeaSection({
         <div><p className="panel-label">Candidate Idea</p></div>
         <p className="helper">Ranking-derived review metadata only.</p>
       </div>
+      <PersistedEtfRankingConstructionBrowser
+        currentPortfolio={currentPortfolio}
+        onOpenRankingReview={(artifactId) => onOpenPersistedEtfRankingReview?.(artifactId)}
+        onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
+      />
+      <PersistedReplacementRankingBrowser
+        currentPortfolio={currentPortfolio}
+        onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
+      />
+      {!hasLocalCandidateIdea ? (
+        <div className="empty-state-panel compact-empty-state">
+          <p className="empty-state-title">No local candidate idea is attached to this draft yet.</p>
+          <p className="helper">Open a saved replacement review or seed a candidate from ETF Ranking to continue.</p>
+        </div>
+      ) : null}
       {intentBoundSeededEtfReplacementRankingDraft ? <ReplacementRankingReview artifact={intentBoundSeededEtfReplacementRankingDraft} /> : null}
       {candidateImprovementDraft ? (
         <section className="dashboard-bottom-grid">
@@ -2320,7 +2325,7 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
   }, [shellProps.monitoringResearchHandoff, shellProps.monitoringResearchHandoffDismissed])
 
   return (
-    <section className="workspace-section">
+    <section className="workspace-section panel">
       <h2>Portfolio Research Workspace</h2>
       {savedProposalContractError ? <p className="error" data-testid="saved-proposal-contract-error">{savedProposalContractError}</p> : null}
       {shellProps.monitoringResearchHandoff && !shellProps.monitoringResearchHandoffDismissed ? (
@@ -2348,6 +2353,7 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
         </section>
       ) : null}
       <OverviewSection {...shellProps} />
+      <WorkflowSpineSection props={shellProps} />
       <div id={WORKFLOW_SECTION_IDS.currentPortfolio} data-testid="workspace-section-current-portfolio">
         <CurrentPortfolioSection analysis={shellProps.analysis} draftSnapshot={shellProps.draftSnapshot} persistedConstructionArtifactReview={shellProps.persistedConstructionArtifactReview} persistedOptimizerHandoffReview={shellProps.persistedOptimizerHandoffReview} />
       </div>
@@ -2355,6 +2361,13 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
         <div id={WORKFLOW_SECTION_IDS.candidateIdea}>
           <CandidateWorkspaceSection {...shellProps} />
         </div>
+      )}
+      {isArtifactReviewMode(shellProps) ? null : (
+        <ResearchToolsSection
+          onOpenGenericBacktests={shellProps.onOpenGenericBacktests}
+          onOpenStrategyLab={shellProps.onOpenStrategyLab}
+          onOpenEtfRanking={shellProps.onOpenEtfRanking}
+        />
       )}
       <div id={WORKFLOW_SECTION_IDS.constructionConstraints} />
       <CompareWorkspaceSection {...shellProps} />

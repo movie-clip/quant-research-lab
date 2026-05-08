@@ -137,7 +137,7 @@ def test_exposure_route_returns_current_state_view_when_etf_holdings_are_unresol
     assert payload["current_state_concentration"]["effective_holdings"] == 1.22
 
 
-def test_exposure_route_keeps_lookthrough_but_zeroes_overlap_when_benchmark_holdings_are_unresolved(mocker) -> None:
+def test_exposure_route_keeps_lookthrough_but_withholds_overlap_when_benchmark_holdings_are_unresolved(mocker) -> None:
     mock_service = mocker.patch("app.services.exposure_engine.MarketDataService")
     service_instance = mock_service.return_value
     service_instance.get_etf_holdings.side_effect = [

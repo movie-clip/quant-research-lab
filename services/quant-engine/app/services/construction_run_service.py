@@ -5,10 +5,15 @@ from fractions import Fraction
 
 from app.schemas.construction import (
     ConstructionArtifact,
+    ConstructionRankingArtifactHandoff,
+    ConstructionRankingArtifactEligibility,
+    ConstructionRankingArtifactPreflightArtifact,
+    ConstructionRankingArtifactPreflightResponse,
     ConstructionConstraintEvaluation,
     ConstructionCurrentPortfolioInput,
     ConstructionDeterministicOrdering,
     EtfRankingArtifactConstructionHandoff,
+    IntentBoundEtfReplacementRankingArtifactConstructionHandoff,
     ConstructionExcludedName,
     ConstructionHardConstraints,
     ConstructionNormalizedInputs,
@@ -32,11 +37,17 @@ from app.schemas.construction import (
     ConstructionWeightingTracePosition,
     ConstructionWeightingTraceStage,
     ConstructionWeightingTraceV1,
+    IntentBoundEtfReplacementRankingConstructionPreflightArtifact,
     build_construction_turnover_symbol_contributions,
     calculate_construction_turnover,
     resolve_construction_trade_action,
 )
-from app.schemas.research import EtfRankingArtifact, EtfRankingRow
+from app.schemas.research import (
+    EtfRankingArtifact,
+    EtfRankingRow,
+    IntentBoundEtfReplacementCandidateRow,
+    IntentBoundEtfReplacementRankingArtifact,
+)
 from app.services.construction_artifact_service import (
     ConstructionArtifactStore,
     build_stable_construction_artifact,
@@ -52,6 +63,10 @@ from app.services.construction_policy_catalog import (
 )
 
 EPSILON = 1e-8
+ETF_INELIGIBLE_REASON = "persisted etf ranking artifact has no eligible ranked candidates for construction"
+REPLACEMENT_INELIGIBLE_REASON = (
+    "persisted replacement ranking artifact has no eligible ranked candidates for construction"
+)
 
 
 @dataclass(frozen=True)
@@ -73,6 +88,7 @@ class _WeightingResult:
 TURNOVER_FAILURE_REASON = "target turnover exceeds max_turnover_weight"
 TRADE_INTENT_COUNT_FAILURE_REASON = "trade intent count exceeds max_trade_intent_count"
 MIN_POSITION_OVER_MAX_FAILURE_REASON = "min_position_weight exceeds max_position_weight"
+RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N = 2
 
 
 def _min_position_selected_capacity_failure_reason(min_position_weight: float, selected_count: int) -> str:
@@ -294,41 +310,154 @@ def prepare_construction_run_request(request: ConstructionRunRequest) -> Constru
     return request
 
 
+def prepare_etf_ranking_artifact_for_construction(
+    artifact: EtfRankingArtifact,
+) -> tuple[ConstructionRankingArtifactPreflightArtifact, list[ConstructionRankedCandidateInput]]:
+    if artifact.schema_version != "etf_ranking_artifact_v1":
+        raise ValueError("unsupported etf ranking schema_version")
+    ranked_candidates = _build_ranked_candidates_from_etf_ranking_artifact(artifact)
+    artifact_summary = ConstructionRankingArtifactPreflightArtifact(
+        artifact_id=artifact.artifact_id,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.run_metadata.as_of_date,
+    )
+    return artifact_summary, ranked_candidates
+
+
+def prepare_replacement_ranking_artifact_for_construction(
+    artifact: IntentBoundEtfReplacementRankingArtifact,
+) -> tuple[
+    IntentBoundEtfReplacementRankingConstructionPreflightArtifact,
+    list[ConstructionRankedCandidateInput],
+]:
+    if artifact.schema_version != "intent_bound_etf_replacement_ranking_artifact_v1":
+        raise ValueError("unsupported replacement ranking schema_version")
+    ranked_candidates = _build_ranked_candidates_from_replacement_ranking_artifact(artifact)
+    artifact_summary = IntentBoundEtfReplacementRankingConstructionPreflightArtifact(
+        artifact_id=artifact.artifact_id,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.run_metadata.as_of_date,
+    )
+    return artifact_summary, ranked_candidates
+
+
+def build_construction_preflight_response_from_etf_ranking_artifact(
+    artifact: EtfRankingArtifact,
+) -> ConstructionRankingArtifactPreflightResponse:
+    artifact_summary, ranked_candidates = prepare_etf_ranking_artifact_for_construction(artifact)
+    if not any(candidate.eligible for candidate in ranked_candidates):
+        return ConstructionRankingArtifactPreflightResponse(
+            artifact=artifact_summary,
+            eligibility=ConstructionRankingArtifactEligibility(
+                eligible=False,
+                reason=ETF_INELIGIBLE_REASON,
+            ),
+        )
+    return ConstructionRankingArtifactPreflightResponse(
+        artifact=artifact_summary,
+        eligibility=ConstructionRankingArtifactEligibility(eligible=True),
+        handoff=EtfRankingArtifactConstructionHandoff(
+            artifact_id=artifact.artifact_id,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.run_metadata.methodology_id,
+            as_of_date=artifact.run_metadata.as_of_date,
+        ),
+    )
+
+
+def build_construction_preflight_response_from_replacement_ranking_artifact(
+    artifact: IntentBoundEtfReplacementRankingArtifact,
+) -> ConstructionRankingArtifactPreflightResponse:
+    artifact_summary, ranked_candidates = prepare_replacement_ranking_artifact_for_construction(artifact)
+    if not any(candidate.eligible for candidate in ranked_candidates):
+        return ConstructionRankingArtifactPreflightResponse(
+            artifact=artifact_summary,
+            eligibility=ConstructionRankingArtifactEligibility(
+                eligible=False,
+                reason=REPLACEMENT_INELIGIBLE_REASON,
+            ),
+        )
+    return ConstructionRankingArtifactPreflightResponse(
+        artifact=artifact_summary,
+        eligibility=ConstructionRankingArtifactEligibility(eligible=True),
+        handoff=IntentBoundEtfReplacementRankingArtifactConstructionHandoff(
+            artifact_id=artifact.artifact_id,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.run_metadata.methodology_id,
+            as_of_date=artifact.run_metadata.as_of_date,
+        ),
+    )
+
+
 def build_construction_run_request_from_ranking_artifact_handoff(
     *,
     request_id: str | None,
-    handoff: EtfRankingArtifactConstructionHandoff,
-    artifact: EtfRankingArtifact,
+    handoff: ConstructionRankingArtifactHandoff,
+    artifact: EtfRankingArtifact | IntentBoundEtfReplacementRankingArtifact,
     current_portfolio: ConstructionCurrentPortfolioInput,
     policy: ConstructionPolicyInput,
     hard_constraints: ConstructionHardConstraints,
 ) -> ConstructionRunRequest:
-    if handoff.artifact_kind != "etf_ranking":
-        raise ValueError("unsupported ranking artifact kind")
-    if artifact.schema_version != "etf_ranking_artifact_v1":
-        raise ValueError("unsupported etf ranking schema_version")
+    if policy.top_n != RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N:
+        raise ValueError(
+            "ranking artifact handoff launch requires policy.top_n=2 for the shipped desktop boundary"
+        )
+    if not current_portfolio.artifact_id:
+        raise ValueError(
+            "ranking artifact handoff requests require current_portfolio.artifact_id"
+        )
+    if not current_portfolio.as_of_timestamp:
+        raise ValueError(
+            "ranking artifact handoff requests require current_portfolio.as_of_timestamp"
+        )
+    if isinstance(handoff, EtfRankingArtifactConstructionHandoff):
+        if not isinstance(artifact, EtfRankingArtifact):
+            raise ValueError("ranking artifact handoff kind does not match persisted artifact")
+        etf_artifact = artifact
+        artifact_summary, ranked_candidates = prepare_etf_ranking_artifact_for_construction(etf_artifact)
+    elif isinstance(handoff, IntentBoundEtfReplacementRankingArtifactConstructionHandoff):
+        if not isinstance(artifact, IntentBoundEtfReplacementRankingArtifact):
+            raise ValueError("ranking artifact handoff kind does not match persisted artifact")
+        replacement_artifact = artifact
+        artifact_summary, ranked_candidates = prepare_replacement_ranking_artifact_for_construction(
+            replacement_artifact
+        )
     if handoff.artifact_id != artifact.artifact_id:
         raise ValueError("ranking artifact handoff artifact_id does not match persisted artifact")
     if handoff.schema_version != artifact.schema_version:
         raise ValueError("ranking artifact handoff schema_version does not match persisted artifact")
     if handoff.ranking_id != artifact.ranking_id:
         raise ValueError("ranking artifact handoff ranking_id does not match persisted artifact")
-    if handoff.methodology_id != artifact.run_metadata.methodology_id:
-        raise ValueError("ranking artifact handoff methodology_id does not match persisted artifact")
-    if handoff.as_of_date != artifact.run_metadata.as_of_date:
-        raise ValueError("ranking artifact handoff as_of_date does not match persisted artifact")
-
-    ranked_candidates = _build_ranked_candidates_from_etf_ranking_artifact(artifact)
-    if not any(candidate.eligible for candidate in ranked_candidates):
-        raise ValueError("persisted etf ranking artifact has no eligible ranked candidates for construction")
+    if isinstance(handoff, EtfRankingArtifactConstructionHandoff):
+        if handoff.artifact_kind != "etf_ranking":
+            raise ValueError("unsupported ranking artifact kind")
+        if handoff.methodology_id != artifact.run_metadata.methodology_id:
+            raise ValueError("ranking artifact handoff methodology_id does not match persisted artifact")
+        if handoff.as_of_date != artifact.run_metadata.as_of_date:
+            raise ValueError("ranking artifact handoff as_of_date does not match persisted artifact")
+        if not any(candidate.eligible for candidate in ranked_candidates):
+            raise ValueError(ETF_INELIGIBLE_REASON)
+    elif isinstance(handoff, IntentBoundEtfReplacementRankingArtifactConstructionHandoff):
+        if handoff.artifact_kind != "intent_bound_etf_replacement_ranking":
+            raise ValueError("unsupported ranking artifact kind")
+        if handoff.methodology_id != artifact.run_metadata.methodology_id:
+            raise ValueError("ranking artifact handoff methodology_id does not match persisted artifact")
+        if handoff.as_of_date != artifact.run_metadata.as_of_date:
+            raise ValueError("ranking artifact handoff as_of_date does not match persisted artifact")
+        if not any(candidate.eligible for candidate in ranked_candidates):
+            raise ValueError(REPLACEMENT_INELIGIBLE_REASON)
+    else:
+        raise ValueError("unsupported ranking artifact kind")
 
     return ConstructionRunRequest.model_construct(
         request_id=request_id,
         ranked_universe=ConstructionRankedUniverseInput(
-            artifact_id=artifact.artifact_id,
-            ranking_id=artifact.ranking_id,
-            methodology_id=artifact.run_metadata.methodology_id,
-            as_of_date=artifact.run_metadata.as_of_date,
+            artifact_id=artifact_summary.artifact_id,
+            ranking_id=artifact_summary.ranking_id,
+            methodology_id=artifact_summary.methodology_id,
+            as_of_date=artifact_summary.as_of_date,
             ranked_candidates=ranked_candidates,
         ),
         ranking_artifact_handoff=handoff,
@@ -344,6 +473,15 @@ def _build_ranked_candidates_from_etf_ranking_artifact(
     return [_build_ranked_candidate_from_etf_ranking_row(row) for row in artifact.ranked_universe]
 
 
+def _build_ranked_candidates_from_replacement_ranking_artifact(
+    artifact: IntentBoundEtfReplacementRankingArtifact,
+) -> list[ConstructionRankedCandidateInput]:
+    return [
+        _build_ranked_candidate_from_replacement_candidate_row(row)
+        for row in artifact.ranked_candidates
+    ]
+
+
 def _build_ranked_candidate_from_etf_ranking_row(
     row: EtfRankingRow,
 ) -> ConstructionRankedCandidateInput:
@@ -353,6 +491,20 @@ def _build_ranked_candidate_from_etf_ranking_row(
         eligible=True,
         score=row.composite_score,
         exclusion_reason=None,
+    )
+
+
+def _build_ranked_candidate_from_replacement_candidate_row(
+    row: IntentBoundEtfReplacementCandidateRow,
+) -> ConstructionRankedCandidateInput:
+    if row.rank is None:
+        raise ValueError("replacement ranking candidate rank is required for construction")
+    return ConstructionRankedCandidateInput(
+        symbol=row.symbol,
+        rank=row.rank,
+        eligible=row.eligibility_status == "eligible",
+        score=row.composite_score,
+        exclusion_reason=row.exclusion_reason,
     )
 
 
@@ -696,6 +848,15 @@ def _evaluate_constraints(
     max_trade_intent_count = request.hard_constraints.max_trade_intent_count
     turnover = calculate_construction_turnover(current_weights, constraint_weights) if has_constraint_weights else None
     has_trade_intent_count_evaluation = has_constraint_weights and max_trade_intent_count is not None and trade_intents_persisted
+    trade_intent_count_status = "not_evaluated"
+    if has_trade_intent_count_evaluation:
+        assert max_trade_intent_count is not None
+        trade_intent_count_limit: int = int(max_trade_intent_count)
+        trade_intent_count_status = (
+            "fail"
+            if len(trade_intents) > trade_intent_count_limit
+            else ("binding" if len(trade_intents) == trade_intent_count_limit else "pass")
+        )
     return [
         ConstructionConstraintEvaluation(
             constraint_id="full_investment",
@@ -757,15 +918,7 @@ def _evaluate_constraints(
         ),
         ConstructionConstraintEvaluation(
             constraint_id="max_trade_intent_count",
-            status=(
-                "not_evaluated"
-                if not has_trade_intent_count_evaluation
-                else (
-                    "fail"
-                    if len(trade_intents) > max_trade_intent_count
-                    else ("binding" if len(trade_intents) == max_trade_intent_count else "pass")
-                )
-            ),
+            status=trade_intent_count_status,
             actual_value=float(len(trade_intents)) if has_trade_intent_count_evaluation else None,
             limit_value=float(max_trade_intent_count) if max_trade_intent_count is not None else None,
             message=(

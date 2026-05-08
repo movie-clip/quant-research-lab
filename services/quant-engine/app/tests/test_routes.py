@@ -114,6 +114,24 @@ def _rekey_etf_ranking_artifact_payload(tmp_path: Path, artifact_id: str, payloa
     return rekeyed_artifact_id
 
 
+def _rekey_replacement_ranking_artifact_payload(tmp_path: Path, artifact_id: str, payload_mutator) -> str:
+    artifact_path = tmp_path / "replacement" / f"{artifact_id}.json"
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload_mutator(payload)
+    payload_without_id = {key: value for key, value in payload.items() if key != "artifact_id"}
+    rekeyed_artifact_id = (
+        f"intent_bound_etf_replacement_ranking_artifact_{sha256(_canonical_json(payload_without_id).encode('utf-8')).hexdigest()[:16]}"
+    )
+    payload["artifact_id"] = rekeyed_artifact_id
+    artifact_path.unlink()
+    rekeyed_path = tmp_path / "replacement" / f"{rekeyed_artifact_id}.json"
+    rekeyed_path.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+        encoding="utf-8",
+    )
+    return rekeyed_artifact_id
+
+
 def _rekey_persisted_handoff(reference: dict[str, str], manifest_mutator) -> dict[str, str]:
     manifest_path = Path(reference["manifest_path"])
     artifact_path = Path(reference["artifact_path"])
@@ -4979,11 +4997,82 @@ def test_construction_ranking_artifact_preflight_route_returns_canonical_handoff
             "methodology_id": ranking_payload["run_metadata"]["methodology_id"],
             "as_of_date": ranking_payload["run_metadata"]["as_of_date"],
         },
+        "eligibility": {
+            "eligible": True,
+            "reason": None,
+        },
         "handoff": {
             "handoff_kind": "etf_ranking_artifact_construction_handoff_v1",
             "artifact_kind": "etf_ranking",
             "artifact_id": ranking_payload["artifact_id"],
             "schema_version": "etf_ranking_artifact_v1",
+            "ranking_id": ranking_payload["ranking_id"],
+            "methodology_id": ranking_payload["run_metadata"]["methodology_id"],
+            "as_of_date": ranking_payload["run_metadata"]["as_of_date"],
+        },
+    }
+
+
+def test_construction_replacement_ranking_artifact_preflight_route_returns_canonical_handoff(tmp_path, mocker) -> None:
+    _patch_replacement_ranking_dependencies(mocker)
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path / "replacement")),
+    )
+    client = TestClient(app)
+
+    ranking_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+            },
+        },
+    )
+    assert ranking_response.status_code == 200
+    ranking_payload = ranking_response.json()
+
+    response = client.post(f"/construction/ranking-artifacts/preflight/{ranking_payload['artifact_id']}")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "contract_version": "construction_ranking_artifact_preflight_v1",
+        "artifact": {
+            "artifact_kind": "intent_bound_etf_replacement_ranking",
+            "artifact_id": ranking_payload["artifact_id"],
+            "schema_version": "intent_bound_etf_replacement_ranking_artifact_v1",
+            "ranking_id": ranking_payload["ranking_id"],
+            "methodology_id": ranking_payload["run_metadata"]["methodology_id"],
+            "as_of_date": ranking_payload["run_metadata"]["as_of_date"],
+        },
+        "eligibility": {
+            "eligible": True,
+            "reason": None,
+        },
+        "handoff": {
+            "handoff_kind": "intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1",
+            "artifact_kind": "intent_bound_etf_replacement_ranking",
+            "artifact_id": ranking_payload["artifact_id"],
+            "schema_version": "intent_bound_etf_replacement_ranking_artifact_v1",
             "ranking_id": ranking_payload["ranking_id"],
             "methodology_id": ranking_payload["run_metadata"]["methodology_id"],
             "as_of_date": ranking_payload["run_metadata"]["as_of_date"],
@@ -5002,6 +5091,21 @@ def test_construction_ranking_artifact_preflight_route_returns_404_only_for_miss
 
     assert response.status_code == 404
     assert "missing persisted etf ranking artifact file" in response.json()["detail"]
+
+
+def test_construction_replacement_ranking_artifact_preflight_route_returns_404_only_for_missing_artifact(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path / "replacement")),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/construction/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_missing"
+    )
+
+    assert response.status_code == 404
+    assert "missing persisted replacement ranking artifact file" in response.json()["detail"]
 
 
 @pytest.mark.parametrize(
@@ -5076,8 +5180,136 @@ def test_construction_ranking_artifact_preflight_route_fails_closed_for_construc
 
     response = client.post(f"/construction/ranking-artifacts/preflight/{artifact_id}")
 
+    assert response.status_code == 200
+    assert response.json() == {
+        "contract_version": "construction_ranking_artifact_preflight_v1",
+        "artifact": {
+            "artifact_kind": "etf_ranking",
+            "artifact_id": artifact_id,
+            "schema_version": "etf_ranking_artifact_v1",
+            "ranking_id": ranking_response.json()["ranking_id"],
+            "methodology_id": ranking_response.json()["run_metadata"]["methodology_id"],
+            "as_of_date": ranking_response.json()["run_metadata"]["as_of_date"],
+        },
+        "eligibility": {
+            "eligible": False,
+            "reason": "persisted etf ranking artifact has no eligible ranked candidates for construction",
+        },
+        "handoff": None,
+    }
+
+
+def test_construction_ranking_artifact_preflight_route_fails_closed_for_construction_unusable_persisted_replacement_ranking_state(
+    tmp_path,
+    mocker,
+) -> None:
+    _patch_replacement_ranking_dependencies(mocker)
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path / "replacement")),
+    )
+    client = TestClient(app)
+
+    ranking_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+            },
+        },
+    )
+    assert ranking_response.status_code == 200
+    artifact_id = _rekey_replacement_ranking_artifact_payload(
+        tmp_path,
+        ranking_response.json()["artifact_id"],
+        lambda payload: payload.__setitem__("ranked_candidates", []),
+    )
+
+    response = client.post(f"/construction/ranking-artifacts/preflight/{artifact_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "contract_version": "construction_ranking_artifact_preflight_v1",
+        "artifact": {
+            "artifact_kind": "intent_bound_etf_replacement_ranking",
+            "artifact_id": artifact_id,
+            "schema_version": "intent_bound_etf_replacement_ranking_artifact_v1",
+            "ranking_id": ranking_response.json()["ranking_id"],
+            "methodology_id": ranking_response.json()["run_metadata"]["methodology_id"],
+            "as_of_date": ranking_response.json()["run_metadata"]["as_of_date"],
+        },
+        "eligibility": {
+            "eligible": False,
+            "reason": "persisted replacement ranking artifact has no eligible ranked candidates for construction",
+        },
+        "handoff": None,
+    }
+
+
+def test_construction_ranking_artifact_preflight_route_rejects_cross_sectional_research_family() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/construction/ranking-artifacts/preflight/cross_sectional_research_artifact_abcd1234abcd1234"
+    )
+
     assert response.status_code == 400
-    assert response.json()["detail"] == "persisted etf ranking artifact has no eligible ranked candidates for construction"
+    assert (
+        response.json()["detail"]
+        == "unsupported ranking artifact family for construction preflight: cross_sectional_research_run"
+    )
+
+
+def test_construction_run_route_rejects_ineligible_preflight_without_handoff(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path / "etf")),
+    )
+    client = TestClient(app)
+
+    ranking_response = client.post("/strategy-lab/etf-ranking", json=_etf_ranking_request_payload())
+    assert ranking_response.status_code == 200
+    artifact_id = _rekey_etf_ranking_artifact_payload(
+        tmp_path,
+        ranking_response.json()["artifact_id"],
+        lambda payload: payload.__setitem__("ranked_universe", []),
+    )
+    preflight_response = client.post(f"/construction/ranking-artifacts/preflight/{artifact_id}")
+
+    assert preflight_response.status_code == 200
+    assert preflight_response.json()["handoff"] is None
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-ineligible-preflight-missing-handoff",
+            "ranking_artifact_handoff": preflight_response.json()["handoff"],
+            "current_portfolio": _construction_current_portfolio_payload(),
+            **_construction_policy_payload(),
+            **_construction_constraints_payload(),
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_construction_run_route_accepts_ranking_artifact_handoff_and_persists_construction_artifact(tmp_path, mocker) -> None:
@@ -5116,6 +5348,157 @@ def test_construction_run_route_accepts_ranking_artifact_handoff_and_persists_co
     assert payload["normalized_inputs"]["ranked_universe_artifact_schema_version"] == "etf_ranking_artifact_v1"
     assert payload["normalized_inputs"]["ranking_id"] == ranking_payload["ranking_id"]
     assert payload["normalized_inputs"]["ranking_methodology_id"] == ranking_payload["run_metadata"]["methodology_id"]
+    assert payload["normalized_inputs"]["current_portfolio_artifact_id"] == "portfolio_snapshot_1"
+    assert payload["normalized_inputs"]["current_portfolio_as_of_timestamp"] == "2026-04-23T09:30:00"
+    assert payload["normalized_inputs"]["policy_definition_id"] == "construction_policy_definition_top_n_equal_weight_v1"
+
+
+def test_construction_run_route_rejects_ranking_artifact_handoff_when_top_n_is_outside_launch_boundary(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path / "etf")),
+    )
+    client = TestClient(app)
+
+    ranking_response = client.post("/strategy-lab/etf-ranking", json=_etf_ranking_request_payload())
+    assert ranking_response.status_code == 200
+    ranking_payload = ranking_response.json()
+    preflight_response = client.post(f"/construction/ranking-artifacts/preflight/{ranking_payload['artifact_id']}")
+    assert preflight_response.status_code == 200
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-artifact-handoff-invalid-top-n",
+            "ranking_artifact_handoff": preflight_response.json()["handoff"],
+            "current_portfolio": _construction_current_portfolio_payload(),
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 3},
+            **_construction_constraints_payload(),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "ranking artifact handoff launch requires policy.top_n=2 for the shipped desktop boundary"
+    }
+
+
+def test_construction_run_route_accepts_replacement_ranking_artifact_handoff_and_persists_construction_artifact(tmp_path, mocker) -> None:
+    _patch_replacement_ranking_dependencies(mocker)
+    mocker.patch(
+        "app.services.replacement_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(replacement_ranking_artifact_dir=str(tmp_path / "replacement")),
+    )
+    mocker.patch(
+        "app.services.construction_artifact_service.get_settings",
+        return_value=SimpleNamespace(construction_artifact_dir=str(tmp_path / "construction")),
+    )
+    client = TestClient(app)
+
+    ranking_response = client.post(
+        "/strategy-lab/etf-ranking/replacements",
+        json={
+            "replacement_intent": {
+                "draft_id": "draft-1",
+                "workspace_id": "workspace-1",
+                "base_node_id": "node-1",
+                "base_symbol": "BASE",
+                "candidate_symbol": "ETF1",
+                "seed_ranking_id": "etf_ranking_engine_v1",
+                "seed_methodology_id": "etf_ranking_methodology_v1",
+                "seed_ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+            },
+            "seed_context": {
+                "ranking_id": "etf_ranking_engine_v1",
+                "methodology_id": "etf_ranking_methodology_v1",
+                "ranking_basis_date": "2025-12-31",
+                "peer_group": "Sector UCITS ETF",
+                "benchmark_symbol": "SPY",
+                "lookback_months": 6,
+                "seeded_symbols": ["BASE", "ETF1", "ETF2"],
+            },
+        },
+    )
+    assert ranking_response.status_code == 200
+    ranking_payload = ranking_response.json()
+    preflight_response = client.post(f"/construction/ranking-artifacts/preflight/{ranking_payload['artifact_id']}")
+    assert preflight_response.status_code == 200
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-replacement-artifact-handoff-1",
+            "ranking_artifact_handoff": preflight_response.json()["handoff"],
+            "current_portfolio": _construction_current_portfolio_payload(),
+            **_construction_policy_payload(),
+            **_construction_constraints_payload(),
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["artifact_id"].startswith("construction_artifact_")
+    assert payload["normalized_inputs"]["ranked_universe_artifact_kind"] == "intent_bound_etf_replacement_ranking"
+    assert payload["normalized_inputs"]["ranked_universe_artifact_id"] == ranking_payload["artifact_id"]
+    assert payload["normalized_inputs"]["ranked_universe_artifact_schema_version"] == "intent_bound_etf_replacement_ranking_artifact_v1"
+    assert payload["normalized_inputs"]["ranking_id"] == ranking_payload["ranking_id"]
+    assert payload["normalized_inputs"]["ranking_methodology_id"] == ranking_payload["run_metadata"]["methodology_id"]
+    assert payload["normalized_inputs"]["current_portfolio_artifact_id"] == "portfolio_snapshot_1"
+    assert payload["normalized_inputs"]["current_portfolio_as_of_timestamp"] == "2026-04-23T09:30:00"
+    assert payload["normalized_inputs"]["policy_definition_id"] == "construction_policy_definition_top_n_equal_weight_v1"
+
+
+@pytest.mark.parametrize(
+    ("field_name", "expected_detail"),
+    [
+        (
+            "artifact_id",
+            "current_portfolio.artifact_id and current_portfolio.as_of_timestamp must be provided together",
+        ),
+        (
+            "as_of_timestamp",
+            "current_portfolio.artifact_id and current_portfolio.as_of_timestamp must be provided together",
+        ),
+    ],
+)
+def test_construction_run_route_rejects_handoff_requests_without_authoritative_current_portfolio_identity(
+    tmp_path,
+    mocker,
+    field_name: str,
+    expected_detail: str,
+) -> None:
+    mocker.patch(
+        "app.services.etf_ranking_artifact_service.get_settings",
+        return_value=SimpleNamespace(etf_ranking_artifact_dir=str(tmp_path / "etf")),
+    )
+    client = TestClient(app)
+
+    ranking_response = client.post("/strategy-lab/etf-ranking", json=_etf_ranking_request_payload())
+    assert ranking_response.status_code == 200
+    preflight_response = client.post(
+        f"/construction/ranking-artifacts/preflight/{ranking_response.json()['artifact_id']}"
+    )
+    assert preflight_response.status_code == 200
+
+    current_portfolio = _construction_current_portfolio_payload()
+    current_portfolio[field_name] = None
+
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-missing-current-portfolio-lineage",
+            "ranking_artifact_handoff": preflight_response.json()["handoff"],
+            "current_portfolio": current_portfolio,
+            **_construction_policy_payload(),
+            **_construction_constraints_payload(),
+        },
+    )
+
+    assert response.status_code == 422
+    assert expected_detail in response.text
 
 
 def test_construction_run_route_rejects_mixed_inline_and_handoff_ranking_sources(tmp_path, mocker) -> None:
@@ -5542,7 +5925,14 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
             "max_trade_intent_count_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
+            "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "default",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_inverse_rank_weight_v1",
@@ -5563,7 +5953,14 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
             "max_trade_intent_count_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
+            "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "excluded",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_linear_rank_weight_v1",
@@ -5584,7 +5981,14 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
             "max_trade_intent_count_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
+            "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "opt_in",
+                "launch_top_n": 2,
+            },
         },
     ]
 
@@ -5606,6 +6010,7 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
         ({"max_trade_intent_count_constraint": "supported_optional"}, ["top_n_equal_weight_v1", "top_n_inverse_rank_weight_v1", "top_n_linear_rank_weight_v1"]),
         ({"ranked_universe_input": "required"}, ["top_n_equal_weight_v1", "top_n_inverse_rank_weight_v1", "top_n_linear_rank_weight_v1"]),
         ({"current_portfolio_input": "required"}, ["top_n_equal_weight_v1", "top_n_inverse_rank_weight_v1", "top_n_linear_rank_weight_v1"]),
+        ({"launch_top_n": "2"}, ["top_n_equal_weight_v1", "top_n_inverse_rank_weight_v1", "top_n_linear_rank_weight_v1"]),
     ],
 )
 def test_construction_policy_catalog_route_filters_by_each_exact_catalog_metadata_field(params, expected_policy_ids) -> None:
@@ -5615,6 +6020,30 @@ def test_construction_policy_catalog_route_filters_by_each_exact_catalog_metadat
 
     assert response.status_code == 200
     assert [item["policy_id"] for item in response.json()] == expected_policy_ids
+
+
+def test_construction_policy_catalog_route_exposes_canonical_launch_profile_metadata() -> None:
+    client = TestClient(app)
+
+    response = client.get("/construction/policies")
+
+    assert response.status_code == 200
+    payload = response.json()
+    default_rows = [item for item in payload if item["launch_profile"]["policy_status"] == "default"]
+    assert [item["policy_id"] for item in default_rows] == ["top_n_equal_weight_v1"]
+    included_rows = [
+        item["policy_id"]
+        for item in payload
+        if item["launch_profile"]["policy_status"] in {"default", "opt_in"}
+    ]
+    assert included_rows == ["top_n_equal_weight_v1", "top_n_linear_rank_weight_v1"]
+    inverse_row = next(item for item in payload if item["policy_id"] == "top_n_inverse_rank_weight_v1")
+    assert inverse_row["launch_profile"] == {
+        "profile_id": "ranking_artifact_review_handoff_v1",
+        "profile_kind": "ranking_artifact_review_handoff",
+        "policy_status": "excluded",
+        "launch_top_n": 2,
+    }
 
 
 def test_construction_policy_catalog_route_intersects_multiple_exact_filters() -> None:
@@ -5734,6 +6163,20 @@ def test_construction_policy_catalog_route_rejects_malformed_max_trade_intent_co
     assert response.status_code == 422
     assert response.json() == {
         "detail": "invalid construction policy filter value for 'max_trade_intent_count_constraint': ' supported_optional '; supported values: supported_optional"
+    }
+
+
+def test_construction_policy_catalog_route_rejects_invalid_launch_top_n_filter_value() -> None:
+    client = TestClient(app)
+
+    response = client.get(
+        "/construction/policies",
+        params={"launch_top_n": "3"},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "invalid construction policy filter value for 'launch_top_n': '3'; supported values: 2"
     }
 
 
@@ -6656,9 +7099,13 @@ def test_construction_artifact_replay_route_uses_explicit_reference_only_lineage
         "policy_id": "top_n_equal_weight_v1",
         "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
         "ranked_universe_artifact_id": "ranking_artifact_1",
+        "ranked_universe_artifact_schema_version": None,
         "ranking_id": "ranked_candidates_v1",
         "ranking_methodology_id": "ranked_candidates_methodology_v1",
+        "ranking_as_of_date": "2026-04-23",
         "current_portfolio_artifact_id": "portfolio_snapshot_1",
+        "current_portfolio_as_of_timestamp": "2026-04-23T09:30:00",
+        "top_n": 2,
         "hard_constraints": construction_response.json()["hard_constraints"],
         "baseline_input_source": "normalized_inputs.current_portfolio_weights",
         "candidate_input_source": "final_target_weights",
@@ -6705,6 +7152,19 @@ def test_construction_artifact_replay_route_uses_explicit_reference_only_lineage
             "handoff_kind": "construction_artifact_preview_handoff_v1",
             "construction_artifact_id": artifact_id,
             "effective_replay_params": payload["effective_replay_params"],
+        },
+        "launch_context": {
+            "construction_artifact_id": artifact_id,
+            "ranked_universe_artifact_id": "ranking_artifact_1",
+            "ranked_universe_artifact_schema_version": None,
+            "ranking_id": "ranked_candidates_v1",
+            "ranking_methodology_id": "ranked_candidates_methodology_v1",
+            "ranking_as_of_date": "2026-04-23",
+            "current_portfolio_artifact_id": "portfolio_snapshot_1",
+            "current_portfolio_as_of_timestamp": "2026-04-23T09:30:00",
+            "policy_id": "top_n_equal_weight_v1",
+            "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "top_n": 2,
         },
         "benchmark_symbol": "SPY",
         "base_currency": "USD",
@@ -8032,6 +8492,123 @@ def test_review_snapshot_compare_route_rejects_proposal_family_mismatch(tmp_path
 
     assert compare_response.status_code == 400
     assert compare_response.json()["detail"] == "review snapshot comparison requires matching proposal_family_id"
+
+
+@pytest.mark.parametrize(
+    ("route", "service_path", "request_payload_builder", "response_builder"),
+    [
+        (
+            "/backtests/review-snapshots/compare",
+            "app.api.routes.backtests.compare_review_snapshots",
+            lambda: {
+                "baseline": _review_snapshot_comparison_ref_payload("baseline", "review_snapshot_baseline"),
+                "candidate": _review_snapshot_comparison_ref_payload("candidate", "review_snapshot_candidate"),
+            },
+            lambda: {
+                "comparison_kind": "review_snapshot_comparison",
+                "family_key": {
+                    "workspace_id": "workspace-1",
+                    "source_draft_id": "draft-1",
+                    "source_base_node_id": "node-1",
+                    "proposal_family_id": "",
+                    "source_kind": "hypothetical_replacement_replay",
+                },
+                "baseline": {},
+            },
+        ),
+        (
+            "/backtests/review-snapshots/family-review",
+            "app.api.routes.backtests.build_review_snapshot_family_review",
+            lambda: _review_snapshot_family_review_payload("review_snapshot_anchor"),
+            lambda: {
+                "review_kind": "review_snapshot_family_review",
+                "family_key": {
+                    "workspace_id": None,
+                    "source_draft_id": "draft-1",
+                    "source_base_node_id": "node-1",
+                    "proposal_family_id": "etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z",
+                    "source_kind": "hypothetical_replacement_replay",
+                },
+                "provenance": "persisted_review_snapshot_artifacts_only",
+                "compare_selection_policy": "exactly_two_distinct_family_siblings",
+                "anchor": {},
+                "siblings": [{}],
+            },
+        ),
+        (
+            "/backtests/review-snapshots/family-inbox",
+            "app.api.routes.backtests.build_review_snapshot_family_inbox",
+            lambda: _review_snapshot_family_inbox_payload(),
+            lambda: {
+                "inbox_kind": "review_snapshot_family_inbox",
+                "workspace_id": "workspace-1",
+                "provenance": "persisted_review_snapshot_artifacts_only",
+                "rows": [
+                    {
+                        "family_key": {
+                            "workspace_id": "workspace-1",
+                            "source_draft_id": "",
+                            "source_base_node_id": "node-1",
+                            "proposal_family_id": "etf_replacement_intent:AAPL:IUFS:2026-04-15T00:05:00Z",
+                            "source_kind": "hypothetical_replacement_replay",
+                        }
+                    }
+                ],
+            },
+        ),
+        (
+            "/backtests/review-snapshots/active-thesis-cross-family-queue",
+            "app.api.routes.backtests.build_review_snapshot_active_thesis_cross_family_queue",
+            lambda: _review_snapshot_active_thesis_cross_family_queue_payload("review_snapshot_active", "proposal-thesis"),
+            lambda: {
+                "queue_kind": "review_snapshot_active_thesis_cross_family_queue",
+                "provenance": "persisted_review_snapshot_artifacts_and_active_thesis_reference_only",
+                "queue_ordering": "latest_saved_at_desc_then_artifact_id_desc",
+                "active_thesis": {
+                    "source_proposal_id": "proposal-thesis",
+                    "handoff": _review_snapshot_open_handoff_payload("review_snapshot_active"),
+                    "identity": {
+                        "artifact_id": "review_snapshot_active",
+                        "artifact_kind": "portfolio_review_snapshot",
+                        "schema_version": "review_snapshot_artifact_v1",
+                        "fingerprint": "a" * 64,
+                        "consumer_kind": "saved_hypothetical_replay_proposal",
+                    },
+                    "lineage": {
+                        "workspace_id": "workspace-1",
+                        "source_draft_id": "draft-1",
+                        "source_base_node_id": "node-1",
+                        "proposal_family_id": "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z",
+                        "proposal_id": "proposal-thesis",
+                        "version_number": 1,
+                        "source_kind": "hypothetical_replacement_replay",
+                    },
+                    "family_key": {
+                        "workspace_id": "workspace-1",
+                        "source_draft_id": "draft-1",
+                        "source_base_node_id": "node-1",
+                        "proposal_family_id": "etf_replacement_intent:AAPL:THESIS:2026-04-10T00:05:00Z",
+                        "source_kind": None,
+                    },
+                },
+                "rows": [],
+            },
+        ),
+    ],
+)
+def test_review_snapshot_routes_fail_closed_when_response_family_key_is_invalid(
+    mocker,
+    route: str,
+    service_path: str,
+    request_payload_builder,
+    response_builder,
+) -> None:
+    client = TestClient(app, raise_server_exceptions=False)
+    mocker.patch(service_path, return_value=response_builder())
+
+    response = client.post(route, json=request_payload_builder())
+
+    assert response.status_code == 500
 
 
 def test_review_snapshot_open_route_fails_closed_on_malformed_pm_summary_payload(tmp_path, mocker) -> None:
@@ -10629,7 +11206,9 @@ def test_analyze_route_accepts_multiple_statement_paths() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert len(payload["snapshot"]["statements"]) == 2
-    assert payload["snapshot"]["statement"]["statement_period"] == "2025-01-01 - 2026-04-24"
+    assert payload["snapshot"]["statement"]["statement_period"] == (
+        f'{payload["history_context"]["history_start_date"]} - {payload["history_context"]["history_end_date"]}'
+    )
 
 
 def test_analyze_route_accepts_mixed_broker_statement_paths() -> None:
@@ -10769,7 +11348,7 @@ def test_exposure_engine_route_accepts_portfolio_snapshot_payload() -> None:
     assert payload["run_metadata"]["engine_id"] == "exposure_engine_v1"
     assert payload["run_metadata"]["source_status"] == {
         "lookthrough_resolution": "live",
-        "benchmark_holdings": "live",
+        "benchmark_holdings": "verified",
     }
     assert payload["run_metadata"]["reproducibility"] == {
         "input_imported_at": "2026-04-10T00:00:00+00:00",

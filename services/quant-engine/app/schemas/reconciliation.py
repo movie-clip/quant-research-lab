@@ -148,12 +148,22 @@ class MarketOverlapConstituent(BaseModel):
     overlap_weight: float
 
 
+class BenchmarkRelativePositioningCue(BaseModel):
+    symbol: str
+    name: str
+    portfolio_weight: float
+    benchmark_weight: float
+    active_weight: float
+
+
 class MarketOverlapSummary(BaseModel):
     benchmark_symbol: str
     overlap_weight: float | None
     active_share: float | None
     portfolio_in_benchmark_weight: float | None
     benchmark_covered_weight: float | None
+    top_overweights: list[BenchmarkRelativePositioningCue] = []
+    top_underweights: list[BenchmarkRelativePositioningCue] = []
 
 
 class EtfOverlapConstituent(BaseModel):

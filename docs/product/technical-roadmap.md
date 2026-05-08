@@ -2,6 +2,7 @@
 
 This file is technical and future-looking only.
 Current shipped boundaries belong in `docs/product/current-product-state.md`.
+Living epic execution status belongs in `docs/product/epic-roadmap.md`.
 
 ## Goal
 
@@ -49,7 +50,7 @@ Remaining work:
 ### 2. Construction Engine Expansion
 
 Remaining work:
-- add more persisted construction policies beyond `top_n_equal_weight_v1`
+- broaden persisted construction policy coverage beyond the current narrow catalog and canonical launch profile, including configurable `top_n` support
 - add richer constraint models, turnover logic, and implementation diagnostics
 - standardize policy execution, provenance capture, and replay handoff across persisted and review-oriented construction paths
 
@@ -58,6 +59,7 @@ Remaining work:
 Remaining work:
 - tighten Workspace integration across ranking, persisted construction, optimizer handoff, replay, and proposal artifacts
 - simplify review contracts so lineage, trust, and withholding remain visible without excessive payload noise
+- keep persisted construction reopen lineage fail-closed now that canonical launch context is explicit across ranking artifact identity/schema, ranking lineage, current portfolio identity/timestamp, policy identity/definition, and fixed `top_n`
 - broaden saved proposal review beyond the shipped canonical PM-first family inbox, active-thesis cross-family PM review queue, proposal-family PM review, and same-family sibling comparison slices while preserving backend-rooted persisted-artifact discovery contracts
 
 ### 4. Overlay and Monitoring Expansion
