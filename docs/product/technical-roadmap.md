@@ -50,7 +50,7 @@ Remaining work:
 ### 2. Construction Engine Expansion
 
 Remaining work:
-- add more persisted construction policies beyond `top_n_equal_weight_v1`
+- broaden persisted construction policy coverage beyond the current narrow catalog and canonical launch profile, including configurable `top_n` support
 - add richer constraint models, turnover logic, and implementation diagnostics
 - standardize policy execution, provenance capture, and replay handoff across persisted and review-oriented construction paths
 

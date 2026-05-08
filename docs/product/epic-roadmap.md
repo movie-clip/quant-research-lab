@@ -14,7 +14,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Ranking-artifact launch policy discovery now exposes one canonical review/handoff launch profile and desktop reads it back explicitly | Broaden policy parameterization beyond fixed `top_n`, the current narrow hard-constraint set, and narrow review-only lineage assumptions | 2026-05-08 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Ranking-artifact launch policy discovery now exposes one canonical review/handoff launch profile and desktop reads it back explicitly | Add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth; review mechanics stronger than monitor-family breadth | No active slice | Surface active alert-episode inbox more directly in Workspace | 2026-05-06 |
 
 ## Cross-Epic Guardrails
@@ -145,7 +145,7 @@ Deepen deterministic construction and constrained optimizer review on top of str
 
 ### Open gaps
 
-- Ranking-to-construction handoff is not yet the clearest canonical workflow.
+- Canonical ranking-to-construction handoff is shipped for the narrow `ranking_artifact_review_handoff_v1` launch profile; broader eligibility and parameterization remain open.
 - Policy and constraint breadth remain narrow.
 - Ranking-entry portfolio lineage and policy parameterization are still intentionally narrow in the current desktop bridge.
 
@@ -156,7 +156,7 @@ Deepen deterministic construction and constrained optimizer review on top of str
 - `Shipped`: the existing Workspace artifact-backed ranking-to-construction launch browsers now also expose optional `max_turnover_weight` and optional `max_trade_intent_count`, with shared local validation, omission-on-blank request serialization, and no widening of policy authority, ranking-family support, or inline launch paths.
 - `Shipped`: canonical launch context is now preserved and fail-closed across the full shipped ranking-to-construction review boundary, including ranking artifact id/schema/ranking lineage, current portfolio identity/timestamp, selected policy id/definition, and fixed `top_n` lineage through persisted construction artifact reopen.
 - `Shipped`: backend policy discovery now stamps one canonical `ranking_artifact_review_handoff_v1` launch profile with explicit default/opt-in/excluded status, desktop consumes that metadata instead of hardcoded launch allowlists/defaults, and review surfaces read back the shipped `top_n = 2` plus required/optional hard-constraint boundary next to construction launch controls.
-- Next: broaden policy parameterization beyond the current fixed `top_n`, the currently exposed hard-constraint set, and narrow review-only lineage assumptions.
+- Next: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions.
 
 ### Dependencies
 

@@ -42,7 +42,7 @@ Goal:
 - extend the shipped persisted construction engine beyond its current narrow policy set
 
 Remaining work:
-- add more weighting policies beyond `top_n_equal_weight_v1`
+- broaden construction policy coverage beyond the current narrow catalog and launch profile, including configurable `top_n` when supported
 - add richer hard and soft constraint families
 - deepen ranking-to-construction handoff and implementation diagnostics
 
