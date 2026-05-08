@@ -1,0 +1,21 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/run_dev.py)",
+      "Bash(python scripts/run_all_tests.py)",
+      "Bash(python scripts/manage_cache.py*)",
+      "Bash(cd services/quant-engine && pytest*)",
+      "Bash(cd services/quant-engine && uvicorn*)",
+      "Bash(cd apps/desktop && npm*)",
+      "Bash(cd apps/desktop && npx*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
+    ]
+  }
+}
