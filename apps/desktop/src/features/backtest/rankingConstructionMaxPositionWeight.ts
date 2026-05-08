@@ -1,10 +1,15 @@
 export const DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = '0.60'
 export const DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT = ''
+export const DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = ''
+export const DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT = ''
 export const MIN_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = 0.5
 export const MAX_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = 1
 export const MAX_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT = 0.5
+export const MIN_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = 0
+export const MAX_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = 1
 
 const DECIMAL_WEIGHT_PATTERN = /^(?:\d+(?:\.\d+)?|\.\d+)$/
+const INTEGER_COUNT_PATTERN = /^\d+$/
 
 export type RankingConstructionMaxPositionWeightValidation = {
   value: number | null
@@ -21,8 +26,29 @@ export type RankingConstructionPositionWeightValidation = {
   minPositionWeight: RankingConstructionMinPositionWeightValidation
 }
 
+export type RankingConstructionMaxTurnoverWeightValidation = {
+  value: number | null
+  error: string | null
+}
+
+export type RankingConstructionMaxTradeIntentCountValidation = {
+  value: number | null
+  error: string | null
+}
+
+export type RankingConstructionConstraintValidation = {
+  maxPositionWeight: RankingConstructionMaxPositionWeightValidation
+  minPositionWeight: RankingConstructionMinPositionWeightValidation
+  maxTurnoverWeight: RankingConstructionMaxTurnoverWeightValidation
+  maxTradeIntentCount: RankingConstructionMaxTradeIntentCountValidation
+}
+
 function isDecimalWeightInput(input: string) {
   return DECIMAL_WEIGHT_PATTERN.test(input)
+}
+
+function isIntegerCountInput(input: string) {
+  return INTEGER_COUNT_PATTERN.test(input)
 }
 
 function validateRequiredMaxPositionWeightInput(
@@ -75,19 +101,79 @@ function validateOptionalMinPositionWeightInput(
   return { value, error: null }
 }
 
-export function validateRankingConstructionPositionWeightInputs(params: {
+function validateOptionalMaxTurnoverWeightInput(
+  input: string | null | undefined,
+): RankingConstructionMaxTurnoverWeightValidation {
+  const normalized = input?.trim() ?? ''
+  if (!normalized) {
+    return { value: null, error: null }
+  }
+
+  if (!isDecimalWeightInput(normalized)) {
+    return { value: null, error: 'Enter a numeric max turnover weight as a decimal between 0 and 1.' }
+  }
+
+  const value = Number(normalized)
+  if (
+    value < MIN_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT
+    || value > MAX_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT
+  ) {
+    return { value: null, error: 'Max turnover weight must be between 0 and 1.' }
+  }
+
+  return { value, error: null }
+}
+
+function validateOptionalMaxTradeIntentCountInput(
+  input: string | null | undefined,
+): RankingConstructionMaxTradeIntentCountValidation {
+  const normalized = input?.trim() ?? ''
+  if (!normalized) {
+    return { value: null, error: null }
+  }
+
+  if (!isIntegerCountInput(normalized)) {
+    return { value: null, error: 'Enter a whole-number max trade intent count of 0 or greater.' }
+  }
+
+  const value = Number(normalized)
+  if (value < 0) {
+    return { value: null, error: 'Max trade intent count must be 0 or greater.' }
+  }
+
+  return { value, error: null }
+}
+
+export function validateRankingConstructionConstraintInputs(params: {
   maxPositionWeightInput: string | null | undefined
   minPositionWeightInput?: string | null | undefined
-}): RankingConstructionPositionWeightValidation {
+  maxTurnoverWeightInput?: string | null | undefined
+  maxTradeIntentCountInput?: string | null | undefined
+}): RankingConstructionConstraintValidation {
   const maxPositionWeight = validateRequiredMaxPositionWeightInput(params.maxPositionWeightInput)
   const minPositionWeight = validateOptionalMinPositionWeightInput(
     params.minPositionWeightInput,
     maxPositionWeight.value,
   )
+  const maxTurnoverWeight = validateOptionalMaxTurnoverWeightInput(params.maxTurnoverWeightInput)
+  const maxTradeIntentCount = validateOptionalMaxTradeIntentCountInput(params.maxTradeIntentCountInput)
 
   return {
     maxPositionWeight,
     minPositionWeight,
+    maxTurnoverWeight,
+    maxTradeIntentCount,
+  }
+}
+
+export function validateRankingConstructionPositionWeightInputs(params: {
+  maxPositionWeightInput: string | null | undefined
+  minPositionWeightInput?: string | null | undefined
+}): RankingConstructionPositionWeightValidation {
+  const validation = validateRankingConstructionConstraintInputs(params)
+  return {
+    maxPositionWeight: validation.maxPositionWeight,
+    minPositionWeight: validation.minPositionWeight,
   }
 }
 
@@ -107,4 +193,22 @@ export function validateRankingConstructionMinPositionWeightInput(params: {
     maxPositionWeightInput: params.maxPositionWeightInput,
     minPositionWeightInput: params.minPositionWeightInput,
   }).minPositionWeight
+}
+
+export function validateRankingConstructionMaxTurnoverWeightInput(
+  input: string | null | undefined,
+): RankingConstructionMaxTurnoverWeightValidation {
+  return validateRankingConstructionConstraintInputs({
+    maxPositionWeightInput: DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+    maxTurnoverWeightInput: input,
+  }).maxTurnoverWeight
+}
+
+export function validateRankingConstructionMaxTradeIntentCountInput(
+  input: string | null | undefined,
+): RankingConstructionMaxTradeIntentCountValidation {
+  return validateRankingConstructionConstraintInputs({
+    maxPositionWeightInput: DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+    maxTradeIntentCountInput: input,
+  }).maxTradeIntentCount
 }

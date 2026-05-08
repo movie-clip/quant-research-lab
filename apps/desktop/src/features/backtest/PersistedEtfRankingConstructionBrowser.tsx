@@ -7,8 +7,10 @@ import {
 } from './constructionPolicyCatalog'
 import {
   DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+  DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT,
+  DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT,
   DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
-  validateRankingConstructionPositionWeightInputs,
+  validateRankingConstructionConstraintInputs,
 } from './rankingConstructionMaxPositionWeight'
 import { runRankingArtifactConstructionHandoff } from './rankingArtifactConstructionHandoff'
 import type {
@@ -142,15 +144,21 @@ export function PersistedEtfRankingConstructionBrowser({
   const [selectedConstructionPolicyId, setSelectedConstructionPolicyId] = useState<string>('')
   const [constructionMaxPositionWeight, setConstructionMaxPositionWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT)
   const [constructionMinPositionWeight, setConstructionMinPositionWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT)
-  const constructionPositionWeightValidation = useMemo(
-    () => validateRankingConstructionPositionWeightInputs({
+  const [constructionMaxTurnoverWeight, setConstructionMaxTurnoverWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT)
+  const [constructionMaxTradeIntentCount, setConstructionMaxTradeIntentCount] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT)
+  const constructionConstraintValidation = useMemo(
+    () => validateRankingConstructionConstraintInputs({
       maxPositionWeightInput: constructionMaxPositionWeight,
       minPositionWeightInput: constructionMinPositionWeight,
+      maxTurnoverWeightInput: constructionMaxTurnoverWeight,
+      maxTradeIntentCountInput: constructionMaxTradeIntentCount,
     }),
-    [constructionMaxPositionWeight, constructionMinPositionWeight],
+    [constructionMaxPositionWeight, constructionMinPositionWeight, constructionMaxTradeIntentCount, constructionMaxTurnoverWeight],
   )
-  const constructionMaxPositionWeightValidation = constructionPositionWeightValidation.maxPositionWeight
-  const constructionMinPositionWeightValidation = constructionPositionWeightValidation.minPositionWeight
+  const constructionMaxPositionWeightValidation = constructionConstraintValidation.maxPositionWeight
+  const constructionMinPositionWeightValidation = constructionConstraintValidation.minPositionWeight
+  const constructionMaxTurnoverWeightValidation = constructionConstraintValidation.maxTurnoverWeight
+  const constructionMaxTradeIntentCountValidation = constructionConstraintValidation.maxTradeIntentCount
 
   useEffect(() => {
     if (constructionPolicyCatalog.status !== 'ready') return
@@ -214,6 +222,14 @@ export function PersistedEtfRankingConstructionBrowser({
       setHandoffState({ status: 'error', targetArtifactId: artifactId, error: constructionMinPositionWeightValidation.error })
       return
     }
+    if (constructionMaxTurnoverWeightValidation.error) {
+      setHandoffState({ status: 'error', targetArtifactId: artifactId, error: constructionMaxTurnoverWeightValidation.error })
+      return
+    }
+    if (constructionMaxTradeIntentCountValidation.error) {
+      setHandoffState({ status: 'error', targetArtifactId: artifactId, error: constructionMaxTradeIntentCountValidation.error })
+      return
+    }
     if (!currentPortfolio) {
       setHandoffState({ status: 'error', targetArtifactId: artifactId, error: 'Review In Construction requires an active workspace draft and current portfolio.' })
       return
@@ -235,6 +251,8 @@ export function PersistedEtfRankingConstructionBrowser({
         artifactId,
         maxPositionWeight: constructionMaxPositionWeightValidation.value,
         minPositionWeight: constructionMinPositionWeightValidation.value,
+        maxTurnoverWeight: constructionMaxTurnoverWeightValidation.value,
+        maxTradeIntentCount: constructionMaxTradeIntentCountValidation.value,
         currentPortfolio,
         policy: selectedPolicy,
       })
@@ -274,6 +292,18 @@ export function PersistedEtfRankingConstructionBrowser({
             <input aria-label="Min Position Weight (optional)" className="path-input" value={constructionMinPositionWeight} onChange={(event) => setConstructionMinPositionWeight(event.target.value)} />
             <p className="helper">Leave blank to omit. If set, use a decimal greater than 0 and up to 0.5, and no higher than max.</p>
             {constructionMinPositionWeightValidation.error ? <p className="helper">{constructionMinPositionWeightValidation.error}</p> : null}
+          </label>
+          <label className="field-group">
+            <span className="field-label">Max Turnover Weight (optional)</span>
+            <input aria-label="Max Turnover Weight (optional)" className="path-input" value={constructionMaxTurnoverWeight} onChange={(event) => setConstructionMaxTurnoverWeight(event.target.value)} />
+            <p className="helper">Leave blank to omit. If set, use a decimal between 0 and 1. Zero is allowed.</p>
+            {constructionMaxTurnoverWeightValidation.error ? <p className="helper">{constructionMaxTurnoverWeightValidation.error}</p> : null}
+          </label>
+          <label className="field-group">
+            <span className="field-label">Max Trade Intent Count (optional)</span>
+            <input aria-label="Max Trade Intent Count (optional)" className="path-input" value={constructionMaxTradeIntentCount} onChange={(event) => setConstructionMaxTradeIntentCount(event.target.value)} />
+            <p className="helper">Leave blank to omit. If set, use a whole number of 0 or greater.</p>
+            {constructionMaxTradeIntentCountValidation.error ? <p className="helper">{constructionMaxTradeIntentCountValidation.error}</p> : null}
           </label>
           <div className="field-group">
             <span className="field-label">Policy Source</span>
@@ -341,11 +371,13 @@ export function PersistedEtfRankingConstructionBrowser({
               const isRunning = handoffState.status === 'running' && handoffState.targetArtifactId === item.artifact_id
               const readiness = readinessState[item.artifact_id]
                const ready = readiness?.response?.eligibility.eligible === true && readiness.response.handoff != null
-               const policyBlockedReason = constructionMaxPositionWeightValidation.error
-                   ?? constructionMinPositionWeightValidation.error
-                   ?? (!currentPortfolio
-                     ? 'Open a workspace with an authoritative current portfolio to review this ranking in construction'
-                     : null)
+                const policyBlockedReason = constructionMaxPositionWeightValidation.error
+                    ?? constructionMinPositionWeightValidation.error
+                    ?? constructionMaxTurnoverWeightValidation.error
+                    ?? constructionMaxTradeIntentCountValidation.error
+                    ?? (!currentPortfolio
+                      ? 'Open a workspace with an authoritative current portfolio to review this ranking in construction'
+                      : null)
                    ?? (constructionPolicyCatalog.status === 'error'
                      ? constructionPolicyCatalog.error ?? 'Construction policy catalog unavailable'
                      : constructionPolicyCatalog.status === 'loading'

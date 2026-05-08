@@ -58,6 +58,7 @@ const defaultConstructionRuleId: SingleReplacementConstructionRuleId = 'same_wei
 const tauriAnalyzeUploadTimeoutMs = 30_000
 const persistedConstructionArtifactQueryKey = 'construction_artifact_id'
 const persistedOptimizerHandoffReferenceQueryKey = 'optimizer_handoff_reference'
+const missingPersistedConstructionArtifactReviewRestoreMessage = 'Unable to restore previous portfolio workspace: persisted construction artifact review is missing'
 const missingPersistedOptimizerHandoffReviewRestoreMessage = 'Unable to restore previous portfolio workspace: persisted optimizer handoff review is missing'
 const missingPersistedStartupNodeListRestoreMessage = 'Unable to restore previous portfolio workspace: authoritative workspace nodes are unavailable on startup'
 
@@ -114,6 +115,57 @@ function resolveConstructionArtifactPreviewHandoff(
   return validation.preview_handoff
 }
 
+function assertConstructionArtifactReplayMatchesValidation(
+  replay: ConstructionArtifactReplayResponse,
+  validation: ConstructionArtifactReplayValidationResponse,
+  expectedArtifactId: string,
+) {
+  if (replay.construction_artifact_id !== expectedArtifactId) {
+    throw new Error('Unable to open persisted construction artifact review: preview artifact mismatch')
+  }
+  if (!replay.review_basis) {
+    throw new Error('Unable to open persisted construction artifact review: preview response missing canonical review basis')
+  }
+  if (replay.review_basis.construction_artifact_id !== expectedArtifactId) {
+    throw new Error('Unable to open persisted construction artifact review: review basis artifact mismatch')
+  }
+  if (JSON.stringify(replay.review_basis.preview_handoff) !== JSON.stringify(validation.preview_handoff)) {
+    throw new Error('Unable to open persisted construction artifact review: review basis preview handoff mismatch')
+  }
+  if (JSON.stringify(replay.effective_replay_params) !== JSON.stringify(validation.effective_replay_params)) {
+    throw new Error('Unable to open persisted construction artifact review: preview effective replay params mismatch')
+  }
+  if (JSON.stringify(replay.review_basis.preview_handoff.effective_replay_params) !== JSON.stringify(validation.effective_replay_params)) {
+    throw new Error('Unable to open persisted construction artifact review: review basis replay params mismatch')
+  }
+  const launchContext = replay.review_basis.launch_context
+  const replayProvenance = replay.replay_provenance
+  if (!launchContext || typeof launchContext !== 'object') {
+    throw new Error('Unable to open persisted construction artifact review: review basis launch context is missing')
+  }
+  if (launchContext.construction_artifact_id !== expectedArtifactId) {
+    throw new Error('Unable to open persisted construction artifact review: review basis launch context artifact mismatch')
+  }
+  if (replayProvenance.construction_artifact_id !== expectedArtifactId) {
+    throw new Error('Unable to open persisted construction artifact review: replay provenance artifact mismatch')
+  }
+  if (JSON.stringify(launchContext) !== JSON.stringify({
+    construction_artifact_id: replayProvenance.construction_artifact_id,
+    ranked_universe_artifact_id: replayProvenance.ranked_universe_artifact_id,
+    ranked_universe_artifact_schema_version: replayProvenance.ranked_universe_artifact_schema_version,
+    ranking_id: replayProvenance.ranking_id,
+    ranking_methodology_id: replayProvenance.ranking_methodology_id,
+    ranking_as_of_date: replayProvenance.ranking_as_of_date,
+    current_portfolio_artifact_id: replayProvenance.current_portfolio_artifact_id,
+    current_portfolio_as_of_timestamp: replayProvenance.current_portfolio_as_of_timestamp,
+    policy_id: replayProvenance.policy_id,
+    policy_definition_id: replayProvenance.policy_definition_id,
+    top_n: replayProvenance.top_n,
+  })) {
+    throw new Error('Unable to open persisted construction artifact review: launch lineage mismatch between review basis and replay provenance')
+  }
+}
+
 async function openPersistedConstructionArtifactReviewById(
   constructionArtifactId: string,
   options: {
@@ -166,6 +218,7 @@ async function openPersistedConstructionArtifactReviewById(
     throw new Error((previewPayload as { detail?: string }).detail ?? 'Unable to open persisted construction artifact review')
   }
   const artifactReplay = previewPayload as ConstructionArtifactReplayResponse
+  assertConstructionArtifactReplayMatchesValidation(artifactReplay, validation, constructionArtifactId)
   const created = await createWorkspaceFromPersistedConstructionArtifact({ constructionArtifactId, replay: artifactReplay })
   options.setActiveWorkspace(created.workspace)
   options.ensureWorkspaceOwnedResearchSession(created.workspace.id)
@@ -2181,7 +2234,12 @@ export function App() {
 
       if (isPersistedConstructionArtifactWorkspaceSource(workspace.source)) {
         const review = await getPersistedConstructionArtifactWorkspaceReview(workspace.id)
-        if (!active || !review) {
+        if (!active) {
+          return
+        }
+        if (!review) {
+          setImportError(missingPersistedConstructionArtifactReviewRestoreMessage)
+          setRestoringPortfolio(false)
           return
         }
         const normalizedWorkspaceState = await normalizeLegacyPersistedConstructionArtifactWorkspaceCache({ workspace, node, review })

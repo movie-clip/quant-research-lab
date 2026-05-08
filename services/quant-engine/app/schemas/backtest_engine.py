@@ -1307,9 +1307,13 @@ class ConstructionArtifactReplayProvenance(BaseModel):
     policy_id: str
     policy_definition_id: ConstructionPolicyDefinitionId
     ranked_universe_artifact_id: str | None = None
+    ranked_universe_artifact_schema_version: str | None = None
     ranking_id: str | None = None
     ranking_methodology_id: str | None = None
+    ranking_as_of_date: str | None = None
     current_portfolio_artifact_id: str | None = None
+    current_portfolio_as_of_timestamp: str | None = None
+    top_n: int = Field(ge=1)
     hard_constraints: ConstructionHardConstraints
     baseline_input_source: Literal["normalized_inputs.current_portfolio_weights"] = "normalized_inputs.current_portfolio_weights"
     candidate_input_source: Literal["final_target_weights"] = "final_target_weights"
@@ -1352,6 +1356,22 @@ class ConstructionArtifactReplayResponse(BaseModel):
             raise ValueError("review_basis.construction_artifact_id must match construction_artifact_id")
         if self.review_basis.preview_handoff.effective_replay_params != self.effective_replay_params:
             raise ValueError("review_basis.preview_handoff.effective_replay_params must match effective_replay_params")
+        if self.replay_provenance.construction_artifact_id != self.construction_artifact_id:
+            raise ValueError("replay_provenance.construction_artifact_id must match construction_artifact_id")
+        if self.review_basis.launch_context != ConstructionArtifactWorkspaceLaunchContext(
+            construction_artifact_id=self.replay_provenance.construction_artifact_id,
+            ranked_universe_artifact_id=self.replay_provenance.ranked_universe_artifact_id,
+            ranked_universe_artifact_schema_version=self.replay_provenance.ranked_universe_artifact_schema_version,
+            ranking_id=self.replay_provenance.ranking_id,
+            ranking_methodology_id=self.replay_provenance.ranking_methodology_id,
+            ranking_as_of_date=self.replay_provenance.ranking_as_of_date,
+            current_portfolio_artifact_id=self.replay_provenance.current_portfolio_artifact_id,
+            current_portfolio_as_of_timestamp=self.replay_provenance.current_portfolio_as_of_timestamp,
+            policy_id=self.replay_provenance.policy_id,
+            policy_definition_id=self.replay_provenance.policy_definition_id,
+            top_n=self.replay_provenance.top_n,
+        ):
+            raise ValueError("review_basis.launch_context must match replay_provenance launch lineage")
         return self
 
 
@@ -1368,6 +1388,20 @@ class WorkspaceReviewWindow(BaseModel):
     end_date: str | None = None
 
 
+class ConstructionArtifactWorkspaceLaunchContext(BaseModel):
+    construction_artifact_id: str
+    ranked_universe_artifact_id: str | None = None
+    ranked_universe_artifact_schema_version: str | None = None
+    ranking_id: str | None = None
+    ranking_methodology_id: str | None = None
+    ranking_as_of_date: str | None = None
+    current_portfolio_artifact_id: str | None = None
+    current_portfolio_as_of_timestamp: str | None = None
+    policy_id: str
+    policy_definition_id: ConstructionPolicyDefinitionId
+    top_n: int = Field(ge=1)
+
+
 class ConstructionArtifactWorkspaceReviewBasis(BaseModel):
     basis_version: Literal[1] = 1
     basis_kind: Literal["persisted_construction_artifact_review"] = "persisted_construction_artifact_review"
@@ -1378,6 +1412,7 @@ class ConstructionArtifactWorkspaceReviewBasis(BaseModel):
     candidate_truth: Literal["hypothetical_construction_artifact"] = "hypothetical_construction_artifact"
     construction_artifact_id: str
     preview_handoff: ConstructionArtifactPreviewHandoff
+    launch_context: ConstructionArtifactWorkspaceLaunchContext
     benchmark_symbol: str | None = None
     base_currency: str | None = None
     replay_window: WorkspaceReviewWindow
@@ -1388,6 +1423,8 @@ class ConstructionArtifactWorkspaceReviewBasis(BaseModel):
     def _validate_preview_handoff_identity(self) -> "ConstructionArtifactWorkspaceReviewBasis":
         if self.preview_handoff.construction_artifact_id != self.construction_artifact_id:
             raise ValueError("review_basis.preview_handoff.construction_artifact_id must match construction_artifact_id")
+        if self.launch_context.construction_artifact_id != self.construction_artifact_id:
+            raise ValueError("review_basis.launch_context.construction_artifact_id must match construction_artifact_id")
         return self
 
 

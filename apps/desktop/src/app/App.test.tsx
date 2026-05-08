@@ -1175,6 +1175,7 @@ function buildArtifactReviewSource(constructionArtifactId: string, openedAt: str
       candidateTruth: 'hypothetical_construction_artifact' as const,
       constructionArtifactId,
       previewHandoff: makeConstructionArtifactReplayValidationResponse().preview_handoff,
+      launchContext: makeConstructionArtifactReplayResponse().review_basis.launch_context,
       openedAt,
       benchmarkSymbol: 'SPY',
       baseCurrency: 'USD',
@@ -1430,6 +1431,19 @@ function makeConstructionArtifactReplayResponse() {
       candidate_truth: 'hypothetical_construction_artifact' as const,
       construction_artifact_id: 'artifact-123',
       preview_handoff: makeConstructionArtifactReplayValidationResponse().preview_handoff,
+      launch_context: {
+        construction_artifact_id: 'artifact-123',
+        ranked_universe_artifact_id: 'ranked-1',
+        ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+        ranking_id: 'ranking-1',
+        ranking_methodology_id: 'method-1',
+        ranking_as_of_date: '2026-04-23',
+        current_portfolio_artifact_id: 'portfolio-1',
+        current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+        policy_id: 'policy-1',
+        policy_definition_id: 'policy-def-1',
+        top_n: 2,
+      },
       benchmark_symbol: 'SPY',
       base_currency: 'USD',
       replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
@@ -1442,9 +1456,13 @@ function makeConstructionArtifactReplayResponse() {
       policy_id: 'policy-1',
       policy_definition_id: 'policy-def-1',
       ranked_universe_artifact_id: 'ranked-1',
+      ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
       ranking_id: 'ranking-1',
       ranking_methodology_id: 'method-1',
+      ranking_as_of_date: '2026-04-23',
       current_portfolio_artifact_id: 'portfolio-1',
+      current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+      top_n: 2,
       hard_constraints: {
         full_investment: true as const,
         long_only: true as const,
@@ -4150,6 +4168,41 @@ describe('App', () => {
     }
   })
 
+  it('stops persisted construction artifact open when preview response launch lineage mismatches review basis', async () => {
+    const originalLocation = globalThis.location
+    try {
+      Object.defineProperty(globalThis, 'location', {
+        value: { ...originalLocation, search: '?construction_artifact_id=artifact-123' },
+        configurable: true,
+      })
+
+      vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+      const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(jsonResponse(makeConstructionArtifactReplayValidationResponse()))
+        .mockResolvedValueOnce(jsonResponse({
+          ...makeConstructionArtifactReplayResponse(),
+          review_basis: {
+            ...makeConstructionArtifactReplayResponse().review_basis,
+            launch_context: {
+              ...makeConstructionArtifactReplayResponse().review_basis.launch_context,
+              top_n: 3,
+            },
+          },
+        }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<App />)
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+      await waitFor(() => expect(screen.getAllByText('Unable to open persisted construction artifact review: launch lineage mismatch between review basis and replay provenance').length).toBeGreaterThan(0))
+      expect(createWorkspaceSpy).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(globalThis, 'location', { value: originalLocation, configurable: true })
+    }
+  })
+
   it('restores persisted construction artifact review state on startup', async () => {
     const replay = makeConstructionArtifactReplayResponse()
     const workspace = {
@@ -4180,6 +4233,7 @@ describe('App', () => {
         candidateTruth: 'hypothetical_construction_artifact' as const,
         constructionArtifactId: 'artifact-123',
         previewHandoff: makeConstructionArtifactReplayValidationResponse().preview_handoff,
+        launchContext: makeConstructionArtifactReplayResponse().review_basis.launch_context,
         openedAt: '2026-04-23T00:00:00Z',
         benchmarkSymbol: 'SPY',
         baseCurrency: 'USD',
@@ -4202,6 +4256,41 @@ describe('App', () => {
     expect(screen.getAllByText('artifact-123').length).toBeGreaterThan(0)
     expect(screen.queryByText('Proposal')).toBeNull()
     expect(screen.getByText('Review basis: artifact-123')).toBeTruthy()
+  })
+
+  it('fails closed when persisted construction artifact review is missing on startup restore', async () => {
+    const workspace = {
+      id: 'workspace-artifact',
+      name: 'Construction Artifact artifact-123',
+      createdAt: '2026-04-23T00:00:00Z',
+      updatedAt: '2026-04-23T00:00:00Z',
+      rootNodeId: 'node-artifact',
+      activeNodeId: 'node-artifact',
+      source: buildArtifactReviewSource('artifact-123', '2026-04-23T00:00:00Z'),
+    }
+    const node = {
+      id: 'node-artifact',
+      workspaceId: 'workspace-artifact',
+      parentId: null,
+      kind: 'artifact_review_basis' as const,
+      name: 'Artifact Review Basis',
+      createdAt: '2026-04-23T00:00:00Z',
+      changeSummary: { label: 'Artifact Review Basis', changedPositionsCount: 1, changedSectorsCount: 0, grossExposureDelta: null, netCapitalDelta: null },
+      portfolioSnapshot: null,
+      artifactReviewBasis: buildArtifactReviewSource('artifact-123', '2026-04-23T00:00:00Z').reviewBasis,
+    }
+
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-artifact', activeNodeId: 'node-artifact', activeDraftId: null, selectedExposureSnapshotId: 'node-artifact', lastOpenedAt: '2026-04-23T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(workspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([node])
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(node)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getPersistedConstructionArtifactWorkspaceReview').mockResolvedValue(null)
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getAllByText('Unable to restore previous portfolio workspace: persisted construction artifact review is missing').length).toBeGreaterThan(0))
   })
 
   it('opens persisted optimizer handoff review from query param on startup', async () => {
@@ -4920,6 +5009,8 @@ describe('App', () => {
           eligible_ranked_universe_only: true,
           max_position_weight: 0.6,
           min_position_weight: 0.2,
+          max_turnover_weight: 0.1,
+          max_trade_intent_count: 3,
         })
         const handoff = requestJsonBody(init).ranking_artifact_handoff
         expect([
@@ -4952,7 +5043,23 @@ describe('App', () => {
       }
       if (pathname === '/api/backtests/portfolio-allocation/construction-artifact-preview' && method === 'POST') {
         const constructionArtifactId = requestJsonBody(init).construction_artifact_id
-        return jsonResponse({ ...makeConstructionArtifactReplayResponse(), construction_artifact_id: constructionArtifactId, review_basis: { ...makeConstructionArtifactReplayResponse().review_basis, construction_artifact_id: constructionArtifactId, preview_handoff: { ...makeConstructionArtifactReplayValidationResponse().preview_handoff, construction_artifact_id: constructionArtifactId } } })
+        return jsonResponse({
+          ...makeConstructionArtifactReplayResponse(),
+          construction_artifact_id: constructionArtifactId,
+          review_basis: {
+            ...makeConstructionArtifactReplayResponse().review_basis,
+            construction_artifact_id: constructionArtifactId,
+            preview_handoff: { ...makeConstructionArtifactReplayValidationResponse().preview_handoff, construction_artifact_id: constructionArtifactId },
+            launch_context: {
+              ...makeConstructionArtifactReplayResponse().review_basis.launch_context,
+              construction_artifact_id: constructionArtifactId,
+            },
+          },
+          replay_provenance: {
+            ...makeConstructionArtifactReplayResponse().replay_provenance,
+            construction_artifact_id: constructionArtifactId,
+          },
+        })
       }
       if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
       if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
@@ -4968,12 +5075,16 @@ describe('App', () => {
     await screen.findAllByText('Ready for construction review with Top N Equal Weight v1')
     const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
     fireEvent.change(within(etfBrowser).getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
+    fireEvent.change(within(etfBrowser).getByLabelText('Max Turnover Weight (optional)'), { target: { value: '0.1' } })
+    fireEvent.change(within(etfBrowser).getByLabelText('Max Trade Intent Count (optional)'), { target: { value: '3' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'Open Review' })[0]!)
     await waitFor(() => expect(screen.getByText('Embedded ETF Ranking')).toBeTruthy())
     await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
     await screen.findByText('Persisted ETF Ranking Construction')
     fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
+    fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Max Turnover Weight (optional)'), { target: { value: '0.1' } })
+    fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Max Trade Intent Count (optional)'), { target: { value: '3' } })
     fireEvent.click(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByRole('button', { name: 'Review In Construction' }))
 
     await waitFor(() => expect(createWorkspaceSpy).toHaveBeenCalledWith(expect.objectContaining({ constructionArtifactId: 'construction_artifact_456' })))

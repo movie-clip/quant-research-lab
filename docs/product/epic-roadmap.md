@@ -14,7 +14,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Artifact-backed ranking-to-construction launch boundary stabilized across the three desktop entry points | Broaden policy parameterization beyond fixed `top_n`, position-weight constraints, and narrow review-only lineage assumptions | 2026-05-07 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Workspace artifact-backed ranking-to-construction launch browsers now include the shipped optional turnover and trade-intent caps | Broaden policy parameterization beyond fixed `top_n`, the current narrow hard-constraint set, and narrow review-only lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth; review mechanics stronger than monitor-family breadth | No active slice | Surface active alert-episode inbox more directly in Workspace | 2026-05-06 |
 
 ## Cross-Epic Guardrails
@@ -153,7 +153,9 @@ Deepen deterministic construction and constrained optimizer review on top of str
 
 - `Shipped`: desktop ranking-to-construction review now uses authoritative backend `/construction/policies` discovery for policy selection and exposes required `max_position_weight` plus optional `min_position_weight` inputs while keeping the bridge parameter-light.
 - `Shipped`: the broader Epic 3 launch boundary is now explicit and stabilized as `preflight -> typed handoff -> /construction/run -> persisted construction artifact review` for exactly two supported ranking families: `etf_ranking` and `intent_bound_etf_replacement_ranking`, with desktop fail-closed policy discovery and fixed `top_n = 2` launch semantics.
-- Next: broaden policy parameterization beyond the current fixed `top_n`, position-weight constraints, hidden optional constraints, and narrow review-only lineage assumptions.
+- `Shipped`: the existing Workspace artifact-backed ranking-to-construction launch browsers now also expose optional `max_turnover_weight` and optional `max_trade_intent_count`, with shared local validation, omission-on-blank request serialization, and no widening of policy authority, ranking-family support, or inline launch paths.
+- `Shipped`: canonical launch context is now preserved and fail-closed across the full shipped ranking-to-construction review boundary, including ranking artifact id/schema/ranking lineage, current portfolio identity/timestamp, selected policy id/definition, and fixed `top_n` lineage through persisted construction artifact reopen.
+- Next: broaden policy parameterization beyond the current fixed `top_n`, the currently exposed hard-constraint set, and narrow review-only lineage assumptions.
 
 ### Dependencies
 
@@ -220,6 +222,26 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Aligned docs, backend discovery, and desktop wording to the broader shipped ranking-to-construction bridge: backend-authoritative policy selection from `/construction/policies`, typed preflight/handoff launch semantics, and persisted construction artifact review.
 - Tightened the launch boundary so desktop-compatible policy discovery now carries explicit `launch_top_n = 2`, desktop consumers fail closed on mismatched catalog rows, and backend handoff-backed construction rejects `policy.top_n != 2` for the shipped launch path.
 - Kept the bridge intentionally parameter-light and review-only: `top_n = 2`, desktop surfaces only required `max_position_weight` plus optional `min_position_weight`, other optional constraints stay hidden, and supported ranking families remain limited to ETF and intent-bound replacement artifacts.
+
+### 2026-05-08 - Epic 3 slice 3 shipped
+
+- Epic: `3. Construction and optimizer methodology guard`
+- Slice: expose optional `max_turnover_weight` and optional `max_trade_intent_count` on the shipped artifact-backed ranking-to-construction desktop bridge.
+- Status: shipped.
+- Scope delivered:
+  - Workspace persisted ETF ranking and persisted replacement ranking construction browsers now expose optional `Max Turnover Weight` and `Max Trade Intent Count` beside the existing max/min position-weight inputs.
+  - desktop uses one shared validation path across both browsers so blank optional fields omit from the request, `max_turnover_weight` accepts decimal values in `[0, 1]` including `0`, and `max_trade_intent_count` accepts whole numbers `>= 0` including `0`.
+  - ranking-artifact construction handoff now serializes those two optional hard constraints only when the user supplies non-null values, while preserving the same backend-authoritative policy selection and fixed `top_n = 2` launch boundary.
+- Guard impact:
+  - broadens the visible hard-constraint surface only within the agreed artifact-backed desktop bridge and keeps construction review hypothetical, persisted-artifact-backed, and limited to the same two supported ranking families.
+  - does not widen backend capability, policy families, ranking families, or inline ranked-universe launch paths.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop handoff now optionally serializes `hard_constraints.max_turnover_weight` and `hard_constraints.max_trade_intent_count` only when explicitly supplied.
+- Tests/evidence:
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
+  - `apps/desktop/src/app/App.test.tsx`
+- Next slice: broaden policy parameterization beyond the current fixed `top_n` and the currently exposed hard-constraint set.
 
 ### 2026-05-07 - Epic 3 slice 2 shipped
 

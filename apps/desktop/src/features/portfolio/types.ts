@@ -2152,9 +2152,13 @@ export type ConstructionArtifactReplayProvenance = {
   policy_id: string
   policy_definition_id: string
   ranked_universe_artifact_id: string | null
+  ranked_universe_artifact_schema_version: string | null
   ranking_id: string | null
   ranking_methodology_id: string | null
+  ranking_as_of_date: string | null
   current_portfolio_artifact_id: string | null
+  current_portfolio_as_of_timestamp: string | null
+  top_n: number
   hard_constraints: {
     full_investment: true
     long_only: true
@@ -2639,6 +2643,19 @@ export type ConstructionArtifactReplayResponse = {
     candidate_truth: 'hypothetical_construction_artifact'
     construction_artifact_id: string
     preview_handoff: ConstructionArtifactPreviewHandoff
+    launch_context: {
+      construction_artifact_id: string
+      ranked_universe_artifact_id: string | null
+      ranked_universe_artifact_schema_version: string | null
+      ranking_id: string | null
+      ranking_methodology_id: string | null
+      ranking_as_of_date: string | null
+      current_portfolio_artifact_id: string | null
+      current_portfolio_as_of_timestamp: string | null
+      policy_id: string
+      policy_definition_id: string
+      top_n: number
+    }
     benchmark_symbol: string | null
     base_currency: string | null
     replay_window: {

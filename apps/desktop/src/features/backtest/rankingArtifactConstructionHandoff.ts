@@ -156,6 +156,8 @@ export async function runRankingArtifactConstructionHandoff(params: {
   artifactId: string
   maxPositionWeight: number
   minPositionWeight?: number | null
+  maxTurnoverWeight?: number | null
+  maxTradeIntentCount?: number | null
   currentPortfolio: {
     artifact_id: string
     as_of_timestamp: string
@@ -189,6 +191,8 @@ export async function runRankingArtifactConstructionHandoff(params: {
         eligible_ranked_universe_only: true,
         max_position_weight: params.maxPositionWeight,
         ...(params.minPositionWeight != null ? { min_position_weight: params.minPositionWeight } : {}),
+        ...(params.maxTurnoverWeight != null ? { max_turnover_weight: params.maxTurnoverWeight } : {}),
+        ...(params.maxTradeIntentCount != null ? { max_trade_intent_count: params.maxTradeIntentCount } : {}),
       },
     }),
   })

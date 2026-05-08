@@ -84,6 +84,19 @@ function createConstructionArtifactReplayResponse(): ConstructionArtifactReplayR
           symbol_overrides: {},
         },
       },
+      launch_context: {
+        construction_artifact_id: 'artifact-123',
+        ranked_universe_artifact_id: 'ranked-1',
+        ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+        ranking_id: 'ranking-1',
+        ranking_methodology_id: 'method-1',
+        ranking_as_of_date: '2026-04-23',
+        current_portfolio_artifact_id: 'portfolio-1',
+        current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+        policy_id: 'policy-1',
+        policy_definition_id: 'policy-def-1',
+        top_n: 2,
+      },
       benchmark_symbol: 'SPY',
       base_currency: 'USD',
       replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
@@ -96,9 +109,13 @@ function createConstructionArtifactReplayResponse(): ConstructionArtifactReplayR
       policy_id: 'policy-1',
       policy_definition_id: 'policy-def-1',
       ranked_universe_artifact_id: 'ranked-1',
+      ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
       ranking_id: 'ranking-1',
       ranking_methodology_id: 'method-1',
+      ranking_as_of_date: '2026-04-23',
       current_portfolio_artifact_id: 'portfolio-1',
+      current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+      top_n: 2,
       hard_constraints: {
         full_investment: true,
         long_only: true,
@@ -375,6 +392,7 @@ function createConstructionArtifactWorkspaceReviewBasisFixture() {
     candidateTruth: 'hypothetical_construction_artifact' as const,
     constructionArtifactId: 'artifact-123',
     previewHandoff: createConstructionArtifactReplayResponse().review_basis!.preview_handoff,
+    launchContext: createConstructionArtifactReplayResponse().review_basis!.launch_context,
     openedAt: '2026-04-23T00:00:00Z',
     benchmarkSymbol: 'SPY',
     baseCurrency: 'USD',
@@ -1348,6 +1366,7 @@ describe('portfolioWorkspaceStorage', () => {
         candidateTruth: 'hypothetical_construction_artifact',
         constructionArtifactId: 'artifact-123',
         previewHandoff: replay.review_basis!.preview_handoff,
+        launchContext: replay.review_basis!.launch_context,
         openedAt: '2026-04-23T00:00:00Z',
         benchmarkSymbol: 'SPY',
         baseCurrency: 'USD',
@@ -1369,6 +1388,7 @@ describe('portfolioWorkspaceStorage', () => {
       constructionArtifactId: 'artifact-123',
       basisKind: 'persisted_construction_artifact_review',
       previewHandoff: replay.review_basis!.preview_handoff,
+      launchContext: replay.review_basis!.launch_context,
     })
     expect(created.review).toMatchObject({
       workspaceId: created.workspace.id,
@@ -1505,6 +1525,7 @@ describe('portfolioWorkspaceStorage', () => {
         reviewBasis: {
           basisKind: 'persisted_construction_artifact_review',
           previewHandoff: review.replay.review_basis!.preview_handoff,
+          launchContext: review.replay.review_basis!.launch_context,
         },
       })
     expect(normalized.node).toMatchObject({
@@ -1705,6 +1726,35 @@ describe('portfolioWorkspaceStorage', () => {
         },
       },
     })).rejects.toThrow('Persisted construction artifact review payload review_basis preview handoff conflicts with canonical replay params')
+  })
+
+  it('fails closed when construction artifact review payload review_basis launch context is missing', async () => {
+    await expect(portfolioWorkspaceStorage.createWorkspaceFromPersistedConstructionArtifact({
+      constructionArtifactId: 'artifact-123',
+      replay: {
+        ...createConstructionArtifactReplayResponse(),
+        review_basis: {
+          ...createConstructionArtifactReplayResponse().review_basis!,
+          launch_context: undefined,
+        },
+      } as unknown as ConstructionArtifactReplayResponse,
+    })).rejects.toThrow('Persisted construction artifact review payload review_basis is missing canonical launch context')
+  })
+
+  it('fails closed when construction artifact review payload review_basis launch context conflicts with replay provenance launch lineage', async () => {
+    await expect(portfolioWorkspaceStorage.createWorkspaceFromPersistedConstructionArtifact({
+      constructionArtifactId: 'artifact-123',
+      replay: {
+        ...createConstructionArtifactReplayResponse(),
+        review_basis: {
+          ...createConstructionArtifactReplayResponse().review_basis!,
+          launch_context: {
+            ...createConstructionArtifactReplayResponse().review_basis!.launch_context,
+            top_n: 3,
+          },
+        },
+      } as unknown as ConstructionArtifactReplayResponse,
+    })).rejects.toThrow('Persisted construction artifact review payload review_basis launch context conflicts with replay provenance launch lineage')
   })
 
   it('fails closed when optimizer handoff review payload is missing canonical review_basis', async () => {

@@ -95,6 +95,7 @@ export type PersistedConstructionArtifactReviewBasis = DesktopArtifactReviewBasi
   basisKind: 'persisted_construction_artifact_review'
   constructionArtifactId: string
   previewHandoff: NonNullable<ConstructionArtifactReplayResponse['review_basis']> extends { preview_handoff: infer T } ? T : never
+  launchContext: NonNullable<ConstructionArtifactReplayResponse['review_basis']> extends { launch_context: infer T } ? T : never
 }
 
 export type PersistedOptimizerHandoffReviewBasis = DesktopArtifactReviewBasis & {

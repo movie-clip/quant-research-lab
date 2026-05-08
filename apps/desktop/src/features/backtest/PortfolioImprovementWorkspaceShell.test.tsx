@@ -2511,6 +2511,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
             eligible_ranked_universe_only: true,
             max_position_weight: 0.7,
             min_position_weight: 0.3,
+            max_turnover_weight: 0.15,
+            max_trade_intent_count: 4,
           })
           return jsonResponse({
             schema_version: 'construction_artifact_v1',
@@ -2536,6 +2538,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
           eligible_ranked_universe_only: true,
           max_position_weight: 0.8,
           min_position_weight: 0.25,
+          max_turnover_weight: 0,
+          max_trade_intent_count: 0,
         })
         return jsonResponse({
           schema_version: 'construction_artifact_v1',
@@ -2571,11 +2575,15 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     fireEvent.change(screen.getAllByLabelText('Max Position Weight')[0]!, { target: { value: '0.7' } })
     fireEvent.change(screen.getAllByLabelText('Min Position Weight (optional)')[0]!, { target: { value: '0.3' } })
+    fireEvent.change(screen.getAllByLabelText('Max Turnover Weight (optional)')[0]!, { target: { value: '0.15' } })
+    fireEvent.change(screen.getAllByLabelText('Max Trade Intent Count (optional)')[0]!, { target: { value: '4' } })
     fireEvent.click(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByRole('button', { name: 'Review In Construction' }))
     await waitFor(() => expect(onOpenPersistedConstructionArtifactReview).toHaveBeenCalledWith('construction_artifact_123'))
 
     fireEvent.change(screen.getAllByLabelText('Max Position Weight')[1]!, { target: { value: '0.8' } })
     fireEvent.change(screen.getAllByLabelText('Min Position Weight (optional)')[1]!, { target: { value: '0.25' } })
+    fireEvent.change(screen.getAllByLabelText('Max Turnover Weight (optional)')[1]!, { target: { value: '0' } })
+    fireEvent.change(screen.getAllByLabelText('Max Trade Intent Count (optional)')[1]!, { target: { value: '0' } })
     fireEvent.click(within(screen.getByTestId('persisted-replacement-ranking-browser')).getByRole('button', { name: 'Review In Construction' }))
     await waitFor(() => expect(onOpenPersistedConstructionArtifactReview).toHaveBeenCalledWith('construction_artifact_456'))
   })

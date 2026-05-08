@@ -1236,6 +1236,30 @@ function buildDesktopArtifactReviewBasis(input: {
   if (JSON.stringify(reviewBasisSource.preview_handoff.effective_replay_params) !== JSON.stringify(input.replay.effective_replay_params)) {
     throw new Error('Persisted construction artifact review payload review_basis preview handoff conflicts with canonical replay params')
   }
+  if (!reviewBasisSource.launch_context || typeof reviewBasisSource.launch_context !== 'object') {
+    throw new Error('Persisted construction artifact review payload review_basis is missing canonical launch context')
+  }
+  if (reviewBasisSource.launch_context.construction_artifact_id !== input.constructionArtifactId) {
+    throw new Error('Persisted construction artifact review payload review_basis launch context conflicts with requested artifact identity')
+  }
+  if (reviewBasisSource.launch_context.construction_artifact_id !== input.replay.replay_provenance.construction_artifact_id) {
+    throw new Error('Persisted construction artifact review payload review_basis launch context conflicts with replay provenance artifact identity')
+  }
+  if (JSON.stringify(reviewBasisSource.launch_context) !== JSON.stringify({
+    construction_artifact_id: input.replay.replay_provenance.construction_artifact_id,
+    ranked_universe_artifact_id: input.replay.replay_provenance.ranked_universe_artifact_id,
+    ranked_universe_artifact_schema_version: input.replay.replay_provenance.ranked_universe_artifact_schema_version,
+    ranking_id: input.replay.replay_provenance.ranking_id,
+    ranking_methodology_id: input.replay.replay_provenance.ranking_methodology_id,
+    ranking_as_of_date: input.replay.replay_provenance.ranking_as_of_date,
+    current_portfolio_artifact_id: input.replay.replay_provenance.current_portfolio_artifact_id,
+    current_portfolio_as_of_timestamp: input.replay.replay_provenance.current_portfolio_as_of_timestamp,
+    policy_id: input.replay.replay_provenance.policy_id,
+    policy_definition_id: input.replay.replay_provenance.policy_definition_id,
+    top_n: input.replay.replay_provenance.top_n,
+  })) {
+    throw new Error('Persisted construction artifact review payload review_basis launch context conflicts with replay provenance launch lineage')
+  }
   return {
     basisVersion: reviewBasisSource.basis_version,
     basisKind: 'persisted_construction_artifact_review',
@@ -1246,6 +1270,7 @@ function buildDesktopArtifactReviewBasis(input: {
     candidateTruth: reviewBasisSource.candidate_truth,
     constructionArtifactId: input.constructionArtifactId,
     previewHandoff: reviewBasisSource.preview_handoff,
+    launchContext: reviewBasisSource.launch_context,
     openedAt: input.openedAt,
     benchmarkSymbol: reviewBasisSource.benchmark_symbol ?? null,
     baseCurrency: reviewBasisSource.base_currency ?? null,
@@ -1594,6 +1619,7 @@ function canonicalizeConstructionReviewBasisForComparison(basis: PersistedConstr
     candidateTruth: basis.candidateTruth,
     constructionArtifactId: basis.constructionArtifactId,
     previewHandoff: basis.previewHandoff,
+    launchContext: basis.launchContext,
     openedAt: basis.openedAt,
     benchmarkSymbol: basis.benchmarkSymbol,
     baseCurrency: basis.baseCurrency,
