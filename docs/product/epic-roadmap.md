@@ -243,6 +243,26 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
   - `apps/desktop/src/app/App.test.tsx`
 - Next slice: broaden policy parameterization beyond the current fixed `top_n` and the currently exposed hard-constraint set.
 
+### 2026-05-08 - Epic 3 slice 4 shipped
+
+- Epic: `3. Construction and optimizer methodology guard`
+- Slice: make `top_n_linear_rank_weight_v1` an explicit launch-compatible opt-in on the shipped artifact-backed ranking-to-construction desktop bridge while keeping equal-weight the only auto-selected default.
+- Status: shipped.
+- Scope delivered:
+  - desktop ranking-to-construction policy pickers now surface only `top_n_equal_weight_v1` and `top_n_linear_rank_weight_v1` for the existing artifact-backed launch browsers and ETF Ranking recent-run handoff entry point.
+  - equal-weight remains the only auto-selected default when backend discovery returns it; if not, desktop stays fail-closed until the user explicitly chooses the linear-rank alternative.
+  - the narrow launch boundary remains unchanged: review-only/hypothetical artifact-backed semantics, same two supported ranking families, backend-owned policy discovery, fixed `top_n = 2`, and post-run lineage checks for `policy_id`, `policy_definition_id`, and normalized `top_n`.
+- Guard impact:
+  - narrows desktop launch-scope exposure without widening backend construction capability, persistence, replay, or catalog rows.
+  - does not expose `top_n_inverse_rank_weight_v1` on desktop launch surfaces in this slice.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop launch compatibility now filters discovered policies down to the shipped opt-in set before rendering or accepting selection.
+- Tests/evidence:
+  - `apps/desktop/src/features/strategy-lab/EtfRankingPanel.test.tsx`
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
+  - `apps/desktop/src/app/App.test.tsx`
+
 ### 2026-05-07 - Epic 3 slice 2 shipped
 
 - Epic: `3. Construction and optimizer methodology guard`

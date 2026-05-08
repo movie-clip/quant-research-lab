@@ -2853,9 +2853,12 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     renderShell()
 
     await screen.findByText('Persisted ETF Ranking Construction')
+    const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
     const button = screen.getByRole('button', { name: 'Review In Construction' })
     expect(button).toHaveProperty('disabled', true)
     expect(screen.getByText('Select a compatible construction policy')).toBeTruthy()
+    expect(within(etfBrowser).getByRole('option', { name: 'Top N Linear Rank Weight v1' })).toBeTruthy()
+    expect(within(etfBrowser).queryByRole('option', { name: 'Top N Inverse Rank Weight v1' })).toBeNull()
   })
 
   it('clears stale persisted replacement review content during a new open attempt and keeps it cleared when the new open fails', async () => {

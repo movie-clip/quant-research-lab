@@ -1043,6 +1043,18 @@ describe('EtfRankingPanel', () => {
     ))
   })
 
+  it('surfaces only equal-weight and linear-rank launch policies', async () => {
+    installFetchRouter({ recentRuns: [buildRecentRun()] })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} currentPortfolio={authoritativeCurrentPortfolio} />)
+
+    const policySelect = await screen.findByLabelText('Construction Policy')
+    expect(screen.getByRole('option', { name: 'Top N Equal Weight v1' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Top N Linear Rank Weight v1' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'Top N Inverse Rank Weight v1' })).toBeNull()
+    expect((policySelect as HTMLSelectElement).value).toBe('top_n_equal_weight_v1')
+  })
+
   it('requires explicit policy selection when equal weight is not discovered', async () => {
     installFetchRouter({
       recentRuns: [buildRecentRun()],
@@ -1054,8 +1066,10 @@ describe('EtfRankingPanel', () => {
     const button = await screen.findByRole('button', { name: 'Review In Construction' })
     expect(button).toHaveProperty('disabled', true)
     expect(screen.getByText('Select a compatible construction policy')).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'Top N Linear Rank Weight v1' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'Top N Inverse Rank Weight v1' })).toBeNull()
 
-    fireEvent.change(screen.getByLabelText('Construction Policy'), { target: { value: 'top_n_inverse_rank_weight_v1' } })
+    fireEvent.change(screen.getByLabelText('Construction Policy'), { target: { value: 'top_n_linear_rank_weight_v1' } })
 
     await waitFor(() => expect((screen.getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement).disabled).toBe(false))
   })

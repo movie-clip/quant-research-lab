@@ -23,6 +23,11 @@ const DESKTOP_CONSTRUCTION_POLICY_FILTERS = {
 
 export const RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N = 2 as const
 
+const DESKTOP_LAUNCH_COMPATIBLE_POLICY_IDS = new Set([
+  'top_n_equal_weight_v1',
+  'top_n_linear_rank_weight_v1',
+])
+
 const SUPPORTED_POLICY_IDS = new Set([
   'top_n_equal_weight_v1',
   'top_n_inverse_rank_weight_v1',
@@ -49,6 +54,10 @@ const SUPPORTED_POLICY_SPECS = {
 
 export function resolvePolicyDefinitionIdForPolicyId(policyId: string): string | null {
   return SUPPORTED_POLICY_SPECS[policyId as keyof typeof SUPPORTED_POLICY_SPECS]?.policy_definition_id ?? null
+}
+
+function isDesktopLaunchCompatiblePolicyId(policyId: string): boolean {
+  return DESKTOP_LAUNCH_COMPATIBLE_POLICY_IDS.has(policyId)
 }
 
 const SUPPORTED_RANKING_SUPPORT = new Set([
@@ -219,20 +228,27 @@ export function useConstructionPolicyCatalog(apiBase = '/api') {
     }
   }, [apiBase])
 
+  const policies = useMemo(
+    () => state.policies.filter((policy) => isDesktopLaunchCompatiblePolicyId(policy.policy_id)),
+    [state.policies],
+  )
+
   const defaultPolicyId = useMemo(() => (
-    state.policies.some((policy) => policy.policy_id === 'top_n_equal_weight_v1')
+    policies.some((policy) => policy.policy_id === 'top_n_equal_weight_v1')
       ? 'top_n_equal_weight_v1'
       : null
-  ), [state.policies])
+  ), [policies])
 
   return {
     ...state,
+    policies,
     defaultPolicyId,
   }
 }
 
 export function buildConstructionPolicyRunInput(policyId: string | null, topN: number): ConstructionPolicyRunInput | null {
   if (!policyId) return null
+  if (!isDesktopLaunchCompatiblePolicyId(policyId)) return null
   if (topN !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
     throw new Error('Ranking artifact construction launch only supports top_n=2')
   }
