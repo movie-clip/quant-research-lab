@@ -112,6 +112,14 @@ export interface GenericRankingExcludedInstrument {
   eligibility: EligibilityRecord;
 }
 
+export interface CompositeScoreTrace {
+  normalization_method: string;
+  winsorize_pct: number;
+  universe_size_at_normalization: number;
+  cross_sectional_mean: Record<string, number>;
+  cross_sectional_std: Record<string, number>;
+}
+
 export interface GenericRankingRunMetadata {
   ranking_id: string;
   methodology_id: string;
@@ -120,6 +128,7 @@ export interface GenericRankingRunMetadata {
   price_basis: string;
   confidence: RankingConfidence;
   score_config_ref: ScoreConfigRef;
+  composite_score_trace: CompositeScoreTrace | null;
 }
 
 export interface GenericRankingArtifact {
