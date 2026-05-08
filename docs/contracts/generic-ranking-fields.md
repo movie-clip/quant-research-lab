@@ -1,0 +1,367 @@
+# Generic Ranking Field Inventory
+
+This document captures the current backend contract for the generic ranking feature: request inputs, scoring configuration, persisted artifact payloads, per-instrument row shapes, and recent-run discovery rows.
+
+Authoritative source of truth:
+- Backend Pydantic schemas: `services/quant-engine/app/schemas/generic_ranking.py`
+- TypeScript types: `apps/desktop/src/features/generic-ranking/types.ts`
+
+## `GenericRankingRequest`
+
+Fields sent by the desktop to the ranking engine.
+
+- `universe_spec`
+  - type: `UniverseSpec` (object)
+  - universe definition: kind, membership, and screener eligibility filters
+- `score_config`
+  - type: `ScoreConfig` (object)
+  - scoring methodology: normalization, winsorization, and factor weights
+- `benchmark_symbol`
+  - type: `string`
+  - default: `SPY`
+  - benchmark used for benchmark-relative comparisons
+- `lookback_months`
+  - type: `number` (integer, 1–60)
+  - default: `6`
+  - ranking lookback window in months
+- `prefer_live_data`
+  - type: `boolean`
+  - default: `false`
+  - when true the engine prefers live intraday quotes over prior-close data
+
+## `UniverseSpec`
+
+Universe definition — 14 fields total.
+
+- `universe_id`
+  - type: `string`
+  - stable identifier for the universe (e.g. `broad_us_equity`, `tech_sector`, `custom`)
+- `universe_kind`
+  - type: `UniverseKind` — `'etf_peer_group' | 'custom_list' | 'broad_equity_screen' | 'sector_screen'`
+  - determines how universe membership is resolved
+- `universe_label`
+  - type: `string | null`
+  - optional human-readable display label
+- `explicit_symbols`
+  - type: `string[]`
+  - required when `universe_kind` is `etf_peer_group` or `custom_list`
+  - explicit instrument membership list
+- `min_market_cap_usd`
+  - type: `number | null`
+  - screener minimum market cap in USD (e.g. `300000000`)
+  - applicable to `broad_equity_screen` and `sector_screen`
+- `min_adv_usd`
+  - type: `number | null`
+  - screener minimum average daily dollar volume in USD
+- `price_floor_usd`
+  - type: `number | null`
+  - screener minimum price in USD (e.g. `1.0`)
+- `allowed_exchanges`
+  - type: `string[]`
+  - default: `["NASDAQ", "NYSE", "NYSE AMERICAN"]`
+  - screener exchange allowlist
+- `sector_include`
+  - type: `string[]`
+  - GICS sectors to keep; used by `sector_screen`
+- `sector_exclude`
+  - type: `string[]`
+  - GICS sectors to drop
+- `country_iso2`
+  - type: `string[]`
+  - default: `["US"]`
+  - ISO 3166-1 alpha-2 country codes for screener filtering
+- `exclude_etf`
+  - type: `boolean`
+  - default: `true`
+  - when true, instruments identified as ETFs are excluded from screener results
+- `exclude_adr`
+  - type: `boolean`
+  - default: `true`
+  - when true, American Depositary Receipts are excluded from screener results
+
+Validation rules:
+- `universe_kind` of `etf_peer_group` or `custom_list` requires `explicit_symbols` to be non-empty; the backend enforces this at request time
+
+## `ScoreConfig`
+
+Composite score methodology definition.
+
+- `score_config_id`
+  - type: `string`
+  - stable methodology identifier (e.g. `equity_momentum_v1`, `etf_momentum_v1`)
+- `score_config_version`
+  - type: `string`
+  - default: `v1`
+  - version label for the score config
+- `normalization`
+  - type: `NormalizationMethod` — `'cross_sectional_zscore' | 'percentile_rank' | 'minmax'`
+  - default: `cross_sectional_zscore`
+  - cross-sectional normalization method applied before weighting
+- `winsorize_pct`
+  - type: `number` (0.0–0.5)
+  - default: `0.05`
+  - fraction of the distribution to winsorize before normalization
+- `factors`
+  - type: `FactorConfig[]`
+  - one entry per scoring factor; factor weights must sum to a positive value
+
+## `FactorConfig`
+
+Per-factor scoring definition nested inside `ScoreConfig.factors[]`.
+
+- `factor_id`
+  - type: `string`
+  - stable factor identifier (e.g. `momentum_6_1`, `realized_volatility_126d`)
+- `family`
+  - type: `FactorFamily` — `'momentum' | 'volatility' | 'liquidity' | 'quality' | 'value' | 'sentiment'`
+  - factor family group used for display and interpretation
+- `direction`
+  - type: `'higher_is_better' | 'lower_is_better'`
+  - scoring direction; controls sign-flip before composite aggregation
+- `weight`
+  - type: `number` (≥ 0)
+  - raw factor weight; normalized server-side relative to other factor weights
+- `lookback_days`
+  - type: `number | null`
+  - lookback window in calendar days for price-based factors; `null` for non-price factors
+- `raw_unit`
+  - type: `string`
+  - default: `score`
+  - unit label for the raw factor value (e.g. `pct`, `volume`, `score`)
+
+## `GenericRankingArtifact`
+
+Full persisted artifact returned from a ranking run. Extends `GenericRankingResponse` with `schema_version` and `artifact_id`.
+
+- `schema_version`
+  - type: `'generic_ranking_artifact_v1'`
+  - fixed literal; current schema version
+- `artifact_id`
+  - type: `string`
+  - stable persisted artifact identity; always starts with `generic_ranking_artifact_`
+- `ranking_id`
+  - type: `string`
+  - run-scoped ranking identity
+- `methodology_id`
+  - type: `string`
+  - stable methodology identifier for audit and downstream handoffs
+- `title`
+  - type: `string`
+  - human-readable title for display
+- `as_of_date`
+  - type: `string` (ISO date)
+  - date basis used for the ranking output
+- `benchmark_symbol`
+  - type: `string`
+  - benchmark used for this ranking run
+- `lookback_months`
+  - type: `number`
+  - lookback window actually applied
+- `universe_spec_snapshot`
+  - type: `UniverseSpecSnapshot` (object)
+  - resolved universe state captured at run time
+- `run_metadata`
+  - type: `GenericRankingRunMetadata` (object)
+  - run-basis audit metadata including scoring provenance and normalization trace
+- `ranked_universe`
+  - type: `GenericRankingRow[]`
+  - eligible instruments ranked by composite score after normalization and weighting
+- `excluded_instruments`
+  - type: `GenericRankingExcludedInstrument[]`
+  - instruments that failed hard eligibility filters; never silently dropped
+- `warnings`
+  - type: `string[]`
+  - non-fatal contract metadata for interpreting ranking quality
+
+### `UniverseSpecSnapshot` (nested in artifact)
+
+Resolved universe state captured at run time.
+
+- `spec_version`
+  - type: `string`
+  - current value: `universe_spec_v1`
+- `universe_id`
+  - type: `string`
+- `universe_kind`
+  - type: `string`
+- `spec_digest`
+  - type: `string`
+  - SHA-256 of the canonical `UniverseSpec` JSON
+- `evaluated_members`
+  - type: `string[]`
+  - resolved and sorted symbol list as of `as_of_date`
+- `evaluated_at`
+  - type: `string` (ISO date)
+  - date the universe was resolved
+
+### `GenericRankingRunMetadata` (nested in artifact)
+
+Run-basis audit metadata.
+
+- `ranking_id`
+  - type: `string`
+- `methodology_id`
+  - type: `string`
+- `as_of_date`
+  - type: `string` (ISO date)
+- `ranking_basis_date`
+  - type: `string` (ISO date)
+  - currently the same as `as_of_date`; split so later contracts can evolve without reinterpreting `as_of_date`
+- `price_basis`
+  - type: `string`
+  - current value: `close`
+- `confidence`
+  - type: `'full' | 'partial' | 'degraded'`
+  - explicit audit-level ranking confidence
+- `score_config_ref`
+  - type: `ScoreConfigRef` (object)
+  - compact reference to the scoring methodology used
+- `composite_score_trace`
+  - type: `CompositeScoreTrace | null`
+  - normalization statistics captured at scoring time; `null` when trace is unavailable
+
+### `ScoreConfigRef` (nested in run_metadata)
+
+Compact scoring methodology reference stored in the artifact for audit.
+
+- `score_config_id`
+  - type: `string`
+- `score_config_version`
+  - type: `string`
+- `score_config_digest`
+  - type: `string`
+  - SHA-256 of the canonical `ScoreConfig` JSON
+- `factor_ids`
+  - type: `string[]`
+  - ordered list of factor identifiers used in this run
+- `normalization`
+  - type: `string`
+- `winsorize_pct`
+  - type: `number`
+
+### `CompositeScoreTrace` (nested in run_metadata)
+
+Cross-sectional normalization statistics captured at scoring time.
+
+- `normalization_method`
+  - type: `string`
+  - normalization method applied (mirrors `ScoreConfig.normalization`)
+- `winsorize_pct`
+  - type: `number`
+  - winsorization fraction applied
+- `universe_size_at_normalization`
+  - type: `number` (integer)
+  - number of instruments in the cross-section when normalization was computed
+- `cross_sectional_mean`
+  - type: `Record<string, number>` (factor_id → mean)
+  - per-factor cross-sectional means before normalization
+- `cross_sectional_std`
+  - type: `Record<string, number>` (factor_id → std)
+  - per-factor cross-sectional standard deviations before normalization
+
+## `GenericRankingRow`
+
+One ranked instrument row inside `GenericRankingArtifact.ranked_universe[]`.
+
+- `rank`
+  - type: `number` (integer)
+  - 1-based rank position; rank 1 is the top-ranked instrument
+- `symbol`
+  - type: `string`
+  - instrument ticker symbol (uppercase-normalized)
+- `composite_score`
+  - type: `number`
+  - weighted composite score after normalization
+- `component_scores`
+  - type: `Record<string, GenericRankingComponentScore>`
+  - per-factor score breakdown keyed by `factor_id`
+- `eligibility`
+  - type: `EligibilityRecord`
+  - eligibility evaluation result for this instrument
+
+### `GenericRankingComponentScore` (nested in row)
+
+Per-factor scoring detail for one ranked instrument.
+
+- `label`
+  - type: `string`
+  - human-readable factor label
+- `family`
+  - type: `FactorFamily`
+- `direction`
+  - type: `'higher_is_better' | 'lower_is_better'`
+- `raw_value`
+  - type: `number | null`
+  - raw factor value before normalization; `null` when unavailable
+- `raw_unit`
+  - type: `string`
+  - unit of the raw value (e.g. `pct`, `volume`, `score`)
+- `normalized_score`
+  - type: `number | null`
+  - cross-sectionally normalized score; `null` when unavailable
+- `normalization_method`
+  - type: `string`
+  - normalization method applied for this factor
+- `weight`
+  - type: `number`
+  - raw weight for this factor (not yet normalized to sum-to-one)
+- `weighted_score`
+  - type: `number | null`
+  - `normalized_score * weight`; `null` when `normalized_score` is `null`
+
+## `EligibilityRecord`
+
+Eligibility evaluation result attached to both ranked and excluded instruments.
+
+- `eligibility_status`
+  - type: `'eligible' | 'excluded'`
+  - final eligibility determination
+- `hard_filter_failures`
+  - type: `string[]`
+  - names of hard filters that this instrument failed; non-empty when `eligibility_status = 'excluded'`
+  - instruments with any hard filter failure are moved to `excluded_instruments` and are never ranked
+- `soft_filter_flags`
+  - type: `string[]`
+  - names of soft filters that flagged this instrument; does not exclude but may appear in warnings
+
+## `GenericRankingArtifactRecentRow`
+
+Catalog/recent discovery row shape returned by the recent-run listing endpoint. Contains lightweight run identity and metadata only; does not include the full ranked payload.
+
+- `artifact_id`
+  - type: `string`
+  - stable persisted artifact identity
+- `ranking_id`
+  - type: `string`
+- `methodology_id`
+  - type: `string`
+- `as_of_date`
+  - type: `string` (ISO date)
+- `ranking_basis_date`
+  - type: `string` (ISO date)
+- `benchmark_symbol`
+  - type: `string`
+- `lookback_months`
+  - type: `number` (integer)
+- `universe_id`
+  - type: `string`
+- `universe_kind`
+  - type: `string`
+- `score_config_id`
+  - type: `string`
+- `evaluated_universe_size`
+  - type: `number` (integer)
+  - number of instruments in the evaluated universe for this run
+- `confidence`
+  - type: `'full' | 'partial' | 'degraded'`
+  - ranking confidence level for quick filtering and display
+
+## Contract Rules
+
+- the Pydantic schema in `services/quant-engine/app/schemas/generic_ranking.py` is the authoritative source of truth; the TypeScript types in `apps/desktop/src/features/generic-ranking/types.ts` must match it exactly
+- `excluded_instruments` must remain explicit and are never silently dropped
+- `hard_filter_failures` and `soft_filter_flags` are separate; failing a soft filter does not exclude an instrument
+- `composite_score_trace` may be `null` and consumers must handle that case
+- factor weights are normalized server-side; `FactorConfig.weight` values in the request are raw and not required to sum to any specific value, but the total must be positive
+- `artifact_id` values always carry the `generic_ranking_artifact_` prefix; the backend enforces this at write time
+- ranking is deterministic; no hidden ML or non-deterministic scoring is used

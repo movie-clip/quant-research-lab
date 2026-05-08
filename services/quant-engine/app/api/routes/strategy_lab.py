@@ -92,6 +92,23 @@ from app.services.replacement_ranking_artifact_service import (
     load_replacement_ranking_artifact,
     persist_replacement_ranking_artifact,
 )
+from app.schemas.generic_ranking import (
+    GenericRankingArtifact,
+    GenericRankingArtifactRecentRow,
+    GenericRankingRequest,
+)
+from app.services.generic_ranking_artifact_service import (
+    GenericRankingIntegrityError,
+    GenericRankingInvalidJsonError,
+    GenericRankingMissingFileError,
+    GenericRankingNonObjectPayloadError,
+    GenericRankingPersistenceError,
+    GenericRankingSchemaValidationError,
+    list_recent_generic_ranking_artifacts,
+    load_generic_ranking_artifact,
+    persist_generic_ranking_artifact,
+)
+from app.services.generic_ranking_service import build_generic_ranking
 from app.services.strategy_lab import (
     DEFAULT_ETF_ROTATION_BENCHMARK,
     DEFAULT_ETF_ROTATION_UNIVERSE,
@@ -799,5 +816,45 @@ def get_intent_bound_etf_replacement_ranking_artifact(artifact_id: str) -> Inten
         ReplacementRankingArtifactSchemaValidationError,
         ReplacementRankingArtifactIntegrityValidationError,
         ReplacementRankingArtifactPersistenceError,
+    ) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Generic ranking routes ────────────────────────────────────────────────────
+
+@router.post("/strategy-lab/ranking/run", response_model=GenericRankingArtifact)
+def run_generic_ranking(request: GenericRankingRequest) -> GenericRankingArtifact:
+    try:
+        response = build_generic_ranking(request)
+        return persist_generic_ranking_artifact(response)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/strategy-lab/ranking/artifacts/recent",
+    response_model=list[GenericRankingArtifactRecentRow],
+)
+def list_generic_ranking_recent(
+    limit: int = Query(20, ge=1, le=100),
+) -> list[GenericRankingArtifactRecentRow]:
+    return list_recent_generic_ranking_artifacts(limit=limit)
+
+
+@router.get(
+    "/strategy-lab/ranking/artifacts/{artifact_id}",
+    response_model=GenericRankingArtifact,
+)
+def get_generic_ranking_artifact(artifact_id: str) -> GenericRankingArtifact:
+    try:
+        return load_generic_ranking_artifact(artifact_id)
+    except GenericRankingMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (
+        GenericRankingInvalidJsonError,
+        GenericRankingNonObjectPayloadError,
+        GenericRankingSchemaValidationError,
+        GenericRankingIntegrityError,
+        GenericRankingPersistenceError,
     ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

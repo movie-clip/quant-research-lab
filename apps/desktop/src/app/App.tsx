@@ -29,11 +29,12 @@ import {
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 const DiagnosticsPanel = lazy(async () => ({ default: (await import('../features/portfolio/DiagnosticsPanel')).DiagnosticsPanel }))
 const BacktestWorkspacePanel = lazy(async () => ({ default: (await import('../features/backtest/BacktestWorkspacePanel')).BacktestWorkspacePanel }))
+const GenericRankingView = lazy(async () => ({ default: (await import('../features/generic-ranking/GenericRankingView')).GenericRankingView }))
 
 
 const defaultSymbolOverrides = '{}'
 type ImportMode = 'replace' | 'add_snapshot'
-type AppTab = 'dashboard' | 'exposure' | 'diagnostics' | 'workspace' | 'backtest' | 'strategy_lab' | 'etf_ranking'
+type AppTab = 'dashboard' | 'exposure' | 'diagnostics' | 'workspace' | 'backtest' | 'strategy_lab' | 'etf_ranking' | 'generic_ranking'
 type WorkspaceOwnedResearchSessions = Record<string, {
   backtest: {
     result: BacktestRunResponse | null
@@ -70,6 +71,7 @@ const appTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'backtest', label: 'Backtest' },
   { id: 'strategy_lab', label: 'Strategy Lab' },
   { id: 'etf_ranking', label: 'ETF Ranking' },
+  { id: 'generic_ranking', label: 'Generic Ranking' },
 ]
 
 const workspaceOwnedResearchTabs: WorkspaceResearchTool[] = ['backtest', 'strategy_lab', 'etf_ranking']
@@ -2902,6 +2904,7 @@ export function App() {
           <p className="eyebrow">Portfolio Workstation</p>
           <p className="helper workflow-status-text">{workflowState}</p>
         </div>
+
         <div className="topbar-meta">
           <span className="status-dot" />
           <span>Local Quant Engine</span>
@@ -3176,6 +3179,14 @@ export function App() {
                 void saveHypotheticalReplacementReplayDraft(artifact).catch(() => undefined)
               }}
             />
+          </Suspense>
+        </section>
+      ) : null}
+
+      {tab === 'generic_ranking' ? (
+        <section className="grid grid-single">
+          <Suspense fallback={<section className="panel"><p className="panel-label">Generic Ranking</p><p className="helper">Loading generic ranking workspace...</p></section>}>
+            <GenericRankingView />
           </Suspense>
         </section>
       ) : null}

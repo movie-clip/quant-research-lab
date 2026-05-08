@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 RankingArtifactConfidence = Literal["high", "medium", "low"]
 RankingSourceStatus = Literal["sample", "live", "mixed"]
-RankingArtifactKind = Literal["etf_ranking", "intent_bound_etf_replacement_ranking"]
+RankingArtifactKind = Literal["etf_ranking", "intent_bound_etf_replacement_ranking", "generic_ranking"]
 RankingArtifactDiscoveryContractVersion = Literal["ranking_artifact_discovery_v1"]
 RankingArtifactKindRegistryVersion = Literal["ranking_artifact_kind_registry_v1"]
 RankingArtifactPreflightContractVersion = Literal["ranking_artifact_preflight_v1"]
@@ -32,6 +32,7 @@ RankingArtifactReviewPayloadKind = Literal[
 RankingArtifactSchemaVersion = Literal[
     "etf_ranking_artifact_v1",
     "intent_bound_etf_replacement_ranking_artifact_v1",
+    "generic_ranking_artifact_v1",
 ]
 RankingArtifactDiscoveryFilterName = Literal[
     "artifact_kind",
@@ -76,6 +77,8 @@ ETF_RANKING_ARTIFACT_SCHEMA_VERSION: EtfRankingArtifactSchemaVersion = "etf_rank
 INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION: (
     IntentBoundEtfReplacementRankingArtifactSchemaVersion
 ) = "intent_bound_etf_replacement_ranking_artifact_v1"
+GENERIC_RANKING_ARTIFACT_KIND_VALUE: RankingArtifactKind = "generic_ranking"
+GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION_VALUE: RankingArtifactSchemaVersion = "generic_ranking_artifact_v1"
 AUTHORITATIVE_PERSISTED_RANKING_ARTIFACT_REVIEW_TRUTH: RankingArtifactReviewTruthBasis = (
     "authoritative_persisted_ranking_artifact"
 )
@@ -101,6 +104,7 @@ INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX = (
 CANONICAL_RANKING_ARTIFACT_SCHEMA_VERSIONS: tuple[RankingArtifactSchemaVersion, ...] = (
     ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
     INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
+    GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION_VALUE,
 )
 DEPRECATED_RANKING_ARTIFACT_SCHEMA_VERSIONS: tuple[RankingArtifactSchemaVersion, ...] = ()
 CANONICAL_RANKING_ARTIFACT_SCHEMA_VERSIONS_SET = frozenset(CANONICAL_RANKING_ARTIFACT_SCHEMA_VERSIONS)
@@ -121,6 +125,10 @@ ETF_RANKING_DISCOVERY_FILTERS: tuple[RankingArtifactDiscoveryFilterName, ...] = 
     *COMMON_RANKING_ARTIFACT_DISCOVERY_FILTERS,
     "benchmark_symbol",
     "effective_peer_group",
+)
+GENERIC_RANKING_DISCOVERY_FILTERS: tuple[RankingArtifactDiscoveryFilterName, ...] = (
+    *COMMON_RANKING_ARTIFACT_DISCOVERY_FILTERS,
+    "benchmark_symbol",
 )
 INTENT_BOUND_ETF_REPLACEMENT_RANKING_DISCOVERY_FILTERS: tuple[RankingArtifactDiscoveryFilterName, ...] = (
     *COMMON_RANKING_ARTIFACT_DISCOVERY_FILTERS,
@@ -149,6 +157,11 @@ RANKING_ARTIFACT_KIND_REGISTRY: tuple[RankingArtifactKindRegistryEntry, ...] = (
         artifact_kind=INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_KIND,
         supported_schema_versions=(INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,),
         supported_filters=INTENT_BOUND_ETF_REPLACEMENT_RANKING_DISCOVERY_FILTERS,
+    ),
+    RankingArtifactKindRegistryEntry(
+        artifact_kind=GENERIC_RANKING_ARTIFACT_KIND_VALUE,
+        supported_schema_versions=(GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION_VALUE,),
+        supported_filters=GENERIC_RANKING_DISCOVERY_FILTERS,
     ),
 )
 
@@ -260,8 +273,10 @@ def get_ranking_artifact_kind_registry_entry(
 def infer_ranking_artifact_kind_from_artifact_id(
     artifact_id: str,
 ) -> RankingArtifactKind | None:
+    from app.schemas.generic_ranking import GENERIC_RANKING_ARTIFACT_ID_PREFIX
     artifact_id_prefixes: tuple[tuple[RankingArtifactKind, str], ...] = (
         ("intent_bound_etf_replacement_ranking", INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_ID_PREFIX),
+        ("generic_ranking", GENERIC_RANKING_ARTIFACT_ID_PREFIX),
         ("etf_ranking", ETF_RANKING_ARTIFACT_ID_PREFIX),
     )
     for artifact_kind, artifact_id_prefix in artifact_id_prefixes:

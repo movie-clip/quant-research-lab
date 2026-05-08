@@ -21,6 +21,9 @@ DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR = str(RUNTIME_DATA_ROOT / "artifacts" /
 DEFAULT_CROSS_SECTIONAL_RESEARCH_ARTIFACT_DIR = str(
     RUNTIME_DATA_ROOT / "artifacts" / "cross-sectional-research-artifacts"
 )
+DEFAULT_GENERIC_RANKING_ARTIFACTS_DIR = str(
+    Path(__file__).resolve().parents[4] / "data" / "artifacts" / "generic-ranking-artifacts"
+)
 
 
 class Settings(BaseSettings):
@@ -39,6 +42,7 @@ class Settings(BaseSettings):
     etf_ranking_artifact_dir: str = Field(default=DEFAULT_ETF_RANKING_ARTIFACT_DIR)
     replacement_ranking_artifact_dir: str = Field(default=DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR)
     cross_sectional_research_artifact_dir: str = Field(default=DEFAULT_CROSS_SECTIONAL_RESEARCH_ARTIFACT_DIR)
+    generic_ranking_artifacts_dir: str = Field(default=DEFAULT_GENERIC_RANKING_ARTIFACTS_DIR)
     fmp_quote_cache_ttl_seconds: int = Field(default=300)
     fmp_history_cache_ttl_seconds: int = Field(default=86400)
     fmp_max_requests_per_minute: int = Field(default=250)
