@@ -20,6 +20,7 @@ const BacktestWorkspacePanel = lazy(async () => ({ default: (await import('../fe
 const StrategyBacktestPanel = lazy(async () => ({ default: (await import('../features/backtest/StrategyBacktestPanel')).StrategyBacktestPanel }))
 const StrategyLabPanel = lazy(async () => ({ default: (await import('../features/strategy-lab/StrategyLabPanel')).StrategyLabPanel }))
 const EtfRankingPanel = lazy(async () => ({ default: (await import('../features/strategy-lab/EtfRankingPanel')).EtfRankingPanel }))
+const GenericRankingView = lazy(async () => ({ default: (await import('../features/generic-ranking/GenericRankingView')).GenericRankingView }))
 
 
 const defaultSymbolOverrides = '{}'
@@ -1255,7 +1256,7 @@ async function loadActiveThesisForWorkspace(workspace: PortfolioWorkspace | null
 }
 
 export function App() {
-  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'workspace' | 'backtest' | 'strategy_lab' | 'etf_ranking'>('workspace')
+  const [tab, setTab] = useState<'dashboard' | 'exposure' | 'diagnostics' | 'workspace' | 'backtest' | 'strategy_lab' | 'etf_ranking' | 'generic_ranking'>('workspace')
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null)
   const [baselineAnalysis, setBaselineAnalysis] = useState<ReturnType<typeof buildPortfolioBaselineView> | null>(null)
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
@@ -2439,6 +2440,7 @@ export function App() {
           <button className={`tab-button${tab === 'backtest' ? ' active' : ''}`} onClick={() => setTab('backtest')}>Backtest</button>
           <button className={`tab-button${tab === 'strategy_lab' ? ' active' : ''}`} onClick={() => setTab('strategy_lab')}>Strategy Lab</button>
           <button className={`tab-button${tab === 'etf_ranking' ? ' active' : ''}`} onClick={() => setTab('etf_ranking')}>ETF Ranking</button>
+          <button className={`tab-button${tab === 'generic_ranking' ? ' active' : ''}`} onClick={() => setTab('generic_ranking')}>Generic Ranking</button>
         </nav>
         <div className="topbar-meta">
           <span className="status-dot" />
@@ -2681,6 +2683,14 @@ export function App() {
         <section className="grid grid-single">
           <Suspense fallback={<section className="panel"><p className="panel-label">ETF Ranking</p><p className="helper">Loading ETF ranking workspace...</p></section>}>
             <EtfRankingPanel draftSymbols={workingDraft?.portfolioSnapshot.positions.map((position) => position.symbol) ?? []} onSeedCandidateDraft={handleSeedCandidateDraft} />
+          </Suspense>
+        </section>
+      ) : null}
+
+      {tab === 'generic_ranking' ? (
+        <section className="grid grid-single">
+          <Suspense fallback={<section className="panel"><p className="panel-label">Generic Ranking</p><p className="helper">Loading generic ranking workspace...</p></section>}>
+            <GenericRankingView />
           </Suspense>
         </section>
       ) : null}

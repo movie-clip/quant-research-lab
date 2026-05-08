@@ -205,6 +205,37 @@ class FmpClient:
             with _IN_FLIGHT_LOCK:
                 _IN_FLIGHT_REQUESTS.pop(cache_identifier, None)
 
+    def get_screener_results(
+        self,
+        *,
+        exchange: str | None = None,
+        market_cap_more_than: float | None = None,
+        volume_more_than: float | None = None,
+        price_more_than: float | None = None,
+        sector: str | None = None,
+        country: str | None = None,
+        is_etf: bool | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        # NOTE: FMP /stock-screener endpoint — added to support generic_ranking universe resolution.
+        # Follows the exact _get() pattern used by all other client methods.
+        params: dict[str, Any] = {"limit": limit}
+        if exchange is not None:
+            params["exchange"] = exchange
+        if market_cap_more_than is not None:
+            params["marketCapMoreThan"] = int(market_cap_more_than)
+        if volume_more_than is not None:
+            params["volumeMoreThan"] = int(volume_more_than)
+        if price_more_than is not None:
+            params["priceMoreThan"] = price_more_than
+        if sector is not None:
+            params["sector"] = sector
+        if country is not None:
+            params["country"] = country
+        if is_etf is not None:
+            params["isEtf"] = str(is_etf).lower()
+        return self._get("screener", "stock-screener", params, ttl_seconds=self.history_ttl_seconds)
+
     def __del__(self) -> None:
         try:
             self.client.close()
