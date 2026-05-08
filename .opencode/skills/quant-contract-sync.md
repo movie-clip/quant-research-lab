@@ -8,7 +8,35 @@ Use this skill whenever work changes API request/response shapes, persisted arti
 
 ## Trigger Paths
 
-Apply this skill if any changed file matches one or more of:
+Use this skill whenever a change affects a backend-rooted contract surface that desktop, tests, docs, or roadmap text rely on.
+
+### Responsibility-Based Triggers
+
+Apply this skill if the change touches any of these responsibilities, even if the file path is new or not listed below:
+
+- request model or response model changes
+- persisted artifact payload shape changes
+- route serialization or route inventory changes
+- desktop type or caller updates caused by backend payload changes
+- cached-state normalization changes driven by contract shape
+- contract docs, current-state, roadmap, or technical-roadmap wording for shipped vs future behavior
+- deprecation handling, field removals, or additive field introduction
+
+### Vocabulary-Based Triggers
+
+Apply this skill if the change introduces or modifies contract vocabulary such as:
+
+- `schema_version`, `contract_version`, `deprecated`
+- `request model`, `response model`, `payload`, `field inventory`
+- `current-product-state`, `roadmap`, `technical-roadmap`
+- `status_source_precedence`, `source_precedence`, `review_basis`
+- `handoff`, `fingerprint`, `lineage`, `provenance`
+
+If responsibility-based or vocabulary-based triggers match, use this skill even when the file path is not listed below.
+
+### Common Trigger Paths
+
+Common high-signal paths include:
 
 - `services/quant-engine/app/schemas/*.py`
 - `services/quant-engine/app/api/routes/*.py`
@@ -17,8 +45,8 @@ Apply this skill if any changed file matches one or more of:
 - `services/quant-engine/app/services/diagnostics_engine.py`
 - `apps/desktop/src/features/portfolio/types.ts`
 - `apps/desktop/src/features/portfolio/workspaceTypes.ts`
-- `apps/desktop/src/app/App.tsx`
-- `apps/desktop/src/app/portfolioWorkspaceStorage.ts`
+- `apps/desktop/src/app/App.tsx` when contract-rooted callers or restore/open behavior change
+- `apps/desktop/src/app/portfolioWorkspaceStorage.ts` when persisted payload normalization changes
 - `docs/contracts/*.md`
 - `docs/product/current-product-state.md`
 - `docs/product/roadmap.md`
@@ -36,6 +64,7 @@ Apply it proactively for related test updates in:
 - `services/quant-engine/app/tests/test_optimizer_service.py`
 - `apps/desktop/src/app/*.test.ts*`
 - `apps/desktop/src/features/**/*.test.ts*`
+- helper modules and fixtures that define or normalize backend-shaped payloads
 
 ## Non-Negotiable Rules
 
@@ -64,6 +93,12 @@ Apply it proactively for related test updates in:
   - desktop types and callers
   - contract docs
   - current-state / roadmap wording if shipped state changed
+
+### 4a. Shipped-State Docs Must Move Together
+
+- If shipped behavior changes, keep `docs/product/current-product-state.md`, `docs/product/roadmap.md`, and `docs/product/technical-roadmap.md` aligned.
+- Do not leave one doc describing a surface as future work while another describes it as shipped.
+- If route inventory or root contract families are asserted in tests, treat those assertions as part of contract sync.
 
 ### 5. Preserve Truth Labels
 
@@ -99,6 +134,7 @@ Before finishing, check all that apply:
 - Desktop callers use the new contract path, not stale reconstructed fields.
 - Contract docs list the current fields accurately.
 - Current-state / roadmap text reflects shipped vs future work correctly.
+- Route inventory assertions and contract-family inventories reflect the actually shipped surface.
 - Deprecated fields are marked and intentionally preserved or removed.
 - Fixtures and cached-state normalization still match the contract.
 
@@ -111,6 +147,8 @@ Before finishing, check all that apply:
 - Partial unlock / withheld semantics documented incorrectly.
 - Roadmap still listing shipped work as future work.
 - Current-state overclaiming a broader feature than what is actually shipped.
+- Technical-roadmap, roadmap, and current-state docs drifting from each other on the same shipped surface.
+- App-level or restore/open tests left stale after contract-rooted behavior changes in shared callers.
 
 ## Validation Commands
 

@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "runtime_status": "draft_manifest_only",
+  "description": "Future-ready manifest for repo-local OpenCode skills. This file does not activate runtime loading by itself; it prepares stable metadata for a future skill registry/loader.",
+  "skills": [
+    {
+      "id": "repo.skill.artifact-workflow-guard",
+      "name": "artifact-workflow-guard",
+      "display_name": "Artifact Workflow Guard",
+      "file": "artifact-workflow-guard.md",
+      "skill_version": "1.0.0",
+      "status": "active",
+      "purpose": "Protect artifact-backed workflows from contract drift, truth-mixing, and weakened validation/open boundaries.",
+      "manual_only": true,
+      "aliases": [],
+      "supersedes": [],
+      "replaced_by": [],
+      "domains": [
+        "artifacts",
+        "contracts",
+        "desktop",
+        "docs",
+        "monitoring",
+        "optimizer",
+        "construction"
+      ],
+      "owner": "repo-maintainers",
+      "review_owner": "repo-maintainers",
+      "required_context": [
+        ".opencode/skills/README.md"
+      ],
+      "dependencies": [],
+      "recommended_with": [
+        "quant-contract-sync"
+      ],
+      "trigger_priority": "high",
+      "trigger_confidence": "high",
+      "triggers": {
+        "responsibilities": [
+          "persisted artifact creation or normalization",
+          "persisted artifact loading or lineage validation",
+          "typed handoff creation or consumption",
+          "validation or preflight for artifact-backed flows",
+          "preview, open, review, or replay boundaries",
+          "desktop restore or reopen from persisted artifact state"
+        ],
+        "vocabulary": [
+          "artifact_id",
+          "fingerprint",
+          "schema_version",
+          "lineage",
+          "handoff",
+          "open_handoff",
+          "review_basis",
+          "proposalCapture",
+          "preflight",
+          "replay",
+          "observation_id",
+          "history_entry_id",
+          "episode_id"
+        ],
+        "paths": [
+          "services/quant-engine/app/services/*artifact*.py",
+          "services/quant-engine/app/services/portfolio_backtest_engine.py",
+          "services/quant-engine/app/api/routes/backtests.py",
+          "services/quant-engine/app/schemas/backtest_engine.py",
+          "apps/desktop/src/app/portfolioWorkspaceStorage.ts",
+          "apps/desktop/src/features/portfolio/workspaceTypes.ts",
+          "apps/desktop/src/features/portfolio/types.ts",
+          "docs/contracts/*.md"
+        ]
+      },
+      "validation_profiles": {
+        "default": [
+          "python -m pytest app/tests/test_routes.py app/tests/test_portfolio_allocation_backtests.py app/tests/test_construction_run_service.py app/tests/test_strategy_lab.py app/tests/test_optimizer_service.py"
+        ],
+        "desktop_review": [
+          "npm test -- --run src/app/App.test.tsx src/app/portfolioWorkspaceStorage.test.ts src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx src/features/backtest/PortfolioAllocationBacktestPanel.test.tsx"
+        ]
+      },
+      "validation_commands": [
+        "python -m pytest app/tests/test_routes.py app/tests/test_portfolio_allocation_backtests.py app/tests/test_construction_run_service.py app/tests/test_strategy_lab.py app/tests/test_optimizer_service.py",
+        "npm test -- --run src/app/App.test.tsx src/app/portfolioWorkspaceStorage.test.ts src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx src/features/backtest/PortfolioAllocationBacktestPanel.test.tsx"
+      ],
+      "report_requirements": [
+        "authoritative artifact or handoff boundary after the change",
+        "whether validation/preflight and preview/open responsibilities changed",
+        "whether legacy compatibility was added, preserved, or rejected",
+        "which fail-closed cases were covered",
+        "which backend and desktop validation commands passed"
+      ],
+      "last_reviewed_at": "2026-05-02",
+      "review_interval": "quarterly",
+      "compatibility": {
+        "repo": "investments-portfolio",
+        "runtime": "manual_only_until_loader_exists"
+      }
+    },
+    {
+      "id": "repo.skill.quant-contract-sync",
+      "name": "quant-contract-sync",
+      "display_name": "Quant Contract Sync",
+      "file": "quant-contract-sync.md",
+      "skill_version": "1.0.0",
+      "status": "active",
+      "purpose": "Keep backend schemas, route payloads, desktop types, docs, and regression tests synchronized.",
+      "manual_only": true,
+      "aliases": [],
+      "supersedes": [],
+      "replaced_by": [],
+      "domains": [
+        "contracts",
+        "docs",
+        "desktop",
+        "backend",
+        "schemas"
+      ],
+      "owner": "repo-maintainers",
+      "review_owner": "repo-maintainers",
+      "required_context": [
+        ".opencode/skills/README.md"
+      ],
+      "dependencies": [],
+      "recommended_with": [
+        "artifact-workflow-guard"
+      ],
+      "trigger_priority": "high",
+      "trigger_confidence": "high",
+      "triggers": {
+        "responsibilities": [
+          "request or response contract changes",
+          "persisted artifact payload changes",
+          "desktop type or caller updates",
+          "contract doc or roadmap wording changes"
+        ],
+        "vocabulary": [
+          "schema_version",
+          "contract_version",
+          "request model",
+          "response model",
+          "deprecated",
+          "current-product-state",
+          "technical-roadmap"
+        ],
+        "paths": [
+          "services/quant-engine/app/schemas/*.py",
+          "services/quant-engine/app/api/routes/*.py",
+          "apps/desktop/src/features/portfolio/types.ts",
+          "apps/desktop/src/features/portfolio/workspaceTypes.ts",
+          "docs/contracts/*.md",
+          "docs/product/current-product-state.md",
+          "docs/product/roadmap.md",
+          "docs/product/technical-roadmap.md"
+        ]
+      },
+      "validation_profiles": {
+        "default": [
+          "python -m pytest app/tests/test_routes.py app/tests/test_analytics.py app/tests/test_portfolio_allocation_backtests.py app/tests/test_construction_run_service.py app/tests/test_strategy_lab.py app/tests/test_optimizer_service.py"
+        ],
+        "desktop_contract": [
+          "npm test -- --run src/app/App.test.tsx src/app/portfolioWorkspaceStorage.test.ts src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx src/features/backtest/PortfolioAllocationBacktestPanel.test.tsx"
+        ]
+      },
+      "validation_commands": [
+        "python -m pytest app/tests/test_routes.py app/tests/test_analytics.py app/tests/test_portfolio_allocation_backtests.py app/tests/test_construction_run_service.py app/tests/test_strategy_lab.py app/tests/test_optimizer_service.py",
+        "npm test -- --run src/app/App.test.tsx src/app/portfolioWorkspaceStorage.test.ts src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx src/features/backtest/PortfolioAllocationBacktestPanel.test.tsx"
+      ],
+      "report_requirements": [
+        "which contract surface changed",
+        "which backend schema and route tests were updated",
+        "which desktop types and callers were updated",
+        "which docs were updated",
+        "whether any deprecated fields remain and why"
+      ],
+      "last_reviewed_at": "2026-05-02",
+      "review_interval": "quarterly",
+      "compatibility": {
+        "repo": "investments-portfolio",
+        "runtime": "manual_only_until_loader_exists"
+      }
+    },
+    {
+      "id": "repo.skill.portfolio-analytics-guard",
+      "name": "portfolio-analytics-guard",
+      "display_name": "Portfolio Analytics Guard",
+      "file": "portfolio-analytics-guard.md",
+      "skill_version": "1.0.0",
+      "status": "active",
+      "purpose": "Protect analytics methodology, benchmark separation, schema discipline, and regression coverage.",
+      "manual_only": true,
+      "aliases": [],
+      "supersedes": [],
+      "replaced_by": [],
+      "domains": [
+        "analytics",
+        "imports",
+        "desktop",
+        "docs",
+        "benchmarking"
+      ],
+      "owner": "repo-maintainers",
+      "review_owner": "repo-maintainers",
+      "required_context": [
+        ".opencode/skills/README.md"
+      ],
+      "dependencies": [],
+      "recommended_with": [
+        "quant-contract-sync"
+      ],
+      "trigger_priority": "high",
+      "trigger_confidence": "medium",
+      "triggers": {
+        "responsibilities": [
+          "return construction changes",
+          "drawdown basis changes",
+          "benchmark-relative analytics changes",
+          "rolling metric or import-window changes",
+          "analytics payload or methodology text changes"
+        ],
+        "vocabulary": [
+          "cash-flow-neutral",
+          "drawdown",
+          "benchmark",
+          "active return",
+          "volatility",
+          "factor exposure",
+          "methodology",
+          "assumptions"
+        ],
+        "paths": [
+          "services/quant-engine/app/analytics/*.py",
+          "services/quant-engine/app/services/import_engine.py",
+          "services/quant-engine/app/schemas/reconciliation.py",
+          "services/quant-engine/app/schemas/imports.py",
+          "apps/desktop/src/features/portfolio/types.ts"
+        ]
+      },
+      "validation_profiles": {
+        "default": [
+          "python -m pytest app/tests/test_analytics.py app/tests/test_importer.py app/tests/test_routes.py app/tests/test_mocked_flows.py"
+        ],
+        "desktop_analytics": [
+          "npm test -- --run src/features/portfolio/ExposurePanel.test.tsx src/features/portfolio/DashboardPanel.test.tsx src/features/portfolio/DiagnosticsPanel.test.tsx src/app/App.test.tsx",
+          "npm run build"
+        ]
+      },
+      "validation_commands": [
+        "python -m pytest app/tests/test_analytics.py app/tests/test_importer.py app/tests/test_routes.py app/tests/test_mocked_flows.py",
+        "npm test -- --run src/features/portfolio/ExposurePanel.test.tsx src/features/portfolio/DashboardPanel.test.tsx src/features/portfolio/DiagnosticsPanel.test.tsx src/app/App.test.tsx",
+        "npm run build"
+      ],
+      "report_requirements": [
+        "what analytics basis changed or remained preserved",
+        "whether methodology or assumptions fields changed",
+        "which regression cases were covered",
+        "which validation commands passed"
+      ],
+      "last_reviewed_at": "2026-05-02",
+      "review_interval": "quarterly",
+      "compatibility": {
+        "repo": "investments-portfolio",
+        "runtime": "manual_only_until_loader_exists"
+      }
+    }
+  ],
+  "planning_notes": {
+    "skill_set_review_before_new_milestones": {
+      "status": "recommended",
+      "step_3_split_expand_decision": "keep_broad",
+      "questions": [
+        "Are artifact-workflow-guard and quant-contract-sync still cleanly separated by responsibility?",
+        "Is portfolio-analytics-guard staying focused on methodology rather than absorbing unrelated workflow rules?",
+        "Do new milestone domains need dedicated skills instead of widening existing ones?"
+      ],
+      "decision_rubric": {
+        "keep_broad_when": [
+          "the new responsibility matches the skill's primary purpose and invariants",
+          "the new responsibility uses substantially the same trigger vocabulary and common trigger paths",
+          "the same validation profiles and report requirements still apply",
+          "failure modes remain materially the same as the current skill",
+          "ownership and review cadence still fit one coherent skill"
+        ],
+        "split_existing_skill_when": [
+          "one skill starts carrying multiple distinct invariant sets that can drift independently",
+          "the same skill would require materially different validation profiles or review workflows",
+          "the skill accumulates multiple unrelated failure modes or review owners",
+          "maintainers repeatedly need to explain sub-boundaries inside one skill before using it"
+        ],
+        "add_sibling_skill_when": [
+          "the new domain has a distinct responsibility cluster with its own artifacts, contracts, or regression expectations",
+          "the new domain interacts with existing skills but should be linked through recommended_with rather than absorbed",
+          "trigger vocabulary and validation surface are distinct enough that maintainers can choose it without ambiguity",
+          "roadmap pressure or change velocity shows the domain will continue growing independently"
+        ],
+        "anti_fragmentation_checks": [
+          "do not split or add a skill if trigger vocabulary, validation profiles, and failure modes are still mostly shared",
+          "do not create a new skill just because a new file path appeared",
+          "prefer composition through recommended_with before creating a new sibling when the responsibility center is still shared"
+        ],
+        "evidence_to_review": [
+          "purpose",
+          "domains",
+          "triggers",
+          "validation_profiles",
+          "report_requirements",
+          "owner",
+          "review_owner",
+          "review_interval"
+        ]
+      },
+      "candidate_missing_domains": [
+        "imported-portfolio-truth and reconciliation guard",
+        "ranking and selection methodology guard",
+        "construction and optimizer methodology guard",
+        "monitoring and overlay review guard"
+      ]
+    }
+  }
+}

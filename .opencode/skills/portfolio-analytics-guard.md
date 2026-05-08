@@ -8,13 +8,43 @@ Use this skill whenever work touches portfolio risk, performance, volatility, dr
 
 ## Trigger Paths
 
-Apply this skill if any changed file matches one or more of:
+Use this skill whenever a change affects analytics methodology, analytics payload semantics, benchmark-relative fields, or import/engine behavior that feeds portfolio analytics outputs.
+
+### Responsibility-Based Triggers
+
+Apply this skill if the change touches any of these responsibilities, even if the file path is new or not listed below:
+
+- return construction or wealth-path construction
+- drawdown basis or volatility methodology
+- benchmark-relative or active-return analytics
+- factor exposure payloads or analytics summary fields
+- import-window logic or importer-derived analytics inputs
+- methodology text, assumptions fields, or analytics-facing docs
+- app-level restore/open paths that can widen or silently substitute analytics inputs
+
+### Vocabulary-Based Triggers
+
+Apply this skill if the change introduces or modifies analytics vocabulary such as:
+
+- `cash-flow-neutral`, `drawdown`, `wealth path`, `volatility`
+- `benchmark`, `benchmark_return`, `active return`, `tracking error`
+- `factor exposure`, `top_constituents`, `sector_position_breakdown`
+- `methodology`, `assumptions`, `analysis window`, `rolling window`
+- `imported diagnostics`, `dashboard history`, `exposure factor model`
+
+If responsibility-based or vocabulary-based triggers match, use this skill even when the file path is not listed below.
+
+### Common Trigger Paths
+
+Common high-signal paths include:
 
 - `services/quant-engine/app/analytics/*.py`
 - `services/quant-engine/app/services/import_engine.py`
 - `services/quant-engine/app/schemas/reconciliation.py`
 - `services/quant-engine/app/schemas/imports.py`
 - `apps/desktop/src/features/portfolio/types.ts`
+- `apps/desktop/src/features/portfolio/*.tsx` when analytics payloads are consumed directly
+- `apps/desktop/src/app/App.tsx` when restore/open logic can affect analytics input selection or fallback behavior
 
 Apply it proactively for any related test updates in:
 
@@ -22,6 +52,9 @@ Apply it proactively for any related test updates in:
 - `services/quant-engine/app/tests/test_importer.py`
 - `services/quant-engine/app/tests/test_routes.py`
 - `services/quant-engine/app/tests/test_mocked_flows.py`
+- `apps/desktop/src/features/portfolio/*.test.tsx`
+- `apps/desktop/src/app/App.test.tsx`
+- helper modules and fixtures that build analytics-facing payloads or imported diagnostics/dashboard-history inputs
 
 ## Non-Negotiable Rules
 
@@ -48,6 +81,12 @@ Apply it proactively for any related test updates in:
 - If the payload currently exposes methodology or assumptions fields, keep them present and structurally consistent unless there is a strong reason to improve them.
 - Prefer additive changes over silent removal or semantic drift.
 - If methodology changes, update the text to describe the new basis precisely.
+
+### 4a. No Silent Fallback Widening
+
+- If analytics-adjacent restore/open paths fail to build the intended analytics input, do not silently fall back to a weaker or generic engine unless that fallback is already an explicit shipped contract.
+- Invalid imported diagnostics, dashboard history, or factor-model inputs should fail clearly in the affected flow rather than widening semantics invisibly.
+- If a fallback is intentional and shipped, document it explicitly and cover it with regression tests.
 
 ### 5. Regression Coverage Is Required
 
@@ -87,6 +126,7 @@ Before finishing, check all that apply:
 - Methodology text matches implementation.
 - Assumptions fields still exist and remain accurate.
 - Frontend types still match backend payloads.
+- Restore/open flows do not silently swap analytics input sources or widen semantics.
 
 ## Common Failure Modes To Catch
 
@@ -96,6 +136,8 @@ Before finishing, check all that apply:
 - Frontend types drifting from backend schema after analytics payload changes.
 - UI copy reintroducing interpretation instead of neutral methodology.
 - Import window logic accidentally using malformed or stale date ranges.
+- Restore/open code swallowing analytics-input failures and falling back to generic engines without explicit contract coverage.
+- Analytics-adjacent files touched indirectly without verifying that no methodology or input-source behavior changed.
 
 ## Validation Commands
 
