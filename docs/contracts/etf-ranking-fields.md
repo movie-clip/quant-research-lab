@@ -8,12 +8,13 @@ Additive rollout note:
 - persisted artifacts are the authoritative source for catalog and recent discovery; discovery does not recompute rankings
 - persisted artifacts are now also the authoritative source for additive generalized ranking artifact preflight/open handoffs and typed review reopen payloads
 - persisted ETF ranking artifacts are now also the authoritative source for additive construction-consumer preflight and typed handoff on the backend construction routes
+- persisted intent-bound ETF replacement ranking artifacts are now also supported on that same additive construction-consumer seam through a distinct replacement handoff kind
 
-## ETF Ranking To Construction Handoff v1
+## Ranking Artifact To Construction Handoff v1
 
 Routes:
 - `POST /construction/ranking-artifacts/preflight/{artifact_id}`
-  - validates one persisted ETF ranking artifact for construction consumption
+  - validates one persisted supported ranking artifact for construction consumption
   - returns the backend-owned typed construction handoff only after persisted artifact load and validation succeed
 - `POST /construction/run`
   - additive request path now accepts exactly one ranking input source:
@@ -21,9 +22,9 @@ Routes:
     - backend-owned `ranking_artifact_handoff`
 
 Authoritative boundary rules:
-- persisted ETF ranking artifacts are the authoritative ranking truth for the handoff path
+- persisted ETF ranking artifacts and persisted intent-bound ETF replacement ranking artifacts are the authoritative ranking truth for the shipped handoff path
 - preflight and construction execution remain distinct responsibilities; preflight emits the handoff and does not run construction
-- construction execution on the handoff path reloads the authoritative persisted ETF ranking artifact and derives the existing ranked-candidate input from persisted artifact truth only
+- construction execution on the handoff path reloads the authoritative persisted supported ranking artifact and derives the existing ranked-candidate input from persisted artifact truth only
 - the existing inline `ranked_universe` shape remains supported and unchanged
 - `ranked_universe.artifact_id` is not overloaded into an implicit artifact-backed handoff substitute
 - new writes remain strict and canonical; compatibility logic stays at persisted-artifact load boundaries only
@@ -33,30 +34,52 @@ Preflight response contract:
   - current value: `construction_ranking_artifact_preflight_v1`
 - `artifact`
   - `artifact_kind`
-    - current value: `etf_ranking`
+    - current shipped values:
+      - `etf_ranking`
+      - `intent_bound_etf_replacement_ranking`
   - `artifact_id`
   - `schema_version`
-    - current value: `etf_ranking_artifact_v1`
+    - current shipped values:
+      - `etf_ranking_artifact_v1`
+      - `intent_bound_etf_replacement_ranking_artifact_v1`
   - `ranking_id`
   - `methodology_id`
   - `as_of_date`
 - `handoff`
   - `handoff_kind`
-    - current value: `etf_ranking_artifact_construction_handoff_v1`
+    - current shipped values:
+      - `etf_ranking_artifact_construction_handoff_v1`
+      - `intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1`
   - `artifact_kind`
-    - current value: `etf_ranking`
+    - current shipped values:
+      - `etf_ranking`
+      - `intent_bound_etf_replacement_ranking`
   - `artifact_id`
   - `schema_version`
-    - current value: `etf_ranking_artifact_v1`
+    - current shipped values:
+      - `etf_ranking_artifact_v1`
+      - `intent_bound_etf_replacement_ranking_artifact_v1`
   - `ranking_id`
   - `methodology_id`
   - `as_of_date`
+- `eligibility`
+  - additive typed preflight readiness block for the two supported ranking families
+  - `eligible`
+    - `true` only when canonical backend preflight can also emit a supported `handoff`
+    - `false` when the persisted artifact family is supported and valid but construction-ineligible
+  - `reason`
+    - canonical backend-owned ineligibility explanation when `eligible = false`
+  - `readiness_scope`
+    - describes that the decision is construction-readiness only, not execution approval or applied-portfolio truth
 
 Construction handoff semantics:
 - request bodies that use `ranking_artifact_handoff` must not also send inline `ranked_universe`
 - handoff/artifact identity mismatches fail closed
-- unsupported `handoff_kind`, unsupported artifact kind, unsupported schema version, missing artifact, invalid json, non-object payload, schema failure, canonical integrity mismatch, and empty or unusable eligible ranking states fail closed
+- unsupported `handoff_kind`, unsupported artifact kind, unsupported schema version, missing artifact, invalid json, non-object payload, schema failure, canonical integrity mismatch, selected-candidate lineage mismatch, and empty or unusable eligible ranking states fail closed
 - handoff-backed construction artifacts persist authoritative ranking provenance through `normalized_inputs.ranked_universe_artifact_kind`, `normalized_inputs.ranked_universe_artifact_id`, and `normalized_inputs.ranked_universe_artifact_schema_version` alongside existing ranking metadata fields
+- replacement-family handoff keeps persisted intent lineage explicit; construction eligibility does not upgrade the ranking artifact itself into applied portfolio truth, execution truth, or optimizer truth
+- supported-family construction preflight now distinguishes `supported but ineligible` from malformed/unsupported/corrupt states: supported-but-ineligible returns typed `200` readiness semantics with no handoff, while malformed/unsupported/corrupt states remain fail-closed errors
+- clients must treat preflight as a typed eligibility boundary, not as a simple status-code success gate; construction run remains authoritative and revalidates persisted artifact truth even after an eligible preflight
 
 The preferred authoritative contract shape is now grouped into:
 - `request`

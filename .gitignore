@@ -20,6 +20,7 @@ data/raw/
 data/curated/
 data/duckdb/
 data/exports/
+.runtime-data/
 
 # Environment
 .env

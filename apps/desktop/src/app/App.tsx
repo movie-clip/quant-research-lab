@@ -114,6 +114,87 @@ function resolveConstructionArtifactPreviewHandoff(
   return validation.preview_handoff
 }
 
+async function openPersistedConstructionArtifactReviewById(
+  constructionArtifactId: string,
+  options: {
+    setActiveWorkspace: (value: PortfolioWorkspace | null) => void
+    ensureWorkspaceOwnedResearchSession: (workspaceId: string) => void
+    setActiveNode: (value: PortfolioNode | null) => void
+    setWorkingDraft: (value: WorkingDraft | null) => void
+    setWorkspaceNodes: (value: PortfolioNode[]) => void
+    setPersistedConstructionArtifactReview: (value: PersistedConstructionArtifactWorkspaceReview | null) => void
+    setPersistedOptimizerHandoffReview: (value: PersistedOptimizerHandoffWorkspaceReview | null) => void
+    setHypotheticalReplacementReplay: (value: HypotheticalReplayResponse | null) => void
+    setProposalArtifacts: (value: VersionedProposalArtifact[]) => void
+    setOpenedSavedProposalArtifactId: (value: string | null) => void
+    setActiveThesis: (value: ActiveThesisArtifact | null) => void
+    setMonitorDefinitionAlertReviewSession: (value: MonitorDefinitionAlertReviewSessionState) => void
+    setCandidateImprovementDraft: (value: CandidateImprovementDraftArtifact | null) => void
+    setIntentBoundSeededEtfReplacementRankingDraft: (value: IntentBoundSeededEtfReplacementRankingDraftArtifact | null) => void
+    setReplacementIntentDraft: (value: ReplacementIntentDraftArtifact | null) => void
+    setFormedCandidateArtifact: (value: FormedCandidateArtifact | null) => void
+    setConstructedCandidateArtifact: (value: ConstructedCandidateArtifact | null) => void
+    setConstructionConstraintValidationArtifact: (value: ConstructionConstraintValidationArtifact | null) => void
+    setSelectedConstructionRuleId: (value: SingleReplacementConstructionRuleId) => void
+    setAnalysis: (value: DashboardAnalysis | null) => void
+    setBaselineAnalysis: (value: ReturnType<typeof buildPortfolioBaselineView> | null) => void
+    setAllocationBacktestRun: (value: PortfolioAllocationBacktestResponse | null) => void
+    setSelectedExposureSnapshotId: (value: string) => void
+    setLastImportedFileNames: (value: string[]) => void
+    setTab: (value: AppTab) => void
+    setRestoredSession: (value: boolean) => void
+  },
+) {
+  const validationResponse = await fetch('/api/backtests/portfolio-allocation/construction-artifact-validation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ construction_artifact_id: constructionArtifactId }),
+  })
+  const validationPayload = await validationResponse.json()
+  if (!validationResponse.ok) {
+    throw new Error((validationPayload as { detail?: string }).detail ?? 'Unable to open persisted construction artifact review')
+  }
+  const validation = validationPayload as ConstructionArtifactReplayValidationResponse
+  const previewHandoff = resolveConstructionArtifactPreviewHandoff(validation, constructionArtifactId)
+  const previewResponse = await fetch('/api/backtests/portfolio-allocation/construction-artifact-preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(previewHandoff),
+  })
+  const previewPayload = await previewResponse.json()
+  if (!previewResponse.ok) {
+    throw new Error((previewPayload as { detail?: string }).detail ?? 'Unable to open persisted construction artifact review')
+  }
+  const artifactReplay = previewPayload as ConstructionArtifactReplayResponse
+  const created = await createWorkspaceFromPersistedConstructionArtifact({ constructionArtifactId, replay: artifactReplay })
+  options.setActiveWorkspace(created.workspace)
+  options.ensureWorkspaceOwnedResearchSession(created.workspace.id)
+  options.setActiveNode(created.rootNode)
+  options.setWorkingDraft(null)
+  options.setWorkspaceNodes([created.rootNode])
+  options.setPersistedConstructionArtifactReview(created.review)
+  options.setPersistedOptimizerHandoffReview(null)
+  options.setHypotheticalReplacementReplay(null)
+  options.setProposalArtifacts([])
+  options.setOpenedSavedProposalArtifactId(null)
+  options.setActiveThesis(null)
+  options.setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
+  options.setCandidateImprovementDraft(null)
+  options.setIntentBoundSeededEtfReplacementRankingDraft(null)
+  options.setReplacementIntentDraft(null)
+  options.setFormedCandidateArtifact(null)
+  options.setConstructedCandidateArtifact(null)
+  options.setConstructionConstraintValidationArtifact(null)
+  options.setSelectedConstructionRuleId(defaultConstructionRuleId)
+  options.setAnalysis(null)
+  options.setBaselineAnalysis(null)
+  options.setAllocationBacktestRun(artifactReplay.replay)
+  options.setSelectedExposureSnapshotId(created.rootNode.id)
+  options.setLastImportedFileNames([])
+  options.setTab('workspace')
+  options.setRestoredSession(true)
+}
+
 function parseOptimizerHandoffReferenceParam(search: string): OptimizerPersistedArtifactReference | null {
   const raw = new URLSearchParams(search).get(persistedOptimizerHandoffReferenceQueryKey)
   if (!raw) return null
@@ -1972,56 +2053,35 @@ export function App() {
       const constructionArtifactId = new URLSearchParams(search).get(persistedConstructionArtifactQueryKey)
       if (constructionArtifactId) {
         try {
-          const validationResponse = await fetch('/api/backtests/portfolio-allocation/construction-artifact-validation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              construction_artifact_id: constructionArtifactId,
-            }),
+          await openPersistedConstructionArtifactReviewById(constructionArtifactId, {
+            setActiveWorkspace,
+            ensureWorkspaceOwnedResearchSession,
+            setActiveNode,
+            setWorkingDraft,
+            setWorkspaceNodes,
+            setPersistedConstructionArtifactReview,
+            setPersistedOptimizerHandoffReview,
+            setHypotheticalReplacementReplay,
+            setProposalArtifacts,
+            setOpenedSavedProposalArtifactId,
+            setActiveThesis,
+            setMonitorDefinitionAlertReviewSession,
+            setCandidateImprovementDraft,
+            setIntentBoundSeededEtfReplacementRankingDraft,
+            setReplacementIntentDraft,
+            setFormedCandidateArtifact,
+            setConstructedCandidateArtifact,
+            setConstructionConstraintValidationArtifact,
+            setSelectedConstructionRuleId,
+            setAnalysis,
+            setBaselineAnalysis,
+            setAllocationBacktestRun,
+            setSelectedExposureSnapshotId,
+            setLastImportedFileNames,
+            setTab,
+            setRestoredSession,
           })
-          const validationPayload = await validationResponse.json()
-          if (!validationResponse.ok) {
-            throw new Error((validationPayload as { detail?: string }).detail ?? 'Unable to open persisted construction artifact review')
-          }
-          const validation = validationPayload as ConstructionArtifactReplayValidationResponse
-          const previewHandoff = resolveConstructionArtifactPreviewHandoff(validation, constructionArtifactId)
-          const previewResponse = await fetch('/api/backtests/portfolio-allocation/construction-artifact-preview', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(previewHandoff),
-          })
-          const previewPayload = await previewResponse.json()
-          if (!previewResponse.ok) {
-            throw new Error((previewPayload as { detail?: string }).detail ?? 'Unable to open persisted construction artifact review')
-          }
-          const artifactReplay = previewPayload as ConstructionArtifactReplayResponse
-          const created = await createWorkspaceFromPersistedConstructionArtifact({ constructionArtifactId, replay: artifactReplay })
           if (!active) return
-          setActiveWorkspace(created.workspace)
-          ensureWorkspaceOwnedResearchSession(created.workspace.id)
-          setActiveNode(created.rootNode)
-          setWorkingDraft(null)
-          setWorkspaceNodes([created.rootNode])
-          setPersistedConstructionArtifactReview(created.review)
-          setHypotheticalReplacementReplay(null)
-          setProposalArtifacts([])
-          setOpenedSavedProposalArtifactId(null)
-          setActiveThesis(null)
-          setMonitorDefinitionAlertReviewSession(idleMonitorDefinitionAlertReviewSession)
-          setCandidateImprovementDraft(null)
-          setIntentBoundSeededEtfReplacementRankingDraft(null)
-          setReplacementIntentDraft(null)
-          setFormedCandidateArtifact(null)
-          setConstructedCandidateArtifact(null)
-          setConstructionConstraintValidationArtifact(null)
-          setSelectedConstructionRuleId(defaultConstructionRuleId)
-          setAnalysis(null)
-          setBaselineAnalysis(null)
-          setAllocationBacktestRun(artifactReplay.replay)
-          setSelectedExposureSnapshotId(created.rootNode.id)
-          setLastImportedFileNames([])
-          setTab('workspace')
-          setRestoredSession(true)
           setRestoringPortfolio(false)
           return
         } catch (caughtError) {
@@ -2921,6 +2981,44 @@ export function App() {
                 updateWorkspaceOwnedResearchSession(activeWorkspace.id, 'etf_ranking', update)
               }}
               onSeedCandidateDraft={handleSeedCandidateDraft}
+              onOpenPersistedConstructionArtifactReview={async (constructionArtifactId) => {
+                try {
+                  setWorkspaceError(null)
+                  if (!activeWorkspace) {
+                    throw new Error('Review In Construction requires an active workspace draft and current portfolio.')
+                  }
+                  await openPersistedConstructionArtifactReviewById(constructionArtifactId, {
+                    setActiveWorkspace,
+                    ensureWorkspaceOwnedResearchSession,
+                    setActiveNode,
+                    setWorkingDraft,
+                    setWorkspaceNodes,
+                    setPersistedConstructionArtifactReview,
+                    setPersistedOptimizerHandoffReview,
+                    setHypotheticalReplacementReplay,
+                    setProposalArtifacts,
+                    setOpenedSavedProposalArtifactId,
+                    setActiveThesis,
+                    setMonitorDefinitionAlertReviewSession,
+                    setCandidateImprovementDraft,
+                    setIntentBoundSeededEtfReplacementRankingDraft,
+                    setReplacementIntentDraft,
+                    setFormedCandidateArtifact,
+                    setConstructedCandidateArtifact,
+                    setConstructionConstraintValidationArtifact,
+                    setSelectedConstructionRuleId,
+                    setAnalysis,
+                    setBaselineAnalysis,
+                    setAllocationBacktestRun,
+                    setSelectedExposureSnapshotId,
+                    setLastImportedFileNames,
+                    setTab,
+                    setRestoredSession,
+                  })
+                } catch (error) {
+                  setWorkspaceError(error instanceof Error ? error.message : 'Unable to open persisted construction artifact review')
+                }
+              }}
               onSaveProposal={handleSaveProposal}
               onPromoteProposalToThesis={handlePromoteProposalToThesis}
               onClearActiveThesis={handleClearActiveThesis}

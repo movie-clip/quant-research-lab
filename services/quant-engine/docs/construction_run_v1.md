@@ -7,7 +7,7 @@ V1 supports a narrow persisted policy set and consumes ranked candidates as an i
 ## Persistence
 
 - `POST /construction/run` persists the canonical artifact before returning it
-- `POST /construction/ranking-artifacts/preflight/{artifact_id}` is the canonical validation/preflight producer for the typed ETF ranking to construction handoff
+- `POST /construction/ranking-artifacts/preflight/{artifact_id}` is the canonical validation/preflight producer for the typed ranking-artifact to construction handoff for the two shipped ranking families: `etf_ranking` and `intent_bound_etf_replacement_ranking`
 - `GET /construction/policies` exposes backend-owned read-only discovery for the shipped persisted policy catalog
 - persisted artifacts use stable `artifact_id` as the storage key under the construction artifact store
 - storage is immutable with write-once semantics; identical rewrites are tolerated, conflicting rewrites are rejected
@@ -23,8 +23,9 @@ V1 supports a narrow persisted policy set and consumes ranked candidates as an i
 - each shipped catalog definition carries a backend-owned immutable `policy_definition_id`, and newly persisted artifacts stamp the resolved definition id in `normalized_inputs.policy_definition_id`
 - discovery metadata is additive, backend-owned, and descriptive only; it documents catalog fields such as `family`, `constraints`, `inputs`, `determinism`, `ranking_support`, explicit constraint capability flags, and explicit required input flags
 - discovery metadata does not change persisted artifact truth, validation/preflight behavior, preview/open contracts, or replay math
-- `GET /construction/policies` supports exact-match server-side filtering over backend-owned catalog metadata fields only: `family`, `constraints`, `inputs`, `determinism`, `ranking_support`, `full_investment_constraint`, `long_only_constraint`, `eligible_ranked_universe_constraint`, `max_position_weight_constraint`, `min_position_weight_constraint`, `max_turnover_weight_constraint`, `max_trade_intent_count_constraint`, `ranked_universe_input`, and `current_portfolio_input`
+- `GET /construction/policies` supports exact-match server-side filtering over backend-owned catalog metadata fields only: `family`, `constraints`, `inputs`, `determinism`, `ranking_support`, `full_investment_constraint`, `long_only_constraint`, `eligible_ranked_universe_constraint`, `max_position_weight_constraint`, `min_position_weight_constraint`, `max_turnover_weight_constraint`, `max_trade_intent_count_constraint`, `ranked_universe_input`, `current_portfolio_input`, and `launch_top_n`
 - only those documented filter keys are accepted; requests with any unsupported query parameter key are rejected at the route boundary rather than ignored or widened
+- the shipped ranking-artifact launch boundary is explicit in discovery: every desktop-compatible policy row stamps `launch_top_n = 2`, and desktop is expected to fail closed if discovery returns anything else
 - filter evaluation is metadata-only and does not inspect persisted artifacts, client review state, replay inputs, or open/preview payloads
 - malformed present values for supported filter keys, including empty strings and non-canonical typed values, fail closed at the route boundary; repeated instances of any supported scalar filter key also fail closed with `422`, even when every repeated value is individually valid or identical
 - the route preserves single-value exact-match semantics only; it does not add list matching, OR semantics, widening, coercion, or broader catalog fallbacks
@@ -35,7 +36,9 @@ V1 supports a narrow persisted policy set and consumes ranked candidates as an i
 - normalizes ranked candidates and current portfolio weights into a stable auditable input payload
 - `POST /construction/run` now accepts exactly one ranking input source: the legacy inline `ranked_universe` payload or the backend-owned `ranking_artifact_handoff`
 - the new handoff path is additive only and loads the authoritative persisted ETF ranking artifact before deriving the existing construction ranked-candidate input from artifact truth
+- the shipped handoff launch boundary supports exactly two persisted ranking families: `etf_ranking` and `intent_bound_etf_replacement_ranking`
 - mixed inline-plus-handoff payloads, malformed or unsupported handoff states, missing artifacts, unsupported artifact kind/schema states, identity mismatches, corrupt persisted artifacts, and empty or unusable eligible ranking states fail closed
+- the shipped ranking-artifact handoff launch boundary also requires `policy.top_n = 2`; broader inline construction still remains available for backend/core tests and non-launch-boundary use, but the desktop launch path is intentionally frozen at `2`
 - `ranked_universe.artifact_id` remains descriptive inline provenance only and is not treated as an implicit artifact-backed handoff substitute
 - resolves the requested policy definition once, then executes the catalog-owned deterministic selection pipeline for that policy
 - captures the ordered `selection_rule_trace` during policy execution and persists that trace on the artifact

@@ -13,8 +13,8 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
-| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | Read-only browsing/opening of persisted replacement ranking artifacts | Generalized ranking-to-construction handoff review path | 2026-05-06 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | No active slice | Drive desktop policy selection from backend construction policy catalog | 2026-05-06 |
+| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Artifact-backed ranking-to-construction launch boundary stabilized across the three desktop entry points | Broaden policy parameterization beyond fixed `top_n`, position-weight constraints, and narrow review-only lineage assumptions | 2026-05-07 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth; review mechanics stronger than monitor-family breadth | No active slice | Surface active alert-episode inbox more directly in Workspace | 2026-05-06 |
 
 ## Cross-Epic Guardrails
@@ -101,8 +101,11 @@ Generalize ranking into a broader methodology platform with explicit selection g
 ### Planned slices
 
 - `Shipped`: desktop recent discovery now uses generalized `/strategy-lab/ranking-artifacts/recent` with `artifact_kind=etf_ranking`, while ETF-native metadata remains temporary for peer-group filter options.
-- `Active`: add read-only browsing/opening of persisted replacement ranking artifacts through the same generalized flow.
-- Next: generalized ranking-to-construction handoff review path.
+- `Shipped`: Workspace Candidate Idea now browses and opens persisted replacement ranking artifacts read-only through generalized recent plus generalized preflight/open, with fail-closed validation and ephemeral in-memory state only.
+- `Shipped`: persisted ETF ranking artifacts can now hand off into persisted construction review through canonical construction preflight plus construction run, exposed from both ETF Ranking and Workspace Candidate Idea while remaining ETF-only in this slice.
+- `Shipped`: persisted intent-bound ETF replacement ranking artifacts can now also hand off into persisted construction review through the same canonical construction preflight plus construction run seam, while remaining replacement-family-only in this slice.
+- `Shipped`: construction preflight for the two supported ranking families now returns typed eligibility/readiness semantics, so desktop can distinguish supported-but-ineligible artifacts from malformed or unsupported artifact states before `Review In Construction`.
+- Next: broaden supported ranking families only after explicit selection-readiness semantics stay clear.
 
 ### Dependencies
 
@@ -133,6 +136,7 @@ Deepen deterministic construction and constrained optimizer review on top of str
 - Construction provenance, hard-constraint truth, weighting trace, and turnover diagnostics are shipped.
 - Optimizer preview, handoff, replay, and methodology provenance are shipped.
 - Desktop restore and review-basis handling were recently hardened.
+- Desktop `Review In Construction` now consumes authoritative backend policy discovery for the shipped ranking-to-construction bridge.
 
 ### Target state
 
@@ -141,14 +145,15 @@ Deepen deterministic construction and constrained optimizer review on top of str
 
 ### Open gaps
 
-- Desktop policy selection is still not fully driven by backend catalog authority.
 - Ranking-to-construction handoff is not yet the clearest canonical workflow.
 - Policy and constraint breadth remain narrow.
+- Ranking-entry portfolio lineage and policy parameterization are still intentionally narrow in the current desktop bridge.
 
 ### Planned slices
 
-- Drive desktop construction policy selection from `/construction/policies`.
-- Add ranking-artifact to construction handoff through shipped backend routes.
+- `Shipped`: desktop ranking-to-construction review now uses authoritative backend `/construction/policies` discovery for policy selection and exposes required `max_position_weight` plus optional `min_position_weight` inputs while keeping the bridge parameter-light.
+- `Shipped`: the broader Epic 3 launch boundary is now explicit and stabilized as `preflight -> typed handoff -> /construction/run -> persisted construction artifact review` for exactly two supported ranking families: `etf_ranking` and `intent_bound_etf_replacement_ranking`, with desktop fail-closed policy discovery and fixed `top_n = 2` launch semantics.
+- Next: broaden policy parameterization beyond the current fixed `top_n`, position-weight constraints, hidden optional constraints, and narrow review-only lineage assumptions.
 
 ### Dependencies
 
@@ -209,6 +214,35 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 ## Slice Update Log
 
+### 2026-05-07 - Epic 3 ranking bridge stabilization follow-up
+
+- Status: shipped slice stabilization
+- Aligned docs, backend discovery, and desktop wording to the broader shipped ranking-to-construction bridge: backend-authoritative policy selection from `/construction/policies`, typed preflight/handoff launch semantics, and persisted construction artifact review.
+- Tightened the launch boundary so desktop-compatible policy discovery now carries explicit `launch_top_n = 2`, desktop consumers fail closed on mismatched catalog rows, and backend handoff-backed construction rejects `policy.top_n != 2` for the shipped launch path.
+- Kept the bridge intentionally parameter-light and review-only: `top_n = 2`, desktop surfaces only required `max_position_weight` plus optional `min_position_weight`, other optional constraints stay hidden, and supported ranking families remain limited to ETF and intent-bound replacement artifacts.
+
+### 2026-05-07 - Epic 3 slice 2 shipped
+
+- Epic: `3. Construction and optimizer methodology guard`
+- Slice: add optional `min_position_weight` to the shipped ranking-to-construction bridge while keeping policy authority and scope narrow.
+- Status: shipped.
+- Scope delivered:
+  - desktop `Review In Construction` entry points for ETF ranking and persisted replacement ranking now expose optional `Min Position Weight` beside the existing max field.
+  - blank `min_position_weight` is treated as not requested and omitted from the construction request shape.
+  - desktop uses one shared validation path for required `max_position_weight` and optional `min_position_weight`, including the local `min <= max` guard.
+  - ETF Ranking workspace session state now persists the min field alongside the existing max field; the two persisted browsers keep min in local component state only.
+- Guard impact:
+  - broadens the visible bridge only one notch while preserving backend-authoritative policy selection, fixed `top_n = 2`, review-only construction semantics, and the two-family ranking allowlist.
+  - keeps deeper feasibility with the backend and continues to leave turnover and trade-intent constraints out of scope.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop handoff now optionally serializes `hard_constraints.min_position_weight` only when the user explicitly supplies it.
+- Tests/evidence:
+  - `apps/desktop/src/features/strategy-lab/EtfRankingPanel.test.tsx`
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
+  - `apps/desktop/src/app/App.test.tsx`
+- Next slice: broaden policy parameterization beyond the current fixed `top_n`, position-weight constraints, and hidden optional-constraint bridge.
+
 ### 2026-05-06 - Baseline epic alignment established
 
 - Status: shipped roadmap update
@@ -235,6 +269,107 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
   - `apps/desktop/src/features/strategy-lab/EtfRankingPanel.test.tsx`
   - `apps/desktop/src/app/App.test.tsx`
 - Next slice: add read-only browsing/opening of persisted replacement ranking artifacts through the same generalized flow.
+
+### 2026-05-06 - Epic 2 slice 2 shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: add read-only browsing/opening of persisted replacement ranking artifacts through generalized ranking discovery/open.
+- Status: shipped.
+- Scope delivered:
+  - Workspace `Candidate Idea` now includes a persisted replacement review browser backed by generalized `/strategy-lab/ranking-artifacts/recent` with `artifact_kind=intent_bound_etf_replacement_ranking`.
+  - Desktop opens persisted replacement artifacts only through generalized preflight plus typed open handoff reuse.
+  - Persisted replacement review renders read-only authoritative artifact context in Workspace without creating intent, mutating workflow state, widening storage, or launching replay.
+  - Desktop validates discovery rows, preflight, open payload, and consumer handoff fail-closed before rendering persisted review state.
+- Guard impact:
+  - strengthens the generalized ranking artifact seam in visible Workspace review while keeping persisted replacement reopen explicitly context-only and non-promotable.
+  - keeps `consumer_handoff` validation-only in this slice; no downstream actionability was added.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop now consumes generalized replacement recent/preflight/open contracts in Workspace Candidate Idea.
+- Tests/evidence:
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
+- Next slice: generalized ranking-to-construction handoff review path.
+
+### 2026-05-06 - Epic 2 slice 3 shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: ETF ranking artifact to persisted construction review handoff through the canonical construction preflight/run path.
+- Status: shipped.
+- Scope delivered:
+  - persisted ETF ranking artifacts now expose `Review In Construction` from `ETF Ranking`.
+  - Workspace `Candidate Idea` now also exposes an ETF-only persisted ranking construction browser/action surface alongside the existing read-only replacement review surface.
+  - both entry points route through canonical `/construction/ranking-artifacts/preflight/{artifact_id}` plus `/construction/run` and then reopen the returned persisted construction artifact through the existing artifact review flow.
+  - desktop validates construction preflight contract identity and construction-run ranking lineage fail-closed before opening persisted construction review.
+- Guard impact:
+  - makes ranking-to-construction methodology visible through canonical persisted handoff review rather than ETF-local-only ranking inspection.
+  - keeps this slice explicitly ETF-ranking-only for construction handoff; persisted replacement reviews remain read-only/context-only and do not imply construction eligibility.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop now consumes the shipped ETF construction ranking-artifact preflight/handoff boundary from both ETF Ranking and Workspace Candidate Idea.
+- Tests/evidence:
+  - `apps/desktop/src/features/strategy-lab/EtfRankingPanel.test.tsx`
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
+  - `apps/desktop/src/app/App.test.tsx`
+- Next slice: broaden construction handoff beyond ETF ranking artifacts.
+
+### 2026-05-06 - Epic 2 slice 4 shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: broaden persisted construction handoff from ETF ranking artifacts to intent-bound ETF replacement ranking artifacts.
+- Status: shipped.
+- Scope delivered:
+  - backend construction preflight and construction run now support exactly two ranking-artifact handoff kinds: `etf_ranking` and `intent_bound_etf_replacement_ranking`.
+  - persisted replacement ranking artifacts now expose `Review In Construction` from Workspace Candidate Idea while keeping their ranking review explicitly read-only until that action is invoked.
+  - replacement construction handoff reuses the same persisted construction artifact review path already used by ETF ranking handoff.
+  - desktop and backend both validate replacement construction preflight identity, selected-candidate lineage, and persisted construction ranking lineage fail-closed.
+- Guard impact:
+  - broadens ranking-to-construction review one artifact family further without pretending all ranking artifacts are construction-eligible.
+  - keeps the construction seam on an explicit two-kind allowlist rather than silently generalizing to arbitrary ranking artifacts.
+  - preserves replacement review as context-only unless the user explicitly launches the separate construction review handoff.
+- Contracts changed:
+  - backend construction preflight/handoff contracts now support the additive `intent_bound_etf_replacement_ranking` construction handoff kind alongside the shipped ETF handoff kind.
+  - desktop now consumes the widened two-kind construction handoff seam through the shared ranking-artifact construction helper.
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_construction_run_service.py`
+  - `services/quant-engine/app/tests/test_routes.py`
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
+  - `apps/desktop/src/app/App.test.tsx`
+- Next slice: broaden construction handoff beyond ETF and intent-bound replacement artifacts.
+
+### 2026-05-06 - Epic 2 slice 5 shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: add explicit construction eligibility/readiness review for the two supported ranking families before construction launch.
+- Status: shipped.
+- Scope delivered:
+  - backend construction preflight for `etf_ranking` and `intent_bound_etf_replacement_ranking` now returns additive typed `eligibility` plus optional `handoff` instead of treating all non-launchable cases as the same class.
+  - desktop ETF and replacement construction browsers now surface construction-readiness state, disable `Review In Construction` when preflight says ineligible, and show canonical backend reason text.
+  - unsupported families such as `cross_sectional_research_run` remain explicitly non-constructible; desktop shows only a static unsupported note and backend rejects construction preflight for that family fail-closed.
+  - construction run still revalidates persisted artifact truth and lineage; preflight eligibility is a typed gate, not execution approval.
+- Guard impact:
+  - strengthens the selection-to-construction boundary by making construction-readiness explicit for the two supported ranking families rather than implicit in CTA behavior.
+
+### 2026-05-07 - Epic 3 slice 1 shipped
+
+- Epic: `3. Construction and optimizer methodology guard`
+- Slice: stabilize the ranking-to-construction bridge around backend-authoritative policy selection plus one editable `max_position_weight` input.
+- Status: shipped.
+- Scope delivered:
+  - desktop `Review In Construction` entry points for ETF ranking and persisted replacement ranking now load compatible construction policies from backend discovery instead of silently hardcoding `top_n_equal_weight_v1`.
+  - desktop validates policy catalog rows fail-closed, auto-selects `top_n_equal_weight_v1` only when it is actually returned, and otherwise requires explicit user selection before construction launch.
+  - desktop ranking-to-construction entry points now expose one shared editable `max_position_weight` input while still omitting other optional constraint knobs.
+  - ranking-artifact construction handoff now requires caller-supplied selected policy and validates persisted construction run lineage for both ranking artifact provenance and requested policy provenance.
+- Guard impact:
+  - strengthens backend methodology authority in the visible ranking-to-construction workflow without widening supported ranking families, optimizer scope, or construction configuration breadth.
+  - keeps the bridge explicitly review-only and parameter-light: fixed `top_n`, one editable `max_position_weight`, hidden optional constraints, and narrow portfolio lineage assumptions remain unchanged in this slice.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop now consumes `GET /construction/policies` as the authoritative source for construction policy identity on the ranking-to-construction bridge.
+- Tests/evidence:
+  - `apps/desktop/src/features/strategy-lab/EtfRankingPanel.test.tsx`
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
+  - `apps/desktop/src/app/App.test.tsx`
+- Next slice: broaden policy parameterization beyond the current fixed `top_n`, single editable `max_position_weight`, and hidden optional-constraint bridge.
 
 ## Operational Update Rule
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
+import { buildAuthoritativeCurrentPortfolio } from './currentPortfolio'
 import type { HypotheticalReplayResponse, MonitoringResearchHandoff, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, MonitorDefinitionAlertReviewSessionState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import type { BacktestRunResponse } from '../portfolio/types'
@@ -67,6 +68,7 @@ type Props = {
   embeddedEtfRankingState?: EtfRankingPanelState
   onEmbeddedEtfRankingStateChange?: (update: SessionStateUpdate<EtfRankingPanelState>) => void
   onSeedCandidateDraft?: (input: { seed: CandidateImprovementSeed; rankingArtifact: IntentBoundSeededEtfReplacementRankingDraftArtifactInput | null }) => void
+  onOpenPersistedConstructionArtifactReview?: (constructionArtifactId: string) => void | Promise<void>
 }
 
 function WorkspaceResearchSession({
@@ -94,18 +96,20 @@ function WorkspaceResearchSession({
   )
 }
 
-export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, workspaceSource, persistedConstructionArtifactReview, persistedOptimizerHandoffReview, savedProposals, activeThesis, onSaveProposal, onOpenSavedProposal, openedSavedProposalArtifactId, onPromoteProposalToThesis, onClearActiveThesis, onHypotheticalReplayResult, onFormedCandidateArtifact, onConstructedCandidateArtifact, onConstructionConstraintValidationArtifact, onSelectedConstructionRuleChange, monitorDefinitionAlertReviewSession, recoveredAlertReviewQueue, onOpenLatestObservation, onOpenAlertHistoryReview, onReopenRecoveredAlertReview, onCreateReplacementIntent, onClearReplacementIntent, monitoringResearchHandoff, monitoringResearchHandoffDismissed, onDismissMonitoringResearchHandoff, onReviewInResearch, workspaceId, requestedResearchTool, onConsumeRequestedResearchTool, workspaceShellActivationKey, embeddedBacktestResult, embeddedStrategyBacktestState, onEmbeddedStrategyBacktestStateChange, onEmbeddedBacktestResult, embeddedStrategyLabState, onEmbeddedStrategyLabStateChange, embeddedEtfRankingState, onEmbeddedEtfRankingStateChange, onSeedCandidateDraft }: Props) {
+export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, workspaceSource, persistedConstructionArtifactReview, persistedOptimizerHandoffReview, savedProposals, activeThesis, onSaveProposal, onOpenSavedProposal, openedSavedProposalArtifactId, onPromoteProposalToThesis, onClearActiveThesis, onHypotheticalReplayResult, onFormedCandidateArtifact, onConstructedCandidateArtifact, onConstructionConstraintValidationArtifact, onSelectedConstructionRuleChange, monitorDefinitionAlertReviewSession, recoveredAlertReviewQueue, onOpenLatestObservation, onOpenAlertHistoryReview, onReopenRecoveredAlertReview, onCreateReplacementIntent, onClearReplacementIntent, monitoringResearchHandoff, monitoringResearchHandoffDismissed, onDismissMonitoringResearchHandoff, onReviewInResearch, workspaceId, requestedResearchTool, onConsumeRequestedResearchTool, workspaceShellActivationKey, embeddedBacktestResult, embeddedStrategyBacktestState, onEmbeddedStrategyBacktestStateChange, onEmbeddedBacktestResult, embeddedStrategyLabState, onEmbeddedStrategyLabStateChange, embeddedEtfRankingState, onEmbeddedEtfRankingStateChange, onSeedCandidateDraft, onOpenPersistedConstructionArtifactReview }: Props) {
   const [activeResearchTool, setActiveResearchTool] = useState<WorkspaceResearchTool | null>(null)
   const [returnSectionId, setReturnSectionId] = useState<string>(researchToolSectionId)
   const [localEmbeddedBacktestResult, setLocalEmbeddedBacktestResult] = useState<BacktestRunResponse | null>(null)
   const [localEmbeddedStrategyBacktestState, setLocalEmbeddedStrategyBacktestState] = useState<StrategyBacktestPanelState>(() => createStrategyBacktestPanelState())
   const [localEmbeddedStrategyLabState, setLocalEmbeddedStrategyLabState] = useState<StrategyLabPanelState>(() => createStrategyLabPanelState())
   const [localEmbeddedEtfRankingState, setLocalEmbeddedEtfRankingState] = useState<EtfRankingPanelState>(() => createEtfRankingPanelState())
+  const [requestedEtfRankingArtifactId, setRequestedEtfRankingArtifactId] = useState<string | null>(null)
 
   const resolvedEmbeddedBacktestResult = embeddedBacktestResult ?? localEmbeddedBacktestResult
   const resolvedEmbeddedStrategyBacktestState = embeddedStrategyBacktestState ?? localEmbeddedStrategyBacktestState
   const resolvedEmbeddedStrategyLabState = embeddedStrategyLabState ?? localEmbeddedStrategyLabState
   const resolvedEmbeddedEtfRankingState = embeddedEtfRankingState ?? localEmbeddedEtfRankingState
+  const authoritativeCurrentPortfolio = buildAuthoritativeCurrentPortfolio(draftSnapshot)
   const useControlledEmbeddedBacktest = embeddedStrategyBacktestState !== undefined && !!onEmbeddedStrategyBacktestStateChange
   const useControlledEmbeddedStrategyLab = embeddedStrategyLabState !== undefined && !!onEmbeddedStrategyLabStateChange
   const useControlledEmbeddedEtfRanking = embeddedEtfRankingState !== undefined && !!onEmbeddedEtfRankingStateChange
@@ -118,6 +122,7 @@ export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationB
     setLocalEmbeddedStrategyBacktestState(createStrategyBacktestPanelState())
     setLocalEmbeddedStrategyLabState(createStrategyLabPanelState())
     setLocalEmbeddedEtfRankingState(createEtfRankingPanelState())
+    setRequestedEtfRankingArtifactId(null)
   }, [workspaceId])
 
   useEffect(() => {
@@ -202,7 +207,13 @@ export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationB
         <WorkspaceResearchSession title="Embedded ETF Ranking" onExit={exitEmbeddedResearchTool}>
           <EtfRankingPanel
             draftSymbols={draftSnapshot?.positions.map((position) => position.symbol) ?? []}
+            currentPortfolio={authoritativeCurrentPortfolio}
             onSeedCandidateDraft={onSeedCandidateDraft}
+            onReviewInConstruction={async ({ run }) => {
+              await onOpenPersistedConstructionArtifactReview?.(run.artifact_id)
+            }}
+            requestedRecentArtifactId={requestedEtfRankingArtifactId}
+            onConsumeRequestedRecentArtifactId={() => setRequestedEtfRankingArtifactId(null)}
             sessionState={resolvedEmbeddedEtfRankingState}
             onSessionStateChange={(update) => {
               if (useControlledEmbeddedEtfRanking && onEmbeddedEtfRankingStateChange) {
@@ -257,6 +268,11 @@ export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationB
           onOpenGenericBacktests={(sectionId) => openEmbeddedResearchTool('backtest', sectionId)}
           onOpenStrategyLab={(sectionId) => openEmbeddedResearchTool('strategy_lab', sectionId)}
           onOpenEtfRanking={(sectionId) => openEmbeddedResearchTool('etf_ranking', sectionId)}
+          onOpenPersistedConstructionArtifactReview={onOpenPersistedConstructionArtifactReview}
+          onOpenPersistedEtfRankingReview={(artifactId) => {
+            setRequestedEtfRankingArtifactId(artifactId)
+            openEmbeddedResearchTool('etf_ranking', 'workflow-section-candidate-idea')
+          }}
         />
       ) : null}
       {!workspaceId && requestedToolLabel ? (

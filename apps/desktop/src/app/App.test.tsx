@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createFf2026DiagnosticsEngineFixture, createFf2026ExposureEngineFixture, createIb2026DiagnosticsEngineFixture, createIb2026ExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../test/portfolioFixtures'
@@ -11,7 +12,7 @@ import {
 import { App, assertMonitorDefinitionActiveAlertEpisodeInboxResponse, assertMonitorDefinitionAlertEpisodeHistoryResponse, loadMonitorDefinitionAlertReviewTimeline, loadMonitorDefinitionRecoveredAlertReviewQueue, openAlertHistoryReviewFromTimelineRow, openLatestObservationFromTimelineRow, reopenRecoveredAlertReviewRow } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
-import type { ConstructionArtifactReplayValidationResponse, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
+import type { ConstructionArtifactReplayValidationResponse, EtfRankingArtifactRecentRow, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
 import type { MonitorDefinitionAlertReviewTimelineResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, SavedProposalReviewSnapshotPMSummaryMirror, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
@@ -68,13 +69,21 @@ function jsonResponse(payload: unknown, status = 200) {
   })
 }
 
-function requestPathname(input: RequestInfo | URL) {
+function requestUrl(input: RequestInfo | URL) {
   const rawUrl = typeof input === 'string'
     ? input
     : input instanceof URL
       ? input.toString()
       : input.url
-  return new URL(rawUrl, 'http://localhost').pathname
+  return new URL(rawUrl, 'http://localhost')
+}
+
+function requestPathname(input: RequestInfo | URL) {
+  return requestUrl(input).pathname
+}
+
+function requestSearchParam(input: RequestInfo | URL, key: string) {
+  return requestUrl(input).searchParams.get(key)
 }
 
 function requestMethod(input: RequestInfo | URL, init?: RequestInit) {
@@ -101,6 +110,16 @@ function installFetchMock(handler: (input: RequestInfo | URL, init?: RequestInit
     try {
       return await handler(input, init)
     } catch (error) {
+      if (
+        requestPathname(input) === '/api/strategy-lab/ranking-artifacts/recent'
+        && requestMethod(input, init) === 'GET'
+        && requestSearchParam(input, 'artifact_kind') === 'intent_bound_etf_replacement_ranking'
+      ) {
+        return jsonResponse(makeReplacementRankingRecentDiscoveryPayload())
+      }
+      if (requestPathname(input) === '/api/construction/policies' && requestMethod(input, init) === 'GET') {
+        return jsonResponse(makeConstructionPoliciesResponse())
+      }
       if (requestPathname(input) === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && requestMethod(input, init) === 'GET') {
         return jsonResponse({ items: [], metadata: { contract_version: 'monitor_definition_recovered_alert_review_queue_v1', provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage', row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage', ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id', returned_limit: 20, total_queue_rows: 0 } })
       }
@@ -1818,8 +1837,167 @@ function makeEtfRankingMetadataPayload() {
   return { available_effective_peer_groups: ['Sector UCITS ETF'] }
 }
 
-function makeEtfRankingRecentRunsPayload() {
+function makeEtfRankingRecentRunsPayload(): EtfRankingArtifactRecentRow[] {
   return []
+}
+
+function makeReplacementRankingRecentDiscoveryPayload() {
+  return {
+    items: [],
+    metadata: {
+      applied_filters: {
+        artifact_kind: 'intent_bound_etf_replacement_ranking',
+      },
+    },
+  }
+}
+
+function makeConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_weight_v1', 'top_n_inverse_rank_weight_v1', 'top_n_linear_rank_weight_v1']) {
+  const catalog = {
+    top_n_equal_weight_v1: {
+      policy_id: 'top_n_equal_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+      name: 'Top N Equal Weight v1',
+      description: 'Select eligible top-ranked names and assign equal target weights.',
+      family: 'top_n_equal_weight',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'selection_only',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+    },
+    top_n_inverse_rank_weight_v1: {
+      policy_id: 'top_n_inverse_rank_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_inverse_rank_weight_v1',
+      name: 'Top N Inverse Rank Weight v1',
+      description: 'Select eligible top-ranked names and weight them by inverse selected-order rank.',
+      family: 'top_n_rank_weighted',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'inverse_selected_order_weighting',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+    },
+    top_n_linear_rank_weight_v1: {
+      policy_id: 'top_n_linear_rank_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_linear_rank_weight_v1',
+      name: 'Top N Linear Rank Weight v1',
+      description: 'Select eligible top-ranked names and weight them by selected-order linear rank numerators N..1.',
+      family: 'top_n_rank_weighted',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'linear_selected_order_weighting',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+    },
+  } as const
+
+  return policyIds.map((policyId) => catalog[policyId as keyof typeof catalog])
+}
+
+function makeConstructionRankingArtifactPreflightResponse() {
+  return {
+    contract_version: 'construction_ranking_artifact_preflight_v1' as const,
+    artifact: {
+      artifact_kind: 'etf_ranking' as const,
+      artifact_id: 'etf_ranking_artifact_sector_1',
+      schema_version: 'etf_ranking_artifact_v1' as const,
+      ranking_id: 'etf_ranking_engine_v1',
+      methodology_id: 'etf_ranking_methodology_v1',
+      as_of_date: '2026-04-15',
+    },
+    eligibility: {
+      eligible: true as const,
+      reason: null,
+    },
+    handoff: {
+      handoff_kind: 'etf_ranking_artifact_construction_handoff_v1' as const,
+      artifact_kind: 'etf_ranking' as const,
+      artifact_id: 'etf_ranking_artifact_sector_1',
+      schema_version: 'etf_ranking_artifact_v1' as const,
+      ranking_id: 'etf_ranking_engine_v1',
+      methodology_id: 'etf_ranking_methodology_v1',
+      as_of_date: '2026-04-15',
+    },
+  }
+}
+
+function makeReplacementConstructionRankingArtifactPreflightResponse() {
+  return {
+    contract_version: 'construction_ranking_artifact_preflight_v1' as const,
+    artifact: {
+      artifact_kind: 'intent_bound_etf_replacement_ranking' as const,
+      artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+      schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1' as const,
+      ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+      methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+      as_of_date: '2026-04-15',
+    },
+    eligibility: {
+      eligible: true as const,
+      reason: null,
+    },
+    handoff: {
+      handoff_kind: 'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1' as const,
+      artifact_kind: 'intent_bound_etf_replacement_ranking' as const,
+      artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+      schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1' as const,
+      ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+      methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+      as_of_date: '2026-04-15',
+    },
+  }
+}
+
+function makeConstructionRunArtifactResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: 'construction_artifact_v1' as const,
+    artifact_id: 'construction_artifact_456',
+    normalized_inputs: {
+      ranked_universe_artifact_kind: 'etf_ranking',
+      ranked_universe_artifact_id: 'etf_ranking_artifact_sector_1',
+      ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+      ranking_id: 'etf_ranking_engine_v1',
+      ranking_methodology_id: 'etf_ranking_methodology_v1',
+      ranking_as_of_date: '2026-04-15',
+      current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+      current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+      policy_id: 'top_n_equal_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+      top_n: 2,
+    },
+    ...overrides,
+  }
 }
 
 function makeEtfRankingPreflightPayload(overrides: Record<string, unknown> = {}) {
@@ -2374,6 +2552,50 @@ function makeReplacementRankingOpenPayload(overrides: Record<string, unknown> = 
         seed_methodology_id: 'etf_ranking_methodology_v1',
       },
     },
+    ...overrides,
+  }
+}
+
+function buildReplacementRecentResponse(runs: Array<Record<string, unknown>>) {
+  return {
+    items: runs.map((run) => ({
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: run.artifact_id,
+      ranking_id: run.ranking_id,
+      methodology_id: run.methodology_id,
+      as_of_date: run.as_of_date,
+      ranking_basis_date: run.ranking_basis_date,
+      etf_summary: null,
+      replacement_summary: {
+        basis_date: run.basis_date,
+        status: run.status,
+        base_symbol: run.base_symbol,
+        candidate_symbol: run.candidate_symbol,
+        peer_group: run.peer_group,
+        eligible_count: run.eligible_count,
+        excluded_count: run.excluded_count,
+        confidence: run.confidence,
+      },
+    })),
+    metadata: { applied_filters: { artifact_kind: 'intent_bound_etf_replacement_ranking' } },
+  }
+}
+
+function buildReplacementRecentRun(overrides: Record<string, unknown> = {}) {
+  return {
+    artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+    ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+    methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+    as_of_date: '2026-04-15',
+    ranking_basis_date: '2026-04-15',
+    basis_date: '2026-04-15',
+    status: 'ok',
+    base_symbol: 'AAPL',
+    candidate_symbol: 'IUFS',
+    peer_group: 'Sector UCITS ETF',
+    eligible_count: 1,
+    excluded_count: 1,
+    confidence: 'medium',
     ...overrides,
   }
 }
@@ -2986,13 +3208,17 @@ describe('App', () => {
     mockImportedWorkspaceRestore(importedWorkspace)
     vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
 
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(allocationBacktestPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/backtests/monitor-definitions/recent' && method === 'GET') return jsonResponse({ items: [] })
+      if (pathname === '/api/backtests/portfolio-allocation' && method === 'POST') return jsonResponse(allocationBacktestPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -3008,6 +3234,7 @@ describe('App', () => {
     expect(matchingFetchCalls(fetchMock, '/api/backtests/monitor-definitions/recovered-alert-review-queue', 'GET')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation', 'POST')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/backtests/monitor-definitions/recent', 'GET')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/recent', 'GET')).toHaveLength(2)
   })
 
   it('adds a new imported snapshot node from Dashboard Add Statement', async () => {
@@ -3731,10 +3958,14 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
     vi.spyOn(portfolioWorkspaceStorage, 'setSelectedExposureSnapshot').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'node-1', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
 
     render(<App />)
 
@@ -3745,7 +3976,10 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
     await waitFor(() => expect(screen.getByText('Monitoring')).toBeTruthy())
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(4)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/exposure/run', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/engines/dashboard-history/run', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/recent', 'GET')).toHaveLength(2)
   })
 
   it('opens persisted construction artifact review from query param on startup', async () => {
@@ -4617,6 +4851,138 @@ describe('App', () => {
     }
     expect(screen.queryByRole('button', { name: 'Open detailed review' })).toBeNull()
     await waitFor(() => expect(screen.getByText('Portfolio Research Workspace')).toBeTruthy())
+  })
+
+  it('opens persisted construction artifact review from ETF ranking construction handoff in workspace candidate idea', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+    const createWorkspaceSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromPersistedConstructionArtifact')
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET' && requestSearchParam(input, 'artifact_kind') === 'etf_ranking') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY',
+              lookback_months: 6,
+              effective_peer_group: 'Sector UCITS ETF',
+              universe_size: 3,
+              evaluated_universe_size: 2,
+              confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET' && requestSearchParam(input, 'artifact_kind') === 'intent_bound_etf_replacement_ranking') {
+        return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
+      }
+      if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') {
+        return jsonResponse(makeEtfRankingPreflightPayload())
+      }
+      if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1' && method === 'POST') {
+        return jsonResponse(makeReplacementRankingPreflightPayload())
+      }
+      if (pathname === '/api/strategy-lab/ranking-artifacts/open' && method === 'POST') {
+        const body = requestJsonBody(init)
+        if (body?.artifact_kind === 'intent_bound_etf_replacement_ranking') {
+          return jsonResponse(makeReplacementRankingOpenPayload())
+        }
+        return jsonResponse(makeEtfRankingOpenPayload())
+      }
+      if (pathname === '/api/construction/policies' && method === 'GET') {
+        return jsonResponse(makeConstructionPoliciesResponse())
+      }
+      if (pathname === '/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') {
+        return jsonResponse(makeConstructionRankingArtifactPreflightResponse())
+      }
+      if (pathname === '/api/construction/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1' && method === 'POST') {
+        return jsonResponse(makeReplacementConstructionRankingArtifactPreflightResponse())
+      }
+      if (pathname === '/api/construction/run' && method === 'POST') {
+        expect(requestJsonBody(init).ranked_universe).toBeUndefined()
+        expect(requestJsonBody(init).policy).toEqual({ policy_id: 'top_n_equal_weight_v1', top_n: 2 })
+        expect(requestJsonBody(init).hard_constraints).toEqual({
+          full_investment: true,
+          long_only: true,
+          eligible_ranked_universe_only: true,
+          max_position_weight: 0.6,
+          min_position_weight: 0.2,
+        })
+        const handoff = requestJsonBody(init).ranking_artifact_handoff
+        expect([
+          makeConstructionRankingArtifactPreflightResponse().handoff,
+          makeReplacementConstructionRankingArtifactPreflightResponse().handoff,
+        ]).toContainEqual(handoff)
+        if (handoff?.artifact_kind === 'intent_bound_etf_replacement_ranking') {
+          return jsonResponse(makeConstructionRunArtifactResponse({
+            artifact_id: 'construction_artifact_789',
+            normalized_inputs: {
+              ranked_universe_artifact_kind: 'intent_bound_etf_replacement_ranking',
+              ranked_universe_artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+              ranked_universe_artifact_schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+              ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+              ranking_methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+              ranking_as_of_date: '2026-04-15',
+              current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+              current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+              top_n: 2,
+              policy_id: 'top_n_equal_weight_v1',
+              policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+            },
+          }))
+        }
+        return jsonResponse(makeConstructionRunArtifactResponse())
+      }
+      if (pathname === '/api/backtests/portfolio-allocation/construction-artifact-validation' && method === 'POST') {
+        const constructionArtifactId = requestJsonBody(init).construction_artifact_id
+        return jsonResponse(makeConstructionArtifactReplayValidationResponse({ construction_artifact_id: constructionArtifactId, preview_handoff: { ...makeConstructionArtifactReplayValidationResponse().preview_handoff, construction_artifact_id: constructionArtifactId } }))
+      }
+      if (pathname === '/api/backtests/portfolio-allocation/construction-artifact-preview' && method === 'POST') {
+        const constructionArtifactId = requestJsonBody(init).construction_artifact_id
+        return jsonResponse({ ...makeConstructionArtifactReplayResponse(), construction_artifact_id: constructionArtifactId, review_basis: { ...makeConstructionArtifactReplayResponse().review_basis, construction_artifact_id: constructionArtifactId, preview_handoff: { ...makeConstructionArtifactReplayValidationResponse().preview_handoff, construction_artifact_id: constructionArtifactId } } })
+      }
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [], metadata: { contract_version: 'monitor_definition_recovered_alert_review_queue_v1', provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage', row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage', ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id', returned_limit: 20, total_queue_rows: 0 } })
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    await reopenDetailedReviewIfNeeded()
+    await screen.findByText('Persisted ETF Ranking Construction')
+    await screen.findAllByText('Ready for construction review with Top N Equal Weight v1')
+    const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
+    fireEvent.change(within(etfBrowser).getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open Review' })[0]!)
+    await waitFor(() => expect(screen.getByText('Embedded ETF Ranking')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
+    await screen.findByText('Persisted ETF Ranking Construction')
+    fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
+    fireEvent.click(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByRole('button', { name: 'Review In Construction' }))
+
+    await waitFor(() => expect(createWorkspaceSpy).toHaveBeenCalledWith(expect.objectContaining({ constructionArtifactId: 'construction_artifact_456' })))
+    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/open', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1', 'POST')).toHaveLength(3)
+    expect(matchingFetchCalls(fetchMock, '/api/construction/run', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation/construction-artifact-validation', 'POST')).toHaveLength(1)
+    expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation/construction-artifact-preview', 'POST')).toHaveLength(1)
   })
 
   it('restores FF2026 dashboard values consistently from persisted imported state', async () => {

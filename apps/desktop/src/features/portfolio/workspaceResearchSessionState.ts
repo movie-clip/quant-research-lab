@@ -8,6 +8,10 @@ import type {
   EtfRankingArtifactRecentMetadata,
   EtfRankingArtifactRecentRow,
 } from './types'
+import {
+  DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+  DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
+} from '../backtest/rankingConstructionMaxPositionWeight'
 
 export type SessionStateUpdate<T> = T | ((current: T) => T)
 
@@ -134,6 +138,8 @@ export type EtfRankingPanelState = {
   benchmarkSymbol: string
   lookbackMonths: string
   peerGroup: string
+  constructionMaxPositionWeight: string
+  constructionMinPositionWeight: string
   runLoading: boolean
   runError: string | null
   result: EtfRankingArtifact | null
@@ -158,6 +164,8 @@ export function createEtfRankingPanelState(): EtfRankingPanelState {
     benchmarkSymbol: 'SPY',
     lookbackMonths: '6',
     peerGroup: 'Sector UCITS ETF',
+    constructionMaxPositionWeight: DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+    constructionMinPositionWeight: DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
     runLoading: false,
     runError: null,
     result: null,

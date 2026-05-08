@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { PersistedReplacementRankingBrowser } from './PersistedReplacementRankingBrowser'
+import { PersistedEtfRankingConstructionBrowser } from './PersistedEtfRankingConstructionBrowser'
+import { buildAuthoritativeCurrentPortfolio } from './currentPortfolio'
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
 import type { MonitoringResearchHandoff, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewSessionState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotOpenResponse, ReplacementIntentDraftArtifact, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyReviewResponse, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
@@ -509,6 +512,8 @@ type Props = {
   onOpenGenericBacktests?: (sectionId?: string) => void
   onOpenStrategyLab?: (sectionId?: string) => void
   onOpenEtfRanking?: (sectionId?: string) => void
+  onOpenPersistedConstructionArtifactReview?: (constructionArtifactId: string) => void | Promise<void>
+  onOpenPersistedEtfRankingReview?: (artifactId: string) => void | Promise<void>
 }
 
 function ResearchToolsSection({
@@ -686,6 +691,7 @@ function CandidateWorkspaceSection(props: Props) {
   if (isArtifactReviewMode(props)) {
     return null
   }
+  const currentPortfolio = buildAuthoritativeCurrentPortfolio(props.draftSnapshot)
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-candidate">
       <div className="section-header-inline sector-list-header">
@@ -695,8 +701,12 @@ function CandidateWorkspaceSection(props: Props) {
         candidateImprovementDraft={props.candidateImprovementDraft}
         intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
         replacementIntentDraft={props.replacementIntentDraft}
+        currentPortfolio={currentPortfolio}
         onCreateReplacementIntent={props.onCreateReplacementIntent}
         onClearReplacementIntent={props.onClearReplacementIntent}
+        onOpenPersistedConstructionArtifactReview={props.onOpenPersistedConstructionArtifactReview}
+        onOpenEtfRanking={props.onOpenEtfRanking}
+        onOpenPersistedEtfRankingReview={props.onOpenPersistedEtfRankingReview}
       />
       <div id={WORKFLOW_SECTION_IDS.candidateFormation}>
         <CandidateFormationSection
@@ -1737,31 +1747,29 @@ function CandidateIdeaSection({
   candidateImprovementDraft,
   intentBoundSeededEtfReplacementRankingDraft,
   replacementIntentDraft,
+  currentPortfolio,
   onCreateReplacementIntent,
   onClearReplacementIntent,
+  onOpenPersistedConstructionArtifactReview,
+  onOpenEtfRanking,
+  onOpenPersistedEtfRankingReview,
 }: {
   candidateImprovementDraft: CandidateImprovementDraftArtifact | null
   intentBoundSeededEtfReplacementRankingDraft: IntentBoundSeededEtfReplacementRankingDraftArtifact | null
   replacementIntentDraft: ReplacementIntentDraftArtifact | null
+  currentPortfolio: {
+    artifact_id: string
+    as_of_timestamp: string
+    weights: Array<{ symbol: string; weight: number }>
+  } | null
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
+  onOpenPersistedConstructionArtifactReview?: (constructionArtifactId: string) => void | Promise<void>
+  onOpenEtfRanking?: (sectionId?: string) => void
+  onOpenPersistedEtfRankingReview?: (artifactId: string) => void | Promise<void>
 }) {
   const [showReplacementIntentConfirmation, setShowReplacementIntentConfirmation] = useState(false)
-
-  if (!candidateImprovementDraft && !intentBoundSeededEtfReplacementRankingDraft && !replacementIntentDraft) {
-    return (
-      <section className="dashboard-bottom-grid">
-        <div className="section-header-inline sector-list-header">
-          <div><p className="panel-label">Candidate Idea</p></div>
-          <p className="helper">Ranking-derived review metadata only.</p>
-        </div>
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">No candidate idea is attached to this draft yet.</p>
-          <p className="helper">Seed a candidate from ETF Ranking to continue.</p>
-        </div>
-      </section>
-    )
-  }
+  const hasLocalCandidateIdea = Boolean(candidateImprovementDraft || intentBoundSeededEtfReplacementRankingDraft || replacementIntentDraft)
 
   return (
     <section className="dashboard-bottom-grid">
@@ -1769,6 +1777,21 @@ function CandidateIdeaSection({
         <div><p className="panel-label">Candidate Idea</p></div>
         <p className="helper">Ranking-derived review metadata only.</p>
       </div>
+      <PersistedEtfRankingConstructionBrowser
+        currentPortfolio={currentPortfolio}
+        onOpenRankingReview={(artifactId) => onOpenPersistedEtfRankingReview?.(artifactId)}
+        onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
+      />
+      <PersistedReplacementRankingBrowser
+        currentPortfolio={currentPortfolio}
+        onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
+      />
+      {!hasLocalCandidateIdea ? (
+        <div className="empty-state-panel compact-empty-state">
+          <p className="empty-state-title">No local candidate idea is attached to this draft yet.</p>
+          <p className="helper">Open a saved replacement review or seed a candidate from ETF Ranking to continue.</p>
+        </div>
+      ) : null}
       {intentBoundSeededEtfReplacementRankingDraft ? <ReplacementRankingReview artifact={intentBoundSeededEtfReplacementRankingDraft} /> : null}
       {candidateImprovementDraft ? (
         <section className="dashboard-bottom-grid">

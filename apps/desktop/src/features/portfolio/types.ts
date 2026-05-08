@@ -1804,6 +1804,120 @@ export type EtfRankingArtifactRecentMetadata = {
   available_effective_peer_groups: string[]
 }
 
+export type ConstructionRankingArtifactPreflightContractVersion = 'construction_ranking_artifact_preflight_v1'
+export type ConstructionRankingArtifactHandoffKind =
+  | 'etf_ranking_artifact_construction_handoff_v1'
+  | 'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1'
+
+export type ConstructionRankingArtifactPreflightArtifact = {
+  artifact_kind: RankingArtifactKind
+  artifact_id: string
+  schema_version: RankingArtifactSchemaVersion
+  ranking_id: string
+  methodology_id: string
+  as_of_date: string
+}
+
+export type ConstructionRankingArtifactEligibility =
+  | {
+      eligible: true
+      reason: null
+    }
+  | {
+      eligible: false
+      reason: string
+    }
+
+export type EtfRankingArtifactConstructionHandoff = {
+  handoff_kind: 'etf_ranking_artifact_construction_handoff_v1'
+  artifact_kind: 'etf_ranking'
+  artifact_id: string
+  schema_version: 'etf_ranking_artifact_v1'
+  ranking_id: string
+  methodology_id: string
+  as_of_date: string
+}
+
+export type IntentBoundEtfReplacementRankingArtifactConstructionHandoff = {
+  handoff_kind: 'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1'
+  artifact_kind: 'intent_bound_etf_replacement_ranking'
+  artifact_id: string
+  schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1'
+  ranking_id: string
+  methodology_id: string
+  as_of_date: string
+}
+
+export type ConstructionRankingArtifactHandoff =
+  | EtfRankingArtifactConstructionHandoff
+  | IntentBoundEtfReplacementRankingArtifactConstructionHandoff
+
+export type ConstructionRankingArtifactPreflightResponse = {
+  contract_version: ConstructionRankingArtifactPreflightContractVersion
+  artifact: ConstructionRankingArtifactPreflightArtifact
+  eligibility: ConstructionRankingArtifactEligibility
+} & (
+  | {
+      eligibility: { eligible: true; reason: null }
+      handoff: ConstructionRankingArtifactHandoff
+    }
+  | {
+      eligibility: { eligible: false; reason: string }
+      handoff?: null
+    }
+)
+
+export type ConstructionPolicyRankingSupport =
+  | 'selection_only'
+  | 'inverse_selected_order_weighting'
+  | 'linear_selected_order_weighting'
+
+export type ConstructionDiscoveredPolicy = {
+  policy_id: string
+  policy_definition_id: string
+  name: string
+  description: string
+  family: string
+  constraints: 'long_only_fully_invested_max_position_turnover'
+  inputs: 'ranked_universe_and_current_portfolio'
+  determinism: 'deterministic_rank_order'
+  ranking_support: ConstructionPolicyRankingSupport
+  full_investment_constraint: 'required'
+  long_only_constraint: 'required'
+  eligible_ranked_universe_constraint: 'required'
+  max_position_weight_constraint: 'required'
+  min_position_weight_constraint: 'supported_optional'
+  max_turnover_weight_constraint: 'supported_optional'
+  max_trade_intent_count_constraint: 'supported_optional'
+  ranked_universe_input: 'required'
+  current_portfolio_input: 'required'
+  launch_top_n: 2
+  selection_rule_ids: string[]
+}
+
+export type ConstructionPolicyRunInput = {
+  policy_id: string
+  top_n: number
+}
+
+export type ConstructionArtifactRunResponse = {
+  schema_version: 'construction_artifact_v1'
+  artifact_id: string
+  normalized_inputs: {
+    ranked_universe_artifact_kind: string | null
+    ranked_universe_artifact_id: string | null
+    ranked_universe_artifact_schema_version: string | null
+    ranking_id: string | null
+    ranking_methodology_id: string | null
+    ranking_as_of_date: string | null
+    current_portfolio_artifact_id: string | null
+    current_portfolio_as_of_timestamp?: string | null
+    policy_id: string | null
+    policy_definition_id: string | null
+    top_n?: number | null
+  }
+}
+
 export type AllocationBacktestWeight = {
   symbol: string
   target_weight: number

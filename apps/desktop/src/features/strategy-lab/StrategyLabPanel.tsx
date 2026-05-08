@@ -1103,6 +1103,7 @@ export function StrategyLabPanel({ sessionState, onSessionStateChange }: Strateg
           <div>
             <p className="panel-label">Research Artifacts</p>
             <p className="helper">Recent and reload paths consume persisted artifacts only.</p>
+            <p className="helper">Construction launch remains unsupported here; `cross_sectional_research_run` artifacts do not hand off into `/construction/run`.</p>
           </div>
           <button className="secondary-button" type="button" onClick={() => void loadRecentResearchArtifacts()} disabled={researchRecentLoading}>
             {researchRecentLoading ? 'Loading research artifacts...' : 'Load Research Artifacts'}

@@ -7,6 +7,9 @@ import {
   type SessionStateUpdate,
 } from '../portfolio/workspaceResearchSessionState'
 import type {
+  ConstructionArtifactRunResponse,
+  ConstructionDiscoveredPolicy,
+  ConstructionRankingArtifactPreflightResponse,
   EtfRankingArtifact,
   EtfRankingArtifactRecentMetadata,
   EtfRankingArtifactRecentRow,
@@ -15,6 +18,17 @@ import type {
   RankingArtifactPreflightResponse,
 } from '../portfolio/types'
 import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, IntentBoundSeededEtfReplacementRankingCandidateSnapshot } from '../portfolio/workspaceTypes'
+import {
+  buildConstructionPolicyRunInput,
+  RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+  useConstructionPolicyCatalog,
+} from '../backtest/constructionPolicyCatalog'
+import {
+  DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+  DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
+  validateRankingConstructionPositionWeightInputs,
+} from '../backtest/rankingConstructionMaxPositionWeight'
+import { runRankingArtifactConstructionHandoff } from '../backtest/rankingArtifactConstructionHandoff'
 
 const PEER_GROUP_OPTIONS = ['Sector UCITS ETF', 'Bond UCITS ETF', 'Broad Market UCITS ETF', 'Thematic UCITS ETF', 'Commodity UCITS ETF']
 const COMPONENT_ORDER = ['momentum', 'benchmark_relative_strength', 'realized_volatility', 'downside_volatility', 'max_drawdown', 'liquidity', 'implementation_fit'] as const
@@ -284,16 +298,36 @@ function buildIntentBoundSeededRankingArtifact(
 
 type EtfRankingPanelProps = {
   draftSymbols?: string[]
+  currentPortfolio?: {
+    artifact_id: string
+    as_of_timestamp: string
+    weights: Array<{ symbol: string; weight: number }>
+  } | null
   onSeedCandidateDraft?: (input: { seed: CandidateImprovementSeed; rankingArtifact: IntentBoundSeededEtfReplacementRankingDraftArtifactInput | null }) => void
+  onReviewInConstruction?: (input: {
+    rankingArtifactId: string
+    preflight: ConstructionRankingArtifactPreflightResponse
+    run: ConstructionArtifactRunResponse
+  }) => void | Promise<void>
+  requestedRecentArtifactId?: string | null
+  onConsumeRequestedRecentArtifactId?: () => void
   sessionState?: EtfRankingPanelState
   onSessionStateChange?: (update: SessionStateUpdate<EtfRankingPanelState>) => void
 }
 
-export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessionState, onSessionStateChange }: EtfRankingPanelProps) {
+function policyNameForReview(policyId: string, policies: ConstructionDiscoveredPolicy[]) {
+  return policies.find((policy) => policy.policy_id === policyId)?.name ?? policyId
+}
+
+export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, onSeedCandidateDraft, onReviewInConstruction, requestedRecentArtifactId = null, onConsumeRequestedRecentArtifactId, sessionState, onSessionStateChange }: EtfRankingPanelProps) {
   const apiBase = useMemo(() => '/api', [])
   const resultRequestOwnerRef = useRef(0)
   const [internalSessionState, setInternalSessionState] = useState<EtfRankingPanelState>(() => createEtfRankingPanelState())
+  const [constructionReviewLoadingId, setConstructionReviewLoadingId] = useState<string | null>(null)
+  const [constructionReviewError, setConstructionReviewError] = useState<string | null>(null)
+  const [selectedConstructionPolicyId, setSelectedConstructionPolicyId] = useState<string>('')
   const resolvedSessionState = sessionState ?? internalSessionState
+  const constructionPolicyCatalog = useConstructionPolicyCatalog(apiBase)
   const setSessionState = (update: SessionStateUpdate<EtfRankingPanelState>) => {
     if (onSessionStateChange) {
       onSessionStateChange(update)
@@ -306,6 +340,8 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
     benchmarkSymbol,
     lookbackMonths,
     peerGroup,
+    constructionMaxPositionWeight,
+    constructionMinPositionWeight,
     runLoading,
     runError,
     result,
@@ -333,6 +369,28 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
   const resolvedSourceStatus = result ? rankingSourceStatus(result) : null
   const resolvedExcludedSymbols = result ? rankingExcludedSymbols(result) : []
   const incumbentOptions = useMemo(() => Array.from(new Set(draftSymbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))).sort(), [draftSymbols])
+  const resolvedConstructionMaxPositionWeight = constructionMaxPositionWeight ?? DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT
+  const resolvedConstructionMinPositionWeight = constructionMinPositionWeight ?? DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT
+
+  const constructionPositionWeightValidation = useMemo(
+    () => validateRankingConstructionPositionWeightInputs({
+      maxPositionWeightInput: resolvedConstructionMaxPositionWeight,
+      minPositionWeightInput: resolvedConstructionMinPositionWeight,
+    }),
+    [resolvedConstructionMaxPositionWeight, resolvedConstructionMinPositionWeight],
+  )
+  const constructionMaxPositionWeightValidation = constructionPositionWeightValidation.maxPositionWeight
+  const constructionMinPositionWeightValidation = constructionPositionWeightValidation.minPositionWeight
+
+  useEffect(() => {
+    if (constructionPolicyCatalog.status !== 'ready') return
+    setSelectedConstructionPolicyId((current) => {
+      if (current && constructionPolicyCatalog.policies.some((policy) => policy.policy_id === current)) {
+        return current
+      }
+      return constructionPolicyCatalog.defaultPolicyId ?? ''
+    })
+  }, [constructionPolicyCatalog.defaultPolicyId, constructionPolicyCatalog.policies, constructionPolicyCatalog.status])
 
   async function loadRecentMetadata() {
     setSessionState((current) => ({ ...current, recentMetadataLoading: true, recentMetadataError: null }))
@@ -386,6 +444,12 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
   useEffect(() => {
     void loadRecentRuns(selectedRecentPeerGroup)
   }, [selectedRecentPeerGroup])
+
+  useEffect(() => {
+    if (!requestedRecentArtifactId) return
+    onConsumeRequestedRecentArtifactId?.()
+    void loadRecentArtifact(requestedRecentArtifactId)
+  }, [requestedRecentArtifactId])
 
   function beginResultRequest(nextSource: 'fresh' | 'recent', artifactId?: string) {
     const owner = resultRequestOwnerRef.current + 1
@@ -469,6 +533,46 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
     }
   }
 
+  async function reviewRecentArtifactInConstruction(artifactId: string) {
+    if (constructionMaxPositionWeightValidation.value == null) {
+      setConstructionReviewError(constructionMaxPositionWeightValidation.error)
+      return
+    }
+    if (constructionMinPositionWeightValidation.error) {
+      setConstructionReviewError(constructionMinPositionWeightValidation.error)
+      return
+    }
+    if (!currentPortfolio) {
+      setConstructionReviewError('Review In Construction requires an active workspace draft and current portfolio.')
+      return
+    }
+    const selectedPolicy = buildConstructionPolicyRunInput(
+      selectedConstructionPolicyId,
+      RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+    )
+    if (!selectedPolicy) {
+      setConstructionReviewError('Review In Construction requires selecting a compatible construction policy.')
+      return
+    }
+    setConstructionReviewLoadingId(artifactId)
+    setConstructionReviewError(null)
+    try {
+      const handoff = await runRankingArtifactConstructionHandoff({
+        apiBase,
+        artifactId,
+        maxPositionWeight: constructionMaxPositionWeightValidation.value,
+        minPositionWeight: constructionMinPositionWeightValidation.value,
+        currentPortfolio,
+        policy: selectedPolicy,
+      })
+      await onReviewInConstruction?.({ rankingArtifactId: artifactId, preflight: handoff.preflight, run: handoff.run })
+    } catch (caught) {
+      setConstructionReviewError(caught instanceof Error ? caught.message : 'ETF ranking construction handoff failed')
+    } finally {
+      setConstructionReviewLoadingId(null)
+    }
+  }
+
   function openSeedDraftConfirmation(row: EtfRankingResponse['ranked_universe'][number]) {
     setSessionState((current) => ({ ...current, seedTarget: row, selectedBaseSymbol: '', seedSuccess: null }))
   }
@@ -526,9 +630,28 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
                 {(recentMetadata?.available_effective_peer_groups ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
+            <label className="field-group">
+              <span className="field-label">Construction Policy</span>
+              <select className="path-input" value={selectedConstructionPolicyId} onChange={(event) => setSelectedConstructionPolicyId(event.target.value)} disabled={constructionPolicyCatalog.status === 'loading' || constructionPolicyCatalog.status === 'error'}>
+                <option value="">Select compatible policy</option>
+                {constructionPolicyCatalog.policies.map((policy) => <option key={policy.policy_id} value={policy.policy_id}>{policy.name}</option>)}
+              </select>
+            </label>
+            <label className="field-group">
+              <span className="field-label">Max Position Weight</span>
+              <input aria-label="Max Position Weight" className="path-input" value={resolvedConstructionMaxPositionWeight} onChange={(event) => setSessionState((current) => ({ ...current, constructionMaxPositionWeight: event.target.value }))} />
+               <p className="helper">Decimal weight only. Must stay between 0.5 and 1 while the shipped ranking launch keeps top_n fixed at 2.</p>
+              {constructionMaxPositionWeightValidation.error ? <p className="helper">{constructionMaxPositionWeightValidation.error}</p> : null}
+            </label>
+            <label className="field-group">
+              <span className="field-label">Min Position Weight (optional)</span>
+              <input aria-label="Min Position Weight (optional)" className="path-input" value={resolvedConstructionMinPositionWeight} onChange={(event) => setSessionState((current) => ({ ...current, constructionMinPositionWeight: event.target.value }))} />
+              <p className="helper">Leave blank to omit. If set, use a decimal greater than 0 and up to 0.5, and no higher than max.</p>
+              {constructionMinPositionWeightValidation.error ? <p className="helper">{constructionMinPositionWeightValidation.error}</p> : null}
+            </label>
             <div className="field-group">
-              <span className="field-label">Discovery Source</span>
-              <p className="helper">Backend metadata routes define the filter list; recent open reuses typed preflight and open handoffs.</p>
+              <span className="field-label">Policy Source</span>
+               <p className="helper">Authoritative `/construction/policies` discovery defines the compatible review-only policy set and the fixed top_n=2 launch boundary.</p>
             </div>
           </div>
           <div className="dashboard-edit-actions dashboard-edit-actions-compact">
@@ -555,6 +678,29 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
               <p className="empty-state-title">Recent artifact load failed.</p>
               <p className="helper">The selected persisted ranking artifact could not be opened.</p>
               <p className="helper">{artifactLoadError}</p>
+            </div>
+          ) : null}
+
+          {constructionReviewError ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Construction review handoff failed.</p>
+              <p className="helper">The selected ETF ranking artifact could not be handed into construction review.</p>
+              <p className="helper">{constructionReviewError}</p>
+            </div>
+          ) : null}
+
+          {constructionPolicyCatalog.status === 'loading' ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Loading construction policies.</p>
+              <p className="helper">Requesting authoritative compatible policy discovery for review-only construction.</p>
+            </div>
+          ) : null}
+
+          {constructionPolicyCatalog.status === 'error' ? (
+            <div className="empty-state-panel compact-empty-state">
+              <p className="empty-state-title">Construction policies are unavailable.</p>
+              <p className="helper">Review In Construction is blocked until authoritative policy discovery succeeds.</p>
+              <p className="helper">{constructionPolicyCatalog.error}</p>
             </div>
           ) : null}
 
@@ -596,6 +742,21 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
               {recentRuns.map((item) => {
                 const isLoaded = resultSource === 'recent' && result?.artifact_id === item.artifact_id
                 const isLoadingArtifact = artifactLoadingId === item.artifact_id
+                const constructionReviewBlockedReason = constructionMaxPositionWeightValidation.error
+                  ?? constructionMinPositionWeightValidation.error
+                  ?? (!currentPortfolio
+                    ? 'Open a workspace with an authoritative current portfolio to review this ranking in construction'
+                    : null)
+                  ?? (constructionPolicyCatalog.status === 'error'
+                    ? constructionPolicyCatalog.error ?? 'Construction policy catalog unavailable'
+                    : constructionPolicyCatalog.status === 'loading'
+                      ? 'Loading construction policies...'
+                      : !selectedConstructionPolicyId
+                        ? 'Select a compatible construction policy'
+                        : null)
+                const selectedPolicyLabel = selectedConstructionPolicyId
+                  ? policyNameForReview(selectedConstructionPolicyId, constructionPolicyCatalog.policies)
+                  : null
                 return (
                   <div className={`risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide ${isLoaded ? 'strategy-ranking-row-top' : ''}`} key={item.artifact_id}>
                     <span>{item.ranking_basis_date}</span>
@@ -606,7 +767,7 @@ export function EtfRankingPanel({ draftSymbols = [], onSeedCandidateDraft, sessi
                     <span>{item.universe_size}</span>
                     <span>{item.evaluated_universe_size}</span>
                     <span>{item.artifact_id}</span>
-                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><small>Open persisted result via typed handoff.</small></span>
+                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><button className={`secondary-button${constructionReviewLoadingId === item.artifact_id ? ' button-loading' : ''}`} type="button" onClick={() => void reviewRecentArtifactInConstruction(item.artifact_id)} disabled={constructionReviewLoadingId === item.artifact_id || constructionReviewBlockedReason != null} title={constructionReviewBlockedReason ?? 'Ready for construction review'}>{constructionReviewLoadingId === item.artifact_id ? 'Opening...' : 'Review In Construction'}</button><small>{constructionReviewBlockedReason ?? (selectedPolicyLabel ? `Ready for construction review with ${selectedPolicyLabel}` : 'Ready for construction review')}</small></span>
                   </div>
                 )
               })}

@@ -1,21 +1,25 @@
 from functools import lru_cache
+import os
 from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-DEFAULT_FMP_CACHE_DIR = str(Path(__file__).resolve().parents[4] / "data" / "raw" / "fmp-cache")
-DEFAULT_FMP_HOLDINGS_SNAPSHOT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "raw" / "fmp-holdings-history")
-DEFAULT_FMP_ALPHA_PIT_SNAPSHOT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "raw" / "fmp-alpha-pit")
-DEFAULT_OPTIMIZER_HANDOFF_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "optimizer-handoffs")
-DEFAULT_CONSTRUCTION_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "construction-artifacts")
-DEFAULT_MONITOR_DEFINITION_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "monitor-definitions")
-DEFAULT_REVIEW_SNAPSHOT_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "review-snapshots")
-DEFAULT_ETF_RANKING_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "etf-ranking-artifacts")
-DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR = str(Path(__file__).resolve().parents[4] / "data" / "artifacts" / "etf-replacement-ranking-artifacts")
+REPO_ROOT = Path(__file__).resolve().parents[4]
+RUNTIME_DATA_ROOT = Path(os.getenv("PORTFOLIO_RUNTIME_DATA_DIR", REPO_ROOT / ".runtime-data"))
+
+DEFAULT_FMP_CACHE_DIR = str(REPO_ROOT / "data" / "raw" / "fmp-cache")
+DEFAULT_FMP_HOLDINGS_SNAPSHOT_DIR = str(REPO_ROOT / "data" / "raw" / "fmp-holdings-history")
+DEFAULT_FMP_ALPHA_PIT_SNAPSHOT_DIR = str(REPO_ROOT / "data" / "raw" / "fmp-alpha-pit")
+DEFAULT_OPTIMIZER_HANDOFF_DIR = str(RUNTIME_DATA_ROOT / "artifacts" / "optimizer-handoffs")
+DEFAULT_CONSTRUCTION_ARTIFACT_DIR = str(RUNTIME_DATA_ROOT / "artifacts" / "construction-artifacts")
+DEFAULT_MONITOR_DEFINITION_ARTIFACT_DIR = str(RUNTIME_DATA_ROOT / "artifacts" / "monitor-definitions")
+DEFAULT_REVIEW_SNAPSHOT_ARTIFACT_DIR = str(RUNTIME_DATA_ROOT / "artifacts" / "review-snapshots")
+DEFAULT_ETF_RANKING_ARTIFACT_DIR = str(RUNTIME_DATA_ROOT / "artifacts" / "etf-ranking-artifacts")
+DEFAULT_REPLACEMENT_RANKING_ARTIFACT_DIR = str(RUNTIME_DATA_ROOT / "artifacts" / "etf-replacement-ranking-artifacts")
 DEFAULT_CROSS_SECTIONAL_RESEARCH_ARTIFACT_DIR = str(
-    Path(__file__).resolve().parents[4] / "data" / "artifacts" / "cross-sectional-research-artifacts"
+    RUNTIME_DATA_ROOT / "artifacts" / "cross-sectional-research-artifacts"
 )
 
 

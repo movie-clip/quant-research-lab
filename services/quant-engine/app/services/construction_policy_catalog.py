@@ -55,6 +55,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             max_trade_intent_count_constraint="supported_optional",
             ranked_universe_input="required",
             current_portfolio_input="required",
+            launch_top_n=2,
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
         ),
         max_position_failure_reason="equal-weight seed exceeds max_position_weight",
@@ -81,6 +82,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             max_trade_intent_count_constraint="supported_optional",
             ranked_universe_input="required",
             current_portfolio_input="required",
+            launch_top_n=2,
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
         ),
         max_position_failure_reason="inverse-rank seed exceeds max_position_weight",
@@ -107,6 +109,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             max_trade_intent_count_constraint="supported_optional",
             ranked_universe_input="required",
             current_portfolio_input="required",
+            launch_top_n=2,
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
         ),
         max_position_failure_reason="linear-rank seed exceeds max_position_weight",
@@ -136,6 +139,7 @@ def list_construction_policies(
     max_trade_intent_count_constraint: str | None = None,
     ranked_universe_input: str | None = None,
     current_portfolio_input: str | None = None,
+    launch_top_n: int | None = None,
 ) -> list[ConstructionPolicyCatalogEntry]:
     policies: list[ConstructionPolicyCatalogEntry] = []
     for definition in POLICY_CATALOG:
@@ -173,6 +177,8 @@ def list_construction_policies(
         if ranked_universe_input is not None and entry.ranked_universe_input != ranked_universe_input:
             continue
         if current_portfolio_input is not None and entry.current_portfolio_input != current_portfolio_input:
+            continue
+        if launch_top_n is not None and entry.launch_top_n != launch_top_n:
             continue
         policies.append(entry.model_copy(deep=True))
     return policies
