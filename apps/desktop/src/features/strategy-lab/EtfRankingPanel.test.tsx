@@ -43,6 +43,12 @@ function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_w
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'default',
+        launch_top_n: 2,
+      },
     },
     top_n_inverse_rank_weight_v1: {
       policy_id: 'top_n_inverse_rank_weight_v1',
@@ -65,6 +71,12 @@ function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_w
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'excluded',
+        launch_top_n: 2,
+      },
     },
     top_n_linear_rank_weight_v1: {
       policy_id: 'top_n_linear_rank_weight_v1',
@@ -87,6 +99,12 @@ function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_w
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'opt_in',
+        launch_top_n: 2,
+      },
     },
   } as const
 
@@ -1053,9 +1071,10 @@ describe('EtfRankingPanel', () => {
     expect(screen.getByRole('option', { name: 'Top N Linear Rank Weight v1' })).toBeTruthy()
     expect(screen.queryByRole('option', { name: 'Top N Inverse Rank Weight v1' })).toBeNull()
     expect((policySelect as HTMLSelectElement).value).toBe('top_n_equal_weight_v1')
+    expect(screen.getAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count').length).toBeGreaterThan(0)
   })
 
-  it('requires explicit policy selection when equal weight is not discovered', async () => {
+  it('fails closed when equal weight is not discovered in the canonical launch profile', async () => {
     installFetchRouter({
       recentRuns: [buildRecentRun()],
       constructionPolicies: buildConstructionPoliciesResponse(['top_n_inverse_rank_weight_v1', 'top_n_linear_rank_weight_v1']),
@@ -1063,15 +1082,8 @@ describe('EtfRankingPanel', () => {
 
     render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} currentPortfolio={authoritativeCurrentPortfolio} />)
 
-    const button = await screen.findByRole('button', { name: 'Review In Construction' })
-    expect(button).toHaveProperty('disabled', true)
-    expect(screen.getByText('Select a compatible construction policy')).toBeTruthy()
-    expect(screen.getByRole('option', { name: 'Top N Linear Rank Weight v1' })).toBeTruthy()
-    expect(screen.queryByRole('option', { name: 'Top N Inverse Rank Weight v1' })).toBeNull()
-
-    fireEvent.change(screen.getByLabelText('Construction Policy'), { target: { value: 'top_n_linear_rank_weight_v1' } })
-
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() => expect(screen.getByText('Construction policies are unavailable.')).toBeTruthy())
+    expect(screen.getAllByText('Construction policy catalog must define exactly one default launch policy').length).toBeGreaterThan(0)
   })
 
   it('fails closed when construction policy discovery returns an unsupported launch_top_n', async () => {
@@ -1087,6 +1099,24 @@ describe('EtfRankingPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Construction policies are unavailable.')).toBeTruthy())
     expect(screen.getAllByText('Construction policy catalog returned an unsupported launch_top_n').length).toBeGreaterThan(0)
+  })
+
+  it('fails closed when construction policy discovery returns policy-status metadata inconsistent with policy identity', async () => {
+    installFetchRouter({
+      recentRuns: [buildRecentRun()],
+      constructionPolicies: buildConstructionPoliciesResponse().map((policy) => ({
+        ...policy,
+        launch_profile: {
+          ...policy.launch_profile,
+          policy_status: policy.policy_id === 'top_n_linear_rank_weight_v1' ? 'default' : policy.launch_profile.policy_status,
+        },
+      })),
+    })
+
+    render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
+
+    await waitFor(() => expect(screen.getByText('Construction policies are unavailable.')).toBeTruthy())
+    expect(screen.getAllByText('Construction policy catalog returned policy metadata inconsistent with launch_profile.policy_status').length).toBeGreaterThan(0)
   })
 
   it('opens a requested persisted ETF ranking artifact on entry', async () => {

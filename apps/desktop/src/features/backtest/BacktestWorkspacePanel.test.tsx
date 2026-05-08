@@ -213,7 +213,7 @@ describe('BacktestWorkspacePanel', () => {
     expect(screen.getByTestId('workspace-owned-research-session')).toBeTruthy()
   })
 
-  it('passes authoritative current portfolio into embedded ETF ranking review flows', async () => {
+  it('shows blocked construction review when embedded ETF ranking policy discovery is unavailable', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input)
       if (url.includes('/construction/policies')) {
@@ -239,6 +239,12 @@ describe('BacktestWorkspacePanel', () => {
             current_portfolio_input: 'required',
             launch_top_n: 2,
             selection_rule_ids: ['eligible_only', 'take_top_n'],
+            launch_profile: {
+              profile_id: 'ranking_artifact_review_handoff_v1',
+              profile_kind: 'ranking_artifact_review_handoff',
+              policy_status: 'default',
+              launch_top_n: 2,
+            },
           },
         ])
       }
@@ -309,7 +315,8 @@ describe('BacktestWorkspacePanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open ETF Ranking' }))
 
-    expect(await screen.findByText('Ready for construction review with Top N Equal Weight v1')).toBeTruthy()
+    expect(await screen.findByText('Construction policies are unavailable.')).toBeTruthy()
+    expect(screen.getByText('Review In Construction is blocked until authoritative policy discovery succeeds.')).toBeTruthy()
   })
 
   it('offers workspace-owned entrypoints for deeper research tools', () => {

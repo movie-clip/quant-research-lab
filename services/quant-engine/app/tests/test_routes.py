@@ -5927,6 +5927,12 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
             "current_portfolio_input": "required",
             "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "default",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_inverse_rank_weight_v1",
@@ -5949,6 +5955,12 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
             "current_portfolio_input": "required",
             "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "excluded",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_linear_rank_weight_v1",
@@ -5971,6 +5983,12 @@ def test_construction_policy_catalog_route_returns_shipped_set() -> None:
             "current_portfolio_input": "required",
             "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "opt_in",
+                "launch_top_n": 2,
+            },
         },
     ]
 
@@ -6002,6 +6020,30 @@ def test_construction_policy_catalog_route_filters_by_each_exact_catalog_metadat
 
     assert response.status_code == 200
     assert [item["policy_id"] for item in response.json()] == expected_policy_ids
+
+
+def test_construction_policy_catalog_route_exposes_canonical_launch_profile_metadata() -> None:
+    client = TestClient(app)
+
+    response = client.get("/construction/policies")
+
+    assert response.status_code == 200
+    payload = response.json()
+    default_rows = [item for item in payload if item["launch_profile"]["policy_status"] == "default"]
+    assert [item["policy_id"] for item in default_rows] == ["top_n_equal_weight_v1"]
+    included_rows = [
+        item["policy_id"]
+        for item in payload
+        if item["launch_profile"]["policy_status"] in {"default", "opt_in"}
+    ]
+    assert included_rows == ["top_n_equal_weight_v1", "top_n_linear_rank_weight_v1"]
+    inverse_row = next(item for item in payload if item["policy_id"] == "top_n_inverse_rank_weight_v1")
+    assert inverse_row["launch_profile"] == {
+        "profile_id": "ranking_artifact_review_handoff_v1",
+        "profile_kind": "ranking_artifact_review_handoff",
+        "policy_status": "excluded",
+        "launch_top_n": 2,
+    }
 
 
 def test_construction_policy_catalog_route_intersects_multiple_exact_filters() -> None:

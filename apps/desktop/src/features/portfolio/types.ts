@@ -1872,6 +1872,13 @@ export type ConstructionPolicyRankingSupport =
   | 'inverse_selected_order_weighting'
   | 'linear_selected_order_weighting'
 
+export type ConstructionPolicyLaunchProfile = {
+  profile_id: 'ranking_artifact_review_handoff_v1'
+  profile_kind: 'ranking_artifact_review_handoff'
+  policy_status: 'default' | 'opt_in' | 'excluded'
+  launch_top_n: 2
+}
+
 export type ConstructionDiscoveredPolicy = {
   policy_id: string
   policy_definition_id: string
@@ -1893,6 +1900,7 @@ export type ConstructionDiscoveredPolicy = {
   current_portfolio_input: 'required'
   launch_top_n: 2
   selection_rule_ids: string[]
+  launch_profile: ConstructionPolicyLaunchProfile
 }
 
 export type ConstructionPolicyRunInput = {

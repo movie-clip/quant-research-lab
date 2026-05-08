@@ -38,6 +38,9 @@ ConstructionPolicyRequiredConstraintSupport = Literal["required"]
 ConstructionPolicyOptionalConstraintSupport = Literal["supported_optional"]
 ConstructionPolicyRequiredInputSupport = Literal["required"]
 ConstructionPolicyLaunchTopN = Literal[2]
+ConstructionPolicyLaunchProfileId = Literal["ranking_artifact_review_handoff_v1"]
+ConstructionPolicyLaunchProfileKind = Literal["ranking_artifact_review_handoff"]
+ConstructionPolicyLaunchProfilePolicyStatus = Literal["default", "opt_in", "excluded"]
 ConstructionRankingArtifactPreflightContractVersion = Literal["construction_ranking_artifact_preflight_v1"]
 ConstructionRankingArtifactHandoffKind = Literal[
     "etf_ranking_artifact_construction_handoff_v1",
@@ -161,6 +164,16 @@ class ConstructionPolicyCatalogEntry(BaseModel):
     current_portfolio_input: ConstructionPolicyRequiredInputSupport
     launch_top_n: ConstructionPolicyLaunchTopN
     selection_rule_ids: list[ConstructionSelectionRuleId] = Field(default_factory=list)
+    launch_profile: "ConstructionPolicyLaunchProfile"
+
+
+class ConstructionPolicyLaunchProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile_id: ConstructionPolicyLaunchProfileId
+    profile_kind: ConstructionPolicyLaunchProfileKind
+    policy_status: ConstructionPolicyLaunchProfilePolicyStatus
+    launch_top_n: ConstructionPolicyLaunchTopN
 
 
 class ConstructionHardConstraints(BaseModel):

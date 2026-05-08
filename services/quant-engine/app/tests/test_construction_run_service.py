@@ -2213,6 +2213,68 @@ def test_build_construction_run_changes_canonical_fingerprint_when_policy_defini
     assert baseline.artifact_id != updated.artifact_id
 
 
+def test_list_construction_policies_fails_closed_when_canonical_launch_profile_has_multiple_defaults(monkeypatch) -> None:
+    original_definition = construction_policy_catalog.get_construction_policy_definition("top_n_linear_rank_weight_v1")
+    assert original_definition is not None
+    monkeypatch.setitem(
+        construction_policy_catalog._POLICY_BY_ID,
+        "top_n_linear_rank_weight_v1",
+        replace(
+            original_definition,
+            catalog_entry=original_definition.catalog_entry.model_copy(
+                update={
+                    "launch_profile": original_definition.catalog_entry.launch_profile.model_copy(
+                        update={"policy_status": "default"}
+                    )
+                }
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        construction_policy_catalog,
+        "POLICY_CATALOG",
+        tuple(construction_policy_catalog._POLICY_BY_ID[policy_id] for policy_id in [
+            "top_n_equal_weight_v1",
+            "top_n_inverse_rank_weight_v1",
+            "top_n_linear_rank_weight_v1",
+        ]),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="construction policy catalog must define exactly one default launch policy for ranking-artifact review handoff",
+    ):
+        construction_policy_catalog.list_construction_policies()
+
+
+def test_list_construction_policies_fails_closed_when_launch_profile_metadata_disagrees_with_policy_identity(monkeypatch) -> None:
+    original_definition = construction_policy_catalog.get_construction_policy_definition("top_n_linear_rank_weight_v1")
+    assert original_definition is not None
+    monkeypatch.setitem(
+        construction_policy_catalog._POLICY_BY_ID,
+        "top_n_linear_rank_weight_v1",
+        replace(
+            original_definition,
+            catalog_entry=original_definition.catalog_entry.model_copy(update={"ranking_support": "selection_only"}),
+        ),
+    )
+    monkeypatch.setattr(
+        construction_policy_catalog,
+        "POLICY_CATALOG",
+        tuple(construction_policy_catalog._POLICY_BY_ID[policy_id] for policy_id in [
+            "top_n_equal_weight_v1",
+            "top_n_inverse_rank_weight_v1",
+            "top_n_linear_rank_weight_v1",
+        ]),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="construction policy top_n_linear_rank_weight_v1 launch profile metadata disagrees with ranking_support",
+    ):
+        construction_policy_catalog.list_construction_policies()
+
+
 def test_load_construction_artifact_rejects_corrupted_payload(tmp_path: Path) -> None:
     store = ConstructionArtifactStore(str(tmp_path))
     result = build_construction_run(_request(), artifact_store=store)
@@ -2721,6 +2783,12 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "current_portfolio_input": "required",
             "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "default",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_inverse_rank_weight_v1",
@@ -2743,6 +2811,12 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "current_portfolio_input": "required",
             "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "excluded",
+                "launch_top_n": 2,
+            },
         },
         {
             "policy_id": "top_n_linear_rank_weight_v1",
@@ -2765,6 +2839,12 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "current_portfolio_input": "required",
             "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "opt_in",
+                "launch_top_n": 2,
+            },
         },
     ]
 
@@ -2815,6 +2895,12 @@ def test_construction_route_filters_policy_catalog_by_authoritative_metadata() -
             "current_portfolio_input": "required",
             "launch_top_n": 2,
             "selection_rule_ids": ["eligible_only", "take_top_n"],
+            "launch_profile": {
+                "profile_id": "ranking_artifact_review_handoff_v1",
+                "profile_kind": "ranking_artifact_review_handoff",
+                "policy_status": "excluded",
+                "launch_top_n": 2,
+            },
         }
     ]
 
@@ -2879,6 +2965,23 @@ def test_construction_route_filters_policy_catalog_by_launch_top_n() -> None:
         "top_n_equal_weight_v1",
         "top_n_inverse_rank_weight_v1",
         "top_n_linear_rank_weight_v1",
+    ]
+
+
+def test_construction_route_policy_catalog_exposes_canonical_launch_profile_statuses() -> None:
+    client = TestClient(app)
+
+    response = client.get("/construction/policies")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [
+        (item["policy_id"], item["launch_profile"]["policy_status"])
+        for item in payload
+    ] == [
+        ("top_n_equal_weight_v1", "default"),
+        ("top_n_inverse_rank_weight_v1", "excluded"),
+        ("top_n_linear_rank_weight_v1", "opt_in"),
     ]
 
 

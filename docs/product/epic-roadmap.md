@@ -14,7 +14,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Workspace artifact-backed ranking-to-construction launch browsers now include the shipped optional turnover and trade-intent caps | Broaden policy parameterization beyond fixed `top_n`, the current narrow hard-constraint set, and narrow review-only lineage assumptions | 2026-05-08 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Ranking-artifact launch policy discovery now exposes one canonical review/handoff launch profile and desktop reads it back explicitly | Broaden policy parameterization beyond fixed `top_n`, the current narrow hard-constraint set, and narrow review-only lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth; review mechanics stronger than monitor-family breadth | No active slice | Surface active alert-episode inbox more directly in Workspace | 2026-05-06 |
 
 ## Cross-Epic Guardrails
@@ -155,6 +155,7 @@ Deepen deterministic construction and constrained optimizer review on top of str
 - `Shipped`: the broader Epic 3 launch boundary is now explicit and stabilized as `preflight -> typed handoff -> /construction/run -> persisted construction artifact review` for exactly two supported ranking families: `etf_ranking` and `intent_bound_etf_replacement_ranking`, with desktop fail-closed policy discovery and fixed `top_n = 2` launch semantics.
 - `Shipped`: the existing Workspace artifact-backed ranking-to-construction launch browsers now also expose optional `max_turnover_weight` and optional `max_trade_intent_count`, with shared local validation, omission-on-blank request serialization, and no widening of policy authority, ranking-family support, or inline launch paths.
 - `Shipped`: canonical launch context is now preserved and fail-closed across the full shipped ranking-to-construction review boundary, including ranking artifact id/schema/ranking lineage, current portfolio identity/timestamp, selected policy id/definition, and fixed `top_n` lineage through persisted construction artifact reopen.
+- `Shipped`: backend policy discovery now stamps one canonical `ranking_artifact_review_handoff_v1` launch profile with explicit default/opt-in/excluded status, desktop consumes that metadata instead of hardcoded launch allowlists/defaults, and review surfaces read back the shipped `top_n = 2` plus required/optional hard-constraint boundary next to construction launch controls.
 - Next: broaden policy parameterization beyond the current fixed `top_n`, the currently exposed hard-constraint set, and narrow review-only lineage assumptions.
 
 ### Dependencies
@@ -262,6 +263,28 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
   - `apps/desktop/src/features/strategy-lab/EtfRankingPanel.test.tsx`
   - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
   - `apps/desktop/src/app/App.test.tsx`
+
+### 2026-05-08 - Epic 3 slice 5 shipped
+
+- Epic: `3. Construction and optimizer methodology guard`
+- Slice: make the narrow ranking-artifact construction launch path canonical through explicit launch-profile metadata plus matching desktop readback.
+- Status: shipped.
+- Scope delivered:
+  - backend `/construction/policies` rows now stamp one canonical `ranking_artifact_review_handoff_v1` launch profile with explicit `default` / `opt_in` / `excluded` policy status and explicit fixed `launch_top_n = 2`.
+  - the canonical launch profile includes only `top_n_equal_weight_v1` as the single default and `top_n_linear_rank_weight_v1` as explicit opt-in; `top_n_inverse_rank_weight_v1` remains in the broader catalog but is explicitly excluded from the desktop launch profile.
+  - desktop policy parsing now consumes launch-profile metadata fail-closed instead of relying on hardcoded launch-compatible policy ids or hardcoded default-policy selection.
+  - ETF Ranking and Workspace persisted ranking browsers now show compact readback text for selected launch policy, default vs opt-in status, fixed `top_n = 2`, required `max_position_weight`, and optional `min_position_weight`, `max_turnover_weight`, and `max_trade_intent_count`.
+- Guard impact:
+  - makes the currently shipped ranking-to-construction launch boundary explicit without widening policy breadth, ranking-family breadth, request shape, or hard-constraint semantics.
+  - blocks launch if catalog metadata is contradictory, incomplete, or no longer matches the canonical equal-weight-plus-linear-rank launch boundary.
+- Contracts changed:
+  - additive backend discovery metadata only: `/construction/policies` rows now include `launch_profile`.
+  - desktop launch compatibility/default behavior is now derived from that backend metadata rather than hardcoded allowlists/defaults.
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_routes.py`
+  - `services/quant-engine/app/tests/test_construction_run_service.py`
+  - `apps/desktop/src/features/strategy-lab/EtfRankingPanel.test.tsx`
+  - `apps/desktop/src/features/backtest/PortfolioImprovementWorkspaceShell.test.tsx`
 
 ### 2026-05-07 - Epic 3 slice 2 shipped
 

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { PersistedReplacementRankingReview } from '../portfolio/PersistedReplacementRankingReview'
 import {
   buildConstructionPolicyRunInput,
+  getConstructionLaunchPolicyReadback,
   RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
   useConstructionPolicyCatalog,
 } from './constructionPolicyCatalog'
@@ -16,6 +17,7 @@ import {
 import { runRankingArtifactConstructionHandoff } from './rankingArtifactConstructionHandoff'
 import type {
   ConstructionRankingArtifactPreflightResponse,
+  ConstructionDiscoveredPolicy,
   IntentBoundEtfReplacementRankingArtifact,
   IntentBoundEtfReplacementRankingIneligiblePreflightResponse,
   IntentBoundEtfReplacementRankingSupportedOpenResponse,
@@ -49,6 +51,12 @@ type GeneralizedReplacementRecentResponse = {
       artifact_kind?: unknown
     }
   }
+}
+
+function formatConstructionPolicyReadback(policyId: string, policies: ConstructionDiscoveredPolicy[]) {
+  const readback = getConstructionLaunchPolicyReadback(policyId, policies)
+  if (!readback) return null
+  return `${readback.policyName} (${readback.statusLabel}); fixed top_n=${readback.topN}; requires ${readback.requiredConstraint}; optional ${readback.optionalConstraints.join(', ')}`
 }
 
 type ReplacementRecentRow = {
@@ -352,6 +360,10 @@ export function PersistedReplacementRankingBrowser({
   const constructionMinPositionWeightValidation = constructionConstraintValidation.minPositionWeight
   const constructionMaxTurnoverWeightValidation = constructionConstraintValidation.maxTurnoverWeight
   const constructionMaxTradeIntentCountValidation = constructionConstraintValidation.maxTradeIntentCount
+  const selectedConstructionPolicyReadback = useMemo(
+    () => formatConstructionPolicyReadback(selectedConstructionPolicyId, constructionPolicyCatalog.policies),
+    [constructionPolicyCatalog.policies, selectedConstructionPolicyId],
+  )
 
   useEffect(() => {
     if (constructionPolicyCatalog.status !== 'ready') return
@@ -558,6 +570,7 @@ export function PersistedReplacementRankingBrowser({
           <div className="field-group">
             <span className="field-label">Policy Source</span>
             <p className="helper">Authoritative `/construction/policies` discovery defines the compatible review-only policy set and the fixed top_n=2 launch boundary.</p>
+            {selectedConstructionPolicyReadback ? <p className="helper">{selectedConstructionPolicyReadback}</p> : null}
           </div>
         </div>
         <div className="dashboard-edit-actions dashboard-edit-actions-compact">
@@ -646,7 +659,7 @@ export function PersistedReplacementRankingBrowser({
                 : readiness.status === 'error'
                   ? readiness.error ?? 'Construction readiness unavailable'
                   : ready
-                    ? 'Ready for construction review'
+                    ? (selectedConstructionPolicyReadback ?? 'Ready for construction review')
                     : readiness.response?.eligibility.reason ?? 'Construction ineligible'
               const reviewLabel = policyBlockedReason ?? readinessLabel
               return (

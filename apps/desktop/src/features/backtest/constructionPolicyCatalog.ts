@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import type {
+  ConstructionPolicyLaunchProfile,
   ConstructionDiscoveredPolicy,
   ConstructionPolicyRunInput,
 } from '../portfolio/types'
@@ -22,11 +23,6 @@ const DESKTOP_CONSTRUCTION_POLICY_FILTERS = {
 } as const
 
 export const RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N = 2 as const
-
-const DESKTOP_LAUNCH_COMPATIBLE_POLICY_IDS = new Set([
-  'top_n_equal_weight_v1',
-  'top_n_linear_rank_weight_v1',
-])
 
 const SUPPORTED_POLICY_IDS = new Set([
   'top_n_equal_weight_v1',
@@ -52,12 +48,26 @@ const SUPPORTED_POLICY_SPECS = {
   },
 } as const
 
+const CANONICAL_LAUNCH_PROFILE_ID = 'ranking_artifact_review_handoff_v1'
+const CANONICAL_LAUNCH_PROFILE_KIND = 'ranking_artifact_review_handoff'
+
+const CANONICAL_LAUNCH_POLICY_STATUS = {
+  top_n_equal_weight_v1: 'default',
+  top_n_inverse_rank_weight_v1: 'excluded',
+  top_n_linear_rank_weight_v1: 'opt_in',
+} as const satisfies Record<keyof typeof SUPPORTED_POLICY_SPECS, ConstructionPolicyLaunchProfile['policy_status']>
+
+const CANONICAL_LAUNCH_INCLUDED_POLICY_IDS = new Set([
+  'top_n_equal_weight_v1',
+  'top_n_linear_rank_weight_v1',
+])
+
 export function resolvePolicyDefinitionIdForPolicyId(policyId: string): string | null {
   return SUPPORTED_POLICY_SPECS[policyId as keyof typeof SUPPORTED_POLICY_SPECS]?.policy_definition_id ?? null
 }
 
-function isDesktopLaunchCompatiblePolicyId(policyId: string): boolean {
-  return DESKTOP_LAUNCH_COMPATIBLE_POLICY_IDS.has(policyId)
+function isLaunchIncludedPolicy(policy: ConstructionDiscoveredPolicy): boolean {
+  return policy.launch_profile.policy_status === 'default' || policy.launch_profile.policy_status === 'opt_in'
 }
 
 const SUPPORTED_RANKING_SUPPORT = new Set([
@@ -72,6 +82,14 @@ type ConstructionPolicyCatalogState = {
   status: 'idle' | 'loading' | 'ready' | 'error'
   policies: ConstructionDiscoveredPolicy[]
   error: string | null
+}
+
+export type ConstructionLaunchPolicyReadback = {
+  policyName: string
+  statusLabel: 'default' | 'opt-in'
+  topN: 2
+  requiredConstraint: 'max_position_weight'
+  optionalConstraints: Array<'min_position_weight' | 'max_turnover_weight' | 'max_trade_intent_count'>
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -98,6 +116,33 @@ function validateExactField<T extends string>(
   return value as T
 }
 
+function parseLaunchProfile(payload: unknown, policyId: keyof typeof SUPPORTED_POLICY_SPECS): ConstructionPolicyLaunchProfile {
+  if (!isObject(payload)) {
+    throw new Error('Construction policy catalog returned malformed launch_profile metadata')
+  }
+  if (payload.profile_id !== CANONICAL_LAUNCH_PROFILE_ID) {
+    throw new Error('Construction policy catalog returned unsupported launch_profile.profile_id')
+  }
+  if (payload.profile_kind !== CANONICAL_LAUNCH_PROFILE_KIND) {
+    throw new Error('Construction policy catalog returned unsupported launch_profile.profile_kind')
+  }
+  if (payload.launch_top_n !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
+    throw new Error('Construction policy catalog returned unsupported launch_profile.launch_top_n')
+  }
+  if (typeof payload.policy_status !== 'string' || !['default', 'opt_in', 'excluded'].includes(payload.policy_status)) {
+    throw new Error('Construction policy catalog returned unsupported launch_profile.policy_status')
+  }
+  if (payload.policy_status !== CANONICAL_LAUNCH_POLICY_STATUS[policyId]) {
+    throw new Error('Construction policy catalog returned policy metadata inconsistent with launch_profile.policy_status')
+  }
+  return {
+    profile_id: CANONICAL_LAUNCH_PROFILE_ID,
+    profile_kind: CANONICAL_LAUNCH_PROFILE_KIND,
+    policy_status: payload.policy_status as ConstructionPolicyLaunchProfile['policy_status'],
+    launch_top_n: RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+  }
+}
+
 function parseConstructionPolicyRow(payload: unknown): ConstructionDiscoveredPolicy {
   if (!isObject(payload)) {
     throw new Error('Construction policy catalog returned a malformed row')
@@ -107,6 +152,7 @@ function parseConstructionPolicyRow(payload: unknown): ConstructionDiscoveredPol
     throw new Error('Construction policy catalog returned an unsupported policy_id')
   }
   const expectedPolicySpec = SUPPORTED_POLICY_SPECS[policyId as keyof typeof SUPPORTED_POLICY_SPECS]
+  const launchProfile = parseLaunchProfile(payload.launch_profile, policyId as keyof typeof SUPPORTED_POLICY_SPECS)
   const policyDefinitionId = payload.policy_definition_id
   if (typeof policyDefinitionId !== 'string' || policyDefinitionId !== expectedPolicySpec.policy_definition_id) {
     throw new Error('Construction policy catalog returned an unsupported policy_definition_id')
@@ -173,6 +219,7 @@ function parseConstructionPolicyRow(payload: unknown): ConstructionDiscoveredPol
     current_portfolio_input: validateExactField(payload, 'current_portfolio_input', DESKTOP_CONSTRUCTION_POLICY_FILTERS.current_portfolio_input),
     launch_top_n: RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
     selection_rule_ids: selectionRuleIds,
+    launch_profile: launchProfile,
   }
 }
 
@@ -193,12 +240,56 @@ export function parseConstructionPolicyCatalog(payload: unknown): ConstructionDi
     seenPolicyIds.add(policy.policy_id)
     seenDefinitionIds.add(policy.policy_definition_id)
   }
+
+  const profileRows = parsed.filter((policy) => policy.launch_profile.profile_id === CANONICAL_LAUNCH_PROFILE_ID)
+  const defaultPolicies = profileRows.filter((policy) => policy.launch_profile.policy_status === 'default')
+  if (defaultPolicies.length !== 1) {
+    throw new Error('Construction policy catalog must define exactly one default launch policy')
+  }
+  if (defaultPolicies[0]?.policy_id !== 'top_n_equal_weight_v1') {
+    throw new Error('Construction policy catalog returned unsupported default launch policy')
+  }
+
+  const includedPolicyIds = new Set(
+    profileRows
+      .filter(isLaunchIncludedPolicy)
+      .map((policy) => policy.policy_id),
+  )
+  if (includedPolicyIds.size !== CANONICAL_LAUNCH_INCLUDED_POLICY_IDS.size) {
+    throw new Error('Construction policy catalog returned unsupported launch-compatible policy set')
+  }
+  for (const policyId of CANONICAL_LAUNCH_INCLUDED_POLICY_IDS) {
+    if (!includedPolicyIds.has(policyId)) {
+      throw new Error('Construction policy catalog returned unsupported launch-compatible policy set')
+    }
+  }
+
+  const inverseRankPolicy = parsed.find((policy) => policy.policy_id === 'top_n_inverse_rank_weight_v1')
+  if (!inverseRankPolicy || inverseRankPolicy.launch_profile.policy_status !== 'excluded') {
+    throw new Error('Construction policy catalog must exclude inverse-rank from the launch profile')
+  }
   return parsed
 }
 
 export function buildConstructionPolicyCatalogUrl(apiBase = '/api') {
   const search = new URLSearchParams(DESKTOP_CONSTRUCTION_POLICY_FILTERS)
   return `${apiBase}/construction/policies?${search.toString()}`
+}
+
+export function getConstructionLaunchPolicyReadback(
+  policyId: string | null,
+  policies: ConstructionDiscoveredPolicy[],
+): ConstructionLaunchPolicyReadback | null {
+  if (!policyId) return null
+  const policy = policies.find((entry) => entry.policy_id === policyId)
+  if (!policy || !isLaunchIncludedPolicy(policy)) return null
+  return {
+    policyName: policy.name,
+    statusLabel: policy.launch_profile.policy_status === 'default' ? 'default' : 'opt-in',
+    topN: RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+    requiredConstraint: 'max_position_weight',
+    optionalConstraints: ['min_position_weight', 'max_turnover_weight', 'max_trade_intent_count'],
+  }
 }
 
 export function useConstructionPolicyCatalog(apiBase = '/api') {
@@ -229,14 +320,12 @@ export function useConstructionPolicyCatalog(apiBase = '/api') {
   }, [apiBase])
 
   const policies = useMemo(
-    () => state.policies.filter((policy) => isDesktopLaunchCompatiblePolicyId(policy.policy_id)),
+    () => state.policies.filter(isLaunchIncludedPolicy),
     [state.policies],
   )
 
   const defaultPolicyId = useMemo(() => (
-    policies.some((policy) => policy.policy_id === 'top_n_equal_weight_v1')
-      ? 'top_n_equal_weight_v1'
-      : null
+    policies.find((policy) => policy.launch_profile.policy_status === 'default')?.policy_id ?? null
   ), [policies])
 
   return {
@@ -248,7 +337,7 @@ export function useConstructionPolicyCatalog(apiBase = '/api') {
 
 export function buildConstructionPolicyRunInput(policyId: string | null, topN: number): ConstructionPolicyRunInput | null {
   if (!policyId) return null
-  if (!isDesktopLaunchCompatiblePolicyId(policyId)) return null
+  if (!CANONICAL_LAUNCH_INCLUDED_POLICY_IDS.has(policyId)) return null
   if (topN !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
     throw new Error('Ranking artifact construction launch only supports top_n=2')
   }

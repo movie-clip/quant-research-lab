@@ -1893,6 +1893,12 @@ function makeConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_we
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'default',
+        launch_top_n: 2,
+      },
     },
     top_n_inverse_rank_weight_v1: {
       policy_id: 'top_n_inverse_rank_weight_v1',
@@ -1915,6 +1921,12 @@ function makeConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_we
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'excluded',
+        launch_top_n: 2,
+      },
     },
     top_n_linear_rank_weight_v1: {
       policy_id: 'top_n_linear_rank_weight_v1',
@@ -1937,6 +1949,12 @@ function makeConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_we
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'opt_in',
+        launch_top_n: 2,
+      },
     },
   } as const
 
@@ -5072,7 +5090,7 @@ describe('App', () => {
 
     await reopenDetailedReviewIfNeeded()
     await screen.findByText('Persisted ETF Ranking Construction')
-    await screen.findAllByText('Ready for construction review with Top N Equal Weight v1')
+    await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
     const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
     fireEvent.change(within(etfBrowser).getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
     fireEvent.change(within(etfBrowser).getByLabelText('Max Turnover Weight (optional)'), { target: { value: '0.1' } })

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   buildConstructionPolicyRunInput,
+  getConstructionLaunchPolicyReadback,
   RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
   useConstructionPolicyCatalog,
 } from './constructionPolicyCatalog'
@@ -15,6 +16,7 @@ import {
 import { runRankingArtifactConstructionHandoff } from './rankingArtifactConstructionHandoff'
 import type {
   ConstructionRankingArtifactPreflightResponse,
+  ConstructionDiscoveredPolicy,
   EtfRankingArtifactRecentRow,
 } from '../portfolio/types'
 
@@ -121,6 +123,12 @@ function policyNameForReview(policyId: string, policies: Array<{ policy_id: stri
   return policies.find((policy) => policy.policy_id === policyId)?.name ?? policyId
 }
 
+function formatConstructionPolicyReadback(policyId: string, policies: ConstructionDiscoveredPolicy[]) {
+  const readback = getConstructionLaunchPolicyReadback(policyId, policies)
+  if (!readback) return null
+  return `${readback.policyName} (${readback.statusLabel}); fixed top_n=${readback.topN}; requires ${readback.requiredConstraint}; optional ${readback.optionalConstraints.join(', ')}`
+}
+
 export function PersistedEtfRankingConstructionBrowser({
   currentPortfolio,
   onOpenRankingReview,
@@ -159,6 +167,10 @@ export function PersistedEtfRankingConstructionBrowser({
   const constructionMinPositionWeightValidation = constructionConstraintValidation.minPositionWeight
   const constructionMaxTurnoverWeightValidation = constructionConstraintValidation.maxTurnoverWeight
   const constructionMaxTradeIntentCountValidation = constructionConstraintValidation.maxTradeIntentCount
+  const selectedConstructionPolicyReadback = useMemo(
+    () => formatConstructionPolicyReadback(selectedConstructionPolicyId, constructionPolicyCatalog.policies),
+    [constructionPolicyCatalog.policies, selectedConstructionPolicyId],
+  )
 
   useEffect(() => {
     if (constructionPolicyCatalog.status !== 'ready') return
@@ -308,6 +320,7 @@ export function PersistedEtfRankingConstructionBrowser({
           <div className="field-group">
             <span className="field-label">Policy Source</span>
             <p className="helper">Authoritative `/construction/policies` discovery defines the compatible review-only policy set and the fixed top_n=2 launch boundary.</p>
+            {selectedConstructionPolicyReadback ? <p className="helper">{selectedConstructionPolicyReadback}</p> : null}
           </div>
         </div>
         <div className="dashboard-edit-actions dashboard-edit-actions-compact">
@@ -385,16 +398,17 @@ export function PersistedEtfRankingConstructionBrowser({
                       : !selectedConstructionPolicyId
                         ? 'Select a compatible construction policy'
                         : null)
-               const selectedPolicyLabel = selectedConstructionPolicyId
-                 ? policyNameForReview(selectedConstructionPolicyId, constructionPolicyCatalog.policies)
-                 : null
-               const readinessLabel = readiness == null || readiness.status === 'loading'
-                 ? 'Checking readiness...'
-                 : readiness.status === 'error'
-                   ? readiness.error ?? 'Construction readiness unavailable'
-                   : ready
-                     ? (selectedPolicyLabel ? `Ready for construction review with ${selectedPolicyLabel}` : 'Ready for construction review')
-                     : readiness.response?.eligibility.reason ?? 'Construction ineligible'
+                const selectedPolicyLabel = selectedConstructionPolicyId
+                  ? policyNameForReview(selectedConstructionPolicyId, constructionPolicyCatalog.policies)
+                  : null
+                const selectedPolicyReadback = selectedConstructionPolicyReadback
+                const readinessLabel = readiness == null || readiness.status === 'loading'
+                  ? 'Checking readiness...'
+                  : readiness.status === 'error'
+                    ? readiness.error ?? 'Construction readiness unavailable'
+                    : ready
+                      ? (selectedPolicyReadback ?? (selectedPolicyLabel ? `Ready for construction review with ${selectedPolicyLabel}` : 'Ready for construction review'))
+                      : readiness.response?.eligibility.reason ?? 'Construction ineligible'
               const reviewLabel = policyBlockedReason ?? readinessLabel
               return (
                 <div className="risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide" key={item.artifact_id}>

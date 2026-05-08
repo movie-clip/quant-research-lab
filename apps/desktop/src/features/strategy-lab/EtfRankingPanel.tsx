@@ -20,6 +20,7 @@ import type {
 import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, IntentBoundSeededEtfReplacementRankingCandidateSnapshot } from '../portfolio/workspaceTypes'
 import {
   buildConstructionPolicyRunInput,
+  getConstructionLaunchPolicyReadback,
   RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
   useConstructionPolicyCatalog,
 } from '../backtest/constructionPolicyCatalog'
@@ -319,6 +320,15 @@ function policyNameForReview(policyId: string, policies: ConstructionDiscoveredP
   return policies.find((policy) => policy.policy_id === policyId)?.name ?? policyId
 }
 
+function formatConstructionPolicyReadback(
+  selectedConstructionPolicyId: string,
+  policies: ConstructionDiscoveredPolicy[],
+) {
+  const readback = getConstructionLaunchPolicyReadback(selectedConstructionPolicyId, policies)
+  if (!readback) return null
+  return `${readback.policyName} (${readback.statusLabel}); fixed top_n=${readback.topN}; requires ${readback.requiredConstraint}; optional ${readback.optionalConstraints.join(', ')}`
+}
+
 export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, onSeedCandidateDraft, onReviewInConstruction, requestedRecentArtifactId = null, onConsumeRequestedRecentArtifactId, sessionState, onSessionStateChange }: EtfRankingPanelProps) {
   const apiBase = useMemo(() => '/api', [])
   const resultRequestOwnerRef = useRef(0)
@@ -381,6 +391,10 @@ export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, on
   )
   const constructionMaxPositionWeightValidation = constructionPositionWeightValidation.maxPositionWeight
   const constructionMinPositionWeightValidation = constructionPositionWeightValidation.minPositionWeight
+  const selectedConstructionPolicyReadback = useMemo(
+    () => formatConstructionPolicyReadback(selectedConstructionPolicyId, constructionPolicyCatalog.policies),
+    [constructionPolicyCatalog.policies, selectedConstructionPolicyId],
+  )
 
   useEffect(() => {
     if (constructionPolicyCatalog.status !== 'ready') return
@@ -651,7 +665,8 @@ export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, on
             </label>
             <div className="field-group">
               <span className="field-label">Policy Source</span>
-               <p className="helper">Authoritative `/construction/policies` discovery defines the compatible review-only policy set and the fixed top_n=2 launch boundary.</p>
+              <p className="helper">Authoritative `/construction/policies` discovery defines the compatible review-only policy set and the fixed top_n=2 launch boundary.</p>
+              {selectedConstructionPolicyReadback ? <p className="helper">{selectedConstructionPolicyReadback}</p> : null}
             </div>
           </div>
           <div className="dashboard-edit-actions dashboard-edit-actions-compact">
@@ -757,6 +772,7 @@ export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, on
                 const selectedPolicyLabel = selectedConstructionPolicyId
                   ? policyNameForReview(selectedConstructionPolicyId, constructionPolicyCatalog.policies)
                   : null
+                const selectedPolicyReadback = selectedConstructionPolicyReadback
                 return (
                   <div className={`risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide ${isLoaded ? 'strategy-ranking-row-top' : ''}`} key={item.artifact_id}>
                     <span>{item.ranking_basis_date}</span>
@@ -767,7 +783,7 @@ export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, on
                     <span>{item.universe_size}</span>
                     <span>{item.evaluated_universe_size}</span>
                     <span>{item.artifact_id}</span>
-                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><button className={`secondary-button${constructionReviewLoadingId === item.artifact_id ? ' button-loading' : ''}`} type="button" onClick={() => void reviewRecentArtifactInConstruction(item.artifact_id)} disabled={constructionReviewLoadingId === item.artifact_id || constructionReviewBlockedReason != null} title={constructionReviewBlockedReason ?? 'Ready for construction review'}>{constructionReviewLoadingId === item.artifact_id ? 'Opening...' : 'Review In Construction'}</button><small>{constructionReviewBlockedReason ?? (selectedPolicyLabel ? `Ready for construction review with ${selectedPolicyLabel}` : 'Ready for construction review')}</small></span>
+                    <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isLoadingArtifact ? ' button-loading' : ''}`} type="button" onClick={() => void loadRecentArtifact(item.artifact_id)} disabled={isLoadingArtifact}>{isLoadingArtifact ? 'Loading...' : isLoaded ? 'Loaded' : 'Load Run'}</button><button className={`secondary-button${constructionReviewLoadingId === item.artifact_id ? ' button-loading' : ''}`} type="button" onClick={() => void reviewRecentArtifactInConstruction(item.artifact_id)} disabled={constructionReviewLoadingId === item.artifact_id || constructionReviewBlockedReason != null} title={constructionReviewBlockedReason ?? 'Ready for construction review'}>{constructionReviewLoadingId === item.artifact_id ? 'Opening...' : 'Review In Construction'}</button><small>{constructionReviewBlockedReason ?? (selectedPolicyReadback ?? (selectedPolicyLabel ? `Ready for construction review with ${selectedPolicyLabel}` : 'Ready for construction review'))}</small></span>
                   </div>
                 )
               })}

@@ -1022,6 +1022,12 @@ function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_w
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'default',
+        launch_top_n: 2,
+      },
     },
     top_n_inverse_rank_weight_v1: {
       policy_id: 'top_n_inverse_rank_weight_v1',
@@ -1044,6 +1050,12 @@ function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_w
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'excluded',
+        launch_top_n: 2,
+      },
     },
     top_n_linear_rank_weight_v1: {
       policy_id: 'top_n_linear_rank_weight_v1',
@@ -1066,6 +1078,12 @@ function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_w
       current_portfolio_input: 'required',
       launch_top_n: 2,
       selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'opt_in',
+        launch_top_n: 2,
+      },
     },
   } as const
 
@@ -2259,7 +2277,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     await screen.findByText('Saved Replacement Ranking Review')
     expect(screen.getByText('Truth: authoritative_persisted_ranking_artifact')).toBeTruthy()
     expect(screen.getByText('Scope: artifact_backed_review_only')).toBeTruthy()
-    expect(screen.getByText('Ready for construction review')).toBeTruthy()
+    expect(screen.getAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count').length).toBeGreaterThan(0)
     expect(screen.queryByText('Promote to Replacement Intent')).toBeNull()
     expect(screen.queryByText('Create Intent')).toBeNull()
   })
@@ -2410,7 +2428,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     await screen.findByText('Persisted ETF Ranking Construction')
     expect(screen.getByText('Persisted Replacement Reviews')).toBeTruthy()
-    await screen.findAllByText('Ready for construction review with Top N Equal Weight v1')
+    await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
     const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
     expect(screen.getAllByRole('button', { name: 'Open Review' }).length).toBeGreaterThan(1)
     fireEvent.click(within(etfBrowser).getByRole('button', { name: 'Open Review' }))
@@ -2571,7 +2589,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     renderShell({ onOpenPersistedConstructionArtifactReview })
 
     await screen.findByText('Persisted ETF Ranking Construction')
-    await screen.findAllByText('Ready for construction review with Top N Equal Weight v1')
+    await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
 
     fireEvent.change(screen.getAllByLabelText('Max Position Weight')[0]!, { target: { value: '0.7' } })
     fireEvent.change(screen.getAllByLabelText('Min Position Weight (optional)')[0]!, { target: { value: '0.3' } })
@@ -2789,7 +2807,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getByText('persisted etf ranking artifact has no eligible ranked candidates for construction')).toBeTruthy()
   })
 
-  it('requires explicit compatible policy selection when equal weight is not discovered in Candidate Idea', async () => {
+  it('fails closed in Candidate Idea when equal weight is not discovered in the canonical launch profile', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
       const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
@@ -2852,13 +2870,55 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell()
 
-    await screen.findByText('Persisted ETF Ranking Construction')
-    const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
-    const button = screen.getByRole('button', { name: 'Review In Construction' })
-    expect(button).toHaveProperty('disabled', true)
-    expect(screen.getByText('Select a compatible construction policy')).toBeTruthy()
-    expect(within(etfBrowser).getByRole('option', { name: 'Top N Linear Rank Weight v1' })).toBeTruthy()
-    expect(within(etfBrowser).queryByRole('option', { name: 'Top N Inverse Rank Weight v1' })).toBeNull()
+    await screen.findAllByText('Construction policies are unavailable.')
+    expect(screen.getAllByText('Construction policy catalog must define exactly one default launch policy').length).toBeGreaterThan(0)
+  })
+
+  it('fails closed in Candidate Idea when construction policy discovery returns policy-status metadata inconsistent with policy identity', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY',
+              lookback_months: 6,
+              effective_peer_group: 'Sector UCITS ETF',
+              universe_size: 3,
+              evaluated_universe_size: 2,
+              confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse().map((policy) => ({
+          ...policy,
+          launch_profile: {
+            ...policy.launch_profile,
+            policy_status: policy.policy_id === 'top_n_linear_rank_weight_v1' ? 'default' : policy.launch_profile.policy_status,
+          },
+        })))
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([]))
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findAllByText('Construction policies are unavailable.')
+    expect(screen.getAllByText('Construction policy catalog returned policy metadata inconsistent with launch_profile.policy_status').length).toBeGreaterThan(0)
   })
 
   it('clears stale persisted replacement review content during a new open attempt and keeps it cleared when the new open fails', async () => {

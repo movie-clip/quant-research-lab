@@ -4,10 +4,105 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Callable
 
-from app.schemas.construction import ConstructionPolicyCatalogEntry, ConstructionPolicyId, ConstructionRankedCandidateInput, ConstructionSelectionRuleId, ConstructionWeight
+from app.schemas.construction import (
+    ConstructionPolicyCatalogEntry,
+    ConstructionPolicyId,
+    ConstructionPolicyLaunchProfile,
+    ConstructionPolicyLaunchProfilePolicyStatus,
+    ConstructionRankedCandidateInput,
+    ConstructionSelectionRuleId,
+    ConstructionWeight,
+)
 
 ELIGIBLE_ONLY_RULE_ID: ConstructionSelectionRuleId = "eligible_only"
 TAKE_TOP_N_RULE_ID: ConstructionSelectionRuleId = "take_top_n"
+RANKING_ARTIFACT_REVIEW_HANDOFF_PROFILE_ID = "ranking_artifact_review_handoff_v1"
+
+
+def _ranking_artifact_review_handoff_launch_profile(
+    policy_status: ConstructionPolicyLaunchProfilePolicyStatus,
+) -> ConstructionPolicyLaunchProfile:
+    return ConstructionPolicyLaunchProfile(
+        profile_id=RANKING_ARTIFACT_REVIEW_HANDOFF_PROFILE_ID,
+        profile_kind="ranking_artifact_review_handoff",
+        policy_status=policy_status,
+        launch_top_n=2,
+    )
+
+
+def _validate_launch_profile(definition: ConstructionPolicyDefinition) -> None:
+    entry = definition.catalog_entry
+    profile = entry.launch_profile
+    if profile.profile_id != RANKING_ARTIFACT_REVIEW_HANDOFF_PROFILE_ID:
+        raise ValueError(f"construction policy {entry.policy_id} has unsupported launch_profile.profile_id")
+    if profile.profile_kind != "ranking_artifact_review_handoff":
+        raise ValueError(f"construction policy {entry.policy_id} has unsupported launch_profile.profile_kind")
+    if profile.launch_top_n != entry.launch_top_n:
+        raise ValueError(f"construction policy {entry.policy_id} launch profile launch_top_n must match launch_top_n")
+
+    expected_rows = {
+        "top_n_equal_weight_v1": {
+            "policy_definition_id": "construction_policy_definition_top_n_equal_weight_v1",
+            "ranking_support": "selection_only",
+            "launch_status": "default",
+        },
+        "top_n_linear_rank_weight_v1": {
+            "policy_definition_id": "construction_policy_definition_top_n_linear_rank_weight_v1",
+            "ranking_support": "linear_selected_order_weighting",
+            "launch_status": "opt_in",
+        },
+        "top_n_inverse_rank_weight_v1": {
+            "policy_definition_id": "construction_policy_definition_top_n_inverse_rank_weight_v1",
+            "ranking_support": "inverse_selected_order_weighting",
+            "launch_status": "excluded",
+        },
+    }
+    expected = expected_rows.get(entry.policy_id)
+    if expected is None:
+        raise ValueError(f"construction policy {entry.policy_id} is not supported by the canonical launch profile")
+    if entry.policy_definition_id != expected["policy_definition_id"]:
+        raise ValueError(f"construction policy {entry.policy_id} launch profile metadata disagrees with policy_definition_id")
+    if entry.ranking_support != expected["ranking_support"]:
+        raise ValueError(f"construction policy {entry.policy_id} launch profile metadata disagrees with ranking_support")
+    if profile.policy_status != expected["launch_status"]:
+        raise ValueError(f"construction policy {entry.policy_id} launch profile metadata disagrees with policy_id")
+
+
+def _validate_canonical_launch_profile_catalog(policy_catalog: tuple[ConstructionPolicyDefinition, ...]) -> None:
+    matching_profiles = [
+        definition
+        for definition in policy_catalog
+        if definition.catalog_entry.launch_profile.profile_id == RANKING_ARTIFACT_REVIEW_HANDOFF_PROFILE_ID
+    ]
+    if not matching_profiles:
+        raise ValueError("construction policy catalog is missing the canonical ranking-artifact review handoff launch profile")
+
+    default_rows = [
+        definition.catalog_entry.policy_id
+        for definition in matching_profiles
+        if definition.catalog_entry.launch_profile.policy_status == "default"
+    ]
+    if len(default_rows) != 1 or default_rows[0] != "top_n_equal_weight_v1":
+        raise ValueError("construction policy catalog must define exactly one default launch policy for ranking-artifact review handoff")
+
+    included_rows = sorted(
+        definition.catalog_entry.policy_id
+        for definition in matching_profiles
+        if definition.catalog_entry.launch_profile.policy_status in {"default", "opt_in"}
+    )
+    if included_rows != ["top_n_equal_weight_v1", "top_n_linear_rank_weight_v1"]:
+        raise ValueError("construction policy catalog ranking-artifact review handoff profile must include only equal-weight and linear-rank launch policies")
+
+    excluded_rows = sorted(
+        definition.catalog_entry.policy_id
+        for definition in matching_profiles
+        if definition.catalog_entry.launch_profile.policy_status == "excluded"
+    )
+    if excluded_rows != ["top_n_inverse_rank_weight_v1"]:
+        raise ValueError("construction policy catalog ranking-artifact review handoff profile must exclude inverse-rank from launch")
+
+    for definition in matching_profiles:
+        _validate_launch_profile(definition)
 
 
 @dataclass(frozen=True)
@@ -57,6 +152,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             current_portfolio_input="required",
             launch_top_n=2,
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
+            launch_profile=_ranking_artifact_review_handoff_launch_profile("default"),
         ),
         max_position_failure_reason="equal-weight seed exceeds max_position_weight",
         cutoff_exclusion_reason="not selected by top_n_equal_weight_v1 cutoff",
@@ -84,6 +180,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             current_portfolio_input="required",
             launch_top_n=2,
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
+            launch_profile=_ranking_artifact_review_handoff_launch_profile("excluded"),
         ),
         max_position_failure_reason="inverse-rank seed exceeds max_position_weight",
         cutoff_exclusion_reason="not selected by top_n_inverse_rank_weight_v1 cutoff",
@@ -111,6 +208,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             current_portfolio_input="required",
             launch_top_n=2,
             selection_rule_ids=[ELIGIBLE_ONLY_RULE_ID, TAKE_TOP_N_RULE_ID],
+            launch_profile=_ranking_artifact_review_handoff_launch_profile("opt_in"),
         ),
         max_position_failure_reason="linear-rank seed exceeds max_position_weight",
         cutoff_exclusion_reason="not selected by top_n_linear_rank_weight_v1 cutoff",
@@ -121,6 +219,8 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
 _POLICY_BY_ID: dict[str, ConstructionPolicyDefinition] = {
     definition.catalog_entry.policy_id: definition for definition in POLICY_CATALOG
 }
+
+_validate_canonical_launch_profile_catalog(POLICY_CATALOG)
 
 
 def list_construction_policies(
@@ -141,6 +241,7 @@ def list_construction_policies(
     current_portfolio_input: str | None = None,
     launch_top_n: int | None = None,
 ) -> list[ConstructionPolicyCatalogEntry]:
+    _validate_canonical_launch_profile_catalog(POLICY_CATALOG)
     policies: list[ConstructionPolicyCatalogEntry] = []
     for definition in POLICY_CATALOG:
         entry = definition.catalog_entry
