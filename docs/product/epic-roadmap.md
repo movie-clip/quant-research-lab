@@ -14,7 +14,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Guardrails strong; breadth still narrow | Ranking-artifact launch policy discovery now exposes one canonical review/handoff launch profile and desktop reads it back explicitly | Add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth; review mechanics stronger than monitor-family breadth | No active slice | Surface active alert-episode inbox more directly in Workspace | 2026-05-06 |
 
 ## Cross-Epic Guardrails
@@ -30,6 +30,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 - Current stage: prototype flow stabilized, regression green, desktop build green.
 - Active epic: `2. Ranking and selection methodology guard`.
 - Current sequence: `Epic 2 -> Epic 3 -> Epic 4`, while `Epic 1` remains the foundational guardrail.
+- Epic 3 is phase closed / guardrail-complete for this phase; remaining construction and optimizer work is breadth expansion rather than guardrail closeout.
 - Biggest current gap: ranking is still too ETF-centric relative to the target methodology platform.
 
 ## Epic 1. Imported-Portfolio Truth and Reconciliation Guard
@@ -143,7 +144,12 @@ Deepen deterministic construction and constrained optimizer review on top of str
 - Desktop uses authoritative backend construction policy discovery and stronger ranking-to-construction handoff.
 - Optimizer review compares against stronger rule-based baselines under the same explicit provenance rules.
 
-### Open gaps
+### Phase closeout status
+
+- Closed for this phase / guardrail-complete.
+- The shipped narrow boundary preserves artifact-backed ranking-to-construction handoff, backend-authoritative policy discovery, fixed launch-profile semantics, fail-closed lineage validation, explicit review basis, and hypothetical-only optimizer/construction truth separation.
+
+### Future breadth gaps
 
 - Canonical ranking-to-construction handoff is shipped for the narrow `ranking_artifact_review_handoff_v1` launch profile; broader eligibility and parameterization remain open.
 - Policy and constraint breadth remain narrow.
@@ -156,7 +162,7 @@ Deepen deterministic construction and constrained optimizer review on top of str
 - `Shipped`: the existing Workspace artifact-backed ranking-to-construction launch browsers now also expose optional `max_turnover_weight` and optional `max_trade_intent_count`, with shared local validation, omission-on-blank request serialization, and no widening of policy authority, ranking-family support, or inline launch paths.
 - `Shipped`: canonical launch context is now preserved and fail-closed across the full shipped ranking-to-construction review boundary, including ranking artifact id/schema/ranking lineage, current portfolio identity/timestamp, selected policy id/definition, and fixed `top_n` lineage through persisted construction artifact reopen.
 - `Shipped`: backend policy discovery now stamps one canonical `ranking_artifact_review_handoff_v1` launch profile with explicit default/opt-in/excluded status, desktop consumes that metadata instead of hardcoded launch allowlists/defaults, and review surfaces read back the shipped `top_n = 2` plus required/optional hard-constraint boundary next to construction launch controls.
-- Next: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions.
+- Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions.
 
 ### Dependencies
 
@@ -171,7 +177,8 @@ Deepen deterministic construction and constrained optimizer review on top of str
 
 ### Exit criteria
 
-- Construction and optimizer workflows consume stronger generalized upstream ranking artifacts and preserve explicit review basis throughout.
+- Supported construction and optimizer review workflows consume explicit upstream artifact/handoff boundaries and preserve review basis throughout.
+- Broader ranking-family eligibility, policy breadth, configurable `top_n`, and richer constraints remain future work.
 
 ## Epic 4. Monitoring and Overlay Review Guard
 
@@ -216,6 +223,13 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Monitoring is no longer only a narrow replay-adjacent review seam and has broader persisted review coverage without overclaiming continuity.
 
 ## Slice Update Log
+
+### 2026-05-08 - Epic 3 phase closeout
+
+- Epic: `3. Construction and optimizer methodology guard`
+- Status: docs-only phase closeout.
+- Marked Epic 3 phase closed / guardrail-complete for the current phase while preserving construction and optimizer breadth expansion as future work.
+- No code, test, contract, current-state, or technical-roadmap changes beyond this roadmap closeout.
 
 ### 2026-05-07 - Epic 3 ranking bridge stabilization follow-up
 

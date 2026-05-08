@@ -63,8 +63,8 @@ Forward-looking epic execution status belongs in `docs/product/epic-roadmap.md`.
 - `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}` reloads persisted intent-bound ETF replacement ranking artifacts through the same explicit artifact boundary
 - `POST /ranking/etf-replacements` preserves the legacy non-artifact response shape while still persisting the canonical replacement-ranking artifact internally
 - `GET /ranking/etf-replacements/artifacts/{artifact_id}` remains a shipped compatibility alias for artifact reload by id
-- `GET /strategy-lab/ranking-artifacts/catalog` exposes additive backend-only generalized catalog discovery across the supported persisted ETF ranking and intent-bound ETF replacement artifact kinds
-- `GET /strategy-lab/ranking-artifacts/recent` exposes additive backend-only generalized recent discovery across the same supported persisted artifact kinds
+- `GET /strategy-lab/ranking-artifacts/catalog` exposes additive backend-only generalized catalog discovery metadata across supported persisted ranking artifact kinds, including `etf_ranking`, `intent_bound_etf_replacement_ranking`, and `generic_ranking`
+- `GET /strategy-lab/ranking-artifacts/recent` exposes additive backend-only generalized recent discovery metadata across the same supported persisted artifact kinds
 - `GET /strategy-lab/etf-ranking/artifacts/recent` exposes newest-first recent artifact discovery with optional `effective_peer_group` filtering
 - `GET /strategy-lab/etf-ranking/artifacts/recent/metadata` exposes discovered recent-run filter metadata for current consumers
 - shipped ETF ranking artifacts already carry persisted artifact identity, grouped request/effective-inputs metadata, and run-basis metadata for audit and reuse

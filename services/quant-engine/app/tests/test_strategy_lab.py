@@ -1211,7 +1211,7 @@ def test_strategy_lab_replacement_post_keeps_artifact_envelope_additively(tmp_pa
     assert payload["lineage"]["candidate_symbol"] == "ETF1"
 
 
-def test_generalized_ranking_artifact_catalog_lists_persisted_etf_and_replacement_artifacts(tmp_path: Path, mocker) -> None:
+def test_generalized_ranking_artifact_catalog_lists_persisted_artifacts_and_supported_kinds(tmp_path: Path, mocker) -> None:
     mocker.patch(
         "app.services.etf_ranking_artifact_service.get_settings",
         return_value=SimpleNamespace(
@@ -1249,10 +1249,11 @@ def test_generalized_ranking_artifact_catalog_lists_persisted_etf_and_replacemen
     assert response.status_code == 200
     payload = response.json()
     assert payload["metadata"]["contract_version"] == "ranking_artifact_discovery_v1"
-    assert payload["metadata"]["supported_artifact_kinds"] == [
+    assert set(payload["metadata"]["supported_artifact_kinds"]) == {
         "etf_ranking",
         "intent_bound_etf_replacement_ranking",
-    ]
+        "generic_ranking",
+    }
     assert payload["metadata"]["artifact_kind_registry_version"] == "ranking_artifact_kind_registry_v1"
     assert payload["metadata"]["metadata_truth"] == "authoritative_persisted_metadata"
     assert payload["metadata"]["supported_metadata_provenance"] == [
@@ -1277,45 +1278,67 @@ def test_generalized_ranking_artifact_catalog_lists_persisted_etf_and_replacemen
         "ranking_basis_date",
         "basis_date",
     ]
-    assert payload["metadata"]["artifact_kind_registry"] == [
-        {
-            "artifact_kind": "etf_ranking",
-            "supported_schema_versions": ["etf_ranking_artifact_v1"],
-            "supported_filters": [
-                "artifact_kind",
-                "schema_version",
-                "metadata_truth",
-                "metadata_provenance",
-                "recency_same_day_provenance",
-                "methodology_id",
-                "confidence",
-                "as_of_date",
-                "ranking_basis_date",
-                "benchmark_symbol",
-                "effective_peer_group",
-            ],
-        },
-        {
-            "artifact_kind": "intent_bound_etf_replacement_ranking",
-            "supported_schema_versions": ["intent_bound_etf_replacement_ranking_artifact_v1"],
-            "supported_filters": [
-                "artifact_kind",
-                "schema_version",
-                "metadata_truth",
-                "metadata_provenance",
-                "recency_same_day_provenance",
-                "methodology_id",
-                "confidence",
-                "as_of_date",
-                "ranking_basis_date",
-                "base_symbol",
-                "candidate_symbol",
-                "peer_group",
-                "status",
-                "basis_date",
-            ],
-        },
-    ]
+    artifact_kind_registry = {
+        entry["artifact_kind"]: entry for entry in payload["metadata"]["artifact_kind_registry"]
+    }
+    assert set(artifact_kind_registry) == {
+        "etf_ranking",
+        "intent_bound_etf_replacement_ranking",
+        "generic_ranking",
+    }
+    assert artifact_kind_registry["etf_ranking"] == {
+        "artifact_kind": "etf_ranking",
+        "supported_schema_versions": ["etf_ranking_artifact_v1"],
+        "supported_filters": [
+            "artifact_kind",
+            "schema_version",
+            "metadata_truth",
+            "metadata_provenance",
+            "recency_same_day_provenance",
+            "methodology_id",
+            "confidence",
+            "as_of_date",
+            "ranking_basis_date",
+            "benchmark_symbol",
+            "effective_peer_group",
+        ],
+    }
+    assert artifact_kind_registry["intent_bound_etf_replacement_ranking"] == {
+        "artifact_kind": "intent_bound_etf_replacement_ranking",
+        "supported_schema_versions": ["intent_bound_etf_replacement_ranking_artifact_v1"],
+        "supported_filters": [
+            "artifact_kind",
+            "schema_version",
+            "metadata_truth",
+            "metadata_provenance",
+            "recency_same_day_provenance",
+            "methodology_id",
+            "confidence",
+            "as_of_date",
+            "ranking_basis_date",
+            "base_symbol",
+            "candidate_symbol",
+            "peer_group",
+            "status",
+            "basis_date",
+        ],
+    }
+    assert artifact_kind_registry["generic_ranking"] == {
+        "artifact_kind": "generic_ranking",
+        "supported_schema_versions": ["generic_ranking_artifact_v1"],
+        "supported_filters": [
+            "artifact_kind",
+            "schema_version",
+            "metadata_truth",
+            "metadata_provenance",
+            "recency_same_day_provenance",
+            "methodology_id",
+            "confidence",
+            "as_of_date",
+            "ranking_basis_date",
+            "benchmark_symbol",
+        ],
+    }
     assert payload["metadata"]["applied_filters"] == {
         "artifact_kind": None,
         "schema_version": None,
