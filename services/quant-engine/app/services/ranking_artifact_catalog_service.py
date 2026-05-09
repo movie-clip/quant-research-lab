@@ -22,11 +22,17 @@ from app.schemas.ranking import (
     ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
     INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
 )
+from app.schemas.generic_ranking import (
+    GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION,
+    GenericRankingArtifact,
+    GenericRankingArtifactRecentRow,
+)
 from app.schemas.research import (
     EtfRankingArtifact,
     EtfRankingArtifactRecentRow,
     IntentBoundEtfReplacementRankingArtifact,
     RankingArtifactCatalogEtfSummary,
+    RankingArtifactCatalogGenericSummary,
     RankingArtifactCatalogListResponse,
     RankingArtifactCatalogMetadata,
     RankingArtifactCatalogReplacementSummary,
@@ -40,6 +46,11 @@ from app.services.etf_ranking_artifact_service import (
     EtfRankingArtifactStore,
     list_recent_etf_ranking_artifacts_strict,
     load_etf_ranking_artifact,
+)
+from app.services.generic_ranking_artifact_service import (
+    GenericRankingArtifactStore,
+    list_recent_generic_ranking_artifacts,
+    load_generic_ranking_artifact,
 )
 from app.services.replacement_ranking_artifact_service import (
     ReplacementRankingArtifactStore,
@@ -61,6 +72,7 @@ class RankingArtifactCatalogMalformedMetadataError(RankingArtifactCatalogService
 
 ETF_RANKING_KIND = cast(RankingArtifactKind, "etf_ranking")
 REPLACEMENT_RANKING_KIND = cast(RankingArtifactKind, "intent_bound_etf_replacement_ranking")
+GENERIC_RANKING_KIND = cast(RankingArtifactKind, "generic_ranking")
 PERSISTED_ARTIFACT_BODY_PROVENANCE = cast(Literal["persisted_artifact_body", "persisted_etf_recent_index"], "persisted_artifact_body")
 PERSISTED_ETF_RECENT_INDEX_PROVENANCE = cast(Literal["persisted_artifact_body", "persisted_etf_recent_index"], "persisted_etf_recent_index")
 ARTIFACT_ID_RECENCY_PROVENANCE = cast(Literal["artifact_id", "etf_recent_index"], "artifact_id")
@@ -85,6 +97,7 @@ class PersistedRankingArtifactMetadataRow:
     recency_same_day_provenance: Literal["artifact_id", "etf_recent_index"]
     etf_summary: RankingArtifactCatalogEtfSummary | None = None
     replacement_summary: RankingArtifactCatalogReplacementSummary | None = None
+    generic_summary: RankingArtifactCatalogGenericSummary | None = None
 
     def to_catalog_row(self) -> RankingArtifactCatalogRow:
         return RankingArtifactCatalogRow(
@@ -105,6 +118,7 @@ class PersistedRankingArtifactMetadataRow:
             ),
             etf_summary=self.etf_summary,
             replacement_summary=self.replacement_summary,
+            generic_summary=self.generic_summary,
         )
 
 
@@ -114,9 +128,11 @@ class RankingArtifactCatalogService:
         *,
         etf_store: EtfRankingArtifactStore | None = None,
         replacement_store: ReplacementRankingArtifactStore | None = None,
+        generic_store: GenericRankingArtifactStore | None = None,
     ) -> None:
         self.etf_store = etf_store or EtfRankingArtifactStore()
         self.replacement_store = replacement_store or ReplacementRankingArtifactStore()
+        self.generic_store = generic_store or GenericRankingArtifactStore()
 
     def list_catalog(
         self,
@@ -133,6 +149,8 @@ class RankingArtifactCatalogService:
             rows.extend(self._list_all_etf_rows(filters=normalized_filters))
         if normalized_filters.artifact_kind in (None, "intent_bound_etf_replacement_ranking"):
             rows.extend(self._list_all_replacement_rows(filters=normalized_filters))
+        if normalized_filters.artifact_kind in (None, "generic_ranking"):
+            rows.extend(self._list_all_generic_rows(filters=normalized_filters))
 
         return RankingArtifactCatalogListResponse(
             items=_sort_catalog_rows_for_catalog(rows, etf_same_day_order=etf_same_day_order),
@@ -164,6 +182,8 @@ class RankingArtifactCatalogService:
             rows.extend(self._list_recent_etf_rows(filters=normalized_filters))
         if normalized_filters.artifact_kind in (None, "intent_bound_etf_replacement_ranking"):
             rows.extend(self._list_all_replacement_rows(filters=normalized_filters))
+        if normalized_filters.artifact_kind in (None, "generic_ranking"):
+            rows.extend(self._list_recent_generic_rows(filters=normalized_filters))
 
         return RankingArtifactCatalogListResponse(
             items=_sort_catalog_rows(rows, preserve_same_day_input_order=True)[:limit],
@@ -228,6 +248,31 @@ class RankingArtifactCatalogService:
             if _matches_filters(metadata_row, filters):
                 rows.append(metadata_row.to_catalog_row())
         return _sort_rows_with_metadata_tiebreak(rows)
+
+    def _list_all_generic_rows(self, *, filters: RankingArtifactDiscoveryFilters) -> list[RankingArtifactCatalogRow]:
+        rows: list[RankingArtifactCatalogRow] = []
+        for artifact_path in sorted(self.generic_store.base_dir.glob("*.json")):
+            metadata_row = _build_generic_artifact_metadata_row(
+                load_generic_ranking_artifact(artifact_path.stem, store=self.generic_store)
+            )
+            if _matches_filters(metadata_row, filters):
+                rows.append(metadata_row.to_catalog_row())
+        return _sort_rows_with_metadata_tiebreak(rows)
+
+    def _list_recent_generic_rows(self, *, filters: RankingArtifactDiscoveryFilters) -> list[RankingArtifactCatalogRow]:
+        # Generic ranking has no separate recent-index round-trip alignment yet — use full catalog scan
+        # bounded by the recent.jsonl ordering. Simpler than ETF; can be tightened later if needed.
+        rows: list[RankingArtifactCatalogRow] = []
+        recent_rows = list_recent_generic_ranking_artifacts(limit=2**31 - 1, store=self.generic_store)
+        for recent_row in recent_rows:
+            try:
+                artifact = load_generic_ranking_artifact(recent_row.artifact_id, store=self.generic_store)
+            except Exception:  # noqa: BLE001 — skip rows whose artifact body has been removed/corrupted
+                continue
+            metadata_row = _build_generic_artifact_metadata_row(artifact)
+            if _matches_filters(metadata_row, filters):
+                rows.append(metadata_row.to_catalog_row())
+        return rows
 
 
 def list_ranking_artifact_catalog(
@@ -430,6 +475,44 @@ def _build_replacement_artifact_metadata_row(
     )
 
 
+def _build_generic_artifact_metadata_row(
+    artifact: GenericRankingArtifact,
+) -> PersistedRankingArtifactMetadataRow:
+    try:
+        validate_ranking_artifact_kind_schema_version(
+            artifact_kind=GENERIC_RANKING_KIND,
+            schema_version=artifact.schema_version,
+        )
+    except ValueError as exc:
+        raise RankingArtifactCatalogUnsupportedStateError(str(exc)) from exc
+    return PersistedRankingArtifactMetadataRow(
+        artifact_kind=GENERIC_RANKING_KIND,
+        artifact_id=artifact.artifact_id,
+        schema_version=artifact.schema_version,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.as_of_date,
+        ranking_basis_date=artifact.run_metadata.ranking_basis_date,
+        recent_order_primary_date=artifact.run_metadata.ranking_basis_date,
+        recent_order_secondary_date=artifact.as_of_date,
+        recent_order_artifact_id=artifact.artifact_id,
+        metadata_provenance=PERSISTED_ARTIFACT_BODY_PROVENANCE,
+        matched_metadata_provenance=PERSISTED_ARTIFACT_BODY_PROVENANCE,
+        recency_same_day_provenance=ARTIFACT_ID_RECENCY_PROVENANCE,
+        etf_summary=None,
+        replacement_summary=None,
+        generic_summary=RankingArtifactCatalogGenericSummary(
+            benchmark_symbol=artifact.benchmark_symbol,
+            lookback_months=artifact.lookback_months,
+            universe_id=artifact.universe_spec_snapshot.universe_id,
+            universe_kind=artifact.universe_spec_snapshot.universe_kind,
+            score_config_id=artifact.run_metadata.score_config_ref.score_config_id,
+            evaluated_universe_size=len(artifact.ranked_universe),
+            confidence=artifact.run_metadata.confidence,
+        ),
+    )
+
+
 def _build_etf_recent_metadata_row(recent_row: EtfRankingArtifactRecentRow) -> PersistedRankingArtifactMetadataRow:
     try:
         validated = RankingArtifactCatalogEtfSummary(
@@ -559,6 +642,23 @@ def _matches_filters(row: PersistedRankingArtifactMetadataRow, filters: RankingA
             return False
         return True
 
+    if row.artifact_kind == "generic_ranking":
+        summary = row.generic_summary
+        if summary is None:
+            raise RankingArtifactCatalogMalformedMetadataError("malformed persisted generic ranking metadata state")
+        if filters.benchmark_symbol is not None and summary.benchmark_symbol != filters.benchmark_symbol:
+            return False
+        # Generic ranking does not support replacement-specific filters
+        if any(
+            value is not None
+            for value in (
+                filters.base_symbol, filters.candidate_symbol, filters.peer_group,
+                filters.status, filters.basis_date, filters.effective_peer_group,
+            )
+        ):
+            return False
+        return True
+
     raise RankingArtifactCatalogUnsupportedStateError("unsupported ranking artifact kind")
 
 
@@ -571,6 +671,10 @@ def _row_confidence(row: PersistedRankingArtifactMetadataRow) -> str:
         if row.replacement_summary is None:
             raise RankingArtifactCatalogMalformedMetadataError("malformed persisted replacement metadata state")
         return row.replacement_summary.confidence
+    if row.artifact_kind == "generic_ranking":
+        if row.generic_summary is None:
+            raise RankingArtifactCatalogMalformedMetadataError("malformed persisted generic ranking metadata state")
+        return row.generic_summary.confidence
     raise RankingArtifactCatalogUnsupportedStateError("unsupported ranking artifact kind")
 
 

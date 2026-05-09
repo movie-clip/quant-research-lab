@@ -15,7 +15,11 @@ UniverseKind = Literal[
     "custom_list",          # explicit list, any instruments
     "broad_equity_screen",  # FMP screener: exchange + cap + ADV filters
     "sector_screen",        # broad_equity_screen + sector include/exclude
+    "index_constituent",    # FMP index endpoint (sp500); resolved to current snapshot
 ]
+
+# Supported index identifiers for universe_kind="index_constituent".
+IndexId = Literal["sp500"]
 
 FactorFamily = Literal["momentum", "volatility", "liquidity", "quality", "value", "sentiment"]
 NormalizationMethod = Literal["cross_sectional_zscore", "percentile_rank", "minmax"]
@@ -38,11 +42,15 @@ class UniverseSpec(BaseModel):
     country_iso2: list[str] = Field(default_factory=lambda: ["US"])
     exclude_etf: bool = True
     exclude_adr: bool = True
+    # Required for universe_kind="index_constituent"; identifies which index members to fetch.
+    index_id: IndexId | None = None
 
     @model_validator(mode="after")
     def _validate_kind_requirements(self) -> "UniverseSpec":
         if self.universe_kind in ("etf_peer_group", "custom_list") and not self.explicit_symbols:
             raise ValueError(f"universe_kind={self.universe_kind!r} requires explicit_symbols")
+        if self.universe_kind == "index_constituent" and self.index_id is None:
+            raise ValueError("universe_kind='index_constituent' requires index_id")
         return self
 
 

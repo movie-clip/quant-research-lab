@@ -356,6 +356,56 @@ Catalog/recent discovery row shape returned by the recent-run listing endpoint. 
   - type: `'full' | 'partial' | 'degraded'`
   - ranking confidence level for quick filtering and display
 
+## Phase 2 additions
+
+### Universe kinds
+
+- `index_constituent` — resolved live via FMP `/stable/sp500-constituent`. Requires `index_id` field on the spec.
+
+### IndexId
+
+- `'sp500'` — current S&P 500 membership snapshot (point-in-time historical reconstruction deferred to a future phase)
+
+### Quality factor IDs (require FMP fundamental data)
+
+| factor_id | formula | direction | source |
+|---|---|---|---|
+| `quality_profitability` | (revenue − COGS) / total_assets, fallback EBIT/total_assets | higher_is_better | income statement + balance sheet |
+| `quality_cash_generation` | OCF / total_assets, fallback FCF/total_assets | higher_is_better | cash flow + balance sheet |
+| `quality_accrual` | (net_income − OCF) / total_assets — Sloan ratio | lower_is_better | income statement + cash flow |
+| `quality_leverage` | (total_debt − cash) / total_assets — net leverage | lower_is_better | balance sheet |
+
+### Value factor IDs (require FMP TTM ratios)
+
+| factor_id | formula | direction | source |
+|---|---|---|---|
+| `value_earnings_yield` | EBIT / Enterprise Value (Greenblatt) | higher_is_better | `key-metrics-ttm` |
+| `value_book_to_market` | 1 / P/B | higher_is_better | `ratios-ttm.priceToBookRatioTTM` |
+| `value_fcf_yield` | FCF / market_cap | higher_is_better | `ratios-ttm.priceToFreeCashFlowsRatioTTM` (invert) or `key-metrics-ttm.freeCashFlowYieldTTM` |
+| `value_ev_ebitda_inverse` | 1 / (EV/EBITDA) | higher_is_better | `ratios-ttm.enterpriseValueMultipleTTM` (invert) |
+
+### Catalog summary
+
+`RankingArtifactCatalogRow.generic_summary` is populated for `artifact_kind == "generic_ranking"`:
+
+```typescript
+interface RankingArtifactCatalogGenericSummary {
+  benchmark_symbol: string;
+  lookback_months: number;
+  universe_id: string;
+  universe_kind: string;
+  score_config_id: string;
+  evaluated_universe_size: number;
+  confidence: string;  // "full" | "partial" | "degraded"
+}
+```
+
+The cross-kind discovery routes `/strategy-lab/ranking-artifacts/catalog` and `/strategy-lab/ranking-artifacts/recent` now surface generic ranking artifacts alongside ETF and replacement artifacts. Filtering by `artifact_kind="generic_ranking"` returns only generic rows.
+
+### Behavior when fundamentals requested without FMP client
+
+If the request includes quality or value factors but no FMP API key is configured, the service emits a warning and returns the artifact with those factors set to `None`. Confidence drops to `partial`. The artifact still persists — degraded state is surfaced explicitly rather than failing the request.
+
 ## Contract Rules
 
 - the Pydantic schema in `services/quant-engine/app/schemas/generic_ranking.py` is the authoritative source of truth; the TypeScript types in `apps/desktop/src/features/generic-ranking/types.ts` must match it exactly

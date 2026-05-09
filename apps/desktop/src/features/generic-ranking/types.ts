@@ -3,7 +3,10 @@ export type UniverseKind =
   | 'etf_peer_group'
   | 'custom_list'
   | 'broad_equity_screen'
-  | 'sector_screen';
+  | 'sector_screen'
+  | 'index_constituent';
+
+export type IndexId = 'sp500';
 
 export interface UniverseSpec {
   universe_id: string;
@@ -19,6 +22,7 @@ export interface UniverseSpec {
   country_iso2: string[];
   exclude_etf: boolean;
   exclude_adr: boolean;
+  index_id?: IndexId | null;
 }
 
 export type FactorFamily =

@@ -50,6 +50,7 @@ from app.services.cross_sectional_research_service import (
     build_cross_sectional_research_artifact,
     build_cross_sectional_research_validation,
 )
+from app.clients.fmp import FmpClient
 from app.services.market_data import MarketDataService
 from app.services.etf_ranking_artifact_service import (
     EtfRankingArtifactIntegrityValidationError,
@@ -824,8 +825,20 @@ def get_intent_bound_etf_replacement_ranking_artifact(artifact_id: str) -> Inten
 
 @router.post("/strategy-lab/ranking/run", response_model=GenericRankingArtifact)
 def run_generic_ranking(request: GenericRankingRequest) -> GenericRankingArtifact:
+    # Inject FMP client when the request needs live data (quality/value factors,
+    # broad_equity_screen, sector_screen, or index_constituent universes).
+    # Falls back to None if FMP_API_KEY is not configured — service degrades gracefully.
+    fmp_client: object | None = None
     try:
-        response = build_generic_ranking(request)
+        fmp_client = FmpClient()
+        # Verify api_key present; if not, leave as None so service emits a warning rather than raising
+        if not getattr(fmp_client, "api_key", None):
+            fmp_client = None
+    except Exception:  # noqa: BLE001
+        fmp_client = None
+
+    try:
+        response = build_generic_ranking(request, fmp_client=fmp_client)
         return persist_generic_ranking_artifact(response)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
