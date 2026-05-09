@@ -2965,13 +2965,21 @@ export type MonitorDefinitionDiscoveryContractVersion = 'monitor_definition_disc
 export type MonitorDefinitionDiscoveryMetadataTruth = 'authoritative_persisted_artifact_metadata'
 export type MonitorDefinitionDiscoveryRowProvenance = 'persisted_monitor_definition_artifact'
 export type MonitorDefinitionRecentOrderProvenance = 'persisted_artifact_file_mtime'
-export type MonitorDefinitionMonitorId = 'benchmark_trend_overlay_v1'
+export type MonitorDefinitionMonitorId = 'benchmark_trend_overlay_v1' | 'data_quality_monitor_v1'
 export type MonitorDefinitionObservationStatus = 'ok' | 'threshold_breach' | 'degraded' | 'unavailable'
+export type DataQualityMonitorObservationStatus = 'ok' | 'degraded' | 'unavailable'
 export type MonitorDefinitionCanonicalCauseCode =
   | 'benchmark_observation_unconfirmed'
   | 'benchmark_observation_unavailable'
   | 'portfolio_truth_non_positive_total_value'
+  | 'market_data_coverage_degraded'
+  | 'market_data_freshness_degraded'
+  | 'market_data_unavailable'
+  | 'input_withheld'
+  | 'input_unavailable'
+  | 'provenance_incomplete'
 export type MonitorDefinitionOverlayFamily = 'benchmark_trend'
+export type MonitorDefinitionFamily = 'benchmark_trend' | 'data_quality'
 export type MonitorDefinitionDiscoveryReviewSupportStatus = 'review_supported'
 export type MonitorDefinitionDiscoveryLifecycleStatus = 'enabled' | 'disabled'
 export type MonitorDefinitionLatestEvaluationSnapshotStatus = 'present' | 'absent'
@@ -2997,6 +3005,7 @@ export type MonitorDefinitionMonitoringSourcePrecedence =
 
 export type MonitorDefinitionDiscoveryFilters = {
   overlay_family: MonitorDefinitionOverlayFamily | null
+  monitor_family?: MonitorDefinitionFamily | null
   monitor_id: MonitorDefinitionMonitorId | null
   review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | null
   lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | null
@@ -3012,6 +3021,7 @@ export type MonitorDefinitionDiscoveryFilters = {
 
 export type MonitorDefinitionLifecycleStatusMetadata = {
   overlay_family: MonitorDefinitionOverlayFamily
+  monitor_family?: MonitorDefinitionFamily | null
   review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus
   lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus
 }
@@ -3026,6 +3036,14 @@ export type MonitorDefinitionLatestEvaluationSnapshotSummary = {
   source_precedence: MonitorDefinitionMonitoringSourcePrecedence
 }
 
+export type DataQualityMonitorLatestEvaluationSnapshotSummary = Omit<
+  MonitorDefinitionLatestEvaluationSnapshotSummary,
+  'outcome_status' | 'significance_status'
+> & {
+  outcome_status: DataQualityMonitorObservationStatus
+  significance_status: Exclude<MonitorDefinitionLatestEvaluationSignificanceStatus, 'action_required'>
+}
+
 export type MonitorDefinitionLatestObservationSummary = {
   observation_id: string
   evaluated_at: string
@@ -3037,13 +3055,21 @@ export type MonitorDefinitionLatestObservationSummary = {
   source_precedence: MonitorDefinitionMonitoringSourcePrecedence
 }
 
+export type DataQualityMonitorLatestObservationSummary = Omit<
+  MonitorDefinitionLatestObservationSummary,
+  'observation_status' | 'alert_classification'
+> & {
+  observation_status: DataQualityMonitorObservationStatus
+  alert_classification: Exclude<MonitorDefinitionAlertClassification, 'action_required'>
+}
+
 export type MonitorDefinitionStatusMetadata = {
   lifecycle: MonitorDefinitionLifecycleStatusMetadata
   status_source_precedence: MonitorDefinitionMonitoringSourcePrecedence
   latest_observation_status: MonitorDefinitionLatestObservationStatus
-  latest_observation: MonitorDefinitionLatestObservationSummary | null
+  latest_observation: MonitorDefinitionLatestObservationSummary | DataQualityMonitorLatestObservationSummary | null
   latest_evaluation_snapshot_status: MonitorDefinitionLatestEvaluationSnapshotStatus
-  latest_evaluation_snapshot: MonitorDefinitionLatestEvaluationSnapshotSummary | null
+  latest_evaluation_snapshot: MonitorDefinitionLatestEvaluationSnapshotSummary | DataQualityMonitorLatestEvaluationSnapshotSummary | null
 }
 
 export type BenchmarkTrendOverlayMonitorThresholds = {
@@ -3061,11 +3087,48 @@ export type BenchmarkTrendOverlayMonitorSourceLineageRequirements = {
   required_benchmark_observation_fields: string[]
 }
 
-export type MonitorDefinitionArtifact = {
+export type DataQualityMonitorPolicy = {
+  minimum_coverage_ratio: number
+  max_stale_age_days: number
+  required_trust_floor: 'verified' | 'degraded' | 'withheld' | 'unavailable'
+  provenance_requirements: string[]
+}
+
+export type DataQualityTrustStatus = 'verified' | 'degraded' | 'withheld' | 'unavailable'
+
+export type DataQualityMonitorSourceLineageRequirements = {
+  evidence_source_kind: 'market_data_reliability_evidence'
+  portfolio_truth_basis: 'imported_portfolio_snapshot'
+  required_evidence_fields: string[]
+  required_portfolio_statement_fields?: never
+  required_benchmark_observation_fields?: never
+}
+
+export type DataQualityMonitorEvidenceSourceLineage = {
+  source_kind: 'market_data_cache' | 'broker_import' | 'data_quality_evidence'
+  source_id: string
+  observed_at: string
+}
+
+export type DataQualityMonitorEvidenceSummary = {
+  coverage_total_count: number
+  coverage_available_count: number
+  coverage_missing_count: number
+  coverage_ratio: number
+  stale_symbols: string[]
+  missing_symbols: string[]
+  trust_statuses: Record<string, DataQualityTrustStatus>
+  withheld_inputs: string[]
+  unavailable_inputs: string[]
+  source_lineage: DataQualityMonitorEvidenceSourceLineage[]
+}
+
+export type BenchmarkTrendOverlayMonitorDefinitionArtifact = {
   schema_version: MonitorDefinitionSchemaVersion
   monitor_definition_id: MonitorDefinitionId
   fingerprint: MonitorDefinitionFingerprint
-  monitor_id: MonitorDefinitionMonitorId
+  monitor_id: 'benchmark_trend_overlay_v1'
+  monitor_family?: 'benchmark_trend' | null
   benchmark_symbol: string
   review_scope: MonitorDefinitionReviewScope
   evaluation_mode: MonitorDefinitionEvaluationMode
@@ -3074,10 +3137,27 @@ export type MonitorDefinitionArtifact = {
   source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements
 }
 
-export type CreateMonitorDefinitionRequest = {
-  monitor_id: MonitorDefinitionMonitorId
-  benchmark_symbol: string
+export type DataQualityMonitorDefinitionArtifact = {
+  schema_version: MonitorDefinitionSchemaVersion
+  monitor_definition_id: MonitorDefinitionId
+  fingerprint: MonitorDefinitionFingerprint
+  monitor_id: 'data_quality_monitor_v1'
+  monitor_family: 'data_quality'
+  benchmark_symbol: 'DATA_QUALITY'
+  review_scope: MonitorDefinitionReviewScope
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  observation_statuses: DataQualityMonitorObservationStatus[]
+  thresholds: DataQualityMonitorPolicy
+  source_lineage_requirements: DataQualityMonitorSourceLineageRequirements
 }
+
+export type MonitorDefinitionArtifact =
+  | BenchmarkTrendOverlayMonitorDefinitionArtifact
+  | DataQualityMonitorDefinitionArtifact
+
+export type CreateMonitorDefinitionRequest =
+  | { monitor_id: 'benchmark_trend_overlay_v1'; benchmark_symbol: string }
+  | { monitor_id: 'data_quality_monitor_v1'; benchmark_symbol?: 'DATA_QUALITY' | null }
 
 export type MonitorDefinitionArtifactListItem = Pick<
   MonitorDefinitionArtifact,
@@ -3106,6 +3186,7 @@ export type MonitorDefinitionCatalogResponse = {
     row_provenance: MonitorDefinitionDiscoveryRowProvenance
     supported_monitor_ids: MonitorDefinitionMonitorId[]
     supported_overlay_families: MonitorDefinitionOverlayFamily[]
+    supported_monitor_families?: MonitorDefinitionFamily[]
     applied_filters: MonitorDefinitionDiscoveryFilters
   }
 }
@@ -3127,6 +3208,7 @@ export type MonitorDefinitionRecentResponse = {
     row_provenance: MonitorDefinitionDiscoveryRowProvenance
     recent_order_provenance: MonitorDefinitionRecentOrderProvenance
     supported_monitor_ids: MonitorDefinitionMonitorId[]
+    supported_monitor_families?: MonitorDefinitionFamily[]
     supported_overlay_families: MonitorDefinitionOverlayFamily[]
     applied_filters: MonitorDefinitionDiscoveryFilters
   }
@@ -3394,10 +3476,11 @@ export type MonitorDefinitionAlertReviewTimelineObservationRow =
   Omit<MonitorDefinitionLatestObservationAlertInboxRow, 'metadata'> & {
     event_kind: 'latest_observation_event'
     event_semantics: 'observation_rooted'
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    thresholds: BenchmarkTrendOverlayMonitorThresholds | DataQualityMonitorPolicy
+    benchmark_observation?: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | null
+    portfolio_observation?: BenchmarkTrendOverlayMonitorPortfolioObservation | null
+    active_observation?: BenchmarkTrendOverlayMonitorActiveObservation | null
+    data_quality_evidence?: DataQualityMonitorEvidenceSummary | null
     metadata: {
       metadata_truth: 'authoritative_persisted_artifact_metadata'
       row_provenance: 'persisted_monitor_definition_observation_artifact'
@@ -3408,10 +3491,11 @@ export type MonitorDefinitionAlertReviewTimelineHistoryRow =
   Omit<MonitorDefinitionAlertHistoryQueueRow, 'metadata'> & {
     event_kind: 'evaluation_history_event'
     event_semantics: 'history_entry_rooted'
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    thresholds: BenchmarkTrendOverlayMonitorThresholds | DataQualityMonitorPolicy
+    benchmark_observation?: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | null
+    portfolio_observation?: BenchmarkTrendOverlayMonitorPortfolioObservation | null
+    active_observation?: BenchmarkTrendOverlayMonitorActiveObservation | null
+    data_quality_evidence?: DataQualityMonitorEvidenceSummary | null
     metadata: {
       metadata_truth: 'authoritative_persisted_artifact_metadata'
       row_provenance: 'persisted_monitor_definition_evaluation_history_entry'
@@ -3421,6 +3505,122 @@ export type MonitorDefinitionAlertReviewTimelineHistoryRow =
 export type MonitorDefinitionAlertReviewTimelineRow =
   | MonitorDefinitionAlertReviewTimelineObservationRow
   | MonitorDefinitionAlertReviewTimelineHistoryRow
+
+export type BenchmarkTrendMonitorDefinitionAlertReviewTimelineObservationRow =
+  MonitorDefinitionAlertReviewTimelineObservationRow & {
+    monitor_id: 'benchmark_trend_overlay_v1'
+    benchmark_symbol: string
+    observation_status: MonitorDefinitionObservationStatus
+    alert_classification: MonitorDefinitionAlertClassification
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    data_quality_evidence?: null
+  }
+
+export type DataQualityMonitorDefinitionAlertReviewTimelineObservationRow =
+  MonitorDefinitionAlertReviewTimelineObservationRow & {
+    monitor_id: 'data_quality_monitor_v1'
+    benchmark_symbol: 'DATA_QUALITY'
+    observation_status: DataQualityMonitorObservationStatus
+    alert_classification: Exclude<MonitorDefinitionAlertClassification, 'action_required'>
+    thresholds: DataQualityMonitorPolicy
+    benchmark_observation?: null
+    portfolio_observation?: null
+    active_observation?: null
+    data_quality_evidence: DataQualityMonitorEvidenceSummary
+  }
+
+export type BenchmarkTrendMonitorDefinitionAlertReviewTimelineHistoryRow =
+  MonitorDefinitionAlertReviewTimelineHistoryRow & {
+    monitor_id: 'benchmark_trend_overlay_v1'
+    benchmark_symbol: string
+    outcome_status: MonitorDefinitionObservationStatus
+    significance_status: MonitorDefinitionLatestEvaluationSignificanceStatus
+    thresholds: BenchmarkTrendOverlayMonitorThresholds
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    data_quality_evidence?: null
+  }
+
+export type DataQualityMonitorDefinitionAlertReviewTimelineHistoryRow =
+  MonitorDefinitionAlertReviewTimelineHistoryRow & {
+    monitor_id: 'data_quality_monitor_v1'
+    benchmark_symbol: 'DATA_QUALITY'
+    outcome_status: DataQualityMonitorObservationStatus
+    significance_status: Exclude<MonitorDefinitionLatestEvaluationSignificanceStatus, 'action_required'>
+    thresholds: DataQualityMonitorPolicy
+    benchmark_observation?: null
+    portfolio_observation?: null
+    active_observation?: null
+    data_quality_evidence: DataQualityMonitorEvidenceSummary
+  }
+
+export function isDataQualityMonitorIdentity(value: { monitor_id?: string; benchmark_symbol?: string }): boolean {
+  return value.monitor_id === 'data_quality_monitor_v1' && value.benchmark_symbol === 'DATA_QUALITY'
+}
+
+export function isBenchmarkTrendMonitorIdentity(value: { monitor_id?: string; benchmark_symbol?: string }): boolean {
+  return value.monitor_id === 'benchmark_trend_overlay_v1' && value.benchmark_symbol !== 'DATA_QUALITY'
+}
+
+export function isDataQualityObservationStatus(value: string | null | undefined): value is DataQualityMonitorObservationStatus {
+  return value === 'ok' || value === 'degraded' || value === 'unavailable'
+}
+
+export function isDataQualitySignificanceStatus(value: string | null | undefined): value is Exclude<MonitorDefinitionLatestEvaluationSignificanceStatus, 'action_required'> {
+  return value === 'informational' || value === 'degraded' || value === 'unavailable'
+}
+
+export function hasDataQualityEvidence(value: { data_quality_evidence?: DataQualityMonitorEvidenceSummary | null }): value is { data_quality_evidence: DataQualityMonitorEvidenceSummary } {
+  return Boolean(value.data_quality_evidence && typeof value.data_quality_evidence === 'object')
+}
+
+export function isDataQualityTimelineObservationRow(
+  value: MonitorDefinitionAlertReviewTimelineObservationRow,
+): value is DataQualityMonitorDefinitionAlertReviewTimelineObservationRow {
+  return isDataQualityMonitorIdentity(value)
+    && isDataQualityObservationStatus(value.observation_status)
+    && isDataQualitySignificanceStatus(value.alert_classification)
+    && !value.benchmark_observation
+    && !value.portfolio_observation
+    && !value.active_observation
+    && hasDataQualityEvidence(value)
+}
+
+export function isBenchmarkTrendTimelineObservationRow(
+  value: MonitorDefinitionAlertReviewTimelineObservationRow,
+): value is BenchmarkTrendMonitorDefinitionAlertReviewTimelineObservationRow {
+  return isBenchmarkTrendMonitorIdentity(value)
+    && Boolean(value.benchmark_observation)
+    && Boolean(value.portfolio_observation)
+    && Boolean(value.active_observation)
+    && !value.data_quality_evidence
+}
+
+export function isDataQualityTimelineHistoryRow(
+  value: MonitorDefinitionAlertReviewTimelineHistoryRow,
+): value is DataQualityMonitorDefinitionAlertReviewTimelineHistoryRow {
+  return isDataQualityMonitorIdentity(value)
+    && isDataQualityObservationStatus(value.outcome_status)
+    && isDataQualitySignificanceStatus(value.significance_status)
+    && !value.benchmark_observation
+    && !value.portfolio_observation
+    && !value.active_observation
+    && hasDataQualityEvidence(value)
+}
+
+export function isBenchmarkTrendTimelineHistoryRow(
+  value: MonitorDefinitionAlertReviewTimelineHistoryRow,
+): value is BenchmarkTrendMonitorDefinitionAlertReviewTimelineHistoryRow {
+  return isBenchmarkTrendMonitorIdentity(value)
+    && Boolean(value.benchmark_observation)
+    && Boolean(value.portfolio_observation)
+    && Boolean(value.active_observation)
+    && !value.data_quality_evidence
+}
 
 export type MonitorDefinitionAlertReviewTimelineResponse = {
   items: MonitorDefinitionAlertReviewTimelineRow[]
@@ -3460,7 +3660,8 @@ export type BenchmarkTrendOverlayMonitorBenchmarkObservationInput = {
 
 export type EvaluateMonitorDefinitionObservationRequest = {
   current_portfolio: ImportedSnapshot
-  benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+  benchmark_observation?: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | null
+  data_quality_evidence?: DataQualityMonitorEvidenceSummary | null
 }
 
 export type CurrentPortfolioTruthLineage = {
@@ -3510,24 +3711,27 @@ export type BenchmarkTrendOverlayMonitorActiveObservation = {
 export type MonitorDefinitionObservationEvaluationResponse = {
   monitor_definition_id: MonitorDefinitionId
   monitor_id: MonitorDefinitionMonitorId
+  monitor_family?: MonitorDefinitionFamily | null
   benchmark_symbol: string
   evaluation_mode: MonitorDefinitionEvaluationMode
   observation_status: MonitorDefinitionObservationStatus
   cause_code: MonitorDefinitionCanonicalCauseCode | null
   reason?: string | null
-  thresholds: BenchmarkTrendOverlayMonitorThresholds
-  benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-  portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-  active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+  thresholds: BenchmarkTrendOverlayMonitorThresholds | DataQualityMonitorPolicy
+  benchmark_observation?: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | null
+  portfolio_observation?: BenchmarkTrendOverlayMonitorPortfolioObservation | null
+  active_observation?: BenchmarkTrendOverlayMonitorActiveObservation | null
+  data_quality_evidence?: DataQualityMonitorEvidenceSummary | null
 }
 
-export type MonitorDefinitionObservationArtifact = {
+export type BenchmarkTrendOverlayMonitorDefinitionObservationArtifact = {
   schema_version: 'monitor_definition_observation_artifact_v1'
   observation_id: string
   monitor_definition_id: MonitorDefinitionId
   monitor_definition_fingerprint: MonitorDefinitionFingerprint
   monitor_definition_schema_version: MonitorDefinitionSchemaVersion
-  monitor_id: MonitorDefinitionMonitorId
+  monitor_id: 'benchmark_trend_overlay_v1'
+  monitor_family?: 'benchmark_trend' | null
   benchmark_symbol: string
   evaluation_mode: MonitorDefinitionEvaluationMode
   evaluated_at: string
@@ -3543,6 +3747,34 @@ export type MonitorDefinitionObservationArtifact = {
   active_observation: BenchmarkTrendOverlayMonitorActiveObservation
 }
 
+export type DataQualityMonitorDefinitionObservationArtifact = {
+  schema_version: 'monitor_definition_observation_artifact_v1'
+  observation_id: string
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  monitor_id: 'data_quality_monitor_v1'
+  monitor_family: 'data_quality'
+  benchmark_symbol: 'DATA_QUALITY'
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  evaluated_at: string
+  observation_status: DataQualityMonitorObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  alert_classification: Exclude<MonitorDefinitionAlertClassification, 'action_required'>
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence | null
+  reason: string | null
+  thresholds: DataQualityMonitorPolicy
+  benchmark_observation?: null
+  portfolio_observation?: null
+  active_observation?: null
+  data_quality_evidence: DataQualityMonitorEvidenceSummary
+}
+
+export type MonitorDefinitionObservationArtifact =
+  | BenchmarkTrendOverlayMonitorDefinitionObservationArtifact
+  | DataQualityMonitorDefinitionObservationArtifact
+
 export type MonitorDefinitionEvaluationHistorySchemaVersion =
   'monitor_definition_evaluation_history_entry_v1'
 export type MonitorDefinitionEvaluationHistoryContractVersion =
@@ -3553,13 +3785,14 @@ export type MonitorDefinitionEvaluationHistoryRowProvenance =
   'persisted_monitor_definition_evaluation_history_entry'
 export type MonitorDefinitionEvaluationHistoryOrder = 'newest_first_evaluated_at'
 
-export type MonitorDefinitionEvaluationHistoryEntryArtifact = {
+export type BenchmarkTrendOverlayMonitorDefinitionEvaluationHistoryEntryArtifact = {
   schema_version: MonitorDefinitionEvaluationHistorySchemaVersion
   history_entry_id: string
   monitor_definition_id: MonitorDefinitionId
   monitor_definition_fingerprint: MonitorDefinitionFingerprint
   monitor_definition_schema_version: MonitorDefinitionSchemaVersion
-  monitor_id: MonitorDefinitionMonitorId
+  monitor_id: 'benchmark_trend_overlay_v1'
+  monitor_family?: 'benchmark_trend' | null
   benchmark_symbol: string
   evaluation_mode: MonitorDefinitionEvaluationMode
   evaluated_at: string
@@ -3574,6 +3807,34 @@ export type MonitorDefinitionEvaluationHistoryEntryArtifact = {
   portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
   active_observation: BenchmarkTrendOverlayMonitorActiveObservation
 }
+
+export type DataQualityMonitorDefinitionEvaluationHistoryEntryArtifact = {
+  schema_version: MonitorDefinitionEvaluationHistorySchemaVersion
+  history_entry_id: string
+  monitor_definition_id: MonitorDefinitionId
+  monitor_definition_fingerprint: MonitorDefinitionFingerprint
+  monitor_definition_schema_version: MonitorDefinitionSchemaVersion
+  monitor_id: 'data_quality_monitor_v1'
+  monitor_family: 'data_quality'
+  benchmark_symbol: 'DATA_QUALITY'
+  evaluation_mode: MonitorDefinitionEvaluationMode
+  evaluated_at: string
+  observation_status: DataQualityMonitorObservationStatus
+  cause_code: MonitorDefinitionCanonicalCauseCode | null
+  significance_status: Exclude<MonitorDefinitionLatestEvaluationSignificanceStatus, 'action_required'>
+  hysteresis_transition: MonitorDefinitionHysteresisTransition | null
+  source_precedence: MonitorDefinitionMonitoringSourcePrecedence | null
+  reason: string | null
+  thresholds: DataQualityMonitorPolicy
+  benchmark_observation?: null
+  portfolio_observation?: null
+  active_observation?: null
+  data_quality_evidence: DataQualityMonitorEvidenceSummary
+}
+
+export type MonitorDefinitionEvaluationHistoryEntryArtifact =
+  | BenchmarkTrendOverlayMonitorDefinitionEvaluationHistoryEntryArtifact
+  | DataQualityMonitorDefinitionEvaluationHistoryEntryArtifact
 
 export type MonitorDefinitionEvaluationHistoryRow =
   MonitorDefinitionEvaluationHistoryEntryArtifact & {

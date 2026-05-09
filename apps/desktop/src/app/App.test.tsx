@@ -9,11 +9,11 @@ import {
   ib2026DashboardGolden,
   ib2026ImportedDashboardGoldenFixture,
 } from '../test/dashboardGoldens'
-import { App, assertMonitorDefinitionActiveAlertEpisodeInboxResponse, assertMonitorDefinitionAlertEpisodeHistoryResponse, loadMonitorDefinitionAlertReviewTimeline, loadMonitorDefinitionRecoveredAlertReviewQueue, openAlertHistoryReviewFromTimelineRow, openLatestObservationFromTimelineRow, reopenRecoveredAlertReviewRow } from './App'
+import { App, assertMonitorDefinitionActiveAlertEpisodeInboxResponse, assertMonitorDefinitionAlertEpisodeHistoryResponse, loadMonitorDefinitionActiveAlertEpisodeInbox, loadMonitorDefinitionAlertEpisodeHistory, loadMonitorDefinitionAlertReviewTimeline, loadMonitorDefinitionRecoveredAlertReviewQueue, openActiveAlertEpisodeInboxRow, openAlertEpisodeHistoryRow, openAlertHistoryReviewFromTimelineRow, openLatestObservationFromTimelineRow, reopenRecoveredAlertReviewRow } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
 import type { ConstructionArtifactReplayValidationResponse, EtfRankingArtifactRecentRow, HypotheticalReplayResponse, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, PortfolioOverview } from '../features/portfolio/types'
-import type { MonitorDefinitionAlertReviewTimelineResponse } from '../features/portfolio/types'
+import type { MonitorDefinitionAlertEpisodeHistoryRow, MonitorDefinitionAlertReviewTimelineResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, SavedProposalReviewSnapshotPMSummaryMirror, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const dashboardPerformanceChartMock = vi.hoisted(() => ({
@@ -731,6 +731,124 @@ function makeObservationOpenPayload(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   }
+}
+
+function makeDataQualityEvidencePayload() {
+  return {
+    coverage_total_count: 4,
+    coverage_available_count: 3,
+    coverage_missing_count: 1,
+    coverage_ratio: 0.75,
+    stale_symbols: ['MSFT'],
+    missing_symbols: ['CASH'],
+    trust_statuses: { prices: 'degraded', broker_import: 'verified' },
+    withheld_inputs: ['dividend_total_return'],
+    unavailable_inputs: ['cash_fx_rate'],
+    source_lineage: [{ source_kind: 'market_data_cache', source_id: 'fmp-cache-2026-04-21', observed_at: '2026-04-21T09:29:00Z' }],
+  }
+}
+
+function makeDataQualityObservationOpenPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: 'monitor_definition_observation_artifact_v1',
+    observation_id: 'monitor_definition_observation_data_quality',
+    monitor_definition_id: 'monitor_definition_data_quality_abc12345',
+    monitor_definition_fingerprint: 'd'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    monitor_id: 'data_quality_monitor_v1',
+    monitor_family: 'data_quality',
+    benchmark_symbol: 'DATA_QUALITY',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'degraded',
+    cause_code: 'market_data_coverage_degraded',
+    alert_classification: 'degraded',
+    hysteresis_transition: 'open',
+    source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot',
+    reason: 'input reliability evidence is degraded',
+    thresholds: { minimum_coverage_ratio: 0.9, max_stale_age_days: 3, required_trust_floor: 'degraded', provenance_requirements: ['cache_lineage'] },
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidencePayload(),
+    ...overrides,
+  }
+}
+
+function makeDataQualityTimelinePayload(overrides: Record<string, unknown> = {}) {
+  const observation = makeDataQualityObservationOpenPayload()
+  const observationRow = {
+    monitor_definition_id: observation.monitor_definition_id,
+    monitor_definition_fingerprint: observation.monitor_definition_fingerprint,
+    monitor_definition_schema_version: observation.monitor_definition_schema_version,
+    observation_id: observation.observation_id,
+    monitor_id: observation.monitor_id,
+    benchmark_symbol: observation.benchmark_symbol,
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: observation.evaluation_mode,
+    evaluated_at: observation.evaluated_at,
+    observation_status: observation.observation_status,
+    cause_code: observation.cause_code,
+    alert_classification: observation.alert_classification,
+    hysteresis_transition: observation.hysteresis_transition,
+    recency_status: 'recent',
+    reason: observation.reason,
+    open_handoff: { handoff_kind: 'monitor_definition_observation_open_handoff_v1', monitor_definition_id: observation.monitor_definition_id, observation_id: observation.observation_id, monitor_id: observation.monitor_id, benchmark_symbol: observation.benchmark_symbol },
+    event_kind: 'latest_observation_event',
+    event_semantics: 'observation_rooted',
+    thresholds: observation.thresholds,
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidencePayload(),
+    metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_observation_artifact' },
+  }
+  const historyRow = {
+    monitor_definition_id: observation.monitor_definition_id,
+    monitor_definition_fingerprint: observation.monitor_definition_fingerprint,
+    monitor_definition_schema_version: observation.monitor_definition_schema_version,
+    history_entry_id: 'monitor_definition_history_entry_data_quality',
+    monitor_id: observation.monitor_id,
+    benchmark_symbol: observation.benchmark_symbol,
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: observation.evaluation_mode,
+    evaluated_at: observation.evaluated_at,
+    outcome_status: observation.observation_status,
+    cause_code: observation.cause_code,
+    significance_status: 'degraded',
+    hysteresis_transition: observation.hysteresis_transition,
+    review_support_status: 'review_supported',
+    latest_for_monitor_definition: true,
+    reason: observation.reason,
+    review_handoff: { handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1', monitor_definition_id: observation.monitor_definition_id, history_entry_id: 'monitor_definition_history_entry_data_quality', monitor_id: observation.monitor_id, benchmark_symbol: observation.benchmark_symbol },
+    event_kind: 'evaluation_history_event',
+    event_semantics: 'history_entry_rooted',
+    thresholds: observation.thresholds,
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidencePayload(),
+    metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_evaluation_history_entry' },
+  }
+  return {
+    items: [observationRow, historyRow],
+    metadata: {
+      contract_version: 'monitor_definition_alert_review_timeline_v1',
+      provenance: 'canonical_latest_observation_artifact_and_append_only_evaluation_history_entries',
+      ordering: 'newest_first_evaluated_at_then_observation_event_then_history_entry_id',
+      monitor_definition_id: observation.monitor_definition_id,
+      monitor_definition_fingerprint: observation.monitor_definition_fingerprint,
+      monitor_definition_schema_version: observation.monitor_definition_schema_version,
+      observation_row_provenance: 'persisted_monitor_definition_observation_artifact',
+      history_row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      source_precedence: 'persisted_observation_artifact_then_persisted_evaluation_history_entries_then_persisted_latest_alert_episode_projection',
+      latest_alert_episode: null,
+      total_rows: 2,
+      observation_rows: 1,
+      history_rows: 1,
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineResponse
 }
 
 function installWorkspaceReviewFetchMock(reviewSnapshotArtifact?: ReviewSnapshotArtifact) {
@@ -2896,6 +3014,66 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/evaluation-history/monitor_definition_history_entry_abc12345')
   })
 
+  it('accepts valid data-quality timeline rows and rejects family mismatches', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_data_quality_abc12345/alert-review-timeline' && method === 'GET') return jsonResponse(makeDataQualityTimelinePayload())
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    const timeline = await loadMonitorDefinitionAlertReviewTimeline('monitor_definition_data_quality_abc12345')
+    expect(timeline.items[0].monitor_id).toBe('data_quality_monitor_v1')
+    expect(timeline.items[0].benchmark_symbol).toBe('DATA_QUALITY')
+    expect(timeline.items[0].data_quality_evidence?.coverage_ratio).toBe(0.75)
+
+    await expect(loadMonitorDefinitionAlertReviewTimeline('monitor_definition_data_quality_abc12345def67890')).rejects.toThrow('Unhandled fetch')
+  })
+
+  it('fails closed when data-quality timeline rows carry benchmark fields or unsupported action status', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_data_quality_abc12345/alert-review-timeline' && method === 'GET') {
+        const payload = makeDataQualityTimelinePayload()
+        return jsonResponse({
+          ...payload,
+          items: [{
+            ...payload.items[0],
+            alert_classification: 'action_required',
+            benchmark_observation: makeObservationOpenPayload().benchmark_observation,
+          }],
+          metadata: { ...payload.metadata, total_rows: 1, history_rows: 0 },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    await expect(loadMonitorDefinitionAlertReviewTimeline('monitor_definition_data_quality_abc12345')).rejects.toThrow(
+      'alert review timeline latest observation data-quality significance is unsupported',
+    )
+  })
+
+  it('fails closed when benchmark timeline rows use DATA_QUALITY identity', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') {
+        const payload = makeAlertReviewTimelinePayload()
+        return jsonResponse({
+          ...payload,
+          items: [{ ...payload.items[0], benchmark_symbol: 'DATA_QUALITY' }],
+          metadata: { ...payload.metadata, total_rows: 1, history_rows: 0 },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    await expect(loadMonitorDefinitionAlertReviewTimeline('monitor_definition_abc12345def67890')).rejects.toThrow(
+      'alert review timeline row benchmark trend row benchmark_symbol must not be DATA_QUALITY',
+    )
+  })
+
   it('fails closed on unsupported alert episode contract state in timeline payloads', async () => {
     installFetchMock(async (input, init) => {
       const pathname = requestPathname(input)
@@ -2970,11 +3148,93 @@ describe('App', () => {
     expect(payload.items[1].timeline_handoff.selected_event_kind).toBe('evaluation_history_event')
   })
 
+  it('loads alert episode history with bounded definition-scoped params and validates identity', async () => {
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-episode-history' && method === 'GET') return jsonResponse(makeAlertEpisodeHistoryPayload())
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    const payload = await loadMonitorDefinitionAlertEpisodeHistory('monitor_definition_abc12345def67890', 'monitor_definition_alert_episode_closed')
+
+    expect(payload).toEqual(makeAlertEpisodeHistoryPayload())
+    expect(requestSearchParam(fetchMock.mock.calls[0][0] as RequestInfo | URL, 'limit')).toBe('20')
+    expect(requestSearchParam(fetchMock.mock.calls[0][0] as RequestInfo | URL, 'before_episode_id')).toBe('monitor_definition_alert_episode_closed')
+  })
+
+  it('fails closed when alert episode history loader receives malformed or mismatched payloads', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-episode-history' && method === 'GET') {
+        return jsonResponse(makeAlertEpisodeHistoryPayload({
+          metadata: {
+            ...makeAlertEpisodeHistoryPayload().metadata,
+            monitor_definition_id: 'monitor_definition_other',
+          },
+        }))
+      }
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    await expect(loadMonitorDefinitionAlertEpisodeHistory('monitor_definition_abc12345def67890')).rejects.toThrow(
+      'alert episode history monitor_definition_id does not match requested definition id',
+    )
+  })
+
+  it('opens alert episode history rows through latest-observation and evaluation-history timeline handoffs', async () => {
+    const beginNavigation = vi.fn().mockResolvedValue(undefined)
+    const payload = makeAlertEpisodeHistoryPayload()
+    const rows = payload.items as MonitorDefinitionAlertEpisodeHistoryRow[]
+
+    await openAlertEpisodeHistoryRow(rows[0], beginNavigation)
+    await openAlertEpisodeHistoryRow(rows[1], beginNavigation)
+
+    expect(beginNavigation).toHaveBeenNthCalledWith(1, {
+      monitorDefinitionId: 'monitor_definition_abc12345def67890',
+      selectedEvent: {
+        eventKind: 'latest_observation_event',
+        observationId: 'monitor_definition_observation_abc12345',
+      },
+    })
+    expect(beginNavigation).toHaveBeenNthCalledWith(2, {
+      monitorDefinitionId: 'monitor_definition_abc12345def67890',
+      selectedEvent: {
+        eventKind: 'evaluation_history_event',
+        historyEntryId: 'monitor_definition_history_entry_closed',
+      },
+    })
+  })
+
   it('accepts the shipped active alert episode inbox payload directly for discovery-only open episode rows', () => {
     const payload = makeActiveAlertEpisodeInboxPayload()
     expect(() => assertMonitorDefinitionActiveAlertEpisodeInboxResponse(payload)).not.toThrow()
     expect(payload.items[0].alert_episode.timeline_handoff.selected_event_kind).toBe('latest_observation_event')
     expect(payload.items[0].alert_episode.latest_contributing_observation.observation_id).toBe('monitor_definition_observation_abc12345')
+  })
+
+  it('loads the active alert episode inbox and opens timeline review by handoff ids only', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/active-alert-episode-inbox' && method === 'GET') return jsonResponse(makeActiveAlertEpisodeInboxPayload())
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    const inbox = await loadMonitorDefinitionActiveAlertEpisodeInbox()
+    expect(inbox).toEqual(makeActiveAlertEpisodeInboxPayload())
+
+    const beginNavigation = vi.fn().mockResolvedValue(undefined)
+    await openActiveAlertEpisodeInboxRow(inbox.items[0]!, beginNavigation)
+
+    expect(beginNavigation).toHaveBeenCalledWith({
+      monitorDefinitionId: 'monitor_definition_abc12345def67890',
+      selectedEvent: {
+        eventKind: 'latest_observation_event',
+        observationId: 'monitor_definition_observation_abc12345',
+      },
+    })
   })
 
   it('fails closed on unsupported active alert episode inbox contract state', () => {
@@ -2990,6 +3250,19 @@ describe('App', () => {
 
     expect(() => assertMonitorDefinitionActiveAlertEpisodeInboxResponse(payload)).toThrow(
       'active alert episode inbox row alert_episode lifecycle_status is unsupported',
+    )
+  })
+
+  it('fails closed when the active alert episode inbox loader receives malformed payloads', async () => {
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/active-alert-episode-inbox' && method === 'GET') return jsonResponse({ items: [], metadata: { contract_version: 'unsupported' } })
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    await expect(loadMonitorDefinitionActiveAlertEpisodeInbox()).rejects.toThrow(
+      'active alert episode inbox contract_version is unsupported',
     )
   })
 
@@ -3035,6 +3308,64 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_observation_abc12345')).toBeTruthy())
     expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline')
     expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation')
+  })
+
+  it('loads the active alert episode inbox in Workspace and opens timeline review by persisted handoff ids', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload({ items: [], metadata: { ...makeRecoveredAlertReviewQueuePayload().metadata, total_queue_rows: 0 } }))
+      if (pathname === '/api/backtests/monitor-definitions/active-alert-episode-inbox' && method === 'GET') return jsonResponse(makeActiveAlertEpisodeInboxPayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline' && method === 'GET') return jsonResponse(makeAlertReviewTimelinePayload())
+      if (pathname === '/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation' && method === 'GET') return jsonResponse(makeObservationOpenPayload())
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('Active Alert Review Inbox')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('active-alert-episode-row-monitor_definition_alert_episode_latest')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'Open timeline review' }))
+
+    await waitFor(() => expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_observation_abc12345')).toBeTruthy())
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/active-alert-episode-inbox?limit=20')
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/alert-review-timeline')
+    expect(fetchMock).toHaveBeenCalledWith('/api/backtests/monitor-definitions/monitor_definition_abc12345def67890/observation')
+  })
+
+  it('fails closed to an error state and no rows when the workspace active inbox payload is malformed', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD' }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse(makeRecoveredAlertReviewQueuePayload({ items: [], metadata: { ...makeRecoveredAlertReviewQueuePayload().metadata, total_queue_rows: 0 } }))
+      if (pathname === '/api/backtests/monitor-definitions/active-alert-episode-inbox' && method === 'GET') return jsonResponse({ items: [{ broken: true }], metadata: { contract_version: 'unsupported' } })
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workspace' }))
+    await waitFor(() => expect(screen.getByText('active alert episode inbox contract_version is unsupported')).toBeTruthy())
+    expect(screen.queryByTestId('active-alert-episode-row-monitor_definition_alert_episode_latest')).toBeNull()
   })
 
   it('restores cached definition-scoped review state from the authoritative timeline payload', async () => {

@@ -15,7 +15,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
-| 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth; review mechanics stronger than monitor-family breadth | No active slice | Surface active alert-episode inbox more directly in Workspace | 2026-05-06 |
+| 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth now includes persisted benchmark-trend and data-quality review families | No active slice | Next monitoring breadth slice after data-quality persistence, without adding scheduler/remediation or widening other monitor families implicitly | 2026-05-09 |
 
 ## Cross-Epic Guardrails
 
@@ -189,6 +189,7 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 ### Shipped baseline
 
 - `benchmark_trend_overlay_v1` monitor-definition workflow is shipped.
+- `data_quality_monitor_v1` is shipped as a distinct persisted data-quality monitor family.
 - Latest-observation, recovered-review, active alert-episode, and timeline/history review surfaces are shipped.
 - Workspace restore from persisted monitor review state was recently strengthened.
 
@@ -200,11 +201,16 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 - Monitor-family breadth is still narrow.
 - Monitoring is still more review-scoped than ongoing discipline-system level.
+- Factor drift, concentration drift, benchmark-relative drift, and volatility are not persisted monitor families.
 
 ### Planned slices
 
-- Surface active alert-episode inbox more directly in Workspace.
-- Add definition-scoped alert-episode history drill-in using existing routes.
+- `Shipped`: Workspace Compare now surfaces the backend-rooted active alert-episode inbox as a read-only `Active Alert Review Inbox`, loading persisted open episode rows directly from the existing inbox route and reopening timeline review only through persisted episode timeline handoff ids.
+- `Shipped`: Workspace Compare now includes a definition-scoped `Alert Episode History` drill-in that loads bounded persisted episode records from the existing history route, surfaces truth/provenance/windowing metadata, and opens the existing timeline review through each row's persisted handoff ids.
+- `Shipped`: Monitoring now includes a read-only `Monitoring Discipline Overview` for existing `benchmark_trend_overlay_v1` persisted definitions, sourced from catalog metadata only with fail-closed contract and lineage validation.
+- `Shipped`: Monitoring now includes a read-only `Monitor Family Readiness Overview` that separates persisted `benchmark_trend_overlay_v1` and `data_quality_monitor_v1` review support from replay-derived signals, renders explicit decision/reason codes, gate breakdowns, evidence summaries, and provenance summaries, and lists persistence gates missing before any additional family could become persisted.
+- `Shipped`: Integrated `data_quality_monitor_v1` persisted monitor family plus family-aware readback completion: backend create/evaluate/catalog/recent/observation/history/timeline/inbox/episodes and desktop readback now treat data quality as evidence-only input reliability, while benchmark trend preserves legacy benchmark-threshold semantics.
+- Next: choose the next monitoring breadth slice without widening monitor-family support implicitly.
 
 ### Dependencies
 
@@ -223,6 +229,64 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Monitoring is no longer only a narrow replay-adjacent review seam and has broader persisted review coverage without overclaiming continuity.
 
 ## Slice Update Log
+
+### 2026-05-08 - Epic 4 persisted monitoring discipline overview shipped
+
+- Epic: `4. Monitoring and overlay review guard`
+- Slice: add a read-only Monitoring Discipline Overview inside the existing Monitoring panel for persisted `benchmark_trend_overlay_v1` definitions.
+- Status: shipped.
+- Scope delivered:
+  - desktop Monitoring loads `GET /api/backtests/monitor-definitions/catalog?overlay_family=benchmark_trend&monitor_id=benchmark_trend_overlay_v1` and validates discovery contract, metadata truth, row provenance, monitor id, and overlay family fail-closed before computing counts.
+  - the overview renders persisted-definition coverage, enabled count, latest-observation presence/freshness, lifecycle/review readiness, latest-state counts, latest-snapshot presence, and a compact recent definitions table from persisted metadata only.
+  - missing latest observation or snapshot metadata remains explicit `absent`; desktop does not infer stale/recent state or trigger evaluation.
+- Guard impact:
+  - broadens monitoring visibility as a persisted discipline review while preserving the narrow `benchmark_trend_overlay_v1` family boundary and avoiding mutation, scheduling, live-state, remediation, or execution semantics.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop consumes the existing monitor-definition catalog route for a new read-only aggregate view.
+- Tests/evidence:
+  - `apps/desktop/src/features/backtest/MonitoringPanel.test.tsx`
+
+### 2026-05-09 - Epic 4 monitor family readiness explainability shipped
+
+- Epic: `4. Monitoring and overlay review guard`
+- Slice: enhance the read-only Monitor Family Readiness Overview inside the existing Monitoring panel with decision-grade explainability and non-promotion gates.
+- Status: shipped.
+- Scope delivered:
+  - desktop Monitoring now derives family-readiness rows from the existing persisted discipline overview state, replay-derived monitor evidence, and the active replay.
+  - `benchmark_trend_overlay_v1` was the only persisted/review-supported family for this explainability slice when the validated catalog was ready with rows; empty, invalid, and unavailable catalog states showed distinct frontend-only reason codes.
+  - persisted benchmark rows render backend catalog metadata truth, row provenance, monitor definition count, and monitor definition ids.
+  - factor drift, concentration drift, benchmark-relative drift, volatility, and pre-persistence data-quality readouts remained replay-derived signal rows only, with explicit blocked reason codes and gate breakdowns for monitor definition artifact, thresholds, lineage/provenance, lifecycle metadata, review support decision, and replay evidence.
+  - signal rows said evidence unavailable rather than readiness when replay diagnostics/watch-group evidence was unavailable.
+- Guard impact:
+  - broadened visibility into possible monitor-family breadth without persisting new definitions, creating state, launching review handoffs, adding thresholds, triggering evaluation, scheduling, remediation, mutation, or implying unsupported family support.
+- Contracts changed:
+  - no backend contract changes.
+  - no new persisted monitor definitions or monitor families.
+- Tests/evidence:
+  - `apps/desktop/src/features/backtest/MonitoringPanel.test.tsx`
+
+### 2026-05-09 - Epic 4 persisted data-quality monitor family shipped
+
+- Epic: `4. Monitoring and overlay review guard`
+- Slice: stabilize and complete exactly one additional persisted monitor family, `data_quality_monitor_v1`, as evidence-only input reliability monitoring with family-aware readback.
+- Status: shipped.
+- Scope delivered:
+  - backend schemas, routes, and persistence support `data_quality_monitor_v1` as `monitor_family = data_quality`, separate from benchmark overlays, with `DATA_QUALITY` reserved for that family and rejected for benchmark trend.
+  - create/evaluate/catalog/recent/observation/history/timeline/inbox/episodes flows persist and validate data-quality definition, latest observation, latest evaluation snapshot, append-only history, alert episode records, and evidence lineage.
+  - data-quality outcomes are review-only `ok`, `degraded`, or `unavailable`; `threshold_breach` and `action_required` are rejected for the family.
+  - desktop Monitoring and Workspace readback render data quality as evidence-only input reliability and benchmark trend as benchmark threshold review after fail-closed family/evidence validation; replay-derived factor/concentration/benchmark-relative/volatility signals are not persisted monitor families.
+- Guard impact:
+  - adds one narrow persisted monitor family without adding scheduler, daemon, threshold editor, remediation, trading, allocation advice, auto-promotion, factor drift, concentration drift, benchmark-relative drift, or volatility persistence.
+- Contracts changed:
+  - `MonitorDefinitionMonitorId` now includes `data_quality_monitor_v1`.
+  - catalog/recent filters now include `monitor_family`.
+  - data-quality policy, source-lineage, evidence, cause-code, observation, latest-snapshot, and history shapes are additive while preserving legacy benchmark-trend serialization compatibility.
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_routes.py`
+  - `services/quant-engine/app/tests/test_portfolio_allocation_backtests.py`
+  - `apps/desktop/src/features/backtest/MonitoringPanel.test.tsx`
+  - `apps/desktop/src/app/App.test.tsx`
 
 ### 2026-05-08 - Epic 3 phase closeout
 

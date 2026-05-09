@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ConstructionArtifactReplayResponse, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionRecoveredAlertReviewQueueResponse } from './types'
+import { isBenchmarkTrendTimelineHistoryRow, isBenchmarkTrendTimelineObservationRow, isDataQualityTimelineHistoryRow, isDataQualityTimelineObservationRow } from './types'
+import type { ConstructionArtifactReplayResponse, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionRecoveredAlertReviewQueueResponse } from './types'
 
 describe('ConstructionArtifactReplayResponse turnover diagnostics contract', () => {
   it('accepts backend-shipped turnover_diagnostics_v1.symbol_contributions', () => {
@@ -438,13 +439,73 @@ describe('MonitorDefinitionAlertReviewTimelineResponse contract', () => {
     }
 
     expect(payload.items[0].event_semantics).toBe('observation_rooted')
-    expect(payload.items[0].benchmark_observation.benchmark_symbol).toBe('SPY')
-    expect(payload.items[0].portfolio_observation.source_lineage.truth_basis).toBe('imported_portfolio_snapshot')
-    expect(payload.items[0].active_observation.required_overlay_status).toBe('unconfirmed')
+    expect(payload.items[0].benchmark_observation?.benchmark_symbol).toBe('SPY')
+    expect(payload.items[0].portfolio_observation?.source_lineage.truth_basis).toBe('imported_portfolio_snapshot')
+    expect(payload.items[0].active_observation?.required_overlay_status).toBe('unconfirmed')
     expect(payload.items[0].reason).toBe('benchmark observation is unconfirmed')
     expect(payload.metadata.latest_alert_episode?.episode_status).toBe('active')
     expect(payload.metadata.observation_row_provenance).toBe('persisted_monitor_definition_observation_artifact')
     expect(payload.metadata.history_row_provenance).toBe('persisted_monitor_definition_evaluation_history_entry')
+  })
+
+  it('narrows benchmark-trend and data-quality timeline rows by family fields', () => {
+    const evidence = {
+      coverage_total_count: 4,
+      coverage_available_count: 3,
+      coverage_missing_count: 1,
+      coverage_ratio: 0.75,
+      stale_symbols: ['MSFT'],
+      missing_symbols: ['CASH'],
+      trust_statuses: { prices: 'degraded' as const },
+      withheld_inputs: [],
+      unavailable_inputs: ['cash_fx_rate'],
+      source_lineage: [{ source_kind: 'market_data_cache' as const, source_id: 'cache', observed_at: '2026-04-21T09:30:00Z' }],
+    }
+    const dataQualityObservation = {
+      monitor_definition_id: 'monitor_definition_data_quality_abc12345',
+      monitor_definition_fingerprint: 'd'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      observation_id: 'monitor_definition_observation_data_quality',
+      monitor_id: 'data_quality_monitor_v1',
+      benchmark_symbol: 'DATA_QUALITY',
+      review_scope: 'current_portfolio_truth_only',
+      evaluation_mode: 'review_only_observation_evaluation',
+      evaluated_at: '2026-04-21T09:30:00Z',
+      observation_status: 'degraded',
+      cause_code: 'market_data_coverage_degraded',
+      alert_classification: 'degraded',
+      hysteresis_transition: 'open',
+      recency_status: 'recent',
+      reason: 'input reliability evidence is degraded',
+      open_handoff: { handoff_kind: 'monitor_definition_observation_open_handoff_v1', monitor_definition_id: 'monitor_definition_data_quality_abc12345', observation_id: 'monitor_definition_observation_data_quality', monitor_id: 'data_quality_monitor_v1', benchmark_symbol: 'DATA_QUALITY' },
+      event_kind: 'latest_observation_event',
+      event_semantics: 'observation_rooted',
+      thresholds: { minimum_coverage_ratio: 0.9, max_stale_age_days: 3, required_trust_floor: 'degraded', provenance_requirements: ['cache_lineage'] },
+      benchmark_observation: null,
+      portfolio_observation: null,
+      active_observation: null,
+      data_quality_evidence: evidence,
+      metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_observation_artifact' },
+    } satisfies MonitorDefinitionAlertReviewTimelineObservationRow
+    const dataQualityHistory = {
+      ...dataQualityObservation,
+      history_entry_id: 'monitor_definition_history_entry_data_quality',
+      outcome_status: 'degraded',
+      significance_status: 'degraded',
+      review_support_status: 'review_supported',
+      latest_for_monitor_definition: true,
+      review_handoff: { handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1', monitor_definition_id: 'monitor_definition_data_quality_abc12345', history_entry_id: 'monitor_definition_history_entry_data_quality', monitor_id: 'data_quality_monitor_v1', benchmark_symbol: 'DATA_QUALITY' },
+      event_kind: 'evaluation_history_event',
+      event_semantics: 'history_entry_rooted',
+      metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_evaluation_history_entry' },
+    } satisfies MonitorDefinitionAlertReviewTimelineHistoryRow
+
+    expect(isDataQualityTimelineObservationRow(dataQualityObservation)).toBe(true)
+    expect(isBenchmarkTrendTimelineObservationRow(dataQualityObservation)).toBe(false)
+    expect(isDataQualityTimelineHistoryRow(dataQualityHistory)).toBe(true)
+    expect(isBenchmarkTrendTimelineHistoryRow(dataQualityHistory)).toBe(false)
+    expect(isDataQualityTimelineObservationRow({ ...dataQualityObservation, alert_classification: 'action_required' })).toBe(false)
+    expect(isDataQualityTimelineObservationRow({ ...dataQualityObservation, benchmark_symbol: 'SPY' })).toBe(false)
   })
 })
 

@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
 import * as portfolioWorkspaceStorage from '../../app/portfolioWorkspaceStorage'
 import type {
+  MonitorDefinitionActiveAlertEpisodeInboxRow,
+  MonitorDefinitionAlertEpisodeHistoryResponse,
+  MonitorDefinitionAlertEpisodeHistoryRow,
   MonitorDefinitionAlertReviewTimelineHistoryRow,
   MonitorDefinitionAlertReviewTimelineObservationRow,
   MonitorDefinitionAlertReviewTimelineResponse,
@@ -1643,6 +1646,88 @@ function makeObservationArtifact(overrides: Record<string, unknown> = {}): Monit
   } as MonitorDefinitionObservationArtifact
 }
 
+function makeDataQualityEvidence() {
+  return {
+    coverage_total_count: 4,
+    coverage_available_count: 3,
+    coverage_missing_count: 1,
+    coverage_ratio: 0.75,
+    stale_symbols: ['MSFT'],
+    missing_symbols: ['CASH'],
+    trust_statuses: { prices: 'degraded', broker_import: 'verified' },
+    withheld_inputs: ['dividend_total_return'],
+    unavailable_inputs: ['cash_fx_rate'],
+    source_lineage: [
+      { source_kind: 'market_data_cache', source_id: 'fmp-cache-2026-04-21', observed_at: '2026-04-21T09:29:00Z' },
+      { source_kind: 'broker_import', source_id: 'IB2024.pdf', observed_at: '2026-04-15T09:30:00Z' },
+    ],
+  }
+}
+
+function makeDataQualityObservationArtifact(overrides: Record<string, unknown> = {}): MonitorDefinitionObservationArtifact {
+  return {
+    schema_version: 'monitor_definition_observation_artifact_v1',
+    observation_id: 'monitor_definition_observation_data_quality',
+    monitor_definition_id: 'monitor_definition_data_quality_abc12345',
+    monitor_definition_fingerprint: 'd'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    monitor_id: 'data_quality_monitor_v1',
+    monitor_family: 'data_quality',
+    benchmark_symbol: 'DATA_QUALITY',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'degraded',
+    cause_code: 'market_data_coverage_degraded',
+    alert_classification: 'degraded',
+    hysteresis_transition: 'open',
+    source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot',
+    reason: 'input reliability evidence is degraded',
+    thresholds: { minimum_coverage_ratio: 0.9, max_stale_age_days: 3, required_trust_floor: 'degraded', provenance_requirements: ['cache_lineage'] },
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidence(),
+    ...overrides,
+  } as MonitorDefinitionObservationArtifact
+}
+
+function makeDataQualityTimelineObservationRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineObservationRow {
+  const artifact = makeDataQualityObservationArtifact()
+  return {
+    monitor_definition_id: artifact.monitor_definition_id,
+    monitor_definition_fingerprint: artifact.monitor_definition_fingerprint,
+    monitor_definition_schema_version: artifact.monitor_definition_schema_version,
+    observation_id: artifact.observation_id,
+    monitor_id: artifact.monitor_id,
+    benchmark_symbol: artifact.benchmark_symbol,
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: artifact.evaluation_mode,
+    evaluated_at: artifact.evaluated_at,
+    observation_status: artifact.observation_status,
+    cause_code: artifact.cause_code,
+    alert_classification: artifact.alert_classification,
+    hysteresis_transition: artifact.hysteresis_transition,
+    recency_status: 'recent',
+    reason: artifact.reason,
+    open_handoff: {
+      handoff_kind: 'monitor_definition_observation_open_handoff_v1',
+      monitor_definition_id: artifact.monitor_definition_id,
+      observation_id: artifact.observation_id,
+      monitor_id: artifact.monitor_id,
+      benchmark_symbol: artifact.benchmark_symbol,
+    },
+    event_kind: 'latest_observation_event',
+    event_semantics: 'observation_rooted',
+    thresholds: artifact.thresholds,
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidence(),
+    metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_observation_artifact' },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineObservationRow
+}
+
 function makeAlertHistoryQueueRow(overrides: Record<string, unknown> = {}) {
   return {
     monitor_definition_id: 'monitor_definition_abc12345def67890',
@@ -1776,6 +1861,126 @@ function makeRecoveredAlertQueueRow(overrides: Record<string, unknown> = {}): Mo
   }
 }
 
+function makeActiveAlertEpisodeInboxRow(overrides: Record<string, unknown> = {}): MonitorDefinitionActiveAlertEpisodeInboxRow {
+  return {
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    alert_episode: {
+      schema_version: 'monitor_definition_alert_episode_record_v1',
+      episode_id: 'monitor_definition_alert_episode_latest',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+      lifecycle_status: 'open',
+      latest_for_monitor_definition: true,
+      started_at: '2026-04-20T09:30:00Z',
+      ended_at: null,
+      latest_event_at: '2026-04-21T09:30:00Z',
+      hysteresis_transition: 'remain_open',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      latest_contributing_observation: {
+        observation_id: 'monitor_definition_observation_abc12345',
+        evaluated_at: '2026-04-21T09:30:00Z',
+        observation_status: 'threshold_breach',
+        cause_code: null,
+        alert_classification: 'action_required',
+      },
+      recovery_basis: null,
+      terminal_history_entry_id: 'monitor_definition_history_entry_abc12345',
+      timeline_handoff: {
+        handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        selected_event_kind: 'latest_observation_event',
+        observation_id: 'monitor_definition_observation_abc12345',
+        history_entry_id: null,
+        monitor_id: 'benchmark_trend_overlay_v1',
+        benchmark_symbol: 'SPY',
+      },
+      metadata: {
+        history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+        row_provenance: 'persisted_monitor_definition_alert_episode_record',
+      },
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+    },
+    ...overrides,
+  } as MonitorDefinitionActiveAlertEpisodeInboxRow
+}
+
+function makeAlertEpisodeHistoryRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertEpisodeHistoryRow {
+  return {
+    schema_version: 'monitor_definition_alert_episode_record_v1',
+    episode_id: 'monitor_definition_alert_episode_latest',
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    lifecycle_status: 'recovered',
+    latest_for_monitor_definition: true,
+    started_at: '2026-04-20T09:30:00Z',
+    ended_at: '2026-04-21T09:30:00Z',
+    latest_event_at: '2026-04-21T09:30:00Z',
+    hysteresis_transition: 'recover',
+    source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+    latest_contributing_observation: {
+      observation_id: 'monitor_definition_observation_abc12345',
+      evaluated_at: '2026-04-21T09:30:00Z',
+      observation_status: 'ok',
+      cause_code: null,
+      alert_classification: 'informational',
+    },
+    recovery_basis: {
+      recovered_from_history_entry_id: 'monitor_definition_history_entry_abc12345',
+      recovered_from_evaluated_at: '2026-04-20T09:30:00Z',
+      recovered_from_outcome_status: 'threshold_breach',
+      recovered_from_cause_code: null,
+      recovered_from_significance_status: 'action_required',
+    },
+    terminal_history_entry_id: 'monitor_definition_history_entry_latest_info',
+    timeline_handoff: {
+      handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      selected_event_kind: 'latest_observation_event',
+      observation_id: 'monitor_definition_observation_abc12345',
+      history_entry_id: null,
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertEpisodeHistoryRow
+}
+
+function makeAlertEpisodeHistoryResponse(rows: MonitorDefinitionAlertEpisodeHistoryRow[] = [makeAlertEpisodeHistoryRow()], overrides: Record<string, unknown> = {}): MonitorDefinitionAlertEpisodeHistoryResponse {
+  return {
+    items: rows,
+    metadata: {
+      contract_version: 'monitor_definition_alert_episode_history_v1',
+      history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      ordering: 'newest_first_latest_event_at_then_episode_id',
+      windowing: 'before_episode_id_exclusive',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      returned_limit: 20,
+      requested_before_episode_id: null,
+      next_before_episode_id: null,
+      total_episodes: rows.length,
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertEpisodeHistoryResponse
+}
+
 function makeEvaluationHistoryEntryResponse(overrides: Record<string, unknown> = {}): MonitorDefinitionEvaluationHistoryEntryResponse {
   return {
     item: {
@@ -1865,6 +2070,88 @@ function makeEvaluationHistoryEntryResponse(overrides: Record<string, unknown> =
   }
 }
 
+function makeDataQualityEvaluationHistoryEntryResponse(overrides: Record<string, unknown> = {}): MonitorDefinitionEvaluationHistoryEntryResponse {
+  const artifact = makeDataQualityObservationArtifact()
+  return {
+    item: {
+      schema_version: 'monitor_definition_evaluation_history_entry_v1',
+      history_entry_id: 'monitor_definition_history_entry_data_quality',
+      monitor_definition_id: artifact.monitor_definition_id,
+      monitor_definition_fingerprint: artifact.monitor_definition_fingerprint,
+      monitor_definition_schema_version: artifact.monitor_definition_schema_version,
+      monitor_id: artifact.monitor_id,
+      monitor_family: 'data_quality',
+      benchmark_symbol: artifact.benchmark_symbol,
+      evaluation_mode: artifact.evaluation_mode,
+      evaluated_at: artifact.evaluated_at,
+      observation_status: 'degraded',
+      cause_code: artifact.cause_code,
+      significance_status: 'degraded',
+      hysteresis_transition: artifact.hysteresis_transition,
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      reason: artifact.reason,
+      thresholds: artifact.thresholds,
+      benchmark_observation: null,
+      portfolio_observation: null,
+      active_observation: null,
+      data_quality_evidence: makeDataQualityEvidence(),
+      metadata: { history_truth: 'authoritative_persisted_monitor_definition_evaluation_history', row_provenance: 'persisted_monitor_definition_evaluation_history_entry' },
+    },
+    metadata: {
+      contract_version: 'monitor_definition_evaluation_history_v1',
+      history_truth: 'authoritative_persisted_monitor_definition_evaluation_history',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      inspection_order: 'newest_first_evaluated_at',
+      monitor_definition_id: artifact.monitor_definition_id,
+      monitor_definition_fingerprint: artifact.monitor_definition_fingerprint,
+      monitor_definition_schema_version: artifact.monitor_definition_schema_version,
+      returned_limit: 20,
+      total_entries: 1,
+      retrieved_history_entry_id: 'monitor_definition_history_entry_data_quality',
+    },
+    ...overrides,
+  } as MonitorDefinitionEvaluationHistoryEntryResponse
+}
+
+function makeDataQualityTimelineHistoryRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineHistoryRow {
+  const entry = makeDataQualityEvaluationHistoryEntryResponse().item
+  return {
+    monitor_definition_id: entry.monitor_definition_id,
+    monitor_definition_fingerprint: entry.monitor_definition_fingerprint,
+    monitor_definition_schema_version: entry.monitor_definition_schema_version,
+    history_entry_id: entry.history_entry_id,
+    monitor_id: entry.monitor_id,
+    benchmark_symbol: entry.benchmark_symbol,
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: entry.evaluation_mode,
+    evaluated_at: entry.evaluated_at,
+    outcome_status: entry.observation_status,
+    cause_code: entry.cause_code,
+    significance_status: entry.significance_status,
+    hysteresis_transition: entry.hysteresis_transition,
+    review_support_status: 'review_supported',
+    latest_for_monitor_definition: true,
+    reason: entry.reason,
+    review_handoff: {
+      handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1',
+      monitor_definition_id: entry.monitor_definition_id,
+      history_entry_id: entry.history_entry_id,
+      monitor_id: entry.monitor_id,
+      benchmark_symbol: entry.benchmark_symbol,
+    },
+    event_kind: 'evaluation_history_event',
+    event_semantics: 'history_entry_rooted',
+    thresholds: entry.thresholds,
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidence(),
+    metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_evaluation_history_entry' },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineHistoryRow
+}
+
 function renderShell(overrides: Record<string, any> = {}) {
   const monitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionState = {
     navigation: null,
@@ -1905,9 +2192,12 @@ function renderShell(overrides: Record<string, any> = {}) {
       persistedOptimizerHandoffReview={null}
       monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
       recoveredAlertReviewQueue={[]}
+      alertEpisodeHistory={{ status: 'idle', monitorDefinitionId: null, response: null, error: null }}
       onOpenLatestObservation={noOp}
       onOpenAlertHistoryReview={noOp}
       onReopenRecoveredAlertReview={noOp}
+      onOpenAlertEpisodeHistory={noOp}
+      onLoadOlderAlertEpisodeHistory={noOp}
       {...overrides}
     />,
   )
@@ -2009,7 +2299,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getByText('degraded · recent')).toBeTruthy()
-    expect(screen.getByText('degraded · cause benchmark observation unconfirmed')).toBeTruthy()
+    expect(screen.getByText(/degraded · cause benchmark observation unconfirmed/)).toBeTruthy()
     expect(screen.getByText('Unable to open timeline observation review: persisted observation observation_id does not match selected timeline observation event')).toBeTruthy()
   })
 
@@ -2039,6 +2329,33 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       monitor_definition_id: 'monitor_definition_abc12345def67890',
       review_handoff: expect.objectContaining({ history_entry_id: 'monitor_definition_history_entry_abc12345' }),
     }))
+  })
+
+  it('renders data-quality observation and history readback without benchmark wording leakage', () => {
+    const observationRow = makeDataQualityTimelineObservationRow()
+    const historyRow = makeDataQualityTimelineHistoryRow()
+
+    renderShell({
+      monitorDefinitionAlertReviewSession: {
+        navigation: null,
+        timeline: makeAlertReviewTimeline([observationRow, historyRow]),
+        timelineStatus: 'ready',
+        timelineError: null,
+        latestObservation: { status: 'ready', row: observationRow, observation: makeDataQualityObservationArtifact(), error: null },
+        alertHistory: { status: 'ready', row: historyRow, entry: makeDataQualityEvaluationHistoryEntryResponse(), error: null },
+      },
+    })
+
+    expect(screen.getAllByText('Input reliability / data quality').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Input Reliability Evidence').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Coverage 75.00% · available 3 of 4 · missing 1/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Stale symbols: MSFT · missing symbols: CASH/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Withheld inputs: dividend_total_return · unavailable inputs: cash_fx_rate/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Trust statuses: prices: degraded, broker_import: verified/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Source lineage: market_data_cache\/fmp-cache-2026-04-21/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Read-only persisted monitor observation for benchmark-relative threshold drift review.')).toBeNull()
+    expect(screen.queryByText('Persisted Threshold / Observation Detail')).toBeNull()
+    expect(screen.queryByText('Persisted Threshold / History Detail')).toBeNull()
   })
 
   it('renders explicit empty and mismatch alert history timeline states', () => {
@@ -2112,7 +2429,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getByText('degraded · degraded · historical')).toBeTruthy()
-    expect(screen.getByText('review supported · cause benchmark observation unconfirmed')).toBeTruthy()
+    expect(screen.getByText(/review supported · cause benchmark observation unconfirmed/)).toBeTruthy()
     expect(screen.getByText('Unable to open timeline history review: persisted history entry history_entry_id does not match selected timeline history event')).toBeTruthy()
   })
 
@@ -2134,6 +2451,258 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(onReopenRecoveredAlertReview).toHaveBeenCalledTimes(1)
     expect(onReopenRecoveredAlertReview).toHaveBeenCalledWith(row)
+  })
+
+  it('renders active alert episode inbox ready rows and opens timeline review by row callback', () => {
+    const onOpenActiveAlertEpisode = vi.fn()
+    const row = makeActiveAlertEpisodeInboxRow()
+
+    renderShell({
+      activeAlertEpisodeInbox: {
+        status: 'ready',
+        response: {
+          items: [row],
+          metadata: {
+            contract_version: 'monitor_definition_active_alert_episode_inbox_v1',
+            provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only',
+            row_provenance: 'persisted_monitor_definition_alert_episode_record',
+            source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+            ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id',
+            windowing: 'before_episode_id_exclusive',
+            returned_limit: 20,
+            requested_before_episode_id: null,
+            next_before_episode_id: null,
+            total_active_episodes: 1,
+          },
+        },
+        error: null,
+      },
+      onOpenActiveAlertEpisode,
+    })
+
+    expect(screen.getByText('Active Alert Review Inbox')).toBeTruthy()
+    expect(screen.getByText('Rows: 1 of 1 · provenance: authoritative_persisted_monitor_definition_alert_episode_records_only · ordering: newest_first_latest_event_at_then_monitor_definition_id_then_episode_id')).toBeTruthy()
+    expect(screen.getByTestId('active-alert-episode-row-monitor_definition_alert_episode_latest')).toBeTruthy()
+    expect(screen.getByText(/alert · action required/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open timeline review' }))
+    expect(onOpenActiveAlertEpisode).toHaveBeenCalledTimes(1)
+    expect(onOpenActiveAlertEpisode).toHaveBeenCalledWith(row)
+  })
+
+  it('renders active alert episode inbox empty and error states', () => {
+    const { rerender } = renderShell({
+      activeAlertEpisodeInbox: {
+        status: 'ready',
+        response: {
+          items: [],
+          metadata: {
+            contract_version: 'monitor_definition_active_alert_episode_inbox_v1',
+            provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only',
+            row_provenance: 'persisted_monitor_definition_alert_episode_record',
+            source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+            ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id',
+            windowing: 'before_episode_id_exclusive',
+            returned_limit: 20,
+            requested_before_episode_id: null,
+            next_before_episode_id: null,
+            total_active_episodes: 0,
+          },
+        },
+        error: null,
+      },
+    })
+
+    expect(screen.getByText('No active alert episodes are currently available from authoritative persisted episode records.')).toBeTruthy()
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        activeAlertEpisodeInbox={{ status: 'error', response: null, error: 'active alert episode inbox payload is malformed' }}
+      />,
+    )
+
+    expect(screen.getByText('active alert episode inbox payload is malformed')).toBeTruthy()
+  })
+
+  it('renders alert episode history ready rows, metadata, load older, and open callback', () => {
+    const onOpenAlertEpisodeHistory = vi.fn()
+    const onLoadOlderAlertEpisodeHistory = vi.fn()
+    const row = makeAlertEpisodeHistoryRow()
+    const response = makeAlertEpisodeHistoryResponse([row], {
+      metadata: {
+        ...makeAlertEpisodeHistoryResponse([row]).metadata,
+        next_before_episode_id: 'monitor_definition_alert_episode_older',
+        total_episodes: 2,
+      },
+    })
+
+    renderShell({
+      alertEpisodeHistory: {
+        status: 'ready',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+        response,
+        error: null,
+      },
+      onOpenAlertEpisodeHistory,
+      onLoadOlderAlertEpisodeHistory,
+    })
+
+    expect(screen.getByText('Alert Episode History')).toBeTruthy()
+    expect(screen.getByText('History truth: authoritative_persisted_monitor_definition_alert_episode_history · provenance: persisted_monitor_definition_alert_episode_record')).toBeTruthy()
+    expect(screen.getByText('Definition: monitor_definition_abc12345def67890 · requested before: none · next before: monitor_definition_alert_episode_older')).toBeTruthy()
+    expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_latest')).toBeTruthy()
+    expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_latest').textContent).toContain('Benchmark threshold lifecycle readback.')
+
+    const section = screen.getByTestId('alert-episode-history-drill-in')
+    fireEvent.click(within(section).getByRole('button', { name: 'Open timeline review' }))
+    fireEvent.click(within(section).getByRole('button', { name: 'Load older' }))
+
+    expect(onOpenAlertEpisodeHistory).toHaveBeenCalledWith(row)
+    expect(onLoadOlderAlertEpisodeHistory).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders data-quality active inbox and episode history as input reliability reviews', () => {
+    const observation = makeDataQualityObservationArtifact()
+    const activeRow = makeActiveAlertEpisodeInboxRow({
+      alert_episode: {
+        ...makeActiveAlertEpisodeInboxRow().alert_episode,
+        episode_id: 'monitor_definition_alert_episode_data_quality',
+        monitor_definition_id: observation.monitor_definition_id,
+        monitor_definition_fingerprint: observation.monitor_definition_fingerprint,
+        monitor_id: observation.monitor_id,
+        benchmark_symbol: observation.benchmark_symbol,
+        latest_contributing_observation: { observation_id: observation.observation_id, evaluated_at: observation.evaluated_at, observation_status: observation.observation_status, cause_code: observation.cause_code, alert_classification: observation.alert_classification },
+        timeline_handoff: { handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1', monitor_definition_id: observation.monitor_definition_id, selected_event_kind: 'latest_observation_event', observation_id: observation.observation_id, history_entry_id: null, monitor_id: observation.monitor_id, benchmark_symbol: observation.benchmark_symbol },
+      },
+    })
+    const historyRow = makeAlertEpisodeHistoryRow({
+      episode_id: 'monitor_definition_alert_episode_data_quality_history',
+      monitor_definition_id: observation.monitor_definition_id,
+      monitor_definition_fingerprint: observation.monitor_definition_fingerprint,
+      monitor_id: observation.monitor_id,
+      benchmark_symbol: observation.benchmark_symbol,
+      latest_contributing_observation: { observation_id: observation.observation_id, evaluated_at: observation.evaluated_at, observation_status: observation.observation_status, cause_code: observation.cause_code, alert_classification: observation.alert_classification },
+      recovery_basis: { recovered_from_history_entry_id: 'monitor_definition_history_entry_data_quality', recovered_from_evaluated_at: observation.evaluated_at, recovered_from_outcome_status: 'degraded', recovered_from_cause_code: observation.cause_code, recovered_from_significance_status: 'degraded' },
+      timeline_handoff: { handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1', monitor_definition_id: observation.monitor_definition_id, selected_event_kind: 'latest_observation_event', observation_id: observation.observation_id, history_entry_id: null, monitor_id: observation.monitor_id, benchmark_symbol: observation.benchmark_symbol },
+    })
+
+    renderShell({
+      activeAlertEpisodeInbox: {
+        status: 'ready',
+        response: { items: [activeRow], metadata: { contract_version: 'monitor_definition_active_alert_episode_inbox_v1', provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only', row_provenance: 'persisted_monitor_definition_alert_episode_record', source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation', ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id', windowing: 'before_episode_id_exclusive', returned_limit: 20, requested_before_episode_id: null, next_before_episode_id: null, total_active_episodes: 1 } },
+        error: null,
+      },
+      alertEpisodeHistory: {
+        status: 'ready',
+        monitorDefinitionId: observation.monitor_definition_id,
+        response: makeAlertEpisodeHistoryResponse([historyRow], { metadata: { ...makeAlertEpisodeHistoryResponse([historyRow]).metadata, monitor_definition_id: observation.monitor_definition_id, monitor_definition_fingerprint: observation.monitor_definition_fingerprint } }),
+        error: null,
+      },
+    })
+
+    expect(screen.getAllByText('Input reliability / data quality').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('active-alert-episode-row-monitor_definition_alert_episode_data_quality').textContent).toContain('Input reliability review from persisted data-quality episode.')
+    expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_data_quality_history').textContent).toContain('Input reliability lifecycle; no benchmark threshold readback.')
+    expect(screen.queryByText('Benchmark trend alert from persisted threshold episode.')).toBeNull()
+  })
+
+  it('renders alert episode history loading empty and error states', () => {
+    const { rerender } = renderShell({
+      alertEpisodeHistory: {
+        status: 'loading',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+        response: null,
+        error: null,
+      },
+    })
+
+    expect(screen.getByText('Loading persisted alert episode history for monitor_definition_abc12345def67890.')).toBeTruthy()
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        alertEpisodeHistory={{ status: 'ready', monitorDefinitionId: 'monitor_definition_abc12345def67890', response: makeAlertEpisodeHistoryResponse([]), error: null }}
+      />,
+    )
+    expect(screen.getByText('No persisted alert episodes are available for this monitor definition window.')).toBeTruthy()
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        alertEpisodeHistory={{ status: 'error', monitorDefinitionId: 'monitor_definition_abc12345def67890', response: null, error: 'alert episode history payload is malformed' }}
+      />,
+    )
+    expect(screen.getByText('alert episode history payload is malformed')).toBeTruthy()
   })
 
   it('shows the workflow spine as the authoritative workflow summary when no candidate exists yet', () => {

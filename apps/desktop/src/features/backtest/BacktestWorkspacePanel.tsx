@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
 import { buildAuthoritativeCurrentPortfolio } from './currentPortfolio'
-import type { HypotheticalReplayResponse, MonitoringResearchHandoff, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import type { HypotheticalReplayResponse, MonitoringResearchHandoff, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionActiveAlertEpisodeInboxRow, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertEpisodeHistoryRow, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioAllocationBacktestResponse, PortfolioBaselineView, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, MonitorDefinitionAlertReviewSessionState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReplacementIntentDraftArtifact, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import type { BacktestRunResponse } from '../portfolio/types'
 import type { EtfRankingPanelState, SessionStateUpdate, StrategyBacktestPanelState, StrategyLabPanelState } from '../portfolio/workspaceResearchSessionState'
@@ -46,9 +46,23 @@ type Props = {
   onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
   monitorDefinitionAlertReviewSession?: MonitorDefinitionAlertReviewSessionState | null
   recoveredAlertReviewQueue?: MonitorDefinitionRecoveredAlertReviewQueueRow[] | null
+  activeAlertEpisodeInbox?: {
+    status: 'idle' | 'loading' | 'ready' | 'error'
+    response: MonitorDefinitionActiveAlertEpisodeInboxResponse | null
+    error: string | null
+  }
+  alertEpisodeHistory?: {
+    status: 'idle' | 'loading' | 'ready' | 'error'
+    monitorDefinitionId: string | null
+    response: MonitorDefinitionAlertEpisodeHistoryResponse | null
+    error: string | null
+  }
   onOpenLatestObservation?: (row: MonitorDefinitionAlertReviewTimelineObservationRow) => void | Promise<void>
   onOpenAlertHistoryReview?: (row: MonitorDefinitionAlertReviewTimelineHistoryRow) => void | Promise<void>
   onReopenRecoveredAlertReview?: (row: MonitorDefinitionRecoveredAlertReviewQueueRow) => void | Promise<void>
+  onOpenActiveAlertEpisode?: (row: MonitorDefinitionActiveAlertEpisodeInboxRow) => void | Promise<void>
+  onOpenAlertEpisodeHistory?: (row: MonitorDefinitionAlertEpisodeHistoryRow) => void | Promise<void>
+  onLoadOlderAlertEpisodeHistory?: () => void | Promise<void>
   onCreateReplacementIntent?: () => void | Promise<void>
   onClearReplacementIntent?: () => void | Promise<void>
   monitoringResearchHandoff?: MonitoringResearchHandoff | null
@@ -96,7 +110,7 @@ function WorkspaceResearchSession({
   )
 }
 
-export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, workspaceSource, persistedConstructionArtifactReview, persistedOptimizerHandoffReview, savedProposals, activeThesis, onSaveProposal, onOpenSavedProposal, openedSavedProposalArtifactId, onPromoteProposalToThesis, onClearActiveThesis, onHypotheticalReplayResult, onFormedCandidateArtifact, onConstructedCandidateArtifact, onConstructionConstraintValidationArtifact, onSelectedConstructionRuleChange, monitorDefinitionAlertReviewSession, recoveredAlertReviewQueue, onOpenLatestObservation, onOpenAlertHistoryReview, onReopenRecoveredAlertReview, onCreateReplacementIntent, onClearReplacementIntent, monitoringResearchHandoff, monitoringResearchHandoffDismissed, onDismissMonitoringResearchHandoff, onReviewInResearch, workspaceId, requestedResearchTool, onConsumeRequestedResearchTool, workspaceShellActivationKey, embeddedBacktestResult, embeddedStrategyBacktestState, onEmbeddedStrategyBacktestStateChange, onEmbeddedBacktestResult, embeddedStrategyLabState, onEmbeddedStrategyLabStateChange, embeddedEtfRankingState, onEmbeddedEtfRankingStateChange, onSeedCandidateDraft, onOpenPersistedConstructionArtifactReview }: Props) {
+export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationBacktestResult, analysis, draftSnapshot, candidateImprovementDraft, intentBoundSeededEtfReplacementRankingDraft, replacementIntentDraft, formedCandidateArtifact, constructedCandidateArtifact, constructionConstraintValidationArtifact, selectedConstructionRuleId, hypotheticalReplayResult, workspaceSource, persistedConstructionArtifactReview, persistedOptimizerHandoffReview, savedProposals, activeThesis, onSaveProposal, onOpenSavedProposal, openedSavedProposalArtifactId, onPromoteProposalToThesis, onClearActiveThesis, onHypotheticalReplayResult, onFormedCandidateArtifact, onConstructedCandidateArtifact, onConstructionConstraintValidationArtifact, onSelectedConstructionRuleChange, monitorDefinitionAlertReviewSession, recoveredAlertReviewQueue, activeAlertEpisodeInbox, alertEpisodeHistory, onOpenLatestObservation, onOpenAlertHistoryReview, onReopenRecoveredAlertReview, onOpenActiveAlertEpisode, onOpenAlertEpisodeHistory, onLoadOlderAlertEpisodeHistory, onCreateReplacementIntent, onClearReplacementIntent, monitoringResearchHandoff, monitoringResearchHandoffDismissed, onDismissMonitoringResearchHandoff, onReviewInResearch, workspaceId, requestedResearchTool, onConsumeRequestedResearchTool, workspaceShellActivationKey, embeddedBacktestResult, embeddedStrategyBacktestState, onEmbeddedStrategyBacktestStateChange, onEmbeddedBacktestResult, embeddedStrategyLabState, onEmbeddedStrategyLabStateChange, embeddedEtfRankingState, onEmbeddedEtfRankingStateChange, onSeedCandidateDraft, onOpenPersistedConstructionArtifactReview }: Props) {
   const [activeResearchTool, setActiveResearchTool] = useState<WorkspaceResearchTool | null>(null)
   const [returnSectionId, setReturnSectionId] = useState<string>(researchToolSectionId)
   const [localEmbeddedBacktestResult, setLocalEmbeddedBacktestResult] = useState<BacktestRunResponse | null>(null)
@@ -258,9 +272,14 @@ export function BacktestWorkspacePanel({ allocationBacktestResult, onAllocationB
           onSelectedConstructionRuleChange={onSelectedConstructionRuleChange}
           monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
           recoveredAlertReviewQueue={recoveredAlertReviewQueue}
+          activeAlertEpisodeInbox={activeAlertEpisodeInbox}
+          alertEpisodeHistory={alertEpisodeHistory}
           onOpenLatestObservation={onOpenLatestObservation}
           onOpenAlertHistoryReview={onOpenAlertHistoryReview}
           onReopenRecoveredAlertReview={onReopenRecoveredAlertReview}
+          onOpenActiveAlertEpisode={onOpenActiveAlertEpisode}
+          onOpenAlertEpisodeHistory={onOpenAlertEpisodeHistory}
+          onLoadOlderAlertEpisodeHistory={onLoadOlderAlertEpisodeHistory}
           monitoringResearchHandoff={monitoringResearchHandoff}
           monitoringResearchHandoffDismissed={monitoringResearchHandoffDismissed}
           onDismissMonitoringResearchHandoff={onDismissMonitoringResearchHandoff}

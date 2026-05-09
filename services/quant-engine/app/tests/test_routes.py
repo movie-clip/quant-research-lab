@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.schemas.backtest_engine import MonitorDefinitionAlertEpisode
+from app.services.monitor_definition_artifact_service import MonitorDefinitionArtifactStore
 from app.schemas.optimizer import OptimizerAlphaFundamentalSnapshot
 from app.services import replacement_ranking as replacement_ranking_module
 from app.services.optimizer_alpha_service import build_alpha_quality_package
@@ -684,6 +685,32 @@ def _monitor_evaluation_payload() -> dict[str, object]:
     }
 
 
+def _data_quality_evaluation_payload(**evidence_overrides: object) -> dict[str, object]:
+    evidence = {
+        "coverage_total_count": 4,
+        "coverage_available_count": 3,
+        "coverage_missing_count": 1,
+        "coverage_ratio": 0.75,
+        "stale_symbols": [],
+        "missing_symbols": ["DDD"],
+        "trust_statuses": {"AAA": "verified", "BBB": "verified", "CCC": "degraded", "DDD": "unavailable"},
+        "withheld_inputs": [],
+        "unavailable_inputs": [],
+        "source_lineage": [
+            {
+                "source_kind": "market_data_cache",
+                "source_id": "fmp-cache-2026-05-09",
+                "observed_at": "2026-05-09T09:30:00Z",
+            }
+        ],
+    }
+    evidence.update(evidence_overrides)
+    return {
+        "current_portfolio": _monitor_evaluation_payload()["current_portfolio"],
+        "data_quality_evidence": evidence,
+    }
+
+
 def _rekey_monitor_definition_artifact_payload(tmp_path: Path, monitor_definition_id: str, payload_mutator) -> str:
     artifact_path = tmp_path / f"{monitor_definition_id}.json"
     payload = json.loads(artifact_path.read_text(encoding="utf-8"))
@@ -1125,6 +1152,7 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
     monitor_definition_id = created["monitor_definition_id"]
     assert created["benchmark_symbol"] == "SPY"
     assert created["monitor_id"] == "benchmark_trend_overlay_v1"
+    assert "monitor_family" not in created
 
     get_response = client.get(f"/backtests/monitor-definitions/{monitor_definition_id}")
     list_response = client.get("/backtests/monitor-definitions")
@@ -1140,6 +1168,7 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
 
     assert get_response.status_code == 200
     assert get_response.json()["monitor_definition_id"] == monitor_definition_id
+    assert "monitor_family" not in get_response.json()
     assert list_response.status_code == 200
     assert list_response.json()["items"] == [
         {
@@ -1269,6 +1298,7 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
         },
     }
     assert evaluate_response.status_code == 200
+    assert "monitor_family" not in evaluate_response.json()
     assert evaluate_response.json()["observation_status"] == "ok"
     assert evaluate_response.json()["cause_code"] is None
     assert evaluate_response.json()["active_observation"]["required_overlay_status"] == "risk_reduced"
@@ -1333,6 +1363,297 @@ def test_monitor_definition_routes_create_get_list_and_evaluate(tmp_path, mocker
     assert persisted_observation["hysteresis_transition"] == "no_op"
     persisted_history_files = list((tmp_path / f"{monitor_definition_id}.history").glob("*.json"))
     assert len(persisted_history_files) == 1
+
+
+def test_benchmark_trend_monitor_definition_create_requires_benchmark_symbol(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": None},
+    )
+
+    assert response.status_code == 422
+    assert "benchmark_symbol is required for benchmark trend monitor definitions" in response.text
+
+
+@pytest.mark.parametrize("payload", [{"monitor_id": "benchmark_trend_overlay_v1"}, {"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": None}])
+def test_benchmark_trend_monitor_definition_create_rejects_omitted_or_null_benchmark_symbol(payload, tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post("/backtests/monitor-definitions", json=payload)
+
+    assert response.status_code == 422
+    assert "benchmark_symbol is required for benchmark trend monitor definitions" in response.text
+
+
+def test_benchmark_trend_monitor_definition_create_rejects_data_quality_sentinel(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "DATA_QUALITY"},
+    )
+
+    assert response.status_code == 422
+    assert "benchmark_symbol DATA_QUALITY is reserved for data quality monitor definitions" in response.text
+
+
+def test_benchmark_trend_monitor_definition_evaluate_rejects_data_quality_benchmark_observation(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "benchmark_trend_overlay_v1", "benchmark_symbol": "SPY"},
+    ).json()
+    payload = _monitor_evaluation_payload()
+    benchmark_observation = payload["benchmark_observation"]
+    assert isinstance(benchmark_observation, dict)
+    benchmark_observation["benchmark_symbol"] = "DATA_QUALITY"
+
+    response = client.post(
+        f"/backtests/monitor-definitions/{created['monitor_definition_id']}/evaluations",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert "benchmark trend benchmark_symbol must not be DATA_QUALITY" in response.text
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"monitor_id": "data_quality_monitor_v1"},
+        {"monitor_id": "data_quality_monitor_v1", "benchmark_symbol": None},
+        {"monitor_id": "data_quality_monitor_v1", "benchmark_symbol": "DATA_QUALITY"},
+    ],
+)
+def test_data_quality_monitor_definition_create_accepts_omitted_null_or_exact_sentinel(payload, tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post("/backtests/monitor-definitions", json=payload)
+
+    assert response.status_code == 200
+    created = response.json()
+    assert created["monitor_id"] == "data_quality_monitor_v1"
+    assert created["benchmark_symbol"] == "DATA_QUALITY"
+
+
+@pytest.mark.parametrize("benchmark_symbol", ["SPY", "data_quality", " DATA_QUALITY ", ""])
+def test_data_quality_monitor_definition_create_rejects_alternate_explicit_benchmark_symbol(benchmark_symbol, tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "data_quality_monitor_v1", "benchmark_symbol": benchmark_symbol},
+    )
+
+    assert response.status_code == 422
+    assert "benchmark_symbol for data quality monitor definitions must be DATA_QUALITY when supplied" in response.text
+
+
+def test_data_quality_monitor_definition_routes_persist_review_only_lifecycle(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "data_quality_monitor_v1"},
+    )
+
+    assert create_response.status_code == 200
+    created = create_response.json()
+    monitor_definition_id = created["monitor_definition_id"]
+    assert created["monitor_id"] == "data_quality_monitor_v1"
+    assert created["monitor_family"] == "data_quality"
+    assert created["benchmark_symbol"] == "DATA_QUALITY"
+    assert created["observation_statuses"] == ["ok", "degraded", "unavailable"]
+
+    evaluate_response = client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json=_data_quality_evaluation_payload(),
+    )
+
+    assert evaluate_response.status_code == 200
+    evaluated = evaluate_response.json()
+    assert evaluated["monitor_family"] == "data_quality"
+    assert evaluated["observation_status"] == "degraded"
+    assert evaluated["cause_code"] == "market_data_coverage_degraded"
+    assert evaluated["data_quality_evidence"]["coverage_ratio"] == 0.75
+
+    catalog_response = client.get(
+        "/backtests/monitor-definitions/catalog?monitor_family=data_quality&monitor_id=data_quality_monitor_v1"
+    )
+    recent_response = client.get(
+        "/backtests/monitor-definitions/recent?monitor_family=data_quality&monitor_id=data_quality_monitor_v1"
+    )
+    observation_response = client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/observation")
+    history_response = client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/evaluation-history")
+    timeline_response = client.get(f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline")
+    inbox_response = client.get("/backtests/monitor-definitions/latest-observation-alert-inbox")
+
+    assert catalog_response.status_code == 200
+    catalog = catalog_response.json()
+    assert catalog["metadata"]["supported_monitor_ids"] == ["benchmark_trend_overlay_v1", "data_quality_monitor_v1"]
+    assert catalog["metadata"]["supported_monitor_families"] == ["benchmark_trend", "data_quality"]
+    assert catalog["metadata"]["applied_filters"]["monitor_family"] == "data_quality"
+    assert len(catalog["items"]) == 1
+    catalog_row = catalog["items"][0]
+    assert catalog_row["monitor_family"] == "data_quality"
+    assert catalog_row["metadata"]["status"]["lifecycle"]["monitor_family"] == "data_quality"
+    assert catalog_row["metadata"]["status"]["latest_observation"]["observation_status"] == "degraded"
+    assert catalog_row["metadata"]["status"]["latest_observation"]["alert_classification"] == "degraded"
+    assert catalog_row["metadata"]["status"]["latest_evaluation_snapshot"]["outcome_status"] == "degraded"
+    assert catalog_row["metadata"]["status"]["latest_evaluation_snapshot"]["significance_status"] == "degraded"
+
+    assert recent_response.status_code == 200
+    assert recent_response.json()["items"][0]["monitor_family"] == "data_quality"
+    assert observation_response.status_code == 200
+    observation = observation_response.json()
+    assert observation["monitor_family"] == "data_quality"
+    assert observation["alert_classification"] == "degraded"
+    assert "threshold_breach" not in {observation["observation_status"]}
+    assert observation["data_quality_evidence"]["source_lineage"][0]["source_kind"] == "market_data_cache"
+    assert history_response.status_code == 200
+    history_item = history_response.json()["items"][0]
+    assert history_item["monitor_family"] == "data_quality"
+    assert history_item["significance_status"] == "degraded"
+    assert timeline_response.status_code == 200
+    timeline_payload = timeline_response.json()
+    assert timeline_payload["metadata"]["observation_rows"] == 1
+    assert timeline_payload["metadata"]["history_rows"] == 1
+    assert timeline_payload["items"][0]["data_quality_evidence"]["coverage_ratio"] == 0.75
+    assert timeline_payload["items"][1]["data_quality_evidence"]["coverage_ratio"] == 0.75
+    assert inbox_response.status_code == 200
+    assert any(item["monitor_definition_id"] == monitor_definition_id for item in inbox_response.json()["items"])
+
+
+@pytest.mark.parametrize(
+    ("evidence_overrides", "expected_status", "expected_coverage_ratio"),
+    [
+        ({}, "degraded", 0.75),
+        (
+            {
+                "coverage_available_count": 0,
+                "coverage_missing_count": 4,
+                "coverage_ratio": 0.0,
+                "unavailable_inputs": ["market_data_cache"],
+            },
+            "unavailable",
+            0.0,
+        ),
+    ],
+)
+def test_data_quality_monitor_definition_routes_read_episode_history_and_inbox_with_evidence(
+    tmp_path,
+    mocker,
+    evidence_overrides,
+    expected_status,
+    expected_coverage_ratio,
+) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "data_quality_monitor_v1"},
+    ).json()
+    monitor_definition_id = created["monitor_definition_id"]
+
+    evaluate_response = client.post(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/evaluations",
+        json=_data_quality_evaluation_payload(**evidence_overrides),
+    )
+    assert evaluate_response.status_code == 200
+
+    store = MonitorDefinitionArtifactStore()
+    rebuilt_rows = store._list_alert_episode_history_rows(  # noqa: SLF001
+        monitor_definition_id,
+        store.load(monitor_definition_id),
+    )
+    store._persist_alert_episode_history_rows(monitor_definition_id, rebuilt_rows)  # noqa: SLF001
+
+    history_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-episode-history"
+    )
+    inbox_response = client.get("/backtests/monitor-definitions/active-alert-episode-inbox")
+    timeline_response = client.get(
+        f"/backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline"
+    )
+
+    assert history_response.status_code == 200
+    history_payload = history_response.json()
+    assert history_payload["items"][0]["monitor_id"] == "data_quality_monitor_v1"
+    assert history_payload["items"][0]["monitor_family"] == "data_quality"
+    assert history_payload["items"][0]["latest_contributing_observation"]["observation_status"] == expected_status
+    assert history_payload["items"][0]["lifecycle_status"] == "open"
+    assert inbox_response.status_code == 200
+    assert any(
+        item["alert_episode"]["monitor_id"] == "data_quality_monitor_v1"
+        for item in inbox_response.json()["items"]
+    )
+    assert timeline_response.status_code == 200
+    assert timeline_response.json()["items"][0]["observation_status"] == expected_status
+    assert timeline_response.json()["items"][0]["data_quality_evidence"]["coverage_ratio"] == expected_coverage_ratio
+
+
+def test_data_quality_monitor_definition_routes_emit_unavailable_without_alert_action(tmp_path, mocker) -> None:
+    mocker.patch(
+        "app.services.monitor_definition_artifact_service.get_settings",
+        return_value=SimpleNamespace(monitor_definition_artifact_dir=str(tmp_path)),
+    )
+    client = TestClient(app)
+    created = client.post(
+        "/backtests/monitor-definitions",
+        json={"monitor_id": "data_quality_monitor_v1"},
+    ).json()
+
+    evaluate_response = client.post(
+        f"/backtests/monitor-definitions/{created['monitor_definition_id']}/evaluations",
+        json=_data_quality_evaluation_payload(
+            coverage_available_count=0,
+            coverage_missing_count=4,
+            coverage_ratio=0.0,
+            unavailable_inputs=["market_data_cache"],
+        ),
+    )
+
+    assert evaluate_response.status_code == 200
+    payload = evaluate_response.json()
+    assert payload["observation_status"] == "unavailable"
+    assert payload["cause_code"] == "input_unavailable"
+    assert payload.get("alert_classification") != "action_required"
+    observation = client.get(f"/backtests/monitor-definitions/{created['monitor_definition_id']}/observation").json()
+    assert observation["alert_classification"] == "unavailable"
+    assert observation["observation_status"] != "threshold_breach"
 
 
 def test_monitor_definition_create_route_is_immutable_for_identical_requests(tmp_path, mocker) -> None:
@@ -2075,6 +2396,7 @@ def test_monitor_definition_discovery_openapi_query_parameter_inventory_stays_al
 
     assert catalog_params == [
         "overlay_family",
+        "monitor_family",
         "monitor_id",
         "review_support_status",
         "lifecycle_status",

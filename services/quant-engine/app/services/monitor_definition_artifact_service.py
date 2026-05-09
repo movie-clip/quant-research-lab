@@ -12,6 +12,10 @@ from pydantic import ValidationError
 
 from app.core.settings import get_settings
 from app.schemas.backtest_engine import (
+    DataQualityMonitorEvidenceSummary,
+    DataQualityMonitorLatestEvaluationDataQualityBasis,
+    DataQualityMonitorPolicy,
+    DataQualityMonitorSourceLineageRequirements,
     MonitorDefinitionAlertEpisode,
     MonitorDefinitionAlertEpisodeRecordArtifact,
     MonitorDefinitionAlertEpisodeHistoryResponse,
@@ -64,6 +68,7 @@ from app.schemas.backtest_engine import (
     MonitorDefinitionLatestObservationRecency,
     MonitorDefinitionLatestObservationStatus,
     MonitorDefinitionLatestObservationSummary,
+    MonitorDefinitionLifecycleStatusMetadata,
     MonitorDefinitionObservationArtifact,
     MonitorDefinitionObservationStatus,
     MonitorDefinitionMonitoringSourcePrecedence,
@@ -108,6 +113,8 @@ class MonitorDefinitionDiscoveryMetadataValidationError(MonitorDefinitionReadErr
 
 
 CANONICAL_MONITOR_DEFINITION_OBSERVATION_STATUSES = ["ok", "threshold_breach", "degraded", "unavailable"]
+CANONICAL_DATA_QUALITY_MONITOR_DEFINITION_OBSERVATION_STATUSES = ["ok", "degraded", "unavailable"]
+SUPPORTED_MONITOR_DEFINITION_IDS = {"benchmark_trend_overlay_v1", "data_quality_monitor_v1"}
 CANONICAL_MONITOR_DEFINITION_REQUIRED_PORTFOLIO_STATEMENT_FIELDS = [
     "importer",
     "imported_at",
@@ -130,7 +137,7 @@ CANONICAL_MONITOR_DEFINITION_SOURCE_LINEAGE_REQUIREMENTS = {
     "required_portfolio_statement_fields": CANONICAL_MONITOR_DEFINITION_REQUIRED_PORTFOLIO_STATEMENT_FIELDS,
     "required_benchmark_observation_fields": CANONICAL_MONITOR_DEFINITION_REQUIRED_BENCHMARK_OBSERVATION_FIELDS,
 }
-MONITOR_DEFINITION_ALLOWED_LEGACY_MISSING_FIELDS = frozenset({"observation_statuses", "source_lineage_requirements"})
+MONITOR_DEFINITION_ALLOWED_LEGACY_MISSING_FIELDS = frozenset({"monitor_family", "observation_statuses", "source_lineage_requirements"})
 MONITOR_DEFINITION_REQUIRED_TOP_LEVEL_FIELDS = frozenset(
     {
         "schema_version",
@@ -172,6 +179,25 @@ MONITOR_DEFINITION_OBSERVATION_REQUIRED_TOP_LEVEL_FIELDS = frozenset(
         "active_observation",
     }
 )
+DATA_QUALITY_MONITOR_DEFINITION_OBSERVATION_REQUIRED_TOP_LEVEL_FIELDS = frozenset(
+    {
+        "schema_version",
+        "observation_id",
+        "monitor_definition_id",
+        "monitor_definition_fingerprint",
+        "monitor_definition_schema_version",
+        "monitor_id",
+        "monitor_family",
+        "benchmark_symbol",
+        "evaluation_mode",
+        "evaluated_at",
+        "observation_status",
+        "cause_code",
+        "alert_classification",
+        "thresholds",
+        "data_quality_evidence",
+    }
+)
 MONITOR_DEFINITION_SOURCE_LINEAGE_REQUIREMENT_FIELDS = frozenset(
     {
         "benchmark_source_kind",
@@ -192,6 +218,21 @@ MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_REQUIRED_TOP_LEVEL_FIELDS = frozen
         "significance_status",
         "benchmark_observation_lineage",
         "portfolio_truth_basis",
+    }
+)
+DATA_QUALITY_MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_REQUIRED_TOP_LEVEL_FIELDS = frozenset(
+    {
+        "schema_version",
+        "monitor_definition_id",
+        "monitor_id",
+        "monitor_family",
+        "benchmark_symbol",
+        "evaluated_at",
+        "outcome_status",
+        "cause_code",
+        "significance_status",
+        "benchmark_observation_lineage",
+        "data_quality_basis",
     }
 )
 MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_BENCHMARK_OBSERVATION_LINEAGE_FIELDS = frozenset(
@@ -218,6 +259,40 @@ MONITOR_DEFINITION_EVALUATION_HISTORY_ENTRY_REQUIRED_TOP_LEVEL_FIELDS = frozense
         "benchmark_observation",
         "portfolio_observation",
         "active_observation",
+    }
+)
+DATA_QUALITY_MONITOR_DEFINITION_EVALUATION_HISTORY_ENTRY_REQUIRED_TOP_LEVEL_FIELDS = frozenset(
+    {
+        "schema_version",
+        "history_entry_id",
+        "monitor_definition_id",
+        "monitor_definition_fingerprint",
+        "monitor_definition_schema_version",
+        "monitor_id",
+        "monitor_family",
+        "benchmark_symbol",
+        "evaluation_mode",
+        "evaluated_at",
+        "observation_status",
+        "cause_code",
+        "significance_status",
+        "thresholds",
+        "data_quality_evidence",
+    }
+)
+DATA_QUALITY_MONITOR_DEFINITION_SOURCE_LINEAGE_REQUIREMENT_FIELDS = frozenset(
+    {
+        "evidence_source_kind",
+        "portfolio_truth_basis",
+        "required_evidence_fields",
+    }
+)
+DATA_QUALITY_MONITOR_DEFINITION_POLICY_FIELDS = frozenset(
+    {
+        "minimum_coverage_ratio",
+        "max_stale_age_days",
+        "required_trust_floor",
+        "provenance_requirements",
     }
 )
 MONITOR_DEFINITION_ALERT_EPISODE_RECORD_REQUIRED_TOP_LEVEL_FIELDS = frozenset(
@@ -453,9 +528,14 @@ def _validated_episode_id_key(episode_id: str) -> str:
 
 
 def _validate_raw_persisted_monitor_definition_observation_payload(payload: dict[str, Any]) -> None:
+    required_fields = (
+        DATA_QUALITY_MONITOR_DEFINITION_OBSERVATION_REQUIRED_TOP_LEVEL_FIELDS
+        if payload.get("monitor_id") == "data_quality_monitor_v1"
+        else MONITOR_DEFINITION_OBSERVATION_REQUIRED_TOP_LEVEL_FIELDS
+    )
     missing_fields = sorted(
         field_name
-        for field_name in MONITOR_DEFINITION_OBSERVATION_REQUIRED_TOP_LEVEL_FIELDS
+        for field_name in required_fields
         if field_name not in payload
     )
     if missing_fields:
@@ -516,7 +596,7 @@ def _validate_loaded_monitor_definition_observation(
         raise MonitorDefinitionIntegrityValidationError(
             "persisted monitor definition observation fingerprint does not match persisted monitor definition"
         )
-    if observation.monitor_id != "benchmark_trend_overlay_v1":
+    if observation.monitor_id not in SUPPORTED_MONITOR_DEFINITION_IDS:
         raise MonitorDefinitionIntegrityValidationError(
             "unsupported monitor definition observation monitor_id"
         )
@@ -528,6 +608,11 @@ def _validate_loaded_monitor_definition_observation(
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition observation benchmark_symbol must be canonical"
         )
+    _validate_monitor_definition_family_symbol_contract(
+        observation.monitor_id,
+        observation.benchmark_symbol,
+        "monitor definition observation",
+    )
     if expected_benchmark_symbol is not None and observation.benchmark_symbol != expected_benchmark_symbol:
         raise MonitorDefinitionIntegrityValidationError(
             "persisted monitor definition observation benchmark_symbol does not match persisted monitor definition"
@@ -536,11 +621,26 @@ def _validate_loaded_monitor_definition_observation(
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition observation evaluation_mode is unsupported"
         )
-    if observation.benchmark_observation.overlay_id != observation.monitor_id:
+    if observation.monitor_id == "data_quality_monitor_v1":
+        if observation.observation_status == "threshold_breach" or observation.alert_classification == "action_required":
+            raise MonitorDefinitionIntegrityValidationError(
+                "data quality monitor observation must remain review-only"
+            )
+        if observation.data_quality_evidence is None:
+            raise MonitorDefinitionIntegrityValidationError(
+                "data quality monitor observation requires evidence summary"
+            )
+        return observation
+    if observation.benchmark_observation is None:
+        raise MonitorDefinitionIntegrityValidationError(
+            "benchmark trend observation requires benchmark_observation"
+        )
+    benchmark_observation = observation.benchmark_observation
+    if benchmark_observation.overlay_id != observation.monitor_id:
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition observation benchmark observation overlay_id must match observation monitor_id"
         )
-    if observation.benchmark_observation.benchmark_symbol != observation.benchmark_symbol:
+    if benchmark_observation.benchmark_symbol != observation.benchmark_symbol:
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition observation benchmark observation benchmark_symbol must match observation benchmark_symbol"
         )
@@ -581,9 +681,14 @@ def build_stable_monitor_definition_observation(
 def _validate_raw_persisted_monitor_definition_evaluation_history_entry_payload(
     payload: dict[str, Any],
 ) -> None:
+    required_fields = (
+        DATA_QUALITY_MONITOR_DEFINITION_EVALUATION_HISTORY_ENTRY_REQUIRED_TOP_LEVEL_FIELDS
+        if payload.get("monitor_id") == "data_quality_monitor_v1"
+        else MONITOR_DEFINITION_EVALUATION_HISTORY_ENTRY_REQUIRED_TOP_LEVEL_FIELDS
+    )
     missing_fields = sorted(
         field_name
-        for field_name in MONITOR_DEFINITION_EVALUATION_HISTORY_ENTRY_REQUIRED_TOP_LEVEL_FIELDS
+        for field_name in required_fields
         if field_name not in payload
     )
     if missing_fields:
@@ -646,7 +751,7 @@ def _validate_loaded_monitor_definition_evaluation_history_entry(
         raise MonitorDefinitionIntegrityValidationError(
             "persisted monitor definition evaluation history entry fingerprint does not match persisted monitor definition"
         )
-    if entry.monitor_id != "benchmark_trend_overlay_v1":
+    if entry.monitor_id not in SUPPORTED_MONITOR_DEFINITION_IDS:
         raise MonitorDefinitionIntegrityValidationError(
             "unsupported monitor definition evaluation history entry monitor_id"
         )
@@ -658,6 +763,11 @@ def _validate_loaded_monitor_definition_evaluation_history_entry(
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition evaluation history entry benchmark_symbol must be canonical"
         )
+    _validate_monitor_definition_family_symbol_contract(
+        entry.monitor_id,
+        entry.benchmark_symbol,
+        "monitor definition evaluation history entry",
+    )
     if expected_benchmark_symbol is not None and entry.benchmark_symbol != expected_benchmark_symbol:
         raise MonitorDefinitionIntegrityValidationError(
             "persisted monitor definition evaluation history entry benchmark_symbol does not match persisted monitor definition"
@@ -666,11 +776,26 @@ def _validate_loaded_monitor_definition_evaluation_history_entry(
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition evaluation history entry evaluation_mode is unsupported"
         )
-    if entry.benchmark_observation.overlay_id != entry.monitor_id:
+    if entry.monitor_id == "data_quality_monitor_v1":
+        if entry.observation_status == "threshold_breach" or entry.significance_status == "action_required":
+            raise MonitorDefinitionIntegrityValidationError(
+                "data quality monitor evaluation history entry must remain review-only"
+            )
+        if entry.data_quality_evidence is None:
+            raise MonitorDefinitionIntegrityValidationError(
+                "data quality monitor evaluation history entry requires evidence summary"
+            )
+        return entry
+    if entry.benchmark_observation is None:
+        raise MonitorDefinitionIntegrityValidationError(
+            "benchmark trend evaluation history entry requires benchmark_observation"
+        )
+    benchmark_observation = entry.benchmark_observation
+    if benchmark_observation.overlay_id != entry.monitor_id:
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition evaluation history entry benchmark observation overlay_id must match entry monitor_id"
         )
-    if entry.benchmark_observation.benchmark_symbol != entry.benchmark_symbol:
+    if benchmark_observation.benchmark_symbol != entry.benchmark_symbol:
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition evaluation history entry benchmark observation benchmark_symbol must match entry benchmark_symbol"
         )
@@ -812,7 +937,7 @@ def _validate_loaded_monitor_definition_alert_episode_record(
         raise MonitorDefinitionIntegrityValidationError(
             "persisted monitor definition alert episode record fingerprint does not match persisted monitor definition"
         )
-    if record.monitor_id != "benchmark_trend_overlay_v1":
+    if record.monitor_id not in SUPPORTED_MONITOR_DEFINITION_IDS:
         raise MonitorDefinitionIntegrityValidationError(
             "unsupported monitor definition alert episode record monitor_id"
         )
@@ -824,6 +949,11 @@ def _validate_loaded_monitor_definition_alert_episode_record(
         raise MonitorDefinitionIntegrityValidationError(
             "monitor definition alert episode record benchmark_symbol must be canonical"
         )
+    _validate_monitor_definition_family_symbol_contract(
+        record.monitor_id,
+        record.benchmark_symbol,
+        "monitor definition alert episode record",
+    )
     if expected_benchmark_symbol is not None and record.benchmark_symbol != expected_benchmark_symbol:
         raise MonitorDefinitionIntegrityValidationError(
             "persisted monitor definition alert episode record benchmark_symbol does not match persisted monitor definition"
@@ -938,6 +1068,10 @@ class PersistedMonitorDefinitionRecoveredAlertReviewQueueCandidate:
     alert_episode: MonitorDefinitionAlertEpisode
 
 
+def _monitor_family(artifact: MonitorDefinitionArtifact) -> Any:
+    return artifact.monitor_family or ("data_quality" if artifact.monitor_id == "data_quality_monitor_v1" else "benchmark_trend")
+
+
 class MonitorDefinitionArtifactStore:
     def __init__(self, base_dir: str | None = None) -> None:
         settings = get_settings()
@@ -951,7 +1085,7 @@ class MonitorDefinitionArtifactStore:
         validated_artifact = validate_monitor_definition_artifact(artifact)
         self._write_once(
             self.artifact_path(validated_artifact.monitor_definition_id),
-            validated_artifact.model_dump(mode="json"),
+            _persisted_payload_from_artifact(validated_artifact),
         )
         return validated_artifact
 
@@ -961,6 +1095,13 @@ class MonitorDefinitionArtifactStore:
         try:
             artifact = MonitorDefinitionArtifact.model_validate(_hydrate_legacy_monitor_definition_payload(raw.payload))
         except ValidationError as exc:
+            if any(
+                "observation_statuses must match monitor family" in str(error.get("msg", ""))
+                for error in exc.errors()
+            ):
+                raise MonitorDefinitionIntegrityValidationError(
+                    "monitor definition observation_statuses must remain canonical"
+                ) from exc
             raise MonitorDefinitionSchemaValidationError(
                 f"persisted monitor definition failed schema validation: {raw.artifact_path}"
             ) from exc
@@ -1364,9 +1505,15 @@ class MonitorDefinitionArtifactStore:
     ) -> MonitorDefinitionCatalogResponse:
         normalized_filters = filters or MonitorDefinitionDiscoveryFilters()
         persisted = self._list_persisted_artifacts(filters=normalized_filters)
+        metadata = MonitorDefinitionCatalogResponseMetadata(applied_filters=normalized_filters)
+        if normalized_filters.monitor_family == "data_quality" or any(
+            _monitor_family(item.artifact) == "data_quality" for item in persisted
+        ):
+            metadata.supported_monitor_ids = ["benchmark_trend_overlay_v1", "data_quality_monitor_v1"]
+            metadata.supported_monitor_families = ["benchmark_trend", "data_quality"]
         return MonitorDefinitionCatalogResponse(
             items=[_catalog_row_from_persisted_artifact(item) for item in persisted],
-            metadata=MonitorDefinitionCatalogResponseMetadata(applied_filters=normalized_filters),
+            metadata=metadata,
         )
 
     def list_recent(
@@ -1382,9 +1529,15 @@ class MonitorDefinitionArtifactStore:
                 metadata=MonitorDefinitionRecentResponseMetadata(applied_filters=normalized_filters),
             )
         persisted = self._list_persisted_artifacts(filters=normalized_filters)[:limit]
+        metadata = MonitorDefinitionRecentResponseMetadata(applied_filters=normalized_filters)
+        if normalized_filters.monitor_family == "data_quality" or any(
+            _monitor_family(item.artifact) == "data_quality" for item in persisted
+        ):
+            metadata.supported_monitor_ids = ["benchmark_trend_overlay_v1", "data_quality_monitor_v1"]
+            metadata.supported_monitor_families = ["benchmark_trend", "data_quality"]
         return MonitorDefinitionRecentResponse(
             items=[_recent_row_from_persisted_artifact(item) for item in persisted],
-            metadata=MonitorDefinitionRecentResponseMetadata(applied_filters=normalized_filters),
+            metadata=metadata,
         )
 
     def list_latest_observation_alert_inbox(
@@ -1870,6 +2023,7 @@ class MonitorDefinitionArtifactStore:
                     benchmark_observation=observation.benchmark_observation,
                     portfolio_observation=observation.portfolio_observation,
                     active_observation=observation.active_observation,
+                    data_quality_evidence=observation.data_quality_evidence,
                 )
             )
         for index, entry in enumerate(timeline_state.history_entries):
@@ -1906,6 +2060,7 @@ class MonitorDefinitionArtifactStore:
                     benchmark_observation=history_artifact.benchmark_observation,
                     portfolio_observation=history_artifact.portfolio_observation,
                     active_observation=history_artifact.active_observation,
+                    data_quality_evidence=history_artifact.data_quality_evidence,
                 )
             )
         rows.sort(
@@ -2240,14 +2395,39 @@ class MonitorDefinitionArtifactStore:
 
 
 def build_stable_monitor_definition_artifact(request: CreateMonitorDefinitionRequest) -> MonitorDefinitionArtifact:
-    normalized_benchmark_symbol = _validated_benchmark_symbol(request.benchmark_symbol)
-    artifact = MonitorDefinitionArtifact(
-        monitor_definition_id="monitor_definition_pending",
-        fingerprint="pending",
-        monitor_id=request.monitor_id,
-        benchmark_symbol=normalized_benchmark_symbol,
-    )
-    payload = artifact.model_dump(mode="json", exclude={"monitor_definition_id", "fingerprint"})
+    if request.monitor_id == "data_quality_monitor_v1":
+        if request.benchmark_symbol is not None and request.benchmark_symbol != "DATA_QUALITY":
+            raise MonitorDefinitionIntegrityValidationError(
+                "benchmark_symbol for data quality monitor definitions must be DATA_QUALITY when supplied"
+            )
+        normalized_benchmark_symbol = "DATA_QUALITY"
+    else:
+        if request.benchmark_symbol is None:
+            raise MonitorDefinitionIntegrityValidationError(
+                "benchmark_symbol is required for benchmark trend monitor definitions"
+            )
+        normalized_benchmark_symbol = _validated_benchmark_symbol(request.benchmark_symbol)
+        if normalized_benchmark_symbol == "DATA_QUALITY":
+            raise MonitorDefinitionIntegrityValidationError(
+                "benchmark_symbol DATA_QUALITY is reserved for data quality monitor definitions"
+            )
+    kwargs: dict[str, Any] = {
+        "monitor_definition_id": "monitor_definition_pending",
+        "fingerprint": "pending",
+        "monitor_id": request.monitor_id,
+        "benchmark_symbol": normalized_benchmark_symbol,
+    }
+    if request.monitor_id == "data_quality_monitor_v1":
+        kwargs.update(
+            {
+                "monitor_family": "data_quality",
+                "observation_statuses": CANONICAL_DATA_QUALITY_MONITOR_DEFINITION_OBSERVATION_STATUSES,
+                "thresholds": DataQualityMonitorPolicy(),
+                "source_lineage_requirements": DataQualityMonitorSourceLineageRequirements(),
+            }
+        )
+    artifact = MonitorDefinitionArtifact(**kwargs)
+    payload = _canonical_validation_payload_from_artifact(artifact)
     fingerprint = _fingerprint(payload)
     return artifact.model_copy(
         update={
@@ -2489,7 +2669,7 @@ def _validate_loaded_monitor_definition_artifact(
 ) -> MonitorDefinitionArtifact:
     if artifact.schema_version != "monitor_definition_artifact_v1":
         raise MonitorDefinitionIntegrityValidationError("unsupported monitor definition schema_version")
-    if artifact.monitor_id != "benchmark_trend_overlay_v1":
+    if artifact.monitor_id not in SUPPORTED_MONITOR_DEFINITION_IDS:
         raise MonitorDefinitionIntegrityValidationError("unsupported monitor_id")
     if artifact.monitor_definition_id == "monitor_definition_pending":
         raise MonitorDefinitionIntegrityValidationError("monitor_definition_id must be stable before persistence")
@@ -2499,26 +2679,44 @@ def _validate_loaded_monitor_definition_artifact(
         )
     if artifact.benchmark_symbol != _validated_benchmark_symbol(artifact.benchmark_symbol):
         raise MonitorDefinitionIntegrityValidationError("monitor definition benchmark_symbol must be canonical")
+    _validate_monitor_definition_family_symbol_contract(
+        artifact.monitor_id,
+        artifact.benchmark_symbol,
+        "monitor definition",
+    )
     if artifact.review_scope != "current_portfolio_truth_only":
         raise MonitorDefinitionIntegrityValidationError("monitor definition review_scope is unsupported")
     if artifact.evaluation_mode != "review_only_observation_evaluation":
         raise MonitorDefinitionIntegrityValidationError("monitor definition evaluation_mode is unsupported")
-    if artifact.observation_statuses != CANONICAL_MONITOR_DEFINITION_OBSERVATION_STATUSES:
+    expected_statuses = (
+        CANONICAL_DATA_QUALITY_MONITOR_DEFINITION_OBSERVATION_STATUSES
+        if artifact.monitor_id == "data_quality_monitor_v1"
+        else CANONICAL_MONITOR_DEFINITION_OBSERVATION_STATUSES
+    )
+    if artifact.observation_statuses != expected_statuses:
         raise MonitorDefinitionIntegrityValidationError("monitor definition observation_statuses must remain canonical")
-    if (
-        artifact.source_lineage_requirements.required_portfolio_statement_fields
-        != CANONICAL_MONITOR_DEFINITION_REQUIRED_PORTFOLIO_STATEMENT_FIELDS
-    ):
-        raise MonitorDefinitionIntegrityValidationError(
-            "monitor definition required_portfolio_statement_fields must remain canonical"
-        )
-    if (
-        artifact.source_lineage_requirements.required_benchmark_observation_fields
-        != CANONICAL_MONITOR_DEFINITION_REQUIRED_BENCHMARK_OBSERVATION_FIELDS
-    ):
-        raise MonitorDefinitionIntegrityValidationError(
-            "monitor definition required_benchmark_observation_fields must remain canonical"
-        )
+    if artifact.monitor_id == "data_quality_monitor_v1":
+        if not isinstance(artifact.thresholds, DataQualityMonitorPolicy):
+            raise MonitorDefinitionIntegrityValidationError("data quality monitor policy must remain canonical")
+        if not isinstance(artifact.source_lineage_requirements, DataQualityMonitorSourceLineageRequirements):
+            raise MonitorDefinitionIntegrityValidationError("data quality monitor source lineage requirements must remain canonical")
+    else:
+        if isinstance(artifact.source_lineage_requirements, DataQualityMonitorSourceLineageRequirements):
+            raise MonitorDefinitionIntegrityValidationError("benchmark trend monitor source lineage requirements must remain canonical")
+        if (
+            artifact.source_lineage_requirements.required_portfolio_statement_fields
+            != CANONICAL_MONITOR_DEFINITION_REQUIRED_PORTFOLIO_STATEMENT_FIELDS
+        ):
+            raise MonitorDefinitionIntegrityValidationError(
+                "monitor definition required_portfolio_statement_fields must remain canonical"
+            )
+        if (
+            artifact.source_lineage_requirements.required_benchmark_observation_fields
+            != CANONICAL_MONITOR_DEFINITION_REQUIRED_BENCHMARK_OBSERVATION_FIELDS
+        ):
+            raise MonitorDefinitionIntegrityValidationError(
+                "monitor definition required_benchmark_observation_fields must remain canonical"
+            )
     canonical_payload = (
         _canonical_validation_payload_from_artifact(artifact)
         if persisted_payload is None
@@ -2556,7 +2754,7 @@ def _validate_loaded_monitor_definition_latest_evaluation_snapshot(
 ) -> MonitorDefinitionLatestEvaluationSnapshotArtifact:
     if snapshot.schema_version != "monitor_definition_latest_evaluation_snapshot_v1":
         raise MonitorDefinitionIntegrityValidationError("unsupported latest evaluation snapshot schema_version")
-    if snapshot.monitor_id != "benchmark_trend_overlay_v1":
+    if snapshot.monitor_id not in SUPPORTED_MONITOR_DEFINITION_IDS:
         raise MonitorDefinitionIntegrityValidationError("unsupported latest evaluation snapshot monitor_id")
     monitor_definition_id = _validated_monitor_definition_id_key(snapshot.monitor_definition_id)
     if expected_monitor_definition_id is not None and monitor_definition_id != expected_monitor_definition_id:
@@ -2571,6 +2769,11 @@ def _validate_loaded_monitor_definition_latest_evaluation_snapshot(
         raise MonitorDefinitionIntegrityValidationError(
             "latest evaluation snapshot benchmark_symbol must be canonical"
         )
+    _validate_monitor_definition_family_symbol_contract(
+        snapshot.monitor_id,
+        snapshot.benchmark_symbol,
+        "latest evaluation snapshot",
+    )
     if expected_benchmark_symbol is not None and snapshot.benchmark_symbol != expected_benchmark_symbol:
         raise MonitorDefinitionIntegrityValidationError(
             "persisted latest evaluation snapshot benchmark_symbol does not match persisted monitor definition"
@@ -2579,11 +2782,26 @@ def _validate_loaded_monitor_definition_latest_evaluation_snapshot(
         raise MonitorDefinitionIntegrityValidationError(
             "latest evaluation snapshot evaluated_at must be timezone-aware"
         )
-    if not snapshot.portfolio_truth_basis.source_path.strip():
+    portfolio_truth_basis = snapshot.portfolio_truth_basis
+    if snapshot.monitor_id == "data_quality_monitor_v1":
+        if snapshot.outcome_status == "threshold_breach" or snapshot.significance_status == "action_required":
+            raise MonitorDefinitionIntegrityValidationError(
+                "data quality monitor latest evaluation snapshot must remain review-only"
+            )
+        if snapshot.data_quality_basis is None:
+            raise MonitorDefinitionIntegrityValidationError(
+                "data quality monitor latest evaluation snapshot requires data_quality_basis"
+            )
+        return snapshot
+    if portfolio_truth_basis is None:
+        raise MonitorDefinitionIntegrityValidationError(
+            "latest evaluation snapshot portfolio_truth_basis is required"
+        )
+    if not portfolio_truth_basis.source_path.strip():
         raise MonitorDefinitionIntegrityValidationError(
             "latest evaluation snapshot portfolio_truth_basis.source_path must be non-blank"
         )
-    if not snapshot.portfolio_truth_basis.statement_period.strip():
+    if not portfolio_truth_basis.statement_period.strip():
         raise MonitorDefinitionIntegrityValidationError(
             "latest evaluation snapshot portfolio_truth_basis.statement_period must be non-blank"
         )
@@ -2797,35 +3015,72 @@ def _canonical_monitor_definition_observation_id_from_payload(payload: object) -
 
 
 def _canonical_validation_payload_from_artifact(artifact: MonitorDefinitionArtifact) -> dict[str, Any]:
-    return artifact.model_dump(mode="json", exclude={"monitor_definition_id", "fingerprint"})
+    exclude = {"monitor_definition_id", "fingerprint"}
+    if artifact.monitor_id == "benchmark_trend_overlay_v1":
+        exclude.add("monitor_family")
+    return artifact.model_dump(mode="json", exclude=exclude, exclude_none=True)
+
+
+def _persisted_payload_from_artifact(artifact: MonitorDefinitionArtifact) -> dict[str, Any]:
+    exclude: set[str] = set()
+    if artifact.monitor_id == "benchmark_trend_overlay_v1":
+        exclude.add("monitor_family")
+    return artifact.model_dump(mode="json", exclude=exclude, exclude_none=True)
 
 
 def _canonical_validation_payload_from_persisted_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in payload.items() if key not in {"monitor_definition_id", "fingerprint"}}
+    excluded = {"monitor_definition_id", "fingerprint"}
+    if payload.get("monitor_id") == "benchmark_trend_overlay_v1":
+        excluded.add("monitor_family")
+    return {key: value for key, value in payload.items() if key not in excluded}
 
 
 def _canonical_validation_payload_from_evaluation_history_entry(
     entry: MonitorDefinitionEvaluationHistoryEntryArtifact,
 ) -> dict[str, Any]:
-    return entry.model_dump(mode="json", exclude={"history_entry_id"})
+    exclude = {"history_entry_id"}
+    if entry.monitor_id == "benchmark_trend_overlay_v1":
+        exclude.add("monitor_family")
+        exclude.add("data_quality_evidence")
+    return entry.model_dump(mode="json", exclude=exclude, exclude_none=entry.monitor_id != "benchmark_trend_overlay_v1")
 
 
 def _canonical_validation_payload_from_observation(
     observation: MonitorDefinitionObservationArtifact,
 ) -> dict[str, Any]:
-    return observation.model_dump(mode="json", exclude={"observation_id"})
+    exclude = {"observation_id"}
+    if observation.monitor_id == "benchmark_trend_overlay_v1":
+        exclude.add("monitor_family")
+        exclude.add("data_quality_evidence")
+    return observation.model_dump(mode="json", exclude=exclude, exclude_none=observation.monitor_id != "benchmark_trend_overlay_v1")
 
 
 def _canonical_validation_payload_from_persisted_evaluation_history_payload(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    return {key: value for key, value in payload.items() if key != "history_entry_id"}
+    excluded = {"history_entry_id"}
+    if payload.get("monitor_id") == "benchmark_trend_overlay_v1":
+        excluded.add("monitor_family")
+        excluded.add("data_quality_evidence")
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in excluded and (payload.get("monitor_id") != "data_quality_monitor_v1" or value is not None)
+    }
 
 
 def _canonical_validation_payload_from_persisted_observation_payload(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    return {key: value for key, value in payload.items() if key != "observation_id"}
+    excluded = {"observation_id"}
+    if payload.get("monitor_id") == "benchmark_trend_overlay_v1":
+        excluded.add("monitor_family")
+        excluded.add("data_quality_evidence")
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in excluded and (payload.get("monitor_id") != "data_quality_monitor_v1" or value is not None)
+    }
 
 
 def _validate_raw_persisted_monitor_definition_payload(payload: dict[str, Any]) -> None:
@@ -2833,13 +3088,13 @@ def _validate_raw_persisted_monitor_definition_payload(payload: dict[str, Any]) 
     _validate_monitor_definition_object_field_shape(
         payload,
         field_name="thresholds",
-        required_keys=MONITOR_DEFINITION_THRESHOLD_FIELDS,
+        required_keys=_required_keys_for_monitor_definition_object(payload, field_name="thresholds"),
     )
     if "source_lineage_requirements" in payload:
         _validate_monitor_definition_object_field_shape(
             payload,
             field_name="source_lineage_requirements",
-            required_keys=MONITOR_DEFINITION_SOURCE_LINEAGE_REQUIREMENT_FIELDS,
+            required_keys=_required_keys_for_monitor_definition_object(payload, field_name="source_lineage_requirements"),
         )
     canonical_payload = _canonical_validation_payload_from_persisted_payload(payload)
     expected_monitor_definition_id = _canonical_monitor_definition_id_from_payload(canonical_payload)
@@ -2894,12 +3149,28 @@ def _validate_monitor_definition_object_field_shape(
         )
 
 
+def _required_keys_for_monitor_definition_object(payload: dict[str, Any], *, field_name: str) -> frozenset[str]:
+    if payload.get("monitor_id") == "data_quality_monitor_v1":
+        if field_name == "thresholds":
+            return DATA_QUALITY_MONITOR_DEFINITION_POLICY_FIELDS
+        if field_name == "source_lineage_requirements":
+            return DATA_QUALITY_MONITOR_DEFINITION_SOURCE_LINEAGE_REQUIREMENT_FIELDS
+    if field_name == "source_lineage_requirements":
+        return MONITOR_DEFINITION_SOURCE_LINEAGE_REQUIREMENT_FIELDS
+    return MONITOR_DEFINITION_THRESHOLD_FIELDS
+
+
 def _validate_raw_persisted_monitor_definition_latest_evaluation_snapshot_payload(
     payload: dict[str, Any],
 ) -> None:
+    required_fields = (
+        DATA_QUALITY_MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_REQUIRED_TOP_LEVEL_FIELDS
+        if payload.get("monitor_id") == "data_quality_monitor_v1"
+        else MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_REQUIRED_TOP_LEVEL_FIELDS
+    )
     missing_fields = sorted(
         field_name
-        for field_name in MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_REQUIRED_TOP_LEVEL_FIELDS
+        for field_name in required_fields
         if field_name not in payload
     )
     if missing_fields:
@@ -2913,12 +3184,13 @@ def _validate_raw_persisted_monitor_definition_latest_evaluation_snapshot_payloa
         required_keys=MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_BENCHMARK_OBSERVATION_LINEAGE_FIELDS,
         entity_label="persisted latest evaluation snapshot",
     )
-    _validate_monitor_definition_object_field_shape(
-        payload,
-        field_name="portfolio_truth_basis",
-        required_keys=MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_PORTFOLIO_TRUTH_BASIS_FIELDS,
-        entity_label="persisted latest evaluation snapshot",
-    )
+    if payload.get("monitor_id") != "data_quality_monitor_v1":
+        _validate_monitor_definition_object_field_shape(
+            payload,
+            field_name="portfolio_truth_basis",
+            required_keys=MONITOR_DEFINITION_LATEST_EVALUATION_SNAPSHOT_PORTFOLIO_TRUTH_BASIS_FIELDS,
+            entity_label="persisted latest evaluation snapshot",
+        )
 
 
 def _hydrate_legacy_monitor_definition_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -2958,6 +3230,21 @@ def _validated_benchmark_symbol(value: str) -> str:
     return normalized
 
 
+def _validate_monitor_definition_family_symbol_contract(
+    monitor_id: str,
+    benchmark_symbol: str,
+    entity_label: str,
+) -> None:
+    if monitor_id == "data_quality_monitor_v1" and benchmark_symbol != "DATA_QUALITY":
+        raise MonitorDefinitionIntegrityValidationError(
+            f"{entity_label} data-quality benchmark_symbol must be DATA_QUALITY"
+        )
+    if monitor_id == "benchmark_trend_overlay_v1" and benchmark_symbol == "DATA_QUALITY":
+        raise MonitorDefinitionIntegrityValidationError(
+            f"{entity_label} benchmark_symbol DATA_QUALITY is reserved for data quality monitor definitions"
+        )
+
+
 def _read_json_object(path: Path, *, subject: str = "persisted monitor definition") -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -2974,9 +3261,11 @@ def _read_json_object(path: Path, *, subject: str = "persisted monitor definitio
 
 def _catalog_row_from_persisted_artifact(item: PersistedMonitorDefinitionArtifact) -> MonitorDefinitionCatalogRow:
     artifact = item.artifact
+    monitor_family = _monitor_family(artifact)
     return MonitorDefinitionCatalogRow(
         monitor_definition_id=artifact.monitor_definition_id,
         monitor_id=artifact.monitor_id,
+        monitor_family=monitor_family if monitor_family == "data_quality" else None,
         benchmark_symbol=artifact.benchmark_symbol,
         schema_version=artifact.schema_version,
         fingerprint=artifact.fingerprint,
@@ -2991,9 +3280,11 @@ def _catalog_row_from_persisted_artifact(item: PersistedMonitorDefinitionArtifac
 
 def _recent_row_from_persisted_artifact(item: PersistedMonitorDefinitionArtifact) -> MonitorDefinitionRecentRow:
     artifact = item.artifact
+    monitor_family = _monitor_family(artifact)
     return MonitorDefinitionRecentRow(
         monitor_definition_id=artifact.monitor_definition_id,
         monitor_id=artifact.monitor_id,
+        monitor_family=monitor_family if monitor_family == "data_quality" else None,
         benchmark_symbol=artifact.benchmark_symbol,
         schema_version=artifact.schema_version,
         fingerprint=artifact.fingerprint,
@@ -3682,6 +3973,7 @@ def _status_metadata_from_persisted_artifact(item: PersistedMonitorDefinitionArt
                 benchmark_observation=item.discovery_status.latest_observation.artifact.benchmark_observation,
                 portfolio_observation=item.discovery_status.latest_observation.artifact.portfolio_observation,
                 active_observation=item.discovery_status.latest_observation.artifact.active_observation,
+                data_quality_evidence=item.discovery_status.latest_observation.artifact.data_quality_evidence,
             ),
         )
     observation = item.discovery_status.latest_observation
@@ -3710,6 +4002,16 @@ def _status_metadata_from_persisted_artifact(item: PersistedMonitorDefinitionArt
             source_precedence=LATEST_SNAPSHOT_SOURCE_PRECEDENCE,
         )
     return MonitorDefinitionStatusMetadata(
+        lifecycle=MonitorDefinitionLifecycleStatusMetadata(
+            overlay_family="benchmark_trend",
+            monitor_family=(
+                "data_quality"
+                if _monitor_family(item.artifact) == "data_quality"
+                else None
+            ),
+            review_support_status="review_supported",
+            lifecycle_status="enabled",
+        ),
         status_source_precedence=DISCOVERY_STATUS_SOURCE_PRECEDENCE,
         latest_observation_status=item.discovery_status.latest_observation_status,
         latest_observation=observation_summary,
@@ -3745,7 +4047,10 @@ def _matches_discovery_filters(
     lifecycle = "enabled"
     review_support_status = "review_supported"
     overlay_family = "benchmark_trend"
+    monitor_family = _monitor_family(item.artifact)
     if filters.overlay_family is not None and filters.overlay_family != overlay_family:
+        return False
+    if filters.monitor_family is not None and filters.monitor_family != monitor_family:
         return False
     if filters.monitor_id is not None and filters.monitor_id != item.artifact.monitor_id:
         return False

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_serializer, model_validator
 
 from app.schemas.construction import (
     ConstructionPolicyDefinitionId,
@@ -1776,24 +1776,70 @@ class OverlayAwareHypotheticalReplayResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+MonitorDefinitionMonitorId = Literal["benchmark_trend_overlay_v1", "data_quality_monitor_v1"]
+MonitorDefinitionFamily = Literal["benchmark_trend", "data_quality"]
 MonitorDefinitionObservationStatus = Literal["ok", "threshold_breach", "degraded", "unavailable"]
+DataQualityMonitorObservationStatus = Literal["ok", "degraded", "unavailable"]
 MonitorDefinitionCanonicalCauseCode = Literal[
     "benchmark_observation_unconfirmed",
     "benchmark_observation_unavailable",
     "portfolio_truth_non_positive_total_value",
+    "market_data_coverage_degraded",
+    "market_data_freshness_degraded",
+    "market_data_unavailable",
+    "input_withheld",
+    "input_unavailable",
+    "provenance_incomplete",
 ]
+
+
+def _monitor_family_for_monitor_id(monitor_id: str) -> MonitorDefinitionFamily:
+    if monitor_id == "benchmark_trend_overlay_v1":
+        return "benchmark_trend"
+    if monitor_id == "data_quality_monitor_v1":
+        return "data_quality"
+    raise ValueError("unsupported monitor_id")
+
+
+def _canonical_observation_statuses_for_monitor_id(monitor_id: str) -> list[str]:
+    if monitor_id == "data_quality_monitor_v1":
+        return ["ok", "degraded", "unavailable"]
+    return ["ok", "threshold_breach", "degraded", "unavailable"]
+
+
+def _validate_monitor_definition_benchmark_symbol_contract(
+    monitor_id: str,
+    benchmark_symbol: str | None,
+) -> None:
+    if monitor_id == "data_quality_monitor_v1":
+        if benchmark_symbol != "DATA_QUALITY":
+            raise ValueError("data quality monitor benchmark_symbol must be DATA_QUALITY")
+        return
+    if monitor_id == "benchmark_trend_overlay_v1" and benchmark_symbol == "DATA_QUALITY":
+        raise ValueError("benchmark trend monitor benchmark_symbol must not be DATA_QUALITY")
 
 
 def _allowed_monitor_definition_cause_codes_for_status(
     observation_status: MonitorDefinitionObservationStatus,
 ) -> frozenset[str]:
     if observation_status == "degraded":
-        return frozenset({"benchmark_observation_unconfirmed"})
+        return frozenset(
+            {
+                "benchmark_observation_unconfirmed",
+                "market_data_coverage_degraded",
+                "market_data_freshness_degraded",
+                "input_withheld",
+                "provenance_incomplete",
+            }
+        )
     if observation_status == "unavailable":
         return frozenset(
             {
                 "benchmark_observation_unavailable",
                 "portfolio_truth_non_positive_total_value",
+                "market_data_unavailable",
+                "input_unavailable",
+                "provenance_incomplete",
             }
         )
     return frozenset()
@@ -1900,35 +1946,155 @@ class BenchmarkTrendOverlayMonitorSourceLineageRequirements(BaseModel):
     )
 
 
+DataQualityTrustStatus = Literal["verified", "degraded", "withheld", "unavailable"]
+
+
+class DataQualityMonitorPolicy(BaseModel):
+    minimum_coverage_ratio: float = 0.95
+    max_stale_age_days: int = 5
+    required_trust_floor: DataQualityTrustStatus = "degraded"
+    provenance_requirements: list[str] = Field(
+        default_factory=lambda: ["source_lineage", "coverage_counts", "trust_statuses"]
+    )
+
+    @model_validator(mode="after")
+    def _validate_policy(self) -> "DataQualityMonitorPolicy":
+        if self.minimum_coverage_ratio < 0 or self.minimum_coverage_ratio > 1:
+            raise ValueError("minimum_coverage_ratio must be between 0 and 1")
+        if self.max_stale_age_days < 0:
+            raise ValueError("max_stale_age_days must be non-negative")
+        if not self.provenance_requirements:
+            raise ValueError("provenance_requirements must not be empty")
+        return self
+
+
+class DataQualityMonitorSourceLineageRequirements(BaseModel):
+    evidence_source_kind: Literal["market_data_reliability_evidence"] = "market_data_reliability_evidence"
+    portfolio_truth_basis: Literal["imported_portfolio_snapshot"] = "imported_portfolio_snapshot"
+    required_evidence_fields: list[str] = Field(
+        default_factory=lambda: [
+            "coverage_counts",
+            "coverage_ratio",
+            "trust_statuses",
+            "source_lineage",
+        ]
+    )
+
+
+class DataQualityMonitorEvidenceSourceLineage(BaseModel):
+    source_kind: Literal["market_data_cache", "broker_import", "data_quality_evidence"]
+    source_id: str
+    observed_at: datetime
+
+    @field_validator("source_id")
+    @classmethod
+    def _validate_source_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("source_id must be non-blank")
+        return value.strip()
+
+
+class DataQualityMonitorEvidenceSummary(BaseModel):
+    coverage_total_count: int
+    coverage_available_count: int
+    coverage_missing_count: int
+    coverage_ratio: float
+    stale_symbols: list[str] = Field(default_factory=list)
+    missing_symbols: list[str] = Field(default_factory=list)
+    trust_statuses: dict[str, DataQualityTrustStatus] = Field(default_factory=dict)
+    withheld_inputs: list[str] = Field(default_factory=list)
+    unavailable_inputs: list[str] = Field(default_factory=list)
+    source_lineage: list[DataQualityMonitorEvidenceSourceLineage] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _validate_evidence_summary(self) -> "DataQualityMonitorEvidenceSummary":
+        if self.coverage_total_count < 0 or self.coverage_available_count < 0 or self.coverage_missing_count < 0:
+            raise ValueError("coverage counts must be non-negative")
+        if self.coverage_available_count + self.coverage_missing_count != self.coverage_total_count:
+            raise ValueError("coverage counts must add to coverage_total_count")
+        if self.coverage_ratio < 0 or self.coverage_ratio > 1:
+            raise ValueError("coverage_ratio must be between 0 and 1")
+        expected_ratio = 1.0 if self.coverage_total_count == 0 else self.coverage_available_count / self.coverage_total_count
+        if abs(self.coverage_ratio - expected_ratio) > 0.0001:
+            raise ValueError("coverage_ratio must match coverage counts")
+        return self
+
+
+MonitorDefinitionPolicy: TypeAlias = BenchmarkTrendOverlayMonitorThresholds | DataQualityMonitorPolicy
+MonitorDefinitionSourceLineageRequirements: TypeAlias = BenchmarkTrendOverlayMonitorSourceLineageRequirements | DataQualityMonitorSourceLineageRequirements
+
+
 class MonitorDefinitionArtifact(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["monitor_definition_artifact_v1"] = "monitor_definition_artifact_v1"
     monitor_definition_id: str
     fingerprint: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     review_scope: Literal["current_portfolio_truth_only"] = "current_portfolio_truth_only"
     evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
     observation_statuses: list[MonitorDefinitionObservationStatus] = Field(
         default_factory=lambda: ["ok", "threshold_breach", "degraded", "unavailable"]
     )
-    thresholds: BenchmarkTrendOverlayMonitorThresholds = Field(default_factory=BenchmarkTrendOverlayMonitorThresholds)
-    source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements = Field(
+    thresholds: MonitorDefinitionPolicy = Field(default_factory=BenchmarkTrendOverlayMonitorThresholds)
+    source_lineage_requirements: MonitorDefinitionSourceLineageRequirements = Field(
         default_factory=BenchmarkTrendOverlayMonitorSourceLineageRequirements
     )
+
+    @model_validator(mode="after")
+    def _validate_family_contract(self) -> "MonitorDefinitionArtifact":
+        expected_family = _monitor_family_for_monitor_id(self.monitor_id)
+        if self.monitor_family is None:
+            self.monitor_family = expected_family
+        if self.monitor_family != expected_family:
+            raise ValueError("monitor_family must match monitor_id")
+        _validate_monitor_definition_benchmark_symbol_contract(self.monitor_id, self.benchmark_symbol)
+        expected_statuses = _canonical_observation_statuses_for_monitor_id(self.monitor_id)
+        if self.observation_statuses != expected_statuses:
+            raise ValueError("observation_statuses must match monitor family")
+        if self.monitor_id == "data_quality_monitor_v1":
+            if not isinstance(self.thresholds, DataQualityMonitorPolicy):
+                raise ValueError("data quality monitor requires data-quality policy thresholds")
+            if not isinstance(self.source_lineage_requirements, DataQualityMonitorSourceLineageRequirements):
+                raise ValueError("data quality monitor requires data-quality source lineage requirements")
+        else:
+            if not isinstance(self.thresholds, BenchmarkTrendOverlayMonitorThresholds):
+                raise ValueError("benchmark trend monitor requires benchmark trend thresholds")
+            if not isinstance(self.source_lineage_requirements, BenchmarkTrendOverlayMonitorSourceLineageRequirements):
+                raise ValueError("benchmark trend monitor requires benchmark trend source lineage requirements")
+        return self
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_id") == "benchmark_trend_overlay_v1":
+            data.pop("monitor_family", None)
+        return data
 
 
 class CreateMonitorDefinitionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
-    benchmark_symbol: str
+    monitor_id: MonitorDefinitionMonitorId
+    benchmark_symbol: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_benchmark_symbol_by_family(self) -> "CreateMonitorDefinitionRequest":
+        if self.monitor_id == "benchmark_trend_overlay_v1" and self.benchmark_symbol is None:
+            raise ValueError("benchmark_symbol is required for benchmark trend monitor definitions")
+        if self.monitor_id == "benchmark_trend_overlay_v1" and self.benchmark_symbol == "DATA_QUALITY":
+            raise ValueError("benchmark_symbol DATA_QUALITY is reserved for data quality monitor definitions")
+        if self.monitor_id == "data_quality_monitor_v1":
+            if self.benchmark_symbol is not None and self.benchmark_symbol != "DATA_QUALITY":
+                raise ValueError("benchmark_symbol for data quality monitor definitions must be DATA_QUALITY when supplied")
+        return self
 
 
 class MonitorDefinitionArtifactListItem(BaseModel):
     monitor_definition_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
     schema_version: Literal["monitor_definition_artifact_v1"]
     fingerprint: str
@@ -1996,7 +2162,7 @@ MonitorDefinitionMonitoringSourcePrecedence = Literal[
 class MonitorDefinitionLatestEvaluationBenchmarkObservationLineage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    source_kind: Literal["benchmark_overlay_signal"] = "benchmark_overlay_signal"
+    source_kind: Literal["benchmark_overlay_signal", "data_quality_evidence"] = "benchmark_overlay_signal"
     source_id: str
     observed_at: datetime
 
@@ -2019,6 +2185,17 @@ class MonitorDefinitionLatestEvaluationPortfolioTruthBasis(BaseModel):
         return normalized
 
 
+class DataQualityMonitorLatestEvaluationDataQualityBasis(BaseModel):
+    evidence_truth: Literal["market_data_reliability_evidence"] = "market_data_reliability_evidence"
+    source_lineage_count: int
+
+    @model_validator(mode="after")
+    def _validate_data_quality_basis(self) -> "DataQualityMonitorLatestEvaluationDataQualityBasis":
+        if self.source_lineage_count < 1:
+            raise ValueError("source_lineage_count must be positive")
+        return self
+
+
 class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -2026,7 +2203,8 @@ class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
         "monitor_definition_latest_evaluation_snapshot_v1"
     )
     monitor_definition_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     evaluated_at: datetime
     outcome_status: MonitorDefinitionObservationStatus
@@ -2035,7 +2213,8 @@ class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
     hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
     source_precedence: MonitorDefinitionMonitoringSourcePrecedence | None = None
     benchmark_observation_lineage: MonitorDefinitionLatestEvaluationBenchmarkObservationLineage
-    portfolio_truth_basis: MonitorDefinitionLatestEvaluationPortfolioTruthBasis
+    portfolio_truth_basis: MonitorDefinitionLatestEvaluationPortfolioTruthBasis | None = None
+    data_quality_basis: DataQualityMonitorLatestEvaluationDataQualityBasis | None = None
 
     @field_validator("evaluated_at")
     @classmethod
@@ -2046,6 +2225,12 @@ class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
 
     @model_validator(mode="after")
     def _validate_cause_and_significance(self) -> "MonitorDefinitionLatestEvaluationSnapshotArtifact":
+        expected_family = _monitor_family_for_monitor_id(self.monitor_id)
+        if self.monitor_family is None:
+            self.monitor_family = expected_family
+        if self.monitor_family != expected_family:
+            raise ValueError("monitor_family must match monitor_id")
+        _validate_monitor_definition_benchmark_symbol_contract(self.monitor_id, self.benchmark_symbol)
         _validate_monitor_definition_cause_code_contract(self.outcome_status, self.cause_code)
         _validate_monitor_definition_escalation_contract(
             self.outcome_status,
@@ -2057,12 +2242,28 @@ class MonitorDefinitionLatestEvaluationSnapshotArtifact(BaseModel):
             self.hysteresis_transition,
             field_name="hysteresis_transition",
         )
+        if self.monitor_id == "data_quality_monitor_v1":
+            if self.outcome_status == "threshold_breach" or self.significance_status == "action_required":
+                raise ValueError("data quality monitor outcomes are review-only ok/degraded/unavailable")
+            if self.data_quality_basis is None:
+                raise ValueError("data quality monitor requires data_quality_basis")
+        elif self.portfolio_truth_basis is None:
+            raise ValueError("benchmark trend monitor requires portfolio_truth_basis")
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_id") == "benchmark_trend_overlay_v1":
+            data.pop("monitor_family", None)
+            data.pop("data_quality_basis", None)
+        return data
 
 
 class MonitorDefinitionDiscoveryFilters(BaseModel):
     overlay_family: MonitorDefinitionOverlayFamily | None = None
-    monitor_id: Literal["benchmark_trend_overlay_v1"] | None = None
+    monitor_family: MonitorDefinitionFamily | None = None
+    monitor_id: MonitorDefinitionMonitorId | None = None
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None = None
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None = None
     latest_observation_status: MonitorDefinitionLatestObservationStatus | None = None
@@ -2074,11 +2275,26 @@ class MonitorDefinitionDiscoveryFilters(BaseModel):
     latest_evaluation_snapshot_cause_code: MonitorDefinitionCanonicalCauseCode | None = None
     latest_evaluation_snapshot_recency: MonitorDefinitionLatestEvaluationSnapshotRecency | None = None
 
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_family") is None:
+            data.pop("monitor_family", None)
+        return data
+
 
 class MonitorDefinitionLifecycleStatusMetadata(BaseModel):
     overlay_family: MonitorDefinitionOverlayFamily = "benchmark_trend"
+    monitor_family: MonitorDefinitionFamily | None = None
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus = "review_supported"
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus = "enabled"
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_family") is None:
+            data.pop("monitor_family", None)
+        return data
 
 
 class MonitorDefinitionLatestEvaluationSnapshotSummary(BaseModel):
@@ -2157,29 +2373,45 @@ class MonitorDefinitionCatalogRowMetadata(BaseModel):
 
 class MonitorDefinitionCatalogRow(BaseModel):
     monitor_definition_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     schema_version: Literal["monitor_definition_artifact_v1"]
     fingerprint: str
     review_scope: Literal["current_portfolio_truth_only"]
     evaluation_mode: Literal["review_only_observation_evaluation"]
     observation_statuses: list[MonitorDefinitionObservationStatus] = Field(default_factory=list)
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements
+    thresholds: MonitorDefinitionPolicy
+    source_lineage_requirements: MonitorDefinitionSourceLineageRequirements
     metadata: MonitorDefinitionCatalogRowMetadata = Field(default_factory=MonitorDefinitionCatalogRowMetadata)
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_family") is None:
+            data.pop("monitor_family", None)
+        return data
 
 
 class MonitorDefinitionCatalogResponseMetadata(BaseModel):
     contract_version: MonitorDefinitionDiscoveryContractVersion = "monitor_definition_discovery_v1"
     metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = "authoritative_persisted_artifact_metadata"
     row_provenance: MonitorDefinitionDiscoveryRowProvenance = "persisted_monitor_definition_artifact"
-    supported_monitor_ids: list[Literal["benchmark_trend_overlay_v1"]] = Field(
+    supported_monitor_ids: list[MonitorDefinitionMonitorId] = Field(
         default_factory=lambda: ["benchmark_trend_overlay_v1"]
     )
+    supported_monitor_families: list[MonitorDefinitionFamily] | None = None
     supported_overlay_families: list[MonitorDefinitionOverlayFamily] = Field(
         default_factory=lambda: ["benchmark_trend"]
     )
     applied_filters: MonitorDefinitionDiscoveryFilters = Field(default_factory=MonitorDefinitionDiscoveryFilters)
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("supported_monitor_families") is None:
+            data.pop("supported_monitor_families", None)
+        return data
 
 
 class MonitorDefinitionCatalogResponse(BaseModel):
@@ -2196,17 +2428,25 @@ class MonitorDefinitionRecentRowMetadata(BaseModel):
 
 class MonitorDefinitionRecentRow(BaseModel):
     monitor_definition_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     schema_version: Literal["monitor_definition_artifact_v1"]
     fingerprint: str
     review_scope: Literal["current_portfolio_truth_only"]
     evaluation_mode: Literal["review_only_observation_evaluation"]
     observation_statuses: list[MonitorDefinitionObservationStatus] = Field(default_factory=list)
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    source_lineage_requirements: BenchmarkTrendOverlayMonitorSourceLineageRequirements
+    thresholds: MonitorDefinitionPolicy
+    source_lineage_requirements: MonitorDefinitionSourceLineageRequirements
     artifact_last_modified_at: datetime
     metadata: MonitorDefinitionRecentRowMetadata = Field(default_factory=MonitorDefinitionRecentRowMetadata)
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_family") is None:
+            data.pop("monitor_family", None)
+        return data
 
 
 class MonitorDefinitionRecentResponseMetadata(BaseModel):
@@ -2214,13 +2454,21 @@ class MonitorDefinitionRecentResponseMetadata(BaseModel):
     metadata_truth: MonitorDefinitionDiscoveryMetadataTruth = "authoritative_persisted_artifact_metadata"
     row_provenance: MonitorDefinitionDiscoveryRowProvenance = "persisted_monitor_definition_artifact"
     recent_order_provenance: MonitorDefinitionDiscoveryRecentOrderProvenance = "persisted_artifact_file_mtime"
-    supported_monitor_ids: list[Literal["benchmark_trend_overlay_v1"]] = Field(
+    supported_monitor_ids: list[MonitorDefinitionMonitorId] = Field(
         default_factory=lambda: ["benchmark_trend_overlay_v1"]
     )
+    supported_monitor_families: list[MonitorDefinitionFamily] | None = None
     supported_overlay_families: list[MonitorDefinitionOverlayFamily] = Field(
         default_factory=lambda: ["benchmark_trend"]
     )
     applied_filters: MonitorDefinitionDiscoveryFilters = Field(default_factory=MonitorDefinitionDiscoveryFilters)
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("supported_monitor_families") is None:
+            data.pop("supported_monitor_families", None)
+        return data
 
 
 class MonitorDefinitionRecentResponse(BaseModel):
@@ -2339,7 +2587,7 @@ class MonitorDefinitionObservationOpenHandoff(BaseModel):
     )
     monitor_definition_id: str
     observation_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
 
 
@@ -2351,7 +2599,7 @@ class MonitorDefinitionEvaluationHistoryReviewHandoff(BaseModel):
     )
     monitor_definition_id: str
     history_entry_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
 
 
@@ -2364,7 +2612,7 @@ class MonitorDefinitionAlertReviewTimelineOpenHandoff(BaseModel):
     monitor_definition_id: str
     selected_event_kind: Literal["latest_observation_event"] = "latest_observation_event"
     observation_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
 
 
@@ -2378,7 +2626,7 @@ class MonitorDefinitionAlertEpisodeHistoryTimelineHandoff(BaseModel):
     selected_event_kind: MonitorDefinitionAlertReviewTimelineEventKind
     observation_id: str | None = None
     history_entry_id: str | None = None
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
 
     @model_validator(mode="after")
@@ -2550,7 +2798,8 @@ class MonitorDefinitionAlertEpisodeRecordArtifact(BaseModel):
     monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
         "monitor_definition_artifact_v1"
     )
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     lifecycle_status: MonitorDefinitionAlertEpisodeLifecycleStatus
     latest_for_monitor_definition: bool
@@ -2575,6 +2824,12 @@ class MonitorDefinitionAlertEpisodeRecordArtifact(BaseModel):
 
     @model_validator(mode="after")
     def _validate_contract(self) -> "MonitorDefinitionAlertEpisodeRecordArtifact":
+        expected_family = _monitor_family_for_monitor_id(self.monitor_id)
+        if self.monitor_family is None:
+            self.monitor_family = expected_family
+        if self.monitor_family != expected_family:
+            raise ValueError("monitor_family must match monitor_id")
+        _validate_monitor_definition_benchmark_symbol_contract(self.monitor_id, self.benchmark_symbol)
         if self.lifecycle_status == "open":
             if self.hysteresis_transition not in {None, "open", "remain_open"}:
                 raise ValueError(
@@ -2657,6 +2912,13 @@ class MonitorDefinitionAlertEpisodeRecordArtifact(BaseModel):
                     "closed alert episode history rows must not remain latest for the monitor definition"
                 )
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_id") == "benchmark_trend_overlay_v1":
+            data.pop("monitor_family", None)
+        return data
 
 
 class MonitorDefinitionAlertEpisodeHistoryRowMetadata(BaseModel):
@@ -2806,7 +3068,7 @@ class MonitorDefinitionLatestObservationAlertInboxRow(BaseModel):
         "monitor_definition_artifact_v1"
     )
     observation_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
     review_scope: Literal["current_portfolio_truth_only"]
     evaluation_mode: Literal["review_only_observation_evaluation"]
@@ -2891,7 +3153,8 @@ class MonitorDefinitionAlertHistoryQueueRow(BaseModel):
         "monitor_definition_artifact_v1"
     )
     history_entry_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     review_scope: Literal["current_portfolio_truth_only"]
     evaluation_mode: Literal["review_only_observation_evaluation"]
@@ -3011,7 +3274,7 @@ class MonitorDefinitionRecoveredAlertReviewQueueRow(BaseModel):
     )
     observation_id: str
     latest_history_entry_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
     review_scope: Literal["current_portfolio_truth_only"]
     evaluation_mode: Literal["review_only_observation_evaluation"]
@@ -3135,7 +3398,7 @@ class MonitorDefinitionAlertReviewTimelineObservationRow(BaseModel):
         "monitor_definition_artifact_v1"
     )
     observation_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
     review_scope: Literal["current_portfolio_truth_only"]
     evaluation_mode: Literal["review_only_observation_evaluation"]
@@ -3149,10 +3412,11 @@ class MonitorDefinitionAlertReviewTimelineObservationRow(BaseModel):
     open_handoff: MonitorDefinitionObservationOpenHandoff
     event_kind: Literal["latest_observation_event"] = "latest_observation_event"
     event_semantics: Literal["observation_rooted"] = "observation_rooted"
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    thresholds: MonitorDefinitionPolicy
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | None = None
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation | None = None
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation | None = None
+    data_quality_evidence: DataQualityMonitorEvidenceSummary | None = None
     metadata: MonitorDefinitionAlertReviewTimelineObservationRowMetadata = Field(
         default_factory=MonitorDefinitionAlertReviewTimelineObservationRowMetadata
     )
@@ -3198,7 +3462,7 @@ class MonitorDefinitionAlertReviewTimelineHistoryRow(BaseModel):
         "monitor_definition_artifact_v1"
     )
     history_entry_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
     benchmark_symbol: str
     review_scope: Literal["current_portfolio_truth_only"]
     evaluation_mode: Literal["review_only_observation_evaluation"]
@@ -3213,10 +3477,11 @@ class MonitorDefinitionAlertReviewTimelineHistoryRow(BaseModel):
     review_handoff: MonitorDefinitionEvaluationHistoryReviewHandoff
     event_kind: Literal["evaluation_history_event"] = "evaluation_history_event"
     event_semantics: Literal["history_entry_rooted"] = "history_entry_rooted"
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    thresholds: MonitorDefinitionPolicy
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | None = None
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation | None = None
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation | None = None
+    data_quality_evidence: DataQualityMonitorEvidenceSummary | None = None
     metadata: MonitorDefinitionAlertReviewTimelineHistoryRowMetadata = Field(
         default_factory=MonitorDefinitionAlertReviewTimelineHistoryRowMetadata
     )
@@ -3319,6 +3584,8 @@ class BenchmarkTrendOverlayMonitorBenchmarkObservationInput(BaseModel):
             raise ValueError(
                 "benchmark_symbol must be canonical uppercase without surrounding whitespace"
             )
+        if normalized == "DATA_QUALITY":
+            raise ValueError("benchmark trend benchmark_symbol must not be DATA_QUALITY")
         return value
 
 
@@ -3326,7 +3593,8 @@ class EvaluateMonitorDefinitionObservationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     current_portfolio: ImportedPortfolioSnapshot
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | None = None
+    data_quality_evidence: DataQualityMonitorEvidenceSummary | None = None
 
 
 class CurrentPortfolioTruthLineage(BaseModel):
@@ -3376,21 +3644,44 @@ class BenchmarkTrendOverlayMonitorActiveObservation(BaseModel):
 
 class MonitorDefinitionObservationEvaluationResponse(BaseModel):
     monitor_definition_id: str
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
     observation_status: MonitorDefinitionObservationStatus
     cause_code: MonitorDefinitionCanonicalCauseCode | None = None
     reason: str | None = None
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    thresholds: MonitorDefinitionPolicy
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | None = None
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation | None = None
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation | None = None
+    data_quality_evidence: DataQualityMonitorEvidenceSummary | None = None
 
     @model_validator(mode="after")
     def _validate_cause_code(self) -> "MonitorDefinitionObservationEvaluationResponse":
+        expected_family = _monitor_family_for_monitor_id(self.monitor_id)
+        if self.monitor_family is None:
+            self.monitor_family = expected_family
+        if self.monitor_family != expected_family:
+            raise ValueError("monitor_family must match monitor_id")
+        _validate_monitor_definition_benchmark_symbol_contract(self.monitor_id, self.benchmark_symbol)
+        if self.monitor_id == "data_quality_monitor_v1":
+            if self.observation_status == "threshold_breach":
+                raise ValueError("data quality monitor does not emit threshold_breach")
+            if self.data_quality_evidence is None:
+                raise ValueError("data quality monitor requires evidence summary")
+        elif self.benchmark_observation is None or self.portfolio_observation is None or self.active_observation is None:
+            raise ValueError("benchmark trend monitor requires benchmark, portfolio, and active observations")
         _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_id") == "benchmark_trend_overlay_v1":
+            data.pop("monitor_family", None)
+            data.pop("data_quality_evidence", None)
+        return data
 
 
 class MonitorDefinitionObservationArtifact(BaseModel):
@@ -3405,7 +3696,8 @@ class MonitorDefinitionObservationArtifact(BaseModel):
     monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
         "monitor_definition_artifact_v1"
     )
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
     evaluated_at: datetime
@@ -3415,10 +3707,11 @@ class MonitorDefinitionObservationArtifact(BaseModel):
     hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
     source_precedence: MonitorDefinitionMonitoringSourcePrecedence | None = None
     reason: str | None = None
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    thresholds: MonitorDefinitionPolicy
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | None = None
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation | None = None
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation | None = None
+    data_quality_evidence: DataQualityMonitorEvidenceSummary | None = None
 
     @field_validator("evaluated_at")
     @classmethod
@@ -3429,6 +3722,19 @@ class MonitorDefinitionObservationArtifact(BaseModel):
 
     @model_validator(mode="after")
     def _validate_cause_and_alert(self) -> "MonitorDefinitionObservationArtifact":
+        expected_family = _monitor_family_for_monitor_id(self.monitor_id)
+        if self.monitor_family is None:
+            self.monitor_family = expected_family
+        if self.monitor_family != expected_family:
+            raise ValueError("monitor_family must match monitor_id")
+        _validate_monitor_definition_benchmark_symbol_contract(self.monitor_id, self.benchmark_symbol)
+        if self.monitor_id == "data_quality_monitor_v1":
+            if self.observation_status == "threshold_breach" or self.alert_classification == "action_required":
+                raise ValueError("data quality monitor outcomes are review-only ok/degraded/unavailable")
+            if self.data_quality_evidence is None:
+                raise ValueError("data quality monitor requires evidence summary")
+        elif self.benchmark_observation is None or self.portfolio_observation is None or self.active_observation is None:
+            raise ValueError("benchmark trend monitor requires benchmark, portfolio, and active observations")
         _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
         _validate_monitor_definition_escalation_contract(
             self.observation_status,
@@ -3441,6 +3747,14 @@ class MonitorDefinitionObservationArtifact(BaseModel):
             field_name="hysteresis_transition",
         )
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_id") == "benchmark_trend_overlay_v1":
+            data.pop("monitor_family", None)
+            data.pop("data_quality_evidence", None)
+        return data
 
 
 class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
@@ -3455,7 +3769,8 @@ class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
     monitor_definition_schema_version: Literal["monitor_definition_artifact_v1"] = (
         "monitor_definition_artifact_v1"
     )
-    monitor_id: Literal["benchmark_trend_overlay_v1"]
+    monitor_id: MonitorDefinitionMonitorId
+    monitor_family: MonitorDefinitionFamily | None = None
     benchmark_symbol: str
     evaluation_mode: Literal["review_only_observation_evaluation"] = "review_only_observation_evaluation"
     evaluated_at: datetime
@@ -3465,10 +3780,11 @@ class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
     hysteresis_transition: MonitorDefinitionHysteresisTransition | None = None
     source_precedence: MonitorDefinitionMonitoringSourcePrecedence | None = None
     reason: str | None = None
-    thresholds: BenchmarkTrendOverlayMonitorThresholds
-    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput
-    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation
-    active_observation: BenchmarkTrendOverlayMonitorActiveObservation
+    thresholds: MonitorDefinitionPolicy
+    benchmark_observation: BenchmarkTrendOverlayMonitorBenchmarkObservationInput | None = None
+    portfolio_observation: BenchmarkTrendOverlayMonitorPortfolioObservation | None = None
+    active_observation: BenchmarkTrendOverlayMonitorActiveObservation | None = None
+    data_quality_evidence: DataQualityMonitorEvidenceSummary | None = None
 
     @field_validator("evaluated_at")
     @classmethod
@@ -3479,6 +3795,19 @@ class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
 
     @model_validator(mode="after")
     def _validate_cause_and_significance(self) -> "MonitorDefinitionEvaluationHistoryEntryArtifact":
+        expected_family = _monitor_family_for_monitor_id(self.monitor_id)
+        if self.monitor_family is None:
+            self.monitor_family = expected_family
+        if self.monitor_family != expected_family:
+            raise ValueError("monitor_family must match monitor_id")
+        _validate_monitor_definition_benchmark_symbol_contract(self.monitor_id, self.benchmark_symbol)
+        if self.monitor_id == "data_quality_monitor_v1":
+            if self.observation_status == "threshold_breach" or self.significance_status == "action_required":
+                raise ValueError("data quality monitor outcomes are review-only ok/degraded/unavailable")
+            if self.data_quality_evidence is None:
+                raise ValueError("data quality monitor requires evidence summary")
+        elif self.benchmark_observation is None or self.portfolio_observation is None or self.active_observation is None:
+            raise ValueError("benchmark trend monitor requires benchmark, portfolio, and active observations")
         _validate_monitor_definition_cause_code_contract(self.observation_status, self.cause_code)
         _validate_monitor_definition_escalation_contract(
             self.observation_status,
@@ -3491,6 +3820,14 @@ class MonitorDefinitionEvaluationHistoryEntryArtifact(BaseModel):
             field_name="hysteresis_transition",
         )
         return self
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if data.get("monitor_id") == "benchmark_trend_overlay_v1":
+            data.pop("monitor_family", None)
+            data.pop("data_quality_evidence", None)
+        return data
 
 
 class MonitorDefinitionEvaluationHistoryRowMetadata(BaseModel):

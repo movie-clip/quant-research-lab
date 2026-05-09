@@ -4,7 +4,8 @@ import { PersistedReplacementRankingBrowser } from './PersistedReplacementRankin
 import { PersistedEtfRankingConstructionBrowser } from './PersistedEtfRankingConstructionBrowser'
 import { buildAuthoritativeCurrentPortfolio } from './currentPortfolio'
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
-import type { MonitoringResearchHandoff, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
+import { isDataQualityMonitorIdentity } from '../portfolio/types'
+import type { BenchmarkTrendOverlayMonitorDefinitionEvaluationHistoryEntryArtifact, BenchmarkTrendOverlayMonitorDefinitionObservationArtifact, DataQualityMonitorEvidenceSummary, DataQualityMonitorDefinitionEvaluationHistoryEntryArtifact, DataQualityMonitorDefinitionObservationArtifact, MonitoringResearchHandoff, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionActiveAlertEpisodeInboxRow, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertEpisodeHistoryRow, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueRow, PortfolioBaselineView, HypotheticalReplayResponse, PortfolioAllocationBacktestResponse, PortfolioDiagnosticsTopCallout, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewSessionState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioSnapshot, PortfolioWorkspaceSource, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotOpenResponse, ReplacementIntentDraftArtifact, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyReviewResponse, VersionedProposalArtifact } from '../portfolio/workspaceTypes'
 import { assertSavedProposalProposalCaptureIntegrity, assertValidReviewSnapshotActiveThesisCrossFamilyQueueResponseEnvelope, assertValidReviewSnapshotComparisonResponseEnvelope, assertValidReviewSnapshotFamilyInboxResponseEnvelope, assertValidReviewSnapshotFamilyReviewResponseEnvelope, assertValidReviewSnapshotOpenResponseEnvelope, buildReviewSnapshotComparisonRefs, buildReviewSnapshotOpenHandoffFromProposal } from '../../app/portfolioWorkspaceStorage'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
@@ -20,6 +21,22 @@ function formatValue(value: string | number | null | undefined) {
   if (value == null) return 'n/a'
   if (typeof value === 'string') return value.trim() ? value : 'n/a'
   return String(value)
+}
+
+function isBenchmarkTrendObservationArtifact(value: MonitorDefinitionObservationArtifact): value is BenchmarkTrendOverlayMonitorDefinitionObservationArtifact {
+  return value.monitor_id === 'benchmark_trend_overlay_v1'
+}
+
+function isBenchmarkTrendHistoryEntry(value: MonitorDefinitionEvaluationHistoryEntryResponse['item']): value is BenchmarkTrendOverlayMonitorDefinitionEvaluationHistoryEntryArtifact & { metadata: MonitorDefinitionEvaluationHistoryEntryResponse['item']['metadata'] } {
+  return value.monitor_id === 'benchmark_trend_overlay_v1'
+}
+
+function isDataQualityObservationArtifact(value: MonitorDefinitionObservationArtifact): value is DataQualityMonitorDefinitionObservationArtifact {
+  return value.monitor_id === 'data_quality_monitor_v1'
+}
+
+function isDataQualityHistoryEntry(value: MonitorDefinitionEvaluationHistoryEntryResponse['item']): value is DataQualityMonitorDefinitionEvaluationHistoryEntryArtifact & { metadata: MonitorDefinitionEvaluationHistoryEntryResponse['item']['metadata'] } {
+  return value.monitor_id === 'data_quality_monitor_v1'
 }
 
 function formatMoney(value: number | null | undefined) {
@@ -215,6 +232,19 @@ type ActiveThesisCrossFamilyQueueState = {
   error: string | null
 }
 
+type ActiveAlertEpisodeInboxState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  response: MonitorDefinitionActiveAlertEpisodeInboxResponse | null
+  error: string | null
+}
+
+type AlertEpisodeHistoryState = {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  monitorDefinitionId: string | null
+  response: MonitorDefinitionAlertEpisodeHistoryResponse | null
+  error: string | null
+}
+
 type LatestObservationOpenState = {
   status: 'idle' | 'loading' | 'ready' | 'error'
   row: MonitorDefinitionAlertReviewTimelineObservationRow | null
@@ -253,6 +283,43 @@ function formatAlertHistorySignificanceLabel(value: MonitorDefinitionAlertReview
 
 function formatAlertHistoryReviewSupportLabel(value: MonitorDefinitionAlertReviewTimelineHistoryRow['review_support_status']) {
   return replaceUnderscoresWithSpaces(value)
+}
+
+function monitorFamilyLabel(value: { monitor_id: string; benchmark_symbol: string }) {
+  return isDataQualityMonitorIdentity(value) ? 'Input reliability / data quality' : 'Benchmark trend'
+}
+
+function monitorDefinitionLabel(value: { monitor_definition_id: string; benchmark_symbol: string }) {
+  return `${value.monitor_definition_id} · ${value.benchmark_symbol}`
+}
+
+function formatDataQualitySymbols(symbols: string[]) {
+  return symbols.length ? symbols.join(', ') : 'none'
+}
+
+function DataQualityEvidenceReadback({ evidence }: { evidence: DataQualityMonitorEvidenceSummary }) {
+  const trustStatuses = Object.entries(evidence.trust_statuses)
+    .map(([source, status]) => `${source}: ${status}`)
+    .join(', ')
+  const lineage = evidence.source_lineage
+    .map((item) => `${item.source_kind}/${item.source_id} observed ${item.observed_at}`)
+    .join('; ')
+
+  return (
+    <div className="summary-card" data-testid="data-quality-evidence-readback">
+      <p className="panel-label">Input Reliability Evidence</p>
+      <p className="helper">Coverage {formatPct(evidence.coverage_ratio * 100)} · available {evidence.coverage_available_count} of {evidence.coverage_total_count} · missing {evidence.coverage_missing_count}</p>
+      <p className="helper">Stale symbols: {formatDataQualitySymbols(evidence.stale_symbols)} · missing symbols: {formatDataQualitySymbols(evidence.missing_symbols)}</p>
+      <p className="helper">Withheld inputs: {formatDataQualitySymbols(evidence.withheld_inputs)} · unavailable inputs: {formatDataQualitySymbols(evidence.unavailable_inputs)}</p>
+      <p className="helper">Trust statuses: {trustStatuses || 'none reported'}</p>
+      <p className="helper">Source lineage: {lineage || 'none reported'}</p>
+    </div>
+  )
+}
+
+function dataQualityReadbackLabel(evidence: DataQualityMonitorEvidenceSummary | null | undefined) {
+  if (!evidence) return 'evidence unavailable'
+  return `coverage ${formatPct(evidence.coverage_ratio * 100)} · missing ${evidence.coverage_missing_count} · stale ${evidence.stale_symbols.length}`
 }
 
 function buildReviewSnapshotComparisonRef(
@@ -502,9 +569,14 @@ type Props = {
   onSelectedConstructionRuleChange: (ruleId: SingleReplacementConstructionRuleId) => void
   monitorDefinitionAlertReviewSession?: MonitorDefinitionAlertReviewSessionState | null
   recoveredAlertReviewQueue?: MonitorDefinitionRecoveredAlertReviewQueueRow[] | null
+  activeAlertEpisodeInbox?: ActiveAlertEpisodeInboxState | null
+  alertEpisodeHistory?: AlertEpisodeHistoryState | null
   onOpenLatestObservation?: (row: MonitorDefinitionAlertReviewTimelineObservationRow) => void | Promise<void>
   onOpenAlertHistoryReview?: (row: MonitorDefinitionAlertReviewTimelineHistoryRow) => void | Promise<void>
   onReopenRecoveredAlertReview?: (row: MonitorDefinitionRecoveredAlertReviewQueueRow) => void | Promise<void>
+  onOpenActiveAlertEpisode?: (row: MonitorDefinitionActiveAlertEpisodeInboxRow) => void | Promise<void>
+  onOpenAlertEpisodeHistory?: (row: MonitorDefinitionAlertEpisodeHistoryRow) => void | Promise<void>
+  onLoadOlderAlertEpisodeHistory?: () => void | Promise<void>
   monitoringResearchHandoff?: MonitoringResearchHandoff | null
   monitoringResearchHandoffDismissed?: boolean
   onDismissMonitoringResearchHandoff?: () => void
@@ -601,6 +673,138 @@ function RecoveredAlertReviewQueueSection({
               </div>
             ))}
           </div>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function ActiveAlertEpisodeInboxSection({
+  inbox,
+  onOpenActiveAlertEpisode,
+}: {
+  inbox: ActiveAlertEpisodeInboxState
+  onOpenActiveAlertEpisode: ((row: MonitorDefinitionActiveAlertEpisodeInboxRow) => void | Promise<void>) | undefined
+}) {
+  const response = inbox.response
+  const rows = response?.items ?? []
+  const metadata = response?.metadata ?? null
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="active-alert-episode-inbox">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Active Alert Review Inbox</p></div>
+        <p className="helper">Review-only discovery for backend-rooted persisted open alert episodes. Rows reopen the existing definition-scoped timeline from persisted episode timeline handoff ids only.</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Persisted Open Episodes</p>
+        {inbox.status === 'idle' ? <p className="helper">Open Workspace to load the active alert review inbox.</p> : null}
+        {inbox.status === 'loading' ? <p className="helper">Loading active alert review inbox from persisted alert-episode records.</p> : null}
+        {inbox.status === 'error' ? <p className="helper">{inbox.error ?? 'Unable to load active alert review inbox'}</p> : null}
+        {inbox.status === 'ready' && metadata ? <p className="helper">Rows: {rows.length} of {metadata.total_active_episodes} · provenance: {metadata.provenance} · ordering: {metadata.ordering}</p> : null}
+        {inbox.status === 'ready' && metadata ? <p className="helper">Review-only source: {metadata.row_provenance} · source precedence: {metadata.source_precedence}</p> : null}
+        {inbox.status === 'ready' && !rows.length ? <p className="helper">No active alert episodes are currently available from authoritative persisted episode records.</p> : null}
+      </div>
+      {inbox.status === 'ready' && rows.length ? (
+        <div className="summary-card">
+          <p className="panel-label">Active Episode Rows</p>
+          <div className="list-table">
+            <div className="list-row list-row-wide">
+              <span>Family</span>
+              <span>Definition</span>
+              <span>Status / Cause</span>
+              <span>Readback</span>
+              <span>Review</span>
+            </div>
+            {rows.map((row) => {
+              const episode = row.alert_episode
+              const latest = episode.latest_contributing_observation
+              const handoff = episode.timeline_handoff
+              return (
+                <div className="list-row list-row-wide" key={episode.episode_id} data-testid={`active-alert-episode-row-${episode.episode_id}`}>
+                  <span>{monitorFamilyLabel(episode)}</span>
+                  <span>{monitorDefinitionLabel(episode)}<br />{replaceUnderscoresWithSpaces(episode.lifecycle_status)} · episode {episode.episode_id}</span>
+                  <span>{formatObservationStatusLabel(latest.observation_status)} · {formatObservationAlertClassificationLabel(latest.alert_classification)}<br />cause {formatObservationCauseCodeLabel(latest.cause_code)}</span>
+                  <span>{isDataQualityMonitorIdentity(episode) ? 'Input reliability review from persisted data-quality episode.' : 'Benchmark trend alert from persisted threshold episode.'}<br />latest {latest.observation_id} · {latest.evaluated_at}</span>
+                  <span>
+                    <button className="secondary-button" onClick={() => { void onOpenActiveAlertEpisode?.(row) }} type="button">Open timeline review</button>
+                    <span className="helper"> handoff {handoff.monitor_definition_id} · {handoff.observation_id}</span>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function AlertEpisodeHistoryDrillInSection({
+  history,
+  onOpenAlertEpisodeHistory,
+  onLoadOlderAlertEpisodeHistory,
+}: {
+  history: AlertEpisodeHistoryState
+  onOpenAlertEpisodeHistory: ((row: MonitorDefinitionAlertEpisodeHistoryRow) => void | Promise<void>) | undefined
+  onLoadOlderAlertEpisodeHistory: (() => void | Promise<void>) | undefined
+}) {
+  const response = history.response
+  const rows = response?.items ?? []
+  const metadata = response?.metadata ?? null
+
+  return (
+    <section className="dashboard-bottom-grid" data-testid="alert-episode-history-drill-in">
+      <div className="section-header-inline sector-list-header">
+        <div><p className="panel-label">Alert Episode History</p></div>
+        <p className="helper">Bounded, read-only persisted episode records for one monitor definition. This drill-in opens the existing timeline review and does not imply execution, remediation, or a complete market-risk chronology.</p>
+      </div>
+      <div className="summary-card">
+        <p className="panel-label">Persisted Episode Window</p>
+        {history.status === 'idle' ? <p className="helper">Open a definition-scoped timeline review to load alert episode history.</p> : null}
+        {history.status === 'loading' ? <p className="helper">Loading persisted alert episode history for {history.monitorDefinitionId ?? 'the selected monitor definition'}.</p> : null}
+        {history.status === 'error' ? <p className="helper">{history.error ?? 'Unable to load alert episode history'}</p> : null}
+        {metadata ? (
+          <>
+            <p className="helper">History truth: {metadata.history_truth} · provenance: {metadata.row_provenance}</p>
+            <p className="helper">Ordering: {metadata.ordering} · windowing: {metadata.windowing} · returned {rows.length} of {metadata.total_episodes} · limit {metadata.returned_limit ?? 'unbounded'}</p>
+            <p className="helper">Definition: {metadata.monitor_definition_id} · requested before: {metadata.requested_before_episode_id ?? 'none'} · next before: {metadata.next_before_episode_id ?? 'none'}</p>
+          </>
+        ) : null}
+        {history.status === 'ready' && !rows.length ? <p className="helper">No persisted alert episodes are available for this monitor definition window.</p> : null}
+      </div>
+      {rows.length ? (
+        <div className="summary-card">
+          <p className="panel-label">Persisted Episode Rows</p>
+          <div className="list-table">
+            <div className="list-row list-row-wide">
+              <span>Family</span>
+              <span>Lifecycle</span>
+              <span>Status / Cause</span>
+              <span>Readback</span>
+              <span>Review</span>
+            </div>
+            {rows.map((row) => {
+              const latest = row.latest_contributing_observation
+              return (
+                <div className="list-row list-row-wide" key={row.episode_id} data-testid={`alert-episode-history-row-${row.episode_id}`}>
+                  <span>{monitorFamilyLabel(row)}</span>
+                  <span>{replaceUnderscoresWithSpaces(row.lifecycle_status)} · {row.latest_for_monitor_definition ? 'latest for definition' : 'historical'}<br />{row.episode_id}<br />{monitorDefinitionLabel(row)}</span>
+                  <span>{formatObservationStatusLabel(latest.observation_status)} · {formatObservationAlertClassificationLabel(latest.alert_classification)}<br />cause {formatObservationCauseCodeLabel(latest.cause_code)}</span>
+                  <span>{isDataQualityMonitorIdentity(row) ? 'Input reliability lifecycle; no benchmark threshold readback.' : 'Benchmark threshold lifecycle readback.'}<br />started {row.started_at} · ended {row.ended_at ?? 'open'} · latest {row.latest_event_at}</span>
+                  <span>
+                    <button className="secondary-button" onClick={() => { void onOpenAlertEpisodeHistory?.(row) }} type="button">Open timeline review</button>
+                    <span className="helper"> {row.timeline_handoff.selected_event_kind === 'latest_observation_event' ? row.timeline_handoff.observation_id : row.timeline_handoff.history_entry_id}</span>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          {metadata?.next_before_episode_id ? (
+            <div className="actions dashboard-edit-actions dashboard-edit-actions-compact">
+              <button className="secondary-button" onClick={() => { void onLoadOlderAlertEpisodeHistory?.() }} type="button">Load older</button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -775,16 +979,18 @@ function LatestObservationAlertInboxSection({
           <p className="panel-label">Authoritative Timeline Observation Events</p>
           <div className="list-table">
             <div className="list-row list-row-wide">
-              <span>Benchmark</span>
+              <span>Family</span>
+              <span>Definition</span>
               <span>Status</span>
-              <span>Classification</span>
+              <span>Cause / Readback</span>
               <span>Review</span>
             </div>
             {rows.map((row) => (
               <div className="list-row list-row-wide" key={row.observation_id} data-testid={`latest-observation-row-${row.observation_id}`}>
-                <span>{row.benchmark_symbol}</span>
+                <span>{monitorFamilyLabel(row)}</span>
+                <span>{monitorDefinitionLabel(row)}</span>
                 <span>{formatObservationStatusLabel(row.observation_status)} · {row.recency_status}</span>
-                <span>{formatObservationAlertClassificationLabel(row.alert_classification)} · cause {formatObservationCauseCodeLabel(row.cause_code)}</span>
+                <span>{formatObservationAlertClassificationLabel(row.alert_classification)} · cause {formatObservationCauseCodeLabel(row.cause_code)}<br />{isDataQualityMonitorIdentity(row) ? dataQualityReadbackLabel(row.data_quality_evidence) : 'benchmark threshold observation'}</span>
                 <span>
                   <button className="secondary-button" onClick={() => { void onOpenLatestObservation?.(row) }} type="button">Open observation</button>
                 </span>
@@ -803,16 +1009,19 @@ function LatestObservationAlertInboxSection({
             <p className="helper">Opened by timeline ids only: {selectedRow.monitor_definition_id} · {selectedRow.observation_id}</p>
             <div className="dashboard-summary compact-summary-grid">
               <div className="summary-card"><p className="stat-label">Observation Status</p><p className="summary-value">{formatObservationStatusLabel(selectedObservation.observation_status)}</p><p className="helper">Classification {formatObservationAlertClassificationLabel(selectedObservation.alert_classification)}</p></div>
-              <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{selectedObservation.benchmark_symbol}</p><p className="helper">Evaluated {selectedObservation.evaluated_at}</p></div>
+              <div className="summary-card"><p className="stat-label">Family</p><p className="summary-value">{monitorFamilyLabel(selectedObservation)}</p><p className="helper">Definition {selectedObservation.monitor_definition_id}</p></div>
               <div className="summary-card"><p className="stat-label">Cause Code</p><p className="summary-value">{formatObservationCauseCodeLabel(selectedObservation.cause_code)}</p><p className="helper">Reason {formatValue(selectedObservation.reason)}</p></div>
-              <div className="summary-card"><p className="stat-label">Methodology</p><p className="summary-value">Threshold observation</p><p className="helper">Read-only persisted monitor observation for benchmark-relative threshold drift review.</p></div>
+              <div className="summary-card"><p className="stat-label">Readback</p><p className="summary-value">{isDataQualityObservationArtifact(selectedObservation) ? 'Input reliability observation' : 'Threshold observation'}</p><p className="helper">{isDataQualityObservationArtifact(selectedObservation) ? 'Read-only persisted data-quality evidence review.' : 'Read-only persisted monitor observation for benchmark-relative threshold drift review.'}</p></div>
             </div>
-            <div className="summary-card">
-              <p className="panel-label">Persisted Threshold / Observation Detail</p>
-              <p className="helper">Overlay status {selectedObservation.benchmark_observation.status} · confirmation count {selectedObservation.benchmark_observation.confirmation_count} · rule {selectedObservation.benchmark_observation.rule_version}</p>
-              <p className="helper">Portfolio risky weight {formatValue(selectedObservation.portfolio_observation.risky_weight)} · cash weight {formatValue(selectedObservation.portfolio_observation.cash_weight)} · positions {selectedObservation.portfolio_observation.position_count}</p>
-              <p className="helper">Threshold evaluation performed: {selectedObservation.active_observation.threshold_evaluation_performed ? 'yes' : 'no'} · triggered thresholds: {selectedObservation.active_observation.triggered_thresholds.length}</p>
-            </div>
+            {isBenchmarkTrendObservationArtifact(selectedObservation) ? (
+              <div className="summary-card">
+                <p className="panel-label">Persisted Threshold / Observation Detail</p>
+                <p className="helper">Overlay status {selectedObservation.benchmark_observation.status} · confirmation count {selectedObservation.benchmark_observation.confirmation_count} · rule {selectedObservation.benchmark_observation.rule_version}</p>
+                <p className="helper">Portfolio risky weight {formatValue(selectedObservation.portfolio_observation.risky_weight)} · cash weight {formatValue(selectedObservation.portfolio_observation.cash_weight)} · positions {selectedObservation.portfolio_observation.position_count}</p>
+                <p className="helper">Threshold evaluation performed: {selectedObservation.active_observation.threshold_evaluation_performed ? 'yes' : 'no'} · triggered thresholds: {selectedObservation.active_observation.triggered_thresholds.length}</p>
+              </div>
+            ) : null}
+            {isDataQualityObservationArtifact(selectedObservation) ? <DataQualityEvidenceReadback evidence={selectedObservation.data_quality_evidence} /> : null}
           </>
         ) : null}
       </div>
@@ -862,16 +1071,18 @@ function AlertHistoryQueueSection({
           <p className="panel-label">Authoritative Timeline History Events</p>
           <div className="list-table">
             <div className="list-row list-row-wide">
-              <span>Benchmark</span>
+              <span>Family</span>
+              <span>Definition</span>
               <span>Outcome</span>
-              <span>Review support</span>
+              <span>Cause / Readback</span>
               <span>Review</span>
             </div>
             {rows.map((row) => (
               <div className="list-row list-row-wide" key={row.history_entry_id} data-testid={`alert-history-row-${row.history_entry_id}`}>
-                <span>{row.benchmark_symbol}</span>
+                <span>{monitorFamilyLabel(row)}</span>
+                <span>{monitorDefinitionLabel(row)}</span>
                 <span>{formatAlertHistoryOutcomeLabel(row.outcome_status)} · {formatAlertHistorySignificanceLabel(row.significance_status)} · {row.latest_for_monitor_definition ? 'latest' : 'historical'}</span>
-                <span>{formatAlertHistoryReviewSupportLabel(row.review_support_status)} · cause {formatObservationCauseCodeLabel(row.cause_code)}</span>
+                <span>{formatAlertHistoryReviewSupportLabel(row.review_support_status)} · cause {formatObservationCauseCodeLabel(row.cause_code)}<br />{isDataQualityMonitorIdentity(row) ? dataQualityReadbackLabel(row.data_quality_evidence) : 'benchmark threshold history'}</span>
                 <span>
                   <button className="secondary-button" onClick={() => { void onOpenAlertHistoryReview?.(row) }} type="button">Open history review</button>
                 </span>
@@ -890,16 +1101,19 @@ function AlertHistoryQueueSection({
             <p className="helper">Opened by timeline ids only: {selectedRow.monitor_definition_id} · {selectedRow.history_entry_id}</p>
             <div className="dashboard-summary compact-summary-grid">
               <div className="summary-card"><p className="stat-label">Outcome</p><p className="summary-value">{formatAlertHistoryOutcomeLabel(selectedEntry.observation_status)}</p><p className="helper">Significance {formatAlertHistorySignificanceLabel(selectedEntry.significance_status)}</p></div>
-              <div className="summary-card"><p className="stat-label">Benchmark</p><p className="summary-value">{selectedEntry.benchmark_symbol}</p><p className="helper">Evaluated {selectedEntry.evaluated_at}</p></div>
+              <div className="summary-card"><p className="stat-label">Family</p><p className="summary-value">{monitorFamilyLabel(selectedEntry)}</p><p className="helper">Definition {selectedEntry.monitor_definition_id}</p></div>
               <div className="summary-card"><p className="stat-label">Cause Code</p><p className="summary-value">{formatObservationCauseCodeLabel(selectedEntry.cause_code)}</p><p className="helper">Reason {formatValue(selectedEntry.reason)}</p></div>
               <div className="summary-card"><p className="stat-label">Review Support</p><p className="summary-value">{formatAlertHistoryReviewSupportLabel(selectedRow.review_support_status)}</p><p className="helper">{selectedRow.latest_for_monitor_definition ? 'Latest persisted row for this monitor definition.' : 'Historical persisted row for this monitor definition.'}</p></div>
             </div>
-            <div className="summary-card">
-              <p className="panel-label">Persisted Threshold / History Detail</p>
-              <p className="helper">Overlay status {selectedEntry.benchmark_observation.status} · confirmation count {selectedEntry.benchmark_observation.confirmation_count} · rule {selectedEntry.benchmark_observation.rule_version}</p>
-              <p className="helper">Portfolio risky weight {formatValue(selectedEntry.portfolio_observation.risky_weight)} · cash weight {formatValue(selectedEntry.portfolio_observation.cash_weight)} · positions {selectedEntry.portfolio_observation.position_count}</p>
-              <p className="helper">Threshold evaluation performed: {selectedEntry.active_observation.threshold_evaluation_performed ? 'yes' : 'no'} · triggered thresholds: {selectedEntry.active_observation.triggered_thresholds.length}</p>
-            </div>
+            {isBenchmarkTrendHistoryEntry(selectedEntry) ? (
+              <div className="summary-card">
+                <p className="panel-label">Persisted Threshold / History Detail</p>
+                <p className="helper">Overlay status {selectedEntry.benchmark_observation.status} · confirmation count {selectedEntry.benchmark_observation.confirmation_count} · rule {selectedEntry.benchmark_observation.rule_version}</p>
+                <p className="helper">Portfolio risky weight {formatValue(selectedEntry.portfolio_observation.risky_weight)} · cash weight {formatValue(selectedEntry.portfolio_observation.cash_weight)} · positions {selectedEntry.portfolio_observation.position_count}</p>
+                <p className="helper">Threshold evaluation performed: {selectedEntry.active_observation.threshold_evaluation_performed ? 'yes' : 'no'} · triggered thresholds: {selectedEntry.active_observation.triggered_thresholds.length}</p>
+              </div>
+            ) : null}
+            {isDataQualityHistoryEntry(selectedEntry) ? <DataQualityEvidenceReadback evidence={selectedEntry.data_quality_evidence} /> : null}
           </>
         ) : null}
       </div>
@@ -914,6 +1128,8 @@ function CompareWorkspaceSection(props: Props) {
   const optimizerHandoffMode = isPersistedOptimizerHandoffMode(props)
   const monitorDefinitionAlertReviewSession = props.monitorDefinitionAlertReviewSession ?? null
   const recoveredAlertReviewQueue = props.recoveredAlertReviewQueue ?? []
+  const activeAlertEpisodeInbox = props.activeAlertEpisodeInbox ?? { status: 'idle' as const, response: null, error: null }
+  const alertEpisodeHistory = props.alertEpisodeHistory ?? { status: 'idle' as const, monitorDefinitionId: null, response: null, error: null }
 
   return (
     <section className="dashboard-bottom-grid" data-testid="workspace-section-compare">
@@ -965,6 +1181,15 @@ function CompareWorkspaceSection(props: Props) {
       <RecoveredAlertReviewQueueSection
         rows={recoveredAlertReviewQueue}
         onReopenRecoveredAlertReview={props.onReopenRecoveredAlertReview}
+      />
+      <ActiveAlertEpisodeInboxSection
+        inbox={activeAlertEpisodeInbox}
+        onOpenActiveAlertEpisode={props.onOpenActiveAlertEpisode}
+      />
+      <AlertEpisodeHistoryDrillInSection
+        history={alertEpisodeHistory}
+        onOpenAlertEpisodeHistory={props.onOpenAlertEpisodeHistory}
+        onLoadOlderAlertEpisodeHistory={props.onLoadOlderAlertEpisodeHistory}
       />
       {artifactMode || optimizerHandoffMode ? null : (
         <>

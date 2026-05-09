@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from pydantic import ValidationError
 
@@ -31,6 +31,7 @@ from app.schemas.backtest_engine import (
     ConstructionArtifactWorkspaceReviewBasis,
     ConstructionArtifactWorkspaceLaunchContext,
     CurrentPortfolioTruthLineage,
+    DataQualityMonitorLatestEvaluationDataQualityBasis,
     EvaluateMonitorDefinitionObservationRequest,
     DistributionPolicy,
     HypotheticalReplayDerivation,
@@ -1581,7 +1582,21 @@ def evaluate_monitor_definition_observation(
     artifact_store=None,
 ) -> MonitorDefinitionObservationEvaluationResponse:
     artifact = load_monitor_definition_artifact(monitor_definition_id, store=artifact_store)
+    if artifact.monitor_id == "data_quality_monitor_v1":
+        return _evaluate_data_quality_monitor_definition_observation(
+            artifact,
+            request,
+            artifact_store=artifact_store,
+        )
     benchmark_observation = request.benchmark_observation
+    if benchmark_observation is None:
+        raise ValueError("benchmark_observation is required for benchmark trend monitor definitions")
+    if not hasattr(artifact.thresholds, "minimum_confirmation_count"):
+        raise ValueError("benchmark trend monitor definition thresholds are invalid")
+    if not hasattr(artifact.source_lineage_requirements, "benchmark_source_kind"):
+        raise ValueError("benchmark trend monitor definition lineage requirements are invalid")
+    thresholds = cast(Any, artifact.thresholds)
+    source_lineage_requirements = cast(Any, artifact.source_lineage_requirements)
     canonical_portfolio_source_path = _canonical_monitor_portfolio_source_path(request.current_portfolio)
     if artifact.monitor_id != "benchmark_trend_overlay_v1":
         raise ValueError(f"unsupported monitor_id: {artifact.monitor_id}")
@@ -1589,11 +1604,11 @@ def evaluate_monitor_definition_observation(
         raise ValueError("benchmark observation overlay_id does not match monitor definition")
     if benchmark_observation.benchmark_symbol.strip().upper() != artifact.benchmark_symbol:
         raise ValueError("benchmark observation benchmark_symbol does not match monitor definition")
-    if benchmark_observation.source_lineage.source_kind != artifact.source_lineage_requirements.benchmark_source_kind:
+    if benchmark_observation.source_lineage.source_kind != source_lineage_requirements.benchmark_source_kind:
         raise ValueError("benchmark observation source_lineage.source_kind is unsupported")
-    if benchmark_observation.status == "unconfirmed" and benchmark_observation.confirmation_count >= artifact.thresholds.minimum_confirmation_count:
+    if benchmark_observation.status == "unconfirmed" and benchmark_observation.confirmation_count >= thresholds.minimum_confirmation_count:
         raise ValueError("benchmark observation status unconfirmed contradicts confirmation_count")
-    if benchmark_observation.status in {"risk_on", "risk_reduced"} and benchmark_observation.confirmation_count < artifact.thresholds.minimum_confirmation_count:
+    if benchmark_observation.status in {"risk_on", "risk_reduced"} and benchmark_observation.confirmation_count < thresholds.minimum_confirmation_count:
         raise ValueError("benchmark observation confirmation_count does not meet monitor threshold")
 
     portfolio_observation = _build_monitor_portfolio_observation(request.current_portfolio)
@@ -1672,8 +1687,8 @@ def evaluate_monitor_definition_observation(
     active_observation = _build_monitor_active_observation(
         benchmark_observation=benchmark_observation,
         portfolio_observation=portfolio_observation,
-        minimum_confirmation_count=artifact.thresholds.minimum_confirmation_count,
-        thresholds=artifact.thresholds,
+        minimum_confirmation_count=thresholds.minimum_confirmation_count,
+        thresholds=thresholds,
     )
     observation_status = "ok" if not active_observation.triggered_thresholds else "threshold_breach"
     reason = None if observation_status == "ok" else "current portfolio truth breaches canonical overlay thresholds"
@@ -1691,6 +1706,67 @@ def evaluate_monitor_definition_observation(
     _persist_monitor_definition_evaluation_snapshot(
         response,
         canonical_portfolio_source_path=canonical_portfolio_source_path,
+        monitor_definition_fingerprint=artifact.fingerprint,
+        artifact_store=artifact_store,
+    )
+    return response
+
+
+def _evaluate_data_quality_monitor_definition_observation(
+    artifact,
+    request: EvaluateMonitorDefinitionObservationRequest,
+    *,
+    artifact_store=None,
+) -> MonitorDefinitionObservationEvaluationResponse:
+    evidence = request.data_quality_evidence
+    if evidence is None:
+        raise ValueError("data_quality_evidence is required for data quality monitor definitions")
+    if not hasattr(artifact.thresholds, "minimum_coverage_ratio"):
+        raise ValueError("data quality monitor definition policy is invalid")
+
+    policy = artifact.thresholds
+    status = "ok"
+    cause_code = None
+    reason = None
+    if not evidence.source_lineage:
+        status = "unavailable"
+        cause_code = "provenance_incomplete"
+        reason = "data quality evidence source lineage is incomplete"
+    elif evidence.unavailable_inputs:
+        status = "unavailable"
+        cause_code = "input_unavailable"
+        reason = "data quality evidence includes unavailable inputs"
+    elif evidence.coverage_total_count > 0 and evidence.coverage_available_count == 0:
+        status = "unavailable"
+        cause_code = "market_data_unavailable"
+        reason = "market data evidence is unavailable for all covered symbols"
+    elif evidence.withheld_inputs:
+        status = "degraded"
+        cause_code = "input_withheld"
+        reason = "data quality evidence includes withheld inputs"
+    elif evidence.coverage_ratio < policy.minimum_coverage_ratio:
+        status = "degraded"
+        cause_code = "market_data_coverage_degraded"
+        reason = "market data coverage is below data quality policy"
+    elif evidence.stale_symbols:
+        status = "degraded"
+        cause_code = "market_data_freshness_degraded"
+        reason = "market data evidence includes stale symbols"
+
+    response = MonitorDefinitionObservationEvaluationResponse(
+        monitor_definition_id=artifact.monitor_definition_id,
+        monitor_id=artifact.monitor_id,
+        monitor_family="data_quality",
+        benchmark_symbol=artifact.benchmark_symbol,
+        observation_status=status,
+        cause_code=cause_code,
+        reason=reason,
+        thresholds=policy,
+        data_quality_evidence=evidence,
+    )
+    _persist_monitor_definition_evaluation_snapshot(
+        response,
+        canonical_portfolio_source_path=_canonical_monitor_portfolio_source_path(request.current_portfolio),
         monitor_definition_fingerprint=artifact.fingerprint,
         artifact_store=artifact_store,
     )
@@ -1722,47 +1798,67 @@ def _persist_monitor_definition_evaluation_snapshot(
         current_significance_status=significance_status,
         previous_significance_status=previous_significance_status,
     )
+    observation_kwargs: dict[str, Any] = {
+        "observation_id": "monitor_definition_observation_pending",
+        "monitor_definition_id": response.monitor_definition_id,
+        "monitor_definition_fingerprint": monitor_definition_fingerprint,
+        "monitor_id": response.monitor_id,
+        "monitor_family": response.monitor_family,
+        "benchmark_symbol": response.benchmark_symbol,
+        "evaluated_at": evaluated_at,
+        "observation_status": response.observation_status,
+        "cause_code": response.cause_code,
+        "alert_classification": significance_status,
+        "hysteresis_transition": hysteresis_transition,
+        "source_precedence": "persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
+        "reason": response.reason,
+        "thresholds": response.thresholds,
+        "benchmark_observation": response.benchmark_observation,
+        "portfolio_observation": response.portfolio_observation,
+        "active_observation": response.active_observation,
+        "data_quality_evidence": response.data_quality_evidence,
+    }
     observation = build_stable_monitor_definition_observation(
-        MonitorDefinitionObservationArtifact(
-            observation_id="monitor_definition_observation_pending",
-            monitor_definition_id=response.monitor_definition_id,
-            monitor_definition_fingerprint=monitor_definition_fingerprint,
-            monitor_id=response.monitor_id,
-            benchmark_symbol=response.benchmark_symbol,
-            evaluated_at=evaluated_at,
-            observation_status=response.observation_status,
-            cause_code=response.cause_code,
-            alert_classification=significance_status,
-            hysteresis_transition=hysteresis_transition,
-            source_precedence="persisted_observation_artifact_then_persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry",
-            reason=response.reason,
-            thresholds=response.thresholds,
-            benchmark_observation=response.benchmark_observation,
-            portfolio_observation=response.portfolio_observation,
-            active_observation=response.active_observation,
-        )
+        MonitorDefinitionObservationArtifact(**observation_kwargs)
     )
-    latest_snapshot = MonitorDefinitionLatestEvaluationSnapshotArtifact(
-        monitor_definition_id=response.monitor_definition_id,
-        monitor_id=response.monitor_id,
-        benchmark_symbol=response.benchmark_symbol,
-        evaluated_at=evaluated_at,
-        outcome_status=response.observation_status,
-        cause_code=response.cause_code,
-        significance_status=significance_status,
-        hysteresis_transition=hysteresis_transition,
-        source_precedence="persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact",
-        benchmark_observation_lineage=MonitorDefinitionLatestEvaluationBenchmarkObservationLineage(
+    snapshot_kwargs: dict[str, Any] = {
+        "monitor_definition_id": response.monitor_definition_id,
+        "monitor_id": response.monitor_id,
+        "monitor_family": response.monitor_family,
+        "benchmark_symbol": response.benchmark_symbol,
+        "evaluated_at": evaluated_at,
+        "outcome_status": response.observation_status,
+        "cause_code": response.cause_code,
+        "significance_status": significance_status,
+        "hysteresis_transition": hysteresis_transition,
+        "source_precedence": "persisted_latest_evaluation_snapshot_then_persisted_latest_history_entry_then_persisted_observation_artifact",
+    }
+    if response.monitor_id == "data_quality_monitor_v1":
+        evidence = response.data_quality_evidence
+        if evidence is None or not evidence.source_lineage:
+            raise ValueError("data quality monitor persistence requires source lineage")
+        snapshot_kwargs["benchmark_observation_lineage"] = MonitorDefinitionLatestEvaluationBenchmarkObservationLineage(
+            source_kind="data_quality_evidence",
+            source_id=evidence.source_lineage[0].source_id,
+            observed_at=evidence.source_lineage[0].observed_at,
+        )
+        snapshot_kwargs["data_quality_basis"] = DataQualityMonitorLatestEvaluationDataQualityBasis(
+            source_lineage_count=len(evidence.source_lineage)
+        )
+    else:
+        if response.benchmark_observation is None or response.portfolio_observation is None:
+            raise ValueError("benchmark trend monitor persistence requires observations")
+        snapshot_kwargs["benchmark_observation_lineage"] = MonitorDefinitionLatestEvaluationBenchmarkObservationLineage(
             source_id=response.benchmark_observation.source_lineage.source_id,
             observed_at=response.benchmark_observation.source_lineage.observed_at,
-        ),
-        portfolio_truth_basis=MonitorDefinitionLatestEvaluationPortfolioTruthBasis(
+        )
+        snapshot_kwargs["portfolio_truth_basis"] = MonitorDefinitionLatestEvaluationPortfolioTruthBasis(
             importer=response.portfolio_observation.source_lineage.importer,
             imported_at=response.portfolio_observation.source_lineage.imported_at,
             source_path=canonical_portfolio_source_path,
             statement_period=response.portfolio_observation.source_lineage.statement_period,
-        ),
-    )
+        )
+    latest_snapshot = MonitorDefinitionLatestEvaluationSnapshotArtifact(**snapshot_kwargs)
 
     history_entry = build_stable_monitor_definition_evaluation_history_entry(
         MonitorDefinitionEvaluationHistoryEntryArtifact(
@@ -1770,6 +1866,7 @@ def _persist_monitor_definition_evaluation_snapshot(
             monitor_definition_id=response.monitor_definition_id,
             monitor_definition_fingerprint=monitor_definition_fingerprint,
             monitor_id=response.monitor_id,
+            monitor_family=response.monitor_family,
             benchmark_symbol=response.benchmark_symbol,
             evaluated_at=evaluated_at,
             observation_status=response.observation_status,
@@ -1782,6 +1879,7 @@ def _persist_monitor_definition_evaluation_snapshot(
             benchmark_observation=response.benchmark_observation,
             portfolio_observation=response.portfolio_observation,
             active_observation=response.active_observation,
+            data_quality_evidence=response.data_quality_evidence,
         )
     )
 
