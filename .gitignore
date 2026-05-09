@@ -29,3 +29,6 @@ data/exports/
 # Tauri / logs
 target/
 *.log
+
+# Local Claude worktrees
+.claude/worktrees/

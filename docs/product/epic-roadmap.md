@@ -15,7 +15,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
-| 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Narrow shipped breadth now includes persisted benchmark-trend and data-quality review families | No active slice | Next monitoring breadth slice after data-quality persistence, without adding scheduler/remediation or widening other monitor families implicitly | 2026-05-09 |
+| 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
 ## Cross-Epic Guardrails
 
@@ -31,6 +31,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 - Active epic: `2. Ranking and selection methodology guard`.
 - Current sequence: `Epic 2 -> Epic 3 -> Epic 4`, while `Epic 1` remains the foundational guardrail.
 - Epic 3 is phase closed / guardrail-complete for this phase; remaining construction and optimizer work is breadth expansion rather than guardrail closeout.
+- Epic 4 is phase closed / stabilized for this phase; remaining monitoring and overlay work is breadth expansion rather than closeout work.
 - Biggest current gap: ranking is still too ETF-centric relative to the target methodology platform.
 
 ## Epic 1. Imported-Portfolio Truth and Reconciliation Guard
@@ -197,7 +198,7 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 - Monitoring grows into a broader discipline layer with more visible inbox/history workflows and more than one narrow monitor family.
 
-### Open gaps
+### Future breadth gaps
 
 - Monitor-family breadth is still narrow.
 - Monitoring is still more review-scoped than ongoing discipline-system level.
@@ -210,7 +211,7 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - `Shipped`: Monitoring now includes a read-only `Monitoring Discipline Overview` for existing `benchmark_trend_overlay_v1` persisted definitions, sourced from catalog metadata only with fail-closed contract and lineage validation.
 - `Shipped`: Monitoring now includes a read-only `Monitor Family Readiness Overview` that separates persisted `benchmark_trend_overlay_v1` and `data_quality_monitor_v1` review support from replay-derived signals, renders explicit decision/reason codes, gate breakdowns, evidence summaries, and provenance summaries, and lists persistence gates missing before any additional family could become persisted.
 - `Shipped`: Integrated `data_quality_monitor_v1` persisted monitor family plus family-aware readback completion: backend create/evaluate/catalog/recent/observation/history/timeline/inbox/episodes and desktop readback now treat data quality as evidence-only input reliability, while benchmark trend preserves legacy benchmark-threshold semantics.
-- Next: choose the next monitoring breadth slice without widening monitor-family support implicitly.
+- No active slice; future breadth work must not implicitly widen monitor-family support.
 
 ### Dependencies
 
@@ -226,7 +227,7 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 ### Exit criteria
 
-- Monitoring is no longer only a narrow replay-adjacent review seam and has broader persisted review coverage without overclaiming continuity.
+- Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
 
@@ -287,6 +288,13 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
   - `services/quant-engine/app/tests/test_portfolio_allocation_backtests.py`
   - `apps/desktop/src/features/backtest/MonitoringPanel.test.tsx`
   - `apps/desktop/src/app/App.test.tsx`
+
+### 2026-05-09 - Epic 4 phase closeout
+
+- Epic: `4. Monitoring and overlay review guard`
+- Status: docs/status-only closeout.
+- Marked Epic 4 phase closed / stabilized for the current phase; shipped breadth includes persisted benchmark-trend and data-quality review families, while remaining monitoring and overlay work is future breadth expansion rather than closeout work.
+- No code, behavior, contract, current-state, roadmap, technical-roadmap, or test changes beyond this roadmap closeout.
 
 ### 2026-05-08 - Epic 3 phase closeout
 
