@@ -220,6 +220,7 @@ export function composeDashboardAnalysisWithHistory(
   return {
     snapshot: exposure.snapshot,
     overview: exposure.overview,
+    admission_summary: (exposure as { admission_summary?: DashboardAnalysis['admission_summary'] }).admission_summary ?? null,
     source_status: history.source_status ?? null,
     run_metadata: history.run_metadata,
     daily_states: history.daily_states,
@@ -269,6 +270,8 @@ export function buildImportedDashboardView(analysis: ImportedDashboardSource): D
   return {
     snapshot: analysis.snapshot,
     overview: analysis.overview,
+    risk_summary: analysis.risk_summary,
+    admission_summary: analysis.admission_summary ?? null,
     performance_series: analysis.performance_series,
     daily_states: analysis.daily_states,
     source_status: analysis.source_status ?? null,

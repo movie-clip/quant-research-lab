@@ -4,6 +4,7 @@ import type {
   DiagnosticsEngineResponse,
   DiagnosticsRunMetadata,
   ExposureEngineResponse,
+  ImportAdmissionSummaryV1,
   ImportedBootstrapResponse,
   ImportedBaselineSource,
   ImportedDashboardSource,
@@ -841,6 +842,27 @@ function createImportedHistoryContextFixture(): ImportedHistoryContext {
   }
 }
 
+function createImportAdmissionSummaryFixture(): ImportAdmissionSummaryV1 {
+  return {
+    schema_version: 'import_admission_summary_v1',
+    decision: 'degraded',
+    trust_level: 'degraded',
+    checks: [
+      { check_id: 'residual_cash_comparability', status: 'unavailable', severity: 'warning', trust_impact: 'degraded', message: 'Statement cash total is missing; residual cash comparability cannot be verified.', affected_fields: ['statement_totals.cash_total', 'cash_balances.ending_cash'], observed: null, comparison: null, delta: null, currency: 'USD' },
+      { check_id: 'symbol_security_identity_consistency', status: 'warn', severity: 'warning', trust_impact: 'degraded', message: 'Open positions lack imported instrument identity for: AAPL, MSFT.', affected_fields: ['positions.symbol', 'instruments.symbol'], observed: { label: 'missing_identity_symbols', value: 'AAPL, MSFT' }, comparison: null, delta: null, currency: null },
+      { check_id: 'parsed_position_market_value_comparability', status: 'unavailable', severity: 'warning', trust_impact: 'degraded', message: 'Statement stock total is missing; parsed position market value cannot be verified.', affected_fields: ['statement_totals.stock_total', 'positions.market_value'], observed: null, comparison: null, delta: null, currency: 'USD' },
+      { check_id: 'nav_market_value_comparability', status: 'unavailable', severity: 'warning', trust_impact: 'degraded', message: 'Statement ending NAV, stock total, and cash total are required for NAV comparability.', affected_fields: ['statement_totals.ending_nav', 'statement_totals.stock_total', 'statement_totals.cash_total'], observed: null, comparison: null, delta: null, currency: 'USD' },
+    ],
+    provenance: {
+      importer: 'interactive_brokers',
+      statement_ids: ['interactive_brokers:U8516450:2025-01-01 - 2025-12-31'],
+      source_names: ['IB2025.pdf'],
+      generated_at: '2026-04-10T00:00:00Z',
+      tolerance_policy: 'absolute_currency_delta_lte_0.01_same_currency_only',
+    },
+  }
+}
+
 function createImportedVolatilityRegimeFixture() {
   return {
     methodology: 'Rolling volatility metrics computed from cash-flow-neutral daily portfolio returns and aligned benchmark returns; drawdown is computed from a compounded return index.',
@@ -1195,6 +1217,7 @@ export function createImportedFixtureParts() {
     diagnostics,
     exposure: createImportedExposureFixture(snapshot, overview),
     history_context: createImportedHistoryContextFixture(),
+    admission_summary: createImportAdmissionSummaryFixture(),
   }
 }
 
@@ -1204,6 +1227,7 @@ export function createImportedBootstrapResponseFixture(): ImportedBootstrapRespo
     snapshot: fixture.snapshot,
     overview: fixture.overview,
     risk_summary: fixture.diagnostics.risk_summary,
+    admission_summary: fixture.admission_summary,
     history_context: fixture.history_context,
   }
 }
@@ -1232,6 +1256,7 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
   return {
     snapshot: fixture.snapshot,
     overview: fixture.overview,
+    admission_summary: fixture.admission_summary,
     performance_series: [
       { date: '2025-01-02', portfolio_value: 10000, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
       { date: '2025-02-03', portfolio_value: 11000, benchmark_price: 102, portfolio_return_pct: 0, benchmark_return_pct: null },

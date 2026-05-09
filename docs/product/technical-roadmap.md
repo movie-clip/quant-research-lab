@@ -89,6 +89,7 @@ Remaining work:
 These remain permanent technical requirements:
 - adjusted-close or stronger total-return-aware inputs for return-based analytics where required
 - explicit trust, degradation, withholding, and unavailability semantics on financially meaningful contracts
+- finite-only numeric evidence on admission/review contracts; non-finite imported inputs must degrade or become unavailable rather than serialize `NaN`/`Infinity`
 - formula traceability from UI field to schema field to implementation
 - persisted return-basis evidence and replay-output suppression rules where trust is narrower than the computed engine surface
 - fail-closed behavior for malformed persisted artifacts or contradictory lineage

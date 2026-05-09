@@ -23,6 +23,7 @@ The product should stay focused on transparent, auditable investing workflows ra
 3. Truth classes, trust states, degradation, and withholding must remain explicit.
 4. Ranking and construction rules remain primary; optimization is a constrained refinement layer.
 5. The UI should present decision-grade outputs, not debug dumps.
+6. Future import-exception workflows must preserve finite-only admission evidence and keep local review dispositions separate from trust-changing broker truth.
 
 ## Remaining Milestones
 

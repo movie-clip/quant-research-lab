@@ -12,7 +12,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
-| 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
+| 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized local exception review metadata persistence shipped/stabilized | Runtime-load local metadata validation/sanitization shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
@@ -45,6 +45,8 @@ Keep imported portfolio truth, trust semantics, and reconciliation explicit befo
 - Broker import, workspace snapshots, immutable saved nodes, and working drafts are shipped.
 - Dashboard, Exposure, diagnostics, and replay now carry explicit trust/degradation/withholding semantics.
 - Imported-history and combined-statement regression coverage was recently hardened.
+- Imported bootstrap responses and the desktop Dashboard now expose a read-only `ImportAdmissionSummaryV1` for residual cash, symbol/security identity, parsed position market-value reconciliation, and NAV comparability checks; it does not block workspace creation or rewrite values.
+- Local exception review metadata persistence is shipped/stabilized for non-pass admission checks; it records reviewer rationale and disposition locally without changing admission decision, trust level, imported values, or backend truth, and runtime load/build boundaries sanitize malformed local metadata, pass-status evidence, and non-finite captured numeric evidence without rewriting IndexedDB.
 
 ### Target state
 
@@ -53,13 +55,12 @@ Keep imported portfolio truth, trust semantics, and reconciliation explicit befo
 
 ### Open gaps
 
-- No first-class reconciliation admission surface yet.
-- No dedicated exception-management workflow for residual breaks or import mismatches.
+- No backend-authoritative exception-management workflow for residual breaks or import mismatches; shipped review metadata remains local and non-trust-changing.
 
 ### Planned slices
 
-- Reconciliation admission summary and review surface.
-- Exception review for residual cash, symbol, and NAV mismatch cases.
+- Expand read-only admission summary into a deeper reconciliation surface only if needed.
+- Future exception workflows must stay explicit about local metadata versus trust-changing backend evidence.
 
 ### Dependencies
 
@@ -230,6 +231,37 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-10 - Epic 1 save-time local admission evidence matching shipped
+
+- Epic: `1. Imported-portfolio truth and reconciliation guard`
+- Slice: harden desktop-local import-admission review metadata saves by matching captured evidence against the current non-pass check.
+- Status: shipped.
+- Scope delivered:
+  - save-time validation canonicalizes current check evidence and saved `evidence_summary`, including optional null/default fields, before comparison.
+  - mismatched captured evidence is rejected, while stale or mismatched snapshot/admission-summary fingerprints remain accepted for stale-labeling only.
+  - review metadata remains desktop-local and does not mutate admission decisions, trust labels, broker truth, imported values, or derived portfolio truth.
+- Contracts changed:
+  - desktop-local contract docs now state current-evidence save matching and non-blocking stale fingerprints.
+- Tests/evidence:
+  - `apps/desktop/src/app/portfolioWorkspaceStorage.test.ts`
+
+### 2026-05-10 - Epic 1 runtime-load local admission metadata sanitization shipped
+
+- Epic: `1. Imported-portfolio truth and reconciliation guard`
+- Slice: validate and sanitize malformed desktop-local import-admission review metadata at runtime load/build and save boundaries.
+- Status: shipped.
+- Scope delivered:
+  - desktop imported-source build/read boundaries return sanitized clones for local `ImportAdmissionReviewDispositionV1` maps on workspaces and imported nodes.
+  - valid stale fingerprints are preserved for stale review labels, malformed records and pass-status evidence are dropped, and unknown extras are stripped by reconstructing the known local metadata shape.
+  - read-time sanitization does not rewrite IndexedDB; save-time validation requires a current non-pass admission check and non-pass captured evidence.
+- Guard impact:
+  - keeps review metadata local-only and prevents malformed local records from mutating admission state, trust labels, broker truth, imported values, or derived portfolio truth.
+- Contracts changed:
+  - desktop-local contract docs now state runtime sanitization and non-mutating read behavior.
+- Tests/evidence:
+  - `apps/desktop/src/app/portfolioWorkspaceStorage.test.ts`
+  - `apps/desktop/src/features/portfolio/DashboardPanel.test.tsx`
 
 ### 2026-05-08 - Epic 4 persisted monitoring discipline overview shipped
 

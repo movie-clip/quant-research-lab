@@ -938,6 +938,54 @@ export type ImportedHistoryContext = {
   history_end_date: string | null
 }
 
+export type ImportAdmissionSummaryV1 = {
+  schema_version: 'import_admission_summary_v1'
+  decision: 'admitted' | 'degraded' | 'withheld'
+  trust_level: 'verified' | 'degraded' | 'withheld' | 'unavailable'
+  checks: Array<{
+    check_id: string
+    status: 'pass' | 'warn' | 'fail' | 'unavailable'
+    severity: 'info' | 'warning' | 'error'
+    trust_impact: 'none' | 'degraded' | 'withheld' | 'unavailable'
+    message: string
+    affected_fields?: string[]
+    observed?: { label: string; value: number | string | null } | null
+    comparison?: { label: string; value: number | string | null } | null
+    delta?: number | null
+    currency?: string | null
+  }>
+  provenance: {
+    importer: string | null
+    statement_ids: string[]
+    source_names: string[]
+    generated_at: string
+    tolerance_policy: string
+  }
+}
+
+export type ImportAdmissionCheckEvidenceSummaryV1 = {
+  status: Exclude<ImportAdmissionSummaryV1['checks'][number]['status'], 'pass'>
+  trust_impact: ImportAdmissionSummaryV1['checks'][number]['trust_impact']
+  message: string
+  affected_fields: string[]
+  observed?: { label: string; value: number | string | null } | null
+  comparison?: { label: string; value: number | string | null } | null
+  delta?: number | null
+  currency?: string | null
+}
+
+export type ImportAdmissionReviewDispositionV1 = {
+  schema_version: 'import_admission_review_disposition_v1'
+  check_id: string
+  disposition: 'accepted_known_exception' | 'needs_source_correction' | 'deferred'
+  rationale: string
+  reviewed_at: string
+  reviewer_label: string
+  snapshot_fingerprint: string
+  admission_summary_fingerprint: string
+  evidence_summary: ImportAdmissionCheckEvidenceSummaryV1
+}
+
 export type ExposureEnginePayload = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
@@ -971,6 +1019,7 @@ export type ImportedBootstrapResponse = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
   risk_summary: PortfolioRiskSummary
+  admission_summary: ImportAdmissionSummaryV1
   history_context?: ImportedHistoryContext | null
 }
 
@@ -978,6 +1027,7 @@ export type ImportedPortfolioSnapshotSource = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
   risk_summary: PortfolioRiskSummary
+  admission_summary?: ImportAdmissionSummaryV1 | null
   benchmark: BenchmarkSummary | null
 }
 
@@ -985,6 +1035,7 @@ export type ImportedDashboardSource = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
   risk_summary?: PortfolioRiskSummary
+  admission_summary?: ImportAdmissionSummaryV1 | null
   benchmark?: BenchmarkSummary | null
   performance_series: PerformanceSeriesPoint[]
   daily_states: DailyPortfolioState[]

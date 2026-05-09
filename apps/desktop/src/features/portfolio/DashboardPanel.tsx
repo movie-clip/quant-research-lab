@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import type { DashboardAnalysis, DashboardRangeMetrics, ExposureAnalysis, ExposureFactorModelResponse, ImportedStatementImporter } from './types'
+import { useState, type ReactNode } from 'react'
+import type { DashboardAnalysis, DashboardRangeMetrics, ExposureAnalysis, ExposureFactorModelResponse, ImportAdmissionReviewDispositionV1, ImportAdmissionSummaryV1, ImportedStatementImporter } from './types'
 import { DenseInsightStrip, type DenseInsightMarker, type DenseInsightStripItem } from './DenseInsightStrip'
 import { investorEconomicsBaseReason } from './investorEconomics'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
@@ -12,6 +12,8 @@ type DashboardTrustTone = DenseInsightMarker
 type DashboardHighlightModule = DenseInsightStripItem
 type TrustPathKey = 'benchmark_relative_path' | 'factor_model_path' | 'benchmark_path'
 type ExplicitTrustPathValue = 'verified_adjusted_close' | 'degraded_unverified_return_basis' | 'unavailable'
+type AdmissionFamily = 'cash' | 'identity' | 'positions' | 'nav'
+type AdmissionDispositionChoice = ImportAdmissionReviewDispositionV1['disposition']
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -141,6 +143,163 @@ function formatUnavailableText(value: string | null | undefined) {
   if (!value) return 'Unavailable'
   const trimmed = value.trim()
   return trimmed ? trimmed : 'Unavailable'
+}
+
+function formatAdmissionBadge(value: string | null | undefined) {
+  return value ? value.replace(/_/g, ' ') : 'unavailable'
+}
+
+function formatAdmissionDispositionLabel(value: AdmissionDispositionChoice) {
+  if (value === 'accepted_known_exception') return 'Accepted known exception'
+  if (value === 'needs_source_correction') return 'Needs source correction'
+  return 'Deferred'
+}
+
+function getAdmissionCheck(summary: ImportAdmissionSummaryV1 | null | undefined, family: AdmissionFamily) {
+  const checkIds: Record<AdmissionFamily, string> = {
+    cash: 'residual_cash_comparability',
+    identity: 'symbol_security_identity_consistency',
+    positions: 'parsed_position_market_value_comparability',
+    nav: 'nav_market_value_comparability',
+  }
+  return summary?.checks.find((check) => check.check_id === checkIds[family]) ?? null
+}
+
+function buildAdmissionEvidenceSummary(check: NonNullable<ImportAdmissionSummaryV1['checks'][number]> & { status: Exclude<ImportAdmissionSummaryV1['checks'][number]['status'], 'pass'> }): ImportAdmissionReviewDispositionV1['evidence_summary'] {
+  return {
+    status: check.status,
+    trust_impact: check.trust_impact,
+    message: check.message,
+    affected_fields: check.affected_fields ?? [],
+    observed: check.observed ?? null,
+    comparison: check.comparison ?? null,
+    delta: check.delta ?? null,
+    currency: check.currency ?? null,
+  }
+}
+
+function isNonPassAdmissionCheck(check: NonNullable<ImportAdmissionSummaryV1['checks'][number]>): check is NonNullable<ImportAdmissionSummaryV1['checks'][number]> & { status: Exclude<ImportAdmissionSummaryV1['checks'][number]['status'], 'pass'> } {
+  return check.status !== 'pass'
+}
+
+function renderAdmissionCheckRow(input: {
+  summary: ImportAdmissionSummaryV1 | null | undefined
+  family: AdmissionFamily
+  label: string
+  activeReviewCheckId: string | null
+  reviewDraft: { disposition: AdmissionDispositionChoice; rationale: string }
+  reviewError: string | null
+  dispositions: Record<string, ImportAdmissionReviewDispositionV1>
+  snapshotFingerprint: string
+  admissionSummaryFingerprint: string
+  onStartReview: (checkId: string) => void
+  onCancelReview: () => void
+  onDraftChange: (draft: { disposition: AdmissionDispositionChoice; rationale: string }) => void
+  onSaveReview?: (disposition: ImportAdmissionReviewDispositionV1) => void | Promise<void>
+}) {
+  const { summary, family, label } = input
+  const check = getAdmissionCheck(summary, family)
+  const status = check?.status ?? 'unavailable'
+  const trustImpact = check?.trust_impact ?? 'unavailable'
+  const savedDisposition = check ? input.dispositions[check.check_id] : null
+  const reviewable = Boolean(check && check.status !== 'pass')
+  const isReviewing = Boolean(check && input.activeReviewCheckId === check.check_id)
+  const stale = Boolean(savedDisposition && (savedDisposition.snapshot_fingerprint !== input.snapshotFingerprint || savedDisposition.admission_summary_fingerprint !== input.admissionSummaryFingerprint))
+  const saveDisabled = !input.reviewDraft.rationale.trim()
+  return (
+    <div className="dashboard-admission-check-row" key={family}>
+      <div>
+        <p className="stat-label">{label}</p>
+        <p className="helper">{check?.message ?? 'Evidence unavailable for this admission check.'}</p>
+        {savedDisposition ? (
+          <div className="dashboard-admission-review-metadata">
+            <p className="helper">Review metadata: {formatAdmissionDispositionLabel(savedDisposition.disposition)} by {savedDisposition.reviewer_label} at {formatDateTimeLabel(savedDisposition.reviewed_at)}{stale ? ' (stale)' : ''}</p>
+            <p className="helper">Rationale: {savedDisposition.rationale}</p>
+          </div>
+        ) : null}
+        {isReviewing && check && isNonPassAdmissionCheck(check) ? (
+          <form className="dashboard-admission-review-form" onSubmit={(event) => {
+            event.preventDefault()
+            const rationale = input.reviewDraft.rationale.trim()
+            if (!rationale) return
+            void input.onSaveReview?.({
+              schema_version: 'import_admission_review_disposition_v1',
+              check_id: check.check_id,
+              disposition: input.reviewDraft.disposition,
+              rationale,
+              reviewed_at: new Date().toISOString(),
+              reviewer_label: 'local reviewer',
+              snapshot_fingerprint: input.snapshotFingerprint,
+              admission_summary_fingerprint: input.admissionSummaryFingerprint,
+              evidence_summary: buildAdmissionEvidenceSummary(check),
+            })
+          }}>
+            <label>
+              <span className="stat-label">Disposition</span>
+              <select value={input.reviewDraft.disposition} onChange={(event) => input.onDraftChange({ ...input.reviewDraft, disposition: event.target.value as AdmissionDispositionChoice })}>
+                <option value="accepted_known_exception">Accepted known exception</option>
+                <option value="needs_source_correction">Needs source correction</option>
+                <option value="deferred">Deferred</option>
+              </select>
+            </label>
+            <label>
+              <span className="stat-label">Rationale</span>
+              <textarea value={input.reviewDraft.rationale} onChange={(event) => input.onDraftChange({ ...input.reviewDraft, rationale: event.target.value })} aria-label={`${label} review rationale`} />
+            </label>
+            {input.reviewError ? <p className="helper">{input.reviewError}</p> : null}
+            <div className="dashboard-admission-review-actions">
+              <button type="submit" className="secondary-button" disabled={saveDisabled}>Save review metadata</button>
+              <button type="button" className="ghost-button" onClick={input.onCancelReview}>Cancel</button>
+            </div>
+          </form>
+        ) : null}
+      </div>
+      <div className="dashboard-admission-check-status">
+        <span className={`dashboard-snapshot-status dashboard-snapshot-status-${status === 'pass' ? 'success' : status === 'fail' ? 'error' : 'partial'}`}>{status}</span>
+        <span className="helper">impact {formatAdmissionBadge(trustImpact)}</span>
+        {reviewable && !isReviewing ? <button type="button" className="ghost-button" onClick={() => input.onStartReview(check!.check_id)}>Review exception</button> : null}
+      </div>
+    </div>
+  )
+}
+
+function renderImportAdmissionCard(input: {
+  summary: ImportAdmissionSummaryV1 | null | undefined
+  dispositions: Record<string, ImportAdmissionReviewDispositionV1>
+  snapshotFingerprint: string
+  admissionSummaryFingerprint: string
+  activeReviewCheckId: string | null
+  reviewDraft: { disposition: AdmissionDispositionChoice; rationale: string }
+  reviewError: string | null
+  onStartReview: (checkId: string) => void
+  onCancelReview: () => void
+  onDraftChange: (draft: { disposition: AdmissionDispositionChoice; rationale: string }) => void
+  onSaveReview?: (disposition: ImportAdmissionReviewDispositionV1) => void | Promise<void>
+}) {
+  const { summary } = input
+  const tone = summary?.trust_level === 'verified'
+    ? 'success'
+    : summary?.trust_level === 'withheld'
+      ? 'error'
+      : 'partial'
+  return (
+    <section className="summary-card dashboard-admission-card dashboard-shell-section" aria-label="Import Admission">
+      <div className="section-header-inline dashboard-snapshot-header dashboard-shell-section-header">
+        <div className="dashboard-shell-title-block">
+          <p className="panel-label">Import Admission</p>
+          <h3>{formatAdmissionBadge(summary?.decision ?? 'unavailable')}</h3>
+        </div>
+        <span className={`dashboard-snapshot-status dashboard-snapshot-status-${tone}`}>{formatAdmissionBadge(summary?.trust_level)}</span>
+      </div>
+      <p className="helper">Read-only admission summary. Review metadata is local only and does not change admission, trust, or imported values.</p>
+      <div className="dashboard-admission-check-list">
+        {renderAdmissionCheckRow({ ...input, family: 'cash', label: 'Residual cash' })}
+        {renderAdmissionCheckRow({ ...input, family: 'identity', label: 'Symbol identity' })}
+        {renderAdmissionCheckRow({ ...input, family: 'positions', label: 'Position market value' })}
+        {renderAdmissionCheckRow({ ...input, family: 'nav', label: 'NAV / market value' })}
+      </div>
+    </section>
+  )
 }
 
 function formatSnapshotFreshnessLabel(importedAt: string | null | undefined) {
@@ -1071,6 +1230,10 @@ type DashboardPanelProps = {
   factorModel?: ExposureFactorModelResponse | null
   detailEligible?: boolean
   activeNodeKind?: PortfolioNodeKind | null
+  admissionSummary?: ImportAdmissionSummaryV1 | null
+  admissionReviewDispositions?: Record<string, ImportAdmissionReviewDispositionV1>
+  admissionSnapshotFingerprint?: string
+  admissionSummaryFingerprint?: string
   importing?: boolean
   importError?: string | null
   lastImportedFileNames?: string[]
@@ -1080,6 +1243,7 @@ type DashboardPanelProps = {
   onClearImportedSession?: () => void
   onResetLocalDatabase?: () => void | Promise<void>
   onOpenDetailedReview?: () => void
+  onSaveAdmissionReviewDisposition?: (disposition: ImportAdmissionReviewDispositionV1) => void | Promise<void>
 }
 
 function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNames: string[]) {
@@ -1284,7 +1448,10 @@ function renderDashboardHighlightsModule(module: DashboardHighlightModule) {
   return <DenseInsightStrip ariaLabel={module.title} items={[module]} className="dashboard-summary-highlight-strip" />
 }
 
-export function DashboardPanel({ result, exposureResult = null, factorModel = null, detailEligible = true, activeNodeKind = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onOpenDetailedReview }: DashboardPanelProps) {
+export function DashboardPanel({ result, exposureResult = null, factorModel = null, detailEligible = true, activeNodeKind = null, admissionSummary = null, admissionReviewDispositions = {}, admissionSnapshotFingerprint = 'import_snapshot:null', admissionSummaryFingerprint = 'import_admission_summary:null', importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onOpenDetailedReview, onSaveAdmissionReviewDisposition }: DashboardPanelProps) {
+  const [activeReviewCheckId, setActiveReviewCheckId] = useState<string | null>(null)
+  const [reviewDraft, setReviewDraft] = useState<{ disposition: AdmissionDispositionChoice; rationale: string }>({ disposition: 'accepted_known_exception', rationale: '' })
+  const [reviewError, setReviewError] = useState<string | null>(null)
   const snapshot = result?.snapshot ?? null
   const statement = snapshot?.statement ?? null
   const statements = snapshot?.statements ?? []
@@ -1489,6 +1656,40 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
             snapshotFieldAvailable: hasDashboardResult && snapshotFieldAvailable,
           })}
         </section>
+
+        {renderImportAdmissionCard({
+          summary: admissionSummary ?? (hasDashboardResult ? result?.admission_summary ?? null : null),
+          dispositions: admissionReviewDispositions,
+          snapshotFingerprint: admissionSnapshotFingerprint,
+          admissionSummaryFingerprint,
+          activeReviewCheckId,
+          reviewDraft,
+          reviewError,
+          onStartReview: (checkId) => {
+            setActiveReviewCheckId(checkId)
+            setReviewDraft({ disposition: admissionReviewDispositions[checkId]?.disposition ?? 'accepted_known_exception', rationale: admissionReviewDispositions[checkId]?.rationale ?? '' })
+            setReviewError(null)
+          },
+          onCancelReview: () => {
+            setActiveReviewCheckId(null)
+            setReviewDraft({ disposition: 'accepted_known_exception', rationale: '' })
+            setReviewError(null)
+          },
+          onDraftChange: (draft) => {
+            setReviewDraft(draft)
+            if (draft.rationale.trim()) setReviewError(null)
+          },
+          onSaveReview: async (disposition) => {
+            if (!disposition.rationale.trim()) {
+              setReviewError('Rationale is required for review metadata.')
+              return
+            }
+            await onSaveAdmissionReviewDisposition?.(disposition)
+            setActiveReviewCheckId(null)
+            setReviewDraft({ disposition: 'accepted_known_exception', rationale: '' })
+            setReviewError(null)
+          },
+        })}
 
         <section className="summary-card dashboard-readiness-shell dashboard-shell-section" aria-label="Freshness And Coverage Readiness">
           <div className="section-header-inline dashboard-snapshot-header dashboard-shell-section-header">
