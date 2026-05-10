@@ -57,18 +57,31 @@ Import admission has a narrower split: the quant engine emits read-only `ImportA
 
 ### Ranking and optimizer seams
 
+ETF-specific ranking (original shipped path):
 - `POST /strategy-lab/etf-ranking`
-  - narrow shipped ETF-specific ranking seam that persists an immutable artifact before returning it
+  - ETF-specific ranking seam that persists an immutable artifact before returning it
 - `GET /strategy-lab/etf-ranking/artifacts/{artifact_id}`
-  - narrow ETF-specific persisted artifact load by stable `artifact_id`
+  - ETF-specific persisted artifact load by stable `artifact_id`
 - `GET /strategy-lab/etf-ranking/artifacts/recent`
-  - narrow ETF-specific recent persisted artifact discovery seam with newest-first listing and optional `effective_peer_group` filtering
+  - ETF-specific recent persisted artifact discovery seam with newest-first listing and optional `effective_peer_group` filtering
 - `GET /strategy-lab/etf-ranking/artifacts/recent/metadata`
-  - narrow ETF-specific recent discovery metadata seam for current consumers
+  - ETF-specific recent discovery metadata seam for current consumers
+
+Generic ranking platform (newer cross-universe ranking path):
+- `POST /strategy-lab/ranking/run`
+  - first-class generalized ranking run that accepts a `UniverseSpec` (etf_peer_group, custom_list, broad_equity_screen, sector_screen, index_constituent) plus a versioned `ScoreConfig` and persists an immutable `generic_ranking` artifact before returning it
+- `GET /strategy-lab/ranking/artifacts/{artifact_id}`
+  - generic ranking artifact load by stable `artifact_id`
+- `GET /strategy-lab/ranking/artifacts/recent`
+  - generic ranking recent persisted artifact discovery (newest-first)
+
+Cross-kind discovery:
 - `GET /strategy-lab/ranking-artifacts/catalog`
-  - additive backend-only generalized persisted ranking artifact catalog across supported ranking artifact kinds
+  - generalized persisted ranking artifact catalog across all supported kinds (`etf_ranking`, `intent_bound_etf_replacement_ranking`, `generic_ranking`)
 - `GET /strategy-lab/ranking-artifacts/recent`
-  - additive backend-only generalized recent discovery across supported ranking artifact kinds
+  - generalized recent discovery across the same kinds
+
+Intent-bound ETF replacement ranking:
 - `POST /strategy-lab/etf-ranking/replacements`
   - additive strategy-lab route that persists and returns the immutable intent-bound ETF replacement ranking artifact envelope
 - `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}`
@@ -77,10 +90,12 @@ Import admission has a narrower split: the quant engine emits read-only `ImportA
   - compatibility route for the same persisted intent-bound ETF replacement ranking flow that returns the legacy non-artifact POST contract
 - `GET /ranking/etf-replacements/artifacts/{artifact_id}`
   - compatibility alias for immutable intent-bound ETF replacement ranking artifact load by stable `artifact_id`
+
+Optimizer:
 - `POST /optimizer/preview`
   - hypothetical optimizer preview that can persist an explicit replay handoff reference
 
-Ranking remains intentionally narrow in current architecture docs: shipped generalized discovery now unifies the supported persisted ETF and intent-bound ETF replacement artifacts, but ranking generation itself is still ETF-scoped rather than a broad cross-universe ranking platform.
+Ranking is now a generalized platform with three artifact kinds: `etf_ranking`, `intent_bound_etf_replacement_ranking`, and `generic_ranking`. All three are construction-eligible through the canonical `POST /construction/ranking-artifacts/preflight/{artifact_id}` + `POST /construction/run` boundary. ETF replacement is still an intent-scoped review family rather than a freeform ranking entry point. Generic ranking covers the broader cross-universe path with versioned `ScoreConfig`, `UniverseSpec` snapshotting, and per-instrument `EligibilityRecord` truth.
 
 ### Important implementation reality
 
@@ -176,11 +191,24 @@ Import admission evidence is finite-only for numeric observed, comparison, and d
 - the ETF `recent.jsonl` file is not a reusable artifact payload or external contract surface; it remains internal operational state for ETF discovery only
 - additive generalized discovery does not change current ETF-native or replacement execution and load routes
 
+### Persisted generic ranking artifact rule
+
+- generic ranking persists an immutable artifact on `POST /strategy-lab/ranking/run` before return
+- artifacts carry `UniverseSpecSnapshot` (resolved member list with `spec_digest`), `ScoreConfigRef` (with content-addressed `score_config_digest`), per-instrument `EligibilityRecord` (with explicit `hard_filter_failures` + `soft_filter_flags`), and optional `CompositeScoreTrace` (per-factor cross-sectional mean/std for offline normalization replay)
+- artifact identity is content-addressed: `generic_ranking_artifact_<sha256(canonical_json_without_artifact_id)[:16]>`
+- supported factor families: price-bar (momentum, volatility, drawdown, liquidity) and fundamental (quality via Novy-Marx/Sloan/AQR formulas, value via FMP TTM ratios — Greenblatt/Fama-French)
+- when fundamental factors are requested without an FMP API key, the service emits a warning and returns the artifact with those factor values as null; confidence drops to `partial` rather than failing the request
+- supported universe kinds: `etf_peer_group`, `custom_list`, `broad_equity_screen`, `sector_screen` (FMP screener), `index_constituent` (FMP `/stable/sp500-constituent` for `index_id="sp500"`)
+- generic ranking artifacts are construction-eligible through the same canonical preflight + run boundary used by ETF and replacement ranking; the construction allowlist is now a three-kind set
+- load fails closed on missing file (`404`), invalid json (`400`), non-object payload (`400`), schema failure (`400`), or canonical identity mismatch (`400`)
+
 ### Persisted construction artifact rule
 
 - construction artifacts persist immutable policy outputs before replay consumption
 - artifacts capture `selection_rule_trace` during policy execution and keep it as provenance
 - replay echoes the persisted trace; replay must not reconstruct or reinterpret that trace
+- construction preflight + run accept three ranking artifact handoff kinds: `etf_ranking_artifact_construction_handoff_v1`, `intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1`, `generic_ranking_artifact_construction_handoff_v1` — explicit allowlist; unsupported families fail closed
+- for `generic_ranking` handoffs, `EligibilityRecord.hard_filter_failures` flow through to `ConstructionRankedCandidateInput.exclusion_reason` rather than being silently dropped
 
 ### Optimizer handoff rule
 
