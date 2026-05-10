@@ -131,7 +131,20 @@ export function GenericRankingView() {
       ) : null}
 
       {result && !runLoading ? (
-        <GenericRankingResultsTable artifact={result} />
+        <>
+          <GenericRankingResultsTable artifact={result} />
+          <div className="empty-state-panel compact-empty-state">
+            <p className="empty-state-title">Hand this ranking into construction review</p>
+            <p className="helper">
+              Persisted generic ranking artifacts are construction-eligible and can be opened from the Workspace tab's
+              Candidate Idea section under <strong>Persisted Generic Ranking Construction</strong>. The workspace
+              supplies the current portfolio context required for the construction handoff.
+            </p>
+            <p className="helper">
+              Artifact id: <code>{result.artifact_id}</code>
+            </p>
+          </div>
+        </>
       ) : null}
     </article>
   )

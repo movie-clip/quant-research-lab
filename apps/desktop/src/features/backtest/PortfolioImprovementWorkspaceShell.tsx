@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { PersistedReplacementRankingBrowser } from './PersistedReplacementRankingBrowser'
 import { PersistedEtfRankingConstructionBrowser } from './PersistedEtfRankingConstructionBrowser'
+import { PersistedGenericRankingConstructionBrowser } from './PersistedGenericRankingConstructionBrowser'
 import { buildAuthoritativeCurrentPortfolio } from './currentPortfolio'
 import { ReplacementRankingReview } from '../portfolio/ReplacementRankingReview'
 import { isDataQualityMonitorIdentity } from '../portfolio/types'
@@ -2008,6 +2009,10 @@ function CandidateIdeaSection({
         onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
       />
       <PersistedReplacementRankingBrowser
+        currentPortfolio={currentPortfolio}
+        onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
+      />
+      <PersistedGenericRankingConstructionBrowser
         currentPortfolio={currentPortfolio}
         onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
       />

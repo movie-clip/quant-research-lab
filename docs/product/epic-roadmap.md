@@ -13,7 +13,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
-| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform + construction eligibility shipped | Workspace Candidate Idea browser integration for generic_ranking | Surface "Review In Construction" CTA on Generic Ranking tab + add generic_ranking to Workspace Candidate Idea browser | 2026-05-10 |
+| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform, construction eligibility, AND Workspace browser integration shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints) OR add a new generic_ranking universe family (e.g. Russell 1000 via IWB CSV) | 2026-05-11 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
@@ -32,7 +32,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 - Current sequence: `Epic 2 -> Epic 3 -> Epic 4`, while `Epic 1` remains the foundational guardrail.
 - Epic 3 is phase closed / guardrail-complete for this phase; remaining construction and optimizer work is breadth expansion rather than guardrail closeout.
 - Epic 4 is phase closed / stabilized for this phase; remaining monitoring and overlay work is breadth expansion rather than closeout work.
-- Biggest current gap: generic_ranking artifacts are not yet construction-eligible; the new `Generic Ranking` tab is a standalone surface and does not flow into Workspace Candidate Idea or persisted construction review. Closing this gap is the next planned slice and crosses Epic 2 → Epic 3.
+- Biggest current gap: Epic 2's generic_ranking platform is now end-to-end usable (run → catalog → preflight → construction handoff → Workspace browser → review). The next priority is Epic 3 breadth (more construction policies + richer constraints) or expanding the generic_ranking universe coverage (Russell 1000 via IWB CSV ingestion remains the next data-source-bearing universe candidate).
 
 ## Epic 1. Imported-Portfolio Truth and Reconciliation Guard
 
@@ -102,7 +102,7 @@ Generalize ranking into a broader methodology platform with explicit selection g
 ### Open gaps
 
 - Desktop still leans on ETF-native recent discovery instead of the generalized ranking-artifact path.
-- **Generic ranking artifacts are NOT yet construction-eligible** — construction preflight allowlist is still `etf_ranking` + `intent_bound_etf_replacement_ranking` only. Generic ranking artifacts can be created and reviewed in their own tab but cannot hand off to construction review or appear in Workspace Candidate Idea.
+- Generic ranking artifacts are construction-eligible AND surfaced in the Workspace Candidate Idea section via `PersistedGenericRankingConstructionBrowser`. The end-to-end seam (run → catalog → preflight → handoff → construction review) is closed.
 - Selection guardrails and broader ranking families are not yet productized.
 
 ### Planned slices
@@ -237,6 +237,31 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-11 - Epic 2 generic_ranking Workspace Candidate Idea browser shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: surface persisted `generic_ranking` artifacts inside the Workspace Candidate Idea section so the construction-eligibility seam becomes user-visible end-to-end.
+- Status: shipped.
+- Scope delivered:
+  - new `PersistedGenericRankingConstructionBrowser` desktop component, modeled after `PersistedEtfRankingConstructionBrowser`, that:
+    - lists recent generic ranking artifacts via `GET /api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking`
+    - parses cross-kind catalog rows fail-closed: rejects unsupported discovery scope, non-`generic_ranking` rows, missing `generic_summary`, and malformed metadata
+    - calls `POST /api/construction/ranking-artifacts/preflight/{artifact_id}` per row to compute construction readiness
+    - exposes a single `Review In Construction` CTA per row that runs the canonical construction handoff via `runRankingArtifactConstructionHandoff` and dispatches the resulting persisted construction artifact id to `onOpenConstructionReview`
+  - browser is mounted alongside the ETF and replacement browsers inside `PortfolioImprovementWorkspaceShell`'s Candidate Idea section so the Workspace's authoritative `current_portfolio` is supplied to the construction handoff
+  - the standalone `Generic Ranking` desktop tab now shows an informational hand-off note pointing users to Workspace → Persisted Generic Ranking Construction with the artifact id surfaced for cross-tab reference
+- Guard impact:
+  - closes the Generic Ranking dead-end identified in the prior Construction Eligibility slice: a persisted `generic_ranking` artifact can now be reopened end-to-end through Workspace → Candidate Idea → Construction Review without leaving the desktop UI.
+  - browser stays explicitly construction-only: it does not seed candidate drafts, mutate `PortfolioSnapshot`, or imply applied portfolio truth.
+  - parsing remains fail-closed on malformed catalog state; ineligible artifacts surface the backend `eligibility.reason` and disable the CTA rather than silently fabricating eligibility.
+- Contracts changed:
+  - no backend contract changes.
+  - desktop now consumes the existing `/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking` and `/construction/ranking-artifacts/preflight/{artifact_id}` routes through a new browser entry point.
+- Tests/evidence:
+  - `apps/desktop/src/features/backtest/PersistedGenericRankingConstructionBrowser.test.tsx` (7 tests)
+  - 188/188 backend construction + generic_ranking tests still pass; 7/7 new browser tests pass; 0 regressions in the unrelated frontend suites
+- Next slice: Epic 2 status moves from "Workspace browser integration is the next slice" to "broaden supported ranking families and selection guardrails or pivot to Epic 3 breadth (more construction policies + richer constraints)" — see Epic 2 Open Gaps for the broader future direction.
 
 ### 2026-05-10 - Epic 1 save-time local admission evidence matching shipped
 
