@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ConstructionArtifactReplayResponse, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionRecoveredAlertReviewQueueResponse } from './types'
+import { isBenchmarkTrendTimelineHistoryRow, isBenchmarkTrendTimelineObservationRow, isDataQualityTimelineHistoryRow, isDataQualityTimelineObservationRow } from './types'
+import type { ConstructionArtifactReplayResponse, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionRecoveredAlertReviewQueueResponse } from './types'
 
 describe('ConstructionArtifactReplayResponse turnover diagnostics contract', () => {
   it('accepts backend-shipped turnover_diagnostics_v1.symbol_contributions', () => {
@@ -18,9 +19,13 @@ describe('ConstructionArtifactReplayResponse turnover diagnostics contract', () 
         policy_id: 'policy-1',
         policy_definition_id: 'policy-def-1',
         ranked_universe_artifact_id: 'ranked-1',
+        ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
         ranking_id: 'ranking-1',
         ranking_methodology_id: 'method-1',
+        ranking_as_of_date: '2026-04-23',
         current_portfolio_artifact_id: 'portfolio-1',
+        current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+        top_n: 2,
         hard_constraints: {
           full_investment: true,
           long_only: true,
@@ -103,6 +108,53 @@ describe('ConstructionArtifactReplayResponse turnover diagnostics contract', () 
       },
       baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
       candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+      review_basis: {
+        basis_version: 1,
+        basis_kind: 'persisted_construction_artifact_review',
+        review_scope: 'workspace_review_only',
+        canonical_source: 'typed_preview_handoff',
+        basis_provenance_label: 'artifact_backed_review_basis',
+        portfolio_truth: 'imported_portfolio_snapshot',
+        candidate_truth: 'hypothetical_construction_artifact',
+        construction_artifact_id: 'artifact-123',
+        preview_handoff: {
+          handoff_kind: 'construction_artifact_preview_handoff_v1',
+          construction_artifact_id: 'artifact-123',
+          effective_replay_params: {
+            benchmark_symbol: 'SPY',
+            start_date: '2024-01-01',
+            end_date: '2024-12-31',
+            initial_capital: 100000,
+            rebalance_frequency: 'monthly',
+            base_currency: 'USD',
+            commission_bps: 0,
+            slippage_bps: 0,
+            drift_tolerance_pct: null,
+            price_basis: 'adjusted_close',
+            execution_price_field: 'close',
+            execution_lag_days: 1,
+            symbol_overrides: {},
+          },
+        },
+        launch_context: {
+          construction_artifact_id: 'artifact-123',
+          ranked_universe_artifact_id: 'ranked-1',
+          ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+          ranking_id: 'ranking-1',
+          ranking_methodology_id: 'method-1',
+          ranking_as_of_date: '2026-04-23',
+          current_portfolio_artifact_id: 'portfolio-1',
+          current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+          policy_id: 'policy-1',
+          policy_definition_id: 'policy-def-1',
+          top_n: 2,
+        },
+        benchmark_symbol: 'SPY',
+        base_currency: 'USD',
+        replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
+        baseline_weights: [{ symbol: 'AAPL', target_weight: 0.6 }],
+        candidate_weights: [{ symbol: 'MSFT', target_weight: 0.6 }],
+      },
       effective_replay_params: {
         benchmark_symbol: 'SPY',
         start_date: '2024-01-01',
@@ -387,13 +439,73 @@ describe('MonitorDefinitionAlertReviewTimelineResponse contract', () => {
     }
 
     expect(payload.items[0].event_semantics).toBe('observation_rooted')
-    expect(payload.items[0].benchmark_observation.benchmark_symbol).toBe('SPY')
-    expect(payload.items[0].portfolio_observation.source_lineage.truth_basis).toBe('imported_portfolio_snapshot')
-    expect(payload.items[0].active_observation.required_overlay_status).toBe('unconfirmed')
+    expect(payload.items[0].benchmark_observation?.benchmark_symbol).toBe('SPY')
+    expect(payload.items[0].portfolio_observation?.source_lineage.truth_basis).toBe('imported_portfolio_snapshot')
+    expect(payload.items[0].active_observation?.required_overlay_status).toBe('unconfirmed')
     expect(payload.items[0].reason).toBe('benchmark observation is unconfirmed')
     expect(payload.metadata.latest_alert_episode?.episode_status).toBe('active')
     expect(payload.metadata.observation_row_provenance).toBe('persisted_monitor_definition_observation_artifact')
     expect(payload.metadata.history_row_provenance).toBe('persisted_monitor_definition_evaluation_history_entry')
+  })
+
+  it('narrows benchmark-trend and data-quality timeline rows by family fields', () => {
+    const evidence = {
+      coverage_total_count: 4,
+      coverage_available_count: 3,
+      coverage_missing_count: 1,
+      coverage_ratio: 0.75,
+      stale_symbols: ['MSFT'],
+      missing_symbols: ['CASH'],
+      trust_statuses: { prices: 'degraded' as const },
+      withheld_inputs: [],
+      unavailable_inputs: ['cash_fx_rate'],
+      source_lineage: [{ source_kind: 'market_data_cache' as const, source_id: 'cache', observed_at: '2026-04-21T09:30:00Z' }],
+    }
+    const dataQualityObservation = {
+      monitor_definition_id: 'monitor_definition_data_quality_abc12345',
+      monitor_definition_fingerprint: 'd'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      observation_id: 'monitor_definition_observation_data_quality',
+      monitor_id: 'data_quality_monitor_v1',
+      benchmark_symbol: 'DATA_QUALITY',
+      review_scope: 'current_portfolio_truth_only',
+      evaluation_mode: 'review_only_observation_evaluation',
+      evaluated_at: '2026-04-21T09:30:00Z',
+      observation_status: 'degraded',
+      cause_code: 'market_data_coverage_degraded',
+      alert_classification: 'degraded',
+      hysteresis_transition: 'open',
+      recency_status: 'recent',
+      reason: 'input reliability evidence is degraded',
+      open_handoff: { handoff_kind: 'monitor_definition_observation_open_handoff_v1', monitor_definition_id: 'monitor_definition_data_quality_abc12345', observation_id: 'monitor_definition_observation_data_quality', monitor_id: 'data_quality_monitor_v1', benchmark_symbol: 'DATA_QUALITY' },
+      event_kind: 'latest_observation_event',
+      event_semantics: 'observation_rooted',
+      thresholds: { minimum_coverage_ratio: 0.9, max_stale_age_days: 3, required_trust_floor: 'degraded', provenance_requirements: ['cache_lineage'] },
+      benchmark_observation: null,
+      portfolio_observation: null,
+      active_observation: null,
+      data_quality_evidence: evidence,
+      metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_observation_artifact' },
+    } satisfies MonitorDefinitionAlertReviewTimelineObservationRow
+    const dataQualityHistory = {
+      ...dataQualityObservation,
+      history_entry_id: 'monitor_definition_history_entry_data_quality',
+      outcome_status: 'degraded',
+      significance_status: 'degraded',
+      review_support_status: 'review_supported',
+      latest_for_monitor_definition: true,
+      review_handoff: { handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1', monitor_definition_id: 'monitor_definition_data_quality_abc12345', history_entry_id: 'monitor_definition_history_entry_data_quality', monitor_id: 'data_quality_monitor_v1', benchmark_symbol: 'DATA_QUALITY' },
+      event_kind: 'evaluation_history_event',
+      event_semantics: 'history_entry_rooted',
+      metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_evaluation_history_entry' },
+    } satisfies MonitorDefinitionAlertReviewTimelineHistoryRow
+
+    expect(isDataQualityTimelineObservationRow(dataQualityObservation)).toBe(true)
+    expect(isBenchmarkTrendTimelineObservationRow(dataQualityObservation)).toBe(false)
+    expect(isDataQualityTimelineHistoryRow(dataQualityHistory)).toBe(true)
+    expect(isBenchmarkTrendTimelineHistoryRow(dataQualityHistory)).toBe(false)
+    expect(isDataQualityTimelineObservationRow({ ...dataQualityObservation, alert_classification: 'action_required' })).toBe(false)
+    expect(isDataQualityTimelineObservationRow({ ...dataQualityObservation, benchmark_symbol: 'SPY' })).toBe(false)
   })
 })
 

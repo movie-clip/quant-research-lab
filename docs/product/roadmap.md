@@ -2,6 +2,7 @@
 
 This file is future-looking only.
 Shipped-state detail belongs in `docs/product/current-product-state.md`.
+Living epic execution status belongs in `docs/product/epic-roadmap.md`.
 
 ## Product Thesis
 
@@ -41,7 +42,7 @@ Goal:
 - extend the shipped persisted construction engine beyond its current narrow policy set
 
 Remaining work:
-- add more weighting policies beyond `top_n_equal_weight_v1`
+- broaden construction policy coverage beyond the current narrow catalog and launch profile, including configurable `top_n` when supported
 - add richer hard and soft constraint families
 - deepen ranking-to-construction handoff and implementation diagnostics
 
@@ -101,3 +102,5 @@ Any financially meaningful change must update:
 - `docs/finance/financial-methodology.md`
 - relevant field inventory docs
 - tests that lock down formulas, trust semantics, degradation, or withholding behavior
+
+Any product-shape change should keep this file future-looking and keep shipped-state detail in `docs/product/current-product-state.md`.

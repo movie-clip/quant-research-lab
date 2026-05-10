@@ -1,9 +1,12 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { PortfolioImprovementWorkspaceShell } from './PortfolioImprovementWorkspaceShell'
 import * as portfolioWorkspaceStorage from '../../app/portfolioWorkspaceStorage'
 import type {
+  MonitorDefinitionActiveAlertEpisodeInboxRow,
+  MonitorDefinitionAlertEpisodeHistoryResponse,
+  MonitorDefinitionAlertEpisodeHistoryRow,
   MonitorDefinitionAlertReviewTimelineHistoryRow,
   MonitorDefinitionAlertReviewTimelineObservationRow,
   MonitorDefinitionAlertReviewTimelineResponse,
@@ -14,6 +17,10 @@ import type {
 import type { MonitorDefinitionAlertReviewSessionState } from '../portfolio/workspaceTypes'
 
 const noOp = () => {}
+
+afterEach(() => {
+  cleanup()
+})
 
 function textContentOf(testId: string) {
   const matches = screen.getAllByTestId(testId)
@@ -968,6 +975,550 @@ function makeReplacementRankingDraft(overrides: Record<string, unknown> = {}) {
   } as any
 }
 
+function requestUrl(input: RequestInfo | URL) {
+  const rawUrl = typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : input.url
+  return new URL(rawUrl, 'http://localhost')
+}
+
+function requestPathname(input: RequestInfo | URL) {
+  return requestUrl(input).pathname
+}
+
+function requestMethod(input: RequestInfo | URL, init?: RequestInit) {
+  if (init?.method) return init.method.toUpperCase()
+  if (typeof input !== 'string' && !(input instanceof URL) && input.method) return input.method.toUpperCase()
+  return 'GET'
+}
+
+function requestJsonBody(init?: RequestInit) {
+  return JSON.parse(typeof init?.body === 'string' ? init.body : String(init?.body ?? '{}'))
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+}
+
+function buildConstructionPoliciesResponse(policyIds: string[] = ['top_n_equal_weight_v1', 'top_n_inverse_rank_weight_v1', 'top_n_linear_rank_weight_v1']) {
+  const catalog = {
+    top_n_equal_weight_v1: {
+      policy_id: 'top_n_equal_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+      name: 'Top N Equal Weight v1',
+      description: 'Select eligible top-ranked names and assign equal target weights.',
+      family: 'top_n_equal_weight',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'selection_only',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'default',
+        launch_top_n: 2,
+      },
+    },
+    top_n_inverse_rank_weight_v1: {
+      policy_id: 'top_n_inverse_rank_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_inverse_rank_weight_v1',
+      name: 'Top N Inverse Rank Weight v1',
+      description: 'Select eligible top-ranked names and weight them by inverse selected-order rank.',
+      family: 'top_n_rank_weighted',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'inverse_selected_order_weighting',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'excluded',
+        launch_top_n: 2,
+      },
+    },
+    top_n_linear_rank_weight_v1: {
+      policy_id: 'top_n_linear_rank_weight_v1',
+      policy_definition_id: 'construction_policy_definition_top_n_linear_rank_weight_v1',
+      name: 'Top N Linear Rank Weight v1',
+      description: 'Select eligible top-ranked names and weight them by selected-order linear rank numerators N..1.',
+      family: 'top_n_rank_weighted',
+      constraints: 'long_only_fully_invested_max_position_turnover',
+      inputs: 'ranked_universe_and_current_portfolio',
+      determinism: 'deterministic_rank_order',
+      ranking_support: 'linear_selected_order_weighting',
+      full_investment_constraint: 'required',
+      long_only_constraint: 'required',
+      eligible_ranked_universe_constraint: 'required',
+      max_position_weight_constraint: 'required',
+      min_position_weight_constraint: 'supported_optional',
+      max_turnover_weight_constraint: 'supported_optional',
+      max_trade_intent_count_constraint: 'supported_optional',
+      ranked_universe_input: 'required',
+      current_portfolio_input: 'required',
+      launch_top_n: 2,
+      selection_rule_ids: ['eligible_only', 'take_top_n'],
+      launch_profile: {
+        profile_id: 'ranking_artifact_review_handoff_v1',
+        profile_kind: 'ranking_artifact_review_handoff',
+        policy_status: 'opt_in',
+        launch_top_n: 2,
+      },
+    },
+  } as const
+
+  return policyIds.map((policyId) => catalog[policyId as keyof typeof catalog])
+}
+
+function makePersistedReplacementRankingPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+    artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+    ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+    methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+    basis_date: '2026-04-15',
+    status: 'ok',
+    request: {
+      replacement_intent: {
+        draft_id: 'draft-1',
+        workspace_id: 'workspace-1',
+        base_node_id: 'node-1',
+        base_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+        seed_ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+      },
+      seed_context: {
+        ranking_id: 'etf_ranking_engine_v1',
+        methodology_id: 'etf_ranking_methodology_v1',
+        ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+        seeded_symbols: ['AAPL', 'IUFS'],
+      },
+      prefer_live_data: false,
+      normalized_request: {
+        base_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+        seeded_symbols: ['AAPL', 'IUFS'],
+        peer_group: 'Sector UCITS ETF',
+        ranking_basis_date: '2026-04-15',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+      },
+    },
+    request_context: {
+      universe: ['AAPL', 'IUFS'],
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+      prefer_live_data: false,
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      peer_group: 'Sector UCITS ETF',
+      ranking_basis_date: '2026-04-15',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+    },
+    submitted_request: {
+      replacement_intent: {
+        draft_id: 'draft-1',
+        workspace_id: 'workspace-1',
+        base_node_id: 'node-1',
+        base_symbol: 'AAPL',
+        candidate_symbol: 'IUFS',
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+        seed_ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+      },
+      seed_context: {
+        ranking_id: 'etf_ranking_engine_v1',
+        methodology_id: 'etf_ranking_methodology_v1',
+        ranking_basis_date: '2026-04-15',
+        peer_group: 'Sector UCITS ETF',
+        benchmark_symbol: 'SPY',
+        lookback_months: 6,
+        seeded_symbols: ['AAPL', 'IUFS'],
+      },
+      prefer_live_data: false,
+    },
+    normalized_request: {
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      seeded_symbols: ['AAPL', 'IUFS'],
+      peer_group: 'Sector UCITS ETF',
+      ranking_basis_date: '2026-04-15',
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+    },
+    effective_inputs: {
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+      price_basis: 'close',
+      requested_universe: ['AAPL', 'IUFS'],
+      evaluated_universe: ['IUFS'],
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      peer_group: 'Sector UCITS ETF',
+      ranking_basis_date: '2026-04-15',
+    },
+    request_hash: 'request-hash-1',
+    run_metadata: {
+      ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+      methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+      methodology: 'm',
+      as_of_date: '2026-04-15',
+      ranking_basis_date: '2026-04-15',
+      basis_date: '2026-04-15',
+      request_hash: 'request-hash-1',
+      price_basis: 'close',
+      source_status: 'sample',
+      tie_break_order: ['composite_score'],
+      factor_weights: { momentum: 1 },
+      confidence: 'medium',
+    },
+    eligible_count: 1,
+    excluded_count: 1,
+    ranked_candidates: [{
+      symbol: 'IUFS',
+      rank: 1,
+      composite_score: 0.8123,
+      raw_factors: {
+        momentum_12_1: 11.2,
+        momentum_6_1: 4.2,
+        momentum_blended: 7.7,
+        realized_volatility_126d: 14.4,
+        max_drawdown_252d: 8.1,
+        liquidity_60d: 13.1,
+      },
+      normalized_scores: {
+        momentum: 1,
+        realized_volatility: 0.7,
+        max_drawdown: 0.75,
+        liquidity: 0.8,
+      },
+      eligibility_status: 'eligible',
+      exclusion_reason: null,
+      basis_date: '2026-04-15',
+      draft_id: 'draft-1',
+      base_node_id: 'node-1',
+      base_symbol: 'AAPL',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+    }],
+    excluded_candidates: [{
+      symbol: 'VDST',
+      rank: null,
+      composite_score: null,
+      raw_factors: null,
+      normalized_scores: null,
+      eligibility_status: 'excluded',
+      exclusion_reason: 'instrument category Bond UCITS ETF does not match requested peer group Sector UCITS ETF',
+      basis_date: '2026-04-15',
+      draft_id: 'draft-1',
+      base_node_id: 'node-1',
+      base_symbol: 'AAPL',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+    }],
+    warnings: [],
+    unavailable_reason: null,
+    lineage: {
+      draft_id: 'draft-1',
+      workspace_id: 'workspace-1',
+      base_node_id: 'node-1',
+      base_symbol: 'AAPL',
+      candidate_symbol: 'IUFS',
+      seed_ranking_id: 'etf_ranking_engine_v1',
+      seed_methodology_id: 'etf_ranking_methodology_v1',
+      seed_ranking_basis_date: '2026-04-15',
+      peer_group: 'Sector UCITS ETF',
+      benchmark_symbol: 'SPY',
+      lookback_months: 6,
+    },
+    ...overrides,
+  }
+}
+
+function makePersistedReplacementRankingPreflightPayload(overrides: Record<string, unknown> = {}) {
+  const artifact = makePersistedReplacementRankingPayload()
+  return {
+    contract_version: 'ranking_artifact_preflight_v1',
+    artifact: {
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      ranking_id: artifact.ranking_id,
+      methodology_id: artifact.run_metadata.methodology_id,
+      as_of_date: artifact.run_metadata.as_of_date,
+      ranking_basis_date: artifact.run_metadata.ranking_basis_date,
+    },
+    eligibility: {
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      open_supported: true,
+      replay_eligible: true,
+      consumer_handoff_supported: true,
+      ineligibility_reason: null,
+    },
+    open_handoff: {
+      handoff_kind: 'ranking_artifact_open_handoff_v1',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+    },
+    ...overrides,
+  }
+}
+
+function makePersistedReplacementRankingOpenPayload(overrides: Record<string, unknown> = {}) {
+  const artifact = makePersistedReplacementRankingPayload()
+  const preflight = makePersistedReplacementRankingPreflightPayload()
+  return {
+    contract_version: 'ranking_artifact_open_v1',
+    open_handoff: preflight.open_handoff,
+    review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+    review_payload: {
+      review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      artifact,
+    },
+    consumer_handoff: {
+      contract_version: 'intent_bound_etf_replacement_ranking_consumer_contract_v1',
+      handoff_kind: 'intent_bound_etf_replacement_ranking_consumer_handoff_v1',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      ranking_id: artifact.ranking_id,
+      methodology_id: artifact.methodology_id,
+      basis_date: artifact.basis_date,
+      draft_id: artifact.lineage.draft_id,
+      workspace_id: artifact.lineage.workspace_id,
+      base_node_id: artifact.lineage.base_node_id,
+      base_symbol: artifact.lineage.base_symbol,
+      candidate_symbol: artifact.lineage.candidate_symbol,
+      seed_ranking_id: artifact.lineage.seed_ranking_id,
+      seed_methodology_id: artifact.lineage.seed_methodology_id,
+      seed_ranking_basis_date: artifact.lineage.seed_ranking_basis_date,
+      peer_group: artifact.lineage.peer_group,
+      benchmark_symbol: artifact.lineage.benchmark_symbol,
+      lookback_months: artifact.lineage.lookback_months,
+      eligible_count: artifact.eligible_count,
+      excluded_count: artifact.excluded_count,
+      selected_candidate: {
+        symbol: 'IUFS',
+        rank: 1,
+        composite_score: 0.8123,
+        basis_date: '2026-04-15',
+        draft_id: 'draft-1',
+        base_node_id: 'node-1',
+        base_symbol: 'AAPL',
+        seed_ranking_id: 'etf_ranking_engine_v1',
+        seed_methodology_id: 'etf_ranking_methodology_v1',
+      },
+    },
+    ...overrides,
+  }
+}
+
+const authoritativeCurrentPortfolio = {
+  artifact_id: 'workspace_current_portfolio_1',
+  as_of_timestamp: '2026-04-10T00:00:00Z',
+  weights: [
+    { symbol: 'AAPL', weight: 0.6 },
+    { symbol: 'MSFT', weight: 0.4 },
+  ],
+}
+
+function buildReplacementRecentResponse(runs: Array<Record<string, unknown>>, appliedFilters: Record<string, unknown> = { artifact_kind: 'intent_bound_etf_replacement_ranking' }) {
+  return {
+    items: runs.map((run) => ({
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+      metadata: {
+        metadata_truth: 'authoritative_persisted_metadata',
+        metadata_provenance: 'persisted_artifact_body',
+        matched_metadata_provenance: 'persisted_artifact_body',
+        recency_same_day_provenance: 'artifact_id',
+      },
+      etf_summary: null,
+      replacement_summary: {
+        basis_date: run.basis_date,
+        status: run.status,
+        base_symbol: run.base_symbol,
+        candidate_symbol: run.candidate_symbol,
+        peer_group: run.peer_group,
+        eligible_count: run.eligible_count,
+        excluded_count: run.excluded_count,
+        confidence: run.confidence,
+      },
+      ...run,
+    })),
+    metadata: {
+      contract_version: 'ranking_artifact_discovery_v1',
+      metadata_truth: 'authoritative_persisted_metadata',
+      supported_metadata_provenance: ['persisted_artifact_body', 'persisted_etf_recent_index'],
+      supported_artifact_kinds: ['etf_ranking', 'intent_bound_etf_replacement_ranking'],
+      artifact_kind_registry_version: 'ranking_artifact_kind_registry_v1',
+      supported_filters: ['artifact_kind', 'effective_peer_group'],
+      artifact_kind_registry: [],
+      applied_filters: appliedFilters,
+    },
+  }
+}
+
+function buildReplacementRecentRun(overrides: Record<string, unknown> = {}) {
+  return {
+    artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+    ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+    methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+    as_of_date: '2026-04-15',
+    ranking_basis_date: '2026-04-15',
+    basis_date: '2026-04-15',
+    status: 'ok',
+    base_symbol: 'AAPL',
+    candidate_symbol: 'IUFS',
+    peer_group: 'Sector UCITS ETF',
+    eligible_count: 1,
+    excluded_count: 1,
+    confidence: 'medium',
+    ...overrides,
+  }
+}
+
+function makePersistedReplacementRankingFixture({
+  artifactId,
+  candidateSymbol,
+}: {
+  artifactId: string
+  candidateSymbol: string
+}) {
+  const artifact = makePersistedReplacementRankingPayload()
+  artifact.artifact_id = artifactId
+  artifact.request.replacement_intent.candidate_symbol = candidateSymbol
+  artifact.request.normalized_request.candidate_symbol = candidateSymbol
+  artifact.request_context.candidate_symbol = candidateSymbol
+  artifact.submitted_request.replacement_intent.candidate_symbol = candidateSymbol
+  artifact.normalized_request.candidate_symbol = candidateSymbol
+  artifact.effective_inputs.candidate_symbol = candidateSymbol
+  artifact.ranked_candidates = [
+    {
+      ...artifact.ranked_candidates[0],
+      symbol: candidateSymbol,
+      base_symbol: artifact.lineage.base_symbol,
+    },
+  ]
+  artifact.lineage.candidate_symbol = candidateSymbol
+
+  const preflight = makePersistedReplacementRankingPreflightPayload({
+    artifact: {
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      ranking_id: artifact.ranking_id,
+      methodology_id: artifact.run_metadata.methodology_id,
+      as_of_date: artifact.run_metadata.as_of_date,
+      ranking_basis_date: artifact.run_metadata.ranking_basis_date,
+    },
+    open_handoff: {
+      handoff_kind: 'ranking_artifact_open_handoff_v1',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+    },
+  })
+
+  const open = makePersistedReplacementRankingOpenPayload({
+    open_handoff: preflight.open_handoff,
+    review_payload: {
+      review_payload_kind: 'intent_bound_etf_replacement_ranking_review_payload_v1',
+      review_truth_basis: 'authoritative_persisted_ranking_artifact',
+      review_scope: 'artifact_backed_review_only',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      artifact,
+    },
+    consumer_handoff: {
+      contract_version: 'intent_bound_etf_replacement_ranking_consumer_contract_v1',
+      handoff_kind: 'intent_bound_etf_replacement_ranking_consumer_handoff_v1',
+      artifact_kind: 'intent_bound_etf_replacement_ranking',
+      artifact_id: artifact.artifact_id,
+      schema_version: artifact.schema_version,
+      ranking_id: artifact.ranking_id,
+      methodology_id: artifact.methodology_id,
+      basis_date: artifact.basis_date,
+      draft_id: artifact.lineage.draft_id,
+      workspace_id: artifact.lineage.workspace_id,
+      base_node_id: artifact.lineage.base_node_id,
+      base_symbol: artifact.lineage.base_symbol,
+      candidate_symbol: artifact.lineage.candidate_symbol,
+      seed_ranking_id: artifact.lineage.seed_ranking_id,
+      seed_methodology_id: artifact.lineage.seed_methodology_id,
+      seed_ranking_basis_date: artifact.lineage.seed_ranking_basis_date,
+      peer_group: artifact.lineage.peer_group,
+      benchmark_symbol: artifact.lineage.benchmark_symbol,
+      lookback_months: artifact.lineage.lookback_months,
+      eligible_count: artifact.eligible_count,
+      excluded_count: artifact.excluded_count,
+      selected_candidate: {
+        symbol: candidateSymbol,
+        rank: artifact.ranked_candidates[0]!.rank,
+        composite_score: artifact.ranked_candidates[0]!.composite_score,
+        basis_date: artifact.basis_date,
+        draft_id: artifact.lineage.draft_id,
+        base_node_id: artifact.lineage.base_node_id,
+        base_symbol: artifact.lineage.base_symbol,
+        seed_ranking_id: artifact.lineage.seed_ranking_id,
+        seed_methodology_id: artifact.lineage.seed_methodology_id,
+      },
+    },
+  })
+
+  return {
+    recentRun: buildReplacementRecentRun({
+      artifact_id: artifact.artifact_id,
+      candidate_symbol: candidateSymbol,
+    }),
+    preflight,
+    open,
+  }
+}
+
 function makeLatestObservationInboxRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineObservationRow {
   return {
     monitor_definition_id: 'monitor_definition_abc12345def67890',
@@ -1093,6 +1644,88 @@ function makeObservationArtifact(overrides: Record<string, unknown> = {}): Monit
     },
     ...overrides,
   } as MonitorDefinitionObservationArtifact
+}
+
+function makeDataQualityEvidence() {
+  return {
+    coverage_total_count: 4,
+    coverage_available_count: 3,
+    coverage_missing_count: 1,
+    coverage_ratio: 0.75,
+    stale_symbols: ['MSFT'],
+    missing_symbols: ['CASH'],
+    trust_statuses: { prices: 'degraded', broker_import: 'verified' },
+    withheld_inputs: ['dividend_total_return'],
+    unavailable_inputs: ['cash_fx_rate'],
+    source_lineage: [
+      { source_kind: 'market_data_cache', source_id: 'fmp-cache-2026-04-21', observed_at: '2026-04-21T09:29:00Z' },
+      { source_kind: 'broker_import', source_id: 'IB2024.pdf', observed_at: '2026-04-15T09:30:00Z' },
+    ],
+  }
+}
+
+function makeDataQualityObservationArtifact(overrides: Record<string, unknown> = {}): MonitorDefinitionObservationArtifact {
+  return {
+    schema_version: 'monitor_definition_observation_artifact_v1',
+    observation_id: 'monitor_definition_observation_data_quality',
+    monitor_definition_id: 'monitor_definition_data_quality_abc12345',
+    monitor_definition_fingerprint: 'd'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    monitor_id: 'data_quality_monitor_v1',
+    monitor_family: 'data_quality',
+    benchmark_symbol: 'DATA_QUALITY',
+    evaluation_mode: 'review_only_observation_evaluation',
+    evaluated_at: '2026-04-21T09:30:00Z',
+    observation_status: 'degraded',
+    cause_code: 'market_data_coverage_degraded',
+    alert_classification: 'degraded',
+    hysteresis_transition: 'open',
+    source_precedence: 'persisted_observation_artifact_then_persisted_latest_evaluation_snapshot',
+    reason: 'input reliability evidence is degraded',
+    thresholds: { minimum_coverage_ratio: 0.9, max_stale_age_days: 3, required_trust_floor: 'degraded', provenance_requirements: ['cache_lineage'] },
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidence(),
+    ...overrides,
+  } as MonitorDefinitionObservationArtifact
+}
+
+function makeDataQualityTimelineObservationRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineObservationRow {
+  const artifact = makeDataQualityObservationArtifact()
+  return {
+    monitor_definition_id: artifact.monitor_definition_id,
+    monitor_definition_fingerprint: artifact.monitor_definition_fingerprint,
+    monitor_definition_schema_version: artifact.monitor_definition_schema_version,
+    observation_id: artifact.observation_id,
+    monitor_id: artifact.monitor_id,
+    benchmark_symbol: artifact.benchmark_symbol,
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: artifact.evaluation_mode,
+    evaluated_at: artifact.evaluated_at,
+    observation_status: artifact.observation_status,
+    cause_code: artifact.cause_code,
+    alert_classification: artifact.alert_classification,
+    hysteresis_transition: artifact.hysteresis_transition,
+    recency_status: 'recent',
+    reason: artifact.reason,
+    open_handoff: {
+      handoff_kind: 'monitor_definition_observation_open_handoff_v1',
+      monitor_definition_id: artifact.monitor_definition_id,
+      observation_id: artifact.observation_id,
+      monitor_id: artifact.monitor_id,
+      benchmark_symbol: artifact.benchmark_symbol,
+    },
+    event_kind: 'latest_observation_event',
+    event_semantics: 'observation_rooted',
+    thresholds: artifact.thresholds,
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidence(),
+    metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_observation_artifact' },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineObservationRow
 }
 
 function makeAlertHistoryQueueRow(overrides: Record<string, unknown> = {}) {
@@ -1228,6 +1861,126 @@ function makeRecoveredAlertQueueRow(overrides: Record<string, unknown> = {}): Mo
   }
 }
 
+function makeActiveAlertEpisodeInboxRow(overrides: Record<string, unknown> = {}): MonitorDefinitionActiveAlertEpisodeInboxRow {
+  return {
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: 'review_only_observation_evaluation',
+    alert_episode: {
+      schema_version: 'monitor_definition_alert_episode_record_v1',
+      episode_id: 'monitor_definition_alert_episode_latest',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+      lifecycle_status: 'open',
+      latest_for_monitor_definition: true,
+      started_at: '2026-04-20T09:30:00Z',
+      ended_at: null,
+      latest_event_at: '2026-04-21T09:30:00Z',
+      hysteresis_transition: 'remain_open',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      latest_contributing_observation: {
+        observation_id: 'monitor_definition_observation_abc12345',
+        evaluated_at: '2026-04-21T09:30:00Z',
+        observation_status: 'threshold_breach',
+        cause_code: null,
+        alert_classification: 'action_required',
+      },
+      recovery_basis: null,
+      terminal_history_entry_id: 'monitor_definition_history_entry_abc12345',
+      timeline_handoff: {
+        handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+        monitor_definition_id: 'monitor_definition_abc12345def67890',
+        selected_event_kind: 'latest_observation_event',
+        observation_id: 'monitor_definition_observation_abc12345',
+        history_entry_id: null,
+        monitor_id: 'benchmark_trend_overlay_v1',
+        benchmark_symbol: 'SPY',
+      },
+      metadata: {
+        history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+        row_provenance: 'persisted_monitor_definition_alert_episode_record',
+      },
+    },
+    metadata: {
+      metadata_truth: 'authoritative_persisted_artifact_metadata',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+    },
+    ...overrides,
+  } as MonitorDefinitionActiveAlertEpisodeInboxRow
+}
+
+function makeAlertEpisodeHistoryRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertEpisodeHistoryRow {
+  return {
+    schema_version: 'monitor_definition_alert_episode_record_v1',
+    episode_id: 'monitor_definition_alert_episode_latest',
+    monitor_definition_id: 'monitor_definition_abc12345def67890',
+    monitor_definition_fingerprint: 'f'.repeat(64),
+    monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+    monitor_id: 'benchmark_trend_overlay_v1',
+    benchmark_symbol: 'SPY',
+    lifecycle_status: 'recovered',
+    latest_for_monitor_definition: true,
+    started_at: '2026-04-20T09:30:00Z',
+    ended_at: '2026-04-21T09:30:00Z',
+    latest_event_at: '2026-04-21T09:30:00Z',
+    hysteresis_transition: 'recover',
+    source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+    latest_contributing_observation: {
+      observation_id: 'monitor_definition_observation_abc12345',
+      evaluated_at: '2026-04-21T09:30:00Z',
+      observation_status: 'ok',
+      cause_code: null,
+      alert_classification: 'informational',
+    },
+    recovery_basis: {
+      recovered_from_history_entry_id: 'monitor_definition_history_entry_abc12345',
+      recovered_from_evaluated_at: '2026-04-20T09:30:00Z',
+      recovered_from_outcome_status: 'threshold_breach',
+      recovered_from_cause_code: null,
+      recovered_from_significance_status: 'action_required',
+    },
+    terminal_history_entry_id: 'monitor_definition_history_entry_latest_info',
+    timeline_handoff: {
+      handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      selected_event_kind: 'latest_observation_event',
+      observation_id: 'monitor_definition_observation_abc12345',
+      history_entry_id: null,
+      monitor_id: 'benchmark_trend_overlay_v1',
+      benchmark_symbol: 'SPY',
+    },
+    metadata: {
+      history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertEpisodeHistoryRow
+}
+
+function makeAlertEpisodeHistoryResponse(rows: MonitorDefinitionAlertEpisodeHistoryRow[] = [makeAlertEpisodeHistoryRow()], overrides: Record<string, unknown> = {}): MonitorDefinitionAlertEpisodeHistoryResponse {
+  return {
+    items: rows,
+    metadata: {
+      contract_version: 'monitor_definition_alert_episode_history_v1',
+      history_truth: 'authoritative_persisted_monitor_definition_alert_episode_history',
+      row_provenance: 'persisted_monitor_definition_alert_episode_record',
+      source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+      ordering: 'newest_first_latest_event_at_then_episode_id',
+      windowing: 'before_episode_id_exclusive',
+      monitor_definition_id: 'monitor_definition_abc12345def67890',
+      monitor_definition_fingerprint: 'f'.repeat(64),
+      monitor_definition_schema_version: 'monitor_definition_artifact_v1',
+      returned_limit: 20,
+      requested_before_episode_id: null,
+      next_before_episode_id: null,
+      total_episodes: rows.length,
+    },
+    ...overrides,
+  } as MonitorDefinitionAlertEpisodeHistoryResponse
+}
+
 function makeEvaluationHistoryEntryResponse(overrides: Record<string, unknown> = {}): MonitorDefinitionEvaluationHistoryEntryResponse {
   return {
     item: {
@@ -1317,6 +2070,88 @@ function makeEvaluationHistoryEntryResponse(overrides: Record<string, unknown> =
   }
 }
 
+function makeDataQualityEvaluationHistoryEntryResponse(overrides: Record<string, unknown> = {}): MonitorDefinitionEvaluationHistoryEntryResponse {
+  const artifact = makeDataQualityObservationArtifact()
+  return {
+    item: {
+      schema_version: 'monitor_definition_evaluation_history_entry_v1',
+      history_entry_id: 'monitor_definition_history_entry_data_quality',
+      monitor_definition_id: artifact.monitor_definition_id,
+      monitor_definition_fingerprint: artifact.monitor_definition_fingerprint,
+      monitor_definition_schema_version: artifact.monitor_definition_schema_version,
+      monitor_id: artifact.monitor_id,
+      monitor_family: 'data_quality',
+      benchmark_symbol: artifact.benchmark_symbol,
+      evaluation_mode: artifact.evaluation_mode,
+      evaluated_at: artifact.evaluated_at,
+      observation_status: 'degraded',
+      cause_code: artifact.cause_code,
+      significance_status: 'degraded',
+      hysteresis_transition: artifact.hysteresis_transition,
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      reason: artifact.reason,
+      thresholds: artifact.thresholds,
+      benchmark_observation: null,
+      portfolio_observation: null,
+      active_observation: null,
+      data_quality_evidence: makeDataQualityEvidence(),
+      metadata: { history_truth: 'authoritative_persisted_monitor_definition_evaluation_history', row_provenance: 'persisted_monitor_definition_evaluation_history_entry' },
+    },
+    metadata: {
+      contract_version: 'monitor_definition_evaluation_history_v1',
+      history_truth: 'authoritative_persisted_monitor_definition_evaluation_history',
+      row_provenance: 'persisted_monitor_definition_evaluation_history_entry',
+      source_precedence: 'persisted_evaluation_history_entry_only',
+      inspection_order: 'newest_first_evaluated_at',
+      monitor_definition_id: artifact.monitor_definition_id,
+      monitor_definition_fingerprint: artifact.monitor_definition_fingerprint,
+      monitor_definition_schema_version: artifact.monitor_definition_schema_version,
+      returned_limit: 20,
+      total_entries: 1,
+      retrieved_history_entry_id: 'monitor_definition_history_entry_data_quality',
+    },
+    ...overrides,
+  } as MonitorDefinitionEvaluationHistoryEntryResponse
+}
+
+function makeDataQualityTimelineHistoryRow(overrides: Record<string, unknown> = {}): MonitorDefinitionAlertReviewTimelineHistoryRow {
+  const entry = makeDataQualityEvaluationHistoryEntryResponse().item
+  return {
+    monitor_definition_id: entry.monitor_definition_id,
+    monitor_definition_fingerprint: entry.monitor_definition_fingerprint,
+    monitor_definition_schema_version: entry.monitor_definition_schema_version,
+    history_entry_id: entry.history_entry_id,
+    monitor_id: entry.monitor_id,
+    benchmark_symbol: entry.benchmark_symbol,
+    review_scope: 'current_portfolio_truth_only',
+    evaluation_mode: entry.evaluation_mode,
+    evaluated_at: entry.evaluated_at,
+    outcome_status: entry.observation_status,
+    cause_code: entry.cause_code,
+    significance_status: entry.significance_status,
+    hysteresis_transition: entry.hysteresis_transition,
+    review_support_status: 'review_supported',
+    latest_for_monitor_definition: true,
+    reason: entry.reason,
+    review_handoff: {
+      handoff_kind: 'monitor_definition_evaluation_history_review_handoff_v1',
+      monitor_definition_id: entry.monitor_definition_id,
+      history_entry_id: entry.history_entry_id,
+      monitor_id: entry.monitor_id,
+      benchmark_symbol: entry.benchmark_symbol,
+    },
+    event_kind: 'evaluation_history_event',
+    event_semantics: 'history_entry_rooted',
+    thresholds: entry.thresholds,
+    benchmark_observation: null,
+    portfolio_observation: null,
+    active_observation: null,
+    data_quality_evidence: makeDataQualityEvidence(),
+    metadata: { metadata_truth: 'authoritative_persisted_artifact_metadata', row_provenance: 'persisted_monitor_definition_evaluation_history_entry' },
+    ...overrides,
+  } as MonitorDefinitionAlertReviewTimelineHistoryRow
+}
+
 function renderShell(overrides: Record<string, any> = {}) {
   const monitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionState = {
     navigation: null,
@@ -1352,12 +2187,17 @@ function renderShell(overrides: Record<string, any> = {}) {
       onConstructedCandidateArtifact={noOp}
       onConstructionConstraintValidationArtifact={noOp}
       onSelectedConstructionRuleChange={noOp}
+      onOpenPersistedConstructionArtifactReview={noOp}
+      onOpenPersistedEtfRankingReview={noOp}
       persistedOptimizerHandoffReview={null}
       monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
       recoveredAlertReviewQueue={[]}
+      alertEpisodeHistory={{ status: 'idle', monitorDefinitionId: null, response: null, error: null }}
       onOpenLatestObservation={noOp}
       onOpenAlertHistoryReview={noOp}
       onReopenRecoveredAlertReview={noOp}
+      onOpenAlertEpisodeHistory={noOp}
+      onLoadOlderAlertEpisodeHistory={noOp}
       {...overrides}
     />,
   )
@@ -1459,7 +2299,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getByText('degraded · recent')).toBeTruthy()
-    expect(screen.getByText('degraded · cause benchmark observation unconfirmed')).toBeTruthy()
+    expect(screen.getByText(/degraded · cause benchmark observation unconfirmed/)).toBeTruthy()
     expect(screen.getByText('Unable to open timeline observation review: persisted observation observation_id does not match selected timeline observation event')).toBeTruthy()
   })
 
@@ -1489,6 +2329,33 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       monitor_definition_id: 'monitor_definition_abc12345def67890',
       review_handoff: expect.objectContaining({ history_entry_id: 'monitor_definition_history_entry_abc12345' }),
     }))
+  })
+
+  it('renders data-quality observation and history readback without benchmark wording leakage', () => {
+    const observationRow = makeDataQualityTimelineObservationRow()
+    const historyRow = makeDataQualityTimelineHistoryRow()
+
+    renderShell({
+      monitorDefinitionAlertReviewSession: {
+        navigation: null,
+        timeline: makeAlertReviewTimeline([observationRow, historyRow]),
+        timelineStatus: 'ready',
+        timelineError: null,
+        latestObservation: { status: 'ready', row: observationRow, observation: makeDataQualityObservationArtifact(), error: null },
+        alertHistory: { status: 'ready', row: historyRow, entry: makeDataQualityEvaluationHistoryEntryResponse(), error: null },
+      },
+    })
+
+    expect(screen.getAllByText('Input reliability / data quality').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Input Reliability Evidence').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Coverage 75.00% · available 3 of 4 · missing 1/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Stale symbols: MSFT · missing symbols: CASH/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Withheld inputs: dividend_total_return · unavailable inputs: cash_fx_rate/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Trust statuses: prices: degraded, broker_import: verified/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Source lineage: market_data_cache\/fmp-cache-2026-04-21/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Read-only persisted monitor observation for benchmark-relative threshold drift review.')).toBeNull()
+    expect(screen.queryByText('Persisted Threshold / Observation Detail')).toBeNull()
+    expect(screen.queryByText('Persisted Threshold / History Detail')).toBeNull()
   })
 
   it('renders explicit empty and mismatch alert history timeline states', () => {
@@ -1562,7 +2429,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getByText('degraded · degraded · historical')).toBeTruthy()
-    expect(screen.getByText('review supported · cause benchmark observation unconfirmed')).toBeTruthy()
+    expect(screen.getByText(/review supported · cause benchmark observation unconfirmed/)).toBeTruthy()
     expect(screen.getByText('Unable to open timeline history review: persisted history entry history_entry_id does not match selected timeline history event')).toBeTruthy()
   })
 
@@ -1575,7 +2442,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       onReopenRecoveredAlertReview,
     })
 
-    expect(screen.getAllByTestId('recovered-alert-review-queue').at(-1)).toBeTruthy()
+    expect(screen.getAllByTestId('recovered-alert-review-queue')[screen.getAllByTestId('recovered-alert-review-queue').length - 1]).toBeTruthy()
     expect(screen.getByText('Rows: 1 · newest first · discovery-only handoff to the authoritative definition-scoped timeline latest-observation event.')).toBeTruthy()
     expect(screen.getAllByText('Active alert episodes reopen from the persisted active alert-episode inbox by authoritative persisted episode and timeline ids only; this recovered queue stays recovered-only.').length).toBeGreaterThan(0)
     expect(screen.getByTestId('recovered-alert-row-monitor_definition_observation_abc12345')).toBeTruthy()
@@ -1586,7 +2453,259 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(onReopenRecoveredAlertReview).toHaveBeenCalledWith(row)
   })
 
-  it('shows an explicit decision summary when no candidate exists yet', () => {
+  it('renders active alert episode inbox ready rows and opens timeline review by row callback', () => {
+    const onOpenActiveAlertEpisode = vi.fn()
+    const row = makeActiveAlertEpisodeInboxRow()
+
+    renderShell({
+      activeAlertEpisodeInbox: {
+        status: 'ready',
+        response: {
+          items: [row],
+          metadata: {
+            contract_version: 'monitor_definition_active_alert_episode_inbox_v1',
+            provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only',
+            row_provenance: 'persisted_monitor_definition_alert_episode_record',
+            source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+            ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id',
+            windowing: 'before_episode_id_exclusive',
+            returned_limit: 20,
+            requested_before_episode_id: null,
+            next_before_episode_id: null,
+            total_active_episodes: 1,
+          },
+        },
+        error: null,
+      },
+      onOpenActiveAlertEpisode,
+    })
+
+    expect(screen.getByText('Active Alert Review Inbox')).toBeTruthy()
+    expect(screen.getByText('Rows: 1 of 1 · provenance: authoritative_persisted_monitor_definition_alert_episode_records_only · ordering: newest_first_latest_event_at_then_monitor_definition_id_then_episode_id')).toBeTruthy()
+    expect(screen.getByTestId('active-alert-episode-row-monitor_definition_alert_episode_latest')).toBeTruthy()
+    expect(screen.getByText(/alert · action required/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open timeline review' }))
+    expect(onOpenActiveAlertEpisode).toHaveBeenCalledTimes(1)
+    expect(onOpenActiveAlertEpisode).toHaveBeenCalledWith(row)
+  })
+
+  it('renders active alert episode inbox empty and error states', () => {
+    const { rerender } = renderShell({
+      activeAlertEpisodeInbox: {
+        status: 'ready',
+        response: {
+          items: [],
+          metadata: {
+            contract_version: 'monitor_definition_active_alert_episode_inbox_v1',
+            provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only',
+            row_provenance: 'persisted_monitor_definition_alert_episode_record',
+            source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation',
+            ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id',
+            windowing: 'before_episode_id_exclusive',
+            returned_limit: 20,
+            requested_before_episode_id: null,
+            next_before_episode_id: null,
+            total_active_episodes: 0,
+          },
+        },
+        error: null,
+      },
+    })
+
+    expect(screen.getByText('No active alert episodes are currently available from authoritative persisted episode records.')).toBeTruthy()
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        activeAlertEpisodeInbox={{ status: 'error', response: null, error: 'active alert episode inbox payload is malformed' }}
+      />,
+    )
+
+    expect(screen.getByText('active alert episode inbox payload is malformed')).toBeTruthy()
+  })
+
+  it('renders alert episode history ready rows, metadata, load older, and open callback', () => {
+    const onOpenAlertEpisodeHistory = vi.fn()
+    const onLoadOlderAlertEpisodeHistory = vi.fn()
+    const row = makeAlertEpisodeHistoryRow()
+    const response = makeAlertEpisodeHistoryResponse([row], {
+      metadata: {
+        ...makeAlertEpisodeHistoryResponse([row]).metadata,
+        next_before_episode_id: 'monitor_definition_alert_episode_older',
+        total_episodes: 2,
+      },
+    })
+
+    renderShell({
+      alertEpisodeHistory: {
+        status: 'ready',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+        response,
+        error: null,
+      },
+      onOpenAlertEpisodeHistory,
+      onLoadOlderAlertEpisodeHistory,
+    })
+
+    expect(screen.getByText('Alert Episode History')).toBeTruthy()
+    expect(screen.getByText('History truth: authoritative_persisted_monitor_definition_alert_episode_history · provenance: persisted_monitor_definition_alert_episode_record')).toBeTruthy()
+    expect(screen.getByText('Definition: monitor_definition_abc12345def67890 · requested before: none · next before: monitor_definition_alert_episode_older')).toBeTruthy()
+    expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_latest')).toBeTruthy()
+    expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_latest').textContent).toContain('Benchmark threshold lifecycle readback.')
+
+    const section = screen.getByTestId('alert-episode-history-drill-in')
+    fireEvent.click(within(section).getByRole('button', { name: 'Open timeline review' }))
+    fireEvent.click(within(section).getByRole('button', { name: 'Load older' }))
+
+    expect(onOpenAlertEpisodeHistory).toHaveBeenCalledWith(row)
+    expect(onLoadOlderAlertEpisodeHistory).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders data-quality active inbox and episode history as input reliability reviews', () => {
+    const observation = makeDataQualityObservationArtifact()
+    const activeRow = makeActiveAlertEpisodeInboxRow({
+      alert_episode: {
+        ...makeActiveAlertEpisodeInboxRow().alert_episode,
+        episode_id: 'monitor_definition_alert_episode_data_quality',
+        monitor_definition_id: observation.monitor_definition_id,
+        monitor_definition_fingerprint: observation.monitor_definition_fingerprint,
+        monitor_id: observation.monitor_id,
+        benchmark_symbol: observation.benchmark_symbol,
+        latest_contributing_observation: { observation_id: observation.observation_id, evaluated_at: observation.evaluated_at, observation_status: observation.observation_status, cause_code: observation.cause_code, alert_classification: observation.alert_classification },
+        timeline_handoff: { handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1', monitor_definition_id: observation.monitor_definition_id, selected_event_kind: 'latest_observation_event', observation_id: observation.observation_id, history_entry_id: null, monitor_id: observation.monitor_id, benchmark_symbol: observation.benchmark_symbol },
+      },
+    })
+    const historyRow = makeAlertEpisodeHistoryRow({
+      episode_id: 'monitor_definition_alert_episode_data_quality_history',
+      monitor_definition_id: observation.monitor_definition_id,
+      monitor_definition_fingerprint: observation.monitor_definition_fingerprint,
+      monitor_id: observation.monitor_id,
+      benchmark_symbol: observation.benchmark_symbol,
+      latest_contributing_observation: { observation_id: observation.observation_id, evaluated_at: observation.evaluated_at, observation_status: observation.observation_status, cause_code: observation.cause_code, alert_classification: observation.alert_classification },
+      recovery_basis: { recovered_from_history_entry_id: 'monitor_definition_history_entry_data_quality', recovered_from_evaluated_at: observation.evaluated_at, recovered_from_outcome_status: 'degraded', recovered_from_cause_code: observation.cause_code, recovered_from_significance_status: 'degraded' },
+      timeline_handoff: { handoff_kind: 'monitor_definition_alert_episode_history_timeline_handoff_v1', monitor_definition_id: observation.monitor_definition_id, selected_event_kind: 'latest_observation_event', observation_id: observation.observation_id, history_entry_id: null, monitor_id: observation.monitor_id, benchmark_symbol: observation.benchmark_symbol },
+    })
+
+    renderShell({
+      activeAlertEpisodeInbox: {
+        status: 'ready',
+        response: { items: [activeRow], metadata: { contract_version: 'monitor_definition_active_alert_episode_inbox_v1', provenance: 'authoritative_persisted_monitor_definition_alert_episode_records_only', row_provenance: 'persisted_monitor_definition_alert_episode_record', source_precedence: 'persisted_alert_episode_record_then_canonical_evaluation_lineage_validation', ordering: 'newest_first_latest_event_at_then_monitor_definition_id_then_episode_id', windowing: 'before_episode_id_exclusive', returned_limit: 20, requested_before_episode_id: null, next_before_episode_id: null, total_active_episodes: 1 } },
+        error: null,
+      },
+      alertEpisodeHistory: {
+        status: 'ready',
+        monitorDefinitionId: observation.monitor_definition_id,
+        response: makeAlertEpisodeHistoryResponse([historyRow], { metadata: { ...makeAlertEpisodeHistoryResponse([historyRow]).metadata, monitor_definition_id: observation.monitor_definition_id, monitor_definition_fingerprint: observation.monitor_definition_fingerprint } }),
+        error: null,
+      },
+    })
+
+    expect(screen.getAllByText('Input reliability / data quality').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('active-alert-episode-row-monitor_definition_alert_episode_data_quality').textContent).toContain('Input reliability review from persisted data-quality episode.')
+    expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_data_quality_history').textContent).toContain('Input reliability lifecycle; no benchmark threshold readback.')
+    expect(screen.queryByText('Benchmark trend alert from persisted threshold episode.')).toBeNull()
+  })
+
+  it('renders alert episode history loading empty and error states', () => {
+    const { rerender } = renderShell({
+      alertEpisodeHistory: {
+        status: 'loading',
+        monitorDefinitionId: 'monitor_definition_abc12345def67890',
+        response: null,
+        error: null,
+      },
+    })
+
+    expect(screen.getByText('Loading persisted alert episode history for monitor_definition_abc12345def67890.')).toBeTruthy()
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        alertEpisodeHistory={{ status: 'ready', monitorDefinitionId: 'monitor_definition_abc12345def67890', response: makeAlertEpisodeHistoryResponse([]), error: null }}
+      />,
+    )
+    expect(screen.getByText('No persisted alert episodes are available for this monitor definition window.')).toBeTruthy()
+
+    rerender(
+      <PortfolioImprovementWorkspaceShell
+        analysis={analysis}
+        draftSnapshot={draftSnapshot}
+        candidateImprovementDraft={null}
+        intentBoundSeededEtfReplacementRankingDraft={null}
+        replacementIntentDraft={null}
+        formedCandidateArtifact={null}
+        constructedCandidateArtifact={null}
+        constructionConstraintValidationArtifact={null}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        allocationBacktestResult={null}
+        hypotheticalReplayResult={null}
+        savedProposals={[]}
+        activeThesis={null}
+        onOpenSavedProposal={noOp}
+        openedSavedProposalArtifactId={null}
+        onPromoteProposalToThesis={noOp}
+        onClearActiveThesis={noOp}
+        onSaveProposal={noOp}
+        onHypotheticalReplayResult={noOp}
+        onFormedCandidateArtifact={noOp}
+        onConstructedCandidateArtifact={noOp}
+        onConstructionConstraintValidationArtifact={noOp}
+        onSelectedConstructionRuleChange={noOp}
+        persistedOptimizerHandoffReview={null}
+        alertEpisodeHistory={{ status: 'error', monitorDefinitionId: 'monitor_definition_abc12345def67890', response: null, error: 'alert episode history payload is malformed' }}
+      />,
+    )
+    expect(screen.getByText('alert episode history payload is malformed')).toBeTruthy()
+  })
+
+  it('shows the workflow spine as the authoritative workflow summary when no candidate exists yet', () => {
     const { container } = render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
@@ -1615,15 +2734,19 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('Portfolio Improvement Decision Summary').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Not selected').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('No artifact').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Current review state only.').length).toBeGreaterThan(0)
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+
+    expect(within(spine).getByText('Workflow Spine')).toBeTruthy()
+    expect(within(spine).getByText('Current Portfolio')).toBeTruthy()
+    expect(within(spine).getByText('Candidate Idea')).toBeTruthy()
+    expect(within(spine).getAllByText('Blocked').length).toBeGreaterThan(0)
+    expect(within(spine).getByRole('button', { name: 'Open Current Portfolio' })).toBeTruthy()
+    expect(screen.queryByText('Portfolio Improvement Decision Summary')).toBeNull()
+    expect(screen.queryByText('Current review state only.')).toBeNull()
   })
 
-  it('shows partial decision summary state when candidate exists but replay has not run', () => {
-    const { container } = render(
+  it('shows partial workflow spine state when candidate exists but replay has not run', () => {
+    render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
         draftSnapshot={draftSnapshot}
@@ -1651,9 +2774,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
-    expect(screen.getByText('Hypothetical replay cannot run until the selected candidate is promoted into an explicit replacement intent.')).toBeTruthy()
+    expect(screen.getByText('Hypothetical replay cannot run yet. Missing now: passed construction constraints. Unlocks next: the hypothetical replay once constraint validation passes.')).toBeTruthy()
+    expect(screen.getByText('A candidate seed exists for this workflow. Missing now: an explicit replacement intent. Unlocks next: candidate formation after the seed is promoted.')).toBeTruthy()
   })
 
   it('renders seeded replacement review from canonical open handoff only', () => {
@@ -1666,6 +2789,799 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.getByText('Open Handoff')).toBeTruthy()
     expect(screen.queryByText('consumer_handoff')).toBeNull()
     expect(screen.queryByText('intent_bound_etf_replacement_ranking_consumer_handoff_v1')).toBeNull()
+  })
+
+  it('browses and opens a persisted replacement ranking artifact read-only in Candidate Idea', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingPreflightPayload())
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'intent_bound_etf_replacement_ranking',
+            artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+            schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+            ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+            methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'intent_bound_etf_replacement_ranking',
+            artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+            schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+            ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+            methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/open') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingOpenPayload())
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findByText('Persisted Replacement Reviews')
+    expect(screen.getByText('intent_bound_etf_replacement_ranking_artifact_sector_1')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Review' }))
+
+    await screen.findByText('Saved Replacement Ranking Review')
+    expect(screen.getByText('Truth: authoritative_persisted_ranking_artifact')).toBeTruthy()
+    expect(screen.getByText('Scope: artifact_backed_review_only')).toBeTruthy()
+    expect(screen.getAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Promote to Replacement Intent')).toBeNull()
+    expect(screen.queryByText('Create Intent')).toBeNull()
+  })
+
+  it('shows compact persisted ETF ranking construction actions alongside replacement review browser in Candidate Idea', async () => {
+    const onOpenPersistedConstructionArtifactReview = vi.fn()
+    const onOpenPersistedEtfRankingReview = vi.fn()
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY',
+              lookback_months: 6,
+              effective_peer_group: 'Sector UCITS ETF',
+              universe_size: 3,
+              evaluated_universe_size: 2,
+              confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'intent_bound_etf_replacement_ranking',
+            artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+            schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+            ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+            methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'intent_bound_etf_replacement_ranking',
+            artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+            schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+            ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+            methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.includes('/api/construction/run') && method === 'POST') {
+        expect(requestJsonBody(init).ranked_universe).toBeUndefined()
+        expect(requestJsonBody(init).policy).toEqual({ policy_id: 'top_n_equal_weight_v1', top_n: 2 })
+        expect(requestJsonBody(init).hard_constraints).toEqual({
+          full_investment: true,
+          long_only: true,
+          eligible_ranked_universe_only: true,
+          max_position_weight: 0.6,
+        })
+        const handoff = requestJsonBody(init).ranking_artifact_handoff
+        if (handoff?.artifact_kind === 'intent_bound_etf_replacement_ranking') {
+          return jsonResponse({
+            schema_version: 'construction_artifact_v1',
+            artifact_id: 'construction_artifact_456',
+            normalized_inputs: {
+              ranked_universe_artifact_kind: 'intent_bound_etf_replacement_ranking',
+              ranked_universe_artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+              ranked_universe_artifact_schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+              ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+              ranking_methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+              ranking_as_of_date: '2026-04-15',
+              current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+              current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+              policy_id: 'top_n_equal_weight_v1',
+              policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+              top_n: 2,
+            },
+          })
+        }
+        return jsonResponse({
+          schema_version: 'construction_artifact_v1',
+          artifact_id: 'construction_artifact_123',
+          normalized_inputs: {
+            ranked_universe_artifact_kind: 'etf_ranking',
+            ranked_universe_artifact_id: 'etf_ranking_artifact_sector_1',
+            ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+              ranking_id: 'etf_ranking_engine_v1',
+              ranking_methodology_id: 'etf_ranking_methodology_v1',
+              ranking_as_of_date: '2026-04-15',
+              current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+              current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+              policy_id: 'top_n_equal_weight_v1',
+              policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+              top_n: 2,
+            },
+          })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingPreflightPayload())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/open') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingOpenPayload())
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell({ onOpenPersistedConstructionArtifactReview, onOpenPersistedEtfRankingReview })
+
+    await screen.findByText('Persisted ETF Ranking Construction')
+    expect(screen.getByText('Persisted Replacement Reviews')).toBeTruthy()
+    await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
+    const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
+    expect(screen.getAllByRole('button', { name: 'Open Review' }).length).toBeGreaterThan(1)
+    fireEvent.click(within(etfBrowser).getByRole('button', { name: 'Open Review' }))
+    expect(onOpenPersistedEtfRankingReview).toHaveBeenCalledWith('etf_ranking_artifact_sector_1')
+    fireEvent.click(within(etfBrowser).getByRole('button', { name: 'Review In Construction' }))
+    await waitFor(() => expect(onOpenPersistedConstructionArtifactReview).toHaveBeenCalledWith('construction_artifact_123'))
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Review In Construction' })[1]!)
+    await waitFor(() => expect(onOpenPersistedConstructionArtifactReview).toHaveBeenCalledWith('construction_artifact_456'))
+  })
+
+  it('passes edited max position weight through both persisted construction entry points', async () => {
+    const onOpenPersistedConstructionArtifactReview = vi.fn()
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY',
+              lookback_months: 6,
+              effective_peer_group: 'Sector UCITS ETF',
+              universe_size: 3,
+              evaluated_universe_size: 2,
+              confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: { eligible: true, reason: null },
+          handoff: {
+            handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'intent_bound_etf_replacement_ranking',
+            artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+            schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+            ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+            methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: { eligible: true, reason: null },
+          handoff: {
+            handoff_kind: 'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'intent_bound_etf_replacement_ranking',
+            artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+            schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+            ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+            methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      if (url.includes('/api/construction/run') && method === 'POST') {
+        const body = requestJsonBody(init)
+        if (body.ranking_artifact_handoff?.artifact_kind === 'etf_ranking') {
+          expect(body.hard_constraints).toEqual({
+            full_investment: true,
+            long_only: true,
+            eligible_ranked_universe_only: true,
+            max_position_weight: 0.7,
+            min_position_weight: 0.3,
+            max_turnover_weight: 0.15,
+            max_trade_intent_count: 4,
+          })
+          return jsonResponse({
+            schema_version: 'construction_artifact_v1',
+            artifact_id: 'construction_artifact_123',
+            normalized_inputs: {
+              ranked_universe_artifact_kind: 'etf_ranking',
+              ranked_universe_artifact_id: 'etf_ranking_artifact_sector_1',
+              ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+              ranking_id: 'etf_ranking_engine_v1',
+              ranking_methodology_id: 'etf_ranking_methodology_v1',
+              ranking_as_of_date: '2026-04-15',
+              current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+              current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+              policy_id: 'top_n_equal_weight_v1',
+              policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+              top_n: 2,
+            },
+          })
+        }
+        expect(body.hard_constraints).toEqual({
+          full_investment: true,
+          long_only: true,
+          eligible_ranked_universe_only: true,
+          max_position_weight: 0.8,
+          min_position_weight: 0.25,
+          max_turnover_weight: 0,
+          max_trade_intent_count: 0,
+        })
+        return jsonResponse({
+          schema_version: 'construction_artifact_v1',
+          artifact_id: 'construction_artifact_456',
+            normalized_inputs: {
+              ranked_universe_artifact_kind: 'intent_bound_etf_replacement_ranking',
+              ranked_universe_artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+              ranked_universe_artifact_schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+              ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+              ranking_methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+              ranking_as_of_date: '2026-04-15',
+              current_portfolio_artifact_id: 'workspace_current_portfolio_1',
+              current_portfolio_as_of_timestamp: '2026-04-10T00:00:00Z',
+              policy_id: 'top_n_equal_weight_v1',
+              policy_definition_id: 'construction_policy_definition_top_n_equal_weight_v1',
+              top_n: 2,
+          },
+        })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingPreflightPayload())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/open') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingOpenPayload())
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell({ onOpenPersistedConstructionArtifactReview })
+
+    await screen.findByText('Persisted ETF Ranking Construction')
+    await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
+
+    fireEvent.change(screen.getAllByLabelText('Max Position Weight')[0]!, { target: { value: '0.7' } })
+    fireEvent.change(screen.getAllByLabelText('Min Position Weight (optional)')[0]!, { target: { value: '0.3' } })
+    fireEvent.change(screen.getAllByLabelText('Max Turnover Weight (optional)')[0]!, { target: { value: '0.15' } })
+    fireEvent.change(screen.getAllByLabelText('Max Trade Intent Count (optional)')[0]!, { target: { value: '4' } })
+    fireEvent.click(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByRole('button', { name: 'Review In Construction' }))
+    await waitFor(() => expect(onOpenPersistedConstructionArtifactReview).toHaveBeenCalledWith('construction_artifact_123'))
+
+    fireEvent.change(screen.getAllByLabelText('Max Position Weight')[1]!, { target: { value: '0.8' } })
+    fireEvent.change(screen.getAllByLabelText('Min Position Weight (optional)')[1]!, { target: { value: '0.25' } })
+    fireEvent.change(screen.getAllByLabelText('Max Turnover Weight (optional)')[1]!, { target: { value: '0' } })
+    fireEvent.change(screen.getAllByLabelText('Max Trade Intent Count (optional)')[1]!, { target: { value: '0' } })
+    fireEvent.click(within(screen.getByTestId('persisted-replacement-ranking-browser')).getByRole('button', { name: 'Review In Construction' }))
+    await waitFor(() => expect(onOpenPersistedConstructionArtifactReview).toHaveBeenCalledWith('construction_artifact_456'))
+  })
+
+  it('blocks ETF ranking construction handoff locally in Candidate Idea when no current portfolio is available', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY',
+              lookback_months: 6,
+              effective_peer_group: 'Sector UCITS ETF',
+              universe_size: 3,
+              evaluated_universe_size: 2,
+              confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([]))
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell({ draftSnapshot: null })
+
+    await screen.findByText('Persisted ETF Ranking Construction')
+    fireEvent.click(screen.getByRole('button', { name: 'Review In Construction' }))
+    await screen.findByText('Open a workspace with an authoritative current portfolio to review this ranking in construction')
+  })
+
+  it('fails closed when persisted replacement preflight is ineligible', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingPreflightPayload({
+          eligibility: {
+            review_truth_basis: 'authoritative_persisted_ranking_artifact',
+            review_scope: 'artifact_backed_review_only',
+            open_supported: false,
+            replay_eligible: false,
+            consumer_handoff_supported: false,
+            ineligibility_reason: 'artifact review is not open-supported',
+          },
+        }))
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/open')) {
+        throw new Error('open should not be called for ineligible preflight')
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findByText('intent_bound_etf_replacement_ranking_artifact_sector_1')
+    fireEvent.click(screen.getByRole('button', { name: 'Open Review' }))
+
+    await screen.findByText('Saved replacement review could not be opened.')
+    expect(screen.getByText('artifact review is not open-supported')).toBeTruthy()
+    expect(screen.queryByText('Saved Replacement Ranking Review')).toBeNull()
+  })
+
+  it('shows construction ineligibility state and disables the CTA for replacement artifacts', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'etf_ranking' } } })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'intent_bound_etf_replacement_ranking',
+            artifact_id: 'intent_bound_etf_replacement_ranking_artifact_sector_1',
+            schema_version: 'intent_bound_etf_replacement_ranking_artifact_v1',
+            ranking_id: 'intent_bound_etf_replacement_ranking_engine_v1',
+            methodology_id: 'intent_bound_etf_replacement_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: false,
+            reason: 'persisted replacement ranking artifact has no eligible ranked candidates for construction',
+          },
+          handoff: null,
+        })
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findByText('Persisted Replacement Reviews')
+    const button = screen.getByRole('button', { name: 'Review In Construction' })
+    expect(button).toHaveProperty('disabled', true)
+    expect(screen.getByText('persisted replacement ranking artifact has no eligible ranked candidates for construction')).toBeTruthy()
+  })
+
+  it('shows construction ineligibility state and disables the CTA for ETF artifacts', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY', lookback_months: 6, effective_peer_group: 'Sector UCITS ETF', universe_size: 3, evaluated_universe_size: 2, confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([]))
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: false,
+            reason: 'persisted etf ranking artifact has no eligible ranked candidates for construction',
+          },
+          handoff: null,
+        })
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findByText('Persisted ETF Ranking Construction')
+    const button = screen.getByRole('button', { name: 'Review In Construction' })
+    expect(button).toHaveProperty('disabled', true)
+    expect(screen.getByText('persisted etf ranking artifact has no eligible ranked candidates for construction')).toBeTruthy()
+  })
+
+  it('fails closed in Candidate Idea when equal weight is not discovered in the canonical launch profile', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY',
+              lookback_months: 6,
+              effective_peer_group: 'Sector UCITS ETF',
+              universe_size: 3,
+              evaluated_universe_size: 2,
+              confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse(['top_n_inverse_rank_weight_v1', 'top_n_linear_rank_weight_v1']))
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([]))
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse({
+          contract_version: 'construction_ranking_artifact_preflight_v1',
+          artifact: {
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+          eligibility: {
+            eligible: true,
+            reason: null,
+          },
+          handoff: {
+            handoff_kind: 'etf_ranking_artifact_construction_handoff_v1',
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            schema_version: 'etf_ranking_artifact_v1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findAllByText('Construction policies are unavailable.')
+    expect(screen.getAllByText('Construction policy catalog must define exactly one default launch policy').length).toBeGreaterThan(0)
+  })
+
+  it('fails closed in Candidate Idea when construction policy discovery returns policy-status metadata inconsistent with policy identity', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({
+          items: [{
+            artifact_kind: 'etf_ranking',
+            artifact_id: 'etf_ranking_artifact_sector_1',
+            ranking_id: 'etf_ranking_engine_v1',
+            methodology_id: 'etf_ranking_methodology_v1',
+            as_of_date: '2026-04-15',
+            ranking_basis_date: '2026-04-15',
+            etf_summary: {
+              benchmark_symbol: 'SPY',
+              lookback_months: 6,
+              effective_peer_group: 'Sector UCITS ETF',
+              universe_size: 3,
+              evaluated_universe_size: 2,
+              confidence: 'medium',
+            },
+            replacement_summary: null,
+          }],
+          metadata: { applied_filters: { artifact_kind: 'etf_ranking' } },
+        })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse().map((policy) => ({
+          ...policy,
+          launch_profile: {
+            ...policy.launch_profile,
+            policy_status: policy.policy_id === 'top_n_linear_rank_weight_v1' ? 'default' : policy.launch_profile.policy_status,
+          },
+        })))
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([]))
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findAllByText('Construction policies are unavailable.')
+    expect(screen.getAllByText('Construction policy catalog returned policy metadata inconsistent with launch_profile.policy_status').length).toBeGreaterThan(0)
+  })
+
+  it('clears stale persisted replacement review content during a new open attempt and keeps it cleared when the new open fails', async () => {
+    const artifactA = makePersistedReplacementRankingFixture({
+      artifactId: 'intent_bound_etf_replacement_ranking_artifact_sector_a',
+      candidateSymbol: 'IUFS',
+    })
+    const artifactB = makePersistedReplacementRankingFixture({
+      artifactId: 'intent_bound_etf_replacement_ranking_artifact_sector_b',
+      candidateSymbol: 'VGTX',
+    })
+
+    let resolveArtifactBOpen: ((response: Response) => void) | undefined
+    const artifactBOpen = new Promise<Response>((resolve) => {
+      resolveArtifactBOpen = resolve
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([artifactA.recentRun, artifactB.recentRun]))
+      }
+      if (url.includes(`/api/strategy-lab/ranking-artifacts/preflight/${artifactA.preflight.artifact.artifact_id}`) && method === 'POST') {
+        return jsonResponse(artifactA.preflight)
+      }
+      if (url.includes(`/api/strategy-lab/ranking-artifacts/preflight/${artifactB.preflight.artifact.artifact_id}`) && method === 'POST') {
+        return jsonResponse(artifactB.preflight)
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/open') && method === 'POST') {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { artifact_id?: string }
+        if (body.artifact_id === artifactA.preflight.artifact.artifact_id) {
+          return jsonResponse(artifactA.open)
+        }
+        if (body.artifact_id === artifactB.preflight.artifact.artifact_id) {
+          return artifactBOpen
+        }
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    renderShell()
+
+    await screen.findByText(artifactA.preflight.artifact.artifact_id)
+    await screen.findByText(artifactB.preflight.artifact.artifact_id)
+
+    const artifactARow = screen.getAllByText(artifactA.preflight.artifact.artifact_id)[0]?.closest('.strategy-lab-rank-grid-wide') as HTMLElement | null
+    if (!artifactARow) throw new Error('Missing replacement ranking row for artifact A')
+    fireEvent.click(within(artifactARow).getByRole('button', { name: 'Open Review' }))
+
+    await screen.findByText('Saved Replacement Ranking Review')
+    expect(screen.getAllByText(artifactA.preflight.artifact.artifact_id).length).toBeGreaterThan(0)
+
+    const artifactBRow = screen.getAllByText(artifactB.preflight.artifact.artifact_id)[0]?.closest('.strategy-lab-rank-grid-wide') as HTMLElement | null
+    if (!artifactBRow) throw new Error('Missing replacement ranking row for artifact B')
+    fireEvent.click(within(artifactBRow).getByRole('button', { name: 'Open Review' }))
+
+    await waitFor(() => expect(screen.queryByText('Saved Replacement Ranking Review')).toBeNull())
+
+    if (!resolveArtifactBOpen) throw new Error('Missing deferred open resolver for artifact B')
+    resolveArtifactBOpen(jsonResponse({ detail: 'artifact B could not be opened' }, 500))
+
+    await screen.findByText('Saved replacement review could not be opened.')
+    expect(screen.getByText('artifact B could not be opened')).toBeTruthy()
+    expect(screen.queryByText('Saved Replacement Ranking Review')).toBeNull()
+  })
+
+  it('keeps persisted replacement review state ephemeral across remounts', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
+        return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingPreflightPayload())
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/open') && method === 'POST') {
+        return jsonResponse(makePersistedReplacementRankingOpenPayload())
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    const firstRender = renderShell()
+    await screen.findByText('intent_bound_etf_replacement_ranking_artifact_sector_1')
+    fireEvent.click(screen.getByRole('button', { name: 'Open Review' }))
+    await screen.findByText('Saved Replacement Ranking Review')
+
+    firstRender.unmount()
+
+    renderShell()
+
+    await screen.findByText('Persisted Replacement Reviews')
+    await waitFor(() => expect(screen.queryByText('Saved Replacement Ranking Review')).toBeNull())
   })
 
   it('renders workspace sections in the approved order', () => {
@@ -1703,23 +3619,130 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(screen.queryByText('Workflow / Analysis Guide')).toBeNull()
     expect(screen.queryByText('Workflow Readiness')).toBeNull()
     expect(screen.queryByText('Section Status Guidance')).toBeNull()
+    expect(screen.getAllByText('Workflow Spine').length).toBeGreaterThan(0)
 
     const overviewMatches = screen.getAllByText('Overview')
+    const spineMatches = screen.getAllByText('Workflow Spine')
     const currentMatches = screen.getAllByText('Current Portfolio')
     const candidateMatches = screen.getAllByText('Candidate')
     const compareMatches = screen.getAllByText('Compare')
     const proposalMatches = screen.getAllByText('Proposal')
 
     const overview = overviewMatches[overviewMatches.length - 1] as HTMLElement
+    const spine = spineMatches[spineMatches.length - 1] as HTMLElement
     const current = currentMatches[currentMatches.length - 1] as HTMLElement
     const candidate = candidateMatches[candidateMatches.length - 1] as HTMLElement
     const compare = compareMatches[compareMatches.length - 1] as HTMLElement
     const proposal = proposalMatches[proposalMatches.length - 1] as HTMLElement
 
-    expect(overview.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(overview.compareDocumentPosition(spine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(spine.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(current.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(candidate.compareDocumentPosition(compare) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(compare.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('adds workflow spine actions that open the authoritative workflow steps', () => {
+    const { container } = renderShell({
+      candidateImprovementDraft: {
+        workspaceId: 'workspace-1',
+        draftId: 'draft-1',
+        baseNodeId: 'node-1',
+        seed: {
+          kind: 'etf_replacement_candidate',
+          source: 'etf_ranking',
+          seededAt: '2026-04-15T00:00:00Z',
+          baseSymbol: 'AAPL',
+          candidateSymbol: 'IUFS',
+          candidateRank: 1,
+          peerGroup: 'Sector UCITS ETF',
+          benchmarkSymbol: 'SPY',
+          lookbackMonths: 6,
+          rankingId: 'etf_ranking_engine_v1',
+          methodologyId: 'etf_ranking_methodology_v1',
+          rankingBasisDate: '2026-04-15',
+          confidence: 'medium',
+          holdingsSupport: 'mixed',
+          requestUniverse: ['AAPL', 'IUFS'],
+          evaluatedUniverse: ['IUFS'],
+          warningCount: 1,
+          excludedSymbolsCount: 0,
+        },
+      },
+    })
+
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+    expect(spine).toBeTruthy()
+    expect(within(spine).getByText('Workflow Spine')).toBeTruthy()
+    expect(within(spine).getByText('Candidate Idea')).toBeTruthy()
+    expect(within(spine).getByText('In progress')).toBeTruthy()
+    expect(within(spine).getByRole('button', { name: 'Open Candidate Idea' })).toBeTruthy()
+    expect(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' })).toBeTruthy()
+  })
+
+  it('jumps from workflow spine actions into workflow sections', () => {
+    const replayTarget = { scrollIntoView: vi.fn() }
+    const candidateTarget = { scrollIntoView: vi.fn() }
+    const getElementByIdSpy = vi.spyOn(document, 'getElementById').mockImplementation((id) => {
+      if (id === 'workflow-section-hypothetical-replay') return replayTarget as unknown as HTMLElement
+      if (id === 'workflow-section-candidate-idea') return candidateTarget as unknown as HTMLElement
+      return null
+    })
+
+    const { container } = renderShell({
+      replacementIntentDraft: makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent,
+    })
+
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+
+    fireEvent.click(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' }))
+    fireEvent.click(within(spine).getByRole('button', { name: 'Open Candidate Idea' }))
+
+    expect(replayTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    expect(candidateTarget.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+
+    getElementByIdSpy.mockRestore()
+  })
+
+  it('keeps artifact-backed workflow spine actions focused on replay review only', () => {
+    const { container } = renderShell({
+      analysis: null,
+      draftSnapshot: {
+        ...draftSnapshot,
+        importedMeta: { ...draftSnapshot.importedMeta, importer: null, sourceFileNames: ['artifact-123'] },
+      },
+      workspaceSource: {
+        ...makePersistedConstructionArtifactWorkspaceSource(),
+      },
+      persistedConstructionArtifactReview: makePersistedConstructionArtifactReview(),
+      allocationBacktestResult: makeReplay(),
+    })
+
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+    expect(within(spine).getAllByText('Recorded').length).toBeGreaterThan(0)
+    expect(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' })).toBeTruthy()
+    expect(within(spine).queryByRole('button', { name: 'Open Candidate Idea' })).toBeNull()
+    expect(within(spine).queryByRole('button', { name: 'Open Saved Proposal' })).toBeNull()
+  })
+
+  it('keeps optimizer-handoff workflow spine actions focused on replay review only', () => {
+    const { container } = renderShell({
+      analysis: null,
+      draftSnapshot: {
+        ...draftSnapshot,
+        importedMeta: { ...draftSnapshot.importedMeta, importer: null, sourceFileNames: ['optimizer_handoff_123'] },
+      },
+      workspaceSource: makePersistedOptimizerHandoffWorkspaceSource(),
+      persistedOptimizerHandoffReview: makePersistedOptimizerHandoffReview(),
+      allocationBacktestResult: makeReplay(),
+    })
+
+    const spine = latestByTestIdIn(container, 'workspace-workflow-spine')
+
+    expect(within(spine).getByText('Candidate Idea')).toBeTruthy()
+    expect(within(spine).getByText('Candidate review comes from the persisted optimizer handoff reopened by handoff reference. This read-only review already has what it needs. Next up: review the formation and replay evidence already attached to the reopened artifact.')).toBeTruthy()
+    expect(within(spine).getByRole('button', { name: 'Open Hypothetical Replay' })).toBeTruthy()
+    expect(within(spine).queryByRole('button', { name: 'Open Candidate Idea' })).toBeNull()
   })
 
   it('owns the shell-level replay, diagnostics, and proposal framing', () => {
@@ -1793,8 +3816,23 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(screen.getAllByText('Recorded').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('An immutable proposal artifact has been recorded for this workflow. Nothing else is needed right now. Next up: saved-proposal reopen, comparison, or thesis-promotion review.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied').length).toBeGreaterThan(0)
+  })
+
+  it('shows missing-now and unlocks-next guidance across the hypothetical path', () => {
+    renderShell({
+      replacementIntentDraft: makeSavedProposal(1, '2026-04-16T00:00:00Z', 'IUFS').sourceIntent,
+      formedCandidateArtifact: makeFormedCandidate(),
+      constructedCandidateArtifact: makeConstructedCandidate(),
+    })
+
+    expect(screen.getAllByText('A replacement intent is attached and ready for replay review. Nothing else is needed right now. Next up: candidate formation for the active hypothetical path.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('A formed candidate artifact is available for review-only replay handoff. Nothing else is needed right now. Next up: construction for the active rule selection.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('A construction artifact is available for review-only replay handoff under same_weight_substitution_v1. Nothing else is needed right now. Next up: construction-constraint validation for this handoff.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Construction output is ready for constraint validation. Missing now: a constraint-validation result for the current constructed candidate. Unlocks next: the hypothetical replay handoff.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Hypothetical replay cannot run yet. Missing now: passed construction constraints. Unlocks next: the hypothetical replay once constraint validation passes.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Diagnostics change cannot be reviewed yet. Missing now: hypothetical replay evidence. Unlocks next: diagnostics review after replay runs.').length).toBeGreaterThan(0)
   })
 
   it('shows constructed candidate replay lineage with the actual construction rule', () => {
@@ -1926,7 +3964,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getAllByText('Rejected').length).toBeGreaterThan(0)
-    expect(screen.getByText('Formation rejected: replacement intent candidate is already held in draft snapshot: IUFS')).toBeTruthy()
+    expect(screen.getAllByText('replacement intent candidate is already held in draft snapshot: IUFS').length).toBeGreaterThan(0)
     expect(screen.getAllByText('replacement intent candidate is already held in draft snapshot: IUFS').length).toBeGreaterThan(0)
   })
 
@@ -1993,9 +4031,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getAllByText('Formed').length).toBeGreaterThan(0)
-    expect(screen.getByText('Total return delta +2.50% versus baseline under the shared replay window.')).toBeTruthy()
+    expect(screen.getAllByText('A draft-only hypothetical replay is available for review. Nothing else is needed right now. Next up: diagnostics review and saved-proposal recording.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Position HHI').length).toBeGreaterThan(0)
-    expect(screen.getByText('Concentration shows -0.05. candidate modestly reduces concentration')).toBeTruthy()
+    expect(screen.getAllByText('candidate modestly reduces concentration').length).toBeGreaterThan(0)
   })
 
   it('gates shell summary wording when replay investor-economics are withheld', () => {
@@ -2061,8 +4099,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     const ui = within(container)
 
-    expect(ui.getByText('Replay evidence is recorded for this workflow, but investor-performance outputs are withheld. Review replay status, lineage, window, and allowed diagnostics only.')).toBeTruthy()
-    expect(ui.queryByText('Total return delta +2.50% versus baseline under the shared replay window.')).toBeNull()
+    expect(ui.getAllByText('A draft-only hypothetical replay is available for review. Nothing else is needed right now. Next up: diagnostics review and saved-proposal recording.').length).toBeGreaterThan(0)
+    expect(ui.getAllByText('A replay review is available and can be saved as a proposal artifact. Missing now: a saved proposal artifact. Unlocks next: saved-proposal reopen and comparison flows.').length).toBeGreaterThan(0)
   })
 
   it('summarizes recorded proposal state when an artifact exists', () => {
@@ -2096,8 +4134,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getAllByText('Recorded v1').length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Recorded Apr/).length).toBeGreaterThan(0)
+    const savedProposalCard = screen.getAllByTestId('workflow-spine-card-saved-proposal-status').slice(-1)[0] as HTMLElement
+    expect(within(savedProposalCard).getByText('Recorded')).toBeTruthy()
+    expect(within(savedProposalCard).getByText('An immutable proposal artifact has been recorded for this workflow. Nothing else is needed right now. Next up: saved-proposal reopen, comparison, or thesis-promotion review.')).toBeTruthy()
   })
 
   it('shows newest-first saved proposal index and reopens an older artifact for review only', () => {
@@ -2141,7 +4180,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reopen In Workspace' }))
 
     expect(onOpenSavedProposal).toHaveBeenCalledWith(olderProposal.reviewSnapshotArtifactId)
-    expect(screen.getAllByText('AAPL -> IUFS').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/AAPL.*IUFS/).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Viewing For Review' }).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Replay lineage: direct preview replay · same-weight substitution · validation not supplied').length).toBeGreaterThan(0)
   })
@@ -2217,8 +4256,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Reopen In Workspace' })[1]!)
-    expect(screen.getAllByRole('button', { name: 'Reopen In Workspace' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Reopen In Workspace' })).toBeNull()
+    expect(screen.getByTestId('saved-proposal-contract-error').textContent).toContain('Unable to reopen saved proposal:')
     consoleErrorSpy.mockRestore()
   })
 
@@ -2827,7 +4866,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     )
 
     expect(screen.getAllByText('Stale').length).toBeGreaterThan(0)
-    expect(screen.getByText('The existing construction artifact was built with same_weight_substitution_v1 and must be rerun for fixed_split_50_50_substitution_v2.')).toBeTruthy()
+    expect(screen.getAllByText('The selected construction rule is fixed_split_50_50_substitution_v2, but the saved construction artifact is stale. Missing now: a fresh construction artifact for fixed_split_50_50_substitution_v2. Unlocks next: constraint validation for the current rule selection.').length).toBeGreaterThan(0)
     expect(screen.getAllByText('fixed_split_50_50_substitution_v2').length).toBeGreaterThan(0)
   })
 
@@ -2862,8 +4901,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     expect(screen.getAllByText('Construction Constraints').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
-    expect(screen.getByText('Constraint validation blocked replay with 1 hard-block result.')).toBeTruthy()
-    expect(screen.getByText('Hypothetical replay remains unavailable until the current constructed candidate passes construction constraints.')).toBeTruthy()
+    expect(screen.getAllByText('weight_sum_matches_rule').length).toBeGreaterThan(0)
+    expect(screen.getByText('Constraint validation blocked the current constructed candidate, so replay remains unavailable. Missing now: a constraint-compliant construction handoff. Unlocks next: the hypothetical replay once constraints pass.')).toBeTruthy()
   })
 
   it('gates candidate and proposal sections in persisted construction artifact review mode', () => {
@@ -2886,9 +4925,32 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.queryByTestId('workspace-section-candidate')).toBeNull()
     expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
     expect(ui.getAllByText('Recorded').length).toBeGreaterThan(0)
-    expect(ui.getByText('Artifact review basis is available.')).toBeTruthy()
+    expect(ui.getByText('Artifact review basis is available. This read-only review already has what it needs. Next up: review the candidate and replay evidence already attached to this artifact-backed path.')).toBeTruthy()
     expect(ui.getAllByText('Review Basis').length).toBeGreaterThan(0)
     expect(ui.getByText('This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.')).toBeTruthy()
+    expect(ui.queryByTestId('workspace-section-research-tools')).toBeNull()
+  })
+
+  it('routes research tool buttons through workspace-owned embedded sessions', () => {
+    const onOpenGenericBacktests = vi.fn()
+    const onOpenStrategyLab = vi.fn()
+    const onOpenEtfRanking = vi.fn()
+
+    const { container } = renderShell({
+      onOpenGenericBacktests,
+      onOpenStrategyLab,
+      onOpenEtfRanking,
+    })
+
+    const ui = within(container)
+
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open Backtest' }).slice(-1)[0]!)
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open Strategy Lab' }).slice(-1)[0]!)
+    fireEvent.click(ui.getAllByRole('button', { name: 'Open ETF Ranking' }).slice(-1)[0]!)
+
+    expect(onOpenGenericBacktests).toHaveBeenCalledWith('workspace-section-research-tools')
+    expect(onOpenStrategyLab).toHaveBeenCalledWith('workspace-section-research-tools')
+    expect(onOpenEtfRanking).toHaveBeenCalledWith('workspace-section-research-tools')
   })
 
   it('gates candidate and proposal sections in persisted optimizer handoff review mode', () => {
@@ -2909,7 +4971,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.getByText('Review basis: optimizer_handoff_123')).toBeTruthy()
     expect(ui.queryByTestId('workspace-section-candidate')).toBeNull()
     expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
-    expect(ui.getByText('Candidate review comes from the persisted optimizer handoff reopened by handoff reference.')).toBeTruthy()
+    expect(ui.getByText('Candidate review comes from the persisted optimizer handoff reopened by handoff reference. This read-only review already has what it needs. Next up: review the formation and replay evidence already attached to the reopened artifact.')).toBeTruthy()
+    expect(ui.queryByTestId('workspace-section-research-tools')).toBeNull()
   })
 
   it('shows optimizer handoff overview basis from handoffReference', () => {
@@ -2925,7 +4988,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     expect(ui.getAllByText('optimizer_handoff_123').length).toBeGreaterThan(0)
   })
 
-  it('shortens rejected constraint copy in the decision summary', () => {
+  it('shortens rejected constraint copy in the workflow spine', () => {
     render(
       <PortfolioImprovementWorkspaceShell
         analysis={analysis}
@@ -2954,7 +5017,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       />,
     )
 
-    expect(screen.getByText('Constraint validation rejected replay input: constructed candidate could not be evaluated safely')).toBeTruthy()
+    expect(screen.getAllByText('constructed candidate could not be evaluated safely').length).toBeGreaterThan(0)
   })
 
   it('shows active thesis state and marks the promoted proposal row', () => {

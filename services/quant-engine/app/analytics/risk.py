@@ -8,6 +8,7 @@ from typing import Literal, Protocol
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import (
+    BenchmarkRelativePositioningCue,
     EtfOverlapConstituent,
     EtfOverlapPair,
     FactorCollinearityDiagnostics,
@@ -661,6 +662,8 @@ def build_market_overlap_summary(
             active_share=None,
             portfolio_in_benchmark_weight=None,
             benchmark_covered_weight=None,
+            top_overweights=[],
+            top_underweights=[],
         )
 
     benchmark_weights: dict[str, float] = {}
@@ -680,6 +683,8 @@ def build_market_overlap_summary(
             active_share=None,
             portfolio_in_benchmark_weight=None,
             benchmark_covered_weight=None,
+            top_overweights=[],
+            top_underweights=[],
         )
 
     shared_symbols = sorted(set(portfolio_weights) & set(benchmark_weights))
@@ -699,6 +704,11 @@ def build_market_overlap_summary(
     active_share = 0.5 * sum(abs(portfolio_weights.get(symbol, 0.0) - benchmark_weights.get(symbol, 0.0)) for symbol in all_symbols)
     portfolio_in_benchmark_weight = sum(portfolio_weights.get(symbol, 0.0) for symbol in shared_symbols)
     benchmark_covered_weight = sum(benchmark_weights.values())
+    top_overweights, top_underweights = _build_benchmark_positioning_cues(
+        lookthrough_constituents=lookthrough_constituents,
+        benchmark_weights=benchmark_weights,
+        benchmark_names=benchmark_names,
+    )
 
     return MarketOverlapSummary(
         benchmark_symbol=benchmark_symbol,
@@ -706,7 +716,50 @@ def build_market_overlap_summary(
         active_share=round(active_share, 4),
         portfolio_in_benchmark_weight=round(portfolio_in_benchmark_weight, 4),
         benchmark_covered_weight=round(benchmark_covered_weight, 4),
+        top_overweights=top_overweights,
+        top_underweights=top_underweights,
     )
+
+
+def _build_benchmark_positioning_cues(
+    lookthrough_constituents: list[LookThroughConstituent],
+    benchmark_weights: dict[str, float],
+    benchmark_names: dict[str, str],
+) -> tuple[list[BenchmarkRelativePositioningCue], list[BenchmarkRelativePositioningCue]]:
+    cues: list[BenchmarkRelativePositioningCue] = []
+    portfolio_weights = {item.symbol: item.portfolio_weight for item in lookthrough_constituents}
+    portfolio_names = {item.symbol: item.name for item in lookthrough_constituents}
+
+    for symbol, benchmark_weight in benchmark_weights.items():
+        portfolio_weight = portfolio_weights.get(symbol)
+        if portfolio_weight is None:
+            continue
+
+        active_weight = portfolio_weight - benchmark_weight
+        if active_weight == 0:
+            continue
+
+        cues.append(
+            BenchmarkRelativePositioningCue(
+                symbol=symbol,
+                name=portfolio_names.get(symbol, benchmark_names.get(symbol, symbol)),
+                portfolio_weight=round(portfolio_weight, 4),
+                benchmark_weight=round(benchmark_weight, 4),
+                active_weight=round(active_weight, 4),
+            )
+        )
+
+    overweights = sorted(
+        (item for item in cues if item.active_weight > 0),
+        key=lambda item: (-item.active_weight, -item.portfolio_weight, -item.benchmark_weight, item.symbol),
+    )
+    underweights = sorted(
+        (item for item in cues if item.active_weight < 0),
+        key=lambda item: (item.active_weight, -item.benchmark_weight, -item.portfolio_weight, item.symbol),
+    )
+    top_overweights = overweights[:5]
+    top_underweights = underweights[:5]
+    return top_overweights, top_underweights
 
 
 def build_relative_risk_summary(daily_states: list, benchmark_rows: list[dict], benchmark_symbol: str) -> RelativeRiskSummary:

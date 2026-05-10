@@ -37,7 +37,7 @@ class ExposureProvenance(BaseModel):
 
 class ExposureRunSourceStatus(BaseModel):
     lookthrough_resolution: ExposureAvailabilityStatus
-    benchmark_holdings: Literal["live", "unavailable"]
+    benchmark_holdings: Literal["verified", "degraded", "unavailable"]
 
 
 class ExposureRunReproducibilityMetadata(BaseModel):

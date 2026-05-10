@@ -1,5 +1,7 @@
 import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, PortfolioBaselineView } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
+import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
+import { resolveDesktopApiUrl } from '../../app/apiBase'
 import { DEFAULT_FACTOR_MODEL_METHODOLOGY } from './exposureFactorModel'
 
 type SnapshotAnalysisRequest = {
@@ -36,6 +38,10 @@ type EngineHistoryContextRequest = {
   history_end_date: string | null
 }
 
+function resolvePortfolioEngineUrl(path: string, options?: ResolveDesktopApiUrlOptions) {
+  return resolveDesktopApiUrl(path, options)
+}
+
 function buildSnapshotAnalysisRequest(snapshot: PortfolioSnapshot): SnapshotAnalysisRequest {
   return {
     benchmark_symbol: snapshot.metadata.benchmarkSymbol ?? 'SPY',
@@ -70,8 +76,8 @@ function buildHistoryContextRequest(historyContext: ImportedHistoryContext): Eng
   }
 }
 
-export async function runExposureEngine(snapshot: PortfolioSnapshot): Promise<ExposureEngineResponse> {
-  const response = await fetch('/api/engines/exposure/run', {
+export async function runExposureEngine(snapshot: PortfolioSnapshot, apiUrlOptions?: ResolveDesktopApiUrlOptions): Promise<ExposureEngineResponse> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/exposure/run', apiUrlOptions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(buildSnapshotAnalysisRequest(snapshot)),
@@ -85,8 +91,12 @@ export async function runExposureEngine(snapshot: PortfolioSnapshot): Promise<Ex
   return (await response.json()) as ExposureEngineResponse
 }
 
-export async function runDiagnosticsEngine(snapshot: PortfolioSnapshot, historyContext?: ImportedHistoryContext | null): Promise<DiagnosticsEngineResponse> {
-  const response = await fetch('/api/engines/diagnostics/run', {
+export async function runDiagnosticsEngine(
+  snapshot: PortfolioSnapshot,
+  historyContext?: ImportedHistoryContext | null,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<DiagnosticsEngineResponse> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/diagnostics/run', apiUrlOptions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -103,8 +113,11 @@ export async function runDiagnosticsEngine(snapshot: PortfolioSnapshot, historyC
   return (await response.json()) as DiagnosticsEngineResponse
 }
 
-export async function runImportedDiagnosticsEngine(snapshot: ImportedDashboardSource['snapshot']): Promise<DiagnosticsEngineResponse> {
-  const response = await fetch('/api/engines/diagnostics/run-imported', {
+export async function runImportedDiagnosticsEngine(
+  snapshot: ImportedDashboardSource['snapshot'],
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<DiagnosticsEngineResponse> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/diagnostics/run-imported', apiUrlOptions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(snapshot),
@@ -118,13 +131,17 @@ export async function runImportedDiagnosticsEngine(snapshot: ImportedDashboardSo
   return (await response.json()) as DiagnosticsEngineResponse
 }
 
-export async function runDashboardHistoryEngine(snapshot: PortfolioSnapshot, historyContext: ImportedHistoryContext): Promise<DashboardHistoryEngineResponse> {
+export async function runDashboardHistoryEngine(
+  snapshot: PortfolioSnapshot,
+  historyContext: ImportedHistoryContext,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<DashboardHistoryEngineResponse> {
   const payload: DashboardHistoryRequest = {
     ...buildSnapshotAnalysisRequest(snapshot),
     history_context: buildHistoryContextRequest(historyContext),
   }
 
-  const response = await fetch('/api/engines/dashboard-history/run', {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/dashboard-history/run', apiUrlOptions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -138,8 +155,11 @@ export async function runDashboardHistoryEngine(snapshot: PortfolioSnapshot, his
   return (await response.json()) as DashboardHistoryEngineResponse
 }
 
-export async function runImportedDashboardHistory(snapshot: ImportedDashboardSource['snapshot']): Promise<DashboardHistoryEngineResponse> {
-  const response = await fetch('/api/engines/dashboard-history/run-imported', {
+export async function runImportedDashboardHistory(
+  snapshot: ImportedDashboardSource['snapshot'],
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<DashboardHistoryEngineResponse> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/dashboard-history/run-imported', apiUrlOptions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(snapshot),

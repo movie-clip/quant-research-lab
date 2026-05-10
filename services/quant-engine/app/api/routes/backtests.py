@@ -5,7 +5,7 @@ from typing import Literal, cast
 from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.backtest_engine import BacktestConfig, BacktestRequest, ConstructionArtifactPreviewOpenRequest, ConstructionArtifactReplayRequest, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, CreateMonitorDefinitionRequest, EvaluateMonitorDefinitionObservationRequest, HypotheticalReplacementReplayRequest, HypotheticalReplacementReplayResponse, MonitorDefinitionAlertClassification, MonitorDefinitionAlertHistoryQueueResponse, MonitorDefinitionArtifact, MonitorDefinitionArtifactListResponse, MonitorDefinitionCatalogResponse, MonitorDefinitionDiscoveryFilters, MonitorDefinitionDiscoveryLifecycleStatus, MonitorDefinitionDiscoveryReviewSupportStatus, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionEvaluationHistoryResponse, MonitorDefinitionLatestEvaluationSnapshotRecency, MonitorDefinitionLatestEvaluationSnapshotStatus, MonitorDefinitionLatestObservationAlertInboxResponse, MonitorDefinitionLatestObservationRecency, MonitorDefinitionLatestObservationStatus, MonitorDefinitionObservationArtifact, MonitorDefinitionObservationEvaluationResponse, MonitorDefinitionObservationStatus, MonitorDefinitionOverlayFamily, MonitorDefinitionRecentResponse, OptimizerHandoffPreviewOpenRequest, OptimizerHandoffReplayEffectiveParams, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayRequest, OptimizerHandoffReplayResponse, OptimizerHandoffValidationRequest, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayRequest, OverlayAwareHypotheticalReplayResponse, PortfolioAllocationBacktestRequest, PortfolioAllocationBacktestResponse, ReviewSnapshotActiveThesisCrossFamilyQueueRequest, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonRequest, ReviewSnapshotComparisonResponse, ReviewSnapshotCreateRequest, ReviewSnapshotFamilyInboxRequest, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyReviewRequest, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenRequestEnvelope, ReviewSnapshotOpenResponse, SingleReplacementCandidateConstructionRequest, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationRequest, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationRequest, SingleReplacementConstructionConstraintValidationResponse
-from app.schemas.backtest_engine import MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionCanonicalCauseCode, MonitorDefinitionRecoveredAlertReviewQueueResponse
+from app.schemas.backtest_engine import MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionCanonicalCauseCode, MonitorDefinitionFamily, MonitorDefinitionMonitorId, MonitorDefinitionRecoveredAlertReviewQueueResponse
 from app.schemas.research import BacktestFrequency, ContinuousSeriesSpec, StrategyDefinition
 from app.services.backtest_engine_service import BacktestAnalysisResult, build_backtest_analysis
 from app.services.candidate_constraints import CONSTRAINT_SET_ID, validate_single_replacement_candidate_construction_constraints
@@ -280,7 +280,8 @@ def list_monitor_definitions() -> MonitorDefinitionArtifactListResponse:
 @router.get("/monitor-definitions/catalog", response_model=MonitorDefinitionCatalogResponse)
 def get_monitor_definition_catalog(
     overlay_family: MonitorDefinitionOverlayFamily | None = Query(default=None),
-    monitor_id: Literal["benchmark_trend_overlay_v1"] | None = Query(default=None),
+    monitor_family: MonitorDefinitionFamily | None = Query(default=None),
+    monitor_id: MonitorDefinitionMonitorId | None = Query(default=None),
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None = Query(default=None),
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None = Query(default=None),
     latest_observation_status: MonitorDefinitionLatestObservationStatus | None = Query(default=None),
@@ -296,6 +297,7 @@ def get_monitor_definition_catalog(
         return list_monitor_definition_catalog(
             filters=_monitor_definition_discovery_filters(
                 overlay_family=overlay_family,
+                monitor_family=monitor_family,
                 monitor_id=monitor_id,
                 review_support_status=review_support_status,
                 lifecycle_status=lifecycle_status,
@@ -317,7 +319,8 @@ def get_monitor_definition_catalog(
 def get_recent_monitor_definitions(
     limit: int = Query(20, ge=1, le=100),
     overlay_family: MonitorDefinitionOverlayFamily | None = Query(default=None),
-    monitor_id: Literal["benchmark_trend_overlay_v1"] | None = Query(default=None),
+    monitor_family: MonitorDefinitionFamily | None = Query(default=None),
+    monitor_id: MonitorDefinitionMonitorId | None = Query(default=None),
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None = Query(default=None),
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None = Query(default=None),
     latest_observation_status: MonitorDefinitionLatestObservationStatus | None = Query(default=None),
@@ -334,6 +337,7 @@ def get_recent_monitor_definitions(
             limit=limit,
             filters=_monitor_definition_discovery_filters(
                 overlay_family=overlay_family,
+                monitor_family=monitor_family,
                 monitor_id=monitor_id,
                 review_support_status=review_support_status,
                 lifecycle_status=lifecycle_status,
@@ -552,7 +556,8 @@ def _validate_weights(weights, field_name: str) -> None:
 def _monitor_definition_discovery_filters(
     *,
     overlay_family: MonitorDefinitionOverlayFamily | None,
-    monitor_id: Literal["benchmark_trend_overlay_v1"] | None,
+    monitor_family: MonitorDefinitionFamily | None,
+    monitor_id: MonitorDefinitionMonitorId | None,
     review_support_status: MonitorDefinitionDiscoveryReviewSupportStatus | None,
     lifecycle_status: MonitorDefinitionDiscoveryLifecycleStatus | None,
     latest_observation_status: MonitorDefinitionLatestObservationStatus | None,
@@ -567,6 +572,7 @@ def _monitor_definition_discovery_filters(
     return MonitorDefinitionDiscoveryFilters.model_validate(
         {
             "overlay_family": overlay_family,
+            "monitor_family": monitor_family,
             "monitor_id": monitor_id,
             "review_support_status": review_support_status,
             "lifecycle_status": lifecycle_status,

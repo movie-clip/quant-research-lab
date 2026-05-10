@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import * as portfolioWorkspaceStorage from '../../app/portfolioWorkspaceStorage'
 import { createImportedBaselineFixture } from '../../test/portfolioFixtures'
 import { CandidateFormationSection, ConstructionRuleSection, DiagnosticsChangeSection, HypotheticalReplaySection, PersistedOptimizerHandoffReviewSection, PortfolioAllocationBacktestPanel, SavedProposalReadoutSection } from './PortfolioAllocationBacktestPanel'
 import type { HypotheticalReplayResponse, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OverlayAwareHypotheticalReplayResponse, ImportedBaselineSource, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../portfolio/types'
@@ -19,7 +20,7 @@ const legacyMockAnalysis = {
     ],
     ledger_entries: [],
   },
-  canonical_ledger: [], overview: { total_market_value: 100000, total_unrealized_pnl: 0, positions_count: 2, ledger_entries_count: 0, top_positions: [], sector_allocation: [], sector_position_breakdown: {}, cash_by_currency: {} }, reconciliation: { passed: true, checks: [] }, activity: [], holdings_timeline: [], enriched_positions: [], risk_summary: { benchmark_symbol: 'SPY', methodology: 'm', start_date: null, end_date: null, observations: 0, portfolio_beta: null, portfolio_correlation: null, r_squared: null, portfolio_volatility_pct: null, benchmark_volatility_pct: null }, rolling_risk: [], lookthrough: { portfolio_market_value: 0, covered_market_value: 0, coverage_ratio: 0, etf_resolution: {}, uncovered_positions: [], top_constituents: [] }, lookthrough_sector_exposure: [], market_overlap: { benchmark_symbol: 'SPY', overlap_weight: 0, active_share: 0, portfolio_in_benchmark_weight: 0, benchmark_covered_weight: 0 }, relative_risk: { benchmark_symbol: 'SPY', tracking_error_pct: null, active_return_pct: null, information_ratio: null }, volatility_regime: { methodology: 'm', assumptions: { return_basis: 'time_weighted_daily_return', cash_flow_timing: 'external_cash_flow_applied_before_end_of_day_measurement', drawdown_basis: 'compounded_return_index', benchmark_basis: 'aligned_daily_price_return', downside_mar: 0, annualization_days: 252 }, rolling_series: [], snapshot: { realized_vol_20d: null, realized_vol_60d: null, realized_vol_252d: null, downside_vol_20d: null, downside_vol_60d: null, downside_vol_252d: null, benchmark_vol_20d: null, benchmark_vol_60d: null, benchmark_vol_252d: null, tracking_error_20d: null, tracking_error_60d: null, tracking_error_252d: null, current_drawdown_pct: null, max_drawdown_pct: null, vol_ratio_20_60: null, vol_ratio_20_252: null, current_20d_vol_percentile: null }, regime: { label: 'normal', confidence: 'low' } }, factor_exposures: [], factor_shift_diagnostics: { methodology: 'm', snapshots: [], largest_positive_shifts_20d: [], largest_negative_shifts_20d: [], largest_absolute_shifts_20d: [], largest_absolute_shifts_60d: [] }, risk_contribution_breakdown: { methodology: 'm', window_days: 60, observation_count: 0, status: 'ok', factor_contributions: [], factor_total_variance: null, specific_variance: null, total_variance: null, factor_risk_share_total: null, specific_risk_share: null, residual_volatility: null, position_contributions: [], concentration: { top_1_factor_risk_share: null, top_3_factor_risk_share: null, top_1_position_risk_share: null, top_5_position_risk_share: null, factor_hhi: null, position_hhi: null } }, model_reliability: { window_days: 60, observation_count: 0, r_squared: null, residual_volatility: null, collinearity_pair_count: 0, max_abs_factor_correlation: null, factor_count_used: 0, missing_factor_count: 12, status: 'ok', confidence: 'low', stability_score: null }, factor_registry: [], factor_methodology: null, statistical_factor_model: { status: 'partial', benchmark_symbol: 'SPY', windows: [], rolling_loadings_20d: [], rolling_loadings_60d: [], rolling_loadings_252d: [], current_factor_snapshot: [], collinearity_diagnostics: [], insufficient_history: [] }, stress_scenarios: [], performance_series: [], performance_summary: { start_value: null, end_value: null, net_contributions: 0, investment_gain: null, time_weighted_return_pct: null, money_weighted_return_pct: null, benchmark_return_pct: null, excess_return_pct: null }, daily_states: [], rebalance_preview: [], simulated_trades: [], benchmark: null,
+  canonical_ledger: [], overview: { total_market_value: 100000, total_unrealized_pnl: 0, positions_count: 2, ledger_entries_count: 0, top_positions: [], sector_allocation: [], sector_position_breakdown: {}, cash_by_currency: {} }, reconciliation: { passed: true, checks: [] }, activity: [], holdings_timeline: [], enriched_positions: [], risk_summary: { benchmark_symbol: 'SPY', methodology: 'm', start_date: null, end_date: null, observations: 0, portfolio_beta: null, portfolio_correlation: null, r_squared: null, portfolio_volatility_pct: null, benchmark_volatility_pct: null }, rolling_risk: [], lookthrough: { portfolio_market_value: 0, covered_market_value: 0, coverage_ratio: 0, etf_resolution: {}, uncovered_positions: [], top_constituents: [] }, lookthrough_sector_exposure: [], market_overlap: { benchmark_symbol: 'SPY', overlap_weight: 0, active_share: 0, portfolio_in_benchmark_weight: 0, benchmark_covered_weight: 0, top_overweights: [], top_underweights: [] }, relative_risk: { benchmark_symbol: 'SPY', tracking_error_pct: null, active_return_pct: null, information_ratio: null }, volatility_regime: { methodology: 'm', assumptions: { return_basis: 'time_weighted_daily_return', cash_flow_timing: 'external_cash_flow_applied_before_end_of_day_measurement', drawdown_basis: 'compounded_return_index', benchmark_basis: 'aligned_daily_price_return', downside_mar: 0, annualization_days: 252 }, rolling_series: [], snapshot: { realized_vol_20d: null, realized_vol_60d: null, realized_vol_252d: null, downside_vol_20d: null, downside_vol_60d: null, downside_vol_252d: null, benchmark_vol_20d: null, benchmark_vol_60d: null, benchmark_vol_252d: null, tracking_error_20d: null, tracking_error_60d: null, tracking_error_252d: null, current_drawdown_pct: null, max_drawdown_pct: null, vol_ratio_20_60: null, vol_ratio_20_252: null, current_20d_vol_percentile: null }, regime: { label: 'normal', confidence: 'low' } }, factor_exposures: [], factor_shift_diagnostics: { methodology: 'm', snapshots: [], largest_positive_shifts_20d: [], largest_negative_shifts_20d: [], largest_absolute_shifts_20d: [], largest_absolute_shifts_60d: [] }, risk_contribution_breakdown: { methodology: 'm', window_days: 60, observation_count: 0, status: 'ok', factor_contributions: [], factor_total_variance: null, specific_variance: null, total_variance: null, factor_risk_share_total: null, specific_risk_share: null, residual_volatility: null, position_contributions: [], concentration: { top_1_factor_risk_share: null, top_3_factor_risk_share: null, top_1_position_risk_share: null, top_5_position_risk_share: null, factor_hhi: null, position_hhi: null } }, model_reliability: { window_days: 60, observation_count: 0, r_squared: null, residual_volatility: null, collinearity_pair_count: 0, max_abs_factor_correlation: null, factor_count_used: 0, missing_factor_count: 12, status: 'ok', confidence: 'low', stability_score: null }, factor_registry: [], factor_methodology: null, statistical_factor_model: { status: 'partial', benchmark_symbol: 'SPY', windows: [], rolling_loadings_20d: [], rolling_loadings_60d: [], rolling_loadings_252d: [], current_factor_snapshot: [], collinearity_diagnostics: [], insufficient_history: [] }, stress_scenarios: [], performance_series: [], performance_summary: { start_value: null, end_value: null, net_contributions: 0, investment_gain: null, time_weighted_return_pct: null, money_weighted_return_pct: null, benchmark_return_pct: null, excess_return_pct: null }, daily_states: [], rebalance_preview: [], simulated_trades: [], benchmark: null,
 } as ImportedBaselineSource
 
 const baselineFixture = createImportedBaselineFixture()
@@ -503,6 +504,19 @@ const persistedConstructionArtifactReview: PersistedConstructionArtifactWorkspac
         symbol_overrides: {},
       },
     },
+    launch_context: {
+      construction_artifact_id: 'artifact-123',
+      ranked_universe_artifact_id: 'ranked-1',
+      ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+      ranking_id: 'ranking-1',
+      ranking_methodology_id: 'method-1',
+      ranking_as_of_date: '2026-04-23',
+      current_portfolio_artifact_id: 'portfolio-1',
+      current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+      policy_id: 'policy-1',
+      policy_definition_id: 'policy-def-1',
+      top_n: 2,
+    },
     benchmark_symbol: 'SPY',
     base_currency: 'USD',
     replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
@@ -545,6 +559,19 @@ const persistedConstructionArtifactReview: PersistedConstructionArtifactWorkspac
           symbol_overrides: {},
         },
       },
+      launch_context: {
+        construction_artifact_id: 'artifact-123',
+        ranked_universe_artifact_id: 'ranked-1',
+        ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
+        ranking_id: 'ranking-1',
+        ranking_methodology_id: 'method-1',
+        ranking_as_of_date: '2026-04-23',
+        current_portfolio_artifact_id: 'portfolio-1',
+        current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+        policy_id: 'policy-1',
+        policy_definition_id: 'policy-def-1',
+        top_n: 2,
+      },
       benchmark_symbol: 'SPY',
       base_currency: 'USD',
       replay_window: { start_date: '2024-01-01', end_date: '2024-12-31' },
@@ -557,9 +584,13 @@ const persistedConstructionArtifactReview: PersistedConstructionArtifactWorkspac
       policy_id: 'policy-1',
       policy_definition_id: 'policy-def-1',
       ranked_universe_artifact_id: 'ranked-1',
+      ranked_universe_artifact_schema_version: 'etf_ranking_artifact_v1',
       ranking_id: 'ranking-1',
       ranking_methodology_id: 'method-1',
+      ranking_as_of_date: '2026-04-23',
       current_portfolio_artifact_id: 'portfolio-1',
+      current_portfolio_as_of_timestamp: '2026-04-23T09:30:00Z',
+      top_n: 2,
       hard_constraints: {
         full_investment: true,
         long_only: true,
@@ -600,6 +631,7 @@ const persistedConstructionArtifactWorkspaceSource = {
     candidateTruth: 'hypothetical_construction_artifact' as const,
     constructionArtifactId: 'artifact-123',
     previewHandoff: persistedConstructionArtifactReview.replay.review_basis!.preview_handoff,
+    launchContext: persistedConstructionArtifactReview.replay.review_basis!.launch_context,
     openedAt: '2026-04-23T00:00:00Z',
     benchmarkSymbol: 'SPY',
     baseCurrency: 'USD',
@@ -1351,6 +1383,35 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText(/portfolio truth: draft_snapshot_not_applied/)).toBeTruthy()
   })
 
+  it('renders saved proposal readout when PM-summary mirror omits optional methodology provenance fields', () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'assertSavedProposalArtifactIntegrity').mockImplementation((proposal) => proposal)
+    vi.spyOn(portfolioWorkspaceStorage, 'assertSavedProposalArtifactProposalSourceIntegrity').mockImplementation((proposal) => proposal)
+
+    const { methodology_provenance: _omittedMethodologyProvenance, ...candidateAnalyticsWithoutOptionalMirrorProvenance } =
+      savedProposal.reviewSnapshotPMSummary.analytics_summary.candidate_analytics
+    void _omittedMethodologyProvenance
+
+    const savedProposalWithoutOptionalMirrorProvenance: VersionedProposalArtifact = {
+      ...savedProposal,
+      reviewSnapshotPMSummary: {
+        ...savedProposal.reviewSnapshotPMSummary,
+        methodology: {
+          methodology: savedProposal.reviewSnapshotPMSummary.methodology.methodology,
+        },
+        analytics_summary: {
+          ...savedProposal.reviewSnapshotPMSummary.analytics_summary,
+          candidate_analytics: candidateAnalyticsWithoutOptionalMirrorProvenance,
+        },
+      },
+    }
+
+    expect(() => render(<SavedProposalReadoutSection proposal={savedProposalWithoutOptionalMirrorProvenance} />)).not.toThrow()
+
+    expect(screen.getByText('Saved Proposal Review')).toBeTruthy()
+    expect(screen.getByText('Canonical PM Summary')).toBeTruthy()
+    expect(screen.getByText(/Methodology: m · methodology truth: review_only_replay_methodology/)).toBeTruthy()
+  })
+
   it('fails closed when saved proposal readout receives a conflicting present proposalSource', () => {
     const mismatchedNestedProposal = {
       ...savedProposal,
@@ -1455,4 +1516,5 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getByText(/Canonical source: typed_preview_handoff/)).toBeTruthy()
     expect(screen.getByText(/Methodology provenance: review_only_replay_methodology/)).toBeTruthy()
   })
+
 })
