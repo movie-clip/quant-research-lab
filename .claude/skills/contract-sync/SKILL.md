@@ -76,6 +76,39 @@ For confidence: `Literal["full", "partial", "degraded"]` (newer schemas) or `Lit
 - **If a removal would break the UI**, flag it before proceeding rather than silently dropping
 - **Confirm zero stale refs** with grep before reporting done
 
+## Non-negotiable rules
+
+### 1. Backend schema is the contract root
+Backend schemas and route serialization are the source of truth. Desktop types, docs, fixtures, and tests must follow shipped backend behavior. Don't leave frontend or docs on an older field shape after backend changes.
+
+### 2. Additive first, removal later
+Prefer additive contract evolution before removing fields. If a field is deprecated, mark it clearly in code/tests/docs and keep a follow-up to remove it later. Don't silently repurpose an old field with new meaning.
+
+### 3. One meaning per field
+A field has one precise semantic role. Don't overload provenance fields with execution settings, or status fields with unlock policy. If two concerns differ, use two fields.
+
+### 4. Route, type, and doc updates travel together
+If a contract changes, in the same pass update: backend route/service tests, desktop types and callers, contract docs, current-state / roadmap wording if shipped state changed.
+
+### 4a. Shipped-state docs must move together
+Keep `docs/product/current-product-state.md`, `docs/product/roadmap.md`, `docs/product/technical-roadmap.md`, and `docs/product/epic-roadmap.md` aligned. Don't leave one doc describing a surface as future work while another describes it as shipped.
+
+### 5. Preserve truth labels
+If a payload is hypothetical, preview-only, review-only, imported, persisted, or withheld, keep those semantics explicit. Never make docs or desktop wording sound more production-truthful than the payload actually is.
+
+### 6. Fail closed on ambiguous contract states
+Missing required fields, malformed payloads, unsupported handoff kinds, mismatched ids, or partial invalid states should fail clearly. Don't silently coerce malformed present values just to keep the UI working.
+
+## Common failure modes
+
+- Backend field added but missing in desktop types
+- Docs still describing a removed or renamed field
+- Route accepts a new request shape but desktop still sends the old one
+- Deprecated fields kept alive without explicit docs/tests
+- Partial unlock / withheld semantics documented incorrectly
+- Roadmap still listing shipped work as future work
+- Current-state overclaiming a broader feature than what is actually shipped
+
 ## Output template
 
 ```

@@ -97,14 +97,9 @@ Trust semantics for data availability: `verified > degraded > withheld > unavail
 3. **Contract sync**: `services/quant-engine/app/schemas/` is the source of truth. Desktop types in `apps/desktop/src/` must match. `docs/contracts/` must reflect both.
 4. **No execution**: Optimizer and overlay workflows are hypothetical previews only. The system never places trades or moves money.
 
-Reference `.opencode/skills/` for detailed guardrail checklists:
-- `artifact-workflow-guard.md` — artifact lineage + replay boundaries
-- `quant-contract-sync.md` — schema → desktop type → docs sync
-- `portfolio-analytics-guard.md` — analytics methodology + benchmark separation
-
 ## Project Skills
 
-Domain expertise is loaded on-demand via skills under `.claude/skills/`. Invoke the relevant skill when the work shifts focus — they're free until used.
+Domain expertise is loaded on-demand via skills under `.claude/skills/`. Each skill ships its own non-negotiable rules and validation commands. Invoke the relevant skill when the work shifts focus — they're free until used.
 
 | Skill | Trigger |
 |-------|---------|
@@ -112,6 +107,7 @@ Domain expertise is loaded on-demand via skills under `.claude/skills/`. Invoke 
 | `contract-sync` | After any Pydantic schema change — keep schemas ↔ TS types ↔ docs/contracts/ aligned |
 | `testing-triage` | When tests fail, when adding coverage, or when verifying a refactor didn't regress |
 | `artifact-workflow` | Creating/loading/extending persisted artifacts in `data/artifacts/`; content-addressed IDs, fingerprint scheme, fail-closed validation |
+| `portfolio-analytics` | Portfolio risk, performance, volatility, drawdown, factor analytics; cash-flow-neutral basis, benchmark separation, methodology preservation |
 
 The base CLAUDE.md (this file) covers always-on conventions: tech stack, file layout, dev commands, truth classes, and the 4 core guardrails.
 

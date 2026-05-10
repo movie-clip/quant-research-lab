@@ -119,3 +119,30 @@ Never mix in a single response or computation:
 - Replay (re-running persisted workflows)
 
 If a route produces multiple truth classes, label each section explicitly with provenance.
+
+## Non-negotiable rules
+
+### 1. Persisted artifact is authoritative
+After persistence, the artifact is the source of truth for downstream consumption. Do not rebuild canonical downstream input from ad hoc client state if the artifact or typed handoff already carries it. Prefer explicit artifact ids or typed handoff objects over loose field bundles.
+
+### 2. Validation, preview, and open must stay distinct
+Validation/preflight proves eligibility, integrity, and input correctness. Preview/open produces replay or review payloads. Don't let validation silently become preview unless the contract explicitly says it returns an open payload. If validation emits a handoff, preview must consume that handoff directly.
+
+### 3. Truth separation must remain explicit
+Imported/current portfolio truth must stay separate from hypothetical candidate or artifact-backed review truth. Do not materialize fake holdings, fake market values, or fake imported snapshot semantics just to fit an existing UI shape. If a review is artifact-only, label it as review/artifact basis, not imported basis.
+
+### 4. Legacy compatibility belongs only at load boundaries
+New writes must be strict and canonical. Legacy compatibility is allowed only when reading old persisted payloads. Load-time hydration may fill missing legacy fields only for documented cases. Do not auto-repair present malformed or conflicting values.
+
+### 5. Fail closed on artifact problems
+Missing artifact → fail. Invalid JSON/schema/integrity mismatch → fail. Unsupported handoff kind/version → fail. Infeasible or unreplayable artifact → fail. Mismatched artifact identity between handoff and open payload → fail. Never silently fall back to weaker semantics.
+
+## Common failure modes
+
+- Validation route secretly doing full preview/open work
+- Preview route accepting both handoff and loose fields with no precedence rule
+- Desktop rebuilding preview input from `artifact_id` plus defaults instead of using the handoff
+- Artifact review persisting synthetic imported snapshot data
+- Legacy hydration mutating persisted data or widening to unsupported malformed cases
+- New route shape shipped without updating desktop types and route tests
+- Deprecated compatibility fields left behind with no explicit follow-up
