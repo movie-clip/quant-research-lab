@@ -198,7 +198,9 @@ Import admission evidence is finite-only for numeric observed, comparison, and d
 - artifact identity is content-addressed: `generic_ranking_artifact_<sha256(canonical_json_without_artifact_id)[:16]>`
 - supported factor families: price-bar (momentum, volatility, drawdown, liquidity) and fundamental (quality via Novy-Marx/Sloan/AQR formulas, value via FMP TTM ratios — Greenblatt/Fama-French)
 - when fundamental factors are requested without an FMP API key, the service emits a warning and returns the artifact with those factor values as null; confidence drops to `partial` rather than failing the request
-- supported universe kinds: `etf_peer_group`, `custom_list`, `broad_equity_screen`, `sector_screen` (FMP screener), `index_constituent` (FMP `/stable/sp500-constituent` for `index_id="sp500"`)
+- supported universe kinds: `etf_peer_group`, `custom_list`, `broad_equity_screen`, `sector_screen` (FMP screener), `index_constituent` with two index families:
+  - `index_id="sp500"` — live FMP `/stable/sp500-constituent` (current snapshot only; PIT historical reconstruction deferred)
+  - `index_id="russell1000"` — static JSON snapshot under `data/universe/index_snapshots/russell1000.json`, sourced from iShares IWB ETF holdings (no FMP endpoint exists for Russell 1000); fail-closed on missing/malformed snapshot file; bundled snapshot is a representative sample, scripted ingestion of the full membership is deferred
 - generic ranking artifacts are construction-eligible through the same canonical preflight + run boundary used by ETF and replacement ranking; the construction allowlist is now a three-kind set
 - load fails closed on missing file (`404`), invalid json (`400`), non-object payload (`400`), schema failure (`400`), or canonical identity mismatch (`400`)
 

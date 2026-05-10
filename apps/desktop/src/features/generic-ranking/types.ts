@@ -6,7 +6,7 @@ export type UniverseKind =
   | 'sector_screen'
   | 'index_constituent';
 
-export type IndexId = 'sp500';
+export type IndexId = 'sp500' | 'russell1000';
 
 export interface UniverseSpec {
   universe_id: string;

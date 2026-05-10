@@ -13,7 +13,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
-| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform, construction eligibility, AND Workspace browser integration shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints) OR add a new generic_ranking universe family (e.g. Russell 1000 via IWB CSV) | 2026-05-11 |
+| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform, construction eligibility, Workspace integration, AND Russell 1000 universe shipped | No active slice | Scripted ingestion of full Russell 1000 from IWB CSV; OR additional index families (Russell 2000, MSCI EAFE); OR pivot to Epic 3 breadth | 2026-05-11 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
@@ -237,6 +237,34 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-11 - Epic 2 generic_ranking Russell 1000 universe shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: extend the `index_constituent` universe family with Russell 1000 via static-snapshot resolution.
+- Status: shipped.
+- Scope delivered:
+  - extended `IndexId` Literal in `app/schemas/generic_ranking.py` to include `russell1000` (was `sp500` only)
+  - new `_load_index_snapshot()` loader in `app/services/universe_resolver.py` that reads versioned JSON snapshots from `data/universe/index_snapshots/<index_id>.json` with fail-closed validation: missing file, invalid JSON, schema_version mismatch, index_id field mismatch, malformed constituent rows all raise `IndexSnapshotError`
+  - resolver `_resolve_index_constituents()` refactored to dispatch by `index_id`: `sp500` → live FMP `/stable/sp500-constituent`, `russell1000` → static snapshot loader; sector_include/sector_exclude filters apply identically across both paths
+  - resolver degrades gracefully when the russell1000 snapshot file is unavailable: returns empty `evaluated_members` with a logged warning rather than raising — surfaces the trust state explicitly through the artifact instead of failing the request
+  - bundled representative snapshot `data/universe/index_snapshots/russell1000.json`: 26 well-known large-cap names spanning 7 GICS sectors, with explicit provenance metadata (source = iShares IWB ETF holdings CSV, source_url, source_notes flagging it as a SAMPLE not the full membership)
+  - desktop frontend extended: `IndexId` TS type now includes `russell1000`; `INDEX_LABELS` map renders human-readable labels with the resolution mode visible to the user (`S&P 500 (FMP live)`, `Russell 1000 (static snapshot)`)
+  - 13 new backend tests covering schema validation, snapshot loader fail-closed paths, dispatch, sector filtering, and graceful degradation when the snapshot is missing
+- Guard impact:
+  - widens `index_constituent` from one to two index families without adding new live data sources or new infrastructure beyond a JSON snapshot loader
+  - russell1000 path is intentionally static-snapshot-based (no FMP endpoint exists); reproducibility is preserved by `UniverseSpecSnapshot.evaluated_members` capturing the resolved members at run time, so persisted ranking artifacts remain reproducible even after the snapshot file is later refreshed in place
+  - bundled snapshot is honest: explicit `source_notes` field documents that it is a representative sample, not the full ~1000 names; full ingestion of IWB CSV is intentionally deferred to a future slice
+- Contracts changed:
+  - additive only: `IndexId` Literal extended with `russell1000`; `UniverseSpec.index_id` accepts the new value
+  - new file format: `data/universe/index_snapshots/<index_id>.json` with fixed `snapshot_schema_version: index_snapshot_v1` envelope
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_universe_resolver_russell1000.py` (13 tests)
+  - 201/201 backend generic_ranking + construction tests still pass; 15/15 frontend generic-ranking tests pass
+- Next slice candidates:
+  - scripted ingestion of the full Russell 1000 from IWB ETF holdings CSV (replaces the bundled sample with the full membership)
+  - additional index families (Russell 2000 via IWM holdings, MSCI EAFE via EFA holdings) using the same snapshot loader pattern
+  - Epic 3 breadth: more construction policies + richer constraints
 
 ### 2026-05-11 - Epic 2 generic_ranking Workspace Candidate Idea browser shipped
 

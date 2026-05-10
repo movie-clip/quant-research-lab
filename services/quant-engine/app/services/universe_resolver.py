@@ -3,10 +3,81 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from pathlib import Path
 
 from app.schemas.generic_ranking import UniverseSpec, UniverseSpecSnapshot
 
 logger = logging.getLogger(__name__)
+
+
+# ── Static index snapshot loader ─────────────────────────────────────────────
+#
+# Indexes that have no live FMP constituent endpoint (currently: russell1000)
+# resolve from a versioned static snapshot under data/universe/index_snapshots/.
+# Each snapshot file is a JSON document with explicit provenance metadata
+# (source URL, snapshot_date, source notes) and a list of constituents.
+#
+# The snapshot is the source of truth at run time: UniverseSpecSnapshot captures
+# the resolved member list AND a content-addressed `spec_digest` so a persisted
+# generic_ranking artifact remains reproducible even if the snapshot file is
+# later refreshed in place.
+#
+# Refreshing the snapshot (Russell 1000): download the iShares IWB ETF holdings
+# CSV from BlackRock (https://www.ishares.com/us/products/239726/) and overwrite
+# the snapshot file with the parsed full membership. A scripted ingestion is
+# intentionally deferred to a future slice — until then the bundled snapshot
+# is a representative sample of large-cap names, NOT the full Russell 1000.
+
+# __file__ = services/quant-engine/app/services/universe_resolver.py
+# .parents[0] = services/quant-engine/app/services/
+# .parents[1] = services/quant-engine/app/
+# .parents[2] = services/quant-engine/
+# .parents[3] = services/
+# .parents[4] = repo root
+_DEFAULT_INDEX_SNAPSHOTS_DIR = (
+    Path(__file__).resolve().parents[4] / "data" / "universe" / "index_snapshots"
+)
+_INDEX_SNAPSHOT_SCHEMA_VERSION = "index_snapshot_v1"
+
+
+class IndexSnapshotError(ValueError):
+    """Raised when a static index snapshot file is missing, malformed, or fails validation."""
+
+
+def _load_index_snapshot(index_id: str, snapshots_dir: Path | None = None) -> list[dict]:
+    """Load and validate a static index snapshot file.
+
+    Returns the list of constituent dicts (each with `symbol`, optional `name` + `sector`).
+    Fails closed on missing file, invalid JSON, schema mismatch, or wrong index_id.
+    """
+    base_dir = snapshots_dir or _DEFAULT_INDEX_SNAPSHOTS_DIR
+    path = base_dir / f"{index_id}.json"
+    if not path.exists():
+        raise IndexSnapshotError(
+            f"index snapshot file missing for index_id={index_id!r}: expected {path}"
+        )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise IndexSnapshotError(f"index snapshot {path} is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise IndexSnapshotError(f"index snapshot {path} root must be an object")
+    if payload.get("snapshot_schema_version") != _INDEX_SNAPSHOT_SCHEMA_VERSION:
+        raise IndexSnapshotError(
+            f"index snapshot {path} has unsupported snapshot_schema_version "
+            f"{payload.get('snapshot_schema_version')!r}; expected {_INDEX_SNAPSHOT_SCHEMA_VERSION!r}"
+        )
+    if payload.get("index_id") != index_id:
+        raise IndexSnapshotError(
+            f"index snapshot {path} index_id field {payload.get('index_id')!r} does not match requested {index_id!r}"
+        )
+    constituents = payload.get("constituents")
+    if not isinstance(constituents, list):
+        raise IndexSnapshotError(f"index snapshot {path} constituents field must be a list")
+    for row in constituents:
+        if not isinstance(row, dict) or not isinstance(row.get("symbol"), str) or not row["symbol"].strip():
+            raise IndexSnapshotError(f"index snapshot {path} contains malformed constituent row: {row!r}")
+    return constituents
 
 
 class UniverseResolver:
@@ -113,37 +184,30 @@ class UniverseResolver:
         return sorted(symbols)
 
     def _resolve_index_constituents(self, spec: UniverseSpec) -> list[str]:
-        """Resolve members of a named index via FMP. Phase 2 supports 'sp500'.
+        """Resolve members of a named index. Dispatch by `index_id`:
 
-        Returns the current snapshot — FMP's basic constituent endpoint is current-only.
-        For point-in-time historical reconstruction, the historical endpoint would need
-        to be wired separately (deferred).
+        - `sp500`: live FMP `/stable/sp500-constituent` (current snapshot only;
+          point-in-time historical reconstruction would need the historical endpoint, deferred)
+        - `russell1000`: static snapshot file under `data/universe/index_snapshots/russell1000.json`,
+          sourced from iShares IWB ETF holdings (no FMP endpoint exists for Russell 1000)
+
+        Optional `sector_include` / `sector_exclude` filters narrow the resolved set
+        identically across both paths.
         """
         if spec.index_id is None:
             raise ValueError("index_constituent universe_kind requires index_id")
 
-        if self._fmp is None:
-            logger.warning(
-                "UniverseResolver: fmp_client is None; index_constituent returns empty list. "
-                "Pass an FmpClient instance to resolve index universes."
-            )
+        rows = self._load_index_constituent_rows(spec.index_id)
+        if rows is None:
+            # Resolution path emitted its own warning (e.g. fmp_client missing) — return empty
             return []
-
-        if spec.index_id == "sp500":
-            try:
-                rows = self._fmp.get_sp500_constituents()  # type: ignore[union-attr]
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("UniverseResolver: sp500 constituent fetch failed: %s", exc)
-                return []
-        else:
-            raise ValueError(f"Unsupported index_id: {spec.index_id!r}")
 
         symbols: set[str] = set()
         for row in rows:
             symbol = str(row.get("symbol") or "").upper()
             if not symbol:
                 continue
-            # Apply optional sector filters from spec (allows narrowing S&P 500 by sector)
+            # Apply optional sector filters from spec (allows narrowing the index by sector)
             if spec.sector_include or spec.sector_exclude:
                 row_sector = str(row.get("sector") or "")
                 if spec.sector_include and row_sector not in spec.sector_include:
@@ -152,6 +216,36 @@ class UniverseResolver:
                     continue
             symbols.add(symbol)
         return sorted(symbols)
+
+    def _load_index_constituent_rows(self, index_id: str) -> list[dict] | None:
+        """Dispatch to the right backend for the given index_id.
+
+        Returns None when the resolver cannot produce rows for known reasons that have
+        already been logged (e.g. missing FMP client). Raises for unsupported index_id.
+        """
+        if index_id == "sp500":
+            if self._fmp is None:
+                logger.warning(
+                    "UniverseResolver: fmp_client is None; sp500 index_constituent returns empty list. "
+                    "Pass an FmpClient instance to resolve the live S&P 500 constituent endpoint."
+                )
+                return None
+            try:
+                return list(self._fmp.get_sp500_constituents())  # type: ignore[union-attr]
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("UniverseResolver: sp500 constituent fetch failed: %s", exc)
+                return None
+
+        if index_id == "russell1000":
+            try:
+                return _load_index_snapshot("russell1000")
+            except IndexSnapshotError as exc:
+                logger.warning(
+                    "UniverseResolver: russell1000 static snapshot unavailable: %s", exc
+                )
+                return None
+
+        raise ValueError(f"Unsupported index_id: {index_id!r}")
 
     def _filter_by_profiles(self, spec: UniverseSpec) -> list[str]:
         """Filter explicit_symbols through FMP profile data to apply eligibility filters."""
