@@ -290,6 +290,68 @@ Relevant implementation:
 - `services/quant-engine/app/services/candidate_construction.py`
 - `services/quant-engine/app/services/candidate_formation.py`
 
+## Generalized Ranking Methodology
+
+The generic ranking platform extends ranking beyond the original ETF-only path with versioned `ScoreConfig` and `UniverseSpec`.
+
+### Cross-sectional normalization
+
+For every factor in a `ScoreConfig`, raw values are first winsorized at `winsorize_pct` (default `0.05`, clipping at the 5th/95th percentile cross-sectionally), then normalized via one of:
+
+- `cross_sectional_zscore` (default for price-based factors) — `(value − mean) / std` over the eligible universe; lower-is-better factors flip sign so higher normalized scores always mean better
+- `percentile_rank` — average-rank percentile (0–1); preferred for skewed fundamental distributions
+- `minmax` — `(value − min) / (max − min)` with direction handling
+
+Composite score is the weighted sum of normalized per-factor scores. Weights are normalized to sum to 1.0 internally; the user-supplied raw weights need only sum to a positive value.
+
+### Price-bar factor families (require only price history)
+
+| Factor family | Implemented IDs | Direction |
+|---|---|---|
+| Momentum (Jegadeesh & Titman 1993) | `momentum_1m`, `momentum_3m`, `momentum_6m`, `momentum_12m`, `momentum_blended` | higher_is_better |
+| Realized volatility | `realized_volatility_126d`, `realized_volatility_252d`, `downside_volatility_126d` | lower_is_better |
+| Drawdown | `max_drawdown_126d`, `max_drawdown_252d` | lower_is_better |
+| Liquidity | `liquidity_60d` (`log(1 + median(dollar_volume))`) | higher_is_better |
+
+`momentum_blended` uses a 12-1 / 6-1 weighted blend that skips the most recent month to avoid 1-month reversal.
+
+### Quality factor family (Novy-Marx, Sloan, AQR QMJ)
+
+Quality factors require fundamental data (annual statements). They reuse the same formulas implemented in `optimizer_alpha_service._extract_raw_component_value()`:
+
+| Factor ID | Primary formula | Fallback | Direction | Source |
+|---|---|---|---|---|
+| `quality_profitability` | (Revenue − COGS) / Total Assets — Novy-Marx (2013) gross profitability | EBIT / Total Assets | higher_is_better | income statement + balance sheet |
+| `quality_cash_generation` | OCF / Total Assets | FCF / Total Assets | higher_is_better | cash flow + balance sheet |
+| `quality_accrual` | (Net Income − OCF) / Total Assets — Sloan (1996) ratio | — | lower_is_better | income statement + cash flow |
+| `quality_leverage` | (Total Debt − Cash) / Total Assets — net leverage | — | lower_is_better | balance sheet |
+
+### Value factor family (Greenblatt, Fama-French, FMP TTM ratios)
+
+| Factor ID | Formula | Direction | FMP source |
+|---|---|---|---|
+| `value_earnings_yield` | EBIT / Enterprise Value — Greenblatt Magic Formula (preferred over 1/PE because leverage-neutral) | higher_is_better | `key-metrics-ttm` |
+| `value_book_to_market` | 1 / P/B — Fama-French HML | higher_is_better | `ratios-ttm.priceToBookRatioTTM` (invert) |
+| `value_fcf_yield` | FCF / Market Cap | higher_is_better | `key-metrics-ttm.freeCashFlowYieldTTM` (preferred), fallback `ratios-ttm.priceToFreeCashFlowsRatioTTM` (invert) |
+| `value_ev_ebitda_inverse` | 1 / (EV/EBITDA) | higher_is_better | `ratios-ttm.enterpriseValueMultipleTTM` (invert) |
+
+### Per-instrument eligibility
+
+Each instrument carries an `EligibilityRecord` with explicit `hard_filter_failures: list[str]` and `soft_filter_flags: list[str]`. The composite ranked list excludes instruments that fail hard filters; soft-filter flags do not exclude but are surfaced for review. When a `generic_ranking` artifact flows into construction, `hard_filter_failures` are joined with `,` and surfaced as `ConstructionRankedCandidateInput.exclusion_reason` rather than being silently dropped.
+
+### Graceful degradation when fundamentals unavailable
+
+When a `ScoreConfig` requests quality or value factors but no FMP API key is configured, the service emits an explicit warning and returns the artifact with those factor values as `None`. `confidence` drops to `partial`. The artifact still persists. This is preferred over failing the request because it surfaces the trust state explicitly rather than silently degrading.
+
+### `CompositeScoreTrace`
+
+Each artifact stores per-factor cross-sectional `mean` and `std` from the normalization step plus `universe_size_at_normalization`. This allows offline re-validation of any individual normalized score without re-running the full ranking.
+
+Relevant implementation:
+- `services/quant-engine/app/services/generic_ranking_service.py`
+- `services/quant-engine/app/services/universe_resolver.py`
+- `services/quant-engine/app/schemas/generic_ranking.py`
+
 ## Optimizer Preview and Handoff Methodology
 
 The shipped optimizer workflow is hypothetical and lineage-first.

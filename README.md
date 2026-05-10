@@ -33,26 +33,43 @@ It is intended to be a deterministic, auditable decision-support platform for sy
 ```text
 quant-research-lab/
   README.md
+  CLAUDE.md                       # Agent onboarding (Claude Code auto-loads this)
   apps/
-    desktop/                # Desktop UI for research, diagnostics, replay, and review
+    desktop/                      # Tauri/React desktop UI
   services/
-    quant-engine/           # Python engine for imports, factors, ranking, construction, optimizer preview, and replay
+    quant-engine/                 # Python FastAPI quant engine
   docs/
     product/
-      current-product-state.md
-      roadmap.md
-      technical-roadmap.md
+      current-product-state.md    # Canonical shipped-state inventory
+      epic-roadmap.md             # Living execution roadmap (active epics + slice log)
+      roadmap.md                  # Future-looking product direction
+      technical-roadmap.md        # Future-looking technical sequencing
     finance/
-      financial-methodology.md
+      financial-methodology.md    # Source of truth for financial formulas
     architecture/
-      system-architecture.md
-    contracts/
-      dashboard-fields.md
-      exposure-fields.md
+      system-architecture.md      # Backend seams, truth classes, data flow
+    contracts/                    # 9 field inventory docs (backend ↔ TS ↔ UI)
       backtest-fields.md
+      candidate-workflow-fields.md
+      dashboard-fields.md
+      diagnostics-fields.md
+      etf-ranking-fields.md
+      exposure-fields.md
+      generic-ranking-fields.md
       import-admission-fields.md
-  scripts/
+      research-artifact-fields.md
   data/
+    artifacts/                    # Persisted decision artifacts (committed)
+      construction-artifacts/
+      etf-ranking-artifacts/
+      etf-replacement-ranking-artifacts/
+      generic-ranking-artifacts/
+      optimizer-handoffs/
+      cross-sectional-research-artifacts/
+      monitor-definitions/
+  scripts/
+  .claude/
+    skills/                       # On-demand specialist knowledge
 ```
 
 ## Documentation Structure
@@ -60,6 +77,8 @@ quant-research-lab/
 Core docs:
 - `docs/product/current-product-state.md`
   - canonical source for what is shipped today, what is narrow, and what is still future
+- `docs/product/epic-roadmap.md`
+  - living execution roadmap for the four active product epics, including a per-slice update log
 - `docs/product/roadmap.md`
   - concise product roadmap for remaining work only
 - `docs/product/technical-roadmap.md`
@@ -68,19 +87,14 @@ Core docs:
   - source of truth for financial formulas, trust semantics, and implemented methods
 - `docs/architecture/system-architecture.md`
   - current seams, engine responsibilities, truth classes, and provenance rules
-- `docs/contracts/dashboard-fields.md`
-  - dashboard financial field traceability
-- `docs/contracts/exposure-fields.md`
-  - exposure and diagnostics field traceability
-- `docs/contracts/backtest-fields.md`
-  - backtest, replay, optimizer handoff, and construction replay field traceability
-- `docs/contracts/import-admission-fields.md`
-  - import admission summary and desktop-local review disposition boundaries
+- `docs/contracts/*-fields.md`
+  - 9 field inventory docs covering dashboard, exposure, diagnostics, backtest, ETF ranking, generic ranking, candidate workflows, research artifacts, and import admission
 
 Rule:
-- keep shipped-state detail in `docs/product/current-product-state.md`
-- keep roadmap docs future-looking and concise
-- if a financially meaningful formula or withholding rule changes, update methodology text and the relevant field inventory at the same time
+- shipped-state truth lives in `docs/product/current-product-state.md`
+- live execution status lives in `docs/product/epic-roadmap.md`
+- `roadmap.md` and `technical-roadmap.md` stay future-looking and concise
+- if a financially meaningful formula or withholding rule changes, update `docs/finance/financial-methodology.md` and the relevant field inventory in the same pass
 
 ## Financial Accuracy Rules
 
