@@ -1,10 +1,22 @@
 import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStoreName, constructedCandidateStoreName, constructionConstraintValidationStoreName, deletePortfolioDatabase, formedCandidateStoreName, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, persistedConstructionArtifactReviewStoreName, persistedOptimizerHandoffReviewStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, reviewSnapshotArtifactStoreName, selectedConstructionRuleStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount, hashPortfolioSnapshot } from '../features/portfolio/portfolioSnapshot'
-import type { ConstructionArtifactReplayResponse, ImportedPortfolioSnapshotSource, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse } from '../features/portfolio/types'
+import type { ConstructionArtifactReplayResponse, ImportAdmissionReviewDispositionV1, ImportAdmissionSummaryV1, ImportedPortfolioSnapshotSource, ImportedSnapshot, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse } from '../features/portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, DesktopArtifactReviewBasis, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedNodeSource, IntentBoundSeededEtfReplacementRankingDraftArtifact, LegacyIntentBoundSeededEtfReplacementRankingDraftArtifact, MonitorDefinitionAlertReviewWorkspaceState, PersistedConstructionArtifactReviewBasis, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffReviewBasis, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, ProposalSourceLabel, ReplacementIntentDraftArtifact, ReviewSnapshotActiveThesisCrossFamilyQueueResponse, ReviewSnapshotArtifact, ReviewSnapshotComparisonArtifactRef, ReviewSnapshotComparisonResponse, ReviewSnapshotFamilyInboxResponse, ReviewSnapshotFamilyKey, ReviewSnapshotFamilyReviewResponse, ReviewSnapshotOpenHandoff, ReviewSnapshotOpenResponse, ReviewSnapshotPMSummaryEnvelope, SavedProposalReviewSnapshotPMSummaryMirror, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
+type ImportAdmissionCheckV1 = ImportAdmissionSummaryV1['checks'][number]
+type NonPassImportAdmissionCheckV1 = ImportAdmissionCheckV1 & { status: Exclude<ImportAdmissionCheckV1['status'], 'pass'> }
+type CanonicalImportAdmissionEvidenceSummary = {
+  status: ImportAdmissionReviewDispositionV1['evidence_summary']['status']
+  trust_impact: ImportAdmissionReviewDispositionV1['evidence_summary']['trust_impact']
+  message: string
+  affected_fields: string[]
+  observed: { label: string; value: number | string | null } | null
+  comparison: { label: string; value: number | string | null } | null
+  delta: number | null
+  currency: string | null
+}
 
 function normalizeConstructionArtifactReplayResponse(replay: ConstructionArtifactReplayResponse): ConstructionArtifactReplayResponse {
   if (replay.effective_replay_params) {
@@ -38,8 +50,10 @@ export function buildPersistedImportedSource(input: {
   baseCurrency: string | null
   historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
+  admissionSummary?: ImportAdmissionSummaryV1 | null
+  admissionReviewDispositions?: Record<string, ImportAdmissionReviewDispositionV1>
 }): ImportedNodeSource {
-  return {
+  const source: ImportedNodeSource = {
     importedFileNames: input.importedFileNames,
     importedAt: input.importedAt,
     importer: input.importer,
@@ -49,6 +63,219 @@ export function buildPersistedImportedSource(input: {
       importedHistorySnapshot: input.importedHistorySnapshot ?? null,
     }),
   }
+  if (input.admissionSummary !== undefined) {
+    source.admissionSummary = input.admissionSummary
+  }
+  if (input.admissionReviewDispositions !== undefined) {
+    const sanitizedDispositions = sanitizeImportAdmissionReviewDispositions(input.admissionReviewDispositions)
+    if (sanitizedDispositions) {
+      source.admissionReviewDispositions = sanitizedDispositions
+    }
+  }
+  return source
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function sanitizeAdmissionEvidenceValue(value: unknown): { label: string; value: number | string | null } | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (!isPlainRecord(value) || typeof value.label !== 'string') return undefined
+  if (value.value !== null && typeof value.value !== 'string' && (typeof value.value !== 'number' || !Number.isFinite(value.value))) return undefined
+  return { label: value.label, value: value.value }
+}
+
+function canonicalizeAdmissionEvidenceValue(value: ImportAdmissionReviewDispositionV1['evidence_summary']['observed']): CanonicalImportAdmissionEvidenceSummary['observed'] {
+  return value ? { label: value.label, value: value.value } : null
+}
+
+function canonicalizeImportAdmissionEvidenceSummary(value: ImportAdmissionReviewDispositionV1['evidence_summary']): CanonicalImportAdmissionEvidenceSummary {
+  return {
+    status: value.status,
+    trust_impact: value.trust_impact,
+    message: value.message,
+    affected_fields: [...(value.affected_fields ?? [])],
+    observed: canonicalizeAdmissionEvidenceValue(value.observed),
+    comparison: canonicalizeAdmissionEvidenceValue(value.comparison),
+    delta: value.delta ?? null,
+    currency: value.currency ?? null,
+  }
+}
+
+function buildCurrentImportAdmissionCheckEvidence(check: NonPassImportAdmissionCheckV1): CanonicalImportAdmissionEvidenceSummary {
+  return canonicalizeImportAdmissionEvidenceSummary({
+    status: check.status,
+    trust_impact: check.trust_impact,
+    message: check.message,
+    affected_fields: check.affected_fields ?? [],
+    observed: check.observed ?? null,
+    comparison: check.comparison ?? null,
+    delta: check.delta ?? null,
+    currency: check.currency ?? null,
+  })
+}
+
+function importAdmissionEvidenceSummariesMatch(savedEvidence: ImportAdmissionReviewDispositionV1['evidence_summary'], currentCheck: NonPassImportAdmissionCheckV1) {
+  return JSON.stringify(canonicalizeForFingerprint(canonicalizeImportAdmissionEvidenceSummary(savedEvidence)))
+    === JSON.stringify(canonicalizeForFingerprint(buildCurrentImportAdmissionCheckEvidence(currentCheck)))
+}
+
+function sanitizeImportAdmissionEvidenceSummary(value: unknown): ImportAdmissionReviewDispositionV1['evidence_summary'] | null {
+  if (!isPlainRecord(value)) return null
+  if (value.status !== 'warn' && value.status !== 'fail' && value.status !== 'unavailable') return null
+  if (value.trust_impact !== 'none' && value.trust_impact !== 'degraded' && value.trust_impact !== 'withheld' && value.trust_impact !== 'unavailable') return null
+  if (typeof value.message !== 'string') return null
+  if (!Array.isArray(value.affected_fields) || !value.affected_fields.every((field) => typeof field === 'string')) return null
+
+  const observed = sanitizeAdmissionEvidenceValue(value.observed)
+  const comparison = sanitizeAdmissionEvidenceValue(value.comparison)
+  if (observed === undefined && 'observed' in value) return null
+  if (comparison === undefined && 'comparison' in value) return null
+  if (value.delta !== undefined && value.delta !== null && (typeof value.delta !== 'number' || !Number.isFinite(value.delta))) return null
+  if (value.currency !== undefined && value.currency !== null && typeof value.currency !== 'string') return null
+
+  return {
+    status: value.status,
+    trust_impact: value.trust_impact,
+    message: value.message,
+    affected_fields: [...value.affected_fields],
+    ...(observed !== undefined ? { observed } : {}),
+    ...(comparison !== undefined ? { comparison } : {}),
+    ...(value.delta !== undefined ? { delta: value.delta } : {}),
+    ...(value.currency !== undefined ? { currency: value.currency } : {}),
+  }
+}
+
+function sanitizeImportAdmissionReviewDisposition(value: unknown): ImportAdmissionReviewDispositionV1 | null {
+  if (!isPlainRecord(value)) return null
+  if (value.schema_version !== 'import_admission_review_disposition_v1') return null
+  if (!isNonEmptyString(value.check_id)) return null
+  if (value.disposition !== 'accepted_known_exception' && value.disposition !== 'needs_source_correction' && value.disposition !== 'deferred') return null
+  if (!isNonEmptyString(value.rationale)) return null
+  if (!isNonEmptyString(value.reviewed_at)) return null
+  if (!isNonEmptyString(value.reviewer_label)) return null
+  if (!isNonEmptyString(value.snapshot_fingerprint)) return null
+  if (!isNonEmptyString(value.admission_summary_fingerprint)) return null
+  const evidenceSummary = sanitizeImportAdmissionEvidenceSummary(value.evidence_summary)
+  if (!evidenceSummary) return null
+
+  return {
+    schema_version: 'import_admission_review_disposition_v1',
+    check_id: value.check_id,
+    disposition: value.disposition,
+    rationale: value.rationale,
+    reviewed_at: value.reviewed_at,
+    reviewer_label: value.reviewer_label,
+    snapshot_fingerprint: value.snapshot_fingerprint,
+    admission_summary_fingerprint: value.admission_summary_fingerprint,
+    evidence_summary: evidenceSummary,
+  }
+}
+
+function sanitizeImportAdmissionReviewDispositions(value: unknown): Record<string, ImportAdmissionReviewDispositionV1> | undefined {
+  if (!isPlainRecord(value)) return undefined
+  const sanitizedEntries = Object.entries(value).flatMap(([checkId, disposition]) => {
+    const sanitizedDisposition = sanitizeImportAdmissionReviewDisposition(disposition)
+    if (!sanitizedDisposition || sanitizedDisposition.check_id !== checkId) return []
+    return [[checkId, sanitizedDisposition] as const]
+  })
+  return sanitizedEntries.length > 0 ? Object.fromEntries(sanitizedEntries) : undefined
+}
+
+function sanitizeImportedNodeSource(value: ImportedNodeSource): ImportedNodeSource {
+  const source: ImportedNodeSource = {
+    importedFileNames: Array.isArray(value.importedFileNames) ? value.importedFileNames.filter((fileName) => typeof fileName === 'string') : [],
+    importedAt: typeof value.importedAt === 'string' ? value.importedAt : '',
+    importer: value.importer ?? null,
+    baseCurrency: value.baseCurrency ?? null,
+    historySource: structuredClone(value.historySource),
+  }
+  if (value.admissionSummary !== undefined) {
+    source.admissionSummary = structuredClone(value.admissionSummary)
+  }
+  const sanitizedDispositions = sanitizeImportAdmissionReviewDispositions(value.admissionReviewDispositions)
+  if (sanitizedDispositions) {
+    source.admissionReviewDispositions = sanitizedDispositions
+  }
+  return source
+}
+
+function sanitizePortfolioWorkspaceForRead(workspace: PortfolioWorkspace): PortfolioWorkspace {
+  if ('kind' in workspace.source) {
+    return structuredClone(workspace)
+  }
+  return {
+    ...structuredClone(workspace),
+    source: sanitizeImportedNodeSource(workspace.source),
+  }
+}
+
+function sanitizePortfolioNodeForRead(node: PortfolioNode): PortfolioNode {
+  const clonedNode = structuredClone(node)
+  if (!clonedNode.source) {
+    return clonedNode
+  }
+  return {
+    ...clonedNode,
+    source: sanitizeImportedNodeSource(clonedNode.source),
+  }
+}
+
+function assertValidImportAdmissionReviewDispositionForSave(input: {
+  disposition: ImportAdmissionReviewDispositionV1
+  admissionSummary: ImportAdmissionSummaryV1 | null | undefined
+}) {
+  const sanitizedDisposition = sanitizeImportAdmissionReviewDisposition(input.disposition)
+  if (!sanitizedDisposition) {
+    throw new Error('Import admission review metadata is malformed')
+  }
+  const matchingCheck = input.admissionSummary?.checks.find((check) => check.check_id === sanitizedDisposition.check_id) ?? null
+  if (!matchingCheck) {
+    throw new Error('Import admission review metadata must reference an admission check')
+  }
+  if (matchingCheck.status === 'pass') {
+    throw new Error('Import admission review metadata can only be saved for non-pass checks')
+  }
+  const nonPassCheck = matchingCheck as NonPassImportAdmissionCheckV1
+  if (!importAdmissionEvidenceSummariesMatch(sanitizedDisposition.evidence_summary, nonPassCheck)) {
+    throw new Error('Import admission review metadata evidence must match current admission check evidence')
+  }
+  return sanitizedDisposition
+}
+
+export function canonicalizeForFingerprint(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalizeForFingerprint)
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, nestedValue]) => [key, canonicalizeForFingerprint(nestedValue)]))
+  }
+  return value
+}
+
+export function buildDeterministicImportAdmissionFingerprint(value: unknown, prefix: string) {
+  return `${prefix}:${JSON.stringify(canonicalizeForFingerprint(value))}`
+}
+
+export function buildImportSnapshotFingerprint(input: {
+  portfolioSnapshot?: PortfolioSnapshot | null
+  importedSource?: ImportedNodeSource | null
+}) {
+  const source = input.importedSource
+  return buildDeterministicImportAdmissionFingerprint({
+    importedMeta: input.portfolioSnapshot?.importedMeta ?? null,
+    importedFileNames: source?.importedFileNames ?? [],
+    importedAt: source?.importedAt ?? null,
+    importer: source?.importer ?? null,
+    baseCurrency: source?.baseCurrency ?? input.portfolioSnapshot?.baseCurrency ?? null,
+    historySourceKind: source?.historySource.kind ?? null,
+  }, 'import_snapshot')
+}
+
+export function buildImportAdmissionSummaryFingerprint(summary: ImportAdmissionSummaryV1 | null | undefined) {
+  return buildDeterministicImportAdmissionFingerprint(summary ?? null, 'import_admission_summary')
 }
 
 function createId(prefix: string) {
@@ -2121,6 +2348,7 @@ export async function createWorkspaceFromImport(input: {
       baseCurrency: portfolioSnapshot.baseCurrency,
       historyContext: input.historyContext ?? null,
       importedHistorySnapshot: input.importedHistorySnapshot ?? null,
+      admissionSummary: input.analysis.admission_summary ?? null,
     }),
   }
   const rootNode: PortfolioNode = {
@@ -2336,7 +2564,7 @@ export async function createWorkspaceFromPersistedOptimizerHandoff(input: {
 export async function getWorkspace(workspaceId: string) {
   return withStore<PortfolioWorkspace | null>(workspaceStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(workspaceId)
-    request.onsuccess = () => resolve((request.result as PortfolioWorkspace | undefined) ?? null)
+    request.onsuccess = () => resolve(request.result ? sanitizePortfolioWorkspaceForRead(request.result as PortfolioWorkspace) : null)
     request.onerror = () => reject(request.error ?? new Error('Failed to load workspace'))
   })
 }
@@ -2344,16 +2572,87 @@ export async function getWorkspace(workspaceId: string) {
 export async function getNode(nodeId: string) {
   return withStore<PortfolioNode | null>(portfolioNodeStoreName, 'readonly', (store, resolve, reject) => {
     const request = store.get(nodeId)
-    request.onsuccess = () => resolve((request.result as PortfolioNode | undefined) ?? null)
+    request.onsuccess = () => resolve(request.result ? sanitizePortfolioNodeForRead(request.result as PortfolioNode) : null)
     request.onerror = () => reject(request.error ?? new Error('Failed to load node'))
   })
+}
+
+export async function saveImportAdmissionReviewDisposition(input: {
+  workspaceId: string
+  nodeId?: string | null
+  disposition: ImportAdmissionReviewDispositionV1
+}) {
+  const workspace = await getWorkspace(input.workspaceId)
+  if (!workspace) throw new Error('Workspace not found')
+  const targetNode = input.nodeId ? await getNode(input.nodeId) : null
+  if (input.nodeId && !targetNode) throw new Error('Import admission review metadata target node not found')
+  if (targetNode && targetNode.workspaceId !== input.workspaceId) {
+    throw new Error('Import admission review metadata target node does not belong to supplied workspace')
+  }
+  if (targetNode && targetNode.kind !== 'imported_base' && targetNode.kind !== 'imported_snapshot') {
+    throw new Error('Import admission review metadata can only be saved on imported source nodes')
+  }
+  const admissionSummary = targetNode?.kind === 'imported_snapshot'
+    ? targetNode.source?.admissionSummary
+    : !('kind' in workspace.source)
+      ? workspace.source.admissionSummary
+      : null
+  const disposition = assertValidImportAdmissionReviewDispositionForSave({
+    disposition: input.disposition,
+    admissionSummary,
+  })
+  const now = new Date().toISOString()
+
+  if (targetNode?.kind === 'imported_snapshot' && targetNode.source) {
+    const nextSource: ImportedNodeSource = {
+      ...targetNode.source,
+      admissionReviewDispositions: {
+        ...(targetNode.source.admissionReviewDispositions ?? {}),
+        [disposition.check_id]: disposition,
+      },
+    }
+    const nextNode: PortfolioNode = {
+      ...targetNode,
+      source: nextSource,
+    }
+    await withStore<void>(portfolioNodeStoreName, 'readwrite', (store, resolve, reject) => {
+      const request = store.put(nextNode)
+      request.onsuccess = () => resolve(undefined)
+      request.onerror = () => reject(request.error ?? new Error('Failed to save import admission review metadata'))
+    })
+    return { workspace, node: nextNode }
+  }
+
+  if ('kind' in workspace.source) {
+    throw new Error('Import admission review metadata requires an imported workspace source')
+  }
+
+  const nextWorkspace: PortfolioWorkspace = {
+    ...workspace,
+    updatedAt: now,
+    source: {
+      ...workspace.source,
+      admissionReviewDispositions: {
+        ...(workspace.source.admissionReviewDispositions ?? {}),
+        [disposition.check_id]: disposition,
+      },
+    },
+  }
+
+  await withStore<void>(workspaceStoreName, 'readwrite', (store, resolve, reject) => {
+    const request = store.put(nextWorkspace)
+    request.onsuccess = () => resolve(undefined)
+    request.onerror = () => reject(request.error ?? new Error('Failed to save import admission review metadata'))
+  })
+
+  return { workspace: nextWorkspace, node: targetNode }
 }
 
 export async function getWorkspaceNodes(workspaceId: string) {
   return withStore<PortfolioNode[]>(portfolioNodeStoreName, 'readonly', (store, resolve, reject) => {
     const index = store.index('workspaceId')
     const request = index.getAll(workspaceId)
-    request.onsuccess = () => resolve((request.result as PortfolioNode[]) ?? [])
+    request.onsuccess = () => resolve(((request.result as PortfolioNode[]) ?? []).map(sanitizePortfolioNodeForRead))
     request.onerror = () => reject(request.error ?? new Error('Failed to load workspace nodes'))
   })
 }
@@ -2880,6 +3179,7 @@ export async function saveImportedSnapshotNode(input: {
   importedFileNames: string[]
   historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
+  admissionSummary?: ImportAdmissionSummaryV1 | null
   name: string
 }) {
   const workspace = await getWorkspace(input.workspaceId)
@@ -2896,6 +3196,7 @@ export async function saveImportedSnapshotNode(input: {
     baseCurrency: input.portfolioSnapshot.baseCurrency,
     historyContext: input.historyContext ?? null,
     importedHistorySnapshot: input.importedHistorySnapshot ?? null,
+    admissionSummary: input.admissionSummary ?? (!('kind' in workspace.source) ? workspace.source.admissionSummary ?? null : null),
   })
 
   const node: PortfolioNode = {

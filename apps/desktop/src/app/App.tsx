@@ -13,7 +13,7 @@ import { desktopFeatureFlags } from './featureFlags'
 import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidation'
 import type { ConstructionArtifactPreviewHandoff, ConstructionArtifactReplayResponse, ConstructionArtifactReplayValidationResponse, DataQualityMonitorEvidenceSummary, HypotheticalReplayResponse, ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, BacktestRunResponse, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse, MonitoringResearchHandoff, MonitorDefinitionActiveAlertEpisodeInboxResponse, MonitorDefinitionActiveAlertEpisodeInboxRow, MonitorDefinitionAlertEpisodeHistoryResponse, MonitorDefinitionAlertEpisodeHistoryRow, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, MonitorDefinitionRecoveredAlertReviewQueueResponse, MonitorDefinitionRecoveredAlertReviewQueueRow, OptimizerHandoffReplayHandoff, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, PortfolioAllocationBacktestResponse, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from '../features/portfolio/types'
 import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, CandidateImprovementSeed, ConstructionConstraintValidationArtifact, ConstructedCandidateArtifact, FormedCandidateArtifact, HypotheticalReplacementReplayDraftArtifact, ImportedHistoryContext, ImportedHistorySource, IntentBoundSeededEtfReplacementRankingDraftArtifact, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, MonitorDefinitionAlertReviewSessionState, MonitorDefinitionAlertReviewTimelineSelection, MonitorDefinitionAlertReviewWorkspaceState, PersistedConstructionArtifactWorkspaceReview, PersistedOptimizerHandoffWorkspaceReview, PortfolioNode, PortfolioWorkspace, ReplacementIntentDraftArtifact, ReviewSnapshotArtifact, ReviewSnapshotOpenHandoff, SelectedConstructionRuleArtifact, VersionedProposalArtifact, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
-import { assertValidReviewSnapshotOpenResponseEnvelope, assertValidSavedProposalReviewSnapshotPMSummaryMirror, buildReviewSnapshotOpenHandoffFromProposal, buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveMonitorDefinitionAlertReviewWorkspaceState, saveProposalArtifact, saveReplacementIntentDraft, saveReviewSnapshotArtifact, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import { assertValidReviewSnapshotOpenResponseEnvelope, assertValidSavedProposalReviewSnapshotPMSummaryMirror, buildImportAdmissionSummaryFingerprint, buildImportSnapshotFingerprint, buildReviewSnapshotOpenHandoffFromProposal, buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportAdmissionReviewDisposition, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveMonitorDefinitionAlertReviewWorkspaceState, saveProposalArtifact, saveReplacementIntentDraft, saveReviewSnapshotArtifact, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 import type { WorkspaceResearchTool } from '../features/backtest/BacktestWorkspacePanel'
@@ -388,19 +388,23 @@ function getNodeImportSource(node: PortfolioNode | null, workspace: PortfolioWor
   return null
 }
 
-function getEffectiveNodeImportSource(node: PortfolioNode | null, nodes: PortfolioNode[], workspace: PortfolioWorkspace | null) {
+function getImportedSourceAnchorNode(node: PortfolioNode | null, nodes: PortfolioNode[], workspace: PortfolioWorkspace | null) {
   let current = node
   const nodeById = new Map(nodes.map((item) => [item.id, item]))
 
   while (current) {
-    const directSource = getNodeImportSource(current, workspace)
-    if (directSource) {
-      return directSource
+    if (getNodeImportSource(current, workspace)) {
+      return current
     }
     current = current.parentId ? (nodeById.get(current.parentId) ?? null) : null
   }
 
   return null
+}
+
+function getEffectiveNodeImportSource(node: PortfolioNode | null, nodes: PortfolioNode[], workspace: PortfolioWorkspace | null) {
+  const sourceAnchorNode = getImportedSourceAnchorNode(node, nodes, workspace)
+  return getNodeImportSource(sourceAnchorNode, workspace)
 }
 
 function getDirectNodeImportSource(node: PortfolioNode | null, workspace: PortfolioWorkspace | null) {
@@ -1814,6 +1818,15 @@ export function App() {
     importing: importingPortfolio || restoringPortfolio,
     importError,
   })
+  const dashboardImportAnchorNode = getImportedSourceAnchorNode(activeNode, workspaceNodes, activeWorkspace)
+  const dashboardImportSource = getNodeImportSource(dashboardImportAnchorNode, activeWorkspace)
+  const dashboardAdmissionSummary = dashboardImportSource?.admissionSummary ?? dashboardSession.result?.admission_summary ?? dashboardSession.admissionSummary
+  const dashboardAdmissionReviewDispositions = dashboardImportSource?.admissionReviewDispositions ?? {}
+  const dashboardAdmissionSnapshotFingerprint = buildImportSnapshotFingerprint({
+    portfolioSnapshot: dashboardImportAnchorNode?.portfolioSnapshot ?? null,
+    importedSource: dashboardImportSource,
+  })
+  const dashboardAdmissionSummaryFingerprint = buildImportAdmissionSummaryFingerprint(dashboardAdmissionSummary)
   const workspaceOwnedResearchSession = activeWorkspace
     ? workspaceOwnedResearchSessions[activeWorkspace.id] ?? createWorkspaceOwnedResearchSessionRecord()
     : null
@@ -3149,6 +3162,7 @@ export function App() {
           importedFileNames,
           historyContext: mergedHistoryContext,
           importedHistorySnapshot: null,
+          admissionSummary: nextAnalysis.admission_summary,
           name: buildImportedSnapshotName(nextAnalysis.snapshot),
         })
         setLoadedStatementFiles(files)
@@ -3217,6 +3231,10 @@ export function App() {
             exposureResult={dashboardSession.exposureResult}
             factorModel={dashboardSession.factorModel}
             activeNodeKind={dashboardSession.activeNodeKind}
+            admissionSummary={dashboardAdmissionSummary}
+            admissionReviewDispositions={dashboardAdmissionReviewDispositions}
+            admissionSnapshotFingerprint={dashboardAdmissionSnapshotFingerprint}
+            admissionSummaryFingerprint={dashboardAdmissionSummaryFingerprint}
             importing={dashboardSession.importing}
             importError={dashboardSession.importError}
             lastImportedFileNames={dashboardSession.lastImportedFileNames}
@@ -3229,6 +3247,19 @@ export function App() {
             onOpenDetailedReview={() => {
               if (!isDashboardDetailedReviewEligible(dashboardSession.result, dashboardSession.activeNodeKind)) return
               routeIntoWorkspace()
+            }}
+            onSaveAdmissionReviewDisposition={async (disposition) => {
+              if (!activeWorkspace) return
+              const saved = await saveImportAdmissionReviewDisposition({
+                workspaceId: activeWorkspace.id,
+                nodeId: dashboardImportAnchorNode?.id ?? null,
+                disposition,
+              })
+              setActiveWorkspace(saved.workspace)
+              if (saved.node) {
+                setWorkspaceNodes((nodes) => nodes.map((node) => node.id === saved.node?.id ? saved.node : node))
+                if (saved.node.id === activeNode?.id) setActiveNode(saved.node)
+              }
             }}
           />
         </section>

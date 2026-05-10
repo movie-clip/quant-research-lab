@@ -50,6 +50,7 @@ quant-research-lab/
       dashboard-fields.md
       exposure-fields.md
       backtest-fields.md
+      import-admission-fields.md
   scripts/
   data/
 ```
@@ -73,6 +74,8 @@ Core docs:
   - exposure and diagnostics field traceability
 - `docs/contracts/backtest-fields.md`
   - backtest, replay, optimizer handoff, and construction replay field traceability
+- `docs/contracts/import-admission-fields.md`
+  - import admission summary and desktop-local review disposition boundaries
 
 Rule:
 - keep shipped-state detail in `docs/product/current-product-state.md`
@@ -86,6 +89,7 @@ The project follows these rules:
 - imported broker truth, snapshot current-state analytics, synthetic history, persisted construction artifacts, optimizer previews, and hypothetical replay must remain clearly separated
 - return-based paths must expose trust explicitly through verification, degradation, withholding, or unavailability semantics
 - if a financially meaningful result cannot be supported faithfully, the system should degrade or withhold explicitly rather than fabricate plausible values
+- import admission summaries are read-only evidence, and desktop-local admission review dispositions do not mutate broker truth, trust, admission state, imported values, or workspace creation
 
 See:
 - `docs/finance/financial-methodology.md`
@@ -97,6 +101,7 @@ See:
 - import broker statements
 - normalize positions, balances, and ledger activity
 - reconstruct portfolio truth and history context
+- surface read-only import admission evidence with finite-only numeric checks; optional reviewer dispositions stay desktop-local and non-trust-changing
 
 ### 2. Portfolio Intelligence
 - analyze holdings, look-through exposure, benchmark overlap, factors, volatility, drawdown, and concentration

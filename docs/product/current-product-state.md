@@ -14,6 +14,12 @@ Forward-looking epic execution status belongs in `docs/product/epic-roadmap.md`.
 ### Portfolio truth and current-state analysis
 
 - broker import, workspace snapshots, immutable saved nodes, and working drafts are shipped product behavior
+- imported bootstrap responses include a read-only `ImportAdmissionSummaryV1`, and the desktop Dashboard renders an `Import Admission` card for residual cash, symbol/security identity, parsed position market-value, and NAV/market-value checks
+- admission evidence is finite-only: non-finite imported numeric inputs degrade to unavailable evidence instead of emitting `NaN`/`Infinity` in observed, comparison, or delta fields
+- desktop-local `ImportAdmissionReviewDispositionV1` metadata is shipped for reviewer rationale and disposition on non-pass checks; it stays outside imported snapshot/admission-summary payloads and has no backend persistence endpoint
+- local admission review metadata is sanitized at runtime load/build boundaries without read-time IndexedDB rewrite; valid stale fingerprints are preserved for labels, while malformed records, pass-status evidence, unknown extras, and non-finite captured numeric evidence are dropped from returned clones
+- saving local admission review metadata requires captured evidence to match the current non-pass check evidence after null/default normalization; stale or mismatched fingerprints remain stale-labeling evidence only and do not block saving when current evidence matches
+- import admission and local review metadata never mutate broker truth, admission state, trust level, workspace creation, imported values, derived portfolio truth, silent fixes, reconstructed trades, tax lots, or corporate actions
 - exposure, diagnostics, dashboard-history, and replay contracts now use explicit trust semantics instead of generic missing-data language
 - shipped trust states distinguish verified paths, degraded unverified return-basis paths, explicit investor-economics withholding, and true unavailability
 - `investor_economics_status = withheld` is baseline shipped behavior when broader evidence exists but total-return-equivalent claims are not justified
@@ -157,6 +163,7 @@ Forward-looking epic execution status belongs in `docs/product/epic-roadmap.md`.
 - active alert-episode discovery is now also backend-rooted: the shipped active inbox wraps authoritative persisted open episode records only, preserves explicit lifecycle/provenance/order semantics, and uses only persisted episode and timeline ids to reopen the existing definition-scoped review surfaces
 
 - workspace state restores on launch from local persistence when available
+- import admission review dispositions are desktop-local metadata anchored to the imported source node; derived nodes may display inherited admission evidence, but saving dispositions updates only the imported-source local metadata anchor
 - saved nodes are immutable portfolio-truth snapshots; review artifacts are separate from those snapshots
 - seeded candidate metadata, replacement intent, formed candidates, constructed candidates, selected construction rules, hypothetical replays, persisted construction references, optimizer handoffs, and saved proposals all preserve explicit lineage boundaries
 - desktop persisted optimizer handoff review state now writes canonical `handoffReference` reopen state only; any legacy cache repair is limited to load-time normalization

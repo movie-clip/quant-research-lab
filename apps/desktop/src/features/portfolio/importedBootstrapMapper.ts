@@ -37,6 +37,7 @@ export function projectImportedBootstrap(bootstrap: ImportedBootstrapResponse): 
       snapshot: bootstrap.snapshot,
       overview: bootstrap.overview,
       risk_summary: bootstrap.risk_summary,
+      admission_summary: bootstrap.admission_summary,
       benchmark: null,
     },
     historyContext: mapImportedHistoryContextToWorkspace(bootstrap.history_context ?? null),

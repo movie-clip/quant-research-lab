@@ -1,4 +1,4 @@
-import type { ConstructionArtifactReplayResponse, HypotheticalReplayResponse, ImportedStatementImporter, ImportedSnapshot, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, RankingArtifactKind, RankingArtifactOpenHandoff, RankingArtifactReviewPayloadKind, RankingArtifactSchemaVersion, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
+import type { ConstructionArtifactReplayResponse, HypotheticalReplayResponse, ImportAdmissionReviewDispositionV1, ImportAdmissionSummaryV1, ImportedStatementImporter, ImportedSnapshot, MonitorDefinitionAlertReviewTimelineHistoryRow, MonitorDefinitionAlertReviewTimelineObservationRow, MonitorDefinitionAlertReviewTimelineResponse, MonitorDefinitionEvaluationHistoryEntryResponse, MonitorDefinitionObservationArtifact, OptimizerHandoffReplayResponse, OptimizerHandoffValidationResponse, OptimizerPersistedArtifactReference, RankingArtifactKind, RankingArtifactOpenHandoff, RankingArtifactReviewPayloadKind, RankingArtifactSchemaVersion, SingleReplacementCandidateConstructionResponse, SingleReplacementCandidateFormationResponse, SingleReplacementConstructionConstraintValidationResponse, SingleReplacementConstructionRuleId } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -70,6 +70,8 @@ export type ImportedNodeSource = {
   importer: ImportedStatementImporter | null
   baseCurrency: string | null
   historySource: ImportedHistorySource
+  admissionSummary?: ImportAdmissionSummaryV1 | null
+  admissionReviewDispositions?: Record<string, ImportAdmissionReviewDispositionV1>
 }
 
 export type DesktopArtifactReviewBasis = {

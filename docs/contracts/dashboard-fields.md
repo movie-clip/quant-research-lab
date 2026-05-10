@@ -132,6 +132,19 @@ Investor-economics withholding rule:
 - `unavailable-required`
   - must show `n/a`, hidden state, or an unavailable panel when the required history/source is missing or unreliable
 
+## Import Admission
+
+Dashboard may display import-admission evidence attached to imported bootstrap responses, but `docs/contracts/import-admission-fields.md` remains the detailed contract.
+
+| Dashboard display | Source field | Boundary |
+| --- | --- | --- |
+| Admission decision | `admission_summary.decision` | read-only evidence for imported broker-truth; never mutates imported values or derived portfolio truth |
+| Trust level | `admission_summary.trust_level` | follows platform trust semantics and may only communicate verification/degradation/withholding/unavailability |
+| Check rows | `admission_summary.checks[*]` | observed/comparison/delta evidence must be finite numeric values when present; missing or non-finite evidence is unavailable/degraded, not fabricated |
+| Local review display | desktop-local `ImportAdmissionReviewDispositionV1` metadata | local-only reviewer notes for non-pass checks; non-mutating, read-only for Dashboard, and not persisted through any backend endpoint |
+
+Import admission is informational on Dashboard: workspace creation is non-blocking, review metadata cannot upgrade trust or change broker truth, and no backend persistence endpoint exists for local review dispositions.
+
 ## Field Inventory
 
 ### Header and account metadata

@@ -15,6 +15,8 @@ The project is split into a desktop application and a local quant engine.
 
 The desktop app should treat the quant engine as the source of truth for portfolio calculations.
 
+Import admission has a narrower split: the quant engine emits read-only `ImportAdmissionSummaryV1` evidence in imported bootstrap responses, while optional `ImportAdmissionReviewDispositionV1` reviewer dispositions remain desktop-local metadata only. There is no backend persistence endpoint for those dispositions, and neither the summary nor local dispositions mutate broker truth, admission state, trust level, imported values, derived portfolio truth, or workspace creation.
+
 ## Core Architecture Rules
 
 - deterministic outputs over hidden heuristics
@@ -132,6 +134,8 @@ Future normalized API groups should preserve, not hide, the current artifact sea
 4. persist snapshot as local truth in the desktop workspace model
 5. call dedicated engines for diagnostics, ranking, construction, replay, optimizer preview, and monitoring as appropriate
 6. send derived outputs to the UI with explicit provenance and trust metadata
+
+Import admission evidence is finite-only for numeric observed, comparison, and delta fields. Non-finite imported numeric inputs degrade to unavailable evidence rather than serializing `NaN` or `Infinity`. Desktop read/build paths may return sanitized clones of local review metadata without rewriting IndexedDB; save paths must match captured evidence against the current non-pass check evidence.
 
 ### Ranking, construction, optimizer, and replay
 

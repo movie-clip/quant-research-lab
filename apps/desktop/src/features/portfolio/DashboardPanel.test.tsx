@@ -38,6 +38,12 @@ describe('DashboardPanel', () => {
 
     expect(screen.getByText('Account overview').closest('article')?.className.includes('dashboard-panel')).toBe(true)
     expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy()
+    expect(screen.getByLabelText('Import Admission')).toBeTruthy()
+    expect(screen.getByText('Read-only admission summary. Review metadata is local only and does not change admission, trust, or imported values.')).toBeTruthy()
+    expect(screen.getByText('Residual cash')).toBeTruthy()
+    expect(screen.getByText('Symbol identity')).toBeTruthy()
+    expect(screen.getByText('NAV / market value')).toBeTruthy()
+    expect(screen.getByText('Open positions lack imported instrument identity for: AAPL, MSFT.')).toBeTruthy()
     expect(screen.getByText('Freshness And Coverage Readiness')).toBeTruthy()
     expect(screen.getByLabelText('Dense Insight Strip')).toBeTruthy()
     expect(screen.getByLabelText('Exposure Highlights')).toBeTruthy()
@@ -219,6 +225,111 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Loaded file: IB2025.pdf')).toBeTruthy()
     expect(screen.getByText('Restored on launch')).toBeTruthy()
     expect(screen.queryByText('Detailed review')).toBeNull()
+  })
+
+  it('renders unavailable admission summary when evidence has not loaded', () => {
+    render(<DashboardPanel result={null} />)
+
+    const admissionShell = screen.getByLabelText('Import Admission')
+    expect(within(admissionShell).getAllByText('unavailable').length).toBeGreaterThan(0)
+    expect(within(admissionShell).getAllByText('impact unavailable')).toHaveLength(4)
+    expect(within(admissionShell).getAllByText('Evidence unavailable for this admission check.')).toHaveLength(4)
+  })
+
+  it('saves review metadata for a non-pass admission check without changing admission state', () => {
+    const onSave = vi.fn()
+    render(<DashboardPanel result={mockDashboardView} onSaveAdmissionReviewDisposition={onSave} admissionSnapshotFingerprint="snapshot:current" admissionSummaryFingerprint="summary:current" />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Review exception' })[0])
+    fireEvent.change(screen.getByLabelText('Residual cash review rationale'), { target: { value: 'Broker statement omits ending cash in this export.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save review metadata' }))
+
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      schema_version: 'import_admission_review_disposition_v1',
+      check_id: 'residual_cash_comparability',
+      disposition: 'accepted_known_exception',
+      rationale: 'Broker statement omits ending cash in this export.',
+      snapshot_fingerprint: 'snapshot:current',
+      admission_summary_fingerprint: 'summary:current',
+      evidence_summary: {
+        status: 'unavailable',
+        trust_impact: 'degraded',
+      },
+    })
+    expect(screen.getAllByText('degraded').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('impact degraded').length).toBeGreaterThan(0)
+  })
+
+  it('does not show review actions for pass admission checks', () => {
+    const passSummary = {
+      ...mockDashboardView.admission_summary!,
+      checks: mockDashboardView.admission_summary!.checks.map((check) => ({ ...check, status: 'pass' as const, trust_impact: 'none' as const })),
+    }
+
+    render(<DashboardPanel result={{ ...mockDashboardView, admission_summary: passSummary }} />)
+
+    expect(screen.queryByRole('button', { name: 'Review exception' })).toBeNull()
+  })
+
+  it('uses anchored admission summary prop over conflicting result admission summary', () => {
+    const anchoredPassSummary = {
+      ...mockDashboardView.admission_summary!,
+      decision: 'admitted' as const,
+      trust_level: 'verified' as const,
+      checks: mockDashboardView.admission_summary!.checks.map((check) => ({ ...check, status: 'pass' as const, trust_impact: 'none' as const })),
+    }
+
+    render(<DashboardPanel result={mockDashboardView} admissionSummary={anchoredPassSummary} />)
+
+    const admissionShell = screen.getByLabelText('Import Admission')
+    expect(within(admissionShell).getByText('admitted')).toBeTruthy()
+    expect(within(admissionShell).getAllByText('verified').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Review exception' })).toBeNull()
+  })
+
+  it('blocks empty review rationale', () => {
+    const onSave = vi.fn()
+    render(<DashboardPanel result={mockDashboardView} onSaveAdmissionReviewDisposition={onSave} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Review exception' })[0])
+
+    expect(screen.getByRole('button', { name: 'Save review metadata' }).hasAttribute('disabled')).toBe(true)
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('shows saved and stale review metadata when fingerprints differ', () => {
+    const check = mockDashboardView.admission_summary!.checks.find((candidate) => candidate.status !== 'pass') ?? mockDashboardView.admission_summary!.checks[0]
+    if (check.status === 'pass') throw new Error('expected non-pass admission check fixture')
+    render(
+      <DashboardPanel
+        result={mockDashboardView}
+        admissionSnapshotFingerprint="snapshot:current"
+        admissionSummaryFingerprint="summary:current"
+        admissionReviewDispositions={{
+          [check.check_id]: {
+            schema_version: 'import_admission_review_disposition_v1',
+            check_id: check.check_id,
+            disposition: 'needs_source_correction',
+            rationale: 'Need a corrected export from source records.',
+            reviewed_at: '2026-04-11T00:00:00Z',
+            reviewer_label: 'local reviewer',
+            snapshot_fingerprint: 'snapshot:old',
+            admission_summary_fingerprint: 'summary:old',
+            evidence_summary: {
+              status: check.status,
+              trust_impact: check.trust_impact,
+              message: check.message,
+              affected_fields: check.affected_fields ?? [],
+            },
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/Review metadata: Needs source correction by local reviewer/)).toBeTruthy()
+    expect(screen.getByText(/stale/)).toBeTruthy()
+    expect(screen.getByText('Rationale: Need a corrected export from source records.')).toBeTruthy()
   })
 
   it('shows stale and partial states without surfacing deeper analytics', () => {

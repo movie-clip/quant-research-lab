@@ -19,6 +19,7 @@ export type DashboardSession = {
   factorModel: ExposureFactorModelResponse | null
   detailEligible: boolean
   activeNodeKind: PortfolioNode['kind'] | null
+  admissionSummary: DashboardAnalysis['admission_summary'] | null
   lastImportedFileNames: string[]
   restoredSession: boolean
   importing: boolean
@@ -46,6 +47,7 @@ export function composeDashboardSession(input: DashboardSessionInput): Dashboard
     factorModel: input.factorModel,
     detailEligible: isDashboardDetailedReviewEligible(input.result, activeNode?.kind),
     activeNodeKind: input.activeNode?.kind ?? null,
+    admissionSummary: input.result?.admission_summary ?? (!activeNode || !('kind' in (activeNode.source ?? {})) ? activeNode?.source?.admissionSummary ?? null : null),
     lastImportedFileNames: input.lastImportedFileNames,
     restoredSession: input.restoredSession,
     importing: input.importing,
