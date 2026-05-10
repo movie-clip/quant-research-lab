@@ -1859,6 +1859,7 @@ export type ConstructionRankingArtifactPreflightContractVersion = 'construction_
 export type ConstructionRankingArtifactHandoffKind =
   | 'etf_ranking_artifact_construction_handoff_v1'
   | 'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1'
+  | 'generic_ranking_artifact_construction_handoff_v1'
 
 export type ConstructionRankingArtifactPreflightArtifact = {
   artifact_kind: RankingArtifactKind
@@ -1899,9 +1900,20 @@ export type IntentBoundEtfReplacementRankingArtifactConstructionHandoff = {
   as_of_date: string
 }
 
+export type GenericRankingArtifactConstructionHandoff = {
+  handoff_kind: 'generic_ranking_artifact_construction_handoff_v1'
+  artifact_kind: 'generic_ranking'
+  artifact_id: string
+  schema_version: 'generic_ranking_artifact_v1'
+  ranking_id: string
+  methodology_id: string
+  as_of_date: string
+}
+
 export type ConstructionRankingArtifactHandoff =
   | EtfRankingArtifactConstructionHandoff
   | IntentBoundEtfReplacementRankingArtifactConstructionHandoff
+  | GenericRankingArtifactConstructionHandoff
 
 export type ConstructionRankingArtifactPreflightResponse = {
   contract_version: ConstructionRankingArtifactPreflightContractVersion

@@ -13,7 +13,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
-| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
+| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform + construction eligibility shipped | Workspace Candidate Idea browser integration for generic_ranking | Surface "Review In Construction" CTA on Generic Ranking tab + add generic_ranking to Workspace Candidate Idea browser | 2026-05-10 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
@@ -32,7 +32,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 - Current sequence: `Epic 2 -> Epic 3 -> Epic 4`, while `Epic 1` remains the foundational guardrail.
 - Epic 3 is phase closed / guardrail-complete for this phase; remaining construction and optimizer work is breadth expansion rather than guardrail closeout.
 - Epic 4 is phase closed / stabilized for this phase; remaining monitoring and overlay work is breadth expansion rather than closeout work.
-- Biggest current gap: ranking is still too ETF-centric relative to the target methodology platform.
+- Biggest current gap: generic_ranking artifacts are not yet construction-eligible; the new `Generic Ranking` tab is a standalone surface and does not flow into Workspace Candidate Idea or persisted construction review. Closing this gap is the next planned slice and crosses Epic 2 → Epic 3.
 
 ## Epic 1. Imported-Portfolio Truth and Reconciliation Guard
 
@@ -90,6 +90,9 @@ Generalize ranking into a broader methodology platform with explicit selection g
 - Persisted intent-bound replacement ranking artifacts are shipped.
 - Generalized ranking artifact catalog and recent discovery are shipped backend capabilities.
 - Desktop can reopen recent ETF ranking runs and carry selected ranking artifacts into review.
+- **Generic ranking platform (`generic_ranking` artifact kind) is shipped**: backend `POST /strategy-lab/ranking/run`, `GET /strategy-lab/ranking/artifacts/recent`, `GET /strategy-lab/ranking/artifacts/{artifact_id}`; desktop `Generic Ranking` tab with universe spec, score config presets, and persisted run reload; cross-kind catalog now surfaces generic_ranking alongside ETF and replacement artifacts.
+- **Generic ranking factor coverage**: 11 price-bar factors (momentum, volatility, drawdown, liquidity) + 8 fundamental factors (4 quality via Novy-Marx/Sloan/AQR formulas, 4 value via FMP TTM ratios — Greenblatt/Fama-French).
+- **Generic ranking universe coverage**: `etf_peer_group`, `custom_list`, `broad_equity_screen`, `sector_screen`, and `index_constituent` (S&P 500 via FMP `/stable/sp500-constituent`).
 
 ### Target state
 
@@ -99,7 +102,7 @@ Generalize ranking into a broader methodology platform with explicit selection g
 ### Open gaps
 
 - Desktop still leans on ETF-native recent discovery instead of the generalized ranking-artifact path.
-- Generalized ranking remains narrow in visible desktop workflow.
+- **Generic ranking artifacts are NOT yet construction-eligible** — construction preflight allowlist is still `etf_ranking` + `intent_bound_etf_replacement_ranking` only. Generic ranking artifacts can be created and reviewed in their own tab but cannot hand off to construction review or appear in Workspace Candidate Idea.
 - Selection guardrails and broader ranking families are not yet productized.
 
 ### Planned slices
@@ -109,7 +112,9 @@ Generalize ranking into a broader methodology platform with explicit selection g
 - `Shipped`: persisted ETF ranking artifacts can now hand off into persisted construction review through canonical construction preflight plus construction run, exposed from both ETF Ranking and Workspace Candidate Idea while remaining ETF-only in this slice.
 - `Shipped`: persisted intent-bound ETF replacement ranking artifacts can now also hand off into persisted construction review through the same canonical construction preflight plus construction run seam, while remaining replacement-family-only in this slice.
 - `Shipped`: construction preflight for the two supported ranking families now returns typed eligibility/readiness semantics, so desktop can distinguish supported-but-ineligible artifacts from malformed or unsupported artifact states before `Review In Construction`.
-- Next: broaden supported ranking families only after explicit selection-readiness semantics stay clear.
+- `Shipped` (Phase 1, PR #2): generic_ranking artifact kind, UniverseSpec, versioned ScoreConfig with content-addressed digest, EligibilityRecord, CompositeScoreTrace, fail-closed validation, recent-index discovery, desktop Generic Ranking tab.
+- `Shipped` (Phase 2, PR #3): index_constituent universe (S&P 500), 8 fundamental factor IDs (quality + value), FMP `get_ratios_ttm`/`get_key_metrics_ttm`/`get_sp500_constituents` methods, cross-kind catalog inclusion of generic_ranking, graceful degradation when fundamental factors requested without FMP key.
+- Next: **construction eligibility expansion** — add `generic_ranking` to the construction preflight allowlist, expose `Review In Construction` from Generic Ranking results, surface generic_ranking in Workspace Candidate Idea browser. This closes the dead-end currently isolating Generic Ranking from the portfolio improvement workflow.
 
 ### Dependencies
 
@@ -263,6 +268,81 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Tests/evidence:
   - `apps/desktop/src/app/portfolioWorkspaceStorage.test.ts`
   - `apps/desktop/src/features/portfolio/DashboardPanel.test.tsx`
+
+### 2026-05-10 - Epic 2 → Epic 3 generic_ranking construction eligibility shipped
+
+- Epic: `2. Ranking and selection methodology guard` → `3. Construction and optimizer methodology guard` (cross-epic slice)
+- Slice: extend the construction-eligibility allowlist to accept `generic_ranking` artifacts.
+- Status: shipped (backend + TS contract validators).
+- Scope delivered:
+  - new `GenericRankingArtifactConstructionHandoff` schema (handoff_kind `generic_ranking_artifact_construction_handoff_v1`)
+  - new `GenericRankingConstructionPreflightArtifact` schema; `ConstructionRankingArtifactPreflightArtifactUnion` discriminator extended
+  - `ConstructionRankingArtifactHandoffKind` Literal extended with `generic_ranking_artifact_construction_handoff_v1`
+  - `prepare_generic_ranking_artifact_for_construction()` + `build_construction_preflight_response_from_generic_ranking_artifact()` in `construction_run_service.py`
+  - `_build_ranked_candidates_from_generic_ranking_artifact()` mapping `EligibilityRecord` → `ConstructionRankedCandidateInput`; surfaces `hard_filter_failures` joined as `exclusion_reason` on excluded rows
+  - `preflight_generic_ranking_artifact_for_construction()` in `construction_ranking_handoff_service.py`
+  - `POST /construction/ranking-artifacts/preflight/{artifact_id}` route now dispatches `generic_ranking` artifact-id prefix; previously raised `unsupported ranking artifact kind` fail-closed
+  - `POST /construction/run` now accepts `generic_ranking_artifact_construction_handoff_v1` handoffs and validates lineage (artifact_id, schema_version, ranking_id, methodology_id, as_of_date) plus eligibility
+  - error class hierarchy extended: `GenericRankingMissingFileError` → 404; other generic ranking persistence errors → 400
+  - desktop `rankingArtifactConstructionHandoff.ts` validator and `types.ts` extended with `generic_ranking_artifact_construction_handoff_v1` handoff kind support
+  - autouse pytest fixture refactored to use `tmp_path_factory` (avoids polluting per-test `tmp_path` for tests that assert it stays empty)
+- Guard impact:
+  - closes Epic 2's actual next-slice gap: `generic_ranking` artifacts can now flow into the persisted construction review path through the same canonical preflight + run boundary used by ETF and replacement ranking artifacts.
+  - explicit two-then-three-kind allowlist remains; no silent generalization to arbitrary artifact families.
+  - excluded rows surface `hard_filter_failures` rather than being silently dropped, preserving generic_ranking's per-instrument `EligibilityRecord` truth through the construction boundary.
+  - Workspace Candidate Idea browser integration for `generic_ranking` is NOT in this slice; it remains a follow-up (the standalone `Generic Ranking` desktop tab is still the only UI entry point for now).
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_construction_generic_ranking_handoff.py` (10 tests)
+  - all existing construction tests still pass (178/178 in the construction + generic_ranking subsets)
+- Next slice: surface `Review In Construction` CTA on the Generic Ranking desktop tab and add `generic_ranking` to Workspace Candidate Idea browser, so the eligibility expansion becomes user-visible end-to-end.
+
+### 2026-05-10 - Epic 2 generic_ranking platform Phase 1 shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: introduce `generic_ranking` artifact kind as the first non-ETF ranking family on the generalized platform.
+- Status: shipped (PR #2).
+- Scope delivered:
+  - new Pydantic schemas: `GenericRankingRequest`, `GenericRankingArtifact`, `UniverseSpec`, versioned `ScoreConfig` with content-addressed `score_config_digest`, `EligibilityRecord` (hard_filter_failures + soft_filter_flags), `CompositeScoreTrace` (per-factor cross-sectional mean/std).
+  - 11 supported factor IDs (price-bar based): momentum (1m/3m/6m/12m/blended), realized_volatility (126d/252d), downside_volatility_126d, max_drawdown (126d/252d), liquidity_60d.
+  - 3 universe kinds: `etf_peer_group`, `custom_list`, `broad_equity_screen`/`sector_screen` (FMP `/stock-screener`).
+  - 3 new routes: `POST /strategy-lab/ranking/run`, `GET /strategy-lab/ranking/artifacts/recent`, `GET /strategy-lab/ranking/artifacts/{artifact_id}`.
+  - `RankingArtifactKind` registry extended with `generic_ranking` and discovery filter set.
+  - Content-addressed artifact persistence with write-once + fail-closed integrity validation; recent.jsonl index.
+  - Desktop: new `Generic Ranking` tab with universe spec form, score config preset selector (Momentum+Volatility, Pure Momentum), ranked results table with confidence badges and per-factor component scores, recent runs panel.
+  - Contract docs: `docs/contracts/generic-ranking-fields.md` covering all 7 contract surfaces.
+- Guard impact:
+  - extends ranking platform beyond the ETF-only and intent-bound replacement families per Epic 2 target state.
+  - keeps ETF/replacement routes and artifacts unchanged (zero backward-compat breakage).
+  - Generic ranking artifacts NOT yet construction-eligible; `Generic Ranking` tab is currently a standalone surface with no Workspace handoff.
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_generic_ranking.py` (23 tests)
+  - `apps/desktop/src/features/generic-ranking/GenericRankingRequestForm.test.tsx`
+- Next slice: Phase 2 (factor + universe coverage expansion).
+
+### 2026-05-10 - Epic 2 generic_ranking factor + universe + catalog expansion shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: extend generic_ranking with quality + value factors, S&P 500 universe, and cross-kind catalog inclusion.
+- Status: shipped (PR #3).
+- Scope delivered:
+  - 8 new fundamental factor IDs:
+    - quality (4): `quality_profitability` (Novy-Marx gross profitability w/ EBIT fallback), `quality_cash_generation` (OCF/assets w/ FCF fallback), `quality_accrual` (Sloan), `quality_leverage` (net leverage).
+    - value (4): `value_earnings_yield` (Greenblatt EBIT/EV), `value_book_to_market` (1/PB), `value_fcf_yield`, `value_ev_ebitda_inverse`.
+  - new universe kind `index_constituent` with `IndexId='sp500'` resolved live via FMP `/stable/sp500-constituent`; optional sector include/exclude filters.
+  - FMP client methods added: `get_ratios_ttm()`, `get_key_metrics_ttm()`, `get_sp500_constituents()`.
+  - cross-kind catalog (`/strategy-lab/ranking-artifacts/catalog` and `/recent`) now surfaces generic_ranking artifacts alongside ETF and replacement; new `RankingArtifactCatalogGenericSummary` schema; 7 mechanical changes in `RankingArtifactCatalogService`.
+  - graceful degradation: when fundamentals requested without FMP key, service emits warning rather than failing; confidence drops to `partial`.
+  - desktop: 3 new score config presets (Quality, Value, Quality+Value Composite), index_constituent universe option with index dropdown.
+  - autouse pytest fixture isolates generic_ranking artifact store per test (prevents leakage into ETF catalog tests).
+- Guard impact:
+  - broadens factor and universe coverage on the generic_ranking surface only; ETF and replacement contracts unchanged.
+  - Russell 1000 universe deferred (no FMP endpoint; needs IWB ETF holdings CSV ingestion).
+  - sentiment factors deferred (needs Alpha Vantage client).
+  - generic_ranking still not in construction-eligibility allowlist (next slice).
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_generic_ranking_phase2.py` (19 tests)
+  - `services/quant-engine/app/tests/conftest.py` (test isolation fixture)
+- Next slice: construction eligibility expansion — add `generic_ranking` to construction preflight allowlist + Workspace Candidate Idea browser + `Review In Construction` CTA.
 
 ### 2026-05-08 - Epic 4 persisted monitoring discipline overview shipped
 

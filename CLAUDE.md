@@ -97,39 +97,35 @@ Trust semantics for data availability: `verified > degraded > withheld > unavail
 3. **Contract sync**: `services/quant-engine/app/schemas/` is the source of truth. Desktop types in `apps/desktop/src/` must match. `docs/contracts/` must reflect both.
 4. **No execution**: Optimizer and overlay workflows are hypothetical previews only. The system never places trades or moves money.
 
-Reference `.opencode/skills/` for detailed guardrail checklists:
-- `artifact-workflow-guard.md` — artifact lineage + replay boundaries
-- `quant-contract-sync.md` — schema → desktop type → docs sync
-- `portfolio-analytics-guard.md` — analytics methodology + benchmark separation
+## Project Skills
 
-## Multi-Agent Orchestration
+Domain expertise is loaded on-demand via skills under `.claude/skills/`. Each skill ships its own non-negotiable rules and validation commands. Invoke the relevant skill when the work shifts focus — they're free until used.
 
-Agent teams are enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`). Specialist agents are defined in `.claude/agents/`. Spawn them when tasks are naturally parallelizable or require deep domain focus.
+| Skill | Trigger |
+|-------|---------|
+| `financial-research` | Factor methodology, FMP/Alpha Vantage data sourcing, universe definitions, quant literature, citing academic precedent |
+| `contract-sync` | After any Pydantic schema change — keep schemas ↔ TS types ↔ docs/contracts/ aligned |
+| `testing-triage` | When tests fail, when adding coverage, or when verifying a refactor didn't regress |
+| `artifact-workflow` | Creating/loading/extending persisted artifacts in `data/artifacts/`; content-addressed IDs, fingerprint scheme, fail-closed validation |
+| `portfolio-analytics` | Portfolio risk, performance, volatility, drawdown, factor analytics; cash-flow-neutral basis, benchmark separation, methodology preservation |
 
-### When to Spawn Specialist Agents
+The base CLAUDE.md (this file) covers always-on conventions: tech stack, file layout, dev commands, truth classes, and the 4 core guardrails.
 
-| Scenario | Agents to spawn |
-|----------|-----------------|
-| New API endpoint + matching frontend | `quant-engine` + `frontend` in parallel |
-| Schema change | `quant-engine` + `contract-sync` sequentially, then `frontend` |
-| ETF ranking research | `financial-research` independently |
-| Test failures across both services | `testing` independently |
-| Large refactor touching both layers | `quant-engine` + `frontend` in parallel |
+## Backend Conventions (services/quant-engine/)
 
-### Spawning Pattern
+- **Schemas first**: `app/schemas/` is the contract source of truth. Change schemas before changing routes or business logic.
+- **Market data via FMP client**: `app/clients/fmp.py` handles caching. Never call FMP directly from routes.
+- **Trust semantics**: Every field that can be missing carries a trust level (`verified`, `degraded`, `withheld`, `unavailable`). Never fabricate.
+- **Truth class separation**: Broker truth, snapshot analytics, synthetic history, persisted artifacts, optimizer previews, and replay are distinct. Never mix in one response.
+- **Route pattern**: Check existing routes in `app/api/routes/` before adding new. Schemas → service → route → register in `app/main.py` → tests in `app/tests/`.
 
-```
-Spawn a quant-engine specialist to add the new /overlay/stress-test route,
-and a frontend specialist to wire it up in the strategy-lab feature — run in parallel.
-```
+## Frontend Conventions (apps/desktop/)
 
-### Agent Capabilities
-
-- **quant-engine**: Python/FastAPI backend, analytics, schemas, importers, backtests
-- **frontend**: React/TypeScript/Tauri desktop, all features under apps/desktop/
-- **financial-research**: Market data via Alpha Vantage MCP + web search; ETF/factor analysis
-- **testing**: Test suite health across both services; runs + fixes failing tests
-- **contract-sync**: Keeps schemas ↔ desktop types ↔ docs/contracts/ synchronized
+- **Types mirror backend schemas exactly**: When schemas change, update TS types — invoke `contract-sync` skill.
+- **Trust levels rendered visibly**: Never silently suppress `withheld` or `degraded` — show the badge.
+- **Feature isolation**: Each `features/<name>/` owns its components/hooks/types; cross-feature sharing only via `app/store/` and `app/types/`.
+- **No fabrication**: If data is `null`/`unavailable`, render the unavailable state, never zero or placeholder.
+- **Stores in `app/store/`**: Use existing patterns; check before adding new state slices.
 
 ## MCP Capabilities
 

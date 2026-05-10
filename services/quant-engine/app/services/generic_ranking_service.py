@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 
 GENERIC_RANKING_METHODOLOGY_ID = "generic_ranking_methodology_v1"
 
-# ── Factor ID set supported in Phase 1 ───────────────────────────────────────
+# ── Phase 1 factor IDs (price-bar based) ─────────────────────────────────────
 
-SUPPORTED_FACTOR_IDS = frozenset(
+PRICE_FACTOR_IDS = frozenset(
     [
         "momentum_1m",
         "momentum_3m",
@@ -45,7 +45,31 @@ SUPPORTED_FACTOR_IDS = frozenset(
     ]
 )
 
-# How many monthly bars each factor needs:
+# ── Phase 2 factor IDs (fundamental data based) ──────────────────────────────
+
+QUALITY_FACTOR_IDS = frozenset(
+    [
+        "quality_profitability",   # gross profit / total assets, fallback EBIT/assets
+        "quality_cash_generation", # OCF / total assets, fallback FCF/assets
+        "quality_accrual",         # (NI - OCF) / assets — Sloan, lower_is_better
+        "quality_leverage",        # (debt - cash) / assets — net leverage, lower_is_better
+    ]
+)
+
+VALUE_FACTOR_IDS = frozenset(
+    [
+        "value_earnings_yield",     # EBIT / EV (Greenblatt)
+        "value_book_to_market",     # 1 / P/B (Fama-French)
+        "value_fcf_yield",          # FCF / market cap
+        "value_ev_ebitda_inverse",  # 1 / (EV/EBITDA)
+    ]
+)
+
+FUNDAMENTAL_FACTOR_IDS = QUALITY_FACTOR_IDS | VALUE_FACTOR_IDS
+
+SUPPORTED_FACTOR_IDS = PRICE_FACTOR_IDS | FUNDAMENTAL_FACTOR_IDS
+
+# How many monthly bars each price-based factor needs:
 FACTOR_LOOKBACK_MONTHS: dict[str, int] = {
     "momentum_1m": 2,
     "momentum_3m": 4,
@@ -159,6 +183,191 @@ def _compute_raw_value(factor_id: str, bars: list[BarRecord]) -> float | None:
     return None
 
 
+# ── Fundamental data loading + Phase 2 factor computation ───────────────────
+
+class _FundamentalSnapshot:
+    """Per-symbol bundle of fundamental fields needed for quality + value factors.
+
+    All fields are Optional; missing fields cause the dependent factor to return None
+    (handled by existing cross-sectional fill logic). Fail-soft, never fail-closed
+    for individual symbols — degraded coverage surfaces as confidence='partial'.
+    """
+
+    __slots__ = (
+        "total_revenue", "cost_of_revenue", "ebit", "total_assets",
+        "operating_cash_flow", "free_cash_flow", "net_income",
+        "total_debt", "cash_and_equivalents",
+        "market_cap", "enterprise_value",
+        "price_to_book", "price_to_fcf", "ev_to_ebitda", "fcf_yield",
+    )
+
+    def __init__(self) -> None:
+        for slot in self.__slots__:
+            setattr(self, slot, None)
+
+
+def _safe_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        f = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    if f != f:  # NaN
+        return None
+    return f
+
+
+def _load_fundamental_snapshot(symbol: str, fmp_client: object) -> _FundamentalSnapshot:
+    """Fetch statements + ratios + metrics for one symbol. Returns a snapshot
+    with whatever fields could be populated; missing fields stay None.
+    """
+    snap = _FundamentalSnapshot()
+
+    # Latest annual statements (use annual for stability; Sloan accrual is annually defined)
+    try:
+        income = fmp_client.get_income_statements(symbol, limit=1, period="annual")  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generic_ranking: income statement fetch failed for %s: %s", symbol, exc)
+        income = []
+    if income:
+        row = income[0]
+        snap.total_revenue = _safe_float(row.get("revenue"))
+        snap.cost_of_revenue = _safe_float(row.get("costOfRevenue"))
+        snap.ebit = _safe_float(row.get("ebit") or row.get("operatingIncome"))
+        snap.net_income = _safe_float(row.get("netIncome"))
+
+    try:
+        balance = fmp_client.get_balance_sheet_statements(symbol, limit=1, period="annual")  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generic_ranking: balance sheet fetch failed for %s: %s", symbol, exc)
+        balance = []
+    if balance:
+        row = balance[0]
+        snap.total_assets = _safe_float(row.get("totalAssets"))
+        snap.total_debt = _safe_float(row.get("totalDebt"))
+        snap.cash_and_equivalents = _safe_float(
+            row.get("cashAndCashEquivalents") or row.get("cashAndShortTermInvestments")
+        )
+
+    try:
+        cash_flow = fmp_client.get_cash_flow_statements(symbol, limit=1, period="annual")  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generic_ranking: cash flow fetch failed for %s: %s", symbol, exc)
+        cash_flow = []
+    if cash_flow:
+        row = cash_flow[0]
+        snap.operating_cash_flow = _safe_float(row.get("operatingCashFlow"))
+        snap.free_cash_flow = _safe_float(row.get("freeCashFlow"))
+
+    # TTM ratios + metrics for value factors
+    try:
+        ratios = fmp_client.get_ratios_ttm(symbol)  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generic_ranking: ratios-ttm fetch failed for %s: %s", symbol, exc)
+        ratios = []
+    if ratios:
+        row = ratios[0]
+        snap.price_to_book = _safe_float(row.get("priceToBookRatioTTM") or row.get("priceBookValueRatioTTM"))
+        snap.price_to_fcf = _safe_float(row.get("priceToFreeCashFlowsRatioTTM") or row.get("priceCashFlowRatioTTM"))
+        snap.ev_to_ebitda = _safe_float(row.get("enterpriseValueMultipleTTM"))
+
+    try:
+        key_metrics = fmp_client.get_key_metrics_ttm(symbol)  # type: ignore[attr-defined]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("generic_ranking: key-metrics-ttm fetch failed for %s: %s", symbol, exc)
+        key_metrics = []
+    if key_metrics:
+        row = key_metrics[0]
+        snap.market_cap = _safe_float(row.get("marketCapTTM") or row.get("marketCap"))
+        snap.enterprise_value = _safe_float(row.get("enterpriseValueTTM") or row.get("enterpriseValue"))
+        snap.fcf_yield = _safe_float(row.get("freeCashFlowYieldTTM") or row.get("freeCashFlowYield"))
+        # If ev_to_ebitda missing from ratios, fall back to key-metrics
+        if snap.ev_to_ebitda is None:
+            snap.ev_to_ebitda = _safe_float(
+                row.get("enterpriseValueOverEBITDATTM") or row.get("enterpriseValueOverEBITDA")
+            )
+
+    return snap
+
+
+def _compute_fundamental_raw_value(factor_id: str, snap: _FundamentalSnapshot | None) -> float | None:
+    """Compute one fundamental factor's raw value from a snapshot. Returns None if data unavailable.
+
+    Quality formulas mirror app/services/optimizer_alpha_service.py::_extract_raw_component_value.
+    Value formulas use FMP TTM ratios with explicit fallbacks.
+    """
+    if snap is None:
+        return None
+
+    # ── Quality factors ────────────────────────────────────────────────────
+    if factor_id in QUALITY_FACTOR_IDS:
+        assets = snap.total_assets
+        if assets is None or assets <= 0:
+            return None
+
+        if factor_id == "quality_profitability":
+            # Primary: gross profit / assets (Novy-Marx 2013)
+            if snap.total_revenue is not None and snap.cost_of_revenue is not None:
+                return (snap.total_revenue - snap.cost_of_revenue) / assets
+            # Fallback: EBIT / assets
+            if snap.ebit is not None:
+                return snap.ebit / assets
+            return None
+
+        if factor_id == "quality_cash_generation":
+            # Primary: OCF / assets; Fallback: FCF / assets
+            if snap.operating_cash_flow is not None:
+                return snap.operating_cash_flow / assets
+            if snap.free_cash_flow is not None:
+                return snap.free_cash_flow / assets
+            return None
+
+        if factor_id == "quality_accrual":
+            # Sloan: (NI - OCF) / assets, lower_is_better (handled by direction in FactorConfig)
+            if snap.net_income is not None and snap.operating_cash_flow is not None:
+                return (snap.net_income - snap.operating_cash_flow) / assets
+            return None
+
+        if factor_id == "quality_leverage":
+            # Net leverage: (debt - cash) / assets, lower_is_better
+            if snap.total_debt is not None and snap.cash_and_equivalents is not None:
+                return (snap.total_debt - snap.cash_and_equivalents) / assets
+            return None
+
+    # ── Value factors ─────────────────────────────────────────────────────
+    if factor_id in VALUE_FACTOR_IDS:
+        if factor_id == "value_earnings_yield":
+            # EBIT / EV (Greenblatt Magic Formula)
+            if snap.ebit is not None and snap.enterprise_value is not None and snap.enterprise_value > 0:
+                return snap.ebit / snap.enterprise_value
+            return None
+
+        if factor_id == "value_book_to_market":
+            # 1 / P/B (B/M is the canonical Fama-French value signal)
+            if snap.price_to_book is not None and snap.price_to_book > 0:
+                return 1.0 / snap.price_to_book
+            return None
+
+        if factor_id == "value_fcf_yield":
+            # FCF / market cap. Prefer FMP's freeCashFlowYield directly; fallback to inverted P/FCF
+            if snap.fcf_yield is not None:
+                return snap.fcf_yield
+            if snap.price_to_fcf is not None and snap.price_to_fcf > 0:
+                return 1.0 / snap.price_to_fcf
+            if snap.free_cash_flow is not None and snap.market_cap is not None and snap.market_cap > 0:
+                return snap.free_cash_flow / snap.market_cap
+            return None
+
+        if factor_id == "value_ev_ebitda_inverse":
+            # 1 / (EV/EBITDA)
+            if snap.ev_to_ebitda is not None and snap.ev_to_ebitda > 0:
+                return 1.0 / snap.ev_to_ebitda
+            return None
+
+    return None
+
+
 # ── Cross-sectional normalization ─────────────────────────────────────────────
 
 def _winsorize(values: list[float], pct: float) -> list[float]:
@@ -235,14 +444,32 @@ def _normalize_factor_scores(
 
 # ── Main service entry point ──────────────────────────────────────────────────
 
-def build_generic_ranking(request: GenericRankingRequest) -> GenericRankingResponse:
+def build_generic_ranking(
+    request: GenericRankingRequest,
+    fmp_client: object | None = None,
+) -> GenericRankingResponse:
+    """Compute a generic ranking from the request.
+
+    fmp_client is required when the score_config includes quality/value factors
+    (Phase 2) or when universe_kind requires live FMP resolution (broad_equity_screen,
+    sector_screen, index_constituent). For pure custom_list/etf_peer_group + price-only
+    factors, fmp_client may be None.
+    """
     warnings: list[str] = []
     score_config = request.score_config
     universe_spec = request.universe_spec
 
+    needs_fundamentals = any(
+        fc.factor_id in FUNDAMENTAL_FACTOR_IDS for fc in score_config.factors
+    )
+    if needs_fundamentals and fmp_client is None:
+        warnings.append(
+            "fmp_client not provided; quality/value factors will return None for all symbols "
+            "(they require live FMP fundamental data)"
+        )
+
     # ── Resolve universe ──────────────────────────────────────────────────────
-    resolver = UniverseResolver(fmp_client=None)  # No live FMP for Phase 1
-    # Use sample data path — we pick the as_of_date from available bars below
+    resolver = UniverseResolver(fmp_client=fmp_client)
 
     dataset_catalog = DatasetCatalog()
 
@@ -289,14 +516,28 @@ def build_generic_ranking(request: GenericRankingRequest) -> GenericRankingRespo
     if not valid_factors:
         raise ValueError("No supported factors remain after filtering unsupported factor_ids")
 
+    # ── Load fundamental snapshots (only if quality/value factors requested) ──
+    fundamental_by_symbol: dict[str, _FundamentalSnapshot | None] = {}
+    if needs_fundamentals and fmp_client is not None:
+        for sym in symbols:
+            fundamental_by_symbol[sym] = _load_fundamental_snapshot(sym, fmp_client)
+
     # ── Compute raw values per symbol per factor ──────────────────────────────
     # symbol → {factor_id → raw_value | None}
     raw_by_symbol: dict[str, dict[str, float | None]] = {}
     excluded_instruments: list[GenericRankingExcludedInstrument] = []
 
+    # A symbol must have EITHER price bars (if price factors present) OR fundamental
+    # data (if only fundamental factors present) to be considered eligible.
+    has_price_factors = any(fc.factor_id in PRICE_FACTOR_IDS for fc in valid_factors)
+    has_fundamental_factors = any(fc.factor_id in FUNDAMENTAL_FACTOR_IDS for fc in valid_factors)
+
     for sym in symbols:
         bars = bars_by_symbol.get(sym)
-        if not bars:
+        snap = fundamental_by_symbol.get(sym)
+
+        # Hard exclusion: require price bars when price factors are in the config
+        if has_price_factors and not bars:
             excluded_instruments.append(
                 GenericRankingExcludedInstrument(
                     symbol=sym,
@@ -307,7 +548,26 @@ def build_generic_ranking(request: GenericRankingRequest) -> GenericRankingRespo
                 )
             )
             continue
-        raw_by_symbol[sym] = {fc.factor_id: _compute_raw_value(fc.factor_id, bars) for fc in valid_factors}
+        # If only fundamental factors and no snapshot loaded, exclude
+        if not has_price_factors and has_fundamental_factors and snap is None:
+            excluded_instruments.append(
+                GenericRankingExcludedInstrument(
+                    symbol=sym,
+                    eligibility=EligibilityRecord(
+                        eligibility_status="excluded",
+                        hard_filter_failures=["no_fundamental_data"],
+                    ),
+                )
+            )
+            continue
+
+        per_factor: dict[str, float | None] = {}
+        for fc in valid_factors:
+            if fc.factor_id in FUNDAMENTAL_FACTOR_IDS:
+                per_factor[fc.factor_id] = _compute_fundamental_raw_value(fc.factor_id, snap)
+            else:
+                per_factor[fc.factor_id] = _compute_raw_value(fc.factor_id, bars) if bars else None
+        raw_by_symbol[sym] = per_factor
 
     eligible_symbols = list(raw_by_symbol.keys())
     if not eligible_symbols:

@@ -205,6 +205,36 @@ class FmpClient:
             with _IN_FLIGHT_LOCK:
                 _IN_FLIGHT_REQUESTS.pop(cache_identifier, None)
 
+    def get_ratios_ttm(self, symbol: str) -> list[dict[str, Any]]:
+        # FMP ratios TTM endpoint — Phase 2 value-factor support.
+        # Fields used: priceToBookRatioTTM, priceToFreeCashFlowsRatioTTM, enterpriseValueMultipleTTM.
+        return self._get(
+            "fundamentals",
+            "ratios-ttm",
+            {"symbol": symbol},
+            ttl_seconds=self.history_ttl_seconds,
+        )
+
+    def get_key_metrics_ttm(self, symbol: str) -> list[dict[str, Any]]:
+        # FMP key-metrics TTM endpoint — Phase 2 value-factor support.
+        # Fields used: enterpriseValueTTM, freeCashFlowYieldTTM, enterpriseValueOverEBITDATTM, marketCapTTM.
+        return self._get(
+            "fundamentals",
+            "key-metrics-ttm",
+            {"symbol": symbol},
+            ttl_seconds=self.history_ttl_seconds,
+        )
+
+    def get_sp500_constituents(self) -> list[dict[str, Any]]:
+        # FMP S&P 500 constituent endpoint — Phase 2 index_constituent universe support.
+        # Returns list of dicts with: symbol, name, sector, subSector, headQuarter, dateFirstAdded, cik, founded.
+        return self._get(
+            "index_constituents",
+            "sp500-constituent",
+            {},
+            ttl_seconds=self.history_ttl_seconds,
+        )
+
     def get_screener_results(
         self,
         *,

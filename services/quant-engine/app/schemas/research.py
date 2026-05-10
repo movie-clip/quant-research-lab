@@ -507,6 +507,17 @@ class RankingArtifactCatalogReplacementSummary(BaseModel):
     confidence: RankingArtifactConfidence
 
 
+class RankingArtifactCatalogGenericSummary(BaseModel):
+    """Catalog summary for generic_ranking artifacts."""
+    benchmark_symbol: str
+    lookback_months: int
+    universe_id: str
+    universe_kind: str
+    score_config_id: str
+    evaluated_universe_size: int
+    confidence: str  # generic ranking uses Literal["full", "partial", "degraded"], not the legacy ETF confidence type
+
+
 class RankingArtifactDiscoveryFilters(BaseModel):
     artifact_kind: str | None = None
     schema_version: str | None = None
@@ -574,23 +585,32 @@ class RankingArtifactCatalogRow(BaseModel):
     metadata: RankingArtifactCatalogRowMetadata
     etf_summary: RankingArtifactCatalogEtfSummary | None = None
     replacement_summary: RankingArtifactCatalogReplacementSummary | None = None
+    generic_summary: RankingArtifactCatalogGenericSummary | None = None
 
     @model_validator(mode="after")
     def validate_kind_specific_contract(self) -> "RankingArtifactCatalogRow":
         if self.artifact_kind == "etf_ranking":
             if self.schema_version != ETF_RANKING_ARTIFACT_SCHEMA_VERSION:
                 raise ValueError("unsupported ranking artifact schema_version")
-            if self.etf_summary is None or self.replacement_summary is not None:
+            if self.etf_summary is None or self.replacement_summary is not None or self.generic_summary is not None:
                 raise ValueError("etf_ranking rows must populate only etf_summary")
             return self
 
         if self.artifact_kind == "intent_bound_etf_replacement_ranking":
             if self.schema_version != INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION:
                 raise ValueError("unsupported ranking artifact schema_version")
-            if self.replacement_summary is None or self.etf_summary is not None:
+            if self.replacement_summary is None or self.etf_summary is not None or self.generic_summary is not None:
                 raise ValueError(
                     "intent_bound_etf_replacement_ranking rows must populate only replacement_summary"
                 )
+            return self
+
+        if self.artifact_kind == "generic_ranking":
+            from app.schemas.generic_ranking import GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION
+            if self.schema_version != GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION:
+                raise ValueError("unsupported ranking artifact schema_version")
+            if self.generic_summary is None or self.etf_summary is not None or self.replacement_summary is not None:
+                raise ValueError("generic_ranking rows must populate only generic_summary")
             return self
 
         raise ValueError("unsupported ranking artifact kind")

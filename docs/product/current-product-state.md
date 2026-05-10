@@ -88,6 +88,19 @@ Forward-looking epic execution status belongs in `docs/product/epic-roadmap.md`.
 - generalized recent discovery is now fail-closed on malformed ETF recent-index state, malformed artifact payloads, unsupported artifact kinds, unsupported schema versions, and provable identity contradictions
 - ETF `recent.jsonl` remains internal operational state for ETF discovery ordering only; it is not a shipped artifact output or generalized reusable contract payload
 
+### Generic ranking artifacts
+
+- `POST /strategy-lab/ranking/run` persists immutable `generic_ranking` artifacts and returns the artifact envelope; this is the first non-ETF ranking family on the generalized ranking platform
+- `GET /strategy-lab/ranking/artifacts/recent` and `GET /strategy-lab/ranking/artifacts/{artifact_id}` reload persisted generic ranking artifacts; reload validates schema, identity, and integrity fail-closed
+- the generalized cross-kind catalog at `GET /strategy-lab/ranking-artifacts/catalog` and `GET /strategy-lab/ranking-artifacts/recent` now surfaces `generic_ranking` artifacts alongside `etf_ranking` and `intent_bound_etf_replacement_ranking` rows; filter by `artifact_kind=generic_ranking` returns only generic rows
+- supported universe kinds: `etf_peer_group`, `custom_list`, `broad_equity_screen`/`sector_screen` (FMP `/stock-screener`), `index_constituent` (FMP `/stable/sp500-constituent` for `index_id="sp500"`)
+- supported factor IDs: 11 price-bar factors (momentum 1m/3m/6m/12m/blended, realized_volatility 126d/252d, downside_volatility_126d, max_drawdown 126d/252d, liquidity_60d) plus 8 fundamental factors (4 quality from Novy-Marx/Sloan/AQR formulas reusing existing `optimizer_alpha_service` measures: quality_profitability, quality_cash_generation, quality_accrual, quality_leverage; 4 value via FMP TTM ratios: value_earnings_yield, value_book_to_market, value_fcf_yield, value_ev_ebitda_inverse)
+- `ScoreConfig` is versioned with content-addressed `score_config_digest`; `UniverseSpec` snapshots resolved members at run-time as `UniverseSpecSnapshot`; both are persisted in the artifact for audit and reuse
+- `EligibilityRecord` per instrument carries explicit `hard_filter_failures` and `soft_filter_flags`; `CompositeScoreTrace` records cross-sectional mean/std per factor for offline normalization replay
+- when fundamental factors are requested without an FMP API key, the service emits an explicit warning, returns the artifact with those factor values as null, and confidence drops to `partial` rather than failing the request
+- generic ranking artifacts are now construction-eligible: `POST /construction/ranking-artifacts/preflight/{artifact_id}` dispatches `generic_ranking_artifact_*` ids to the same canonical preflight + run boundary used by ETF and replacement artifacts, returning a typed `GenericRankingArtifactConstructionHandoff` for eligible artifacts; excluded rows surface `hard_filter_failures` joined as `exclusion_reason` rather than being silently dropped
+- the desktop UI surface for this is still narrow: the `Generic Ranking` tab does not yet expose a `Review In Construction` CTA, and Workspace Candidate Idea browser does not yet list `generic_ranking` artifacts; the construction-eligibility seam is backend-only in this slice
+
 ### Cross-sectional research artifacts
 
 - `POST /strategy-lab/cross-sectional-research/validate` is shipped as a validation-only backend boundary for one persisted cross-sectional research family slice
@@ -113,7 +126,7 @@ Forward-looking epic execution status belongs in `docs/product/epic-roadmap.md`.
 
 ### Desktop workflow ownership
 
-- top-level desktop tabs are `Dashboard`, `Exposure`, `Diagnostics`, `Workspace`, `Backtest`, `Strategy Lab`, and `ETF Ranking`
+- top-level desktop tabs are `Dashboard`, `Exposure`, `Diagnostics`, `Workspace`, `Backtest`, `Strategy Lab`, `ETF Ranking`, and `Generic Ranking`
 - `Workspace` owns the portfolio-improvement shell, replay review, replay-scoped Monitoring, and proposal review
 - Workspace workflow order is explicit: current portfolio -> candidate idea -> candidate formation -> construction rule -> hypothetical replay -> diagnostics change -> latest observation alerts -> saved proposal
 - Workspace Compare now includes an `Active Alert Review Inbox` for backend-rooted persisted open alert episodes and a definition-scoped `Alert Episode History` drill-in for bounded persisted episode records; both are review-only, fail-closed on malformed payloads, and open the existing definition-scoped timeline review using only persisted episode timeline handoff ids.

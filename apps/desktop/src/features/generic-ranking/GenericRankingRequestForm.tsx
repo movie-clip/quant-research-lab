@@ -1,6 +1,10 @@
 import { useState } from 'react'
-import type { GenericRankingRequest, ScoreConfig, UniverseKind } from './types'
+import type { GenericRankingRequest, IndexId, ScoreConfig, UniverseKind } from './types'
 import { SCORE_CONFIG_PRESETS, SCORE_CONFIG_PRESET_LABELS } from './scoreConfigPresets'
+
+const INDEX_LABELS: Record<IndexId, string> = {
+  sp500: 'S&P 500',
+}
 
 type GenericRankingRequestFormProps = {
   onSubmit: (request: GenericRankingRequest) => void
@@ -15,6 +19,7 @@ export function GenericRankingRequestForm({ onSubmit, loading }: GenericRankingR
   const [minAdvUsd, setMinAdvUsd] = useState('')
   const [sectorInclude, setSectorInclude] = useState('')
   const [sectorExclude, setSectorExclude] = useState('')
+  const [indexId, setIndexId] = useState<IndexId>('sp500')
   const [selectedPresetId, setSelectedPresetId] = useState(SCORE_CONFIG_PRESETS[0]?.score_config_id ?? '')
   const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
   const [lookbackMonths, setLookbackMonths] = useState('6')
@@ -76,6 +81,7 @@ export function GenericRankingRequestForm({ onSubmit, loading }: GenericRankingR
         country_iso2: [],
         exclude_etf: false,
         exclude_adr: false,
+        index_id: universeKind === 'index_constituent' ? indexId : null,
       },
       score_config: selectedPreset,
       benchmark_symbol: benchmarkSymbol.trim().toUpperCase(),
@@ -88,6 +94,7 @@ export function GenericRankingRequestForm({ onSubmit, loading }: GenericRankingR
 
   const needsExplicitSymbols = universeKind === 'custom_list' || universeKind === 'etf_peer_group'
   const needsScreenFilters = universeKind === 'broad_equity_screen' || universeKind === 'sector_screen'
+  const needsIndexSelector = universeKind === 'index_constituent'
 
   return (
     <div className="backtest-builder strategy-lab-builder">
@@ -95,7 +102,7 @@ export function GenericRankingRequestForm({ onSubmit, loading }: GenericRankingR
         <div className="field-group">
           <span className="field-label">Universe Kind</span>
           <div className="radio-group">
-            {(['custom_list', 'etf_peer_group', 'broad_equity_screen', 'sector_screen'] as UniverseKind[]).map((kind) => (
+            {(['custom_list', 'etf_peer_group', 'broad_equity_screen', 'sector_screen', 'index_constituent'] as UniverseKind[]).map((kind) => (
               <label key={kind} className="radio-option">
                 <input
                   type="radio"
@@ -157,6 +164,44 @@ export function GenericRankingRequestForm({ onSubmit, loading }: GenericRankingR
             </label>
             <label className="field-group">
               <span className="field-label">Sectors to Exclude (comma-separated)</span>
+              <input
+                className="path-input"
+                value={sectorExclude}
+                onChange={(e) => setSectorExclude(e.target.value)}
+                placeholder="e.g. Energy"
+              />
+            </label>
+          </>
+        ) : null}
+
+        {needsIndexSelector ? (
+          <>
+            <label className="field-group">
+              <span className="field-label">Index</span>
+              <select
+                className="path-input"
+                value={indexId}
+                onChange={(e) => setIndexId(e.target.value as IndexId)}
+              >
+                {(Object.keys(INDEX_LABELS) as IndexId[]).map((id) => (
+                  <option key={id} value={id}>{INDEX_LABELS[id]}</option>
+                ))}
+              </select>
+              <p className="helper">
+                Resolved live from FMP. Optional sector filters can narrow the index further.
+              </p>
+            </label>
+            <label className="field-group">
+              <span className="field-label">Sectors to Include (comma-separated, optional)</span>
+              <input
+                className="path-input"
+                value={sectorInclude}
+                onChange={(e) => setSectorInclude(e.target.value)}
+                placeholder="e.g. Technology"
+              />
+            </label>
+            <label className="field-group">
+              <span className="field-label">Sectors to Exclude (comma-separated, optional)</span>
               <input
                 className="path-input"
                 value={sectorExclude}

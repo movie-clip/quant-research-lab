@@ -19,6 +19,8 @@ class UniverseResolver:
             members = sorted(set(spec.explicit_symbols))
         elif spec.universe_kind in ("broad_equity_screen", "sector_screen"):
             members = self._screen_equity(spec)
+        elif spec.universe_kind == "index_constituent":
+            members = self._resolve_index_constituents(spec)
         else:
             raise ValueError(f"Unsupported universe_kind: {spec.universe_kind!r}")
 
@@ -108,6 +110,47 @@ class UniverseResolver:
                         continue
                 symbols.add(symbol)
 
+        return sorted(symbols)
+
+    def _resolve_index_constituents(self, spec: UniverseSpec) -> list[str]:
+        """Resolve members of a named index via FMP. Phase 2 supports 'sp500'.
+
+        Returns the current snapshot — FMP's basic constituent endpoint is current-only.
+        For point-in-time historical reconstruction, the historical endpoint would need
+        to be wired separately (deferred).
+        """
+        if spec.index_id is None:
+            raise ValueError("index_constituent universe_kind requires index_id")
+
+        if self._fmp is None:
+            logger.warning(
+                "UniverseResolver: fmp_client is None; index_constituent returns empty list. "
+                "Pass an FmpClient instance to resolve index universes."
+            )
+            return []
+
+        if spec.index_id == "sp500":
+            try:
+                rows = self._fmp.get_sp500_constituents()  # type: ignore[union-attr]
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("UniverseResolver: sp500 constituent fetch failed: %s", exc)
+                return []
+        else:
+            raise ValueError(f"Unsupported index_id: {spec.index_id!r}")
+
+        symbols: set[str] = set()
+        for row in rows:
+            symbol = str(row.get("symbol") or "").upper()
+            if not symbol:
+                continue
+            # Apply optional sector filters from spec (allows narrowing S&P 500 by sector)
+            if spec.sector_include or spec.sector_exclude:
+                row_sector = str(row.get("sector") or "")
+                if spec.sector_include and row_sector not in spec.sector_include:
+                    continue
+                if spec.sector_exclude and row_sector in spec.sector_exclude:
+                    continue
+            symbols.add(symbol)
         return sorted(symbols)
 
     def _filter_by_profiles(self, spec: UniverseSpec) -> list[str]:
