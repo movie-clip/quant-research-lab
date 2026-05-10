@@ -8,6 +8,9 @@ from app.schemas.ranking import (
     ETF_RANKING_ARTIFACT_SCHEMA_VERSION,
     INTENT_BOUND_ETF_REPLACEMENT_RANKING_ARTIFACT_SCHEMA_VERSION,
 )
+from app.schemas.generic_ranking import (
+    GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION,
+)
 
 
 ConstructionRunStatus = Literal["feasible", "infeasible", "rejected"]
@@ -45,6 +48,7 @@ ConstructionRankingArtifactPreflightContractVersion = Literal["construction_rank
 ConstructionRankingArtifactHandoffKind = Literal[
     "etf_ranking_artifact_construction_handoff_v1",
     "intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1",
+    "generic_ranking_artifact_construction_handoff_v1",
 ]
 ConstructionWeightingTraceVersion = Literal["weighting_trace_v1"]
 ConstructionWeightingTraceStatus = Literal["available", "unavailable_legacy_artifact"]
@@ -241,9 +245,32 @@ class IntentBoundEtfReplacementRankingArtifactConstructionHandoff(BaseModel):
         return self
 
 
+class GenericRankingArtifactConstructionHandoff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_kind: Literal["generic_ranking_artifact_construction_handoff_v1"] = (
+        "generic_ranking_artifact_construction_handoff_v1"
+    )
+    artifact_kind: str = "generic_ranking"
+    artifact_id: str
+    schema_version: str = GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION
+    ranking_id: str
+    methodology_id: str
+    as_of_date: str
+
+    @model_validator(mode="after")
+    def _validate_supported_contract(self) -> "GenericRankingArtifactConstructionHandoff":
+        if self.artifact_kind != "generic_ranking":
+            raise ValueError("unsupported ranking artifact kind")
+        if self.schema_version != GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION:
+            raise ValueError("unsupported generic ranking schema_version")
+        return self
+
+
 ConstructionRankingArtifactHandoff = Annotated[
     EtfRankingArtifactConstructionHandoff
-    | IntentBoundEtfReplacementRankingArtifactConstructionHandoff,
+    | IntentBoundEtfReplacementRankingArtifactConstructionHandoff
+    | GenericRankingArtifactConstructionHandoff,
     Field(discriminator="handoff_kind"),
 ]
 
@@ -269,6 +296,7 @@ class ConstructionRunRequest(BaseModel):
         if handoff["handoff_kind"] not in {
             "etf_ranking_artifact_construction_handoff_v1",
             "intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1",
+            "generic_ranking_artifact_construction_handoff_v1",
         }:
             raise ValueError(
                 f"unsupported ranking_artifact_handoff.handoff_kind: {handoff['handoff_kind']}"
@@ -333,9 +361,27 @@ class IntentBoundEtfReplacementRankingConstructionPreflightArtifact(BaseModel):
         return self
 
 
+class GenericRankingConstructionPreflightArtifact(BaseModel):
+    artifact_kind: Literal["generic_ranking"] = "generic_ranking"
+    artifact_id: str
+    schema_version: Literal["generic_ranking_artifact_v1"] = GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION
+    ranking_id: str
+    methodology_id: str
+    as_of_date: str
+
+    @model_validator(mode="after")
+    def _validate_supported_contract(self) -> "GenericRankingConstructionPreflightArtifact":
+        if self.artifact_kind != "generic_ranking":
+            raise ValueError("unsupported ranking artifact kind")
+        if self.schema_version != GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION:
+            raise ValueError("unsupported generic ranking schema_version")
+        return self
+
+
 ConstructionRankingArtifactPreflightArtifactUnion = Annotated[
     ConstructionRankingArtifactPreflightArtifact
-    | IntentBoundEtfReplacementRankingConstructionPreflightArtifact,
+    | IntentBoundEtfReplacementRankingConstructionPreflightArtifact
+    | GenericRankingConstructionPreflightArtifact,
     Field(discriminator="artifact_kind"),
 ]
 

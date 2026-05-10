@@ -20,7 +20,17 @@ from app.schemas.construction import (
 from app.schemas.ranking import infer_ranking_artifact_kind_from_artifact_id
 from app.services.construction_ranking_handoff_service import (
     preflight_etf_ranking_artifact_for_construction,
+    preflight_generic_ranking_artifact_for_construction,
     preflight_intent_bound_etf_replacement_ranking_artifact_for_construction,
+)
+from app.services.generic_ranking_artifact_service import (
+    GenericRankingIntegrityError,
+    GenericRankingInvalidJsonError,
+    GenericRankingMissingFileError,
+    GenericRankingNonObjectPayloadError,
+    GenericRankingPersistenceError,
+    GenericRankingSchemaValidationError,
+    load_generic_ranking_artifact,
 )
 from app.services.construction_artifact_service import (
     ConstructionArtifactIntegrityValidationError,
@@ -143,10 +153,14 @@ def preflight_construction_ranking_artifact(artifact_id: str) -> ConstructionRan
             return preflight_etf_ranking_artifact_for_construction(artifact_id)
         if artifact_kind == "intent_bound_etf_replacement_ranking":
             return preflight_intent_bound_etf_replacement_ranking_artifact_for_construction(artifact_id)
+        if artifact_kind == "generic_ranking":
+            return preflight_generic_ranking_artifact_for_construction(artifact_id)
         raise ValueError("unsupported ranking artifact kind")
     except EtfRankingArtifactMissingFileError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ReplacementRankingArtifactMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except GenericRankingMissingFileError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (
         EtfRankingArtifactInvalidJsonError,
@@ -159,6 +173,11 @@ def preflight_construction_ranking_artifact(artifact_id: str) -> ConstructionRan
         ReplacementRankingArtifactSchemaValidationError,
         ReplacementRankingArtifactIntegrityValidationError,
         ReplacementRankingArtifactPersistenceError,
+        GenericRankingInvalidJsonError,
+        GenericRankingNonObjectPayloadError,
+        GenericRankingSchemaValidationError,
+        GenericRankingIntegrityError,
+        GenericRankingPersistenceError,
         ValueError,
     ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -173,6 +192,8 @@ def run_construction(request: ConstructionRunRequest) -> ConstructionArtifact:
                 artifact = load_etf_ranking_artifact(request.ranking_artifact_handoff.artifact_id)
             elif request.ranking_artifact_handoff.artifact_kind == "intent_bound_etf_replacement_ranking":
                 artifact = load_replacement_ranking_artifact(request.ranking_artifact_handoff.artifact_id)
+            elif request.ranking_artifact_handoff.artifact_kind == "generic_ranking":
+                artifact = load_generic_ranking_artifact(request.ranking_artifact_handoff.artifact_id)
             else:
                 raise ValueError("unsupported ranking artifact kind")
             resolved_request = build_construction_run_request_from_ranking_artifact_handoff(
@@ -188,6 +209,8 @@ def run_construction(request: ConstructionRunRequest) -> ConstructionArtifact:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ReplacementRankingArtifactMissingFileError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except GenericRankingMissingFileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (
         EtfRankingArtifactInvalidJsonError,
         EtfRankingArtifactNonObjectPayloadError,
@@ -199,6 +222,11 @@ def run_construction(request: ConstructionRunRequest) -> ConstructionArtifact:
         ReplacementRankingArtifactSchemaValidationError,
         ReplacementRankingArtifactIntegrityValidationError,
         ReplacementRankingArtifactPersistenceError,
+        GenericRankingInvalidJsonError,
+        GenericRankingNonObjectPayloadError,
+        GenericRankingSchemaValidationError,
+        GenericRankingIntegrityError,
+        GenericRankingPersistenceError,
     ) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:

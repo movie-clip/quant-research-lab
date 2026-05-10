@@ -92,7 +92,8 @@ Forward-looking epic execution status belongs in `docs/product/epic-roadmap.md`.
 - `ScoreConfig` is versioned with content-addressed `score_config_digest`; `UniverseSpec` snapshots resolved members at run-time as `UniverseSpecSnapshot`; both are persisted in the artifact for audit and reuse
 - `EligibilityRecord` per instrument carries explicit `hard_filter_failures` and `soft_filter_flags`; `CompositeScoreTrace` records cross-sectional mean/std per factor for offline normalization replay
 - when fundamental factors are requested without an FMP API key, the service emits an explicit warning, returns the artifact with those factor values as null, and confidence drops to `partial` rather than failing the request
-- generic ranking artifacts are NOT yet construction-eligible: construction preflight allowlist remains `etf_ranking` + `intent_bound_etf_replacement_ranking` only; the new `Generic Ranking` desktop tab is currently a standalone surface that does not flow into Workspace Candidate Idea or persisted construction review
+- generic ranking artifacts are now construction-eligible: `POST /construction/ranking-artifacts/preflight/{artifact_id}` dispatches `generic_ranking_artifact_*` ids to the same canonical preflight + run boundary used by ETF and replacement artifacts, returning a typed `GenericRankingArtifactConstructionHandoff` for eligible artifacts; excluded rows surface `hard_filter_failures` joined as `exclusion_reason` rather than being silently dropped
+- the desktop UI surface for this is still narrow: the `Generic Ranking` tab does not yet expose a `Review In Construction` CTA, and Workspace Candidate Idea browser does not yet list `generic_ranking` artifacts; the construction-eligibility seam is backend-only in this slice
 
 ### Cross-sectional research artifacts
 

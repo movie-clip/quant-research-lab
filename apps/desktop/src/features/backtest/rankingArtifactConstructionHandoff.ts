@@ -38,10 +38,10 @@ function assertValidConstructionRankingArtifactPreflight(
   if (!isObject(artifact) || !isObject(eligibility)) {
     throw new Error('Ranking artifact construction preflight returned malformed artifact eligibility state')
   }
-  if (!['etf_ranking', 'intent_bound_etf_replacement_ranking'].includes(String(artifact.artifact_kind))) {
+  if (!['etf_ranking', 'intent_bound_etf_replacement_ranking', 'generic_ranking'].includes(String(artifact.artifact_kind))) {
     throw new Error('Ranking artifact construction preflight returned an unsupported artifact kind')
   }
-  if (!['etf_ranking_artifact_v1', 'intent_bound_etf_replacement_ranking_artifact_v1'].includes(String(artifact.schema_version))) {
+  if (!['etf_ranking_artifact_v1', 'intent_bound_etf_replacement_ranking_artifact_v1', 'generic_ranking_artifact_v1'].includes(String(artifact.schema_version))) {
     throw new Error('Ranking artifact construction preflight returned an unsupported schema version')
   }
   if (typeof artifact.artifact_id !== 'string' || artifact.artifact_id !== expectedArtifactId) {
@@ -72,6 +72,7 @@ function assertValidConstructionRankingArtifactPreflight(
   if (![
     'etf_ranking_artifact_construction_handoff_v1',
     'intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1',
+    'generic_ranking_artifact_construction_handoff_v1',
   ].includes(String(handoff.handoff_kind))) {
     throw new Error('Ranking artifact construction preflight returned an unsupported handoff kind')
   }

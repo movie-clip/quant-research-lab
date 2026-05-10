@@ -13,6 +13,8 @@ from app.schemas.construction import (
     ConstructionCurrentPortfolioInput,
     ConstructionDeterministicOrdering,
     EtfRankingArtifactConstructionHandoff,
+    GenericRankingArtifactConstructionHandoff,
+    GenericRankingConstructionPreflightArtifact,
     IntentBoundEtfReplacementRankingArtifactConstructionHandoff,
     ConstructionExcludedName,
     ConstructionHardConstraints,
@@ -42,6 +44,11 @@ from app.schemas.construction import (
     calculate_construction_turnover,
     resolve_construction_trade_action,
 )
+from app.schemas.generic_ranking import (
+    GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION,
+    GenericRankingArtifact,
+    GenericRankingRow,
+)
 from app.schemas.research import (
     EtfRankingArtifact,
     EtfRankingRow,
@@ -64,6 +71,9 @@ from app.services.construction_policy_catalog import (
 
 EPSILON = 1e-8
 ETF_INELIGIBLE_REASON = "persisted etf ranking artifact has no eligible ranked candidates for construction"
+GENERIC_RANKING_INELIGIBLE_REASON = (
+    "persisted generic ranking artifact has no eligible ranked candidates for construction"
+)
 REPLACEMENT_INELIGIBLE_REASON = (
     "persisted replacement ranking artifact has no eligible ranked candidates for construction"
 )
@@ -343,6 +353,45 @@ def prepare_replacement_ranking_artifact_for_construction(
     return artifact_summary, ranked_candidates
 
 
+def prepare_generic_ranking_artifact_for_construction(
+    artifact: GenericRankingArtifact,
+) -> tuple[GenericRankingConstructionPreflightArtifact, list[ConstructionRankedCandidateInput]]:
+    if artifact.schema_version != GENERIC_RANKING_ARTIFACT_SCHEMA_VERSION:
+        raise ValueError("unsupported generic ranking schema_version")
+    ranked_candidates = _build_ranked_candidates_from_generic_ranking_artifact(artifact)
+    artifact_summary = GenericRankingConstructionPreflightArtifact(
+        artifact_id=artifact.artifact_id,
+        ranking_id=artifact.ranking_id,
+        methodology_id=artifact.run_metadata.methodology_id,
+        as_of_date=artifact.run_metadata.as_of_date,
+    )
+    return artifact_summary, ranked_candidates
+
+
+def build_construction_preflight_response_from_generic_ranking_artifact(
+    artifact: GenericRankingArtifact,
+) -> ConstructionRankingArtifactPreflightResponse:
+    artifact_summary, ranked_candidates = prepare_generic_ranking_artifact_for_construction(artifact)
+    if not any(candidate.eligible for candidate in ranked_candidates):
+        return ConstructionRankingArtifactPreflightResponse(
+            artifact=artifact_summary,
+            eligibility=ConstructionRankingArtifactEligibility(
+                eligible=False,
+                reason=GENERIC_RANKING_INELIGIBLE_REASON,
+            ),
+        )
+    return ConstructionRankingArtifactPreflightResponse(
+        artifact=artifact_summary,
+        eligibility=ConstructionRankingArtifactEligibility(eligible=True),
+        handoff=GenericRankingArtifactConstructionHandoff(
+            artifact_id=artifact.artifact_id,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.run_metadata.methodology_id,
+            as_of_date=artifact.run_metadata.as_of_date,
+        ),
+    )
+
+
 def build_construction_preflight_response_from_etf_ranking_artifact(
     artifact: EtfRankingArtifact,
 ) -> ConstructionRankingArtifactPreflightResponse:
@@ -395,7 +444,7 @@ def build_construction_run_request_from_ranking_artifact_handoff(
     *,
     request_id: str | None,
     handoff: ConstructionRankingArtifactHandoff,
-    artifact: EtfRankingArtifact | IntentBoundEtfReplacementRankingArtifact,
+    artifact: EtfRankingArtifact | IntentBoundEtfReplacementRankingArtifact | GenericRankingArtifact,
     current_portfolio: ConstructionCurrentPortfolioInput,
     policy: ConstructionPolicyInput,
     hard_constraints: ConstructionHardConstraints,
@@ -424,6 +473,13 @@ def build_construction_run_request_from_ranking_artifact_handoff(
         artifact_summary, ranked_candidates = prepare_replacement_ranking_artifact_for_construction(
             replacement_artifact
         )
+    elif isinstance(handoff, GenericRankingArtifactConstructionHandoff):
+        if not isinstance(artifact, GenericRankingArtifact):
+            raise ValueError("ranking artifact handoff kind does not match persisted artifact")
+        generic_artifact = artifact
+        artifact_summary, ranked_candidates = prepare_generic_ranking_artifact_for_construction(
+            generic_artifact
+        )
     if handoff.artifact_id != artifact.artifact_id:
         raise ValueError("ranking artifact handoff artifact_id does not match persisted artifact")
     if handoff.schema_version != artifact.schema_version:
@@ -448,6 +504,15 @@ def build_construction_run_request_from_ranking_artifact_handoff(
             raise ValueError("ranking artifact handoff as_of_date does not match persisted artifact")
         if not any(candidate.eligible for candidate in ranked_candidates):
             raise ValueError(REPLACEMENT_INELIGIBLE_REASON)
+    elif isinstance(handoff, GenericRankingArtifactConstructionHandoff):
+        if handoff.artifact_kind != "generic_ranking":
+            raise ValueError("unsupported ranking artifact kind")
+        if handoff.methodology_id != artifact.run_metadata.methodology_id:
+            raise ValueError("ranking artifact handoff methodology_id does not match persisted artifact")
+        if handoff.as_of_date != artifact.run_metadata.as_of_date:
+            raise ValueError("ranking artifact handoff as_of_date does not match persisted artifact")
+        if not any(candidate.eligible for candidate in ranked_candidates):
+            raise ValueError(GENERIC_RANKING_INELIGIBLE_REASON)
     else:
         raise ValueError("unsupported ranking artifact kind")
 
@@ -491,6 +556,31 @@ def _build_ranked_candidate_from_etf_ranking_row(
         eligible=True,
         score=row.composite_score,
         exclusion_reason=None,
+    )
+
+
+def _build_ranked_candidates_from_generic_ranking_artifact(
+    artifact: GenericRankingArtifact,
+) -> list[ConstructionRankedCandidateInput]:
+    return [_build_ranked_candidate_from_generic_ranking_row(row) for row in artifact.ranked_universe]
+
+
+def _build_ranked_candidate_from_generic_ranking_row(
+    row: GenericRankingRow,
+) -> ConstructionRankedCandidateInput:
+    # GenericRankingRow.eligibility carries explicit eligibility_status + hard_filter_failures.
+    # Only rows with status='eligible' are candidates for construction; otherwise mark ineligible
+    # and surface the joined hard_filter_failures as exclusion_reason for downstream visibility.
+    is_eligible = row.eligibility.eligibility_status == "eligible"
+    exclusion_reason: str | None = None
+    if not is_eligible and row.eligibility.hard_filter_failures:
+        exclusion_reason = ",".join(row.eligibility.hard_filter_failures)
+    return ConstructionRankedCandidateInput(
+        symbol=row.symbol,
+        rank=row.rank,
+        eligible=is_eligible,
+        score=row.composite_score,
+        exclusion_reason=exclusion_reason,
     )
 
 

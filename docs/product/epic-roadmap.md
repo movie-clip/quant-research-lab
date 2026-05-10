@@ -13,7 +13,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Foundation strong; productization still missing a first-class reconciliation admission/review surface | No active slice | Reconciliation admission summary and exception review | 2026-05-06 |
-| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform shipped (Phase 1 + Phase 2) | Construction eligibility expansion (next) | Add generic_ranking to construction preflight allowlist + Workspace Candidate Idea browser | 2026-05-10 |
+| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform + construction eligibility shipped | Workspace Candidate Idea browser integration for generic_ranking | Surface "Review In Construction" CTA on Generic Ranking tab + add generic_ranking to Workspace Candidate Idea browser | 2026-05-10 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
@@ -235,6 +235,33 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-10 - Epic 2 → Epic 3 generic_ranking construction eligibility shipped
+
+- Epic: `2. Ranking and selection methodology guard` → `3. Construction and optimizer methodology guard` (cross-epic slice)
+- Slice: extend the construction-eligibility allowlist to accept `generic_ranking` artifacts.
+- Status: shipped (backend + TS contract validators).
+- Scope delivered:
+  - new `GenericRankingArtifactConstructionHandoff` schema (handoff_kind `generic_ranking_artifact_construction_handoff_v1`)
+  - new `GenericRankingConstructionPreflightArtifact` schema; `ConstructionRankingArtifactPreflightArtifactUnion` discriminator extended
+  - `ConstructionRankingArtifactHandoffKind` Literal extended with `generic_ranking_artifact_construction_handoff_v1`
+  - `prepare_generic_ranking_artifact_for_construction()` + `build_construction_preflight_response_from_generic_ranking_artifact()` in `construction_run_service.py`
+  - `_build_ranked_candidates_from_generic_ranking_artifact()` mapping `EligibilityRecord` → `ConstructionRankedCandidateInput`; surfaces `hard_filter_failures` joined as `exclusion_reason` on excluded rows
+  - `preflight_generic_ranking_artifact_for_construction()` in `construction_ranking_handoff_service.py`
+  - `POST /construction/ranking-artifacts/preflight/{artifact_id}` route now dispatches `generic_ranking` artifact-id prefix; previously raised `unsupported ranking artifact kind` fail-closed
+  - `POST /construction/run` now accepts `generic_ranking_artifact_construction_handoff_v1` handoffs and validates lineage (artifact_id, schema_version, ranking_id, methodology_id, as_of_date) plus eligibility
+  - error class hierarchy extended: `GenericRankingMissingFileError` → 404; other generic ranking persistence errors → 400
+  - desktop `rankingArtifactConstructionHandoff.ts` validator and `types.ts` extended with `generic_ranking_artifact_construction_handoff_v1` handoff kind support
+  - autouse pytest fixture refactored to use `tmp_path_factory` (avoids polluting per-test `tmp_path` for tests that assert it stays empty)
+- Guard impact:
+  - closes Epic 2's actual next-slice gap: `generic_ranking` artifacts can now flow into the persisted construction review path through the same canonical preflight + run boundary used by ETF and replacement ranking artifacts.
+  - explicit two-then-three-kind allowlist remains; no silent generalization to arbitrary artifact families.
+  - excluded rows surface `hard_filter_failures` rather than being silently dropped, preserving generic_ranking's per-instrument `EligibilityRecord` truth through the construction boundary.
+  - Workspace Candidate Idea browser integration for `generic_ranking` is NOT in this slice; it remains a follow-up (the standalone `Generic Ranking` desktop tab is still the only UI entry point for now).
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_construction_generic_ranking_handoff.py` (10 tests)
+  - all existing construction tests still pass (178/178 in the construction + generic_ranking subsets)
+- Next slice: surface `Review In Construction` CTA on the Generic Ranking desktop tab and add `generic_ranking` to Workspace Candidate Idea browser, so the eligibility expansion becomes user-visible end-to-end.
 
 ### 2026-05-10 - Epic 2 generic_ranking platform Phase 1 shipped
 

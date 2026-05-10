@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -8,7 +7,10 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _isolate_generic_ranking_artifact_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _isolate_generic_ranking_artifact_store(
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Isolate the generic_ranking artifact store to a per-test tmp directory.
 
     The cross-kind ranking catalog scans the generic_ranking artifact directory
@@ -18,15 +20,14 @@ def _isolate_generic_ranking_artifact_store(tmp_path: Path, monkeypatch: pytest.
     the route tests in this run) would leak into ETF-focused tests through
     the catalog and break their assertions.
 
-    This is autouse so every test gets isolation by default. Tests that need
-    to inspect the real artifact directory can override the fixture.
-    """
-    isolated_dir = tmp_path / "generic-ranking-artifacts"
-    isolated_dir.mkdir(parents=True, exist_ok=True)
+    Uses tmp_path_factory (not the test's tmp_path) so we don't pollute the
+    test's own tmp_path with a generic-ranking-artifacts subdirectory — some
+    tests assert that their tmp_path is empty after the operation.
 
-    # Patch the settings used by the generic ranking artifact store.
-    # Build a SimpleNamespace that mirrors the real settings shape; only
-    # generic_ranking_artifacts_dir matters for the store.
+    This is autouse so every test gets isolation by default.
+    """
+    isolated_dir = tmp_path_factory.mktemp("generic-ranking-artifacts")
+
     def _fake_settings() -> Any:
         return SimpleNamespace(generic_ranking_artifacts_dir=str(isolated_dir))
 
