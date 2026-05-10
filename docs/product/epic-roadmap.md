@@ -12,7 +12,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
-| 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized local exception review metadata persistence shipped/stabilized | Runtime-load local metadata validation/sanitization shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
+| 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic | No active slice | Broaden supported ranking families only after explicit selection-readiness semantics stay clear | 2026-05-06 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
@@ -45,13 +45,14 @@ Keep imported portfolio truth, trust semantics, and reconciliation explicit befo
 - Broker import, workspace snapshots, immutable saved nodes, and working drafts are shipped.
 - Dashboard, Exposure, diagnostics, and replay now carry explicit trust/degradation/withholding semantics.
 - Imported-history and combined-statement regression coverage was recently hardened.
-- Imported bootstrap responses and the desktop Dashboard now expose a read-only `ImportAdmissionSummaryV1` for residual cash, symbol/security identity, parsed position market-value reconciliation, and NAV comparability checks; it does not block workspace creation or rewrite values.
-- Local exception review metadata persistence is shipped/stabilized for non-pass admission checks; it records reviewer rationale and disposition locally without changing admission decision, trust level, imported values, or backend truth, and runtime load/build boundaries sanitize malformed local metadata, pass-status evidence, and non-finite captured numeric evidence without rewriting IndexedDB.
+- Imported bootstrap responses and the desktop Dashboard expose a read-only `ImportAdmissionSummaryV1` for residual cash, symbol/security identity, parsed position market-value reconciliation, and NAV comparability checks; it does not block workspace creation, rewrite values, or upgrade trust.
+- Desktop-local `ImportAdmissionReviewDispositionV1` persistence is shipped/stabilized for non-pass admission checks; it records reviewer rationale and disposition locally without changing admission decision, trust level, broker truth, imported values, derived portfolio truth, or backend truth.
+- Runtime load/build boundaries sanitize malformed local metadata, pass-status evidence, unknown extras, and non-finite captured numeric evidence without read-time IndexedDB rewrite; saves require captured evidence to match the current non-pass check evidence after null/default normalization.
 
 ### Target state
 
-- Imported portfolio truth is admitted through an explicit reconciliation guard before downstream workflows depend on it.
-- Residual cash, symbol mismatches, NAV breaks, and unsupported evidence states are reviewable as first-class reconciliation outcomes.
+- Imported portfolio truth exposes explicit reconciliation evidence before downstream workflows make stronger claims from it.
+- Residual cash, symbol mismatches, NAV breaks, and unsupported evidence states are reviewable as first-class non-mutating reconciliation outcomes.
 
 ### Open gaps
 
@@ -60,7 +61,7 @@ Keep imported portfolio truth, trust semantics, and reconciliation explicit befo
 ### Planned slices
 
 - Expand read-only admission summary into a deeper reconciliation surface only if needed.
-- Future exception workflows must stay explicit about local metadata versus trust-changing backend evidence.
+- Future exception workflows must stay explicit about desktop-local metadata versus any separate backend-authoritative evidence flow; local dispositions do not change trust.
 
 ### Dependencies
 
@@ -75,7 +76,7 @@ Keep imported portfolio truth, trust semantics, and reconciliation explicit befo
 
 ### Exit criteria
 
-- Imported truth admission is explicit, reviewable, and blocks downstream overclaiming when reconciliation is not good enough.
+- Imported truth admission evidence is explicit, reviewable, and prevents downstream overclaiming without blocking workspace creation or mutating trust.
 
 ## Epic 2. Ranking and Selection Methodology Guard
 

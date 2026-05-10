@@ -2,9 +2,9 @@
 
 Contract source of truth: `services/quant-engine/app/schemas/import_bootstrap.py`.
 
-`ImportAdmissionSummaryV1` is attached to imported bootstrap responses as `admission_summary`. It is read-only evidence about whether an imported broker snapshot can be treated as clean imported truth for dashboard admission.
+`ImportAdmissionSummaryV1` is attached to imported bootstrap responses as `admission_summary`. It is read-only evidence about admission checks for an imported broker snapshot. It does not create, deny, or upgrade broker truth.
 
-`ImportAdmissionReviewDispositionV1` is optional desktop-local reviewer metadata for non-pass checks. It is stored outside imported snapshot and admission summary payloads, and it never changes broker truth, admission decision, trust level, workspace access, or imported values. Desktop runtime loads sanitize this local metadata on read/build boundaries without rewriting IndexedDB, and saves require captured evidence to match the current non-pass check evidence.
+`ImportAdmissionReviewDispositionV1` is optional desktop-local reviewer metadata for non-pass checks. It is stored outside imported snapshot and admission summary payloads, and it never changes broker truth, admission decision, trust level, workspace creation, imported values, or derived portfolio truth. Desktop runtime loads sanitize this local metadata on read/build boundaries without rewriting IndexedDB, and saves require captured evidence to match the current non-pass check evidence after null/default normalization.
 
 ## Summary
 
@@ -43,7 +43,7 @@ Each check carries:
 - Save-time evidence validation does not reject stale or mismatched `snapshot_fingerprint` or `admission_summary_fingerprint`; fingerprints remain local stale-labeling evidence only.
 - No backend persistence endpoint for review disposition metadata.
 - No blocking workspace creation.
-- No automatic fixes, value rewriting, or reconstruction.
+- No trust upgrades, automatic fixes, value rewriting, or reconstruction.
 - Missing statement totals, parsed cash evidence, or parsed position market values degrade checks instead of fabricating a pass.
 - Non-finite numeric admission inputs (`NaN`, `Infinity`, `-Infinity`) are treated as unavailable/degraded evidence and must not be emitted as numeric observed/comparison/delta evidence.
 - NAV/market-value admission includes both statement arithmetic and parsed holdings market-value reconciliation.
