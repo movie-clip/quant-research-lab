@@ -406,15 +406,32 @@ export function EtfRankingPanel({ draftSymbols = [], currentPortfolio = null, on
     })
   }, [constructionPolicyCatalog.defaultPolicyId, constructionPolicyCatalog.policies, constructionPolicyCatalog.status])
 
+  // Discovers the set of `effective_peer_group` filter options by issuing an UNFILTERED
+  // generalized ranking-artifacts/recent fetch and deduplicating the values returned.
+  // This replaces the legacy ETF-native `/strategy-lab/etf-ranking/artifacts/recent/metadata`
+  // call: that endpoint computed the same dedup on the backend by reading the same
+  // `recent.jsonl` index that the generalized recent route already exposes — the only
+  // difference is whether the dedup happens server-side or client-side. Net effect:
+  // one fewer ETF-native call and zero meaningful behavior change.
   async function loadRecentMetadata() {
     setSessionState((current) => ({ ...current, recentMetadataLoading: true, recentMetadataError: null }))
     try {
-      const response = await fetch(`${apiBase}/strategy-lab/etf-ranking/artifacts/recent/metadata`)
-      const payload = await readJsonResponse<EtfRankingArtifactRecentMetadata>(response, 'Recent ETF ranking metadata is unavailable')
+      const response = await fetch(`${apiBase}/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking`)
+      const payload = await readJsonResponse<GeneralizedRankingRecentResponse>(response, 'Recent ETF ranking metadata is unavailable')
+      const allRows = parseEtfRecentRunsFromGeneralizedResponse(payload)
+      // Dedupe peer groups deterministically: drop nulls/empties, sort for stable dropdown order.
+      const peerGroups = Array.from(
+        new Set(
+          allRows
+            .map((row) => row.effective_peer_group ?? '')
+            .filter((value) => value !== ''),
+        ),
+      ).sort()
+      const derived: EtfRankingArtifactRecentMetadata = { available_effective_peer_groups: peerGroups }
       setSessionState((current) => ({
         ...current,
-        recentMetadata: payload,
-        selectedRecentPeerGroup: current.selectedRecentPeerGroup && !payload.available_effective_peer_groups.includes(current.selectedRecentPeerGroup)
+        recentMetadata: derived,
+        selectedRecentPeerGroup: current.selectedRecentPeerGroup && !derived.available_effective_peer_groups.includes(current.selectedRecentPeerGroup)
           ? ''
           : current.selectedRecentPeerGroup,
       }))
