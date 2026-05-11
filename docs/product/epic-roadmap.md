@@ -13,7 +13,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
-| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | Active epic — generic_ranking platform, construction eligibility, AND Workspace browser integration shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints) OR add a new generic_ranking universe family (e.g. Russell 1000 via IWB CSV) | 2026-05-11 |
+| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | **Phase closed / functionally complete.** generic_ranking platform, construction eligibility, Workspace integration, Russell 1000 universe, AND desktop discovery migration all shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints). Future Universe Expansion items (Russell 2000, MSCI EAFE, full IWB ingestion) are deferred to backlog — see Epic 2 Open Gaps | 2026-05-11 |
 | 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
@@ -32,7 +32,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 - Current sequence: `Epic 2 -> Epic 3 -> Epic 4`, while `Epic 1` remains the foundational guardrail.
 - Epic 3 is phase closed / guardrail-complete for this phase; remaining construction and optimizer work is breadth expansion rather than guardrail closeout.
 - Epic 4 is phase closed / stabilized for this phase; remaining monitoring and overlay work is breadth expansion rather than closeout work.
-- Biggest current gap: Epic 2's generic_ranking platform is now end-to-end usable (run → catalog → preflight → construction handoff → Workspace browser → review). The next priority is Epic 3 breadth (more construction policies + richer constraints) or expanding the generic_ranking universe coverage (Russell 1000 via IWB CSV ingestion remains the next data-source-bearing universe candidate).
+- Biggest current gap: **Epic 2 is functionally complete and phase-closed.** All stated Open Gaps are addressed: generic_ranking platform end-to-end (run → catalog → preflight → construction handoff → Workspace browser → review), two `index_constituent` families (sp500 live + russell1000 static-snapshot), and full desktop discovery migration to the generalized cross-kind path. The next active priority is Epic 3 breadth (more construction policies + richer constraints — risk-parity weighting, sector caps, turnover models). Epic 2 future-universe items (Russell 2000, MSCI EAFE, full IWB ingestion) are explicitly deferred to backlog rather than active slices.
 
 ## Epic 1. Imported-Portfolio Truth and Reconciliation Guard
 
@@ -101,9 +101,23 @@ Generalize ranking into a broader methodology platform with explicit selection g
 
 ### Open gaps
 
-- Desktop still leans on ETF-native recent discovery instead of the generalized ranking-artifact path.
+- All ETF Ranking desktop discovery now routes through the generalized cross-kind path (`/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking`). The legacy ETF-native `/recent/metadata` endpoint is no longer called by the desktop — peer-group filter options are derived client-side from the unfiltered generalized recent response. The legacy backend route remains for any external consumers but is not on a desktop-blocking path.
 - Generic ranking artifacts are construction-eligible AND surfaced in the Workspace Candidate Idea section via `PersistedGenericRankingConstructionBrowser`. The end-to-end seam (run → catalog → preflight → handoff → construction review) is closed.
-- Selection guardrails and broader ranking families are not yet productized.
+- Epic 2 has no remaining blocking gaps. Future breadth work is captured in the Future Universe Expansion section below as a deferred backlog rather than active slices.
+
+### Future Universe Expansion (deferred backlog)
+
+When the platform is ready for broader cross-universe ranking research, the following extensions reuse the shipped generic ranking + static-snapshot patterns without new infrastructure:
+
+- **Full Russell 1000 ingestion**: replace the bundled 26-name representative sample at `data/universe/index_snapshots/russell1000.json` with the full ~1000 names. Approach: scripted download of iShares IWB ETF holdings CSV from BlackRock, normalize symbol + sector, write to the snapshot file with refreshed `snapshot_date` and `source_url`. The bundled file format (`index_snapshot_v1`) is already wired and validated; only an ingestion script is missing. Defer until full Russell 1000 ranking is actively needed for research workflows.
+- **Russell 2000** (`index_id="russell2000"`): same pattern. Source: iShares IWM ETF holdings (free CSV from BlackRock product page). Add `russell2000` to the `IndexId` Literal in `app/schemas/generic_ranking.py`, bundle a snapshot at `data/universe/index_snapshots/russell2000.json`, and the existing `_load_index_snapshot()` + resolver dispatch handle the rest. No new tests beyond a couple of dispatch checks.
+- **MSCI EAFE** (`index_id="eafe"`): same pattern. Source: iShares EFA ETF holdings. Adds international-developed coverage to the universe set.
+- **Sector ETF peer groups as named universes**: the `etf_peer_group` universe kind already supports explicit symbol lists. Codifying common sector groupings (e.g. XLK/XLF/XLV/etc. clusters) as named static lists would reduce repeated user input.
+- **Custom mandate universes** (e.g. dividend aristocrats, ESG screens): same `index_constituent` pattern via static snapshots from the relevant index ETF holdings.
+
+Note for next agent: every entry above is intentionally LOW-PRIORITY relative to active product workflows. The bundled Russell 1000 sample is sufficient for development, demo, and testing; full ingestion only matters when the user actually runs production rankings against the full Russell 1000 set. Resist sunk-cost reasoning — adding more universes that nobody uses adds maintenance burden without product value.
+
+- **Selection guardrails are not yet productized as a standalone surface**: the construction preflight already returns typed eligibility/readiness for the three supported ranking families, which is the minimum viable selection guardrail. Broader selection guardrails (e.g. per-factor coverage warnings, cross-factor agreement scores, confidence-aware suppression) are a future direction, not blocking.
 
 ### Planned slices
 
@@ -237,6 +251,52 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-11 - Epic 2 desktop ETF discovery fully migrated to generalized path
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: remove the last ETF-native discovery call from the desktop and derive peer-group filter options client-side from the generalized cross-kind recent route.
+- Status: shipped. **Closes Epic 2's last stated Open Gap.**
+- Scope delivered:
+  - Audit found the recent-runs discovery path (the main one) was already migrated in a prior slice. The only remaining ETF-native call was `loadRecentMetadata()` in `EtfRankingPanel.tsx`, hitting `/strategy-lab/etf-ranking/artifacts/recent/metadata` to populate the peer-group filter dropdown.
+  - That call is now replaced with an unfiltered fetch against `/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking` followed by client-side dedup of the `effective_peer_group` values. Semantics are equivalent: both the legacy backend route and the new client logic dedup over the same `recent.jsonl` index — only the dedup location changed.
+  - Result: zero ETF-native discovery calls remain on the desktop. All ETF Ranking discovery now flows through the generalized cross-kind path that already supports `etf_ranking`, `intent_bound_etf_replacement_ranking`, and `generic_ranking` artifact kinds.
+- Guard impact:
+  - Closes the Epic 2 Open Gap stated in this doc since 2026-05-06: "Desktop still leans on ETF-native recent discovery instead of the generalized ranking-artifact path."
+  - Backend ETF-native `/recent/metadata` route is preserved for any external consumers but no longer on a desktop-blocking path. It can be deprecated in a future cleanup pass without affecting desktop behavior.
+  - No behavior change for users — the peer-group filter dropdown still populates from the same underlying data (the ETF `recent.jsonl` index) with deterministic sort order.
+- Tests/evidence:
+  - 30/30 `EtfRankingPanel.test.tsx` tests pass unchanged. The legacy `/recent/metadata` mocks in those tests are now dead code (never matched) and can be cleaned up in a future test-hygiene pass.
+  - 0 regressions in the broader frontend suite (389/394 — same 5 pre-existing `@tauri-apps/plugin-dialog` failures unrelated to this change).
+- Epic 2 status after this slice: **functionally complete.** All stated Open Gaps are closed. Future breadth (additional index families, scripted full IWB ingestion, selection guardrails) is captured in the Future Universe Expansion deferred backlog under Epic 2's Open Gaps section.
+
+### 2026-05-11 - Epic 2 generic_ranking Russell 1000 universe shipped
+
+- Epic: `2. Ranking and selection methodology guard`
+- Slice: extend the `index_constituent` universe family with Russell 1000 via static-snapshot resolution.
+- Status: shipped.
+- Scope delivered:
+  - extended `IndexId` Literal in `app/schemas/generic_ranking.py` to include `russell1000` (was `sp500` only)
+  - new `_load_index_snapshot()` loader in `app/services/universe_resolver.py` that reads versioned JSON snapshots from `data/universe/index_snapshots/<index_id>.json` with fail-closed validation: missing file, invalid JSON, schema_version mismatch, index_id field mismatch, malformed constituent rows all raise `IndexSnapshotError`
+  - resolver `_resolve_index_constituents()` refactored to dispatch by `index_id`: `sp500` → live FMP `/stable/sp500-constituent`, `russell1000` → static snapshot loader; sector_include/sector_exclude filters apply identically across both paths
+  - resolver degrades gracefully when the russell1000 snapshot file is unavailable: returns empty `evaluated_members` with a logged warning rather than raising — surfaces the trust state explicitly through the artifact instead of failing the request
+  - bundled representative snapshot `data/universe/index_snapshots/russell1000.json`: 26 well-known large-cap names spanning 7 GICS sectors, with explicit provenance metadata (source = iShares IWB ETF holdings CSV, source_url, source_notes flagging it as a SAMPLE not the full membership)
+  - desktop frontend extended: `IndexId` TS type now includes `russell1000`; `INDEX_LABELS` map renders human-readable labels with the resolution mode visible to the user (`S&P 500 (FMP live)`, `Russell 1000 (static snapshot)`)
+  - 13 new backend tests covering schema validation, snapshot loader fail-closed paths, dispatch, sector filtering, and graceful degradation when the snapshot is missing
+- Guard impact:
+  - widens `index_constituent` from one to two index families without adding new live data sources or new infrastructure beyond a JSON snapshot loader
+  - russell1000 path is intentionally static-snapshot-based (no FMP endpoint exists); reproducibility is preserved by `UniverseSpecSnapshot.evaluated_members` capturing the resolved members at run time, so persisted ranking artifacts remain reproducible even after the snapshot file is later refreshed in place
+  - bundled snapshot is honest: explicit `source_notes` field documents that it is a representative sample, not the full ~1000 names; full ingestion of IWB CSV is intentionally deferred to a future slice
+- Contracts changed:
+  - additive only: `IndexId` Literal extended with `russell1000`; `UniverseSpec.index_id` accepts the new value
+  - new file format: `data/universe/index_snapshots/<index_id>.json` with fixed `snapshot_schema_version: index_snapshot_v1` envelope
+- Tests/evidence:
+  - `services/quant-engine/app/tests/test_universe_resolver_russell1000.py` (13 tests)
+  - 201/201 backend generic_ranking + construction tests still pass; 15/15 frontend generic-ranking tests pass
+- Next slice candidates:
+  - scripted ingestion of the full Russell 1000 from IWB ETF holdings CSV (replaces the bundled sample with the full membership)
+  - additional index families (Russell 2000 via IWM holdings, MSCI EAFE via EFA holdings) using the same snapshot loader pattern
+  - Epic 3 breadth: more construction policies + richer constraints
 
 ### 2026-05-11 - Epic 2 generic_ranking Workspace Candidate Idea browser shipped
 

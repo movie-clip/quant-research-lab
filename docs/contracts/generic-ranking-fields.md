@@ -360,11 +360,32 @@ Catalog/recent discovery row shape returned by the recent-run listing endpoint. 
 
 ### Universe kinds
 
-- `index_constituent` — resolved live via FMP `/stable/sp500-constituent`. Requires `index_id` field on the spec.
+- `index_constituent` — resolved by index_id. Requires `index_id` field on the spec.
 
 ### IndexId
 
-- `'sp500'` — current S&P 500 membership snapshot (point-in-time historical reconstruction deferred to a future phase)
+- `'sp500'` — current S&P 500 membership resolved live via FMP `/stable/sp500-constituent` (point-in-time historical reconstruction deferred to a future phase)
+- `'russell1000'` — Russell 1000 membership resolved from a versioned static JSON snapshot under `data/universe/index_snapshots/russell1000.json`. The snapshot is sourced from iShares IWB ETF holdings (no FMP endpoint exists for Russell 1000). Bundled snapshot is a representative sample (26 names spanning 7 GICS sectors); a scripted ingestion of the full ~1000 names is intentionally deferred. Snapshot refresh is currently manual: download IWB holdings CSV from BlackRock, normalize, and overwrite the JSON file.
+
+#### Snapshot file format (`index_snapshot_v1`)
+
+```json
+{
+  "index_id": "russell1000",
+  "snapshot_schema_version": "index_snapshot_v1",
+  "snapshot_date": "2026-04-30",
+  "source": "ishares_iwb_holdings_csv",
+  "source_url": "https://www.ishares.com/...",
+  "source_notes": "<provenance and limitations>",
+  "constituent_count": 26,
+  "constituents": [
+    {"symbol": "AAPL", "name": "Apple Inc", "sector": "Information Technology"},
+    ...
+  ]
+}
+```
+
+The loader (`_load_index_snapshot` in `app/services/universe_resolver.py`) fails closed on missing file, invalid JSON, schema_version mismatch, index_id field mismatch, or malformed constituent rows. Resolver degradation: when the file is unavailable, `evaluated_members` is `[]` with a logged warning rather than a raised error — the artifact's `confidence` will reflect the degraded state.
 
 ### Quality factor IDs (require FMP fundamental data)
 

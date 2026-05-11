@@ -3,7 +3,8 @@ import type { GenericRankingRequest, IndexId, ScoreConfig, UniverseKind } from '
 import { SCORE_CONFIG_PRESETS, SCORE_CONFIG_PRESET_LABELS } from './scoreConfigPresets'
 
 const INDEX_LABELS: Record<IndexId, string> = {
-  sp500: 'S&P 500',
+  sp500: 'S&P 500 (FMP live)',
+  russell1000: 'Russell 1000 (static snapshot)',
 }
 
 type GenericRankingRequestFormProps = {

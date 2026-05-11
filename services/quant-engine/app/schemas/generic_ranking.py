@@ -19,7 +19,11 @@ UniverseKind = Literal[
 ]
 
 # Supported index identifiers for universe_kind="index_constituent".
-IndexId = Literal["sp500"]
+# - sp500: resolved live via FMP /stable/sp500-constituent
+# - russell1000: resolved from a versioned static snapshot under data/universe/index_snapshots/
+#   (no FMP endpoint exists for Russell 1000; the snapshot is sourced from the iShares
+#   IWB ETF holdings CSV and refreshed manually until an ingestion script exists)
+IndexId = Literal["sp500", "russell1000"]
 
 FactorFamily = Literal["momentum", "volatility", "liquidity", "quality", "value", "sentiment"]
 NormalizationMethod = Literal["cross_sectional_zscore", "percentile_rank", "minmax"]

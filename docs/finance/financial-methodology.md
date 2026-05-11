@@ -294,6 +294,19 @@ Relevant implementation:
 
 The generic ranking platform extends ranking beyond the original ETF-only path with versioned `ScoreConfig` and `UniverseSpec`.
 
+### Universe coverage
+
+| Universe kind | Resolution path | Reproducibility |
+|---|---|---|
+| `etf_peer_group`, `custom_list` | Explicit symbols on the request | Spec digest in `UniverseSpecSnapshot` |
+| `broad_equity_screen`, `sector_screen` | Live FMP `/stock-screener` (current snapshot only) | `evaluated_members` captured at run time |
+| `index_constituent` (`index_id="sp500"`) | Live FMP `/stable/sp500-constituent` (current snapshot only) | `evaluated_members` captured at run time |
+| `index_constituent` (`index_id="russell1000"`) | Static JSON snapshot at `data/universe/index_snapshots/russell1000.json` (sourced from iShares IWB ETF holdings; refreshed manually) | `evaluated_members` captured at run time + snapshot file is committed to git for full audit |
+
+For all universe kinds, the persisted artifact's `UniverseSpecSnapshot.evaluated_members` is the reproducibility anchor — even if the underlying data source (FMP screener output, IWB holdings file) is later refreshed, the artifact stays reproducible because the resolved member list is captured at run time.
+
+For Russell 1000 specifically: there is no FMP constituent endpoint. The snapshot file is sourced from the iShares IWB ETF holdings (BlackRock, free CSV download from the ETF product page), which tracks the index with ~99.9% coverage. Snapshot refresh is currently manual; a scripted ingestion is intentionally deferred. The bundled snapshot in the repo is a representative sample of well-known large caps, NOT the full ~1000 names — production usage should overwrite the snapshot file with the full membership.
+
 ### Cross-sectional normalization
 
 For every factor in a `ScoreConfig`, raw values are first winsorized at `winsorize_pct` (default `0.05`, clipping at the 5th/95th percentile cross-sectionally), then normalized via one of:
