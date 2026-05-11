@@ -252,6 +252,28 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 ## Slice Update Log
 
+### 2026-05-11 - Stabilize / cleanup pass
+
+- Epic: cross-cutting infrastructure (not tied to a single product epic).
+- Slice: post-Epic-2 stabilization sweep — branch rename, dependency hygiene, test isolation hardening, artifact-noise cleanup.
+- Status: shipped.
+- Scope delivered:
+  - **Default branch renamed `master` → `main`** on GitHub via API rename. Local refs and tracking updated across worktrees. Zero code, doc, or config references to git-master existed (all hits in a `grep -i master` were unrelated: Mastercard, instrument-master data, factor-master-detail CSS class).
+  - **Frontend dependency hygiene**: `@tauri-apps/plugin-dialog` and `@tauri-apps/plugin-fs` were declared in `apps/desktop/package.json` but not installed; a stale `node_modules/` was missing them. After `npm install`, the previously-blocked `App.test.tsx` suite now collects and runs — frontend pass count went from 389/394 → 520/527 (+131 tests previously failing to import).
+  - **Test isolation hardened**: extended `services/quant-engine/app/tests/conftest.py` with an autouse fixture that monkeypatches `get_settings` for all four artifact-store modules (`etf_ranking_artifact_service`, `replacement_ranking_artifact_service`, `generic_ranking_artifact_service`, `optimizer_artifact_service`) to point at per-test `tmp_path_factory` directories. Explicit per-test `mocker.patch.object(...)` still overrides the fixture, so existing tests with their own paths keep working unchanged. Confirmed via full backend test run: `data/artifacts/` stays empty after running all 1262 tests.
+  - **Test-noise cleanup**: removed 20 untracked test-generated artifact JSON files + 3 optimizer-handoff directories that had accumulated under `data/artifacts/etf-ranking-artifacts/`, `data/artifacts/generic-ranking-artifacts/`, and `data/artifacts/optimizer-handoffs/`. With the new conftest fixture, these won't reappear from future test runs.
+- Guard impact:
+  - the project's "artifacts are committed to git as auditable records" rule is preserved — user-generated artifacts from real ranking runs continue to be tracked. The cleanup removed only TEST-side-effect artifacts that leaked from route-layer tests, which were never authoritative.
+  - branch rename has zero functional impact on the codebase; it is purely the GitHub default branch label.
+  - the autouse fixture is non-destructive: existing test runs reproduce the same failure count (40 backend / 7 frontend) before and after the fixture extension. These failures are real but pre-existing test bugs (market-data unavailability, stale text matchers, etc.) — out of scope for a cleanup slice.
+- Deferred to backlog:
+  - **Dead `/strategy-lab/etf-ranking/artifacts/recent/metadata` test mocks** in `EtfRankingPanel.test.tsx` (17 instances), `App.test.tsx` (4 instances), and `BacktestWorkspacePanel.test.tsx` (1 instance) — desktop no longer calls that route, so these mock branches are never matched at runtime. Purely cosmetic; high-churn to remove. Defer until a future test-hygiene pass.
+  - **Real test failures**: 40 backend failures (mostly in `test_strategy_lab.py`, `test_routes.py`, `test_portfolio_allocation_backtests.py`) and 7 frontend failures (5 in `DashboardPanel.test.tsx` for stale text matchers, 2 in `App.test.tsx` for monitoring handoff and Dashboard restore). These are real test bugs that need methodical per-test triage and fix, not stabilization-pass cleanup.
+- Tests/evidence:
+  - Backend after slice: 1222/1262 pass (40 pre-existing failures unchanged).
+  - Frontend after slice: 520/527 pass (was 389/394 — +131 unblocked, same 7 real failures remain).
+  - `data/artifacts/` verified empty after full backend run with the new conftest.
+
 ### 2026-05-11 - Epic 2 desktop ETF discovery fully migrated to generalized path
 
 - Epic: `2. Ranking and selection methodology guard`
