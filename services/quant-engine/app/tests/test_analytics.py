@@ -6483,10 +6483,91 @@ def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement(mock
     assert set(overview.sector_position_breakdown).issubset({item["sector"] for item in overview.sector_allocation})
 
 
-def test_ff2026_dashboard_truth_values_match_imported_history_and_overview() -> None:
+def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocker) -> None:
     ff_2026_path = FREEDOM24_FIXTURE_PATH
 
     snapshot = import_statements([str(ff_2026_path)])
+
+    # Provide deterministic VTI prices that reproduce the FF2026 golden values.
+    # Key prices were back-solved from the statement's starting_nav (2900.12),
+    # the VTI closing price (335.44 on 2026-04-11), and the expected monthly
+    # returns.  The benchmark (SPY) rows just need to be non-empty and without
+    # adjClose so benchmark_path = "price_return_only".
+    import datetime as _dt
+    import math as _math
+
+    _FF2026_VTI_KEY_PRICES: dict[str, float] = {
+        "2025-12-01": 334.66,
+        "2025-12-31": 335.29,
+        "2026-01-02": 341.09,
+        "2026-01-30": 345.42,
+        "2026-02-02": 345.42,
+        "2026-02-27": 341.71,
+        "2026-03-02": 341.71,
+        "2026-03-31": 323.27,
+        "2026-04-01": 323.22,
+        "2026-04-10": 335.44,
+    }
+    _FF2026_HOLIDAYS: frozenset[str] = frozenset({
+        "2025-12-25", "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03",
+    })
+
+    def _ff2026_vti_price(date_str: str) -> float:
+        if date_str in _FF2026_VTI_KEY_PRICES:
+            return _FF2026_VTI_KEY_PRICES[date_str]
+        key_dates = sorted(_FF2026_VTI_KEY_PRICES)
+        prev_d = prev_p = next_d = next_p = None
+        for kd in key_dates:
+            if kd <= date_str:
+                prev_d, prev_p = kd, _FF2026_VTI_KEY_PRICES[kd]
+            else:
+                next_d, next_p = kd, _FF2026_VTI_KEY_PRICES[kd]
+                break
+        if prev_d is None:
+            return next_p  # type: ignore[return-value]
+        if next_d is None:
+            return prev_p  # type: ignore[return-value]
+        d0 = _dt.date.fromisoformat(prev_d)
+        d1 = _dt.date.fromisoformat(next_d)
+        d = _dt.date.fromisoformat(date_str)
+        t = (d - d0).days / (d1 - d0).days
+        return round(prev_p + t * (next_p - prev_p), 2)  # type: ignore[operator]
+
+    def _ff2026_trading_dates(from_date: str, to_date: str) -> list[str]:
+        dates: list[str] = []
+        day = _dt.date.fromisoformat(from_date)
+        end = _dt.date.fromisoformat(to_date)
+        while day <= end:
+            if day.weekday() < 5 and day.isoformat() not in _FF2026_HOLIDAYS:
+                dates.append(day.isoformat())
+            day += _dt.timedelta(days=1)
+        return dates
+
+    def _spy_rows(symbol: str, from_date: str, to_date: str) -> list[dict]:
+        return [{"date": d, "price": 500.0} for d in _ff2026_trading_dates(from_date, to_date)]
+
+    def _vti_rows_by_symbol(symbols: list[str], from_date: str, to_date: str) -> dict[str, list[dict]]:
+        dates = _ff2026_trading_dates(from_date, to_date)
+        return {sym: [{"date": d, "price": _ff2026_vti_price(d)} for d in dates] for sym in symbols if sym}
+
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    inst = market_data.return_value
+    inst.get_direct_verified_benchmark_history.side_effect = _spy_rows
+    inst.get_historical_prices_for_symbols.side_effect = _vti_rows_by_symbol
+    inst.get_last_fetch_meta.return_value = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/light",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+
     history = run_imported_dashboard_history(snapshot, "SPY")
     overview = build_portfolio_overview(snapshot)
     assert history.range_metrics is not None

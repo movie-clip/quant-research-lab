@@ -142,10 +142,18 @@ uvicorn app.main:app --reload --port 8000
 cd apps/desktop
 npm run dev
 
-# Tests
-python scripts/run_all_tests.py             # all
-cd services/quant-engine && pytest          # backend
+# Tests — `run_all_tests.py` is the canonical entrypoint.
+# It regenerates the dashboard golden fixtures BEFORE pytest runs, then runs
+# vitest. Bare `pytest` and bare `vitest` are fine for narrow iteration, but
+# the goldens must be fresh; an autouse session-scope fixture in
+# `services/quant-engine/app/tests/conftest.py` fails pytest fast with an
+# actionable message if they have drifted. Set `SKIP_GOLDEN_FRESHNESS_CHECK=1`
+# to bypass for a narrow run (only when you know the surface you're touching
+# doesn't depend on the dashboard goldens).
+python scripts/run_all_tests.py             # all (canonical)
+cd services/quant-engine && pytest          # backend (freshness-checked)
 cd apps/desktop && npx vitest run           # frontend
+python -m app.scripts.export_dashboard_goldens  # regenerate goldens (from services/quant-engine/)
 
 # FMP cache management
 python scripts/manage_cache.py

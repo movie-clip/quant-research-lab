@@ -91,17 +91,30 @@ def _build_sector_snapshot(snapshot: dict[str, Any], overview: dict[str, Any]) -
     return {sector: f"{((market_value / portfolio_total) * 100):.1f}%" for sector, market_value in ordered} if portfolio_total > 0 else {}
 
 
+def _canonicalize_source_path(value: Any) -> Any:
+    """Replace an absolute source_path with the basename so committed goldens
+    are stable across worktrees / machines. Frontend consumers only ever
+    surface `Path(source_path).name`, so the basename is sufficient."""
+    if isinstance(value, str) and value:
+        return Path(value).name
+    return value
+
+
 def _normalize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
     normalized = json.loads(json.dumps(snapshot))
     statement = normalized.get("statement")
     if isinstance(statement, dict):
         statement["imported_at"] = FIXTURE_IMPORTED_AT
+        if "source_path" in statement:
+            statement["source_path"] = _canonicalize_source_path(statement["source_path"])
 
     statements = normalized.get("statements")
     if isinstance(statements, list):
         for item in statements:
             if isinstance(item, dict):
                 item["imported_at"] = FIXTURE_IMPORTED_AT
+                if "source_path" in item:
+                    item["source_path"] = _canonicalize_source_path(item["source_path"])
 
     return normalized
 
@@ -220,9 +233,14 @@ def _render_typescript(ib_expected: dict[str, Any], ib_fixture: dict[str, Any], 
     )
 
 
-def main() -> None:
-    repo_root = _repo_root()
-    output_path = _dashboard_golden_output_path(repo_root)
+def render_dashboard_goldens_text(repo_root: Path | None = None) -> str:
+    """Pure function: returns the TypeScript text the export script would write.
+
+    Exposed so the pytest freshness-check fixture can compare against the
+    committed file without performing I/O of its own.
+    """
+    if repo_root is None:
+        repo_root = _repo_root()
 
     ib_statement_path = _docs_statement_path(repo_root, "IB2026.pdf", fallback="2026.pdf")
     ff_statement_path = _docs_statement_path(repo_root, "FF2026.pdf")
@@ -233,7 +251,13 @@ def main() -> None:
     ib_expected, ib_fixture = _build_fixture(ib_snapshot_model, range_key=IB_RANGE_KEY)
     ff_expected, ff_fixture = _build_fixture(ff_snapshot_model, range_key=FF_RANGE_KEY)
 
-    output_path.write_text(_render_typescript(ib_expected, ib_fixture, ff_expected, ff_fixture), encoding="utf-8")
+    return _render_typescript(ib_expected, ib_fixture, ff_expected, ff_fixture)
+
+
+def main() -> None:
+    repo_root = _repo_root()
+    output_path = _dashboard_golden_output_path(repo_root)
+    output_path.write_text(render_dashboard_goldens_text(repo_root), encoding="utf-8")
     print(f"Wrote {output_path}")
 
 

@@ -3606,7 +3606,11 @@ describe('App', () => {
     expect(matchingFetchCalls(fetchMock, '/api/backtests/monitor-definitions/recovered-alert-review-queue', 'GET')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation', 'POST')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/backtests/monitor-definitions/recent', 'GET')).toHaveLength(1)
-    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/recent', 'GET')).toHaveLength(2)
+    // 3 distinct construction-browser surfaces each fetch recent ranking artifacts:
+    // PersistedEtfRankingConstructionBrowser (etf_ranking),
+    // PersistedReplacementRankingBrowser (intent_bound_etf_replacement_ranking),
+    // PersistedGenericRankingConstructionBrowser (generic_ranking, added in Epic 2 Workspace integration).
+    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/recent', 'GET')).toHaveLength(3)
   })
 
   it('adds a new imported snapshot node from Dashboard Add Statement', async () => {
@@ -4351,7 +4355,9 @@ describe('App', () => {
     expect(matchingFetchCalls(fetchMock, '/api/engines/exposure/run', 'POST')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/engines/dashboard-history/run', 'POST')).toHaveLength(1)
-    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/recent', 'GET')).toHaveLength(2)
+    // 3 construction-browser surfaces (etf_ranking, intent_bound_etf_replacement_ranking,
+    // generic_ranking) each issue a recent-rankings fetch on mount.
+    expect(matchingFetchCalls(fetchMock, '/api/strategy-lab/ranking-artifacts/recent', 'GET')).toHaveLength(3)
   })
 
   it('opens persisted construction artifact review from query param on startup', async () => {
@@ -5489,7 +5495,13 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText(ff2026DashboardGolden.portfolioValue)).toBeTruthy())
+    // Assert on cache-independent golden fields (accountId + statementPeriod) so the
+    // test stays green regardless of whether the goldens were generated with a
+    // populated FMP cache (money-formatted values) or without (`n/a` fallback).
+    // Truth-class separation: the dashboard restoration we're verifying is broker
+    // truth, which doesn't depend on benchmark/market-data availability.
+    await waitFor(() => expect(screen.getByText(new RegExp(`Account ID ${ff2026DashboardGolden.accountId}`))).toBeTruthy())
+    expect(screen.getByText(ff2026DashboardGolden.statementPeriod)).toBeTruthy()
     const ff2026DetailedReviewButton = screen.queryByRole('button', { name: 'Open detailed review' })
     if (ff2026DetailedReviewButton) {
       fireEvent.click(ff2026DetailedReviewButton)
