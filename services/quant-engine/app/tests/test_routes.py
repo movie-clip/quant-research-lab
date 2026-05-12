@@ -5688,21 +5688,35 @@ def test_construction_run_route_rejects_ranking_artifact_handoff_when_top_n_is_o
     preflight_response = client.post(f"/construction/ranking-artifacts/preflight/{ranking_payload['artifact_id']}")
     assert preflight_response.status_code == 200
 
+    # Below the launch range: top_n=1 must be rejected (min is 2)
     response = client.post(
         "/construction/run",
         json={
-            "request_id": "construction-route-artifact-handoff-invalid-top-n",
+            "request_id": "construction-route-artifact-handoff-invalid-top-n-low",
             "ranking_artifact_handoff": preflight_response.json()["handoff"],
             "current_portfolio": _construction_current_portfolio_payload(),
-            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 3},
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 1},
             **_construction_constraints_payload(),
         },
     )
 
     assert response.status_code == 400
-    assert response.json() == {
-        "detail": "ranking artifact handoff launch requires policy.top_n=2 for the shipped desktop boundary"
-    }
+    assert "ranking artifact handoff launch requires policy.top_n in" in response.json()["detail"]
+
+    # Above the launch range: top_n=21 must be rejected (max is 20)
+    response = client.post(
+        "/construction/run",
+        json={
+            "request_id": "construction-route-artifact-handoff-invalid-top-n-high",
+            "ranking_artifact_handoff": preflight_response.json()["handoff"],
+            "current_portfolio": _construction_current_portfolio_payload(),
+            "policy": {"policy_id": "top_n_equal_weight_v1", "top_n": 21},
+            **_construction_constraints_payload(),
+        },
+    )
+
+    assert response.status_code == 400
+    assert "ranking artifact handoff launch requires policy.top_n in" in response.json()["detail"]
 
 
 def test_construction_run_route_accepts_replacement_ranking_artifact_handoff_and_persists_construction_artifact(tmp_path, mocker) -> None:
@@ -6489,17 +6503,27 @@ def test_construction_policy_catalog_route_rejects_malformed_max_trade_intent_co
 
 
 def test_construction_policy_catalog_route_rejects_invalid_launch_top_n_filter_value() -> None:
+    """Epic 3 breadth: launch_top_n filter widened to range [2, 20].
+    Out-of-range values (1 below min, 21 above max) must still be rejected with HTTP 422."""
     client = TestClient(app)
 
+    # Below the launch range
     response = client.get(
         "/construction/policies",
-        params={"launch_top_n": "3"},
+        params={"launch_top_n": "1"},
     )
 
     assert response.status_code == 422
-    assert response.json() == {
-        "detail": "invalid construction policy filter value for 'launch_top_n': '3'; supported values: 2"
-    }
+    assert "invalid construction policy filter value for 'launch_top_n': '1'" in response.json()["detail"]
+
+    # Above the launch range
+    response = client.get(
+        "/construction/policies",
+        params={"launch_top_n": "21"},
+    )
+
+    assert response.status_code == 422
+    assert "invalid construction policy filter value for 'launch_top_n': '21'" in response.json()["detail"]
 
 
 def test_construction_policy_catalog_route_rejects_repeated_filter_when_any_raw_value_is_malformed() -> None:

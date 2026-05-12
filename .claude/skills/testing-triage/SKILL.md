@@ -5,17 +5,32 @@ description: Use when tests fail across either service, when investigating a reg
 
 # Testing Triage
 
+## Canonical entrypoint — run this first
+
+```bash
+python scripts/run_all_tests.py
+```
+
+This regenerates the dashboard golden fixtures (`apps/desktop/src/test/dashboardGoldens.ts`) via `python -m app.scripts.export_dashboard_goldens` **before** running pytest, then runs vitest. **If you skip this step and invoke `pytest` directly with stale goldens, the autouse `_check_dashboard_goldens_freshness` fixture in `services/quant-engine/app/tests/conftest.py` fails fast with an actionable message** — that error is not a regression, it means "regenerate goldens first."
+
+To bypass the freshness check for a narrow targeted run (only when you've confirmed the surface under test doesn't touch the dashboard goldens):
+
+```bash
+SKIP_GOLDEN_FRESHNESS_CHECK=1 pytest -k "<narrow keyword>"
+```
+
 ## Test commands
 
 ### Backend (pytest)
 ```bash
 cd services/quant-engine
-pytest                                # full suite
+pytest                                # full suite (freshness-checked)
 pytest -x                             # stop on first failure
 pytest --tb=short -q                  # compact output
 pytest tests/test_<name>.py -v        # single file
 pytest tests/test_<name>.py::test_<x> # single test
 pytest -k "ranking"                   # tests matching keyword
+python -m app.scripts.export_dashboard_goldens  # regenerate goldens
 ```
 
 Test files: `services/quant-engine/app/tests/`
@@ -47,6 +62,7 @@ Test utilities: `apps/desktop/src/test/`
 ## Failure pattern reference
 
 ### Backend
+- **`Dashboard goldens are stale`** — emitted by the autouse session fixture. Run `python scripts/run_all_tests.py` (or just `python -m app.scripts.export_dashboard_goldens` from `services/quant-engine/`) and commit the diff. Do NOT bypass by deleting the fixture.
 - **Market data unavailability** in `test_analytics.py`, `test_dashboard_history.py` — usually pre-existing, FMP cache empty in test env. Check `data/fmp-cache/` is populated.
 - **Persisted artifact integrity errors** — usually old artifact files from prior runs in `data/artifacts/` that don't match current schema. Check artifact_id prefix and fingerprint scheme.
 - **Trust-level mismatches** — `'unavailable'` vs `'degraded_unverified_return_basis'` vs `'verified'`. Check whether the test's expected value is the post-change canonical value.

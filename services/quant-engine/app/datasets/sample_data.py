@@ -80,6 +80,17 @@ URI_RETURNS = _expand_with_regime([0.021, -0.028, 0.033, 0.019, -0.026, 0.028, 0
 EME_RETURNS = _expand_with_regime([0.024, -0.026, 0.035, 0.021, -0.022, 0.03, 0.024, -0.011, 0.022, 0.015, 0.02, 0.012], [adjustment + 0.0012 for adjustment in YEAR_ADJUSTMENTS])
 GDDY_RETURNS = _expand_with_regime([0.023, -0.024, 0.036, 0.022, -0.019, 0.029, 0.025, -0.012, 0.023, 0.016, 0.021, 0.013], [adjustment + 0.0015 for adjustment in YEAR_ADJUSTMENTS])
 TTWO_RETURNS = _expand_with_regime([0.019, -0.027, 0.034, 0.02, -0.021, 0.027, 0.023, -0.013, 0.02, 0.014, 0.019, 0.012], [adjustment + 0.0006 for adjustment in YEAR_ADJUSTMENTS])
+# Additional US sector ETFs used in strategy-lab tests
+XLB_RETURNS = _expand_with_regime([0.016, -0.021, 0.028, 0.015, -0.019, 0.022, 0.018, -0.008, 0.017, 0.012, 0.016, 0.01], [adjustment - 0.0005 for adjustment in YEAR_ADJUSTMENTS])
+XLP_RETURNS = _expand_with_regime([0.009, -0.007, 0.013, 0.01, -0.006, 0.011, 0.009, -0.003, 0.009, 0.008, 0.009, 0.007], [adjustment - 0.002 for adjustment in YEAR_ADJUSTMENTS])
+XLU_RETURNS = _expand_with_regime([0.008, -0.009, 0.012, 0.009, -0.008, 0.01, 0.008, -0.004, 0.008, 0.007, 0.008, 0.006], [adjustment - 0.0025 for adjustment in YEAR_ADJUSTMENTS])
+XLY_RETURNS = _expand_with_regime([0.022, -0.026, 0.038, 0.019, -0.021, 0.029, 0.024, -0.011, 0.021, 0.014, 0.02, 0.012], [adjustment + 0.001 for adjustment in YEAR_ADJUSTMENTS])
+# UCITS ETF proxies used in strategy-lab peer group tests (European-listed instruments)
+IUFS_RETURNS = _expand_with_regime([0.013, -0.016, 0.024, 0.013, -0.017, 0.019, 0.016, -0.008, 0.015, 0.01, 0.014, 0.009], [adjustment - 0.001 for adjustment in YEAR_ADJUSTMENTS])
+IUHC_RETURNS = _expand_with_regime([0.011, -0.009, 0.017, 0.012, -0.007, 0.013, 0.011, -0.004, 0.01, 0.009, 0.011, 0.008], [adjustment - 0.0008 for adjustment in YEAR_ADJUSTMENTS])
+VDST_RETURNS = _expand_with_regime([0.028, -0.023, 0.044, 0.02, -0.009, 0.034, 0.028, -0.011, 0.022, 0.015, 0.026, 0.013], [adjustment + 0.0018 for adjustment in YEAR_ADJUSTMENTS])
+VUAA_RETURNS = _expand_with_regime([0.019, -0.027, 0.036, 0.016, -0.018, 0.028, 0.022, -0.009, 0.019, 0.013, 0.018, 0.011], [adjustment + 0.0005 for adjustment in YEAR_ADJUSTMENTS])
+BTEC_RETURNS = _expand_with_regime([0.031, -0.025, 0.048, 0.023, -0.011, 0.037, 0.031, -0.013, 0.025, 0.017, 0.028, 0.015], [adjustment + 0.002 for adjustment in YEAR_ADJUSTMENTS])
 
 SAMPLE_ETF_HOLDINGS: dict[str, list[dict[str, str | float]]] = {
     "SPY": [
@@ -244,6 +255,17 @@ SAMPLE_BAR_SERIES: dict[str, list[BarRecord]] = {
     "EME": _generate_monthly_series("EME", 95.0, EME_RETURNS, 1200000),
     "GDDY": _generate_monthly_series("GDDY", 70.0, GDDY_RETURNS, 1100000),
     "TTWO": _generate_monthly_series("TTWO", 82.0, TTWO_RETURNS, 1300000),
+    # Additional US sector ETFs
+    "XLB": _generate_monthly_series("XLB", 60.0, XLB_RETURNS, 5200000),
+    "XLP": _generate_monthly_series("XLP", 68.0, XLP_RETURNS, 9800000),
+    "XLU": _generate_monthly_series("XLU", 58.0, XLU_RETURNS, 7100000),
+    "XLY": _generate_monthly_series("XLY", 140.0, XLY_RETURNS, 6400000),
+    # UCITS ETF proxies for peer-group strategy-lab tests
+    "IUFS": _generate_monthly_series("IUFS", 34.0, IUFS_RETURNS, 1800000),
+    "IUHC": _generate_monthly_series("IUHC", 42.0, IUHC_RETURNS, 1500000),
+    "VDST": _generate_monthly_series("VDST", 55.0, VDST_RETURNS, 2100000),
+    "VUAA": _generate_monthly_series("VUAA", 72.0, VUAA_RETURNS, 3400000),
+    "BTEC": _generate_monthly_series("BTEC", 48.0, BTEC_RETURNS, 1600000),
 }
 
 SAMPLE_FUTURES_BARS = SAMPLE_BAR_SERIES
