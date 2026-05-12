@@ -252,6 +252,26 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 ## Slice Update Log
 
+### 2026-05-12 - Testing flow cleanup: goldens freshness + frontend baseline (PR #7 + PR #8)
+
+- Epic: cross-cutting infrastructure (not tied to a single product epic).
+- Slice: harden the test workflow so bare `pytest` no longer produces ~40 spurious failures, and restore the frontend baseline to fully green.
+- Status: shipped.
+- Scope delivered:
+  - **Goldens freshness fixture** (`services/quant-engine/app/tests/conftest.py`): autouse session-scope `_check_dashboard_goldens_freshness` regenerates the dashboard goldens text via the export script and compares to the committed `apps/desktop/src/test/dashboardGoldens.ts`. Failure mode is a fast actionable message naming the regen command. Bypass via `SKIP_GOLDEN_FRESHNESS_CHECK=1` for narrow runs that don't touch the dashboard surface. `source_path` strings are normalized before comparison so the check tolerates running pytest from a non-primary worktree.
+  - **Goldens canonicalization** (`services/quant-engine/app/scripts/export_dashboard_goldens.py`): `_normalize_snapshot` now writes `Path(source_path).name` (basename) instead of the absolute path. Committed goldens are now stable across worktrees and machines. Extracted pure `render_dashboard_goldens_text(repo_root)` so the freshness fixture can call it without I/O.
+  - **Epic 3 follow-up backend fixes that had been left uncommitted on the worktree**: additional sample ETF series (XLB/XLP/XLU/XLY US sector + IUFS/IUHC/VDST/VUAA/BTEC UCITS proxies) for strategy-lab peer-group tests, mock-prices conftest helper for FF2026 dashboard regression, and widened `top_n in [2, 20]` range tests in `test_routes.py`.
+  - **`CLAUDE.md` Development Commands** flags `python scripts/run_all_tests.py` as the canonical entrypoint and explains the freshness fixture / bypass env var.
+  - **`testing-triage` skill** gains a "Canonical entrypoint" section and a stale-goldens entry under backend failure patterns.
+  - **Frontend baseline (PR #8)**: fixed 8 pre-existing failures — 5 DashboardPanel time-bombs (pinned `vi.setSystemTime('2026-04-15T00:00:00Z')` in `beforeEach`), 2 App.test fetch-count assertions (2 → 3 reflecting 3rd construction-browser surface from Epic 2 Workspace integration), 1 FF2026 cache-dependent assertion (switched to `accountId` + `statementPeriod` so the test stays cache-independent).
+- Guard impact:
+  - no methodology, schema, trust-state, or truth-class semantics changed.
+  - the freshness fixture *strengthens* the guardrail "every UI metric maps to one engine formula and one code path" by catching backend-vs-golden drift before it can mask UI assertion drift.
+  - the FF2026 assertion change keeps the same semantic (broker truth is restored correctly from persisted state) using fields that don't conflate broker truth with benchmark availability.
+- Tests/evidence:
+  - `python scripts/run_all_tests.py` -> backend `1264 passed`, frontend `528 / 528 passed`, "All tests passed."
+  - Bare `pytest` from `services/quant-engine/` -> `1264 passed`. Confirmed the freshness fixture fires with an actionable failure message when goldens are stale.
+
 ### 2026-05-12 - Epic 3 breadth: configurable top_n at construction launch
 
 - Epic: `3. Construction and Optimizer Methodology Guard`
