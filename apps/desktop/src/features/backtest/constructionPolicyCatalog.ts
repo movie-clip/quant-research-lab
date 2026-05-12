@@ -22,7 +22,16 @@ const DESKTOP_CONSTRUCTION_POLICY_FILTERS = {
   launch_top_n: '2',
 } as const
 
-export const RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N = 2 as const
+// Epic 3 breadth: launch top_n widened from a hardcoded 2 to a configurable range.
+// The DEFAULT value remains 2 for backward compatibility — users can pick any value
+// in the supported range via the construction browser UI.
+export const RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_DEFAULT = 2 as const
+export const RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN = 2 as const
+export const RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX = 20 as const
+/** @deprecated Use RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_DEFAULT (default value)
+ *  or one of the _MIN/_MAX bounds depending on context. Kept as alias for callers
+ *  that still treat top_n as a fixed scalar — they get the default value. */
+export const RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N = RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_DEFAULT
 
 const SUPPORTED_POLICY_IDS = new Set([
   'top_n_equal_weight_v1',
@@ -126,7 +135,9 @@ function parseLaunchProfile(payload: unknown, policyId: keyof typeof SUPPORTED_P
   if (payload.profile_kind !== CANONICAL_LAUNCH_PROFILE_KIND) {
     throw new Error('Construction policy catalog returned unsupported launch_profile.profile_kind')
   }
-  if (payload.launch_top_n !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
+  if (typeof payload.launch_top_n !== 'number' || !Number.isInteger(payload.launch_top_n)
+    || payload.launch_top_n < RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN
+    || payload.launch_top_n > RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX) {
     throw new Error('Construction policy catalog returned unsupported launch_profile.launch_top_n')
   }
   if (typeof payload.policy_status !== 'string' || !['default', 'opt_in', 'excluded'].includes(payload.policy_status)) {
@@ -139,7 +150,7 @@ function parseLaunchProfile(payload: unknown, policyId: keyof typeof SUPPORTED_P
     profile_id: CANONICAL_LAUNCH_PROFILE_ID,
     profile_kind: CANONICAL_LAUNCH_PROFILE_KIND,
     policy_status: payload.policy_status as ConstructionPolicyLaunchProfile['policy_status'],
-    launch_top_n: RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+    launch_top_n: payload.launch_top_n as number,
   }
 }
 
@@ -194,8 +205,13 @@ function parseConstructionPolicyRow(payload: unknown): ConstructionDiscoveredPol
   if (selectionRuleIds.some((value, index) => value !== REQUIRED_SELECTION_RULE_IDS[index])) {
     throw new Error('Construction policy catalog returned unsupported selection_rule_ids')
   }
-  if (payload.launch_top_n !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
+  if (typeof payload.launch_top_n !== 'number' || !Number.isInteger(payload.launch_top_n)
+    || payload.launch_top_n < RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN
+    || payload.launch_top_n > RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX) {
     throw new Error('Construction policy catalog returned an unsupported launch_top_n')
+  }
+  if (payload.launch_top_n !== launchProfile.launch_top_n) {
+    throw new Error('Construction policy catalog returned a row launch_top_n inconsistent with launch_profile.launch_top_n')
   }
 
   return {
@@ -217,7 +233,7 @@ function parseConstructionPolicyRow(payload: unknown): ConstructionDiscoveredPol
     max_trade_intent_count_constraint: validateExactField(payload, 'max_trade_intent_count_constraint', DESKTOP_CONSTRUCTION_POLICY_FILTERS.max_trade_intent_count_constraint),
     ranked_universe_input: validateExactField(payload, 'ranked_universe_input', DESKTOP_CONSTRUCTION_POLICY_FILTERS.ranked_universe_input),
     current_portfolio_input: validateExactField(payload, 'current_portfolio_input', DESKTOP_CONSTRUCTION_POLICY_FILTERS.current_portfolio_input),
-    launch_top_n: RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+    launch_top_n: payload.launch_top_n as number,
     selection_rule_ids: selectionRuleIds,
     launch_profile: launchProfile,
   }
@@ -286,7 +302,7 @@ export function getConstructionLaunchPolicyReadback(
   return {
     policyName: policy.name,
     statusLabel: policy.launch_profile.policy_status === 'default' ? 'default' : 'opt-in',
-    topN: RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+    topN: policy.launch_profile.launch_top_n,
     requiredConstraint: 'max_position_weight',
     optionalConstraints: ['min_position_weight', 'max_turnover_weight', 'max_trade_intent_count'],
   }
@@ -338,8 +354,14 @@ export function useConstructionPolicyCatalog(apiBase = '/api') {
 export function buildConstructionPolicyRunInput(policyId: string | null, topN: number): ConstructionPolicyRunInput | null {
   if (!policyId) return null
   if (!CANONICAL_LAUNCH_INCLUDED_POLICY_IDS.has(policyId)) return null
-  if (topN !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
-    throw new Error('Ranking artifact construction launch only supports top_n=2')
+  if (!Number.isInteger(topN)
+    || topN < RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN
+    || topN > RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX) {
+    throw new Error(
+      `Ranking artifact construction launch requires integer top_n in `
+      + `[${RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN}, ${RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX}] `
+      + `(received ${topN})`
+    )
   }
   return { policy_id: policyId, top_n: topN }
 }

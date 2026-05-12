@@ -1742,15 +1742,17 @@ def test_handoff_backed_construction_run_persists_authoritative_ranking_provenan
 
 
 def test_handoff_backed_construction_run_request_fails_closed_when_top_n_is_outside_launch_boundary() -> None:
+    """Epic 3 breadth: launch top_n widened to range [2, 20].
+    top_n=3 is now ACCEPTED (previously rejected). The test below verifies that
+    out-of-range values (top_n=1 below MIN, top_n=21 above MAX) still fail closed.
+    """
     artifact = _persisted_etf_ranking_artifact_for_construction()
     current_portfolio, _, hard_constraints = _handoff_supporting_inputs(artifact)
 
-    with pytest.raises(
-        ValueError,
-        match="ranking artifact handoff launch requires policy.top_n=2 for the shipped desktop boundary",
-    ):
+    # Below the launch range: top_n=1 must fail
+    with pytest.raises(ValueError, match=r"ranking artifact handoff launch requires policy.top_n in"):
         build_construction_run_request_from_ranking_artifact_handoff(
-            request_id="construction-handoff-invalid-top-n",
+            request_id="construction-handoff-top-n-too-small",
             handoff=EtfRankingArtifactConstructionHandoff(
                 artifact_id=artifact.artifact_id,
                 ranking_id=artifact.ranking_id,
@@ -1759,9 +1761,54 @@ def test_handoff_backed_construction_run_request_fails_closed_when_top_n_is_outs
             ),
             artifact=artifact,
             current_portfolio=current_portfolio,
-            policy=ConstructionPolicyInput(policy_id="top_n_equal_weight_v1", top_n=3),
+            policy=ConstructionPolicyInput(policy_id="top_n_equal_weight_v1", top_n=1),
             hard_constraints=hard_constraints,
         )
+
+    # Above the launch range: top_n=21 must fail
+    with pytest.raises(ValueError, match=r"ranking artifact handoff launch requires policy.top_n in"):
+        build_construction_run_request_from_ranking_artifact_handoff(
+            request_id="construction-handoff-top-n-too-large",
+            handoff=EtfRankingArtifactConstructionHandoff(
+                artifact_id=artifact.artifact_id,
+                ranking_id=artifact.ranking_id,
+                methodology_id=artifact.run_metadata.methodology_id,
+                as_of_date=artifact.run_metadata.as_of_date,
+            ),
+            artifact=artifact,
+            current_portfolio=current_portfolio,
+            policy=ConstructionPolicyInput(policy_id="top_n_equal_weight_v1", top_n=21),
+            hard_constraints=hard_constraints,
+        )
+
+
+def test_handoff_backed_construction_run_request_accepts_widened_top_n_range() -> None:
+    """Epic 3 breadth: top_n=3 (and other values in [2, 20]) are now accepted at handoff
+    launch where previously only top_n=2 was allowed. Verifies the launch validator no
+    longer rejects in-range values that differ from the legacy fixed value."""
+    artifact = _persisted_etf_ranking_artifact_for_construction()
+    current_portfolio, _, hard_constraints = _handoff_supporting_inputs(artifact)
+
+    # Pre-condition sanity: the ranking artifact must carry enough eligible candidates
+    # to support top_n=3 (legacy fixture has 3 candidates; this is enough).
+    assert len(artifact.ranked_universe) >= 3
+
+    handoff_request = build_construction_run_request_from_ranking_artifact_handoff(
+        request_id="construction-handoff-widened-top-n",
+        handoff=EtfRankingArtifactConstructionHandoff(
+            artifact_id=artifact.artifact_id,
+            ranking_id=artifact.ranking_id,
+            methodology_id=artifact.run_metadata.methodology_id,
+            as_of_date=artifact.run_metadata.as_of_date,
+        ),
+        artifact=artifact,
+        current_portfolio=current_portfolio,
+        policy=ConstructionPolicyInput(policy_id="top_n_equal_weight_v1", top_n=3),
+        hard_constraints=hard_constraints,
+    )
+    # The handoff request resolves successfully (no ValueError) — widening worked.
+    assert handoff_request.policy.top_n == 3
+    assert handoff_request.policy.policy_id == "top_n_equal_weight_v1"
 
 
 def test_replacement_handoff_backed_construction_run_matches_inline_construction_outputs(tmp_path: Path) -> None:
@@ -2986,17 +3033,33 @@ def test_construction_route_policy_catalog_exposes_canonical_launch_profile_stat
 
 
 def test_construction_route_rejects_invalid_launch_top_n_policy_catalog_filter_value() -> None:
+    """Epic 3 breadth: launch_top_n filter widened to range [2, 20].
+    Out-of-range values (0, 1, 21, 'abc') must still be rejected with HTTP 422."""
     client = TestClient(app)
 
-    response = client.get(
-        "/construction/policies",
-        params={"launch_top_n": "3"},
-    )
-
+    # Below the launch range
+    response = client.get("/construction/policies", params={"launch_top_n": "1"})
     assert response.status_code == 422
-    assert response.json() == {
-        "detail": "invalid construction policy filter value for 'launch_top_n': '3'; supported values: 2"
-    }
+    assert "invalid construction policy filter value for 'launch_top_n': '1'" in response.json()["detail"]
+
+    # Above the launch range
+    response = client.get("/construction/policies", params={"launch_top_n": "21"})
+    assert response.status_code == 422
+    assert "invalid construction policy filter value for 'launch_top_n': '21'" in response.json()["detail"]
+
+    # Non-numeric
+    response = client.get("/construction/policies", params={"launch_top_n": "abc"})
+    assert response.status_code == 422
+    assert "invalid construction policy filter value for 'launch_top_n': 'abc'" in response.json()["detail"]
+
+
+def test_construction_route_accepts_in_range_launch_top_n_policy_catalog_filter_value() -> None:
+    """Epic 3 breadth: launch_top_n=3..20 are now valid filter values (was: only 2)."""
+    client = TestClient(app)
+
+    for valid in (2, 3, 5, 10, 20):
+        response = client.get("/construction/policies", params={"launch_top_n": str(valid)})
+        assert response.status_code == 200, f"top_n={valid} should be accepted; got {response.status_code} {response.text}"
 
 
 def test_construction_route_rejects_unsupported_policy_catalog_filter_key() -> None:

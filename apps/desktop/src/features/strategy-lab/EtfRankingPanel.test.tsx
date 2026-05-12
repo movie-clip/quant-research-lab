@@ -1086,18 +1086,22 @@ describe('EtfRankingPanel', () => {
     expect(screen.getAllByText('Construction policy catalog must define exactly one default launch policy').length).toBeGreaterThan(0)
   })
 
-  it('fails closed when construction policy discovery returns an unsupported launch_top_n', async () => {
+  it('fails closed when construction policy discovery returns an out-of-range launch_top_n', async () => {
+    // Epic 3 breadth: launch_top_n widened to range [2, 20]. Use a below-min value
+    // (1) to trigger the rejection; previously 3 was rejected but that's now in range.
     installFetchRouter({
       recentRuns: [buildRecentRun()],
       constructionPolicies: buildConstructionPoliciesResponse().map((policy) => ({
         ...policy,
-        launch_top_n: policy.policy_id === 'top_n_equal_weight_v1' ? 3 : policy.launch_top_n,
+        launch_top_n: policy.policy_id === 'top_n_equal_weight_v1' ? 1 : policy.launch_top_n,
       })),
     })
 
     render(<EtfRankingPanel draftSymbols={['VUAA', 'IWDA']} />)
 
     await waitFor(() => expect(screen.getByText('Construction policies are unavailable.')).toBeTruthy())
+    // The fixture sets the OUTER row's launch_top_n to 1 (not launch_profile.launch_top_n),
+    // so the outer-row validator fires first with: "Construction policy catalog returned an unsupported launch_top_n"
     expect(screen.getAllByText('Construction policy catalog returned an unsupported launch_top_n').length).toBeGreaterThan(0)
   })
 

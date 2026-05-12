@@ -14,7 +14,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | **Phase closed / functionally complete.** generic_ranking platform, construction eligibility, Workspace integration, Russell 1000 universe, AND desktop discovery migration all shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints). Future Universe Expansion items (Russell 2000, MSCI EAFE, full IWB ingestion) are deferred to backlog — see Epic 2 Open Gaps | 2026-05-11 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Phase closed / guardrail-complete for current phase; breadth still narrow | No active slice | Future breadth work: add configurable `top_n`, richer constraints, broader policy coverage, optional inverse-rank promotion if desired, broader ranking-family construction eligibility, and cleanup of narrow lineage assumptions | 2026-05-08 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — first breadth slice (configurable top_n) shipped | No active slice | Risk-aware weighting policy (e.g., inverse-volatility), sector concentration constraint, promote inverse-rank-weight from excluded → opt_in, surface Top N in legacy ETF Ranking tab. Older breadth items remain valid (richer constraints, broader policy coverage, cleanup of narrow lineage assumptions). | 2026-05-12 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
 ## Cross-Epic Guardrails
@@ -251,6 +251,46 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-12 - Epic 3 breadth: configurable top_n at construction launch
+
+- Epic: `3. Construction and Optimizer Methodology Guard`
+- Slice: widen the construction-launch `top_n` parameter from a fixed scalar `2` to a configurable range `[2, 20]`. First Epic 3 breadth slice.
+- Status: shipped.
+- Scope delivered:
+  - **Backend schema** (`services/quant-engine/app/schemas/construction.py`):
+    - `ConstructionPolicyLaunchTopN` changed from `Literal[2]` to `Annotated[int, Field(ge=2, le=20)]`.
+    - New module-level constants `CONSTRUCTION_POLICY_LAUNCH_TOP_N_MIN = 2` and `CONSTRUCTION_POLICY_LAUNCH_TOP_N_MAX = 20`.
+    - Per-policy catalog entries still declare `launch_top_n=2` as the recommended default. Users opt into a wider value at request time via `ConstructionPolicyInput.top_n` — the value is now an independent runtime input, not a fixed launch profile constraint.
+  - **Backend service** (`services/quant-engine/app/services/construction_run_service.py`):
+    - Replaced the hard equality check `policy.top_n != 2` with a range check (`[MIN, MAX]`). Error message now reports the received value alongside the supported range.
+    - Constants renamed from `RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N` (scalar) to `_MIN`/`_MAX` (range).
+  - **Backend route** (`services/quant-engine/app/api/routes/construction.py`):
+    - The catalog filter allowlist for `launch_top_n` now enumerates the integer range [2..20] instead of reading off a `Literal` via `get_args`. HTTP 422 still rejects values outside the range (or non-integers) with explicit error text.
+  - **Frontend constants + validators** (`apps/desktop/src/features/backtest/constructionPolicyCatalog.ts` and `rankingConstructionMaxPositionWeight.ts`):
+    - Added `RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_DEFAULT/_MIN/_MAX` constants. The legacy `RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N` symbol is kept as an alias for the default value (deprecation-friendly).
+    - New `validateRankingConstructionTopNInput()` helper returning `{value, error}`.
+    - `parseLaunchProfile` and `parseConstructionPolicyRow` validators now check the range instead of equality to 2. Cross-check between row-level and profile-level `launch_top_n` preserves the existing "policy row metadata is internally consistent" guard.
+    - `buildConstructionPolicyRunInput` accepts any integer in the range; rejects non-integers and out-of-range values explicitly.
+  - **Frontend UI** (3 construction browsers + Workspace shell):
+    - `PersistedGenericRankingConstructionBrowser`, `PersistedEtfRankingConstructionBrowser`, `PersistedReplacementRankingBrowser` all gained a "Top N" number input that drives the construction handoff. Default value is `'2'` for backward-compat; user can pick any value in `[2, 20]`.
+    - The Top N validation error blocks the "Review In Construction" CTA and surfaces in the per-row blocked-reason small text.
+    - Helper text changed from "while the shipped ranking launch keeps top_n fixed at 2" to a clearer pairing note: "Pair with Top N so that max × top_n ≥ 1".
+    - `EtfRankingPanel` (the legacy ETF Ranking tab) intentionally still uses `top_n=2` by default — surfacing a Top N input there is a deferred follow-up; the primary configurable-top_n path is through the Workspace browsers.
+- Guard impact:
+  - widens a launch parameter, not financial methodology. No factor scores, weighting formulas, or construction math changed — only the count of names selected at construction launch.
+  - per-policy catalog metadata (`launch_top_n` in each policy row) remains at the recommended default of `2`. Catalog discovery filters still work the same way for that value. The widening is entirely at the user-input layer.
+  - existing tests that asserted the strict `==2` boundary were updated to assert the new range: out-of-range values (1, 21, non-numeric) still fail closed; in-range values (3, 5, 10, 20) now succeed.
+  - persisted construction artifacts continue to record `top_n` as part of `normalized_inputs`, so prior reproducibility properties are preserved.
+- Tests/evidence:
+  - Backend: 3 updated tests + 1 new test in `test_construction_run_service.py` covering range validation at both the handoff-builder and the catalog-filter layers.
+  - Frontend: 1 updated test in `EtfRankingPanel.test.tsx` (now exercises out-of-range fixture) + 1 new test in `PersistedGenericRankingConstructionBrowser.test.tsx` covering default value, in-range, below-min, above-max, non-numeric input paths.
+  - 520/527 frontend (same baseline as main, no regressions); construction subset clean.
+- Next Epic 3 breadth candidates (deferred to subsequent slices):
+  - **Risk-aware weighting policy** (e.g., `top_n_inverse_volatility_weight_v1`): requires construction engine to consume per-candidate factor scores (volatility) from the ranked artifact. Larger architectural change because today's construction policies are rank-aware but not factor-data-aware.
+  - **Sector concentration constraint**: new optional `max_sector_weight` constraint requiring sector metadata per candidate.
+  - **Surface Top N input in legacy ETF Ranking tab**: extend the configurable top_n control to the original ETF Ranking surface that bypasses the Workspace browsers.
+  - **Promote `top_n_inverse_rank_weight_v1` from `excluded` to `opt_in`** in the launch profile so users can pick it explicitly (currently launchable policies are equal-weight + linear-rank-weight only).
 
 ### 2026-05-11 - Stabilize / cleanup pass
 

@@ -98,7 +98,12 @@ class _WeightingResult:
 TURNOVER_FAILURE_REASON = "target turnover exceeds max_turnover_weight"
 TRADE_INTENT_COUNT_FAILURE_REASON = "trade intent count exceeds max_trade_intent_count"
 MIN_POSITION_OVER_MAX_FAILURE_REASON = "min_position_weight exceeds max_position_weight"
-RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N = 2
+# Epic 3 breadth: launch top_n widened from fixed 2 to a range [2, 20].
+# Per-policy catalog metadata still declares launch_top_n=2 as the recommended default
+# (preserves backward compat for callers that pass no top_n); users opt into a wider
+# top_n at request time via ConstructionPolicyInput.top_n.
+RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N_MIN = 2
+RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N_MAX = 20
 
 
 def _min_position_selected_capacity_failure_reason(min_position_weight: float, selected_count: int) -> str:
@@ -449,9 +454,11 @@ def build_construction_run_request_from_ranking_artifact_handoff(
     policy: ConstructionPolicyInput,
     hard_constraints: ConstructionHardConstraints,
 ) -> ConstructionRunRequest:
-    if policy.top_n != RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N:
+    if not (RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N_MIN <= policy.top_n <= RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N_MAX):
         raise ValueError(
-            "ranking artifact handoff launch requires policy.top_n=2 for the shipped desktop boundary"
+            f"ranking artifact handoff launch requires policy.top_n in "
+            f"[{RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N_MIN}, {RANKING_ARTIFACT_HANDOFF_LAUNCH_TOP_N_MAX}] "
+            f"(received {policy.top_n})"
         )
     if not current_portfolio.artifact_id:
         raise ValueError(

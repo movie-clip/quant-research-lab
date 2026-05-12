@@ -256,6 +256,7 @@ The codebase now has two shipped construction surfaces.
 - policy discovery route: `GET /construction/policies`
 - persisted load route: `GET /construction/artifacts/{artifact_id}`
 - current persisted policies: `top_n_equal_weight_v1`, `top_n_inverse_rank_weight_v1`, and `top_n_linear_rank_weight_v1`
+- launch `top_n` is configurable per request in the supported range `[2, 20]` (Epic 3 breadth, 2026-05-12). Per-policy catalog `launch_top_n` metadata still declares `2` as the recommended default; the runtime value is independent user input
 - current deterministic selection pipeline: `eligible_only` then `take_top_n`
 - policy execution captures and persists `selection_rule_trace` provenance
 - replay consumption happens through `POST /backtests/portfolio-allocation/construction-artifact-preview`

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   buildConstructionPolicyRunInput,
   getConstructionLaunchPolicyReadback,
-  RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
   useConstructionPolicyCatalog,
 } from './constructionPolicyCatalog'
 import {
@@ -11,7 +10,9 @@ import {
   DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT,
   DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT,
   DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
+  DEFAULT_RANKING_CONSTRUCTION_TOP_N,
   validateRankingConstructionConstraintInputs,
+  validateRankingConstructionTopNInput,
 } from './rankingConstructionMaxPositionWeight'
 import { runRankingArtifactConstructionHandoff } from './rankingArtifactConstructionHandoff'
 import type {
@@ -154,6 +155,11 @@ export function PersistedEtfRankingConstructionBrowser({
   const [constructionMinPositionWeight, setConstructionMinPositionWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT)
   const [constructionMaxTurnoverWeight, setConstructionMaxTurnoverWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT)
   const [constructionMaxTradeIntentCount, setConstructionMaxTradeIntentCount] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT)
+  const [constructionTopN, setConstructionTopN] = useState(DEFAULT_RANKING_CONSTRUCTION_TOP_N)
+  const constructionTopNValidation = useMemo(
+    () => validateRankingConstructionTopNInput(constructionTopN),
+    [constructionTopN],
+  )
   const constructionConstraintValidation = useMemo(
     () => validateRankingConstructionConstraintInputs({
       maxPositionWeightInput: constructionMaxPositionWeight,
@@ -246,9 +252,13 @@ export function PersistedEtfRankingConstructionBrowser({
       setHandoffState({ status: 'error', targetArtifactId: artifactId, error: 'Review In Construction requires an active workspace draft and current portfolio.' })
       return
     }
+    if (constructionTopNValidation.value == null) {
+      setHandoffState({ status: 'error', targetArtifactId: artifactId, error: constructionTopNValidation.error })
+      return
+    }
     const selectedPolicy = buildConstructionPolicyRunInput(
       selectedConstructionPolicyId,
-      RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+      constructionTopNValidation.value,
     )
     if (!selectedPolicy) {
       setHandoffState({ status: 'error', targetArtifactId: artifactId, error: 'Review In Construction requires selecting a compatible construction policy.' })
@@ -294,9 +304,15 @@ export function PersistedEtfRankingConstructionBrowser({
             </select>
           </label>
           <label className="field-group">
+            <span className="field-label">Top N</span>
+            <input aria-label="Top N" className="path-input" value={constructionTopN} onChange={(event) => setConstructionTopN(event.target.value)} />
+            <p className="helper">Whole number between 2 and 20. Default is 2.</p>
+            {constructionTopNValidation.error ? <p className="helper">{constructionTopNValidation.error}</p> : null}
+          </label>
+          <label className="field-group">
             <span className="field-label">Max Position Weight</span>
             <input aria-label="Max Position Weight" className="path-input" value={constructionMaxPositionWeight} onChange={(event) => setConstructionMaxPositionWeight(event.target.value)} />
-            <p className="helper">Decimal weight only. Must stay between 0.5 and 1 while the shipped ranking launch keeps top_n fixed at 2.</p>
+            <p className="helper">Decimal weight only. Pair with Top N so that max × top_n ≥ 1 (1 / top_n is the minimum feasible max when fully invested).</p>
             {constructionMaxPositionWeightValidation.error ? <p className="helper">{constructionMaxPositionWeightValidation.error}</p> : null}
           </label>
           <label className="field-group">
@@ -384,7 +400,8 @@ export function PersistedEtfRankingConstructionBrowser({
               const isRunning = handoffState.status === 'running' && handoffState.targetArtifactId === item.artifact_id
               const readiness = readinessState[item.artifact_id]
                const ready = readiness?.response?.eligibility.eligible === true && readiness.response.handoff != null
-                const policyBlockedReason = constructionMaxPositionWeightValidation.error
+                const policyBlockedReason = constructionTopNValidation.error
+                    ?? constructionMaxPositionWeightValidation.error
                     ?? constructionMinPositionWeightValidation.error
                     ?? constructionMaxTurnoverWeightValidation.error
                     ?? constructionMaxTradeIntentCountValidation.error

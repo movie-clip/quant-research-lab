@@ -2,11 +2,15 @@ export const DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = '0.60'
 export const DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT = ''
 export const DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = ''
 export const DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT = ''
+export const DEFAULT_RANKING_CONSTRUCTION_TOP_N = '2'
 export const MIN_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = 0.5
 export const MAX_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = 1
 export const MAX_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT = 0.5
 export const MIN_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = 0
 export const MAX_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = 1
+// Epic 3 breadth: configurable top_n at launch (was fixed at 2).
+export const MIN_RANKING_CONSTRUCTION_TOP_N = 2
+export const MAX_RANKING_CONSTRUCTION_TOP_N = 20
 
 const DECIMAL_WEIGHT_PATTERN = /^(?:\d+(?:\.\d+)?|\.\d+)$/
 const INTEGER_COUNT_PATTERN = /^\d+$/
@@ -123,6 +127,29 @@ function validateOptionalMaxTurnoverWeightInput(
 
   return { value, error: null }
 }
+
+export type RankingConstructionTopNValidation = {
+  value: number | null
+  error: string | null
+}
+
+export function validateRankingConstructionTopNInput(
+  input: string | null | undefined,
+): RankingConstructionTopNValidation {
+  const normalized = input?.trim() ?? ''
+  if (!normalized) {
+    return { value: null, error: `Top N is required. Enter a whole number between ${MIN_RANKING_CONSTRUCTION_TOP_N} and ${MAX_RANKING_CONSTRUCTION_TOP_N}.` }
+  }
+  if (!isIntegerCountInput(normalized)) {
+    return { value: null, error: `Top N must be a whole number between ${MIN_RANKING_CONSTRUCTION_TOP_N} and ${MAX_RANKING_CONSTRUCTION_TOP_N}.` }
+  }
+  const value = Number(normalized)
+  if (value < MIN_RANKING_CONSTRUCTION_TOP_N || value > MAX_RANKING_CONSTRUCTION_TOP_N) {
+    return { value: null, error: `Top N must be between ${MIN_RANKING_CONSTRUCTION_TOP_N} and ${MAX_RANKING_CONSTRUCTION_TOP_N}.` }
+  }
+  return { value, error: null }
+}
+
 
 function validateOptionalMaxTradeIntentCountInput(
   input: string | null | undefined,
