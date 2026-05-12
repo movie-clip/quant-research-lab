@@ -40,7 +40,14 @@ ConstructionPolicyRankingSupport = Literal[
 ConstructionPolicyRequiredConstraintSupport = Literal["required"]
 ConstructionPolicyOptionalConstraintSupport = Literal["supported_optional"]
 ConstructionPolicyRequiredInputSupport = Literal["required"]
-ConstructionPolicyLaunchTopN = Literal[2]
+# ConstructionPolicyLaunchTopN is the top_n value carried inside a launch profile.
+# Was Literal[2] when the launch boundary was a fixed pair comparison. Widened to a
+# range [2, 20] to support configurable top_n at construction launch (Epic 3 breadth).
+# Per-policy catalog entries still default to launch_top_n=2 for backward compatibility;
+# users override at request time via ConstructionPolicyInput.top_n which is independent.
+ConstructionPolicyLaunchTopN = Annotated[int, Field(ge=2, le=20)]
+CONSTRUCTION_POLICY_LAUNCH_TOP_N_MIN = 2
+CONSTRUCTION_POLICY_LAUNCH_TOP_N_MAX = 20
 ConstructionPolicyLaunchProfileId = Literal["ranking_artifact_review_handoff_v1"]
 ConstructionPolicyLaunchProfileKind = Literal["ranking_artifact_review_handoff"]
 ConstructionPolicyLaunchProfilePolicyStatus = Literal["default", "opt_in", "excluded"]

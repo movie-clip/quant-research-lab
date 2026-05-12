@@ -19,6 +19,11 @@ import type {
 } from '../portfolio/types'
 import type { CandidateImprovementSeed, IntentBoundSeededEtfReplacementRankingDraftArtifactInput, IntentBoundSeededEtfReplacementRankingCandidateSnapshot } from '../portfolio/workspaceTypes'
 import {
+  // Legacy ETF Ranking tab still uses the default top_n=2 at launch.
+  // Configurable top_n is now wired through the Workspace construction browsers
+  // (PersistedEtfRankingConstructionBrowser, PersistedReplacementRankingBrowser,
+  // PersistedGenericRankingConstructionBrowser). Surfacing a top_n input here
+  // is a deferred follow-up.
   buildConstructionPolicyRunInput,
   getConstructionLaunchPolicyReadback,
   RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,

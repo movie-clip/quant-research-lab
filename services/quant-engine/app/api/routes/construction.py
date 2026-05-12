@@ -10,7 +10,8 @@ from app.schemas.construction import (
     ConstructionPolicyDeterminism,
     ConstructionPolicyFamily,
     ConstructionPolicyInputs,
-    ConstructionPolicyLaunchTopN,
+    CONSTRUCTION_POLICY_LAUNCH_TOP_N_MAX,
+    CONSTRUCTION_POLICY_LAUNCH_TOP_N_MIN,
     ConstructionPolicyOptionalConstraintSupport,
     ConstructionPolicyRankingSupport,
     ConstructionPolicyRequiredConstraintSupport,
@@ -104,7 +105,15 @@ _CONSTRUCTION_POLICY_FILTER_ALLOWED_VALUES = {
     "max_trade_intent_count_constraint": frozenset(get_args(ConstructionPolicyOptionalConstraintSupport)),
     "ranked_universe_input": frozenset(get_args(ConstructionPolicyRequiredInputSupport)),
     "current_portfolio_input": frozenset(get_args(ConstructionPolicyRequiredInputSupport)),
-    "launch_top_n": frozenset(str(value) for value in get_args(ConstructionPolicyLaunchTopN)),
+    # Epic 3 breadth: launch_top_n widened to a range. Build the filter allowlist
+    # by enumerating the integer range directly since ConstructionPolicyLaunchTopN is
+    # now Annotated[int, Field(...)] rather than a Literal union.
+    "launch_top_n": frozenset(
+        str(n) for n in range(
+            CONSTRUCTION_POLICY_LAUNCH_TOP_N_MIN,
+            CONSTRUCTION_POLICY_LAUNCH_TOP_N_MAX + 1,
+        )
+    ),
 }
 
 

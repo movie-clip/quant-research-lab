@@ -407,4 +407,55 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     const button = within(browser).getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
   })
+
+  it('exposes a Top N input that defaults to 2 and rejects out-of-range values', async () => {
+    // Epic 3 breadth: configurable top_n input. Default is 2; in-range values are
+    // accepted (2..20); below-min and above-max values surface a validation error
+    // that blocks the Review In Construction CTA.
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse(buildGenericRecentResponse())
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/generic_ranking_artifact_abc123') && method === 'POST') {
+        return jsonResponse(buildPreflightEligibleResponse())
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    render(
+      <PersistedGenericRankingConstructionBrowser
+        currentPortfolio={sampleCurrentPortfolio}
+        onOpenConstructionReview={vi.fn()}
+      />,
+    )
+
+    const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
+    const topNInput = await within(browser).findByLabelText('Generic Top N') as HTMLInputElement
+    expect(topNInput.value).toBe('2') // default
+
+    // In-range value (3) — no validation error, button can be enabled (subject to other gates)
+    fireEvent.change(topNInput, { target: { value: '3' } })
+    await waitFor(() => expect(within(browser).queryByText(/Top N must be/)).toBeNull())
+
+    // Below-min value (1) — surfaces validation error
+    // The error text appears twice: once in the field helper, once in the table-row blocked-reason small.
+    fireEvent.change(topNInput, { target: { value: '1' } })
+    await waitFor(() => expect(within(browser).getAllByText(/Top N must be between 2 and 20/).length).toBeGreaterThan(0))
+    expect(
+      (within(browser).getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+
+    // Above-max value (21) — surfaces same error
+    fireEvent.change(topNInput, { target: { value: '21' } })
+    await waitFor(() => expect(within(browser).getAllByText(/Top N must be between 2 and 20/).length).toBeGreaterThan(0))
+
+    // Non-numeric — surfaces a different error
+    fireEvent.change(topNInput, { target: { value: 'xyz' } })
+    await waitFor(() => expect(within(browser).getAllByText(/Top N must be a whole number/).length).toBeGreaterThan(0))
+  })
 })
