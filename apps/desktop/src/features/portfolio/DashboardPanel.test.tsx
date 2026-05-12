@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createDiagnosticsEngineFixture,
@@ -18,6 +18,16 @@ const ib2026DashboardView: DashboardAnalysis = buildImportedDashboardView(create
 const ff2026DashboardView: DashboardAnalysis = buildImportedDashboardView(createFf2026ImportedDashboardFixture())
 const dashboardExposureView = composeExposureView(createExposureEngineFixture(), createDiagnosticsEngineFixture())
 const dashboardFactorModel = buildExposureFactorModel(dashboardExposureView)
+
+// Freeze the test clock so readiness/staleness logic in DashboardPanel
+// resolves deterministically relative to the fixtures'
+// `imported_at: '2026-04-10T00:00:00Z'`. Individual tests may still call
+// `vi.setSystemTime(...)` to exercise stale-timestamp branches; `afterEach`
+// restores real timers between tests.
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-04-15T00:00:00Z'))
+})
 
 afterEach(() => {
   cleanup()
