@@ -193,6 +193,11 @@ Resolved universe state captured at run time.
 - `evaluated_at`
   - type: `string` (ISO date)
   - date the universe was resolved
+- `member_sectors`
+  - type: `Record<string, string>` (`symbol -> GICS sector`)
+  - populated by the universe resolver for `broad_equity_screen` / `sector_screen` / `index_constituent` universes; empty for `etf_peer_group` / `custom_list` (no sector source is consulted)
+  - additive-optional (default `{}`) so prior persisted artifacts still load
+  - consumed downstream by the construction `max_sector_weight` hard constraint
 
 ### `GenericRankingRunMetadata` (nested in artifact)
 
@@ -278,6 +283,11 @@ One ranked instrument row inside `GenericRankingArtifact.ranked_universe[]`.
 - `eligibility`
   - type: `EligibilityRecord`
   - eligibility evaluation result for this instrument
+- `sector`
+  - type: `string | null`
+  - GICS sector for the symbol, copied from `UniverseSpecSnapshot.member_sectors` at run time; `null` when the resolved universe carried no sector for this symbol
+  - additive-optional (default `null`) so prior persisted artifacts still load
+  - threaded into the construction ranked-candidate contract to evaluate `max_sector_weight`
 
 ### `GenericRankingComponentScore` (nested in row)
 

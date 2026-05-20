@@ -205,3 +205,60 @@ def test_resolver_russell1000_fail_closed_when_snapshot_missing(monkeypatch: pyt
     resolver = UniverseResolver(fmp_client=None)
     snapshot = resolver.resolve(spec, as_of_date="2026-05-11")
     assert snapshot.evaluated_members == []
+
+
+# ── Epic 3 milestone slice 2: member_sectors threading ──────────────────────
+
+
+def test_resolver_russell1000_populates_member_sectors() -> None:
+    """index_constituent resolution must retain a symbol -> GICS sector map."""
+    spec = UniverseSpec(
+        universe_id="russell1000_full",
+        universe_kind="index_constituent",
+        index_id="russell1000",
+    )
+    resolver = UniverseResolver(fmp_client=None)
+    snapshot = resolver.resolve(spec, as_of_date="2026-05-11")
+
+    assert snapshot.member_sectors, "russell1000 snapshot must carry per-symbol sectors"
+    assert snapshot.member_sectors["AAPL"] == "Information Technology"
+    # every mapped symbol is an evaluated member
+    assert set(snapshot.member_sectors).issubset(set(snapshot.evaluated_members))
+
+
+def test_resolver_explicit_list_universe_has_empty_member_sectors() -> None:
+    """etf_peer_group / custom_list consult no sector source -> member_sectors empty."""
+    spec = UniverseSpec(
+        universe_id="etf_peers",
+        universe_kind="etf_peer_group",
+        explicit_symbols=["XLK", "XLF", "XLV"],
+    )
+    resolver = UniverseResolver(fmp_client=None)
+    snapshot = resolver.resolve(spec, as_of_date="2026-05-11")
+
+    assert snapshot.evaluated_members == ["XLF", "XLK", "XLV"]
+    assert snapshot.member_sectors == {}
+
+
+def test_resolver_sp500_populates_member_sectors() -> None:
+    class _FakeFmp:
+        def get_sp500_constituents(self) -> list[dict]:
+            return [
+                {"symbol": "AAPL", "sector": "Information Technology"},
+                {"symbol": "JPM", "sector": "Financials"},
+                {"symbol": "NOSEC"},  # missing sector -> must not appear in member_sectors
+            ]
+
+    spec = UniverseSpec(
+        universe_id="sp500_full",
+        universe_kind="index_constituent",
+        index_id="sp500",
+    )
+    resolver = UniverseResolver(fmp_client=_FakeFmp())
+    snapshot = resolver.resolve(spec, as_of_date="2026-05-11")
+
+    assert snapshot.member_sectors == {
+        "AAPL": "Information Technology",
+        "JPM": "Financials",
+    }
+    assert "NOSEC" in snapshot.evaluated_members
