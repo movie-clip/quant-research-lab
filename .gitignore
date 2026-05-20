@@ -32,3 +32,6 @@ target/
 
 # Local Claude worktrees
 .claude/worktrees/
+
+# Per-developer local Claude settings (may contain tokens) — never commit
+.claude/settings.local.json
