@@ -83,6 +83,9 @@ export interface UniverseSpecSnapshot {
   spec_digest: string;
   evaluated_members: string[];
   evaluated_at: string;
+  // symbol -> GICS sector for members where resolution carried one (screen /
+  // index_constituent universes). Empty for explicit-list universes.
+  member_sectors: Record<string, string>;
 }
 
 export interface GenericRankingComponentScore {
@@ -109,6 +112,8 @@ export interface GenericRankingRow {
   composite_score: number;
   component_scores: Record<string, GenericRankingComponentScore>;
   eligibility: EligibilityRecord;
+  // GICS sector when the resolved universe carried one; null otherwise.
+  sector: string | null;
 }
 
 export interface GenericRankingExcludedInstrument {

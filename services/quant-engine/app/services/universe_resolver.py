@@ -86,12 +86,15 @@ class UniverseResolver:
         self._fmp = fmp_client
 
     def resolve(self, spec: UniverseSpec, as_of_date: str) -> UniverseSpecSnapshot:
+        member_sectors: dict[str, str] = {}
         if spec.universe_kind in ("etf_peer_group", "custom_list"):
+            # No sector source is consulted for explicit-list universes; member_sectors
+            # stays empty and downstream sector-aware constraints surface not_evaluated.
             members = sorted(set(spec.explicit_symbols))
         elif spec.universe_kind in ("broad_equity_screen", "sector_screen"):
-            members = self._screen_equity(spec)
+            members, member_sectors = self._screen_equity(spec)
         elif spec.universe_kind == "index_constituent":
-            members = self._resolve_index_constituents(spec)
+            members, member_sectors = self._resolve_index_constituents(spec)
         else:
             raise ValueError(f"Unsupported universe_kind: {spec.universe_kind!r}")
 
@@ -105,9 +108,14 @@ class UniverseResolver:
             spec_digest=spec_digest,
             evaluated_members=members,
             evaluated_at=as_of_date,
+            member_sectors={
+                symbol: member_sectors[symbol]
+                for symbol in members
+                if member_sectors.get(symbol)
+            },
         )
 
-    def _screen_equity(self, spec: UniverseSpec) -> list[str]:
+    def _screen_equity(self, spec: UniverseSpec) -> tuple[list[str], dict[str, str]]:
         # NOTE: FMP /stock-screener has no historical filtering capability and
         # is a live snapshot. We use it here for broad_equity_screen / sector_screen
         # to produce an approximate universe as of today.
@@ -125,9 +133,10 @@ class UniverseResolver:
                 "UniverseResolver: fmp_client is None; broad_equity_screen returns empty list. "
                 "Pass an FmpClient instance to resolve screener universes."
             )
-            return []
+            return [], {}
 
         symbols: set[str] = set()
+        sector_by_symbol: dict[str, str] = {}
         for exchange in (spec.allowed_exchanges or ["NASDAQ", "NYSE"]):
             params: dict = {
                 "exchange": exchange,
@@ -180,10 +189,13 @@ class UniverseResolver:
                     if instrument_type in ("ADR", "ADS"):
                         continue
                 symbols.add(symbol)
+                row_sector = str(row.get("sector") or "").strip()
+                if row_sector:
+                    sector_by_symbol[symbol] = row_sector
 
-        return sorted(symbols)
+        return sorted(symbols), sector_by_symbol
 
-    def _resolve_index_constituents(self, spec: UniverseSpec) -> list[str]:
+    def _resolve_index_constituents(self, spec: UniverseSpec) -> tuple[list[str], dict[str, str]]:
         """Resolve members of a named index. Dispatch by `index_id`:
 
         - `sp500`: live FMP `/stable/sp500-constituent` (current snapshot only;
@@ -200,22 +212,25 @@ class UniverseResolver:
         rows = self._load_index_constituent_rows(spec.index_id)
         if rows is None:
             # Resolution path emitted its own warning (e.g. fmp_client missing) — return empty
-            return []
+            return [], {}
 
         symbols: set[str] = set()
+        sector_by_symbol: dict[str, str] = {}
         for row in rows:
             symbol = str(row.get("symbol") or "").upper()
             if not symbol:
                 continue
+            row_sector = str(row.get("sector") or "").strip()
             # Apply optional sector filters from spec (allows narrowing the index by sector)
             if spec.sector_include or spec.sector_exclude:
-                row_sector = str(row.get("sector") or "")
                 if spec.sector_include and row_sector not in spec.sector_include:
                     continue
                 if spec.sector_exclude and row_sector in spec.sector_exclude:
                     continue
             symbols.add(symbol)
-        return sorted(symbols)
+            if row_sector:
+                sector_by_symbol[symbol] = row_sector
+        return sorted(symbols), sector_by_symbol
 
     def _load_index_constituent_rows(self, index_id: str) -> list[dict] | None:
         """Dispatch to the right backend for the given index_id.
@@ -247,12 +262,13 @@ class UniverseResolver:
 
         raise ValueError(f"Unsupported index_id: {index_id!r}")
 
-    def _filter_by_profiles(self, spec: UniverseSpec) -> list[str]:
+    def _filter_by_profiles(self, spec: UniverseSpec) -> tuple[list[str], dict[str, str]]:
         """Filter explicit_symbols through FMP profile data to apply eligibility filters."""
         if self._fmp is None:
-            return sorted(set(spec.explicit_symbols))
+            return sorted(set(spec.explicit_symbols)), {}
 
         eligible: list[str] = []
+        sector_by_symbol: dict[str, str] = {}
         for symbol in sorted(set(spec.explicit_symbols)):
             try:
                 profiles = self._fmp.get_profile(symbol)  # type: ignore[union-attr]
@@ -290,5 +306,7 @@ class UniverseResolver:
                 continue
 
             eligible.append(symbol)
+            if sector:
+                sector_by_symbol[symbol] = sector
 
-        return eligible
+        return eligible, sector_by_symbol

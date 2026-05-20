@@ -14,7 +14,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | **Phase closed / functionally complete.** generic_ranking platform, construction eligibility, Workspace integration, Russell 1000 universe, AND desktop discovery migration all shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints). Future Universe Expansion items (Russell 2000, MSCI EAFE, full IWB ingestion) are deferred to backlog — see Epic 2 Open Gaps | 2026-05-11 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — sector-concentration milestone slice 1 of 3 shipped (backend `max_sector_weight` constraint) | Sector concentration constraint milestone, slice 1 (backend mechanism) shipped | Slice 2: thread per-symbol sector into ranking artifacts + construction handoff. Slice 3: desktop `max_sector_weight` input. Then: risk-aware weighting policy (inverse-volatility), promote inverse-rank-weight excluded → opt_in, surface Top N in legacy ETF Ranking tab. | 2026-05-12 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — sector-concentration milestone slices 1-2 of 3 shipped (`max_sector_weight` constraint + sector metadata threading) | Sector concentration constraint milestone, slices 1-2 shipped | Slice 3: desktop `max_sector_weight` input + sector-evaluation rendering. Then: risk-aware weighting policy (inverse-volatility), promote inverse-rank-weight excluded → opt_in, surface Top N in legacy ETF Ranking tab. | 2026-05-12 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
 ## Cross-Epic Guardrails
@@ -251,6 +251,23 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-12 - Epic 3 breadth: sector metadata threading (milestone slice 2 of 3)
+
+- Epic: `3. Construction and Optimizer Methodology Guard`
+- Milestone: **Sector concentration constraint** — slice 2 of 3.
+- Slice: thread per-symbol sector metadata end-to-end so `generic_ranking` artifact-handoff construction runs can actually evaluate `max_sector_weight` (slice 1 shipped the constraint mechanism; without sector data it always withheld). Status: shipped.
+- Scope delivered:
+  - **Universe resolver** (`services/universe_resolver.py`): the three resolution paths (`_screen_equity`, `_resolve_index_constituents`, `_filter_by_profiles`) now also return a `symbol -> GICS sector` map, harvested from the screener / index-snapshot / profile rows they already iterate. `resolve()` retains it on the snapshot, scoped to evaluated members and dropping empty sectors.
+  - **Schema** (`schemas/generic_ranking.py`): `UniverseSpecSnapshot.member_sectors` (`dict[str, str]`, default `{}`) and `GenericRankingRow.sector` (`str | None`). Both additive-optional — prior persisted `generic_ranking` artifacts still load.
+  - **Ranking engine** (`services/generic_ranking_service.py`): stamps `GenericRankingRow.sector` from `universe_snapshot.member_sectors`.
+  - **Construction handoff** (`construction_run_service.py`): `_build_ranked_candidate_from_generic_ranking_row` threads `row.sector` into `ConstructionRankedCandidateInput.sector`, so a `generic_ranking` handoff run now evaluates `max_sector_weight` (`pass`/`binding`/`fail`) instead of `not_evaluated` whenever the universe carried sectors.
+  - **Desktop types** (`generic-ranking/types.ts`): `UniverseSpecSnapshot.member_sectors` and `GenericRankingRow.sector` mirrored for contract parity (read-only; no UI yet).
+- Coverage scope: `etf_peer_group` / `custom_list` universes consult no sector source (rows carry no sector); `etf_ranking` / `intent_bound_etf_replacement_ranking` handoffs still carry no sector. Those paths keep evaluating `max_sector_weight` as `not_evaluated` — honest, not a regression.
+- Guard impact: additive-optional schema, no artifact schema-version bump; no truth-class / trust-ladder / no-execution change. `financial-methodology.md`, `backtest-fields.md`, `generic-ranking-fields.md` updated in the same pass.
+- Tests/evidence: 3 new resolver tests (`member_sectors` populated for index, empty for explicit-list, populated for sp500) + 1 new handoff test (sector threaded into ranked candidates). Full suite: backend `1277 passed`, frontend `528 passed`.
+- Pre-existing issue flagged (not this slice): `apps/desktop/src/features/backtest/constructionPolicyCatalog.ts` has 2 `tsc` errors from the configurable-`top_n` slice — the TS `launch_top_n` type is still the literal `2`. `tsc` is not run by `run_all_tests.py`; spun off as a separate task.
+- Next: milestone slice 3 — desktop `max_sector_weight` input in the 3 construction browsers + sector-evaluation rendering.
 
 ### 2026-05-12 - Epic 3 breadth: max_sector_weight constraint mechanism (milestone slice 1 of 3)
 

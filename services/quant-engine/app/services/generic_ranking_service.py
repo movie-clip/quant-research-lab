@@ -659,6 +659,7 @@ def build_generic_ranking(
                 composite_score=round(composite, 6),
                 component_scores=component_scores,
                 eligibility=EligibilityRecord(eligibility_status="eligible"),
+                sector=universe_snapshot.member_sectors.get(sym),
             )
         )
 

@@ -66,6 +66,10 @@ class UniverseSpecSnapshot(BaseModel):
     spec_digest: str                          # sha256 of canonical UniverseSpec JSON
     evaluated_members: list[str]              # resolved, sorted symbol list as of as_of_date
     evaluated_at: str                         # ISO date
+    # symbol -> GICS sector for members where resolution carried one (screen /
+    # index_constituent universes). Members absent from this map have no known
+    # sector; additive-optional so prior persisted artifacts still load.
+    member_sectors: dict[str, str] = Field(default_factory=dict)
 
 
 # ── Score config ──────────────────────────────────────────────────────────────
@@ -134,6 +138,11 @@ class GenericRankingRow(BaseModel):
     composite_score: float
     component_scores: dict[str, GenericRankingComponentScore]
     eligibility: EligibilityRecord
+    # GICS sector label for the symbol, when the resolved universe carries one
+    # (screen / index_constituent universes). None for etf_peer_group / custom_list
+    # universes where no sector source is consulted. Downstream construction uses
+    # this to evaluate the optional max_sector_weight hard constraint.
+    sector: str | None = None
 
 
 class GenericRankingExcludedInstrument(BaseModel):

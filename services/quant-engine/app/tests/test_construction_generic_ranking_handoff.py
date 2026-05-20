@@ -207,6 +207,44 @@ def test_ranked_candidate_builder_maps_eligible_rows_correctly() -> None:
     assert candidates[0].exclusion_reason is None
 
 
+def test_ranked_candidate_builder_threads_sector_from_generic_ranking_rows() -> None:
+    # Epic 3 milestone slice 2: GenericRankingRow.sector must flow into the
+    # construction ranked-candidate contract so max_sector_weight is evaluable.
+    rows = [
+        GenericRankingRow(
+            rank=1,
+            symbol="AAPL",
+            composite_score=1.0,
+            component_scores={},
+            eligibility=EligibilityRecord(eligibility_status="eligible"),
+            sector="Information Technology",
+        ),
+        GenericRankingRow(
+            rank=2,
+            symbol="JPM",
+            composite_score=0.5,
+            component_scores={},
+            eligibility=EligibilityRecord(eligibility_status="eligible"),
+            sector="Financials",
+        ),
+        GenericRankingRow(
+            rank=3,
+            symbol="NOSEC",
+            composite_score=0.1,
+            component_scores={},
+            eligibility=EligibilityRecord(eligibility_status="eligible"),
+        ),
+    ]
+    artifact = _make_generic_ranking_artifact(rows=rows)
+    _, candidates = prepare_generic_ranking_artifact_for_construction(artifact)
+
+    by_symbol = {c.symbol: c for c in candidates}
+    assert by_symbol["AAPL"].sector == "Information Technology"
+    assert by_symbol["JPM"].sector == "Financials"
+    # A row with no sector label flows through as None (constraint -> not_evaluated).
+    assert by_symbol["NOSEC"].sector is None
+
+
 def test_ranked_candidate_builder_surfaces_hard_filter_failures_for_excluded_rows() -> None:
     rows = [
         GenericRankingRow(

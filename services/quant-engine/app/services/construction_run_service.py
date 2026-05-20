@@ -631,6 +631,7 @@ def _build_ranked_candidate_from_generic_ranking_row(
         eligible=is_eligible,
         score=row.composite_score,
         exclusion_reason=exclusion_reason,
+        sector=row.sector,
     )
 
 
