@@ -275,6 +275,8 @@ Current basis rules:
 - enforces only the shipped constraint family for this policy slice
 - evaluates constraints against the actual generated target weights for the selected policy
 - fails closed on infeasible requests rather than repairing or silently relaxing the policy
+- optional hard constraints layer on top of the required family: `min_position_weight`, `max_turnover_weight`, `max_trade_intent_count`, and `max_sector_weight`
+- `max_sector_weight` (Epic 3 breadth, 2026-05-12) caps the summed target weight of any single sector across the selected names. It is evaluated post-hoc against the generated target weights — the engine never reshuffles names to satisfy the cap. A violation makes the run infeasible (no persisted target weights), consistent with the turnover cap. Sector totals are computed from each selected name's `sector` label; when any selected name has no sector label the constraint is surfaced as `not_evaluated` (withheld) rather than assumed satisfied. The request-level invariant `max_sector_weight >= max_position_weight` is enforced because a single-name sector already carries up to `max_position_weight`. Until ranking artifacts thread per-symbol sector metadata, artifact-handoff runs evaluate this constraint as `not_evaluated`
 
 ### Review-oriented single-replacement construction
 
