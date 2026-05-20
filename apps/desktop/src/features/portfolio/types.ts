@@ -1939,7 +1939,8 @@ export type ConstructionPolicyLaunchProfile = {
   profile_id: 'ranking_artifact_review_handoff_v1'
   profile_kind: 'ranking_artifact_review_handoff'
   policy_status: 'default' | 'opt_in' | 'excluded'
-  launch_top_n: 2
+  // Epic 3 breadth: backend widened launch_top_n from a fixed 2 to a range [2, 20].
+  launch_top_n: number
 }
 
 export type ConstructionDiscoveredPolicy = {
@@ -1961,7 +1962,8 @@ export type ConstructionDiscoveredPolicy = {
   max_trade_intent_count_constraint: 'supported_optional'
   ranked_universe_input: 'required'
   current_portfolio_input: 'required'
-  launch_top_n: 2
+  // Epic 3 breadth: backend widened launch_top_n from a fixed 2 to a range [2, 20].
+  launch_top_n: number
   selection_rule_ids: string[]
   launch_profile: ConstructionPolicyLaunchProfile
 }

@@ -96,7 +96,8 @@ type ConstructionPolicyCatalogState = {
 export type ConstructionLaunchPolicyReadback = {
   policyName: string
   statusLabel: 'default' | 'opt-in'
-  topN: 2
+  // Epic 3 breadth: backend widened launch_top_n from a fixed 2 to a range [2, 20].
+  topN: number
   requiredConstraint: 'max_position_weight'
   optionalConstraints: Array<'min_position_weight' | 'max_turnover_weight' | 'max_trade_intent_count'>
 }
