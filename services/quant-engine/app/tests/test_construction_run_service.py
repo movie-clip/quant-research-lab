@@ -36,6 +36,7 @@ from app.services.construction_artifact_service import (
 from app.services import construction_policy_catalog
 from app.services.construction_run_service import build_construction_run
 from app.services.construction_run_service import (
+    SECTOR_CONCENTRATION_FAILURE_REASON,
     build_construction_preflight_response_from_etf_ranking_artifact,
     build_construction_preflight_response_from_replacement_ranking_artifact,
 )
@@ -52,11 +53,26 @@ def _request(
     max_turnover_weight: float | None = None,
     min_position_weight: float | None = None,
     max_trade_intent_count: int | None = None,
+    max_sector_weight: float | None = None,
+    sectors: dict[str, str] | None = None,
     *,
     include_max_turnover_weight: bool = False,
     include_min_position_weight: bool = False,
     include_max_trade_intent_count: bool = False,
+    include_max_sector_weight: bool = False,
 ) -> ConstructionRunRequest:
+    ranked_candidates: list[dict] = [
+        {"symbol": "aaa", "rank": 1, "eligible": True, "score": 9.5},
+        {"symbol": "bbb", "rank": 2, "eligible": True, "score": 8.1},
+        {"symbol": "ccc", "rank": 3, "eligible": True, "score": 7.0},
+        {"symbol": "ddd", "rank": 4, "eligible": False, "score": 6.5, "exclusion_reason": "liquidity_screen"},
+    ]
+    if sectors is not None:
+        for candidate in ranked_candidates:
+            symbol = candidate["symbol"]
+            sector = sectors.get(symbol) or sectors.get(symbol.upper())
+            if sector is not None:
+                candidate["sector"] = sector
     payload = {
         "request_id": "construction-1",
         "ranked_universe": {
@@ -64,12 +80,7 @@ def _request(
             "ranking_id": "ranked_candidates_v1",
             "methodology_id": "ranked_candidates_methodology_v1",
             "as_of_date": "2026-04-23",
-            "ranked_candidates": [
-                {"symbol": "aaa", "rank": 1, "eligible": True, "score": 9.5},
-                {"symbol": "bbb", "rank": 2, "eligible": True, "score": 8.1},
-                {"symbol": "ccc", "rank": 3, "eligible": True, "score": 7.0},
-                {"symbol": "ddd", "rank": 4, "eligible": False, "score": 6.5, "exclusion_reason": "liquidity_screen"},
-            ],
+            "ranked_candidates": ranked_candidates,
         },
         "current_portfolio": {
             "artifact_id": "portfolio_snapshot_1",
@@ -94,6 +105,8 @@ def _request(
         payload["hard_constraints"]["max_turnover_weight"] = max_turnover_weight
     if include_max_trade_intent_count or max_trade_intent_count is not None:
         payload["hard_constraints"]["max_trade_intent_count"] = max_trade_intent_count
+    if include_max_sector_weight or max_sector_weight is not None:
+        payload["hard_constraints"]["max_sector_weight"] = max_sector_weight
     return ConstructionRunRequest.model_validate(payload)
 
 
@@ -354,8 +367,8 @@ def test_build_construction_run_returns_deterministic_equal_weight_artifact(tmp_
     assert result.artifact_id.startswith("construction_artifact_")
     assert len(result.fingerprint) == 64
     assert [item.model_dump(mode="json") for item in result.selected_names] == [
-        {"symbol": "AAA", "rank": 1, "score": 9.5},
-        {"symbol": "BBB", "rank": 2, "score": 8.1},
+        {"symbol": "AAA", "rank": 1, "score": 9.5, "sector": None},
+        {"symbol": "BBB", "rank": 2, "score": 8.1, "sector": None},
     ]
     assert [item.model_dump(mode="json") for item in result.seed_weights] == [
         {"symbol": "AAA", "weight": 0.5},
@@ -537,6 +550,7 @@ def test_build_construction_run_returns_deterministic_equal_weight_artifact(tmp_
         "min_position_weight",
         "max_turnover_weight",
         "max_trade_intent_count",
+        "max_sector_weight",
     ]
     assert next(item for item in result.constraint_evaluations if item.constraint_id == "full_investment").status == "binding"
     assert next(item for item in result.constraint_evaluations if item.constraint_id == "max_position_weight").status == "pass"
@@ -563,9 +577,9 @@ def test_build_construction_run_returns_inverse_rank_weight_artifact(tmp_path: P
     assert result.artifact_id.startswith("construction_artifact_")
     assert len(result.fingerprint) == 64
     assert [item.model_dump(mode="json") for item in result.selected_names] == [
-        {"symbol": "AAA", "rank": 1, "score": 9.5},
-        {"symbol": "BBB", "rank": 2, "score": 8.1},
-        {"symbol": "CCC", "rank": 3, "score": 7.0},
+        {"symbol": "AAA", "rank": 1, "score": 9.5, "sector": None},
+        {"symbol": "BBB", "rank": 2, "score": 8.1, "sector": None},
+        {"symbol": "CCC", "rank": 3, "score": 7.0, "sector": None},
     ]
     assert [item.model_dump(mode="json") for item in result.seed_weights] == [
         {"symbol": "AAA", "weight": 0.54545455},
@@ -610,9 +624,9 @@ def test_build_construction_run_returns_linear_rank_weight_artifact(tmp_path: Pa
     assert result.policy.policy_id == "top_n_linear_rank_weight_v1"
     assert result.normalized_inputs.policy_definition_id == "construction_policy_definition_top_n_linear_rank_weight_v1"
     assert [item.model_dump(mode="json") for item in result.selected_names] == [
-        {"symbol": "AAA", "rank": 1, "score": 9.5},
-        {"symbol": "BBB", "rank": 2, "score": 8.1},
-        {"symbol": "CCC", "rank": 3, "score": 7.0},
+        {"symbol": "AAA", "rank": 1, "score": 9.5, "sector": None},
+        {"symbol": "BBB", "rank": 2, "score": 8.1, "sector": None},
+        {"symbol": "CCC", "rank": 3, "score": 7.0, "sector": None},
     ]
     assert [item.model_dump(mode="json") for item in result.seed_weights] == [
         {"symbol": "AAA", "weight": 0.5},
@@ -782,9 +796,9 @@ def test_build_construction_run_preserves_outputs_while_persisting_weighting_tra
     baseline_outputs = {
         "status": "feasible",
         "selected_names": [
-            {"symbol": "AAA", "rank": 1, "score": 9.5},
-            {"symbol": "BBB", "rank": 2, "score": 8.1},
-            {"symbol": "CCC", "rank": 3, "score": 7.0},
+            {"symbol": "AAA", "rank": 1, "score": 9.5, "sector": None},
+            {"symbol": "BBB", "rank": 2, "score": 8.1, "sector": None},
+            {"symbol": "CCC", "rank": 3, "score": 7.0, "sector": None},
         ],
         "seed_weights": [
             {"symbol": "AAA", "weight": 0.54545455},
@@ -2001,6 +2015,7 @@ def test_build_construction_run_request_from_replacement_ranking_artifact_handof
             "eligible": True,
             "score": row.composite_score,
             "exclusion_reason": row.exclusion_reason,
+            "sector": None,
         }
         for row in artifact.ranked_candidates
     ]
@@ -2084,6 +2099,7 @@ def test_build_construction_run_request_from_ranking_artifact_handoff_keeps_vali
             "eligible": True,
             "score": row.composite_score,
             "exclusion_reason": None,
+            "sector": None,
         }
         for row in artifact.ranked_universe
     ]
@@ -2685,7 +2701,7 @@ def test_construction_route_returns_auditable_artifact_contract(tmp_path: Path, 
     assert payload["artifact_id"].startswith("construction_artifact_")
     assert payload["normalized_inputs"]["policy_id"] == "top_n_equal_weight_v1"
     assert payload["normalized_inputs"]["policy_definition_id"] == "construction_policy_definition_top_n_equal_weight_v1"
-    assert payload["selected_names"][0] == {"symbol": "AAA", "rank": 1, "score": 9.5}
+    assert payload["selected_names"][0] == {"symbol": "AAA", "rank": 1, "score": 9.5, "sector": None}
     assert payload["selection_rule_trace"] == {
         "rule_ids": ["eligible_only", "take_top_n"],
         "steps": [
@@ -2826,6 +2842,7 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "min_position_weight_constraint": "supported_optional",
             "max_turnover_weight_constraint": "supported_optional",
             "max_trade_intent_count_constraint": "supported_optional",
+            "max_sector_weight_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
             "launch_top_n": 2,
@@ -2854,6 +2871,7 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "min_position_weight_constraint": "supported_optional",
             "max_turnover_weight_constraint": "supported_optional",
             "max_trade_intent_count_constraint": "supported_optional",
+            "max_sector_weight_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
             "launch_top_n": 2,
@@ -2882,6 +2900,7 @@ def test_construction_route_lists_exact_shipped_policy_catalog() -> None:
             "min_position_weight_constraint": "supported_optional",
             "max_turnover_weight_constraint": "supported_optional",
             "max_trade_intent_count_constraint": "supported_optional",
+            "max_sector_weight_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
             "launch_top_n": 2,
@@ -2914,6 +2933,7 @@ def test_construction_route_filters_policy_catalog_by_authoritative_metadata() -
             "min_position_weight_constraint": "supported_optional",
             "max_turnover_weight_constraint": "supported_optional",
             "max_trade_intent_count_constraint": "supported_optional",
+            "max_sector_weight_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
         },
@@ -2938,6 +2958,7 @@ def test_construction_route_filters_policy_catalog_by_authoritative_metadata() -
             "min_position_weight_constraint": "supported_optional",
             "max_turnover_weight_constraint": "supported_optional",
             "max_trade_intent_count_constraint": "supported_optional",
+            "max_sector_weight_constraint": "supported_optional",
             "ranked_universe_input": "required",
             "current_portfolio_input": "required",
             "launch_top_n": 2,
@@ -3260,3 +3281,102 @@ def test_construction_route_rejects_non_normalized_current_weights() -> None:
 
     assert response.status_code == 400
     assert response.json() == {"detail": "current_portfolio.weights must sum to 1.0"}
+
+
+# ---------------------------------------------------------------------------
+# Epic 3 breadth: max_sector_weight optional hard constraint
+# ---------------------------------------------------------------------------
+
+
+def _sector_constraint(result):
+    return next(
+        item for item in result.constraint_evaluations if item.constraint_id == "max_sector_weight"
+    )
+
+
+def test_max_sector_weight_constraint_not_evaluated_when_not_requested(tmp_path: Path) -> None:
+    result = build_construction_run(_request(), artifact_store=ConstructionArtifactStore(str(tmp_path)))
+
+    assert result.status == "feasible"
+    constraint = _sector_constraint(result)
+    assert constraint.status == "not_evaluated"
+    assert constraint.actual_value is None
+    assert constraint.limit_value is None
+    assert constraint.message == "max_sector_weight was not requested"
+    assert SECTOR_CONCENTRATION_FAILURE_REASON not in result.failure_reasons
+
+
+def test_max_sector_weight_constraint_not_evaluated_when_sector_metadata_is_absent(tmp_path: Path) -> None:
+    # Requested, but the ranked candidates carry no sector labels — the engine must
+    # withhold (not_evaluated) rather than fabricate a sector total or fail the run.
+    result = build_construction_run(
+        _request(max_sector_weight=0.8),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "feasible"
+    constraint = _sector_constraint(result)
+    assert constraint.status == "not_evaluated"
+    assert constraint.actual_value is None
+    assert constraint.limit_value == 0.8
+    assert "sector metadata is unavailable" in constraint.message
+    assert SECTOR_CONCENTRATION_FAILURE_REASON not in result.failure_reasons
+
+
+def test_max_sector_weight_constraint_passes_when_sectors_are_diversified(tmp_path: Path) -> None:
+    result = build_construction_run(
+        _request(max_sector_weight=0.8, sectors={"AAA": "Technology", "BBB": "Financials"}),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "feasible"
+    assert [name.sector for name in result.selected_names] == ["Technology", "Financials"]
+    constraint = _sector_constraint(result)
+    assert constraint.status == "pass"
+    assert constraint.actual_value == 0.5
+    assert constraint.limit_value == 0.8
+    assert SECTOR_CONCENTRATION_FAILURE_REASON not in result.failure_reasons
+
+
+def test_max_sector_weight_constraint_is_binding_when_sector_total_equals_the_cap(tmp_path: Path) -> None:
+    # Both selected names share a sector -> sector total 1.0; a cap of exactly 1.0 binds.
+    result = build_construction_run(
+        _request(max_sector_weight=1.0, sectors={"AAA": "Technology", "BBB": "Technology"}),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "feasible"
+    constraint = _sector_constraint(result)
+    assert constraint.status == "binding"
+    assert constraint.actual_value == 1.0
+    assert constraint.limit_value == 1.0
+    assert SECTOR_CONCENTRATION_FAILURE_REASON not in result.failure_reasons
+
+
+def test_max_sector_weight_violation_makes_the_run_infeasible(tmp_path: Path) -> None:
+    # Both selected names share a sector -> sector total 1.0 > cap 0.8 -> infeasible.
+    result = build_construction_run(
+        _request(max_sector_weight=0.8, sectors={"AAA": "Technology", "BBB": "Technology"}),
+        artifact_store=ConstructionArtifactStore(str(tmp_path)),
+    )
+
+    assert result.status == "infeasible"
+    assert SECTOR_CONCENTRATION_FAILURE_REASON in result.failure_reasons
+    assert result.final_target_weights == []
+    constraint = _sector_constraint(result)
+    assert constraint.status == "fail"
+    assert constraint.actual_value == 1.0
+    assert constraint.limit_value == 0.8
+
+
+def test_max_sector_weight_rejects_a_cap_below_max_position_weight() -> None:
+    # A sector cap below the per-position cap is infeasible by construction:
+    # a single-name sector already carries up to max_position_weight.
+    with pytest.raises(ValidationError, match="max_sector_weight must be greater than or equal to max_position_weight"):
+        _request(max_sector_weight=0.5, max_position_weight=0.6)
+
+
+@pytest.mark.parametrize("invalid_value", [0.0, -0.1, 1.5])
+def test_max_sector_weight_rejects_out_of_range_values(invalid_value: float) -> None:
+    with pytest.raises(ValidationError):
+        _request(max_sector_weight=invalid_value, max_position_weight=0.1)

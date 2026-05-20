@@ -14,7 +14,7 @@ After every shipped slice or epic checkpoint, update this file first, then updat
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | **Phase closed / functionally complete.** generic_ranking platform, construction eligibility, Workspace integration, Russell 1000 universe, AND desktop discovery migration all shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints). Future Universe Expansion items (Russell 2000, MSCI EAFE, full IWB ingestion) are deferred to backlog — see Epic 2 Open Gaps | 2026-05-11 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — first breadth slice (configurable top_n) shipped | No active slice | Risk-aware weighting policy (e.g., inverse-volatility), sector concentration constraint, promote inverse-rank-weight from excluded → opt_in, surface Top N in legacy ETF Ranking tab. Older breadth items remain valid (richer constraints, broader policy coverage, cleanup of narrow lineage assumptions). | 2026-05-12 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — sector-concentration milestone slice 1 of 3 shipped (backend `max_sector_weight` constraint) | Sector concentration constraint milestone, slice 1 (backend mechanism) shipped | Slice 2: thread per-symbol sector into ranking artifacts + construction handoff. Slice 3: desktop `max_sector_weight` input. Then: risk-aware weighting policy (inverse-volatility), promote inverse-rank-weight excluded → opt_in, surface Top N in legacy ETF Ranking tab. | 2026-05-12 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
 ## Cross-Epic Guardrails
@@ -251,6 +251,24 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-12 - Epic 3 breadth: max_sector_weight constraint mechanism (milestone slice 1 of 3)
+
+- Epic: `3. Construction and Optimizer Methodology Guard`
+- Milestone: **Sector concentration constraint.** Investigation confirmed this is a multi-slice milestone, not a single slice: no ranking artifact carries per-symbol sector today, and `ConstructionRankedCandidateInput` had no sector field. Planned slices: (1) backend constraint mechanism — this slice; (2) thread sector metadata into ranking artifacts so artifact-handoff runs can evaluate it; (3) desktop `max_sector_weight` input + sector evaluation rendering.
+- Slice: backend `max_sector_weight` optional hard constraint. Status: shipped.
+- Scope delivered:
+  - **Schema** (`services/quant-engine/app/schemas/construction.py`): optional `sector` on `ConstructionRankedCandidateInput` and `ConstructionSelectedName`; optional `max_sector_weight` (`gt=0, le=1`) on `ConstructionHardConstraints` with the request invariant `max_sector_weight >= max_position_weight`; `"max_sector_weight"` added to the `ConstructionConstraintEvaluation.constraint_id` literal; `max_sector_weight_constraint` capability on `ConstructionPolicyCatalogEntry`; a tolerant persisted-artifact validator block (old artifacts without the constraint still load).
+  - **Engine** (`construction_run_service.py`): `_compute_max_selected_sector_weight` sums target weight per sector across selected names; a cap violation appends `SECTOR_CONCENTRATION_FAILURE_REASON` and makes the run infeasible (mirrors the turnover cap — no silent reshuffle). `_evaluate_constraints` emits a `max_sector_weight` evaluation in both feasible and infeasible branches; status is `not_evaluated` when the cap is unrequested OR any selected name lacks a sector label (fail-closed withholding, never assumed-satisfied).
+  - **Catalog + route**: all three policies advertise `max_sector_weight_constraint = supported_optional`; `/construction/policies` gains a `max_sector_weight_constraint` filter.
+- Guard impact:
+  - methodology-meaningful: a new hard constraint. `docs/finance/financial-methodology.md` and `docs/contracts/backtest-fields.md` updated in the same pass.
+  - fail-closed preserved: violated cap -> infeasible run with no persisted target weights; missing sector metadata -> `not_evaluated`, never a fabricated sector total.
+  - additive-optional schema changes keep the 4 committed `construction_artifact_v1` artifacts valid; no schema-version bump.
+- Tests/evidence:
+  - 9 new tests in `test_construction_run_service.py` (not-requested, sector-metadata-absent withholding, pass, binding, fail/infeasible, cap-below-position rejection, out-of-range rejection).
+  - Updated existing construction/route/replay tests for the new `sector` field and `max_sector_weight` constraint entry. Full backend suite: `1264 + 9 = 1273 passed`.
+- Next: milestone slice 2 — thread per-symbol sector into `generic_ranking` artifacts (engine populates from screener/instrument data) and through the construction handoff builder, so artifact-handoff runs evaluate the cap instead of withholding it.
 
 ### 2026-05-12 - Testing flow cleanup: goldens freshness + frontend baseline (PR #7 + PR #8)
 

@@ -3960,6 +3960,7 @@ def test_build_construction_artifact_replay_preview_uses_persisted_inverse_rank_
         "min_position_weight": None,
         "max_turnover_weight": None,
         "max_trade_intent_count": None,
+        "max_sector_weight": None,
     }
     assert replay_response.candidate_weights == [
         PortfolioWeightInput(symbol="AAA", target_weight=0.54545455),
@@ -4229,6 +4230,7 @@ def test_build_construction_artifact_replay_preview_echoes_persisted_min_positio
         "min_position_weight": 0.5,
         "max_turnover_weight": None,
         "max_trade_intent_count": None,
+        "max_sector_weight": None,
     }
 
 

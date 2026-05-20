@@ -10,6 +10,7 @@ from app.schemas.construction import (
     ConstructionRankingArtifactPreflightArtifact,
     ConstructionRankingArtifactPreflightResponse,
     ConstructionConstraintEvaluation,
+    ConstructionConstraintStatus,
     ConstructionCurrentPortfolioInput,
     ConstructionDeterministicOrdering,
     EtfRankingArtifactConstructionHandoff,
@@ -98,6 +99,11 @@ class _WeightingResult:
 TURNOVER_FAILURE_REASON = "target turnover exceeds max_turnover_weight"
 TRADE_INTENT_COUNT_FAILURE_REASON = "trade intent count exceeds max_trade_intent_count"
 MIN_POSITION_OVER_MAX_FAILURE_REASON = "min_position_weight exceeds max_position_weight"
+# Epic 3 breadth: optional max_sector_weight hard constraint. A run is infeasible
+# when the deterministic policy output concentrates a single sector beyond the cap.
+# Evaluated post-hoc against generated target weights; the engine never reshuffles
+# names to satisfy the cap (fail-closed, no silent repair).
+SECTOR_CONCENTRATION_FAILURE_REASON = "selected sector weight exceeds max_sector_weight"
 # Epic 3 breadth: launch top_n widened from fixed 2 to a range [2, 20].
 # Per-policy catalog metadata still declares launch_top_n=2 as the recommended default
 # (preserves backward compat for callers that pass no top_n); users opt into a wider
@@ -114,6 +120,32 @@ def _min_position_selected_capacity_failure_reason(min_position_weight: float, s
 
 def _min_position_policy_output_failure_reason(min_position_weight: float) -> str:
     return f"policy output violates min_position_weight={min_position_weight:.8f}"
+
+
+def _compute_max_selected_sector_weight(
+    selected: list[ConstructionRankedCandidateInput],
+    target_weights: list[ConstructionWeight],
+) -> tuple[float | None, bool]:
+    """Compute the largest single-sector weight across the produced target weights.
+
+    Returns ``(max_sector_weight, sector_metadata_complete)``.
+
+    ``sector_metadata_complete`` is False when any name carrying target weight has
+    no sector label — in that case the sector cap cannot be evaluated and the
+    caller must surface ``not_evaluated`` rather than fabricate a sector total.
+    """
+    if not target_weights:
+        return None, False
+    sector_by_symbol = {candidate.symbol: candidate.sector for candidate in selected}
+    sector_totals: dict[str, float] = {}
+    for item in target_weights:
+        sector = sector_by_symbol.get(item.symbol)
+        if sector is None:
+            return None, False
+        sector_totals[sector] = sector_totals.get(sector, 0.0) + item.weight
+    if not sector_totals:
+        return None, False
+    return round(max(sector_totals.values()), 8), True
 
 
 def build_construction_run(
@@ -185,6 +217,17 @@ def build_construction_run(
         and len(generated_trade_intents) > max_trade_intent_count
     ):
         failure_reasons.append(TRADE_INTENT_COUNT_FAILURE_REASON)
+    max_sector_weight = prepared_request.hard_constraints.max_sector_weight
+    if max_sector_weight is not None and generated_target_weights:
+        generated_max_sector_weight, sector_metadata_complete = _compute_max_selected_sector_weight(
+            selected, generated_target_weights
+        )
+        if (
+            sector_metadata_complete
+            and generated_max_sector_weight is not None
+            and generated_max_sector_weight > max_sector_weight + EPSILON
+        ):
+            failure_reasons.append(SECTOR_CONCENTRATION_FAILURE_REASON)
     persisted_infeasible_trade_intents = (
         generated_trade_intents
         if TRADE_INTENT_COUNT_FAILURE_REASON in failure_reasons
@@ -218,7 +261,7 @@ def build_construction_run(
             policy=prepared_request.policy,
             hard_constraints=prepared_request.hard_constraints,
             normalized_inputs=normalized_inputs,
-            selected_names=[ConstructionSelectedName(symbol=item.symbol, rank=item.rank, score=item.score) for item in selected],
+            selected_names=[ConstructionSelectedName(symbol=item.symbol, rank=item.rank, score=item.score, sector=item.sector) for item in selected],
             excluded_names=_build_excluded_names(
                 normalized_ranked,
                 selected_symbols=[item.symbol for item in selected],
@@ -280,7 +323,7 @@ def build_construction_run(
         policy=prepared_request.policy,
         hard_constraints=prepared_request.hard_constraints,
         normalized_inputs=normalized_inputs,
-        selected_names=[ConstructionSelectedName(symbol=item.symbol, rank=item.rank, score=item.score) for item in selected],
+        selected_names=[ConstructionSelectedName(symbol=item.symbol, rank=item.rank, score=item.score, sector=item.sector) for item in selected],
         excluded_names=_build_excluded_names(
             normalized_ranked,
             selected_symbols=[item.symbol for item in selected],
@@ -943,6 +986,32 @@ def _evaluate_constraints(
     min_position_weight = request.hard_constraints.min_position_weight
     max_turnover_weight = request.hard_constraints.max_turnover_weight
     max_trade_intent_count = request.hard_constraints.max_trade_intent_count
+    max_sector_weight = request.hard_constraints.max_sector_weight
+    selected_max_sector_weight, sector_metadata_complete = _compute_max_selected_sector_weight(
+        selected, constraint_weights
+    )
+    sector_evaluated = (
+        has_constraint_weights and max_sector_weight is not None and sector_metadata_complete
+    )
+    if not sector_evaluated:
+        max_sector_weight_status: ConstructionConstraintStatus = "not_evaluated"
+    elif selected_max_sector_weight is not None and selected_max_sector_weight > max_sector_weight + EPSILON:  # type: ignore[operator]
+        max_sector_weight_status = "fail"
+    elif selected_max_sector_weight is not None and abs(selected_max_sector_weight - max_sector_weight) <= 1e-6:  # type: ignore[operator]
+        max_sector_weight_status = "binding"
+    else:
+        max_sector_weight_status = "pass"
+    if max_sector_weight is None:
+        max_sector_weight_message = "max_sector_weight was not requested"
+    elif not has_constraint_weights:
+        max_sector_weight_message = "target weights were not produced because the request is infeasible"
+    elif not sector_metadata_complete:
+        max_sector_weight_message = (
+            "max_sector_weight could not be evaluated because sector metadata is "
+            "unavailable for one or more selected names"
+        )
+    else:
+        max_sector_weight_message = "no single sector weight may exceed max_sector_weight"
     turnover = calculate_construction_turnover(current_weights, constraint_weights) if has_constraint_weights else None
     has_trade_intent_count_evaluation = has_constraint_weights and max_trade_intent_count is not None and trade_intents_persisted
     trade_intent_count_status = "not_evaluated"
@@ -1028,6 +1097,13 @@ def _evaluate_constraints(
                 )
             ),
         ),
+        ConstructionConstraintEvaluation(
+            constraint_id="max_sector_weight",
+            status=max_sector_weight_status,
+            actual_value=selected_max_sector_weight if sector_evaluated else None,
+            limit_value=max_sector_weight,
+            message=max_sector_weight_message,
+        ),
     ] if not infeasible_reasons or has_constraint_weights else [
         ConstructionConstraintEvaluation(
             constraint_id="full_investment",
@@ -1080,6 +1156,17 @@ def _evaluate_constraints(
                 "target weights were not produced because the request is infeasible"
                 if max_trade_intent_count is not None
                 else "max_trade_intent_count was not requested"
+            ),
+        ),
+        ConstructionConstraintEvaluation(
+            constraint_id="max_sector_weight",
+            status="not_evaluated",
+            actual_value=None,
+            limit_value=max_sector_weight,
+            message=(
+                "target weights were not produced because the request is infeasible"
+                if max_sector_weight is not None
+                else "max_sector_weight was not requested"
             ),
         ),
     ]

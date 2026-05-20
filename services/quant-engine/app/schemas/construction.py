@@ -118,11 +118,20 @@ class ConstructionRankedCandidateInput(BaseModel):
     eligible: bool = True
     score: float | None = None
     exclusion_reason: str | None = None
+    sector: str | None = None
 
     @field_validator("symbol", mode="before")
     @classmethod
     def _validate_symbol(cls, value: str) -> str:
         return _normalize_symbol(value)
+
+    @field_validator("sector", mode="before")
+    @classmethod
+    def _validate_sector(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class ConstructionRankedUniverseInput(BaseModel):
@@ -171,6 +180,7 @@ class ConstructionPolicyCatalogEntry(BaseModel):
     min_position_weight_constraint: ConstructionPolicyOptionalConstraintSupport
     max_turnover_weight_constraint: ConstructionPolicyOptionalConstraintSupport
     max_trade_intent_count_constraint: ConstructionPolicyOptionalConstraintSupport
+    max_sector_weight_constraint: ConstructionPolicyOptionalConstraintSupport
     ranked_universe_input: ConstructionPolicyRequiredInputSupport
     current_portfolio_input: ConstructionPolicyRequiredInputSupport
     launch_top_n: ConstructionPolicyLaunchTopN
@@ -195,6 +205,7 @@ class ConstructionHardConstraints(BaseModel):
     min_position_weight: float | None = Field(default=None, gt=0.0, le=1.0)
     max_turnover_weight: float | None = Field(default=None, ge=0.0, le=1.0)
     max_trade_intent_count: StrictInt | None = Field(default=None, ge=0)
+    max_sector_weight: float | None = Field(default=None, gt=0.0, le=1.0)
 
     @model_validator(mode="after")
     def _validate_min_max_position_weight_consistency(self) -> "ConstructionHardConstraints":
@@ -203,6 +214,11 @@ class ConstructionHardConstraints(BaseModel):
             and self.min_position_weight > self.max_position_weight
         ):
             raise ValueError("min_position_weight must be less than or equal to max_position_weight")
+        if (
+            self.max_sector_weight is not None
+            and self.max_sector_weight < self.max_position_weight
+        ):
+            raise ValueError("max_sector_weight must be greater than or equal to max_position_weight")
         return self
 
 
@@ -441,6 +457,7 @@ class ConstructionSelectedName(BaseModel):
     symbol: str
     rank: int = Field(ge=1)
     score: float | None = None
+    sector: str | None = None
 
 
 class ConstructionExcludedName(BaseModel):
@@ -459,6 +476,7 @@ class ConstructionConstraintEvaluation(BaseModel):
         "min_position_weight",
         "max_turnover_weight",
         "max_trade_intent_count",
+        "max_sector_weight",
     ]
     status: ConstructionConstraintStatus
     actual_value: float | None = None
@@ -1077,6 +1095,40 @@ class ConstructionArtifact(BaseModel):
                 raise ValueError(
                     "max_trade_intent_count failure reason must be absent when the constraint evaluation does not fail"
                 )
+        max_sector_weight_constraint = next(
+            (item for item in self.constraint_evaluations if item.constraint_id == "max_sector_weight"),
+            None,
+        )
+        if max_sector_weight_constraint is not None:
+            if max_sector_weight_constraint.limit_value != self.hard_constraints.max_sector_weight:
+                raise ValueError(
+                    "max_sector_weight constraint evaluation limit_value must match hard_constraints.max_sector_weight"
+                )
+            sector_failure_reason_present = (
+                "selected sector weight exceeds max_sector_weight" in self.failure_reasons
+            )
+            if self.hard_constraints.max_sector_weight is None:
+                if max_sector_weight_constraint.status != "not_evaluated":
+                    raise ValueError(
+                        "max_sector_weight constraint evaluation must be not_evaluated when hard_constraints.max_sector_weight is omitted"
+                    )
+                if max_sector_weight_constraint.actual_value is not None:
+                    raise ValueError(
+                        "max_sector_weight constraint evaluation actual_value must be omitted when hard_constraints.max_sector_weight is omitted"
+                    )
+                if sector_failure_reason_present:
+                    raise ValueError(
+                        "max_sector_weight failure reason must be absent when hard_constraints.max_sector_weight is omitted"
+                    )
+            else:
+                if (max_sector_weight_constraint.status == "fail") != sector_failure_reason_present:
+                    raise ValueError(
+                        "max_sector_weight failure reason must be present exactly when the constraint evaluation fails"
+                    )
+                if sector_failure_reason_present and self.status == "feasible":
+                    raise ValueError(
+                        "a feasible construction artifact must not carry the max_sector_weight failure reason"
+                    )
         if self.turnover_diagnostics_status == "available" and self.turnover_diagnostics_v1 is None:
             raise ValueError("turnover_diagnostics_v1 is required when turnover_diagnostics_status=available")
         if self.turnover_diagnostics_status == "unavailable_legacy_artifact" and self.turnover_diagnostics_v1 is not None:

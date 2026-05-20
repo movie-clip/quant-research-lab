@@ -148,6 +148,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             min_position_weight_constraint="supported_optional",
             max_turnover_weight_constraint="supported_optional",
             max_trade_intent_count_constraint="supported_optional",
+            max_sector_weight_constraint="supported_optional",
             ranked_universe_input="required",
             current_portfolio_input="required",
             launch_top_n=2,
@@ -176,6 +177,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             min_position_weight_constraint="supported_optional",
             max_turnover_weight_constraint="supported_optional",
             max_trade_intent_count_constraint="supported_optional",
+            max_sector_weight_constraint="supported_optional",
             ranked_universe_input="required",
             current_portfolio_input="required",
             launch_top_n=2,
@@ -204,6 +206,7 @@ POLICY_CATALOG: tuple[ConstructionPolicyDefinition, ...] = (
             min_position_weight_constraint="supported_optional",
             max_turnover_weight_constraint="supported_optional",
             max_trade_intent_count_constraint="supported_optional",
+            max_sector_weight_constraint="supported_optional",
             ranked_universe_input="required",
             current_portfolio_input="required",
             launch_top_n=2,
@@ -237,6 +240,7 @@ def list_construction_policies(
     min_position_weight_constraint: str | None = None,
     max_turnover_weight_constraint: str | None = None,
     max_trade_intent_count_constraint: str | None = None,
+    max_sector_weight_constraint: str | None = None,
     ranked_universe_input: str | None = None,
     current_portfolio_input: str | None = None,
     launch_top_n: int | None = None,
@@ -273,6 +277,11 @@ def list_construction_policies(
         if (
             max_trade_intent_count_constraint is not None
             and entry.max_trade_intent_count_constraint != max_trade_intent_count_constraint
+        ):
+            continue
+        if (
+            max_sector_weight_constraint is not None
+            and entry.max_sector_weight_constraint != max_sector_weight_constraint
         ):
             continue
         if ranked_universe_input is not None and entry.ranked_universe_input != ranked_universe_input:
