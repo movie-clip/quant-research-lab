@@ -458,4 +458,117 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     fireEvent.change(topNInput, { target: { value: 'xyz' } })
     await waitFor(() => expect(within(browser).getAllByText(/Top N must be a whole number/).length).toBeGreaterThan(0))
   })
+
+  it('exposes an optional Max Sector Weight input that validates against max position weight', async () => {
+    // Epic 3 breadth (milestone slice 3): optional max_sector_weight input.
+    // Blank by default (omitted from the request); when set it must be a decimal
+    // in (0, 1] and no lower than max position weight (default 0.60).
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse(buildGenericRecentResponse())
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/generic_ranking_artifact_abc123') && method === 'POST') {
+        return jsonResponse(buildPreflightEligibleResponse())
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    render(
+      <PersistedGenericRankingConstructionBrowser
+        currentPortfolio={sampleCurrentPortfolio}
+        onOpenConstructionReview={vi.fn()}
+      />,
+    )
+
+    const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
+    const sectorInput = await within(browser).findByLabelText('Generic Max Sector Weight (optional)') as HTMLInputElement
+    expect(sectorInput.value).toBe('') // blank default — omitted from the request
+
+    // Valid: 0.80 is >= max position weight (0.60) and <= 1 — no validation error.
+    fireEvent.change(sectorInput, { target: { value: '0.80' } })
+    await waitFor(() => expect(within(browser).queryByText(/Max sector weight/)).toBeNull())
+
+    // Below max position weight (0.50 < 0.60) — surfaces the invariant error.
+    fireEvent.change(sectorInput, { target: { value: '0.50' } })
+    await waitFor(() => expect(
+      within(browser).getAllByText(/Max sector weight must be greater than or equal to max position weight/).length,
+    ).toBeGreaterThan(0))
+    expect(
+      (within(browser).getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+
+    // Above 1 — surfaces the upper-bound error.
+    fireEvent.change(sectorInput, { target: { value: '1.5' } })
+    await waitFor(() => expect(
+      within(browser).getAllByText(/Max sector weight must be less than or equal to 1/).length,
+    ).toBeGreaterThan(0))
+
+    // Non-numeric — surfaces the format error.
+    fireEvent.change(sectorInput, { target: { value: 'abc' } })
+    await waitFor(() => expect(
+      within(browser).getAllByText(/Enter a numeric max sector weight/).length,
+    ).toBeGreaterThan(0))
+  })
+
+  it('sends a non-default top_n and max_sector_weight in the construction run request', async () => {
+    // Verifies (a) the configurable-top_n handoff path works end-to-end for a
+    // non-2 top_n (a latent bug fixed in this slice — the handoff runner
+    // previously hard-rejected top_n != 2), and (b) max_sector_weight is
+    // threaded into hard_constraints.
+    const onOpenConstructionReview = vi.fn()
+    let capturedRunBody: Record<string, unknown> | null = null
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse(buildGenericRecentResponse())
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/generic_ranking_artifact_abc123') && method === 'POST') {
+        return jsonResponse(buildPreflightEligibleResponse())
+      }
+      if (url.includes('/api/construction/run') && method === 'POST') {
+        capturedRunBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+        const runResponse = buildConstructionRunResponse()
+        // The run echoes back the requested top_n; the handoff lineage check
+        // requires normalized_inputs.top_n === requested policy.top_n.
+        runResponse.normalized_inputs.top_n = 5
+        return jsonResponse(runResponse)
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    render(
+      <PersistedGenericRankingConstructionBrowser
+        currentPortfolio={sampleCurrentPortfolio}
+        onOpenConstructionReview={onOpenConstructionReview}
+      />,
+    )
+
+    const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
+    await within(browser).findByText('generic_ranking_artifact_abc123')
+    fireEvent.change(within(browser).getByLabelText('Generic Top N') as HTMLInputElement, { target: { value: '5' } })
+    fireEvent.change(within(browser).getByLabelText('Generic Max Sector Weight (optional)') as HTMLInputElement, { target: { value: '0.80' } })
+    await waitFor(() => {
+      const button = within(browser).getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement
+      expect(button.disabled).toBe(false)
+    })
+
+    fireEvent.click(within(browser).getByRole('button', { name: 'Review In Construction' }))
+    await waitFor(() => expect(onOpenConstructionReview).toHaveBeenCalledWith('construction_artifact_xyz789'))
+
+    expect(capturedRunBody).not.toBeNull()
+    const policy = (capturedRunBody as Record<string, unknown>).policy as Record<string, unknown>
+    const hardConstraints = (capturedRunBody as Record<string, unknown>).hard_constraints as Record<string, unknown>
+    expect(policy.top_n).toBe(5)
+    expect(hardConstraints.max_sector_weight).toBe(0.8)
+  })
 })

@@ -5,7 +5,8 @@ import type {
   ConstructionRankingArtifactPreflightResponse,
 } from '../portfolio/types'
 import {
-  RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N,
+  RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN,
+  RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX,
   resolvePolicyDefinitionIdForPolicyId,
 } from './constructionPolicyCatalog'
 
@@ -146,8 +147,9 @@ function assertConstructionRunMatchesHandoff(
   if (normalizedInputs.policy_definition_id !== expectedPolicyDefinitionId) {
     throw new Error('Ranking artifact construction run lineage returned a mismatched policy_definition_id')
   }
-  if (normalizedInputs.top_n !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
-    throw new Error('Ranking artifact construction run lineage returned unsupported top_n for launch boundary')
+  // Lineage check: the run must echo back exactly the top_n we requested.
+  if (normalizedInputs.top_n !== requestedPolicy.top_n) {
+    throw new Error('Ranking artifact construction run lineage returned a mismatched top_n')
   }
   return payload as ConstructionArtifactRunResponse
 }
@@ -159,6 +161,7 @@ export async function runRankingArtifactConstructionHandoff(params: {
   minPositionWeight?: number | null
   maxTurnoverWeight?: number | null
   maxTradeIntentCount?: number | null
+  maxSectorWeight?: number | null
   currentPortfolio: {
     artifact_id: string
     as_of_timestamp: string
@@ -167,8 +170,15 @@ export async function runRankingArtifactConstructionHandoff(params: {
   policy: ConstructionPolicyRunInput
 }) {
   const apiBase = params.apiBase ?? '/api'
-  if (params.policy.top_n !== RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N) {
-    throw new Error('Ranking artifact construction launch only supports top_n=2')
+  if (
+    !Number.isInteger(params.policy.top_n)
+    || params.policy.top_n < RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN
+    || params.policy.top_n > RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX
+  ) {
+    throw new Error(
+      `Ranking artifact construction launch supports top_n in `
+      + `[${RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MIN}, ${RANKING_ARTIFACT_CONSTRUCTION_LAUNCH_TOP_N_MAX}]`,
+    )
   }
   const preflightResponse = await fetch(`${apiBase}/construction/ranking-artifacts/preflight/${encodeURIComponent(params.artifactId)}`, {
     method: 'POST',
@@ -194,6 +204,7 @@ export async function runRankingArtifactConstructionHandoff(params: {
         ...(params.minPositionWeight != null ? { min_position_weight: params.minPositionWeight } : {}),
         ...(params.maxTurnoverWeight != null ? { max_turnover_weight: params.maxTurnoverWeight } : {}),
         ...(params.maxTradeIntentCount != null ? { max_trade_intent_count: params.maxTradeIntentCount } : {}),
+        ...(params.maxSectorWeight != null ? { max_sector_weight: params.maxSectorWeight } : {}),
       },
     }),
   })

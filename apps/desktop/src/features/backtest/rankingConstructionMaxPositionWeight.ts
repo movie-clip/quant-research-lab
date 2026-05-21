@@ -2,12 +2,14 @@ export const DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = '0.60'
 export const DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT = ''
 export const DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = ''
 export const DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT = ''
+export const DEFAULT_RANKING_CONSTRUCTION_MAX_SECTOR_WEIGHT = ''
 export const DEFAULT_RANKING_CONSTRUCTION_TOP_N = '2'
 export const MIN_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = 0.5
 export const MAX_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = 1
 export const MAX_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT = 0.5
 export const MIN_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = 0
 export const MAX_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT = 1
+export const MAX_RANKING_CONSTRUCTION_MAX_SECTOR_WEIGHT = 1
 // Epic 3 breadth: configurable top_n at launch (was fixed at 2).
 export const MIN_RANKING_CONSTRUCTION_TOP_N = 2
 export const MAX_RANKING_CONSTRUCTION_TOP_N = 20
@@ -40,11 +42,17 @@ export type RankingConstructionMaxTradeIntentCountValidation = {
   error: string | null
 }
 
+export type RankingConstructionMaxSectorWeightValidation = {
+  value: number | null
+  error: string | null
+}
+
 export type RankingConstructionConstraintValidation = {
   maxPositionWeight: RankingConstructionMaxPositionWeightValidation
   minPositionWeight: RankingConstructionMinPositionWeightValidation
   maxTurnoverWeight: RankingConstructionMaxTurnoverWeightValidation
   maxTradeIntentCount: RankingConstructionMaxTradeIntentCountValidation
+  maxSectorWeight: RankingConstructionMaxSectorWeightValidation
 }
 
 function isDecimalWeightInput(input: string) {
@@ -171,11 +179,41 @@ function validateOptionalMaxTradeIntentCountInput(
   return { value, error: null }
 }
 
+function validateOptionalMaxSectorWeightInput(
+  input: string | null | undefined,
+  maxPositionWeight: number | null,
+): RankingConstructionMaxSectorWeightValidation {
+  const normalized = input?.trim() ?? ''
+  if (!normalized) {
+    return { value: null, error: null }
+  }
+
+  if (!isDecimalWeightInput(normalized)) {
+    return { value: null, error: 'Enter a numeric max sector weight as a decimal greater than 0 and up to 1.' }
+  }
+
+  const value = Number(normalized)
+  if (value <= 0) {
+    return { value: null, error: 'Max sector weight must be greater than 0.' }
+  }
+  if (value > MAX_RANKING_CONSTRUCTION_MAX_SECTOR_WEIGHT) {
+    return { value: null, error: 'Max sector weight must be less than or equal to 1.' }
+  }
+  // Backend invariant: a single name in a sector already carries up to max_position_weight,
+  // so the sector cap can never be tighter than the per-position cap.
+  if (maxPositionWeight != null && value < maxPositionWeight) {
+    return { value: null, error: 'Max sector weight must be greater than or equal to max position weight.' }
+  }
+
+  return { value, error: null }
+}
+
 export function validateRankingConstructionConstraintInputs(params: {
   maxPositionWeightInput: string | null | undefined
   minPositionWeightInput?: string | null | undefined
   maxTurnoverWeightInput?: string | null | undefined
   maxTradeIntentCountInput?: string | null | undefined
+  maxSectorWeightInput?: string | null | undefined
 }): RankingConstructionConstraintValidation {
   const maxPositionWeight = validateRequiredMaxPositionWeightInput(params.maxPositionWeightInput)
   const minPositionWeight = validateOptionalMinPositionWeightInput(
@@ -184,12 +222,17 @@ export function validateRankingConstructionConstraintInputs(params: {
   )
   const maxTurnoverWeight = validateOptionalMaxTurnoverWeightInput(params.maxTurnoverWeightInput)
   const maxTradeIntentCount = validateOptionalMaxTradeIntentCountInput(params.maxTradeIntentCountInput)
+  const maxSectorWeight = validateOptionalMaxSectorWeightInput(
+    params.maxSectorWeightInput,
+    maxPositionWeight.value,
+  )
 
   return {
     maxPositionWeight,
     minPositionWeight,
     maxTurnoverWeight,
     maxTradeIntentCount,
+    maxSectorWeight,
   }
 }
 
@@ -238,4 +281,14 @@ export function validateRankingConstructionMaxTradeIntentCountInput(
     maxPositionWeightInput: DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
     maxTradeIntentCountInput: input,
   }).maxTradeIntentCount
+}
+
+export function validateRankingConstructionMaxSectorWeightInput(params: {
+  maxSectorWeightInput: string | null | undefined
+  maxPositionWeightInput: string | null | undefined
+}): RankingConstructionMaxSectorWeightValidation {
+  return validateRankingConstructionConstraintInputs({
+    maxPositionWeightInput: params.maxPositionWeightInput,
+    maxSectorWeightInput: params.maxSectorWeightInput,
+  }).maxSectorWeight
 }

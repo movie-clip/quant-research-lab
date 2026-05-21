@@ -7,6 +7,7 @@ import {
 } from './constructionPolicyCatalog'
 import {
   DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
+  DEFAULT_RANKING_CONSTRUCTION_MAX_SECTOR_WEIGHT,
   DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT,
   DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT,
   DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
@@ -177,6 +178,7 @@ export function PersistedGenericRankingConstructionBrowser({
   const [constructionMinPositionWeight, setConstructionMinPositionWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT)
   const [constructionMaxTurnoverWeight, setConstructionMaxTurnoverWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_TURNOVER_WEIGHT)
   const [constructionMaxTradeIntentCount, setConstructionMaxTradeIntentCount] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_TRADE_INTENT_COUNT)
+  const [constructionMaxSectorWeight, setConstructionMaxSectorWeight] = useState(DEFAULT_RANKING_CONSTRUCTION_MAX_SECTOR_WEIGHT)
   const [constructionTopN, setConstructionTopN] = useState(DEFAULT_RANKING_CONSTRUCTION_TOP_N)
   const constructionTopNValidation = useMemo(
     () => validateRankingConstructionTopNInput(constructionTopN),
@@ -188,13 +190,15 @@ export function PersistedGenericRankingConstructionBrowser({
       minPositionWeightInput: constructionMinPositionWeight,
       maxTurnoverWeightInput: constructionMaxTurnoverWeight,
       maxTradeIntentCountInput: constructionMaxTradeIntentCount,
+      maxSectorWeightInput: constructionMaxSectorWeight,
     }),
-    [constructionMaxPositionWeight, constructionMinPositionWeight, constructionMaxTradeIntentCount, constructionMaxTurnoverWeight],
+    [constructionMaxPositionWeight, constructionMinPositionWeight, constructionMaxTradeIntentCount, constructionMaxTurnoverWeight, constructionMaxSectorWeight],
   )
   const constructionMaxPositionWeightValidation = constructionConstraintValidation.maxPositionWeight
   const constructionMinPositionWeightValidation = constructionConstraintValidation.minPositionWeight
   const constructionMaxTurnoverWeightValidation = constructionConstraintValidation.maxTurnoverWeight
   const constructionMaxTradeIntentCountValidation = constructionConstraintValidation.maxTradeIntentCount
+  const constructionMaxSectorWeightValidation = constructionConstraintValidation.maxSectorWeight
   const selectedConstructionPolicyReadback = useMemo(
     () => formatConstructionPolicyReadback(selectedConstructionPolicyId, constructionPolicyCatalog.policies),
     [constructionPolicyCatalog.policies, selectedConstructionPolicyId],
@@ -270,6 +274,10 @@ export function PersistedGenericRankingConstructionBrowser({
       setHandoffState({ status: 'error', targetArtifactId: artifactId, error: constructionMaxTradeIntentCountValidation.error })
       return
     }
+    if (constructionMaxSectorWeightValidation.error) {
+      setHandoffState({ status: 'error', targetArtifactId: artifactId, error: constructionMaxSectorWeightValidation.error })
+      return
+    }
     if (constructionTopNValidation.value == null) {
       setHandoffState({ status: 'error', targetArtifactId: artifactId, error: constructionTopNValidation.error })
       return
@@ -297,6 +305,7 @@ export function PersistedGenericRankingConstructionBrowser({
         minPositionWeight: constructionMinPositionWeightValidation.value,
         maxTurnoverWeight: constructionMaxTurnoverWeightValidation.value,
         maxTradeIntentCount: constructionMaxTradeIntentCountValidation.value,
+        maxSectorWeight: constructionMaxSectorWeightValidation.value,
         currentPortfolio,
         policy: selectedPolicy,
       })
@@ -354,6 +363,12 @@ export function PersistedGenericRankingConstructionBrowser({
             <input aria-label="Generic Max Trade Intent Count (optional)" className="path-input" value={constructionMaxTradeIntentCount} onChange={(event) => setConstructionMaxTradeIntentCount(event.target.value)} />
             <p className="helper">Leave blank to omit. If set, use a whole number of 0 or greater.</p>
             {constructionMaxTradeIntentCountValidation.error ? <p className="helper">{constructionMaxTradeIntentCountValidation.error}</p> : null}
+          </label>
+          <label className="field-group">
+            <span className="field-label">Max Sector Weight (optional)</span>
+            <input aria-label="Generic Max Sector Weight (optional)" className="path-input" value={constructionMaxSectorWeight} onChange={(event) => setConstructionMaxSectorWeight(event.target.value)} />
+            <p className="helper">Leave blank to omit. If set, use a decimal greater than 0 and up to 1, no lower than max position weight. Evaluated only when ranked names carry sector labels.</p>
+            {constructionMaxSectorWeightValidation.error ? <p className="helper">{constructionMaxSectorWeightValidation.error}</p> : null}
           </label>
           <div className="field-group">
             <span className="field-label">Policy Source</span>
@@ -427,6 +442,7 @@ export function PersistedGenericRankingConstructionBrowser({
                 ?? constructionMinPositionWeightValidation.error
                 ?? constructionMaxTurnoverWeightValidation.error
                 ?? constructionMaxTradeIntentCountValidation.error
+                ?? constructionMaxSectorWeightValidation.error
                 ?? (!currentPortfolio
                   ? 'Open a workspace with an authoritative current portfolio to review this ranking in construction'
                   : null)
