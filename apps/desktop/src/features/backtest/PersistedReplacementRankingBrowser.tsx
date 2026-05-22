@@ -658,14 +658,13 @@ export function PersistedReplacementRankingBrowser({
         {recentState.items.length ? (
           <div className="factor-snapshot-table-wrap">
             <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-rank-grid-wide">
-              <span>Basis Date</span>
+              <span>Ranked On</span>
               <span>Incumbent</span>
               <span>Candidate</span>
               <span>Peer Group</span>
               <span>Confidence</span>
               <span>Eligible</span>
               <span>Excluded</span>
-              <span>Artifact</span>
               <span>Action</span>
             </div>
             {recentState.items.map((item) => {
@@ -704,7 +703,6 @@ export function PersistedReplacementRankingBrowser({
                   <span>{item.confidence}</span>
                   <span>{item.eligible_count}</span>
                   <span>{item.excluded_count}</span>
-                  <span>{item.artifact_id}</span>
                   <span className="strategy-ranking-symbol-cell"><button className={`secondary-button${isOpening ? ' button-loading' : ''}`} onClick={() => void openArtifact(item.artifact_id)} type="button" disabled={isOpening}>{isOpening ? 'Opening...' : isOpened ? 'Opened' : 'Open Review'}</button><button className={`secondary-button${isReviewingInConstruction ? ' button-loading' : ''}`} onClick={() => void reviewInConstruction(item.artifact_id)} type="button" disabled={isReviewingInConstruction || !ready || policyBlockedReason != null} title={reviewLabel}>{isReviewingInConstruction ? 'Opening...' : 'Review In Construction'}</button><small>{reviewLabel}</small></span>
                 </div>
               )
