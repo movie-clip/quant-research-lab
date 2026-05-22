@@ -550,8 +550,8 @@ export function PersistedReplacementRankingBrowser({
   return (
     <section className="dashboard-bottom-grid" data-testid="persisted-replacement-ranking-browser">
       <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Persisted Replacement Reviews</p></div>
-        <p className="helper">Browse recent authoritative replacement ranking artifacts and reopen them read-only inside the workspace.</p>
+        <div><p className="panel-label">Replacement Ranking Runs</p></div>
+        <p className="helper">Select a saved replacement ranking run to open a read-only review or hand it into construction.</p>
       </div>
       <div className="summary-card">
         <div className="split-grid compact-split-grid strategy-lab-config-grid">

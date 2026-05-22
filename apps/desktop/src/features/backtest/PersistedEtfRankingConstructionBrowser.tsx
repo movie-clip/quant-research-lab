@@ -300,8 +300,8 @@ export function PersistedEtfRankingConstructionBrowser({
   return (
     <section className="dashboard-bottom-grid" data-testid="persisted-etf-ranking-construction-browser">
       <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Persisted ETF Ranking Construction</p></div>
-        <p className="helper">Compact ETF-only browser for reopening persisted ETF ranking reviews or handing them into construction.</p>
+        <div><p className="panel-label">ETF Ranking Runs</p></div>
+        <p className="helper">Select a saved ETF ranking run to open a read-only review or hand it into construction.</p>
       </div>
       <div className="summary-card">
         <div className="split-grid compact-split-grid strategy-lab-config-grid">

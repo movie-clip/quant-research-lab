@@ -3300,7 +3300,7 @@ export function App() {
 
       {tab === 'workspace' ? (
         <section className="grid grid-single">
-          {workspaceError ? <p className="error">{workspaceError}</p> : null}
+          {workspaceError ? <div data-testid="workspace-error-banner"><p className="error">{workspaceError}</p></div> : null}
           <Suspense fallback={<section className="panel"><p className="panel-label">Workspace</p><p className="helper">Loading portfolio research workspace...</p></section>}>
             <BacktestWorkspacePanel
               allocationBacktestResult={allocationBacktestRun}

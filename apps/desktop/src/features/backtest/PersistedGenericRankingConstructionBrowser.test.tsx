@@ -210,7 +210,7 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
       />,
     )
 
-    await screen.findByText('Persisted Generic Ranking Construction')
+    await screen.findByText('Generic Ranking Runs')
     await screen.findByText('No persisted generic rankings found.')
   })
 
@@ -566,8 +566,9 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     await waitFor(() => expect(onOpenConstructionReview).toHaveBeenCalledWith('construction_artifact_xyz789'))
 
     expect(capturedRunBody).not.toBeNull()
-    const policy = (capturedRunBody as Record<string, unknown>).policy as Record<string, unknown>
-    const hardConstraints = (capturedRunBody as Record<string, unknown>).hard_constraints as Record<string, unknown>
+    const runBody = capturedRunBody as unknown as Record<string, unknown>
+    const policy = runBody.policy as Record<string, unknown>
+    const hardConstraints = runBody.hard_constraints as Record<string, unknown>
     expect(policy.top_n).toBe(5)
     expect(hardConstraints.max_sector_weight).toBe(0.8)
   })

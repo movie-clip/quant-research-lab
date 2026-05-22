@@ -330,8 +330,8 @@ export function PersistedGenericRankingConstructionBrowser({
   return (
     <section className="dashboard-bottom-grid" data-testid="persisted-generic-ranking-construction-browser">
       <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Persisted Generic Ranking Construction</p></div>
-        <p className="helper">Cross-universe ranking browser for reopening persisted generic ranking artifacts in construction review.</p>
+        <div><p className="panel-label">Generic Ranking Runs</p></div>
+        <p className="helper">Select a saved generic ranking run to hand it into construction review.</p>
       </div>
       <div className="summary-card">
         <div className="split-grid compact-split-grid strategy-lab-config-grid">
