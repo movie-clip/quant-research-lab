@@ -40,8 +40,10 @@ Backlog  ──►  Next phase (ticketed)  ──►  In progress  ──►  Do
 
 | PRD | Epic | Status |
 |---|---|---|
-| `epic-3-construction-optimizer-methodology.md` | Epic 3 — Construction & Optimizer Methodology | Active |
+| `epic-5-usable-core-flow.md` | Epic 5 — Usable Core Flow | **Active** |
+| `epic-3-construction-optimizer-methodology.md` | Epic 3 — Construction & Optimizer Methodology | Foundation complete — stories deprioritized |
 
-PRDs for Epics 1, 2, 4 are written when those epics next take active work;
-their current shipped state lives in `docs/product/current-product-state.md`
-and their history in `docs/product/epic-roadmap.md`.
+PRDs for Epics 1, 2, 4 are not written separately; their shipped state lives
+in `docs/product/current-product-state.md` and their history in
+`docs/product/epic-roadmap.md`. PRDs for Epics 6 and 7 will be written when
+those epics become active.

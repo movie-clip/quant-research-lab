@@ -94,13 +94,24 @@ These remain permanent technical requirements:
 - persisted return-basis evidence and replay-output suppression rules where trust is narrower than the computed engine surface
 - fail-closed behavior for malformed persisted artifacts or contradictory lineage
 
+## Foundation Status
+
+The backend engine families (ranking, construction, construction-constraint, replay, optimizer, monitoring) are functionally complete for the MVP golden path. The immediate technical work is **workflow integration and UX clarity**, not engine breadth.
+
 ## Immediate Priorities
 
-1. generalize ranking infrastructure beyond the currently shipped ETF-only artifact persistence and additive backend discovery path
-2. broaden persisted construction policies and constraints
-3. improve shared artifact-loading, validation, and provenance rules across construction and optimizer workflows
-4. expand monitoring observations, alerts, and overlay coverage beyond the shipped narrow review-only `benchmark_trend_overlay_v1` and `data_quality_monitor_v1` contracts
-5. extend optimizer breadth without weakening truth separation or replay attestation rules
+1. Fix the end-to-end golden path: tab order, Workspace candidate UX, "Review in Construction" broken workflow, replay comparison output (Epic 5)
+2. Dashboard portfolio-weakness signals: concentration, factor tilt, benchmark-relative performance (Epic 6)
+3. Decision persistence: saved proposal rationale, drift monitoring against saved plan (Epic 7)
+
+## Deferred (explicitly not priority until Epic 5–7 are done)
+
+- Additional construction policies (inverse-vol, risk-parity)
+- Full index ingestion (Russell 1000 complete, Russell 2000, MSCI EAFE)
+- Optimizer objective expansion
+- Cross-sectional research expansion
+- Broader monitoring: extend active-alert-episode-inbox discovery (`GET /backtests/monitor-definitions/active-alert-episode-inbox`), definition-scoped alert-review timeline (`GET /backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline`), and evaluation-history inspection beyond the shipped boundary while preserving persisted alert-episode lifecycle semantics, degraded/unavailable handling, hysteresis transitions, and definition-scoped review semantics
+- Additional monitor families
 
 ## Definition of Done for the Pivot
 

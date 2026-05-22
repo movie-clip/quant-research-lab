@@ -30,12 +30,22 @@ index.
 
 ## Roadmap Snapshot
 
+### Foundation Epics (complete — no active slices)
+
+| Epic | What it established | Status |
+| --- | --- | --- |
+| 1. Imported-portfolio truth | Broker import, trust semantics, admission evidence, reconciliation guardrails | Foundation complete |
+| 2. Ranking platform | Generalized ranking artifacts (ETF + generic), persisted discovery, S&P 500 + Russell 1000 universes, construction eligibility | Foundation complete |
+| 3. Construction engine | Deterministic construction, 3 policies, 5 constraints, configurable top-N, ranking handoff for all 3 artifact families | Foundation complete — Epic 3 breadth stories (US-3.1/3.2/3.3) deprioritized pending MVP |
+| 4. Monitoring infrastructure | Persisted monitor definitions, alert workflows, `benchmark_trend_overlay_v1` + `data_quality_monitor_v1` families | Foundation complete |
+
+### MVP Epics (active)
+
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
-| 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
-| 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | **Phase closed / functionally complete.** generic_ranking platform, construction eligibility, Workspace integration, Russell 1000 universe, AND desktop discovery migration all shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints). Future Universe Expansion items (Russell 2000, MSCI EAFE, full IWB ingestion) are deferred to backlog — see Epic 2 Open Gaps | 2026-05-11 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — sector-concentration constraint milestone complete; now running the PRD → story → ticket model (PRD: `prd/epic-3-construction-optimizer-methodology.md`) | Sector concentration constraint milestone complete | **Next phase: US-3.1** risk-aware (inverse-volatility) weighting policy — ticketed in `stories/US-3.1-inverse-volatility-weighting-policy.md`. Backlog: US-3.2 (inverse-rank-weight opt-in), US-3.3 (Top N in ETF Ranking tab). | 2026-05-22 |
-| 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
+| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Active** — first MVP epic (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1 shipped — tab order fixed | US-5.2 — Workspace candidate selection UX | 2026-05-22 |
+| 6. Portfolio clarity | Dashboard that surfaces portfolio weaknesses and opportunities, not just holdings data | Planned | — | — | 2026-05-22 |
+| 7. Decision capture & tracking | Save decisions with quant evidence; monitor portfolio against saved plan | Planned | — | — | 2026-05-22 |
 
 ## Cross-Epic Guardrails
 
@@ -47,12 +57,12 @@ index.
 
 ## Program Snapshot
 
-- Current stage: prototype flow stabilized, regression green, desktop build green.
-- Active epic: `2. Ranking and selection methodology guard`.
-- Current sequence: `Epic 2 -> Epic 3 -> Epic 4`, while `Epic 1` remains the foundational guardrail.
-- Epic 3 is phase closed / guardrail-complete for this phase; remaining construction and optimizer work is breadth expansion rather than guardrail closeout.
-- Epic 4 is phase closed / stabilized for this phase; remaining monitoring and overlay work is breadth expansion rather than closeout work.
-- Biggest current gap: **Epic 2 is functionally complete and phase-closed.** All stated Open Gaps are addressed: generic_ranking platform end-to-end (run → catalog → preflight → construction handoff → Workspace browser → review), two `index_constituent` families (sp500 live + russell1000 static-snapshot), and full desktop discovery migration to the generalized cross-kind path. The next active priority is Epic 3 breadth (more construction policies + richer constraints — risk-parity weighting, sector caps, turnover models). Epic 2 future-universe items (Russell 2000, MSCI EAFE, full IWB ingestion) are explicitly deferred to backlog rather than active slices.
+- Current stage: foundation complete (Epics 1–4); pivoting to MVP usability (Epics 5–7).
+- Active epic: `5. Usable core flow` — first MVP epic.
+- Foundation epics (1–4) are complete. No active slices on any of them.
+- Epic 3 breadth stories (US-3.1 inverse-vol weighting, US-3.2 inverse-rank opt-in, US-3.3 Top N in ETF Ranking tab) are deprioritized — they add construction breadth the researcher cannot reach because the core workflow is not yet usable end-to-end.
+- Biggest current gap: **the golden path (Dashboard → Workspace → rank → construct → replay → compare) is partially broken and confusing.** Tab order does not match the workflow. Workspace candidate section is not self-explanatory. "Review in Construction" is broken. Replay output is a methodology dump rather than a clear before/after decision view.
+- Next priority after Epic 5: Epic 6 (portfolio clarity — Dashboard tells you where you're weak), then Epic 7 (decision tracking).
 
 ## Epic 1. Imported-Portfolio Truth and Reconciliation Guard
 
@@ -271,6 +281,29 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-22 - Epic 5: US-5.1 — Fix app navigation order (shipped)
+
+- Epic: `5. Usable core flow`
+- Story: US-5.1 — Fix app navigation order
+- Change: moved Workspace tab from position 4 to position 2 (immediately after Dashboard) in the `appTabs` array in `apps/desktop/src/app/App.tsx`. New order: Dashboard → Workspace → Exposure → Diagnostics → Backtest → Strategy Lab → ETF Ranking → Generic Ranking.
+- Added tab-order regression test to `App.test.tsx` asserting the exact tab sequence.
+- No backend, schema, or methodology change. Pure frontend reorder — one array entry moved.
+- Tests: backend 1277 passed, frontend 530 passed (1 new tab-order test).
+- Next: US-5.2 — Make Workspace candidate selection self-explanatory.
+
+### 2026-05-22 - Roadmap pivot: infrastructure-breadth → MVP-first
+
+- Epic: cross-cutting process (not tied to a single product epic).
+- Change: roadmap reoriented from technical-guardrail breadth expansion to MVP usability.
+  - Foundation epics (1–4) are declared complete. No further planned active slices.
+  - Epic 3 breadth stories (US-3.1/3.2/3.3) deprioritized — construction breadth does not help when the core workflow is not yet usable.
+  - Three new MVP epics defined: **5. Usable core flow**, **6. Portfolio clarity**, **7. Decision capture & tracking**.
+  - Epic 5 PRD created at `docs/product/prd/epic-5-usable-core-flow.md`.
+  - `docs/product/roadmap.md` rewritten around the three questions the product must answer.
+  - Explicit deferred list added to `roadmap.md`: inverse-vol policy, full index ingestion, optimizer expansion, research expansion, additional monitor families.
+- Trigger: user feedback that the golden path (Dashboard → Workspace → rank → construct → replay) is partially broken and confusing, and that the roadmap was not heading toward a usable product.
+- No code change.
 
 ### 2026-05-22 - Process: adopt PRD → User Story → Ticket delivery model
 
