@@ -43,7 +43,7 @@ index.
 
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
-| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Active** — first MVP epic (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1, US-5.2, US-5.3 shipped — tab order fixed; candidate section relabelled; Review In Construction labels + error banner upgraded | US-5.4 — Clear replay comparison output | 2026-05-22 |
+| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Complete** — all four stories shipped (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1–5.4 shipped — tab order; candidate labels; Review In Construction copy; replay comparison leads with returns | — | 2026-05-22 |
 | 6. Portfolio clarity | Dashboard that surfaces portfolio weaknesses and opportunities, not just holdings data | Planned | — | — | 2026-05-22 |
 | 7. Decision capture & tracking | Save decisions with quant evidence; monitor portfolio against saved plan | Planned | — | — | 2026-05-22 |
 
@@ -282,7 +282,21 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 ## Slice Update Log
 
-<<<<<<< HEAD
+### 2026-05-22 - Epic 5: US-5.4 — Clear replay comparison output (shipped)
+
+- Epic: `5. Usable core flow`
+- Story: US-5.4 — Clear replay comparison output
+- Change: pure frontend change in `PortfolioAllocationBacktestPanel.tsx`.
+  - `buildSummaryRows`: prepended five new rows — Total Return, Annualized Return, Max Drawdown, Sharpe Ratio, Sortino Ratio — before the existing risk-shape rows.
+  - `metricDeltaTone`: added all five new keys to `betterWhenHigher` set (max_drawdown is "better when higher" because the backend signs the diff as candidate − baseline: a less-negative drawdown gives a positive delta, which is an improvement).
+  - `HypotheticalReplaySection` comparison sub-heading renamed "Replay Summary" → "Current vs Proposed".
+  - Withheld investor-economics rows automatically show "N/A" (backend already returns null) and automatically exclude from delta callout cards (existing `buildReplayDeltaCallouts` null-filter).
+- Added 3 new `it` blocks to `PortfolioAllocationBacktestPanel.test.tsx`: AC1 heading assertion, AC2+AC3 row presence and return-family callout, AC4 trust-withheld suppression.
+- Updated existing test that referenced "Replay Summary" panel-label and corrected assertions for now-present-but-N/A withheld metric rows.
+- No backend, schema, or methodology change.
+- Tests: frontend 537 passed (3 new tests); `tsc --noEmit` clean.
+- Epic 5 complete. All four stories shipped.
+
 ### 2026-05-22 - Epic 5: US-5.3 — Fix "Review in Construction" end-to-end (shipped)
 
 - Epic: `5. Usable core flow`
@@ -297,11 +311,7 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Also fixed 5 pre-existing test failures in `PortfolioImprovementWorkspaceShell.test.tsx` and 1 in `App.test.tsx` that broke when US-5.2 removed the Artifact column from browsers (tests were using artifact IDs as DOM wait synchronizers); fixed pre-existing TS errors in `PersistedGenericRankingConstructionBrowser.test.tsx`.
 - No backend, schema, or methodology change.
 - Tests: backend 1277 passed, frontend 534 passed; `tsc --noEmit` clean.
-- Next: US-5.4 — Clear replay comparison output.
 
-=======
-<<<<<<< HEAD
->>>>>>> origin/main
 ### 2026-05-22 - Epic 5: US-5.2 — Make Workspace candidate selection self-explanatory (shipped)
 
 - Epic: `5. Usable core flow`
@@ -314,13 +324,7 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Added 2 new tests to `PersistedGenericRankingConstructionBrowser.test.tsx`: column-header assertions and enum-mapping coverage for all 5 known universe_kind values.
 - No backend, schema, or methodology change. Pure frontend copy/label change.
 - Tests: frontend 541 passed (2 new tests).
-- Next: US-5.3 — Fix "Review in Construction" end-to-end.
 
-<<<<<<< HEAD
-=======
-=======
->>>>>>> origin/main
->>>>>>> origin/main
 ### 2026-05-22 - Epic 5: US-5.1 — Fix app navigation order (shipped)
 
 - Epic: `5. Usable core flow`

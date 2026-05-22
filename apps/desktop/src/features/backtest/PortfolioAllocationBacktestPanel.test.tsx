@@ -1147,7 +1147,7 @@ describe('PortfolioAllocationBacktestPanel', () => {
     render(<HypotheticalReplaySection result={null} draftSnapshot={mockDraftSnapshot} replacementIntentDraft={replacementIntent} formedCandidateArtifact={formedCandidateArtifact} constructedCandidateArtifact={constructedCandidateArtifact} constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()} selectedConstructionRuleId="same_weight_substitution_v1" hypotheticalReplayResult={replayWithRefusedInvestorEconomics} savedProposalCount={1} onSaveProposal={onSaveProposal} onHypotheticalReplayResult={() => {}} />)
 
     const readout = screen.getByText('Replay Decision Readout')
-    const summary = screen.getAllByText('Replay Summary').find((element) => element.className === 'panel-label') as HTMLElement
+    const summary = screen.getByText('Current vs Proposed')
     expect(readout.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByText('Baseline: current portfolio basis')).toBeTruthy()
     expect(screen.getByText('Candidate: hypothetical replacement-intent variant')).toBeTruthy()
@@ -1168,9 +1168,11 @@ describe('PortfolioAllocationBacktestPanel', () => {
     expect(screen.getAllByText('Baseline and candidate are shown on the same replay window. Treat the candidate as a hypothetical test of the intent, not as an approved portfolio change.').length).toBeGreaterThan(0)
     expect(screen.getByText('When replay/backtest investor total-return equivalence is unverified, suppress all user-facing investor-economics metrics and any derived or comparative views from that basis, including drawdown surfaces, Sharpe, Sortino, benchmark-relative deltas, and monitoring callouts; emit only null/withheld semantics, never numeric fallbacks or zero-equivalent UI states.')).toBeTruthy()
     expect(screen.queryByText('Replay Drawdown')).toBeNull()
-    expect(screen.queryByText('Max Drawdown')).toBeNull()
-    expect(screen.queryByText('Sharpe Ratio')).toBeNull()
-    expect(screen.queryByText('Sortino Ratio')).toBeNull()
+    expect(screen.getByText('Max Drawdown')).toBeTruthy()
+    expect(screen.getByText('Sharpe Ratio')).toBeTruthy()
+    expect(screen.getByText('Sortino Ratio')).toBeTruthy()
+    expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
+    expect(screen.getByText('Total Return')).toBeTruthy()
     expect(screen.getByText('Tracking Error')).toBeTruthy()
     expect(screen.getByText('Beta vs Benchmark')).toBeTruthy()
     expect(screen.getByText('Save Proposal v2')).toBeTruthy()
@@ -1515,6 +1517,105 @@ describe('PortfolioAllocationBacktestPanel', () => {
 
     expect(screen.getByText(/Canonical source: typed_preview_handoff/)).toBeTruthy()
     expect(screen.getByText(/Methodology provenance: review_only_replay_methodology/)).toBeTruthy()
+  })
+
+  it('shows "Current vs Proposed" heading when HypotheticalReplaySection renders with reference_result and comparison', () => {
+    render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={replacementIntent}
+        formedCandidateArtifact={formedCandidateArtifact}
+        constructedCandidateArtifact={constructedCandidateArtifact}
+        constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={hypotheticalResponse}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('Current vs Proposed')).toBeTruthy()
+    expect(screen.queryByText('Replay Summary')).toBeNull()
+    const readout = screen.getByText('Replay Decision Readout')
+    const heading = screen.getByText('Current vs Proposed')
+    expect(readout.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows Total Return row first in comparison table and includes return-family delta in callout cards when economics are available', () => {
+    render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={replacementIntent}
+        formedCandidateArtifact={formedCandidateArtifact}
+        constructedCandidateArtifact={constructedCandidateArtifact}
+        constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={hypotheticalResponse}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByText('Total Return').length).toBeGreaterThan(0)
+    expect(screen.getByText('Annualized Return')).toBeTruthy()
+    expect(screen.getAllByText('Max Drawdown').length).toBeGreaterThan(0)
+    expect(screen.getByText('Sharpe Ratio')).toBeTruthy()
+    expect(screen.getByText('Sortino Ratio')).toBeTruthy()
+    expect(screen.getAllByText('+2.00%').length).toBeGreaterThan(0)
+  })
+
+  it('shows N/A for investor-economics rows and excludes them from delta callout cards when investor_economics_status is withheld', () => {
+    const referenceResult = hypotheticalResponse.replay.reference_result
+    const replayWithWithheldEconomics: HypotheticalReplayResponse = {
+      ...hypotheticalResponse,
+      replay: {
+        ...hypotheticalResponse.replay,
+        investor_economics_status: withheldInvestorEconomicsStatus,
+        reference_result: {
+          ...referenceResult!,
+          investor_economics_status: withheldInvestorEconomicsStatus,
+          metrics: { ...referenceResult!.metrics, total_return_pct: null, annualized_return_pct: null, max_drawdown_pct: null, sharpe_ratio: null, sortino_ratio: null },
+        },
+        candidate_result: {
+          ...hypotheticalResponse.replay.candidate_result,
+          investor_economics_status: withheldInvestorEconomicsStatus,
+          metrics: { ...hypotheticalResponse.replay.candidate_result.metrics, total_return_pct: null, annualized_return_pct: null, max_drawdown_pct: null, sharpe_ratio: null, sortino_ratio: null },
+        },
+        comparison: {
+          ...hypotheticalResponse.replay.comparison!,
+          total_return_diff_pct: null,
+          annualized_return_diff_pct: null,
+          max_drawdown_diff_pct: null,
+          sharpe_diff: null,
+          sortino_diff: null,
+        },
+      },
+    }
+
+    render(
+      <HypotheticalReplaySection
+        result={null}
+        draftSnapshot={mockDraftSnapshot}
+        replacementIntentDraft={replacementIntent}
+        formedCandidateArtifact={formedCandidateArtifact}
+        constructedCandidateArtifact={constructedCandidateArtifact}
+        constructionConstraintValidationArtifact={makeConstructionConstraintValidationArtifact()}
+        selectedConstructionRuleId="same_weight_substitution_v1"
+        hypotheticalReplayResult={replayWithWithheldEconomics}
+        savedProposalCount={0}
+        onSaveProposal={() => {}}
+        onHypotheticalReplayResult={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByText('Total Return').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Max Drawdown').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
+    expect(screen.queryByText('+2.00%')).toBeNull()
   })
 
 })
