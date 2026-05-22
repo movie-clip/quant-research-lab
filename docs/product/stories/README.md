@@ -22,7 +22,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 | Story | Title | Status |
 |---|---|---|
-| US-5.1 | Fix app navigation order | Next phase |
+| [US-5.1](US-5.1-fix-app-navigation-order.md) | Fix app navigation order | Next phase |
 | US-5.2 | Make Workspace candidate selection self-explanatory | Backlog |
 | US-5.3 | Fix "Review in Construction" end-to-end | Backlog |
 | US-5.4 | Clear replay comparison output | Backlog |
