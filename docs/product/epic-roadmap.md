@@ -324,7 +324,6 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Added 2 new tests to `PersistedGenericRankingConstructionBrowser.test.tsx`: column-header assertions and enum-mapping coverage for all 5 known universe_kind values.
 - No backend, schema, or methodology change. Pure frontend copy/label change.
 - Tests: frontend 541 passed (2 new tests).
-- Next: US-5.3 — Fix "Review in Construction" end-to-end.
 
 ### 2026-05-22 - Epic 5: US-5.1 — Fix app navigation order (shipped)
 
