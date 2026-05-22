@@ -2001,7 +2001,7 @@ function CandidateIdeaSection({
     <section className="dashboard-bottom-grid">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Candidate Idea</p></div>
-        <p className="helper">Ranking-derived review metadata only.</p>
+        <p className="helper">Pick a saved ranking run to seed a candidate allocation — then choose &ldquo;Review In Construction&rdquo; to preview how it would be built.</p>
       </div>
       <PersistedEtfRankingConstructionBrowser
         currentPortfolio={currentPortfolio}

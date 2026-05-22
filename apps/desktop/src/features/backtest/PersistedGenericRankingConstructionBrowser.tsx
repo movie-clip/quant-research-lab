@@ -21,6 +21,14 @@ import type {
   ConstructionDiscoveredPolicy,
 } from '../portfolio/types'
 
+const UNIVERSE_KIND_LABELS: Record<string, string> = {
+  index_constituent: 'Index',
+  etf_peer_group: 'ETF Peer Group',
+  custom_list: 'Custom List',
+  broad_equity_screen: 'Screened',
+  sector_screen: 'Sector Screen',
+}
+
 // ── Generic ranking recent row (mirrors backend GenericRankingArtifactRecentRow shape) ──
 
 type GenericRankingRecentRow = {
@@ -423,14 +431,12 @@ export function PersistedGenericRankingConstructionBrowser({
         {recentState.items.length ? (
           <div className="factor-snapshot-table-wrap">
             <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-rank-grid-wide">
-              <span>Basis Date</span>
+              <span>Ranked On</span>
               <span>Universe</span>
-              <span>Universe Kind</span>
-              <span>Score Config</span>
+              <span>Type</span>
               <span>Benchmark</span>
               <span>Confidence</span>
-              <span>Evaluated</span>
-              <span>Artifact</span>
+              <span># Ranked</span>
               <span>Action</span>
             </div>
             {recentState.items.map((item) => {
@@ -469,12 +475,10 @@ export function PersistedGenericRankingConstructionBrowser({
                 <div className="risk-contrib-table-grid factor-shift-data-row strategy-lab-rank-grid-wide" key={item.artifact_id}>
                   <span>{item.ranking_basis_date}</span>
                   <span>{item.universe_id}</span>
-                  <span>{item.universe_kind}</span>
-                  <span>{item.score_config_id}</span>
+                  <span>{UNIVERSE_KIND_LABELS[item.universe_kind] ?? item.universe_kind}</span>
                   <span>{item.benchmark_symbol}</span>
                   <span>{item.confidence}</span>
                   <span>{item.evaluated_universe_size}</span>
-                  <span>{item.artifact_id}</span>
                   <span className="strategy-ranking-symbol-cell">
                     <button className={`secondary-button${isRunning ? ' button-loading' : ''}`} onClick={() => void reviewInConstruction(item.artifact_id)} type="button" disabled={isRunning || !ready || policyBlockedReason != null} title={reviewLabel}>
                       {isRunning ? 'Opening...' : 'Review In Construction'}

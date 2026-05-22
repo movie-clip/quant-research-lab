@@ -43,7 +43,7 @@ index.
 
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
-| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Active** — first MVP epic (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1 shipped — tab order fixed | US-5.2 — Workspace candidate selection UX | 2026-05-22 |
+| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Active** — first MVP epic (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1, US-5.2 shipped — tab order fixed; Workspace candidate columns relabelled | US-5.3 — Fix "Review in Construction" end-to-end | 2026-05-22 |
 | 6. Portfolio clarity | Dashboard that surfaces portfolio weaknesses and opportunities, not just holdings data | Planned | — | — | 2026-05-22 |
 | 7. Decision capture & tracking | Save decisions with quant evidence; monitor portfolio against saved plan | Planned | — | — | 2026-05-22 |
 
@@ -282,6 +282,23 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 ## Slice Update Log
 
+<<<<<<< HEAD
+### 2026-05-22 - Epic 5: US-5.2 — Make Workspace candidate selection self-explanatory (shipped)
+
+- Epic: `5. Usable core flow`
+- Story: US-5.2 — Make Workspace candidate selection self-explanatory
+- Change: pure frontend relabelling pass across the three Candidate Idea browsers.
+  - ETF browser: "Basis Date" → "Ranked On", "Lookback" → "Lookback (mo)", "Universe" → "Universe Size", "Evaluated" → "# Ranked", "Artifact" column removed.
+  - Generic browser: "Basis Date" → "Ranked On", "Universe Kind" → "Type" (with enum mapping: index_constituent→"Index", etf_peer_group→"ETF Peer Group", custom_list→"Custom List", broad_equity_screen→"Screened", sector_screen→"Sector Screen"), "Evaluated" → "# Ranked", "Score Config" and "Artifact" columns removed.
+  - Replacement browser: "Basis Date" → "Ranked On", "Artifact" column removed.
+  - Candidate Idea section helper text updated to plain-English orientation sentence.
+- Added 2 new tests to `PersistedGenericRankingConstructionBrowser.test.tsx`: column-header assertions and enum-mapping coverage for all 5 known universe_kind values.
+- No backend, schema, or methodology change. Pure frontend copy/label change.
+- Tests: frontend 541 passed (2 new tests).
+- Next: US-5.3 — Fix "Review in Construction" end-to-end.
+
+=======
+>>>>>>> origin/main
 ### 2026-05-22 - Epic 5: US-5.1 — Fix app navigation order (shipped)
 
 - Epic: `5. Usable core flow`

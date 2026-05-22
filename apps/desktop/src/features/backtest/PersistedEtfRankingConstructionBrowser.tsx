@@ -401,14 +401,13 @@ export function PersistedEtfRankingConstructionBrowser({
         {recentState.items.length ? (
           <div className="factor-snapshot-table-wrap">
             <div className="risk-contrib-table-grid factor-snapshot-header-row strategy-lab-rank-grid-wide">
-              <span>Basis Date</span>
+              <span>Ranked On</span>
               <span>Peer Group</span>
               <span>Benchmark</span>
-              <span>Lookback</span>
+              <span>Lookback (mo)</span>
               <span>Confidence</span>
-              <span>Universe</span>
-              <span>Evaluated</span>
-              <span>Artifact</span>
+              <span>Universe Size</span>
+              <span># Ranked</span>
               <span>Action</span>
             </div>
             {recentState.items.map((item) => {
@@ -452,7 +451,6 @@ export function PersistedEtfRankingConstructionBrowser({
                   <span>{item.confidence}</span>
                   <span>{item.universe_size}</span>
                   <span>{item.evaluated_universe_size}</span>
-                    <span>{item.artifact_id}</span>
                     <span className="strategy-ranking-symbol-cell">
                       <button className="secondary-button" onClick={() => void onOpenRankingReview(item.artifact_id)} type="button">Open Review</button>
                       <button className={`secondary-button${isRunning ? ' button-loading' : ''}`} onClick={() => void reviewInConstruction(item.artifact_id)} type="button" disabled={isRunning || !ready || policyBlockedReason != null} title={reviewLabel}>

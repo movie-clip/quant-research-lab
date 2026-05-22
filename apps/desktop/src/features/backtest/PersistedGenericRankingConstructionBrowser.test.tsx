@@ -238,9 +238,9 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     )
 
     await screen.findByText('sp500_quality_v1') // universe_id column
-    expect(screen.getByText('index_constituent')).toBeTruthy()
-    expect(screen.getByText('quality_v1')).toBeTruthy()
-    expect(screen.getByText('generic_ranking_artifact_abc123')).toBeTruthy()
+    expect(screen.getByText('Index')).toBeTruthy() // index_constituent mapped to readable label
+    expect(screen.queryByText('quality_v1')).toBeNull() // score_config_id not shown
+    expect(screen.queryByText('generic_ranking_artifact_abc123')).toBeNull() // artifact_id not shown
   })
 
   it('rejects malformed discovery scope (not generic_ranking)', async () => {
@@ -318,7 +318,7 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     )
 
     const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
-    await within(browser).findByText('generic_ranking_artifact_abc123')
+    await within(browser).findByText('sp500_quality_v1')
     const button = within(browser).getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
     expect(button.title).toContain('Open a workspace with an authoritative current portfolio')
@@ -353,7 +353,7 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     )
 
     const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
-    await within(browser).findByText('generic_ranking_artifact_abc123')
+    await within(browser).findByText('sp500_quality_v1')
     // Wait for readiness check to complete and policy catalog to settle
     await waitFor(() => {
       const button = within(browser).getByRole('button', { name: 'Review In Construction' }) as HTMLButtonElement
@@ -554,7 +554,7 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     )
 
     const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
-    await within(browser).findByText('generic_ranking_artifact_abc123')
+    await within(browser).findByText('sp500_quality_v1')
     fireEvent.change(within(browser).getByLabelText('Generic Top N') as HTMLInputElement, { target: { value: '5' } })
     fireEvent.change(within(browser).getByLabelText('Generic Max Sector Weight (optional)') as HTMLInputElement, { target: { value: '0.80' } })
     await waitFor(() => {
@@ -570,5 +570,83 @@ describe('PersistedGenericRankingConstructionBrowser', () => {
     const hardConstraints = (capturedRunBody as Record<string, unknown>).hard_constraints as Record<string, unknown>
     expect(policy.top_n).toBe(5)
     expect(hardConstraints.max_sector_weight).toBe(0.8)
+  })
+
+  it('renders plain-English column headers and hides internal identifiers', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : (input as Request).url
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse(buildGenericRecentResponse())
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
+      if (url.includes('/api/construction/ranking-artifacts/preflight/generic_ranking_artifact_abc123') && method === 'POST') {
+        return jsonResponse(buildPreflightEligibleResponse())
+      }
+      throw new Error(`Unhandled fetch: ${method} ${url}`)
+    })
+
+    render(
+      <PersistedGenericRankingConstructionBrowser
+        currentPortfolio={sampleCurrentPortfolio}
+        onOpenConstructionReview={vi.fn()}
+      />,
+    )
+
+    const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
+    await within(browser).findByText('sp500_quality_v1')
+
+    expect(within(browser).getByText('Ranked On')).toBeTruthy()
+    expect(within(browser).getByText('Type')).toBeTruthy()
+    expect(within(browser).getByText('# Ranked')).toBeTruthy()
+    expect(within(browser).queryByText('Basis Date')).toBeNull()
+    expect(within(browser).queryByText('Score Config')).toBeNull()
+    expect(within(browser).queryByText('Artifact')).toBeNull()
+  })
+
+  it('maps universe_kind enum values to readable labels', async () => {
+    const universeKindCases: Array<{ kind: string; label: string }> = [
+      { kind: 'index_constituent', label: 'Index' },
+      { kind: 'etf_peer_group', label: 'ETF Peer Group' },
+      { kind: 'custom_list', label: 'Custom List' },
+      { kind: 'broad_equity_screen', label: 'Screened' },
+      { kind: 'sector_screen', label: 'Sector Screen' },
+    ]
+
+    for (const { kind, label } of universeKindCases) {
+      cleanup()
+      vi.restoreAllMocks()
+      const base = defaultGenericRow()
+      const row = { ...base, generic_summary: { ...base.generic_summary, universe_kind: kind } }
+
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+        const url = typeof input === 'string' ? input : (input as Request).url
+        const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+        if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+          return jsonResponse(buildGenericRecentResponse([row]))
+        }
+        if (url.includes('/api/construction/policies') && method === 'GET') {
+          return jsonResponse(buildConstructionPoliciesResponse())
+        }
+        if (url.includes('/api/construction/ranking-artifacts/preflight/generic_ranking_artifact_abc123') && method === 'POST') {
+          return jsonResponse(buildPreflightEligibleResponse())
+        }
+        throw new Error(`Unhandled fetch: ${method} ${url}`)
+      })
+
+      render(
+        <PersistedGenericRankingConstructionBrowser
+          currentPortfolio={sampleCurrentPortfolio}
+          onOpenConstructionReview={vi.fn()}
+        />,
+      )
+
+      const browser = await screen.findByTestId('persisted-generic-ranking-construction-browser')
+      await within(browser).findByText('sp500_quality_v1')
+      expect(within(browser).getByText(label)).toBeTruthy()
+      expect(within(browser).queryByText(kind)).toBeNull()
+    }
   })
 })
