@@ -282,6 +282,7 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 
 ## Slice Update Log
 
+<<<<<<< HEAD
 ### 2026-05-22 - Epic 5: US-5.2 — Make Workspace candidate selection self-explanatory (shipped)
 
 - Epic: `5. Usable core flow`
@@ -296,6 +297,8 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Tests: frontend 541 passed (2 new tests).
 - Next: US-5.3 — Fix "Review in Construction" end-to-end.
 
+=======
+>>>>>>> origin/main
 ### 2026-05-22 - Epic 5: US-5.1 — Fix app navigation order (shipped)
 
 - Epic: `5. Usable core flow`
