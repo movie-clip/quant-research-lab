@@ -48,7 +48,8 @@ The product evolves through 4 active epics, tracked in `docs/product/epic-roadma
 | `docs/finance/financial-methodology.md` | **Source of truth for every implemented financial formula**, trust semantics, methodology |
 | `docs/architecture/system-architecture.md` | Backend seams, route inventory, truth class semantics, data flow |
 | `docs/contracts/*.md` | Field inventory docs — backend ↔ TS type ↔ UI traceability per feature surface |
-| `.claude/skills/build-story/SKILL.md` | The `build-story` skill — how an agent delivers one user story end-to-end |
+| `.claude/skills/write-story/SKILL.md` | The `write-story` skill — how an agent authors a User Story from a feature idea (statement → ACs → test plan → tickets) |
+| `.claude/skills/build-story/SKILL.md` | The `build-story` skill — how an agent implements a ticketed story end-to-end |
 
 When shipping any methodology-meaningful change, update **all three**: methodology doc + relevant contract doc + tests.
 
@@ -164,7 +165,7 @@ python -m app.scripts.export_dashboard_goldens  # regenerate goldens (from servi
 python scripts/manage_cache.py
 ```
 
-## Delivery model & the `build-story` skill
+## Delivery model & project skills
 
 Work is delivered as **PRD → User Story → Ticket** — vertical slices of user
 value, not isolated technical features.
@@ -174,10 +175,15 @@ value, not isolated technical features.
   a test plan, tickets, status). See `docs/product/prd/README.md`.
 - Only the next-phase story is broken into tickets; backlog stories are
   defined but not yet decomposed.
-- To deliver a story, invoke the **`build-story`** skill via the `Skill` tool —
-  it walks the full workflow: read PRD + story, work tickets in order, write
-  tests, satisfy acceptance criteria, update methodology/contract docs, open a
-  PR. It is the only project skill.
+
+Two project skills drive the workflow:
+
+| Skill | When to use |
+|---|---|
+| **`write-story`** | You have a feature idea and want it turned into a complete, ticketed User Story file. Invoke it before any code is written. |
+| **`build-story`** | A story file exists with tickets and you want to implement it — reads PRD + story, works tickets in order, writes tests, satisfies acceptance criteria, updates docs, opens a PR. |
+
+Workflow: `write-story` → story file (Next phase) → `build-story` → merged PR.
 
 ## Backend Conventions (`services/quant-engine/`)
 
