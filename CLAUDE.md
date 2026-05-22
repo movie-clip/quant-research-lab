@@ -9,10 +9,9 @@ A **local-first, deterministic, auditable** decision-support platform for system
 **If the math or financial methodology is wrong, nothing else matters.** Before changing any analytics, factor formula, replay basis, or trust-state logic:
 
 1. **Read `docs/finance/financial-methodology.md`** — the canonical source of truth for every implemented formula
-2. **Invoke the `portfolio-analytics` skill** if the change touches return construction, drawdown, volatility, benchmark separation, or factor analytics
-3. **Invoke the `financial-research` skill** if the change introduces a new factor, normalization scheme, or universe definition — cite academic precedent
-4. **Update tests in the same pass** — every methodology change must include or update regression tests
-5. **Surface trust state explicitly** — never fabricate, never silently fallback, never collapse `withheld` into `unavailable`
+2. **Cite academic precedent** in the methodology doc when introducing a new factor, weighting scheme, normalization, or universe definition
+3. **Update tests in the same pass** — every methodology change must include or update regression tests
+4. **Surface trust state explicitly** — never fabricate, never silently fallback, never collapse `withheld` into `unavailable`
 
 The four hard guardrails (in priority order):
 
@@ -40,14 +39,16 @@ The product evolves through 4 active epics, tracked in `docs/product/epic-roadma
 |---|---|
 | `README.md` | Public-facing project overview |
 | `CLAUDE.md` (this file) | Always-on agent onboarding: project identity, guardrails, conventions, skill map |
-| `docs/product/epic-roadmap.md` | **Living execution roadmap** — current epic status, planned slices, slice update log (read this first to know where we are) |
+| `docs/product/epic-roadmap.md` | **Living execution roadmap** — epic snapshot + slice update log + the delivery-model overview (read this first to know where we are) |
+| `docs/product/prd/` | **PRDs** — one per epic: problem, goals, non-goals, success signals, story list (`README.md` explains the PRD → story → ticket model) |
+| `docs/product/stories/` | **User stories** — one file per story: statement, acceptance criteria, test plan, tickets, status (`README.md` is the live index) |
 | `docs/product/current-product-state.md` | Canonical shipped-state inventory — what works today, what's intentionally narrow, what's still future |
 | `docs/product/roadmap.md` | Future-looking product direction (concise) |
 | `docs/product/technical-roadmap.md` | Future-looking technical sequencing (concise) |
 | `docs/finance/financial-methodology.md` | **Source of truth for every implemented financial formula**, trust semantics, methodology |
 | `docs/architecture/system-architecture.md` | Backend seams, route inventory, truth class semantics, data flow |
-| `docs/contracts/*.md` | 9 field inventory docs — backend ↔ TS type ↔ UI traceability per feature surface |
-| `.claude/skills/*/SKILL.md` | On-demand specialist knowledge (5 skills — see table below) |
+| `docs/contracts/*.md` | Field inventory docs — backend ↔ TS type ↔ UI traceability per feature surface |
+| `.claude/skills/build-story/SKILL.md` | The `build-story` skill — how an agent delivers one user story end-to-end |
 
 When shipping any methodology-meaningful change, update **all three**: methodology doc + relevant contract doc + tests.
 
@@ -100,14 +101,18 @@ data/artifacts/         # Persisted decision artifacts (committed, auditable)
   monitor-definitions/
 
 docs/
-  product/              # Roadmap + current state + epic execution log
+  product/
+    prd/                # PRDs — one per epic (problem, goals, story list)
+    stories/            # User stories — one file per story (tickets, test plan)
+    epic-roadmap.md     # Epic snapshot + slice log + delivery model
+    current-product-state.md  # Shipped-state inventory
   finance/              # Financial methodology
   architecture/         # System architecture + truth classes
   contracts/            # Field inventory docs (backend ↔ TS ↔ UI)
 
 .claude/
   settings.json         # Permissions
-  skills/               # On-demand specialist knowledge (5 skills)
+  skills/build-story/   # The build-story skill — deliver one user story end-to-end
 ```
 
 ## Architecture: Truth Classes
@@ -159,17 +164,20 @@ python -m app.scripts.export_dashboard_goldens  # regenerate goldens (from servi
 python scripts/manage_cache.py
 ```
 
-## Project Skills (load on-demand)
+## Delivery model & the `build-story` skill
 
-Each skill ships its own non-negotiable rules and validation commands. Invoke via the `Skill` tool when work shifts focus — they're free until used.
+Work is delivered as **PRD → User Story → Ticket** — vertical slices of user
+value, not isolated technical features.
 
-| Skill | Trigger |
-|-------|---------|
-| `financial-research` | Factor methodology, FMP/Alpha Vantage data sourcing, universe definitions, citing academic precedent |
-| `portfolio-analytics` | Portfolio risk, performance, volatility, drawdown, factor analytics; cash-flow-neutral basis, benchmark separation |
-| `artifact-workflow` | Creating/loading/extending persisted artifacts in `data/artifacts/`; content-addressed IDs, fail-closed validation |
-| `contract-sync` | After any Pydantic schema change — keep schemas ↔ TS types ↔ docs/contracts/ aligned |
-| `testing-triage` | When tests fail, when adding coverage, or when verifying a refactor didn't regress |
+- PRDs: `docs/product/prd/` (one per epic). User stories:
+  `docs/product/stories/` (one file per story, each with acceptance criteria,
+  a test plan, tickets, status). See `docs/product/prd/README.md`.
+- Only the next-phase story is broken into tickets; backlog stories are
+  defined but not yet decomposed.
+- To deliver a story, invoke the **`build-story`** skill via the `Skill` tool —
+  it walks the full workflow: read PRD + story, work tickets in order, write
+  tests, satisfy acceptance criteria, update methodology/contract docs, open a
+  PR. It is the only project skill.
 
 ## Backend Conventions (`services/quant-engine/`)
 
@@ -178,11 +186,11 @@ Each skill ships its own non-negotiable rules and validation commands. Invoke vi
 - **Trust semantics**: Every field that can be missing carries a trust level. Never fabricate.
 - **Truth-class separation**: See the table above. Never mix in one response.
 - **Route pattern**: Check existing routes in `app/api/routes/` first. Schemas → service → route → register in `app/main.py` → tests in `app/tests/`.
-- **Persisted artifacts**: Content-addressed IDs (`<prefix>_<sha256(canonical_json)[:16]>`), write-once, fail-closed validation. See `artifact-workflow` skill.
+- **Persisted artifacts**: Content-addressed IDs (`<prefix>_<sha256(canonical_json)[:16]>`), write-once, fail-closed validation.
 
 ## Frontend Conventions (`apps/desktop/`)
 
-- **Types mirror backend schemas exactly**: When schemas change, update TS types — invoke `contract-sync` skill.
+- **Types mirror backend schemas exactly**: When a Pydantic schema changes, update the desktop TS types and the matching `docs/contracts/<area>-fields.md` in the same pass.
 - **Trust levels rendered visibly**: Never silently suppress `withheld` or `degraded` — show the badge.
 - **Feature isolation**: Each `features/<name>/` owns its components/hooks/types; cross-feature sharing only via `app/store/` and `app/types/`.
 - **No fabrication**: If data is `null`/`unavailable`, render the unavailable state, never zero or placeholder.
@@ -209,12 +217,12 @@ Keys (in environment or `.env`):
 
 ## When in doubt
 
-1. **For methodology questions** → `docs/finance/financial-methodology.md` + `portfolio-analytics` skill
+1. **For methodology questions** → `docs/finance/financial-methodology.md`
 2. **For "what's shipped today"** → `docs/product/current-product-state.md`
-3. **For "what's the next slice"** → `docs/product/epic-roadmap.md`
-4. **For "where does this field come from"** → `docs/contracts/<area>-fields.md`
-5. **For "how do I add an artifact kind"** → `artifact-workflow` skill
-6. **For "schema just changed"** → `contract-sync` skill
-7. **For "tests are red"** → `testing-triage` skill
+3. **For "what's the next story / how do I deliver it"** → `docs/product/stories/` + the `build-story` skill
+4. **For "what's the scope of this epic"** → `docs/product/prd/<epic>.md`
+5. **For "where are we overall"** → `docs/product/epic-roadmap.md`
+6. **For "where does this field come from"** → `docs/contracts/<area>-fields.md`
+7. **For "how do I add an artifact kind / sync a schema / triage tests"** → `docs/architecture/system-architecture.md` and the contract docs; follow the conventions above
 
 **Default bias**: when uncertain about a financial calculation, degrade trust or fail-closed. It is always safer to surface "I'm not sure this is right" than to ship a plausible-looking wrong number.
