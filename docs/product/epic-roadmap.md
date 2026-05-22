@@ -43,7 +43,7 @@ index.
 
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
-| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Active** — first MVP epic (PRD: `prd/epic-5-usable-core-flow.md`) | — | US-5.1 — Fix app navigation order | 2026-05-22 |
+| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Active** — first MVP epic (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1 shipped — tab order fixed | US-5.2 — Workspace candidate selection UX | 2026-05-22 |
 | 6. Portfolio clarity | Dashboard that surfaces portfolio weaknesses and opportunities, not just holdings data | Planned | — | — | 2026-05-22 |
 | 7. Decision capture & tracking | Save decisions with quant evidence; monitor portfolio against saved plan | Planned | — | — | 2026-05-22 |
 
@@ -281,6 +281,16 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-22 - Epic 5: US-5.1 — Fix app navigation order (shipped)
+
+- Epic: `5. Usable core flow`
+- Story: US-5.1 — Fix app navigation order
+- Change: moved Workspace tab from position 4 to position 2 (immediately after Dashboard) in the `appTabs` array in `apps/desktop/src/app/App.tsx`. New order: Dashboard → Workspace → Exposure → Diagnostics → Backtest → Strategy Lab → ETF Ranking → Generic Ranking.
+- Added tab-order regression test to `App.test.tsx` asserting the exact tab sequence.
+- No backend, schema, or methodology change. Pure frontend reorder — one array entry moved.
+- Tests: backend 1277 passed, frontend 530 passed (1 new tab-order test).
+- Next: US-5.2 — Make Workspace candidate selection self-explanatory.
 
 ### 2026-05-22 - Roadmap pivot: infrastructure-breadth → MVP-first
 

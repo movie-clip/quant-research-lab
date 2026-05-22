@@ -8753,4 +8753,29 @@ describe('App', () => {
     await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')).toHaveLength(2))
     expect(String(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')[1]?.[1]?.body)).toContain('history_context')
   })
+
+  it('renders tabs in workflow order: Dashboard, Workspace, then supporting tools', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    const tabs = screen.getAllByRole('tab').map((el) => el.textContent?.trim())
+    expect(tabs).toEqual([
+      'Dashboard',
+      'Workspace',
+      'Exposure',
+      'Diagnostics',
+      'Backtest',
+      'Strategy Lab',
+      'ETF Ranking',
+      'Generic Ranking',
+    ])
+  })
 })

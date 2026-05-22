@@ -81,6 +81,7 @@ The following are intentionally out of scope until the MVP golden path (Epics 5â
 - Full Russell 1000 ingestion; Russell 2000; MSCI EAFE
 - Optimizer expansion beyond the shipped hypothetical preview
 - Cross-sectional research expansion
+- Broader monitoring workflows: broaden monitoring beyond the shipped active alert-episode inbox, definition-scoped persisted alert-episode history index, definition-scoped alert-review timeline, and latest persisted alert-episode lifecycle for one persisted `monitor_definition_id`
 - Additional monitor families beyond `benchmark_trend_overlay_v1` and `data_quality_monitor_v1`
 - Additional ranking factors beyond the 19 shipped
 

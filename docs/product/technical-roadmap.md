@@ -110,6 +110,7 @@ The backend engine families (ranking, construction, construction-constraint, rep
 - Full index ingestion (Russell 1000 complete, Russell 2000, MSCI EAFE)
 - Optimizer objective expansion
 - Cross-sectional research expansion
+- Broader monitoring: extend active-alert-episode-inbox discovery (`GET /backtests/monitor-definitions/active-alert-episode-inbox`), definition-scoped alert-review timeline (`GET /backtests/monitor-definitions/{monitor_definition_id}/alert-review-timeline`), and evaluation-history inspection beyond the shipped boundary while preserving persisted alert-episode lifecycle semantics, degraded/unavailable handling, hysteresis transitions, and definition-scoped review semantics
 - Additional monitor families
 
 ## Definition of Done for the Pivot

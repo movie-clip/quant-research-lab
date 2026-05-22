@@ -2,7 +2,7 @@
 
 **Epic:** 5 — Usable Core Flow
 **PRD:** [`epic-5-usable-core-flow.md`](../prd/epic-5-usable-core-flow.md)
-**Status:** Next phase
+**Status:** Done
 **Last updated:** 2026-05-22
 
 ## Story
@@ -27,12 +27,12 @@ No backend, schema, or methodology change. This is a single-line reorder in
 
 ## Acceptance criteria
 
-- [ ] AC1 — The tab bar renders in this order: Dashboard, Workspace, Exposure,
+- [x] AC1 — The tab bar renders in this order: Dashboard, Workspace, Exposure,
   Diagnostics, Backtest, Strategy Lab, ETF Ranking, Generic Ranking.
-- [ ] AC2 — All eight tabs are still present — none are removed.
-- [ ] AC3 — Clicking each tab still navigates to the correct panel (no
+- [x] AC2 — All eight tabs are still present — none are removed.
+- [x] AC3 — Clicking each tab still navigates to the correct panel (no
   functionality regressed).
-- [ ] AC4 — The default active tab on app launch is still Dashboard.
+- [x] AC4 — The default active tab on app launch is still Dashboard.
 
 ## Test plan
 
@@ -51,7 +51,7 @@ Regression / guardrail:
 
 ## Tickets
 
-- [ ] T-5.1.1 — Frontend: reorder the `appTabs` array in
+- [x] T-5.1.1 — Frontend: reorder the `appTabs` array in
   `apps/desktop/src/app/App.tsx` (move `workspace` from index 3 to index 1);
   add a tab-order assertion to `App.test.tsx`.
 
