@@ -1,6 +1,7 @@
 # Epic Roadmap
 
-This file is the living execution roadmap for the four active product epics.
+This file is the living execution roadmap for the four active product epics —
+the epic-level snapshot and the slice log.
 
 - Shipped-state truth belongs in `docs/product/current-product-state.md`.
 - Future-looking product direction belongs in `docs/product/roadmap.md`.
@@ -8,13 +9,32 @@ This file is the living execution roadmap for the four active product epics.
 
 After every shipped slice or epic checkpoint, update this file first, then update shipped-state docs and contracts if the slice changed product truth.
 
+## Delivery model — PRD → User Story → Ticket
+
+Work is delivered as **vertical user stories**, not isolated technical features.
+
+- **PRDs** live in `docs/product/prd/` — one per epic: problem, goals,
+  non-goals, success signals, the ordered story list.
+- **User stories** live in `docs/product/stories/` — one file per story, each
+  with a story statement, acceptance criteria, a **test plan**, tickets, and
+  status.
+- **Tickets** are checklist items inside a story file — one focused change
+  each. Only the next-phase story is broken into tickets; backlog stories are
+  defined but not yet decomposed.
+- An agent delivers a story with the `build-story` skill
+  (`.claude/skills/build-story/`).
+
+The epic snapshot below stays the high-level index; the per-epic PRD is the
+authoritative scope, and `docs/product/stories/README.md` is the live story
+index.
+
 ## Roadmap Snapshot
 
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 1. Imported-portfolio truth and reconciliation guard | Keep imported portfolio truth, trust semantics, and reconciliation explicit before downstream methodology layers | Read-only admission summary and sanitized desktop-local review metadata shipped/stabilized | Save-time current-evidence matching shipped | Deeper reconciliation workflow only if needed; local metadata remains non-trust-changing | 2026-05-10 |
 | 2. Ranking and selection methodology guard | Generalize ranking into a broader methodology platform with explicit selection guardrails and artifact-backed reuse | **Phase closed / functionally complete.** generic_ranking platform, construction eligibility, Workspace integration, Russell 1000 universe, AND desktop discovery migration all shipped | No active slice | Pivot to Epic 3 breadth (more construction policies + richer constraints). Future Universe Expansion items (Russell 2000, MSCI EAFE, full IWB ingestion) are deferred to backlog — see Epic 2 Open Gaps | 2026-05-11 |
-| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — sector-concentration constraint milestone complete (slices 1-3 of 3: `max_sector_weight` constraint + sector metadata threading + desktop input) | Sector concentration constraint milestone complete | Next: risk-aware weighting policy (inverse-volatility), promote inverse-rank-weight excluded → opt_in, surface Top N in legacy ETF Ranking tab. Older breadth items remain valid (richer constraints, broader policy coverage, cleanup of narrow lineage assumptions). | 2026-05-12 |
+| 3. Construction and optimizer methodology guard | Deepen deterministic construction and constrained optimizer review on top of stronger upstream ranking contracts | Active epic — sector-concentration constraint milestone complete; now running the PRD → story → ticket model (PRD: `prd/epic-3-construction-optimizer-methodology.md`) | Sector concentration constraint milestone complete | **Next phase: US-3.1** risk-aware (inverse-volatility) weighting policy — ticketed in `stories/US-3.1-inverse-volatility-weighting-policy.md`. Backlog: US-3.2 (inverse-rank-weight opt-in), US-3.3 (Top N in ETF Ranking tab). | 2026-05-22 |
 | 4. Monitoring and overlay review guard | Extend narrow review-scoped monitoring into broader persisted discipline workflows | Phase closed / stabilized for current phase; shipped breadth includes persisted benchmark-trend and data-quality review families | No active slice | Future monitoring breadth only: broader monitor/overlay families, scheduling, remediation, and threshold management remain explicitly out of current phase | 2026-05-09 |
 
 ## Cross-Epic Guardrails
@@ -251,6 +271,30 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-22 - Process: adopt PRD → User Story → Ticket delivery model
+
+- Epic: cross-cutting process (not tied to a single product epic).
+- Change: development now runs as PRDs + user stories + tickets, replacing the
+  ad-hoc "slice" planning style.
+  - New `docs/product/prd/` — per-epic PRDs (`README.md` explains the model;
+    `epic-3-construction-optimizer-methodology.md` is the active PRD).
+  - New `docs/product/stories/` — one file per user story (`_TEMPLATE.md`,
+    `README.md` index). Epic 3's remaining breadth is now three stories:
+    US-3.1 (inverse-volatility weighting, **next phase — ticketed**),
+    US-3.2 (inverse-rank-weight opt-in, backlog),
+    US-3.3 (Top N in ETF Ranking tab, backlog).
+  - Only the next-phase story carries tickets; backlog stories are defined but
+    not yet decomposed.
+- Skills: the five specialist skills (`artifact-workflow`, `contract-sync`,
+  `financial-research`, `portfolio-analytics`, `testing-triage`) were removed
+  and replaced by a single `build-story` skill that walks an agent through
+  delivering one user story end-to-end. The specialist knowledge those skills
+  held remains in the canonical docs (`financial-methodology.md`,
+  `system-architecture.md`, `contracts/*.md`).
+- `CLAUDE.md` updated: skill table, doc map, and "When in doubt" now point at
+  the PRD/story model and the `build-story` skill.
+- No code or methodology change — process and documentation only.
 
 ### 2026-05-12 - Epic 3 breadth: max_sector_weight desktop input (milestone slice 3 of 3)
 
