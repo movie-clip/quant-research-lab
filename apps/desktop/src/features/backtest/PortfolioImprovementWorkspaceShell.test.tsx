@@ -2795,6 +2795,12 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
       const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'etf_ranking' } } })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'generic_ranking' } } })
+      }
       if (url.includes('/api/construction/policies') && method === 'GET') {
         return jsonResponse(buildConstructionPoliciesResponse())
       }
@@ -2838,8 +2844,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell()
 
-    await screen.findByText('Persisted Replacement Reviews')
-    expect(screen.getByText('intent_bound_etf_replacement_ranking_artifact_sector_1')).toBeTruthy()
+    await screen.findByText('Replacement Ranking Runs')
+    expect(screen.getByText('IUFS')).toBeTruthy()
+    expect(screen.queryByText('intent_bound_etf_replacement_ranking_artifact_sector_1')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Review' }))
 
@@ -2995,8 +3002,8 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell({ onOpenPersistedConstructionArtifactReview, onOpenPersistedEtfRankingReview })
 
-    await screen.findByText('Persisted ETF Ranking Construction')
-    expect(screen.getByText('Persisted Replacement Reviews')).toBeTruthy()
+    await screen.findByText('ETF Ranking Runs')
+    expect(screen.getByText('Replacement Ranking Runs')).toBeTruthy()
     await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
     const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
     expect(screen.getAllByRole('button', { name: 'Open Review' }).length).toBeGreaterThan(1)
@@ -3157,7 +3164,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell({ onOpenPersistedConstructionArtifactReview })
 
-    await screen.findByText('Persisted ETF Ranking Construction')
+    await screen.findByText('ETF Ranking Runs')
     await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
 
     fireEvent.change(screen.getAllByLabelText('Max Position Weight')[0]!, { target: { value: '0.7' } })
@@ -3238,7 +3245,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell({ draftSnapshot: null })
 
-    await screen.findByText('Persisted ETF Ranking Construction')
+    await screen.findByText('ETF Ranking Runs')
     fireEvent.click(screen.getByRole('button', { name: 'Review In Construction' }))
     await screen.findByText('Open a workspace with an authoritative current portfolio to review this ranking in construction')
   })
@@ -3247,6 +3254,15 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
       const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'etf_ranking' } } })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'generic_ranking' } } })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
       if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
         return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
       }
@@ -3270,7 +3286,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell()
 
-    await screen.findByText('intent_bound_etf_replacement_ranking_artifact_sector_1')
+    await screen.findByText('IUFS')
     fireEvent.click(screen.getByRole('button', { name: 'Open Review' }))
 
     await screen.findByText('Saved replacement review could not be opened.')
@@ -3284,6 +3300,9 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
       if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
         return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'etf_ranking' } } })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'generic_ranking' } } })
       }
       if (url.includes('/api/construction/policies') && method === 'GET') {
         return jsonResponse(buildConstructionPoliciesResponse())
@@ -3314,7 +3333,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell()
 
-    await screen.findByText('Persisted Replacement Reviews')
+    await screen.findByText('Replacement Ranking Runs')
     const button = screen.getByRole('button', { name: 'Review In Construction' })
     expect(button).toHaveProperty('disabled', true)
     expect(screen.getByText('persisted replacement ranking artifact has no eligible ranked candidates for construction')).toBeTruthy()
@@ -3370,7 +3389,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell()
 
-    await screen.findByText('Persisted ETF Ranking Construction')
+    await screen.findByText('ETF Ranking Runs')
     const button = screen.getByRole('button', { name: 'Review In Construction' })
     expect(button).toHaveProperty('disabled', true)
     expect(screen.getByText('persisted etf ranking artifact has no eligible ranked candidates for construction')).toBeTruthy()
@@ -3508,6 +3527,15 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input)
       const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'etf_ranking' } } })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'generic_ranking' } } })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
       if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
         return jsonResponse(buildReplacementRecentResponse([artifactA.recentRun, artifactB.recentRun]))
       }
@@ -3531,17 +3559,17 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell()
 
-    await screen.findByText(artifactA.preflight.artifact.artifact_id)
-    await screen.findByText(artifactB.preflight.artifact.artifact_id)
+    await screen.findByText(artifactA.recentRun.candidate_symbol)
+    await screen.findByText(artifactB.recentRun.candidate_symbol)
 
-    const artifactARow = screen.getAllByText(artifactA.preflight.artifact.artifact_id)[0]?.closest('.strategy-lab-rank-grid-wide') as HTMLElement | null
+    const artifactARow = screen.getAllByText(artifactA.recentRun.candidate_symbol)[0]?.closest('.strategy-lab-rank-grid-wide') as HTMLElement | null
     if (!artifactARow) throw new Error('Missing replacement ranking row for artifact A')
     fireEvent.click(within(artifactARow).getByRole('button', { name: 'Open Review' }))
 
     await screen.findByText('Saved Replacement Ranking Review')
-    expect(screen.getAllByText(artifactA.preflight.artifact.artifact_id).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(artifactA.recentRun.candidate_symbol).length).toBeGreaterThan(0)
 
-    const artifactBRow = screen.getAllByText(artifactB.preflight.artifact.artifact_id)[0]?.closest('.strategy-lab-rank-grid-wide') as HTMLElement | null
+    const artifactBRow = screen.getAllByText(artifactB.recentRun.candidate_symbol)[0]?.closest('.strategy-lab-rank-grid-wide') as HTMLElement | null
     if (!artifactBRow) throw new Error('Missing replacement ranking row for artifact B')
     fireEvent.click(within(artifactBRow).getByRole('button', { name: 'Open Review' }))
 
@@ -3562,6 +3590,15 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=intent_bound_etf_replacement_ranking') && method === 'GET') {
         return jsonResponse(buildReplacementRecentResponse([buildReplacementRecentRun()]))
       }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=etf_ranking') && method === 'GET') {
+        return jsonResponse({ items: [] })
+      }
+      if (url.includes('/api/strategy-lab/ranking-artifacts/recent?artifact_kind=generic_ranking') && method === 'GET') {
+        return jsonResponse({ items: [] })
+      }
+      if (url.includes('/api/construction/policies') && method === 'GET') {
+        return jsonResponse(buildConstructionPoliciesResponse())
+      }
       if (url.includes('/api/strategy-lab/ranking-artifacts/preflight/intent_bound_etf_replacement_ranking_artifact_sector_1') && method === 'POST') {
         return jsonResponse(makePersistedReplacementRankingPreflightPayload())
       }
@@ -3572,7 +3609,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     })
 
     const firstRender = renderShell()
-    await screen.findByText('intent_bound_etf_replacement_ranking_artifact_sector_1')
+    await screen.findByText('IUFS')
     fireEvent.click(screen.getByRole('button', { name: 'Open Review' }))
     await screen.findByText('Saved Replacement Ranking Review')
 
@@ -3580,7 +3617,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     renderShell()
 
-    await screen.findByText('Persisted Replacement Reviews')
+    await screen.findByText('Replacement Ranking Runs')
     await waitFor(() => expect(screen.queryByText('Saved Replacement Ranking Review')).toBeNull())
   })
 
@@ -4921,13 +4958,13 @@ describe('PortfolioImprovementWorkspaceShell', () => {
 
     const ui = within(container)
     expect(ui.getByTestId('persisted-construction-artifact-banner')).toBeTruthy()
-    expect(ui.getByText('Artifact Review Mode')).toBeTruthy()
+    expect(ui.getByText('Construction Review')).toBeTruthy()
     expect(ui.queryByTestId('workspace-section-candidate')).toBeNull()
     expect(ui.queryByTestId('workspace-section-proposal')).toBeNull()
     expect(ui.getAllByText('Recorded').length).toBeGreaterThan(0)
     expect(ui.getByText('Artifact review basis is available. This read-only review already has what it needs. Next up: review the candidate and replay evidence already attached to this artifact-backed path.')).toBeTruthy()
     expect(ui.getAllByText('Review Basis').length).toBeGreaterThan(0)
-    expect(ui.getByText('This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.')).toBeTruthy()
+    expect(ui.getByText("You're now previewing a saved construction. Scroll down to see the allocation and replay details.")).toBeTruthy()
     expect(ui.queryByTestId('workspace-section-research-tools')).toBeNull()
   })
 

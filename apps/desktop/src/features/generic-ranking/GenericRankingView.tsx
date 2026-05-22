@@ -137,7 +137,7 @@ export function GenericRankingView() {
             <p className="empty-state-title">Hand this ranking into construction review</p>
             <p className="helper">
               Persisted generic ranking artifacts are construction-eligible and can be opened from the Workspace tab's
-              Candidate Idea section under <strong>Persisted Generic Ranking Construction</strong>. The workspace
+              Candidate Idea section under <strong>Generic Ranking Runs</strong>. The workspace
               supplies the current portfolio context required for the construction handoff.
             </p>
             <p className="helper">

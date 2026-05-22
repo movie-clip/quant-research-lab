@@ -2576,8 +2576,8 @@ export function PortfolioImprovementWorkspaceShell(props: Props) {
       {isArtifactReviewMode(shellProps) ? (
         <section className="dashboard-bottom-grid" data-testid="persisted-construction-artifact-banner">
           <div className="summary-card">
-            <p className="panel-label">Artifact Review Mode</p>
-            <p className="helper">{isPersistedOptimizerHandoffMode(shellProps) ? 'This workspace reopens a hypothetical artifact-backed optimizer review by persisted handoff reference while keeping replay review surfaces intact.' : 'This workspace reopens a persisted construction artifact as a desktop-only artifact review basis while keeping replay review surfaces intact.'}</p>
+            <p className="panel-label">{isPersistedOptimizerHandoffMode(shellProps) ? 'Artifact Review Mode' : 'Construction Review'}</p>
+            <p className="helper">{isPersistedOptimizerHandoffMode(shellProps) ? 'This workspace reopens a hypothetical artifact-backed optimizer review by persisted handoff reference while keeping replay review surfaces intact.' : "You're now previewing a saved construction. Scroll down to see the allocation and replay details."}</p>
             <p className="helper">Review basis: {isPersistedOptimizerHandoffMode(shellProps) ? optimizerHandoffReviewBasisId(shellProps) : shellProps.persistedConstructionArtifactReview?.constructionArtifactId ?? ((shellProps.workspaceSource && 'constructionArtifactId' in shellProps.workspaceSource) ? shellProps.workspaceSource.constructionArtifactId : 'n/a')}</p>
           </div>
         </section>

@@ -5431,7 +5431,7 @@ describe('App', () => {
     render(<App />)
 
     await reopenDetailedReviewIfNeeded()
-    await screen.findByText('Persisted ETF Ranking Construction')
+    await screen.findByText('ETF Ranking Runs')
     await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
     const etfBrowser = screen.getByTestId('persisted-etf-ranking-construction-browser')
     fireEvent.change(within(etfBrowser).getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
@@ -5441,7 +5441,7 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('Embedded ETF Ranking')).toBeTruthy())
     await waitFor(() => expect(screen.getByText('Source: Recent Artifact')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: 'Back To Workspace' }))
-    await screen.findByText('Persisted ETF Ranking Construction')
+    await screen.findByText('ETF Ranking Runs')
     fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Min Position Weight (optional)'), { target: { value: '0.2' } })
     fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Max Turnover Weight (optional)'), { target: { value: '0.1' } })
     fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Max Trade Intent Count (optional)'), { target: { value: '3' } })
@@ -5454,6 +5454,59 @@ describe('App', () => {
     expect(matchingFetchCalls(fetchMock, '/api/construction/run', 'POST')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation/construction-artifact-validation', 'POST')).toHaveLength(1)
     expect(matchingFetchCalls(fetchMock, '/api/backtests/portfolio-allocation/construction-artifact-preview', 'POST')).toHaveLength(1)
+  })
+
+  it('shows workspace-error-banner when construction artifact review fails at validation phase', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
+
+    installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET' && requestSearchParam(input, 'artifact_kind') === 'etf_ranking') {
+        return jsonResponse({ items: [{ artifact_kind: 'etf_ranking', artifact_id: 'etf_ranking_artifact_sector_1', ranking_id: 'r1', methodology_id: 'm1', as_of_date: '2026-04-15', ranking_basis_date: '2026-04-15', etf_summary: { benchmark_symbol: 'SPY', lookback_months: 6, effective_peer_group: 'Sector ETF', universe_size: 3, evaluated_universe_size: 2, confidence: 'medium' }, replacement_summary: null }], metadata: { applied_filters: { artifact_kind: 'etf_ranking' } } })
+      }
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET' && requestSearchParam(input, 'artifact_kind') === 'intent_bound_etf_replacement_ranking') {
+        return jsonResponse(buildReplacementRecentResponse([]))
+      }
+      if (pathname === '/api/strategy-lab/ranking-artifacts/recent' && method === 'GET' && requestSearchParam(input, 'artifact_kind') === 'generic_ranking') {
+        return jsonResponse({ items: [], metadata: { applied_filters: { artifact_kind: 'generic_ranking' } } })
+      }
+      if (pathname === '/api/strategy-lab/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') {
+        return jsonResponse(makeEtfRankingPreflightPayload())
+      }
+      if (pathname === '/api/construction/policies' && method === 'GET') {
+        return jsonResponse(makeConstructionPoliciesResponse())
+      }
+      if (pathname === '/api/construction/ranking-artifacts/preflight/etf_ranking_artifact_sector_1' && method === 'POST') {
+        return jsonResponse(makeConstructionRankingArtifactPreflightResponse())
+      }
+      if (pathname === '/api/construction/run' && method === 'POST') {
+        return jsonResponse(makeConstructionRunArtifactResponse())
+      }
+      if (pathname === '/api/backtests/portfolio-allocation/construction-artifact-validation' && method === 'POST') {
+        return jsonResponse({ detail: 'Artifact validation failed: construction artifact not found' }, 400)
+      }
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
+      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [], metadata: { contract_version: 'monitor_definition_recovered_alert_review_queue_v1', provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage', row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage', ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id', returned_limit: 20, total_queue_rows: 0 } })
+      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    })
+
+    render(<App />)
+
+    await reopenDetailedReviewIfNeeded()
+    await screen.findByText('ETF Ranking Runs')
+    await screen.findAllByText('Top N Equal Weight v1 (default); fixed top_n=2; requires max_position_weight; optional min_position_weight, max_turnover_weight, max_trade_intent_count')
+    fireEvent.change(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByLabelText('Max Position Weight'), { target: { value: '0.6' } })
+    fireEvent.click(within(screen.getByTestId('persisted-etf-ranking-construction-browser')).getByRole('button', { name: 'Review In Construction' }))
+
+    await waitFor(() => expect(screen.getByTestId('workspace-error-banner')).toBeTruthy())
+    expect(screen.getByText('Artifact validation failed: construction artifact not found')).toBeTruthy()
   })
 
   it('restores FF2026 dashboard values consistently from persisted imported state', async () => {
@@ -8766,7 +8819,7 @@ describe('App', () => {
 
     render(<App />)
 
-    const tabs = screen.getAllByRole('tab').map((el) => el.textContent?.trim())
+    const tabs = within(screen.getByRole('navigation', { name: 'Main workspace tabs' })).getAllByRole('button').map((el) => el.textContent?.trim())
     expect(tabs).toEqual([
       'Dashboard',
       'Workspace',

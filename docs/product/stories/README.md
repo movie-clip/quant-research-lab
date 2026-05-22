@@ -24,7 +24,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 |---|---|---|
 | [US-5.1](US-5.1-fix-app-navigation-order.md) | Fix app navigation order | Done |
 | [US-5.2](US-5.2-workspace-candidate-ux.md) | Make Workspace candidate selection self-explanatory | Done |
-| US-5.3 | Fix "Review in Construction" end-to-end | Backlog |
+| [US-5.3](US-5.3-fix-review-in-construction.md) | Fix "Review in Construction" end-to-end | Done |
 | US-5.4 | Clear replay comparison output | Backlog |
 
 US-5.1 story file will be created with the `write-story` skill. Backlog
