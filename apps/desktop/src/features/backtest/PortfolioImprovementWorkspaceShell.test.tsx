@@ -2221,7 +2221,6 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     })
 
     expect(screen.getByText('Latest Observation Alerts')).toBeTruthy()
-    expect(screen.getAllByText('Rows: 1 · provenance: canonical_latest_observation_artifact_and_append_only_evaluation_history_entries · ordering: newest_first_evaluated_at_then_observation_event_then_history_entry_id').length).toBeGreaterThan(0)
     expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_observation_abc12345')).toBeTruthy()
     expect(screen.getByText('Threshold observation')).toBeTruthy()
 
@@ -2258,7 +2257,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       },
     })
 
-    expect(screen.getByText('No definition-scoped latest-observation review events are currently available in the authoritative timeline.')).toBeTruthy()
+    expect(screen.getByText('No observation alerts in this period.')).toBeTruthy()
 
     rerender(
       <PortfolioImprovementWorkspaceShell
@@ -2320,7 +2319,6 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     })
 
     expect(screen.getAllByText('Alert History Queue').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Rows: 1 · provenance: canonical_latest_observation_artifact_and_append_only_evaluation_history_entries · ordering: newest_first_evaluated_at_then_observation_event_then_history_entry_id').length).toBeGreaterThan(0)
     expect(screen.getByText('Opened by timeline ids only: monitor_definition_abc12345def67890 · monitor_definition_history_entry_abc12345')).toBeTruthy()
     expect(screen.getAllByText('History Review').length).toBeGreaterThan(0)
 
@@ -2385,7 +2383,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       },
     })
 
-    expect(screen.getAllByText('No definition-scoped evaluation-history review events are currently available in the authoritative timeline.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('No alert history in this period.').length).toBeGreaterThan(0)
 
     rerender(
       <PortfolioImprovementWorkspaceShell
@@ -2443,8 +2441,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     })
 
     expect(screen.getAllByTestId('recovered-alert-review-queue')[screen.getAllByTestId('recovered-alert-review-queue').length - 1]).toBeTruthy()
-    expect(screen.getByText('Rows: 1 · newest first · discovery-only handoff to the authoritative definition-scoped timeline latest-observation event.')).toBeTruthy()
-    expect(screen.getAllByText('Active alert episodes reopen from the persisted active alert-episode inbox by authoritative persisted episode and timeline ids only; this recovered queue stays recovered-only.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Rows: 1')).toBeTruthy()
     expect(screen.getByTestId('recovered-alert-row-monitor_definition_observation_abc12345')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Reopen timeline review' }))
@@ -2481,7 +2478,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     })
 
     expect(screen.getByText('Active Alert Review Inbox')).toBeTruthy()
-    expect(screen.getByText('Rows: 1 of 1 · provenance: authoritative_persisted_monitor_definition_alert_episode_records_only · ordering: newest_first_latest_event_at_then_monitor_definition_id_then_episode_id')).toBeTruthy()
+    expect(screen.getByText('Rows: 1 of 1')).toBeTruthy()
     expect(screen.getByTestId('active-alert-episode-row-monitor_definition_alert_episode_latest')).toBeTruthy()
     expect(screen.getByText(/alert · action required/)).toBeTruthy()
 
@@ -2513,7 +2510,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       },
     })
 
-    expect(screen.getByText('No active alert episodes are currently available from authoritative persisted episode records.')).toBeTruthy()
+    expect(screen.getByText('No active alert episodes.')).toBeTruthy()
 
     rerender(
       <PortfolioImprovementWorkspaceShell
@@ -2572,8 +2569,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
     })
 
     expect(screen.getByText('Alert Episode History')).toBeTruthy()
-    expect(screen.getByText('History truth: authoritative_persisted_monitor_definition_alert_episode_history · provenance: persisted_monitor_definition_alert_episode_record')).toBeTruthy()
-    expect(screen.getByText('Definition: monitor_definition_abc12345def67890 · requested before: none · next before: monitor_definition_alert_episode_older')).toBeTruthy()
+    expect(screen.getByText('1 of 2 episodes · monitor_definition_abc12345def67890')).toBeTruthy()
     expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_latest')).toBeTruthy()
     expect(screen.getByTestId('alert-episode-history-row-monitor_definition_alert_episode_latest').textContent).toContain('Benchmark threshold lifecycle readback.')
 
@@ -2640,7 +2636,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
       },
     })
 
-    expect(screen.getByText('Loading persisted alert episode history for monitor_definition_abc12345def67890.')).toBeTruthy()
+    expect(screen.getByText('Loading episode history for monitor_definition_abc12345def67890…')).toBeTruthy()
 
     rerender(
       <PortfolioImprovementWorkspaceShell
@@ -2671,7 +2667,7 @@ describe('PortfolioImprovementWorkspaceShell', () => {
         alertEpisodeHistory={{ status: 'ready', monitorDefinitionId: 'monitor_definition_abc12345def67890', response: makeAlertEpisodeHistoryResponse([]), error: null }}
       />,
     )
-    expect(screen.getByText('No persisted alert episodes are available for this monitor definition window.')).toBeTruthy()
+    expect(screen.getByText('No episodes in this window.')).toBeTruthy()
 
     rerender(
       <PortfolioImprovementWorkspaceShell

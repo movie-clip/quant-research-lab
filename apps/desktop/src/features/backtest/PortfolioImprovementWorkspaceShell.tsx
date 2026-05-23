@@ -645,13 +645,10 @@ function RecoveredAlertReviewQueueSection({
     <section className="dashboard-bottom-grid" data-testid="recovered-alert-review-queue">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Recovered Alert Review Queue</p></div>
-        <p className="helper">Discovery-only recovered rows from authoritative persisted observation, latest-snapshot, and prior alert-history lineage. Reopen only seeds the definition-scoped timeline on the persisted latest-observation event; there is no queue-local review surface.</p>
       </div>
       <div className="summary-card">
-        <p className="panel-label">Recovered Rows</p>
-        <p className="helper">Rows: {rows.length} · newest first · discovery-only handoff to the authoritative definition-scoped timeline latest-observation event.</p>
-        <p className="helper">Active alert episodes reopen from the persisted active alert-episode inbox by authoritative persisted episode and timeline ids only; this recovered queue stays recovered-only.</p>
-        {!rows.length ? <p className="helper">No recovered alert review rows are currently available from authoritative persisted lineage.</p> : null}
+        <p className="panel-label">Recovered Alerts</p>
+        <p className="helper">Rows: {rows.length}</p>
       </div>
       {rows.length ? (
         <div className="summary-card">
@@ -695,16 +692,13 @@ function ActiveAlertEpisodeInboxSection({
     <section className="dashboard-bottom-grid" data-testid="active-alert-episode-inbox">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Active Alert Review Inbox</p></div>
-        <p className="helper">Review-only discovery for backend-rooted persisted open alert episodes. Rows reopen the existing definition-scoped timeline from persisted episode timeline handoff ids only.</p>
       </div>
       <div className="summary-card">
-        <p className="panel-label">Persisted Open Episodes</p>
-        {inbox.status === 'idle' ? <p className="helper">Open Workspace to load the active alert review inbox.</p> : null}
-        {inbox.status === 'loading' ? <p className="helper">Loading active alert review inbox from persisted alert-episode records.</p> : null}
+        <p className="panel-label">Open Episodes</p>
+        {inbox.status === 'loading' ? <p className="helper">Loading active alert episodes…</p> : null}
         {inbox.status === 'error' ? <p className="helper">{inbox.error ?? 'Unable to load active alert review inbox'}</p> : null}
-        {inbox.status === 'ready' && metadata ? <p className="helper">Rows: {rows.length} of {metadata.total_active_episodes} · provenance: {metadata.provenance} · ordering: {metadata.ordering}</p> : null}
-        {inbox.status === 'ready' && metadata ? <p className="helper">Review-only source: {metadata.row_provenance} · source precedence: {metadata.source_precedence}</p> : null}
-        {inbox.status === 'ready' && !rows.length ? <p className="helper">No active alert episodes are currently available from authoritative persisted episode records.</p> : null}
+        {inbox.status === 'ready' && metadata ? <p className="helper">Rows: {rows.length} of {metadata.total_active_episodes}</p> : null}
+        {inbox.status === 'ready' && !rows.length ? <p className="helper">No active alert episodes.</p> : null}
       </div>
       {inbox.status === 'ready' && rows.length ? (
         <div className="summary-card">
@@ -758,21 +752,16 @@ function AlertEpisodeHistoryDrillInSection({
     <section className="dashboard-bottom-grid" data-testid="alert-episode-history-drill-in">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Alert Episode History</p></div>
-        <p className="helper">Bounded, read-only persisted episode records for one monitor definition. This drill-in opens the existing timeline review and does not imply execution, remediation, or a complete market-risk chronology.</p>
       </div>
       <div className="summary-card">
-        <p className="panel-label">Persisted Episode Window</p>
-        {history.status === 'idle' ? <p className="helper">Open a definition-scoped timeline review to load alert episode history.</p> : null}
-        {history.status === 'loading' ? <p className="helper">Loading persisted alert episode history for {history.monitorDefinitionId ?? 'the selected monitor definition'}.</p> : null}
+        <p className="panel-label">Episode Window</p>
+        {history.status === 'idle' ? <p className="helper">Select a monitor definition to load episode history.</p> : null}
+        {history.status === 'loading' ? <p className="helper">Loading episode history for {history.monitorDefinitionId ?? 'selected monitor definition'}…</p> : null}
         {history.status === 'error' ? <p className="helper">{history.error ?? 'Unable to load alert episode history'}</p> : null}
         {metadata ? (
-          <>
-            <p className="helper">History truth: {metadata.history_truth} · provenance: {metadata.row_provenance}</p>
-            <p className="helper">Ordering: {metadata.ordering} · windowing: {metadata.windowing} · returned {rows.length} of {metadata.total_episodes} · limit {metadata.returned_limit ?? 'unbounded'}</p>
-            <p className="helper">Definition: {metadata.monitor_definition_id} · requested before: {metadata.requested_before_episode_id ?? 'none'} · next before: {metadata.next_before_episode_id ?? 'none'}</p>
-          </>
+          <p className="helper">{rows.length} of {metadata.total_episodes} episodes · {metadata.monitor_definition_id}</p>
         ) : null}
-        {history.status === 'ready' && !rows.length ? <p className="helper">No persisted alert episodes are available for this monitor definition window.</p> : null}
+        {history.status === 'ready' && !rows.length ? <p className="helper">No episodes in this window.</p> : null}
       </div>
       {rows.length ? (
         <div className="summary-card">
@@ -969,23 +958,20 @@ function LatestObservationAlertInboxSection({
     <section className="dashboard-bottom-grid" data-testid="latest-observation-alert-inbox">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Latest Observation Alerts</p></div>
-        <p className="helper">Definition-scoped review timeline latest-observation events only. This review surface never reconstructs timeline state from inbox or history queues.</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Timeline Status</p>
-        {timelineStatus === 'loading' ? <p className="helper">Loading authoritative definition-scoped alert review timeline.</p> : null}
+        {timelineStatus === 'loading' ? <p className="helper">Loading alert review timeline…</p> : null}
         {timelineStatus === 'error' ? <p className="helper">{timelineError}</p> : null}
         {timelineStatus === 'ready' && timelineMetadata ? (
           <>
-            <p className="helper">Rows: {rows.length} · provenance: {timelineMetadata.provenance} · ordering: {timelineMetadata.ordering}</p>
-            <p className="helper">Review basis: latest-observation events only · row provenance: {timelineMetadata.observation_row_provenance}</p>
-            {!rows.length ? <p className="helper">No definition-scoped latest-observation review events are currently available in the authoritative timeline.</p> : null}
+            {!rows.length ? <p className="helper">No observation alerts in this period.</p> : null}
           </>
         ) : null}
       </div>
       {timelineStatus === 'ready' && rows.length ? (
         <div className="summary-card">
-          <p className="panel-label">Authoritative Timeline Observation Events</p>
+          <p className="panel-label">Observation Events</p>
           <div className="list-table">
             <div className="list-row list-row-wide">
               <span>Family</span>
@@ -1012,7 +998,7 @@ function LatestObservationAlertInboxSection({
           <p className="panel-label">Observation Review</p>
           {openState?.status === 'loading' ? <p className="helper">Loading persisted observation artifact.</p> : null}
           {openState?.status === 'error' ? <p className="helper">{openState.error}</p> : null}
-          {openState?.status === 'idle' ? <p className="helper">Select a definition-scoped timeline observation event to open the persisted observation artifact.</p> : null}
+          {openState?.status === 'idle' ? <p className="helper">Select an observation event above to open the review.</p> : null}
           {openState?.status === 'ready' && selectedObservation && selectedRow ? (
             <>
             <p className="helper">Opened by timeline ids only: {selectedRow.monitor_definition_id} · {selectedRow.observation_id}</p>
@@ -1061,23 +1047,20 @@ function AlertHistoryQueueSection({
     <section className="dashboard-bottom-grid" data-testid="alert-history-queue">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Alert History Queue</p></div>
-        <p className="helper">Definition-scoped review timeline history events only. The desktop does not reconstruct review state from queue surfaces.</p>
       </div>
       <div className="summary-card">
         <p className="panel-label">Timeline Status</p>
-        {timelineStatus === 'loading' ? <p className="helper">Loading authoritative definition-scoped alert review timeline.</p> : null}
+        {timelineStatus === 'loading' ? <p className="helper">Loading alert review timeline…</p> : null}
         {timelineStatus === 'error' ? <p className="helper">{timelineError}</p> : null}
         {timelineStatus === 'ready' && timelineMetadata ? (
           <>
-            <p className="helper">Rows: {rows.length} · provenance: {timelineMetadata.provenance} · ordering: {timelineMetadata.ordering}</p>
-            <p className="helper">Review basis: evaluation-history events only · row provenance: {timelineMetadata.history_row_provenance}</p>
-            {!rows.length ? <p className="helper">No definition-scoped evaluation-history review events are currently available in the authoritative timeline.</p> : null}
+            {!rows.length ? <p className="helper">No alert history in this period.</p> : null}
           </>
         ) : null}
       </div>
       {timelineStatus === 'ready' && rows.length ? (
         <div className="summary-card">
-          <p className="panel-label">Authoritative Timeline History Events</p>
+          <p className="panel-label">History Events</p>
           <div className="list-table">
             <div className="list-row list-row-wide">
               <span>Family</span>
@@ -1104,7 +1087,7 @@ function AlertHistoryQueueSection({
         <p className="panel-label">History Review</p>
         {openState?.status === 'loading' ? <p className="helper">Loading persisted evaluation history entry.</p> : null}
         {openState?.status === 'error' ? <p className="helper">{openState.error}</p> : null}
-        {openState?.status === 'idle' ? <p className="helper">Select a definition-scoped timeline history event to open the authoritative persisted history review.</p> : null}
+        {openState?.status === 'idle' ? <p className="helper">Select a history event above to open the review.</p> : null}
         {openState?.status === 'ready' && selectedRow && selectedEntry ? (
           <>
             <p className="helper">Opened by timeline ids only: {selectedRow.monitor_definition_id} · {selectedRow.history_entry_id}</p>
@@ -1172,30 +1155,35 @@ function CompareWorkspaceSection(props: Props) {
         <section className="dashboard-bottom-grid">
           <div className="section-header-inline sector-list-header">
             <div><p className="panel-label">Diagnostics Change</p></div>
-            <p className="helper">Replay-derived diagnostics only.</p>
           </div>
           {replayLineageHelper ? <p className="helper">{replayLineageHelper}</p> : null}
         </section>
         <DiagnosticsChangeSection result={props.allocationBacktestResult} hypotheticalReplayResult={props.hypotheticalReplayResult} />
       </div>
-      <LatestObservationAlertInboxSection
-        timeline={monitorDefinitionAlertReviewSession?.timeline}
-        timelineStatus={monitorDefinitionAlertReviewSession?.timelineStatus}
-        timelineError={monitorDefinitionAlertReviewSession?.timelineError}
-        openState={monitorDefinitionAlertReviewSession?.latestObservation}
-        onOpenLatestObservation={props.onOpenLatestObservation}
-      />
-      <AlertHistoryQueueSection
-        timeline={monitorDefinitionAlertReviewSession?.timeline}
-        timelineStatus={monitorDefinitionAlertReviewSession?.timelineStatus}
-        timelineError={monitorDefinitionAlertReviewSession?.timelineError}
-        openState={monitorDefinitionAlertReviewSession?.alertHistory}
-        onOpenAlertHistoryReview={props.onOpenAlertHistoryReview}
-      />
-      <RecoveredAlertReviewQueueSection
-        rows={recoveredAlertReviewQueue}
-        onReopenRecoveredAlertReview={props.onReopenRecoveredAlertReview}
-      />
+      {monitorDefinitionAlertReviewSession ? (
+        <>
+          <LatestObservationAlertInboxSection
+            timeline={monitorDefinitionAlertReviewSession.timeline}
+            timelineStatus={monitorDefinitionAlertReviewSession.timelineStatus}
+            timelineError={monitorDefinitionAlertReviewSession.timelineError}
+            openState={monitorDefinitionAlertReviewSession.latestObservation}
+            onOpenLatestObservation={props.onOpenLatestObservation}
+          />
+          <AlertHistoryQueueSection
+            timeline={monitorDefinitionAlertReviewSession.timeline}
+            timelineStatus={monitorDefinitionAlertReviewSession.timelineStatus}
+            timelineError={monitorDefinitionAlertReviewSession.timelineError}
+            openState={monitorDefinitionAlertReviewSession.alertHistory}
+            onOpenAlertHistoryReview={props.onOpenAlertHistoryReview}
+          />
+        </>
+      ) : null}
+      {recoveredAlertReviewQueue.length > 0 ? (
+        <RecoveredAlertReviewQueueSection
+          rows={recoveredAlertReviewQueue}
+          onReopenRecoveredAlertReview={props.onReopenRecoveredAlertReview}
+        />
+      ) : null}
       <ActiveAlertEpisodeInboxSection
         inbox={activeAlertEpisodeInbox}
         onOpenActiveAlertEpisode={props.onOpenActiveAlertEpisode}
@@ -1209,7 +1197,6 @@ function CompareWorkspaceSection(props: Props) {
         <>
           <div className="summary-card">
             <p className="panel-label">Legacy Replay Builder</p>
-            <p className="helper">Temporary bridge while replay work finishes moving into the workspace.</p>
           </div>
           <PortfolioAllocationBacktestPanel result={props.allocationBacktestResult} onResult={handleAllocationBacktestResult} analysis={props.analysis} />
         </>
