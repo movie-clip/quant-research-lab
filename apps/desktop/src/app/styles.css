@@ -2537,6 +2537,74 @@ select.path-input option {
   opacity: 0.6;
 }
 
+/* ── Workspace collapsible section UI ─────────────────────────── */
+.workspace-collapse-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.workspace-collapse-btn:hover {
+  border-color: var(--line);
+  color: var(--text-soft);
+}
+
+.workspace-collapsible-chevron {
+  display: inline-block;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: transform 0.18s ease;
+  transform: rotate(-90deg);
+  user-select: none;
+}
+
+.workspace-collapsible-chevron.open {
+  transform: rotate(0deg);
+}
+
+.workspace-browser-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);
+  margin: 16px 0 8px;
+}
+
+.workspace-step-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 2px;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.workspace-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--panel-3);
+  border: 1px solid var(--line-strong);
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 @media (max-width: 1200px) {
   .strategy-lab-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

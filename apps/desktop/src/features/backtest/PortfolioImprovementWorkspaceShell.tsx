@@ -893,6 +893,7 @@ function OverviewSection(props: Props) {
 }
 
 function CandidateWorkspaceSection(props: Props) {
+  const [open, setOpen] = useState(true)
   if (isArtifactReviewMode(props)) {
     return null
   }
@@ -901,39 +902,46 @@ function CandidateWorkspaceSection(props: Props) {
     <section className="dashboard-bottom-grid" data-testid="workspace-section-candidate">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Candidate</p></div>
+        <button className="workspace-collapse-btn" onClick={() => setOpen((o) => !o)} type="button" aria-label={open ? 'Collapse candidate section' : 'Expand candidate section'}>
+          <span className={`workspace-collapsible-chevron${open ? ' open' : ''}`}>▾</span>
+        </button>
       </div>
-      <CandidateIdeaSection
-        candidateImprovementDraft={props.candidateImprovementDraft}
-        intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
-        replacementIntentDraft={props.replacementIntentDraft}
-        currentPortfolio={currentPortfolio}
-        onCreateReplacementIntent={props.onCreateReplacementIntent}
-        onClearReplacementIntent={props.onClearReplacementIntent}
-        onOpenPersistedConstructionArtifactReview={props.onOpenPersistedConstructionArtifactReview}
-        onOpenEtfRanking={props.onOpenEtfRanking}
-        onOpenPersistedEtfRankingReview={props.onOpenPersistedEtfRankingReview}
-      />
-      <div id={WORKFLOW_SECTION_IDS.candidateFormation}>
-        <CandidateFormationSection
-          draftSnapshot={props.draftSnapshot}
-          replacementIntentDraft={props.replacementIntentDraft}
-          formedCandidateArtifact={props.formedCandidateArtifact}
-          onFormedCandidateArtifact={props.onFormedCandidateArtifact}
-        />
-      </div>
-      <div id={WORKFLOW_SECTION_IDS.constructionRule}>
-        <ConstructionRuleSection
-          draftSnapshot={props.draftSnapshot}
-          replacementIntentDraft={props.replacementIntentDraft}
-          formedCandidateArtifact={props.formedCandidateArtifact}
-          constructedCandidateArtifact={props.constructedCandidateArtifact}
-          constructionConstraintValidationArtifact={props.constructionConstraintValidationArtifact}
-          selectedConstructionRuleId={props.selectedConstructionRuleId}
-          onConstructedCandidateArtifact={props.onConstructedCandidateArtifact}
-          onConstructionConstraintValidationArtifact={props.onConstructionConstraintValidationArtifact}
-          onSelectedConstructionRuleChange={props.onSelectedConstructionRuleChange}
-        />
-      </div>
+      {open ? (
+        <>
+          <CandidateIdeaSection
+            candidateImprovementDraft={props.candidateImprovementDraft}
+            intentBoundSeededEtfReplacementRankingDraft={props.intentBoundSeededEtfReplacementRankingDraft}
+            replacementIntentDraft={props.replacementIntentDraft}
+            currentPortfolio={currentPortfolio}
+            onCreateReplacementIntent={props.onCreateReplacementIntent}
+            onClearReplacementIntent={props.onClearReplacementIntent}
+            onOpenPersistedConstructionArtifactReview={props.onOpenPersistedConstructionArtifactReview}
+            onOpenEtfRanking={props.onOpenEtfRanking}
+            onOpenPersistedEtfRankingReview={props.onOpenPersistedEtfRankingReview}
+          />
+          <div id={WORKFLOW_SECTION_IDS.candidateFormation}>
+            <CandidateFormationSection
+              draftSnapshot={props.draftSnapshot}
+              replacementIntentDraft={props.replacementIntentDraft}
+              formedCandidateArtifact={props.formedCandidateArtifact}
+              onFormedCandidateArtifact={props.onFormedCandidateArtifact}
+            />
+          </div>
+          <div id={WORKFLOW_SECTION_IDS.constructionRule}>
+            <ConstructionRuleSection
+              draftSnapshot={props.draftSnapshot}
+              replacementIntentDraft={props.replacementIntentDraft}
+              formedCandidateArtifact={props.formedCandidateArtifact}
+              constructedCandidateArtifact={props.constructedCandidateArtifact}
+              constructionConstraintValidationArtifact={props.constructionConstraintValidationArtifact}
+              selectedConstructionRuleId={props.selectedConstructionRuleId}
+              onConstructedCandidateArtifact={props.onConstructedCandidateArtifact}
+              onConstructionConstraintValidationArtifact={props.onConstructionConstraintValidationArtifact}
+              onSelectedConstructionRuleChange={props.onSelectedConstructionRuleChange}
+            />
+          </div>
+        </>
+      ) : null}
     </section>
   )
 }
@@ -1123,6 +1131,7 @@ function AlertHistoryQueueSection({
 }
 
 function CompareWorkspaceSection(props: Props) {
+  const [open, setOpen] = useState(true)
   const handleAllocationBacktestResult = props.onAllocationBacktestResult ?? (() => undefined)
   const replayLineageHelper = formatReplayLineageHelper(props.hypotheticalReplayResult)
   const artifactMode = isPersistedConstructionArtifactMode(props)
@@ -1136,7 +1145,11 @@ function CompareWorkspaceSection(props: Props) {
     <section className="dashboard-bottom-grid" data-testid="workspace-section-compare">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Compare</p></div>
+        <button className="workspace-collapse-btn" onClick={() => setOpen((o) => !o)} type="button" aria-label={open ? 'Collapse compare section' : 'Expand compare section'}>
+          <span className={`workspace-collapsible-chevron${open ? ' open' : ''}`}>▾</span>
+        </button>
       </div>
+      {open ? (<>
       <div id={WORKFLOW_SECTION_IDS.hypotheticalReplay}>
         <HypotheticalReplaySection
           result={props.allocationBacktestResult}
@@ -1201,11 +1214,13 @@ function CompareWorkspaceSection(props: Props) {
           <PortfolioAllocationBacktestPanel result={props.allocationBacktestResult} onResult={handleAllocationBacktestResult} analysis={props.analysis} />
         </>
       )}
+      </> ) : null}
     </section>
   )
 }
 
 function ProposalWorkspaceSection(props: Props) {
+  const [open, setOpen] = useState(true)
   if (isArtifactReviewMode(props)) {
     return null
   }
@@ -1213,11 +1228,15 @@ function ProposalWorkspaceSection(props: Props) {
     <section className="dashboard-bottom-grid" data-testid="workspace-section-proposal">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Proposal</p></div>
-        <p className="helper">Saved proposals stay review-only.</p>
+        <button className="workspace-collapse-btn" onClick={() => setOpen((o) => !o)} type="button" aria-label={open ? 'Collapse proposal section' : 'Expand proposal section'}>
+          <span className={`workspace-collapsible-chevron${open ? ' open' : ''}`}>▾</span>
+        </button>
       </div>
-      <div id={WORKFLOW_SECTION_IDS.savedProposal}>
-        <SavedProposalSection proposals={props.savedProposals} activeThesis={props.activeThesis} openedSavedProposalArtifactId={props.openedSavedProposalArtifactId} onOpenSavedProposal={props.onOpenSavedProposal} onPromoteProposalToThesis={props.onPromoteProposalToThesis} onClearActiveThesis={props.onClearActiveThesis} />
-      </div>
+      {open ? (
+        <div id={WORKFLOW_SECTION_IDS.savedProposal}>
+          <SavedProposalSection proposals={props.savedProposals} activeThesis={props.activeThesis} openedSavedProposalArtifactId={props.openedSavedProposalArtifactId} onOpenSavedProposal={props.onOpenSavedProposal} onPromoteProposalToThesis={props.onPromoteProposalToThesis} onClearActiveThesis={props.onClearActiveThesis} />
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -2003,15 +2022,29 @@ function CandidateIdeaSection({
         <div><p className="panel-label">Candidate Idea</p></div>
         <p className="helper">Pick a saved ranking run to seed a candidate allocation — then choose &ldquo;Review In Construction&rdquo; to preview how it would be built.</p>
       </div>
+      <div className="workspace-step-label">
+        <span className="workspace-step-badge">1</span>
+        ETF Rankings
+      </div>
       <PersistedEtfRankingConstructionBrowser
         currentPortfolio={currentPortfolio}
         onOpenRankingReview={(artifactId) => onOpenPersistedEtfRankingReview?.(artifactId)}
         onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
       />
+      <div className="workspace-browser-divider" />
+      <div className="workspace-step-label">
+        <span className="workspace-step-badge">2</span>
+        Replacement Rankings
+      </div>
       <PersistedReplacementRankingBrowser
         currentPortfolio={currentPortfolio}
         onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
       />
+      <div className="workspace-browser-divider" />
+      <div className="workspace-step-label">
+        <span className="workspace-step-badge">3</span>
+        Generic Rankings
+      </div>
       <PersistedGenericRankingConstructionBrowser
         currentPortfolio={currentPortfolio}
         onOpenConstructionReview={(constructionArtifactId) => onOpenPersistedConstructionArtifactReview?.(constructionArtifactId)}
