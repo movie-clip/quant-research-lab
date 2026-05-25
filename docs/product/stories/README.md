@@ -30,7 +30,7 @@ PRD: [`prd/epic-8-reset-to-analysis-core.md`](../prd/epic-8-reset-to-analysis-co
 | [US-8.4](US-8.4-strip-app-state.md) | Strip App.tsx workflow state and storage | Frontend — App.tsx, workspace storage | Done |
 | [US-8.5](US-8.5-strip-ranking-construction-optimizer-backend.md) | Remove ranking, construction, and optimizer backend | Backend — routes, services, schemas | Done |
 | [US-8.6](US-8.6-strip-backtest-monitoring-backend.md) | Remove backtest and monitoring backend | Backend — routes, services, schemas | Done |
-| US-8.7 | Prune portfolio feature directory | Frontend — features/portfolio/ dead code | Backlog |
+| [US-8.7](US-8.7-prune-portfolio-feature-dir.md) | Prune portfolio feature directory | Frontend — features/portfolio/ dead code | Done |
 | US-8.8 | Reset docs and contracts | Docs — contracts, PRDs, roadmap | Backlog |
 | US-8.9 | Add portfolio drift vs index benchmarks | Backend + Frontend — new Exposure feature | Backlog |
 

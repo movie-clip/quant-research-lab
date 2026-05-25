@@ -11,15 +11,13 @@ import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidati
 import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 import { buildImportAdmissionSummaryFingerprint, buildImportSnapshotFingerprint, clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportAdmissionReviewDisposition, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
-import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
-const DiagnosticsPanel = lazy(async () => ({ default: (await import('../features/portfolio/DiagnosticsPanel')).DiagnosticsPanel }))
 
 
 const defaultSymbolOverrides = '{}'
 type ImportMode = 'replace' | 'add_snapshot'
-type AppTab = 'dashboard' | 'exposure' | 'diagnostics'
+type AppTab = 'dashboard' | 'exposure'
 
 const tauriAnalyzeUploadTimeoutMs = 30_000
 
@@ -887,15 +885,7 @@ export function App() {
         </section>
       ) : null}
 
-        {tab === 'diagnostics' ? (
-          <section className="grid grid-single">
-            <TrendRiskOverlaysPanel result={diagnosticsAnalysis} />
-            <Suspense fallback={<section className="panel"><p className="panel-label">Diagnostics</p><p className="helper">Loading diagnostics...</p></section>}>
-              <DiagnosticsPanel result={diagnosticsAnalysis} />
-            </Suspense>
-          </section>
-        ) : null}
-
+  
     </main>
   )
 }
