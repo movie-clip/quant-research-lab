@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.schemas.dashboard_history import DashboardHistoryInvestorEconomicsPartialUnlock
+from app.schemas.dashboard_history import DashboardHistoryInvestorEconomicsPartialUnlock, InvestorEconomicsStatus
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest, PortfolioHistoryContext
 from app.schemas.return_basis import PortfolioProofMetadata, ReturnBasisEvidence
@@ -19,7 +19,6 @@ from app.schemas.reconciliation import (
     StressScenarioResult,
     VolatilityRegimePayload,
 )
-from app.schemas.research import InvestorEconomicsStatus
 
 
 class DiagnosticsEngineRequest(PortfolioEngineRequest):

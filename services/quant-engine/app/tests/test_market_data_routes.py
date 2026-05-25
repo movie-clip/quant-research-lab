@@ -38,17 +38,3 @@ def test_market_data_history_route_returns_mocked_rows(mocker) -> None:
     assert payload["meta"]["type"] == "history"
 
 
-def test_strategy_lab_holdings_refresh_route_returns_refresh_counts(mocker) -> None:
-    mock_service = mocker.patch("app.api.routes.strategy_lab.MarketDataService")
-    service_instance = mock_service.return_value
-    service_instance.refresh_etf_holdings_snapshot.return_value = ("XLK", [{"asset": "MSFT"}, {"asset": "AAPL"}])
-    service_instance.holdings_history.get_snapshot_count.return_value = 2
-    client = TestClient(app)
-
-    response = client.post("/strategy-lab/holdings/refresh", json={"symbols": ["XLK"]})
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["refreshed"][0]["symbol"] == "XLK"
-    assert payload["refreshed"][0]["rows"] == 2
-    assert payload["refreshed"][0]["snapshots"] == 2

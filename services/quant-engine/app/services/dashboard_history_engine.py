@@ -13,7 +13,7 @@ from app.schemas.dashboard_history import (
     DashboardMonthlyReturn,
     DashboardRangeMetrics,
 )
-from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
+from app.schemas.dashboard_history import InvestorEconomicsStatus, build_investor_economics_status
 from app.schemas.reconciliation import PerformanceSummary
 from app.services.benchmark_service import build_benchmark_comparison
 from app.services.market_data import (
