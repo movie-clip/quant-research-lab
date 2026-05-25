@@ -12,7 +12,6 @@ import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImpo
 import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 import { buildImportAdmissionSummaryFingerprint, buildImportSnapshotFingerprint, clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportAdmissionReviewDisposition, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
-import { DriftBenchmarkPanel } from '../features/portfolio/DriftBenchmarkPanel'
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 
 
@@ -861,6 +860,9 @@ export function App() {
             importError={dashboardSession.importError}
             lastImportedFileNames={dashboardSession.lastImportedFileNames}
             restoredSession={dashboardSession.restoredSession}
+            driftResult={driftResult}
+            driftBenchmark={driftBenchmark}
+            onDriftBenchmarkChange={(b) => { void handleDriftBenchmarkChange(b) }}
             onImportPortfolio={() => openImportPicker('replace')}
             onAppendStatement={dashboardSnapshot && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
             onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
@@ -888,9 +890,6 @@ export function App() {
           <Suspense fallback={<section className="panel"><p className="panel-label">Exposure</p><p className="helper">Loading exposure analytics...</p></section>}>
             <ExposurePanel
               result={exposureAnalysis}
-              driftResult={driftResult}
-              driftBenchmark={driftBenchmark}
-              onDriftBenchmarkChange={(b) => { void handleDriftBenchmarkChange(b) }}
               snapshotOptions={[
                 ...(workingDraft ? [{ id: 'draft', label: formatWorkingDraftLabel(activeNode, workspaceNodes) }] : []),
                 ...workspaceNodes.map((node) => ({ id: node.id, label: formatVariantNodeLabel(node, workspaceNodes) })),

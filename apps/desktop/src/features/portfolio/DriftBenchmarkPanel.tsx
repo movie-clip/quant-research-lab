@@ -1,4 +1,5 @@
 import type { DriftResult, DriftWindow } from './types'
+import { IndexedReturnChart } from './IndexedReturnChart'
 
 const BENCHMARK_OPTIONS = [
   { value: 'SPY', label: 'S&P 500 (SPY)' },
@@ -54,6 +55,8 @@ type DriftBenchmarkPanelProps = {
 }
 
 export function DriftBenchmarkPanel({ result, benchmarkSymbol, onBenchmarkChange }: DriftBenchmarkPanelProps) {
+  const hasSeries = Boolean(result && result.daily_series.length > 0)
+
   return (
     <section className="drift-panel panel">
       <header className="drift-panel-header">
@@ -78,11 +81,20 @@ export function DriftBenchmarkPanel({ result, benchmarkSymbol, onBenchmarkChange
       ) : result.availability === 'unavailable' ? (
         <p className="helper">Market data unavailable — drift cannot be computed.</p>
       ) : (
-        <div className="drift-windows-grid">
-          {result.windows.map((w) => (
-            <WindowCard key={w.label} window={w} />
-          ))}
-        </div>
+        <>
+          <div className="drift-windows-grid">
+            {result.windows.map((w) => (
+              <WindowCard key={w.label} window={w} />
+            ))}
+          </div>
+          {hasSeries && (
+            <IndexedReturnChart
+              series={result.daily_series}
+              windows={result.windows}
+              benchmarkSymbol={benchmarkSymbol}
+            />
+          )}
+        </>
       )}
     </section>
   )
