@@ -5,7 +5,7 @@ from typing import cast
 
 from app.core.symbols import canonicalize_symbol
 from app.schemas.imports import ImportedInstrument, ImportedPortfolioSnapshot
-from app.schemas.research import AssetClass, FuturesContract, Instrument, InstrumentKind
+from app.schemas.instruments import AssetClass, FuturesContract, Instrument, InstrumentKind
 
 
 def _instrument(

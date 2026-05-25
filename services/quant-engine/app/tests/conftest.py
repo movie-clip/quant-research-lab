@@ -6,8 +6,6 @@ import math
 import os
 import re
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -160,99 +158,6 @@ _SPY_MOCK_ETF_HOLDINGS: list[dict] = [
 ]  # total weightPercentage = 100.0 → "verified"
 
 
-# Minimal unverified price rows for the optimizer preview service.
-# These rows carry only "price" (no "adjClose"), which makes
-# detect_history_return_basis return "unverified_close_only" and therefore
-# return_basis_path_trust_from_evidence return "degraded_unverified_return_basis".
-_UNVERIFIED_PRICE_ROWS = [
-    {"date": "2024-01-02", "price": 100.0},
-    {"date": "2024-06-03", "price": 103.0},
-    {"date": "2024-12-31", "price": 106.0},
-]
-
-
-@pytest.fixture(autouse=True)
-def _mock_optimizer_preview_market_data(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Mock MarketDataService in the optimizer preview service so that
-    return-basis attestations are built with 'degraded_unverified_return_basis'
-    (unverified price data) rather than 'unavailable' (no FMP data in tests).
-
-    This fixture provides minimal raw-price rows (no adjClose) for every
-    symbol requested by the preview service, giving a deterministic non-unavailable
-    attestation without requiring a live FMP connection or cache.
-
-    Tests that need a specific trust level (e.g., verified_adjusted_close) can
-    patch app.services.optimizer_preview_service.MarketDataService themselves via
-    mocker.patch, which takes precedence over this monkeypatch.
-    """
-    mock_svc = MagicMock()
-    mock_svc.return_value.get_historical_prices.return_value = _UNVERIFIED_PRICE_ROWS
-    mock_svc.return_value.get_historical_prices_for_symbols.return_value = {}
-
-    monkeypatch.setattr(
-        "app.services.optimizer_preview_service.MarketDataService",
-        mock_svc,
-    )
-
-
-@pytest.fixture(autouse=True)
-def _isolate_artifact_stores(
-    tmp_path_factory: pytest.TempPathFactory,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Isolate every persisted-artifact store to per-test tmp directories by default.
-
-    The cross-kind ranking catalog scans the ETF, replacement, generic ranking, and
-    optimizer-handoff artifact directories alongside one another. Without per-test
-    isolation, artifacts created by tests that hit the FastAPI route layer (which
-    instantiates the default stores against the real settings paths) leak into
-    `data/artifacts/<kind>/` and cause cross-test pollution. They also cause cross-
-    kind catalog tests to see artifacts from other kinds.
-
-    This fixture monkeypatches `get_settings` in each artifact-store module to return
-    a `SimpleNamespace` whose dir fields point at isolated `tmp_path_factory`-created
-    directories. Explicit per-test `mocker.patch.object(...)` still overrides the
-    fixture (monkeypatch and mocker are independent), so tests that need a specific
-    path keep working unchanged.
-
-    Uses `tmp_path_factory` (NOT the test's own `tmp_path`) so the test's tmp_path
-    stays empty — several tests assert that fact (e.g., persistence-failure tests).
-    """
-    etf_dir = tmp_path_factory.mktemp("etf-ranking-artifacts")
-    replacement_dir = tmp_path_factory.mktemp("etf-replacement-ranking-artifacts")
-    generic_dir = tmp_path_factory.mktemp("generic-ranking-artifacts")
-    optimizer_dir = tmp_path_factory.mktemp("optimizer-handoffs")
-
-    def _fake_etf_settings() -> Any:
-        return SimpleNamespace(etf_ranking_artifact_dir=str(etf_dir))
-
-    def _fake_replacement_settings() -> Any:
-        return SimpleNamespace(replacement_ranking_artifact_dir=str(replacement_dir))
-
-    def _fake_generic_settings() -> Any:
-        return SimpleNamespace(generic_ranking_artifacts_dir=str(generic_dir))
-
-    def _fake_optimizer_settings() -> Any:
-        return SimpleNamespace(optimizer_handoff_dir=str(optimizer_dir))
-
-    monkeypatch.setattr(
-        "app.services.etf_ranking_artifact_service.get_settings",
-        _fake_etf_settings,
-    )
-    monkeypatch.setattr(
-        "app.services.replacement_ranking_artifact_service.get_settings",
-        _fake_replacement_settings,
-    )
-    monkeypatch.setattr(
-        "app.services.generic_ranking_artifact_service.get_settings",
-        _fake_generic_settings,
-    )
-    monkeypatch.setattr(
-        "app.services.optimizer_artifact_service.get_settings",
-        _fake_optimizer_settings,
-    )
-
-
 @pytest.fixture(autouse=True)
 def _mock_exposure_engine_market_data(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock MarketDataService in the exposure engine so that benchmark ETF holdings
@@ -341,24 +246,3 @@ def _mock_diagnostics_engine_market_data(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
-@pytest.fixture(autouse=True)
-def _mock_dataset_catalog_market_data(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Mock MarketDataService in DatasetCatalog so that backtest dataset-info
-    lookups return 'fmp' for equities and 'proxy approximation (<proxy>)' for
-    continuous futures, instead of 'local-sample' / 'local approximation'.
-
-    Tests that patch app.datasets.catalog.MarketDataService themselves via
-    mocker.patch take precedence over this monkeypatch.
-    """
-
-    def _make_catalog_mock() -> MagicMock:
-        mock_svc = MagicMock()
-        inst = mock_svc.return_value
-        # Return non-empty rows for any symbol so has_live_history=True
-        inst.get_historical_prices.side_effect = _mock_price_rows
-        return mock_svc
-
-    monkeypatch.setattr(
-        "app.datasets.catalog.MarketDataService",
-        _make_catalog_mock(),
-    )

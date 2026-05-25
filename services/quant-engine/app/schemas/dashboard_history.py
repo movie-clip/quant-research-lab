@@ -5,7 +5,24 @@ from pydantic import BaseModel
 from app.schemas.portfolio_engine import PortfolioEngineRequest, PortfolioHistoryContext
 from app.schemas.return_basis import PortfolioProofMetadata, ReturnBasisEvidence
 from app.schemas.reconciliation import BenchmarkComparison, DailyPortfolioState, PerformancePoint, PerformanceSummary
-from app.schemas.research import InvestorEconomicsStatus
+
+
+InvestorEconomicsWithheldReason = Literal["withheld_unverified_total_return_equivalence"]
+INVESTOR_ECONOMICS_WITHHELD_REASON: InvestorEconomicsWithheldReason = "withheld_unverified_total_return_equivalence"
+
+
+class InvestorEconomicsStatus(BaseModel):
+    status: Literal["available", "withheld"]
+    reason: InvestorEconomicsWithheldReason | None = None
+
+
+def build_investor_economics_status(*, available: bool) -> InvestorEconomicsStatus:
+    if available:
+        return InvestorEconomicsStatus(status="available", reason=None)
+    return InvestorEconomicsStatus(
+        status="withheld",
+        reason=INVESTOR_ECONOMICS_WITHHELD_REASON,
+    )
 
 
 class DashboardHistoryEngineRequest(PortfolioEngineRequest):

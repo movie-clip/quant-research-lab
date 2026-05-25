@@ -35,7 +35,7 @@ from app.schemas.diagnostics import (
     DiagnosticsVolatilitySummary,
 )
 from app.schemas.return_basis import ReturnBasisEvidence
-from app.schemas.research import InvestorEconomicsStatus, build_investor_economics_status
+from app.schemas.dashboard_history import InvestorEconomicsStatus, build_investor_economics_status
 from app.schemas.reconciliation import (
     DailyPortfolioState,
     DailyStatePosition,
