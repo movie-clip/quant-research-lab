@@ -48,10 +48,6 @@ describe('DashboardPanel', () => {
 
     expect(screen.getByText('Account overview').closest('article')?.className.includes('dashboard-panel')).toBe(true)
     expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy()
-    expect(screen.getByText('vs Market')).toBeTruthy()
-    expect(screen.getByText('Synthetic')).toBeTruthy()
-    expect(screen.getByLabelText('Benchmark')).toBeTruthy()
-    expect(screen.getByText('Import a portfolio to see drift vs benchmark.')).toBeTruthy()
     expect(screen.getByText('Freshness And Coverage Readiness')).toBeTruthy()
     expect(screen.getByLabelText('Dense Insight Strip')).toBeTruthy()
     expect(screen.getByLabelText('Exposure Highlights')).toBeTruthy()
@@ -83,7 +79,6 @@ describe('DashboardPanel', () => {
     expect(screen.queryByText('Draft/tool layer')).toBeNull()
     expect(screen.queryByText('Reserved shell space')).toBeNull()
     expect(screen.queryByText('Portfolio vs SPY path for the selected range')).toBeNull()
-    expect(screen.queryByText('Rolling Factor Analysis')).toBeNull()
     expect(screen.queryByText('Workspace and allocation editor')).toBeNull()
     expect(screen.queryByText('Performance source')).toBeNull()
     expect(screen.queryByText('Saved Variants')).toBeNull()
@@ -310,7 +305,6 @@ describe('DashboardPanel', () => {
     expect(within(rerenderedNextStepShell).getByText(/Look-through coverage unavailable/)).toBeTruthy()
     expect(within(rerenderedNextStepShell).getByText(/Benchmark degraded/)).toBeTruthy()
     expect(screen.getAllByText('Exposure highlights stay unavailable until explicit sector or look-through fields are present.').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Rolling Factor Analysis')).toBeNull()
     expect(screen.queryByText('Workspace and allocation editor')).toBeNull()
   })
 

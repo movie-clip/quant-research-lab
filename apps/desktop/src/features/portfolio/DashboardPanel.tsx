@@ -5,8 +5,7 @@ import { investorEconomicsBaseReason } from './investorEconomics'
 import { clonePortfolioSnapshot } from './portfolioSnapshot'
 import type { PortfolioSnapshot } from './workspaceTypes'
 import type { PortfolioNodeKind } from './workspaceTypes'
-import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
-import type { DriftResult } from './types'
+import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 
 type RangeOption = '1M' | '3M' | 'YTD' | '1Y' | 'All'
 type EditableHolding = { symbol: string; market_value: number; sector?: string | null }
@@ -1240,9 +1239,6 @@ type DashboardPanelProps = {
   importError?: string | null
   lastImportedFileNames?: string[]
   restoredSession?: boolean
-  driftResult?: DriftResult | null
-  driftBenchmark?: string
-  onDriftBenchmarkChange?: (symbol: string) => void
   onImportPortfolio?: () => void
   onAppendStatement?: () => void
   onClearImportedSession?: () => void
@@ -1453,7 +1449,7 @@ function renderDashboardHighlightsModule(module: DashboardHighlightModule) {
   return <DenseInsightStrip ariaLabel={module.title} items={[module]} className="dashboard-summary-highlight-strip" />
 }
 
-export function DashboardPanel({ result, exposureResult = null, factorModel = null, detailEligible = true, activeNodeKind = null, admissionSummary = null, admissionReviewDispositions = {}, admissionSnapshotFingerprint = 'import_snapshot:null', admissionSummaryFingerprint = 'import_admission_summary:null', importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, driftResult = null, driftBenchmark = 'SPY', onDriftBenchmarkChange, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onOpenDetailedReview, onSaveAdmissionReviewDisposition }: DashboardPanelProps) {
+export function DashboardPanel({ result, exposureResult = null, factorModel = null, detailEligible = true, activeNodeKind = null, admissionSummary = null, admissionReviewDispositions = {}, admissionSnapshotFingerprint = 'import_snapshot:null', admissionSummaryFingerprint = 'import_admission_summary:null', importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase, onOpenDetailedReview, onSaveAdmissionReviewDisposition }: DashboardPanelProps) {
   const [activeReviewCheckId, setActiveReviewCheckId] = useState<string | null>(null)
   const [reviewDraft, setReviewDraft] = useState<{ disposition: AdmissionDispositionChoice; rationale: string }>({ disposition: 'accepted_known_exception', rationale: '' })
   const [reviewError, setReviewError] = useState<string | null>(null)
@@ -1634,11 +1630,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
       </header>
 
       <div className="dashboard-shell-stack">
-        <DriftBenchmarkPanel
-          result={driftResult ?? null}
-          benchmarkSymbol={driftBenchmark ?? 'SPY'}
-          onBenchmarkChange={onDriftBenchmarkChange ?? (() => {})}
-        />
+        <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
 
         <section className="dashboard-snapshot-shell dashboard-shell-section" aria-label="Trusted Portfolio Snapshot">
           <div className="section-header-inline dashboard-snapshot-header dashboard-shell-section-header">

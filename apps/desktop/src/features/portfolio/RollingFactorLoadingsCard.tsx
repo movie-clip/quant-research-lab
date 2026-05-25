@@ -96,13 +96,13 @@ function computeFactorChartDomain(
 }
 
 function getRollingLoadingsSeries(result: ExposureFactorModelResponse, window: RollingWindow) {
-  if (window === 60) return result.statistical_factor_model.rolling_loadings_60d
-  if (window === 252) return result.statistical_factor_model.rolling_loadings_252d
-  return result.statistical_factor_model.rolling_loadings_20d
+  if (window === 60) return result.statistical_factor_model.rolling_loadings_60d ?? []
+  if (window === 252) return result.statistical_factor_model.rolling_loadings_252d ?? []
+  return result.statistical_factor_model.rolling_loadings_20d ?? []
 }
 
 function getWindowSummary(result: ExposureFactorModelResponse, window: RollingWindow) {
-  return result.statistical_factor_model.windows.find((item) => item.window_days === window) ?? null
+  return (result.statistical_factor_model.windows ?? []).find((item) => item.window_days === window) ?? null
 }
 
 function getCoverage<T extends { date: string }>(data: T[]) {

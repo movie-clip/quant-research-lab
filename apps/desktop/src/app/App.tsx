@@ -3,12 +3,12 @@ import type { ChangeEvent } from 'react'
 
 import { canUseImportedReplay, collapseToHistoryContextSource, resolveEffectiveHistorySource } from '../features/portfolio/historySource'
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
-import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runDriftEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
+import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { composeDashboardSession, type DashboardSession } from './dashboardSession'
 import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidation'
-import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
+import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 import { buildImportAdmissionSummaryFingerprint, buildImportSnapshotFingerprint, clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportAdmissionReviewDisposition, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
@@ -275,8 +275,6 @@ export function App() {
   const [baselineAnalysis, setBaselineAnalysis] = useState<ReturnType<typeof buildPortfolioBaselineView> | null>(null)
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
   const [diagnosticsAnalysis, setDiagnosticsAnalysis] = useState<DiagnosticsEngineResponse | null>(null)
-  const [driftResult, setDriftResult] = useState<DriftResult | null>(null)
-  const [driftBenchmark, setDriftBenchmark] = useState<string>('SPY')
   const [exposureFactorModel, setExposureFactorModel] = useState<ExposureFactorModelResponse | null>(null)
   const [importingPortfolio, setImportingPortfolio] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -469,12 +467,11 @@ export function App() {
       historySource?: ImportedHistorySource | null
     },
   ) {
-    const [exposure, diagnostics, drift] = await Promise.all([
+    const [exposure, diagnostics] = await Promise.all([
       runExposureEngine(snapshot),
       options?.historySource?.kind === 'imported_replay'
         ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
         : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? getWorkspaceHistorySource(activeWorkspace)?.historyContext ?? null),
-      runDriftEngine(snapshot, driftBenchmark).catch(() => null),  // non-critical
     ])
     const exposureView = composeExposureView(exposure, diagnostics)
     let factorModel: ExposureFactorModelResponse | null
@@ -487,7 +484,6 @@ export function App() {
     setExposureAnalysis(exposureView)
     setDiagnosticsAnalysis(diagnostics)
     setExposureFactorModel(factorModel)
-    setDriftResult(drift)
     if (!options?.preserveDashboardAnalysis) {
       setAnalysis(composeDashboardAnalysisFromEngines(exposure, diagnostics))
     }
@@ -501,18 +497,6 @@ export function App() {
       }
     }
     return diagnostics
-  }
-
-  async function handleDriftBenchmarkChange(benchmark: string) {
-    setDriftBenchmark(benchmark)
-    const snapshot = lastAnalyzedSnapshotRef.current
-    if (!snapshot) return
-    try {
-      const drift = await runDriftEngine(snapshot, benchmark)
-      setDriftResult(drift)
-    } catch {
-      // Drift is non-critical; keep the existing result
-    }
   }
 
   async function handleExposureSnapshotChange(snapshotId: string) {
@@ -678,7 +662,6 @@ export function App() {
     setExposureAnalysis(null)
     setDiagnosticsAnalysis(null)
     setExposureFactorModel(null)
-    setDriftResult(null)
     setLastImportedFileNames([])
     setActiveWorkspace(null)
     setActiveNode(null)
@@ -697,7 +680,6 @@ export function App() {
     setExposureAnalysis(null)
     setDiagnosticsAnalysis(null)
     setExposureFactorModel(null)
-    setDriftResult(null)
     setLastImportedFileNames([])
     setActiveWorkspace(null)
     setActiveNode(null)
@@ -720,7 +702,6 @@ export function App() {
     setImportError(null)
     setExposureAnalysis(null)
     setExposureFactorModel(null)
-    setDriftResult(null)
     setTab('dashboard')
 
     try {
@@ -860,9 +841,6 @@ export function App() {
             importError={dashboardSession.importError}
             lastImportedFileNames={dashboardSession.lastImportedFileNames}
             restoredSession={dashboardSession.restoredSession}
-            driftResult={driftResult}
-            driftBenchmark={driftBenchmark}
-            onDriftBenchmarkChange={(b) => { void handleDriftBenchmarkChange(b) }}
             onImportPortfolio={() => openImportPicker('replace')}
             onAppendStatement={dashboardSnapshot && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
             onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
