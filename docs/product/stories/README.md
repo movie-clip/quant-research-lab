@@ -18,7 +18,21 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 8 — Reset to Analysis Core (active)
+### Epic 9 — Portfolio Correlation & Co-movement Analysis (active)
+
+PRD: [`prd/epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-9.1](US-9.1-indexed-return-chart.md) | Indexed return time-series chart | Frontend — chart of existing daily_series data | Next phase |
+| [US-9.2](US-9.2-rolling-correlation-chart.md) | Rolling correlation engine and chart | Backend analytics + new endpoint + frontend chart | Next phase |
+| [US-9.3](US-9.3-multi-benchmark-correlation-matrix.md) | Multi-benchmark correlation matrix | Backend multi endpoint + frontend comparison table | Next phase |
+
+Stories must be built in order (9.1 → 9.2 → 9.3). US-9.1 requires no new backend. US-9.2 introduces the correlation analytics module that US-9.3 extends.
+
+---
+
+### Epic 8 — Reset to Analysis Core (complete)
 
 PRD: [`prd/epic-8-reset-to-analysis-core.md`](../prd/epic-8-reset-to-analysis-core.md)
 

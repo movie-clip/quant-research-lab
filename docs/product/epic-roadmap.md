@@ -4,7 +4,28 @@
 
 ---
 
-## Active Epic: Epic 8 — Reset to Portfolio Analysis Core
+## Active Epic: Epic 9 — Portfolio Correlation & Co-movement Analysis
+
+**PRD:** [`docs/product/prd/epic-9-correlation-analysis.md`](product/prd/epic-9-correlation-analysis.md)
+
+### Goal
+
+Give the portfolio researcher a quantitative view of how their portfolio
+co-moves with major market indexes — a day-by-day indexed return chart, a
+rolling correlation chart (30d/60d/90d Pearson ρ), and a multi-benchmark
+snapshot table (ρ, β, R² vs SPY/QQQ/GLD/IEF/VT) — all in the Exposure tab.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-9.1 | Indexed return time-series chart | Next phase |
+| US-9.2 | Rolling correlation engine and chart | Next phase |
+| US-9.3 | Multi-benchmark correlation matrix | Next phase |
+
+---
+
+## Completed Epic: Epic 8 — Reset to Portfolio Analysis Core
 
 **PRD:** [`docs/product/prd/epic-8-reset-to-analysis-core.md`](product/prd/epic-8-reset-to-analysis-core.md)
 

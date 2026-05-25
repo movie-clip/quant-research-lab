@@ -210,6 +210,144 @@ Implementation:
 Contract rule:
 - unavailable stress support must return `null`, not fabricated zeroes
 
+## Indexed Return Series
+
+An indexed return series re-bases portfolio and benchmark values to 100 at the
+start of a window, allowing visual comparison of trajectories regardless of
+absolute price or value level.
+
+```text
+indexed_t = (value_t / value_0) * 100
+
+where:
+  value_t = portfolio total_market_value or benchmark adjusted-close price on day t
+  value_0 = the same on the first available trading day of the window
+
+Edge cases:
+  value_0 = 0 or null: return null for all points in the series
+  value_t = null (no price for that date): emit null for that point (no interpolation)
+```
+
+Implementation:
+- `services/quant-engine/app/services/drift_engine.py` — `daily_series` field
+  (partially implemented; full chart rendering added in Epic 9)
+
+Contract rule:
+- Indexed series points with null values must be emitted as null, not omitted.
+  The frontend renders null as a line break, not a zero.
+
+## Rolling Pearson Correlation
+
+Rolling correlation measures how linearly co-movement between portfolio daily
+returns and benchmark daily returns evolves over time. It is the primary
+statistic for determining whether a portfolio is behaving like a given market
+index.
+
+```text
+rho_t(w) = cov(r_p[t-w+1 : t], r_b[t-w+1 : t])
+           / (std(r_p[t-w+1 : t]) * std(r_b[t-w+1 : t]))
+
+where:
+  r_p_t  = daily portfolio return (cash-flow-neutral formula, see Portfolio Return Methodology)
+  r_b_t  = (price_b_t / price_b_(t-1)) - 1  (simple daily price return)
+  w      = rolling window in trading days: 30, 60, or 90
+  t      = current date index in the sorted series
+
+Range: [-1, +1]
+  +1 = perfect positive co-movement
+   0 = uncorrelated
+  -1 = perfect inverse co-movement
+
+Edge cases:
+  std(r_p) = 0 or std(r_b) = 0: return null (constant series — no information)
+  len(series) < 2: return null
+  Available dates < w: return null for those prefix dates (no partial-window fill)
+```
+
+Academic precedent:
+- Pearson, K. (1895). "Note on regression and inheritance in the case of two
+  parents." *Proceedings of the Royal Society of London*, 58, 240–242.
+- Elton, E.J., Gruber, M.J., Brown, S.J. & Goetzmann, W.N. (2014).
+  *Modern Portfolio Theory and Investment Analysis*, 9th ed., Ch. 4 (Wiley).
+- Hull, J.C. (2021). *Options, Futures, and Other Derivatives*, 11th ed., §22.1
+  (Pearson).
+
+Implementation target:
+- `services/quant-engine/app/analytics/correlation.py` (Epic 9)
+- `services/quant-engine/app/services/correlation_engine.py` (Epic 9)
+
+Contract rule:
+- Rolling correlation is always synthetic history trust — current holdings
+  applied to historical prices. Never labelled verified.
+- Null gaps in the rolling series must propagate as null fields, not be filled
+  with adjacent values or zero.
+
+## Beta (Market Beta)
+
+Beta measures the sensitivity of portfolio returns to benchmark returns — the
+slope of the OLS regression of r_p on r_b.
+
+```text
+beta = cov(r_p, r_b) / var(r_b)
+
+where r_p and r_b are computed over the same lookback window (default: 252 trading days,
+or max available if shorter).
+
+Interpretation:
+  beta > 1: portfolio amplifies benchmark moves
+  beta = 1: portfolio moves in lockstep with benchmark
+  0 < beta < 1: portfolio is less volatile than benchmark
+  beta < 0: portfolio moves inversely to benchmark
+
+Edge cases:
+  var(r_b) = 0: return null (benchmark never moved — division undefined)
+  len(series) < 20 trading days: return null (insufficient data for stable estimate)
+```
+
+Academic precedent:
+- Sharpe, W.F. (1964). "Capital asset prices: A theory of market equilibrium
+  under conditions of risk." *Journal of Finance*, 19(3), 425–442.
+- Lintner, J. (1965). "The valuation of risk assets and the selection of risky
+  investments in stock portfolios and capital budgets." *Review of Economics
+  and Statistics*, 47(1), 13–37.
+
+Implementation target:
+- `services/quant-engine/app/analytics/correlation.py` (Epic 9)
+
+Contract rule:
+- Beta is synthetic history trust. Null when data insufficient; never
+  fabricated or approximated from tracking error alone.
+
+## R² (Coefficient of Determination)
+
+R² measures the proportion of portfolio return variance explained by benchmark
+returns. It is the square of the Pearson correlation coefficient.
+
+```text
+r_squared = rho^2
+
+where rho is the Pearson correlation computed over the same lookback window.
+
+Range: [0, 1]  (always non-negative regardless of correlation sign)
+  R² = 0.90: 90% of portfolio variance is explained by this benchmark
+  R² = 0.00: benchmark explains none of the portfolio's variance
+
+Edge cases:
+  rho = null: r_squared = null
+```
+
+Academic precedent:
+- Elton et al. (2014), *Modern Portfolio Theory and Investment Analysis*, Ch. 5.
+- Grinold, R.C. & Kahn, R.N. (2000). *Active Portfolio Management*, 2nd ed.,
+  Ch. 2 (McGraw-Hill).
+
+Implementation target:
+- `services/quant-engine/app/analytics/correlation.py` (Epic 9)
+
+Contract rule:
+- R² is synthetic history trust. Reported alongside beta and correlation as a
+  trio; never shown without the correlation from which it derives.
+
 ## Current Known Financial Limitations
 
 At the time of writing, the main finance-related limitations are:
