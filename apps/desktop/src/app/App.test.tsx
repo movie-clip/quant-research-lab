@@ -2794,11 +2794,6 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  beforeEach(() => {
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceProposalArtifacts').mockResolvedValue([])
-  })
-
-
   it('adds a new imported snapshot node from Dashboard Add Statement', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     const importedWorkspace = mockImportedWorkspace()
