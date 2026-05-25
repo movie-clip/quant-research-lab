@@ -66,13 +66,7 @@ const missingPersistedStartupNodeListRestoreMessage = 'Unable to restore previou
 
 const appTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'workspace', label: 'Workspace' },
   { id: 'exposure', label: 'Exposure' },
-  { id: 'diagnostics', label: 'Diagnostics' },
-  { id: 'backtest', label: 'Backtest' },
-  { id: 'strategy_lab', label: 'Strategy Lab' },
-  { id: 'etf_ranking', label: 'ETF Ranking' },
-  { id: 'generic_ranking', label: 'Generic Ranking' },
 ]
 
 const workspaceOwnedResearchTabs: WorkspaceResearchTool[] = ['backtest', 'strategy_lab', 'etf_ranking']
