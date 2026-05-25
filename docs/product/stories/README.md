@@ -25,8 +25,8 @@ PRD: [`prd/epic-8-reset-to-analysis-core.md`](../prd/epic-8-reset-to-analysis-co
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-8.1](US-8.1-remove-workflow-tabs.md) | Remove workflow tabs from navigation | Frontend — nav only | Done |
-| US-8.2 | Strip Workspace and Monitoring frontend | Frontend — features/backtest/ | Backlog |
-| US-8.3 | Strip ranking and optimizer frontend | Frontend — features/strategy-lab/, features/generic-ranking/, features/optimizer/ | Backlog |
+| [US-8.2](US-8.2-strip-backtest-frontend.md) | Strip Workspace and Monitoring frontend | Frontend — features/backtest/ | Done |
+| [US-8.3](US-8.3-strip-ranking-optimizer-frontend.md) | Strip ranking and optimizer frontend | Frontend — features/strategy-lab/, features/generic-ranking/, features/optimizer/ | Done |
 | US-8.4 | Strip App.tsx workflow state and storage | Frontend — App.tsx, workspace storage | Backlog |
 | US-8.5 | Remove ranking, construction, and optimizer backend | Backend — routes, services, schemas | Backlog |
 | US-8.6 | Remove backtest and monitoring backend | Backend — routes, services, schemas | Backlog |

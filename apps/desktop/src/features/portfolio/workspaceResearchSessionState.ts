@@ -8,10 +8,8 @@ import type {
   EtfRankingArtifactRecentMetadata,
   EtfRankingArtifactRecentRow,
 } from './types'
-import {
-  DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT,
-  DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT,
-} from '../backtest/rankingConstructionMaxPositionWeight'
+const DEFAULT_RANKING_CONSTRUCTION_MAX_POSITION_WEIGHT = '0.60'
+const DEFAULT_RANKING_CONSTRUCTION_MIN_POSITION_WEIGHT = ''
 
 export type SessionStateUpdate<T> = T | ((current: T) => T)
 
