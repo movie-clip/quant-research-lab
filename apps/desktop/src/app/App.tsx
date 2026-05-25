@@ -16,45 +16,13 @@ import type { ActiveThesisArtifact, CandidateImprovementDraftArtifact, Candidate
 import { assertValidReviewSnapshotOpenResponseEnvelope, assertValidSavedProposalReviewSnapshotPMSummaryMirror, buildImportAdmissionSummaryFingerprint, buildImportSnapshotFingerprint, buildReviewSnapshotOpenHandoffFromProposal, buildSavedProposalArtifact, clearPortfolioWorkspaceState, createWorkspaceFromImport, createWorkspaceFromPersistedConstructionArtifact, createWorkspaceFromPersistedOptimizerHandoff, deleteActiveThesis, deleteConstructionConstraintValidationArtifact, deleteConstructedCandidateArtifact, deleteFormedCandidateArtifact, deleteHypotheticalReplacementReplayDraft, deleteReplacementIntentDraft, getActiveThesis, getCandidateImprovementDraft, getConstructionConstraintValidationArtifact, getConstructedCandidateArtifact, getDraft, getFormedCandidateArtifact, getHypotheticalReplacementReplayDraft, getIntentBoundSeededEtfReplacementRankingDraft, getLastOpenedWorkspaceState, getNode, getPersistedConstructionArtifactWorkspaceReview, getPersistedOptimizerHandoffWorkspaceReview, getReplacementIntentDraft, getSelectedConstructionRule, getWorkspace, getWorkspaceNodes, getWorkspaceProposalArtifacts, isDraftDirty, normalizeLegacyPersistedConstructionArtifactWorkspaceCache, normalizeLegacyPersistedOptimizerHandoffWorkspaceCache, resetLocalPortfolioDatabase, saveActiveThesis, saveCandidateImprovementDraft, saveConstructionConstraintValidationArtifact, saveConstructedCandidateArtifact, saveDraft, saveFormedCandidateArtifact, saveHypotheticalReplacementReplayDraft, saveImportAdmissionReviewDisposition, saveImportedSnapshotNode, saveIntentBoundSeededEtfReplacementRankingDraft, saveMonitorDefinitionAlertReviewWorkspaceState, saveProposalArtifact, saveReplacementIntentDraft, saveReviewSnapshotArtifact, saveSelectedConstructionRule, saveVariantFromDraft, setActiveNode as persistActiveNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { TrendRiskOverlaysPanel } from '../features/portfolio/TrendRiskOverlaysPanel'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
-import type { WorkspaceResearchTool } from '../features/backtest/BacktestWorkspacePanel'
-import {
-  applySessionStateUpdate,
-  createEtfRankingPanelState,
-  createStrategyBacktestPanelState,
-  createStrategyLabPanelState,
-  type StrategyBacktestPanelState,
-  type StrategyLabPanelState,
-  type EtfRankingPanelState,
-  type SessionStateUpdate,
-} from '../features/portfolio/workspaceResearchSessionState'
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 const DiagnosticsPanel = lazy(async () => ({ default: (await import('../features/portfolio/DiagnosticsPanel')).DiagnosticsPanel }))
-const BacktestWorkspacePanel = lazy(async () => ({ default: (await import('../features/backtest/BacktestWorkspacePanel')).BacktestWorkspacePanel }))
-const GenericRankingView = lazy(async () => ({ default: (await import('../features/generic-ranking/GenericRankingView')).GenericRankingView }))
 
 
 const defaultSymbolOverrides = '{}'
 type ImportMode = 'replace' | 'add_snapshot'
-type AppTab = 'dashboard' | 'exposure' | 'diagnostics' | 'workspace' | 'backtest' | 'strategy_lab' | 'etf_ranking' | 'generic_ranking'
-type WorkspaceOwnedResearchSessions = Record<string, {
-  backtest: {
-    result: BacktestRunResponse | null
-    panelState: StrategyBacktestPanelState
-  }
-  strategy_lab: StrategyLabPanelState
-  etf_ranking: EtfRankingPanelState
-}>
-
-function createWorkspaceOwnedResearchSessionRecord() {
-  return {
-    backtest: {
-      result: null,
-      panelState: createStrategyBacktestPanelState(),
-    },
-    strategy_lab: createStrategyLabPanelState(),
-    etf_ranking: createEtfRankingPanelState(),
-  }
-}
+type AppTab = 'dashboard' | 'exposure' | 'diagnostics'
 
 const defaultConstructionRuleId: SingleReplacementConstructionRuleId = 'same_weight_substitution_v1'
 const tauriAnalyzeUploadTimeoutMs = 30_000
@@ -68,8 +36,6 @@ const appTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'exposure', label: 'Exposure' },
 ]
-
-const workspaceOwnedResearchTabs: WorkspaceResearchTool[] = ['backtest', 'strategy_lab', 'etf_ranking']
 
 const idleMonitorDefinitionAlertReviewSession: MonitorDefinitionAlertReviewSessionState = {
   navigation: null,
@@ -167,7 +133,6 @@ async function openPersistedConstructionArtifactReviewById(
   constructionArtifactId: string,
   options: {
     setActiveWorkspace: (value: PortfolioWorkspace | null) => void
-    ensureWorkspaceOwnedResearchSession: (workspaceId: string) => void
     setActiveNode: (value: PortfolioNode | null) => void
     setWorkingDraft: (value: WorkingDraft | null) => void
     setWorkspaceNodes: (value: PortfolioNode[]) => void
@@ -187,7 +152,6 @@ async function openPersistedConstructionArtifactReviewById(
     setSelectedConstructionRuleId: (value: SingleReplacementConstructionRuleId) => void
     setAnalysis: (value: DashboardAnalysis | null) => void
     setBaselineAnalysis: (value: ReturnType<typeof buildPortfolioBaselineView> | null) => void
-    setAllocationBacktestRun: (value: PortfolioAllocationBacktestResponse | null) => void
     setSelectedExposureSnapshotId: (value: string) => void
     setLastImportedFileNames: (value: string[]) => void
     setTab: (value: AppTab) => void
@@ -218,7 +182,6 @@ async function openPersistedConstructionArtifactReviewById(
   assertConstructionArtifactReplayMatchesValidation(artifactReplay, validation, constructionArtifactId)
   const created = await createWorkspaceFromPersistedConstructionArtifact({ constructionArtifactId, replay: artifactReplay })
   options.setActiveWorkspace(created.workspace)
-  options.ensureWorkspaceOwnedResearchSession(created.workspace.id)
   options.setActiveNode(created.rootNode)
   options.setWorkingDraft(null)
   options.setWorkspaceNodes([created.rootNode])
@@ -238,10 +201,9 @@ async function openPersistedConstructionArtifactReviewById(
   options.setSelectedConstructionRuleId(defaultConstructionRuleId)
   options.setAnalysis(null)
   options.setBaselineAnalysis(null)
-  options.setAllocationBacktestRun(artifactReplay.replay)
   options.setSelectedExposureSnapshotId(created.rootNode.id)
   options.setLastImportedFileNames([])
-  options.setTab('workspace')
+  options.setTab('dashboard')
   options.setRestoredSession(true)
 }
 
@@ -1206,10 +1168,6 @@ export function assertMonitorDefinitionActiveAlertEpisodeInboxResponse(
   }
 }
 
-function isWorkspaceOwnedResearchTab(tab: AppTab): tab is WorkspaceResearchTool {
-  return workspaceOwnedResearchTabs.includes(tab as WorkspaceResearchTool)
-}
-
 export function assertMonitorDefinitionAlertEpisodeHistoryResponse(
   payload: unknown,
   expectedMonitorDefinitionId: string,
@@ -1745,7 +1703,6 @@ export function App() {
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
   const [diagnosticsAnalysis, setDiagnosticsAnalysis] = useState<DiagnosticsEngineResponse | null>(null)
   const [exposureFactorModel, setExposureFactorModel] = useState<ExposureFactorModelResponse | null>(null)
-  const [allocationBacktestRun, setAllocationBacktestRun] = useState<PortfolioAllocationBacktestResponse | null>(null)
   const [hypotheticalReplacementReplay, setHypotheticalReplacementReplay] = useState<HypotheticalReplayResponse | null>(null)
   const [importingPortfolio, setImportingPortfolio] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -1786,9 +1743,6 @@ export function App() {
   const [monitoringResearchHandoffDismissed, setMonitoringResearchHandoffDismissed] = useState(false)
   const [persistedConstructionArtifactReview, setPersistedConstructionArtifactReview] = useState<PersistedConstructionArtifactWorkspaceReview | null>(null)
   const [persistedOptimizerHandoffReview, setPersistedOptimizerHandoffReview] = useState<PersistedOptimizerHandoffWorkspaceReview | null>(null)
-  const [workspaceOwnedResearchSessions, setWorkspaceOwnedResearchSessions] = useState<WorkspaceOwnedResearchSessions>({})
-  const [workspaceResearchIntent, setWorkspaceResearchIntent] = useState<WorkspaceResearchTool | null>(null)
-  const [workspaceShellActivationKey, setWorkspaceShellActivationKey] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const importModeRef = useRef<ImportMode>('replace')
   const userSelectedTabRef = useRef(false)
@@ -1821,10 +1775,7 @@ export function App() {
     importedSource: dashboardImportSource,
   })
   const dashboardAdmissionSummaryFingerprint = buildImportAdmissionSummaryFingerprint(dashboardAdmissionSummary)
-  const workspaceOwnedResearchSession = activeWorkspace
-    ? workspaceOwnedResearchSessions[activeWorkspace.id] ?? createWorkspaceOwnedResearchSessionRecord()
-    : null
-  const workflowState = activeWorkspace && workspaceOwnedResearchSession?.backtest.result ? 'Portfolio + Backtest Loaded' : activeWorkspace ? 'Portfolio Loaded' : 'Workspace Empty'
+  const workflowState = activeWorkspace ? 'Portfolio Loaded' : 'Workspace Empty'
 
   function applyDashboardSession(session: DashboardSession) {
     setAnalysis(session.result)
@@ -1834,50 +1785,8 @@ export function App() {
     setRestoredSession(session.restoredSession)
   }
 
-  function ensureWorkspaceOwnedResearchSession(workspaceId: string) {
-    setWorkspaceOwnedResearchSessions((current) => {
-      if (current[workspaceId]) return current
-      return {
-        ...current,
-        [workspaceId]: createWorkspaceOwnedResearchSessionRecord(),
-      }
-    })
-  }
-
-  function updateWorkspaceOwnedResearchSession<K extends keyof WorkspaceOwnedResearchSessions[string]>(
-    workspaceId: string,
-    key: K,
-    update: SessionStateUpdate<WorkspaceOwnedResearchSessions[string][K]>,
-  ) {
-    setWorkspaceOwnedResearchSessions((current) => {
-      const existing = current[workspaceId] ?? createWorkspaceOwnedResearchSessionRecord()
-      return {
-        ...current,
-        [workspaceId]: {
-          ...existing,
-          [key]: applySessionStateUpdate(existing[key], update),
-        },
-      }
-    })
-  }
-
-  function routeIntoWorkspace(requestedResearchTool: WorkspaceResearchTool | null = null) {
-    setWorkspaceResearchIntent(activeWorkspace ? requestedResearchTool : null)
-    setTab('workspace')
-  }
-
   function handleTabChange(nextTab: AppTab) {
     userSelectedTabRef.current = true
-    if (isWorkspaceOwnedResearchTab(nextTab)) {
-      routeIntoWorkspace(nextTab)
-      return
-    }
-    if (nextTab === 'workspace') {
-      setWorkspaceShellActivationKey((current) => current + 1)
-    }
-    if (nextTab !== 'workspace') {
-      setWorkspaceResearchIntent(null)
-    }
     setTab(nextTab)
   }
 
@@ -1930,7 +1839,6 @@ export function App() {
     if (!isActive()) return
 
     setActiveWorkspace(workspace)
-    ensureWorkspaceOwnedResearchSession(workspace.id)
     setActiveNode(node)
     setWorkingDraft(draft)
     setPersistedConstructionArtifactReview(null)
@@ -2359,7 +2267,6 @@ export function App() {
         try {
           await openPersistedConstructionArtifactReviewById(constructionArtifactId, {
             setActiveWorkspace,
-            ensureWorkspaceOwnedResearchSession,
             setActiveNode,
             setWorkingDraft,
             setWorkspaceNodes,
@@ -2379,7 +2286,6 @@ export function App() {
             setSelectedConstructionRuleId,
             setAnalysis,
             setBaselineAnalysis,
-            setAllocationBacktestRun,
             setSelectedExposureSnapshotId,
             setLastImportedFileNames,
             setTab,
@@ -2431,7 +2337,6 @@ export function App() {
           const created = await createWorkspaceFromPersistedOptimizerHandoff({ handoffReference: optimizerHandoffReference, validation, replay: handoffReplay })
           if (!active) return
           setActiveWorkspace(created.workspace)
-          ensureWorkspaceOwnedResearchSession(created.workspace.id)
           setActiveNode(created.rootNode)
           setWorkingDraft(null)
           setWorkspaceNodes([created.rootNode])
@@ -2451,10 +2356,9 @@ export function App() {
           setSelectedConstructionRuleId(defaultConstructionRuleId)
           setAnalysis(null)
           setBaselineAnalysis(null)
-          setAllocationBacktestRun(handoffReplay.replay)
           setSelectedExposureSnapshotId(created.rootNode.id)
           setLastImportedFileNames([])
-          setTab('workspace')
+          setTab('dashboard')
           setRestoredSession(true)
           setRestoringPortfolio(false)
           return
@@ -2499,7 +2403,6 @@ export function App() {
         }
         const normalizedNodes = await getWorkspaceNodes(workspace.id).catch(() => [normalizedWorkspaceState.node])
         setActiveWorkspace(normalizedWorkspaceState.workspace)
-        ensureWorkspaceOwnedResearchSession(normalizedWorkspaceState.workspace.id)
         setActiveNode(normalizedWorkspaceState.node)
         setWorkingDraft(null)
         setWorkspaceNodes(normalizedNodes)
@@ -2509,7 +2412,6 @@ export function App() {
         setRestoringPortfolio(false)
         setAnalysis(null)
         setBaselineAnalysis(null)
-        setAllocationBacktestRun(normalizedWorkspaceState.review.replay.replay)
         setHypotheticalReplacementReplay(null)
         setProposalArtifacts([])
         setOpenedSavedProposalArtifactId(null)
@@ -2523,7 +2425,7 @@ export function App() {
         setConstructionConstraintValidationArtifact(null)
         setSelectedConstructionRuleId(defaultConstructionRuleId)
         setSelectedExposureSnapshotId(normalizedWorkspaceState.node.id)
-        setTab('workspace')
+        setTab('dashboard')
         return
       }
 
@@ -2543,7 +2445,6 @@ export function App() {
         }
         const normalizedNodes = await getWorkspaceNodes(workspace.id).catch(() => [normalizedWorkspaceState.node])
         setActiveWorkspace(normalizedWorkspaceState.workspace)
-        ensureWorkspaceOwnedResearchSession(normalizedWorkspaceState.workspace.id)
         setActiveNode(normalizedWorkspaceState.node)
         setWorkingDraft(null)
         setWorkspaceNodes(normalizedNodes)
@@ -2554,7 +2455,6 @@ export function App() {
         setRestoringPortfolio(false)
         setAnalysis(null)
         setBaselineAnalysis(null)
-        setAllocationBacktestRun(normalizedWorkspaceState.review.replay.replay)
         setHypotheticalReplacementReplay(null)
         setProposalArtifacts([])
         setOpenedSavedProposalArtifactId(null)
@@ -2568,7 +2468,7 @@ export function App() {
         setConstructionConstraintValidationArtifact(null)
         setSelectedConstructionRuleId(defaultConstructionRuleId)
         setSelectedExposureSnapshotId(normalizedWorkspaceState.node.id)
-        setTab('workspace')
+        setTab('dashboard')
         return
       }
 
@@ -2712,7 +2612,7 @@ export function App() {
       setIntentBoundSeededEtfReplacementRankingDraft(rankingArtifact)
       void saveIntentBoundSeededEtfReplacementRankingDraft(rankingArtifact).catch(() => undefined)
     }
-    setTab('workspace')
+    setTab('dashboard')
   }
 
   function handleCreateReplacementIntent() {
@@ -2766,7 +2666,7 @@ export function App() {
   }
 
   function handlePreviewHypotheticalReplay() {
-    setTab('workspace')
+    setTab('dashboard')
   }
 
   function handleReviewMonitoringInResearch(handoff: MonitoringResearchHandoff) {
@@ -2778,70 +2678,18 @@ export function App() {
         selectedEvent: null,
       })
     }
-    setTab('workspace')
+    setTab('dashboard')
   }
 
   useEffect(() => {
-    if (tab !== 'workspace' || !activeWorkspace || artifactReviewMode) {
-      setRecoveredAlertReviewQueue([])
-      setActiveAlertEpisodeInbox({ status: 'idle', response: null, error: null })
-      return
-    }
-
-    let active = true
-    setActiveAlertEpisodeInbox({ status: 'loading', response: null, error: null })
-    void loadMonitorDefinitionRecoveredAlertReviewQueue()
-      .then((payload) => {
-        if (!active) return
-        setRecoveredAlertReviewQueue(payload.items)
-      })
-      .catch(() => {
-        if (!active) return
-        setRecoveredAlertReviewQueue([])
-      })
-    void loadMonitorDefinitionActiveAlertEpisodeInbox()
-      .then((payload) => {
-        if (!active) return
-        setActiveAlertEpisodeInbox({ status: 'ready', response: payload, error: null })
-      })
-      .catch((error) => {
-        if (!active) return
-        const message = error instanceof Error ? error.message : 'Unable to load active alert episode inbox'
-        setActiveAlertEpisodeInbox({ status: 'error', response: null, error: message })
-      })
-    return () => {
-      active = false
-    }
+    // workspace tab removed in US-8.2; monitoring inbox no longer loaded
+    setRecoveredAlertReviewQueue([])
+    setActiveAlertEpisodeInbox({ status: 'idle', response: null, error: null })
   }, [activeWorkspace, artifactReviewMode, tab])
 
   useEffect(() => {
-    const monitorDefinitionId = monitorDefinitionAlertReviewSession.navigation?.monitorDefinitionId ?? null
-    if (!monitorDefinitionId || tab !== 'workspace' || !activeWorkspace || artifactReviewMode) {
-      setAlertEpisodeHistory({ status: 'idle', monitorDefinitionId: null, response: null, error: null })
-      return
-    }
-
-    let active = true
-    setAlertEpisodeHistory({ status: 'loading', monitorDefinitionId, response: null, error: null })
-    void loadMonitorDefinitionAlertEpisodeHistory(monitorDefinitionId)
-      .then((payload) => {
-        if (!active) return
-        setAlertEpisodeHistory((current) => {
-          if (current.monitorDefinitionId !== monitorDefinitionId) return current
-          return { status: 'ready', monitorDefinitionId, response: payload, error: null }
-        })
-      })
-      .catch((error) => {
-        if (!active) return
-        const message = error instanceof Error ? error.message : 'Unable to load alert episode history'
-        setAlertEpisodeHistory((current) => {
-          if (current.monitorDefinitionId !== monitorDefinitionId) return current
-          return { status: 'error', monitorDefinitionId, response: null, error: message }
-        })
-      })
-    return () => {
-      active = false
-    }
+    // workspace tab removed in US-8.2; alert episode history no longer loaded
+    setAlertEpisodeHistory({ status: 'idle', monitorDefinitionId: null, response: null, error: null })
   }, [activeWorkspace, artifactReviewMode, monitorDefinitionAlertReviewSession.navigation?.monitorDefinitionId, tab])
 
   function handleDismissMonitoringResearchHandoff() {
@@ -2913,7 +2761,7 @@ export function App() {
         setWorkspaceError,
         setOpenedSavedProposalArtifactId,
       )
-      setTab('workspace')
+      setTab('dashboard')
     } catch (caughtError) {
       setWorkspaceError(caughtError instanceof Error ? caughtError.message : 'Unable to reopen saved proposal')
     }
@@ -2971,7 +2819,6 @@ export function App() {
     ])
     if (nextWorkspace) {
       setActiveWorkspace(nextWorkspace)
-      ensureWorkspaceOwnedResearchSession(nextWorkspace.id)
     }
     setWorkspaceNodes(nextNodes)
     setWorkingDraft(nextDraft)
@@ -2991,7 +2838,6 @@ export function App() {
     const saved = await saveVariantFromDraft({ workspaceId: activeWorkspace.id, draftId: workingDraft.id, variantName })
     const [nextNode, nextDraft] = await Promise.all([getNode(saved.node.id), getDraft(activeWorkspace.id)])
     setActiveWorkspace(saved.workspace)
-    ensureWorkspaceOwnedResearchSession(saved.workspace.id)
     setActiveNode(nextNode)
     setWorkingDraft(nextDraft)
     await loadActiveThesisForWorkspace(saved.workspace, setActiveThesis)
@@ -3017,7 +2863,6 @@ export function App() {
     const resolvedWorkspace = nextWorkspace ?? activeWorkspace
     if (nextWorkspace) {
       setActiveWorkspace(nextWorkspace)
-      ensureWorkspaceOwnedResearchSession(nextWorkspace.id)
     }
     setWorkspaceNodes(nextNodes)
     setActiveNode(nextNode)
@@ -3238,10 +3083,6 @@ export function App() {
             onClearImportedSession={artifactReviewMode ? undefined : activeWorkspace ? handleClearImportedSession : undefined}
             onResetLocalDatabase={handleResetLocalDatabase}
             detailEligible={dashboardSession.detailEligible}
-            onOpenDetailedReview={() => {
-              if (!isDashboardDetailedReviewEligible(dashboardSession.result, dashboardSession.activeNodeKind)) return
-              routeIntoWorkspace()
-            }}
             onSaveAdmissionReviewDisposition={async (disposition) => {
               if (!activeWorkspace) return
               const saved = await saveImportAdmissionReviewDisposition({
@@ -3292,218 +3133,6 @@ export function App() {
           </section>
         ) : null}
 
-      {tab === 'workspace' ? (
-        <section className="grid grid-single">
-          {workspaceError ? <div data-testid="workspace-error-banner"><p className="error">{workspaceError}</p></div> : null}
-          <Suspense fallback={<section className="panel"><p className="panel-label">Workspace</p><p className="helper">Loading portfolio research workspace...</p></section>}>
-            <BacktestWorkspacePanel
-              allocationBacktestResult={allocationBacktestRun}
-              onAllocationBacktestResult={setAllocationBacktestRun}
-              analysis={baselineAnalysis}
-              draftSnapshot={workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null}
-              workspaceSource={activeWorkspace?.source ?? null}
-              persistedConstructionArtifactReview={persistedConstructionArtifactReview}
-              persistedOptimizerHandoffReview={persistedOptimizerHandoffReview}
-              candidateImprovementDraft={candidateImprovementDraft}
-              intentBoundSeededEtfReplacementRankingDraft={desktopFeatureFlags.intentBoundSeededEtfReplacementRanking ? intentBoundSeededEtfReplacementRankingDraft : null}
-              replacementIntentDraft={replacementIntentDraft}
-              formedCandidateArtifact={formedCandidateArtifact}
-              constructedCandidateArtifact={constructedCandidateArtifact}
-              constructionConstraintValidationArtifact={constructionConstraintValidationArtifact}
-              selectedConstructionRuleId={selectedConstructionRuleId}
-              hypotheticalReplayResult={hypotheticalReplacementReplay}
-              savedProposals={proposalArtifacts}
-              activeThesis={activeThesis}
-              onOpenSavedProposal={handleOpenSavedProposal}
-              openedSavedProposalArtifactId={openedSavedProposalArtifactId}
-              monitoringResearchHandoff={monitoringResearchHandoff}
-              monitoringResearchHandoffDismissed={monitoringResearchHandoffDismissed}
-              onDismissMonitoringResearchHandoff={handleDismissMonitoringResearchHandoff}
-              onReviewInResearch={handleReviewMonitoringInResearch}
-              workspaceId={activeWorkspace?.id ?? null}
-              requestedResearchTool={workspaceResearchIntent}
-              onConsumeRequestedResearchTool={() => setWorkspaceResearchIntent(null)}
-              workspaceShellActivationKey={workspaceShellActivationKey}
-              embeddedBacktestResult={workspaceOwnedResearchSession?.backtest.result ?? null}
-              embeddedStrategyBacktestState={workspaceOwnedResearchSession?.backtest.panelState}
-              onEmbeddedStrategyBacktestStateChange={(update) => {
-                if (!activeWorkspace) return
-                updateWorkspaceOwnedResearchSession(activeWorkspace.id, 'backtest', (current) => ({
-                  ...current,
-                  panelState: applySessionStateUpdate(current.panelState, update),
-                }))
-              }}
-              onEmbeddedBacktestResult={(result) => {
-                if (!activeWorkspace) return
-                updateWorkspaceOwnedResearchSession(activeWorkspace.id, 'backtest', (current) => ({
-                  ...current,
-                  result,
-                }))
-              }}
-              embeddedStrategyLabState={workspaceOwnedResearchSession?.strategy_lab}
-              onEmbeddedStrategyLabStateChange={(update) => {
-                if (!activeWorkspace) return
-                updateWorkspaceOwnedResearchSession(activeWorkspace.id, 'strategy_lab', update)
-              }}
-              embeddedEtfRankingState={workspaceOwnedResearchSession?.etf_ranking}
-              onEmbeddedEtfRankingStateChange={(update) => {
-                if (!activeWorkspace) return
-                updateWorkspaceOwnedResearchSession(activeWorkspace.id, 'etf_ranking', update)
-              }}
-              onSeedCandidateDraft={handleSeedCandidateDraft}
-              onOpenPersistedConstructionArtifactReview={async (constructionArtifactId) => {
-                try {
-                  setWorkspaceError(null)
-                  if (!activeWorkspace) {
-                    throw new Error('Review In Construction requires an active workspace draft and current portfolio.')
-                  }
-                  await openPersistedConstructionArtifactReviewById(constructionArtifactId, {
-                    setActiveWorkspace,
-                    ensureWorkspaceOwnedResearchSession,
-                    setActiveNode,
-                    setWorkingDraft,
-                    setWorkspaceNodes,
-                    setPersistedConstructionArtifactReview,
-                    setPersistedOptimizerHandoffReview,
-                    setHypotheticalReplacementReplay,
-                    setProposalArtifacts,
-                    setOpenedSavedProposalArtifactId,
-                    setActiveThesis,
-                    setMonitorDefinitionAlertReviewSession,
-                    setCandidateImprovementDraft,
-                    setIntentBoundSeededEtfReplacementRankingDraft,
-                    setReplacementIntentDraft,
-                    setFormedCandidateArtifact,
-                    setConstructedCandidateArtifact,
-                    setConstructionConstraintValidationArtifact,
-                    setSelectedConstructionRuleId,
-                    setAnalysis,
-                    setBaselineAnalysis,
-                    setAllocationBacktestRun,
-                    setSelectedExposureSnapshotId,
-                    setLastImportedFileNames,
-                    setTab,
-                    setRestoredSession,
-                  })
-                } catch (error) {
-                  setWorkspaceError(error instanceof Error ? error.message : 'Unable to open persisted construction artifact review')
-                }
-              }}
-              onSaveProposal={handleSaveProposal}
-              onPromoteProposalToThesis={handlePromoteProposalToThesis}
-              onClearActiveThesis={handleClearActiveThesis}
-              onCreateReplacementIntent={handleCreateReplacementIntent}
-              onClearReplacementIntent={handleClearReplacementIntent}
-              onFormedCandidateArtifact={(result) => {
-                if (!activeWorkspace || !workingDraft || !replacementIntentDraft) return
-                const artifact: FormedCandidateArtifact = {
-                  workspaceId: activeWorkspace.id,
-                  draftId: workingDraft.id,
-                  baseNodeId: workingDraft.baseNodeId,
-                  replacementIntentCreatedAt: replacementIntentDraft.createdAt,
-                  replacementIntentBaseSymbol: replacementIntentDraft.baseSymbol,
-                  replacementIntentCandidateSymbol: replacementIntentDraft.candidateSymbol,
-                  formation: result,
-                }
-                setFormedCandidateArtifact(artifact)
-                setConstructedCandidateArtifact(null)
-                setConstructionConstraintValidationArtifact(null)
-                setHypotheticalReplacementReplay(null)
-                void saveFormedCandidateArtifact(artifact).catch(() => undefined)
-                void deleteConstructedCandidateArtifact(workingDraft.id).catch(() => undefined)
-                void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
-                void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
-              }}
-              onConstructedCandidateArtifact={(result) => {
-                if (!activeWorkspace || !workingDraft || !replacementIntentDraft) return
-                const artifact: ConstructedCandidateArtifact = {
-                  workspaceId: activeWorkspace.id,
-                  draftId: workingDraft.id,
-                  baseNodeId: workingDraft.baseNodeId,
-                  replacementIntentCreatedAt: replacementIntentDraft.createdAt,
-                  replacementIntentBaseSymbol: replacementIntentDraft.baseSymbol,
-                  replacementIntentCandidateSymbol: replacementIntentDraft.candidateSymbol,
-                  constructionRuleId: selectedConstructionRuleId,
-                  construction: result,
-                }
-                setConstructedCandidateArtifact(artifact)
-                setConstructionConstraintValidationArtifact(null)
-                setHypotheticalReplacementReplay(null)
-                void saveConstructedCandidateArtifact(artifact).catch(() => undefined)
-                void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
-                void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
-              }}
-              onConstructionConstraintValidationArtifact={(result) => {
-                if (!activeWorkspace || !workingDraft || !replacementIntentDraft) return
-                const artifact: ConstructionConstraintValidationArtifact = {
-                  workspaceId: activeWorkspace.id,
-                  draftId: workingDraft.id,
-                  baseNodeId: workingDraft.baseNodeId,
-                  replacementIntentCreatedAt: replacementIntentDraft.createdAt,
-                  replacementIntentBaseSymbol: replacementIntentDraft.baseSymbol,
-                  replacementIntentCandidateSymbol: replacementIntentDraft.candidateSymbol,
-                  constructionRuleId: selectedConstructionRuleId,
-                  validation: result,
-                }
-                setConstructionConstraintValidationArtifact(artifact)
-                setHypotheticalReplacementReplay(null)
-                void saveConstructionConstraintValidationArtifact(artifact).catch(() => undefined)
-                void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
-              }}
-              monitorDefinitionAlertReviewSession={monitorDefinitionAlertReviewSession}
-              recoveredAlertReviewQueue={recoveredAlertReviewQueue}
-              activeAlertEpisodeInbox={activeAlertEpisodeInbox}
-              alertEpisodeHistory={alertEpisodeHistory}
-              onOpenLatestObservation={handleOpenLatestObservation}
-              onOpenAlertHistoryReview={handleOpenAlertHistoryReview}
-              onReopenRecoveredAlertReview={handleReopenRecoveredAlertReview}
-              onOpenActiveAlertEpisode={handleOpenActiveAlertEpisode}
-              onOpenAlertEpisodeHistory={handleOpenAlertEpisodeHistory}
-              onLoadOlderAlertEpisodeHistory={handleLoadOlderAlertEpisodeHistory}
-              onSelectedConstructionRuleChange={(ruleId) => {
-                if (!activeWorkspace || !workingDraft) {
-                  setSelectedConstructionRuleId(ruleId)
-                  return
-                }
-                setSelectedConstructionRuleId(ruleId)
-                setConstructionConstraintValidationArtifact(null)
-                setHypotheticalReplacementReplay(null)
-                const annotation: SelectedConstructionRuleArtifact = {
-                  workspaceId: activeWorkspace.id,
-                  draftId: workingDraft.id,
-                  baseNodeId: workingDraft.baseNodeId,
-                  selectedRuleId: ruleId,
-                }
-                void saveSelectedConstructionRule(annotation).catch(() => undefined)
-                void deleteConstructionConstraintValidationArtifact(workingDraft.id).catch(() => undefined)
-                void deleteHypotheticalReplacementReplayDraft(workingDraft.id).catch(() => undefined)
-              }}
-              onHypotheticalReplayResult={(result) => {
-                setHypotheticalReplacementReplay(result)
-                if (!activeWorkspace || !workingDraft || !replacementIntentDraft) return
-                const artifact: HypotheticalReplacementReplayDraftArtifact = {
-                  workspaceId: activeWorkspace.id,
-                  draftId: workingDraft.id,
-                  baseNodeId: workingDraft.baseNodeId,
-                  replacementIntentCreatedAt: replacementIntentDraft.createdAt,
-                  replacementIntentBaseSymbol: replacementIntentDraft.baseSymbol,
-                  replacementIntentCandidateSymbol: replacementIntentDraft.candidateSymbol,
-                  replay: result,
-                }
-                void saveHypotheticalReplacementReplayDraft(artifact).catch(() => undefined)
-              }}
-            />
-          </Suspense>
-        </section>
-      ) : null}
-
-      {tab === 'generic_ranking' ? (
-        <section className="grid grid-single">
-          <Suspense fallback={<section className="panel"><p className="panel-label">Generic Ranking</p><p className="helper">Loading generic ranking workspace...</p></section>}>
-            <GenericRankingView />
-          </Suspense>
-        </section>
-      ) : null}
     </main>
   )
 }

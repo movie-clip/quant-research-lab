@@ -44,7 +44,7 @@ index.
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Complete** — all four stories shipped (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1–5.4 shipped | — | 2026-05-22 |
-| 8. Reset to analysis core | Strip product to Dashboard + Exposure; add portfolio drift vs index benchmarks | **Active** — in progress (PRD: `prd/epic-8-reset-to-analysis-core.md`) | US-8.1 shipped | US-8.2 (strip Workspace/Monitoring frontend) | 2026-05-25 |
+| 8. Reset to analysis core | Strip product to Dashboard + Exposure; add portfolio drift vs index benchmarks | **Active** — in progress (PRD: `prd/epic-8-reset-to-analysis-core.md`) | US-8.2, US-8.3 shipped | US-8.4 (strip App.tsx workflow state and storage) | 2026-05-25 |
 
 ### Deprioritized / superseded
 
@@ -286,6 +286,14 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-25 - Epic 8: US-8.2 + US-8.3 — Strip frontend feature directories (shipped)
+
+- Stories: US-8.2 (`features/backtest/`) and US-8.3 (`features/strategy-lab/`, `features/generic-ranking/`, `features/optimizer/`)
+- Change: deleted all four feature directories (~50 TypeScript files including test files). Removed lazy imports and JSX render blocks for `BacktestWorkspacePanel` and `GenericRankingView` from `App.tsx`. Removed `WorkspaceResearchTool` type import, `WorkspaceOwnedResearchSessions` type, `allocationBacktestRun` state, `workspaceResearchIntent`, `workspaceShellActivationKey`, `workspaceOwnedResearchSessions` state, and related functions (`ensureWorkspaceOwnedResearchSession`, `updateWorkspaceOwnedResearchSession`, `routeIntoWorkspace`, `isWorkspaceOwnedResearchTab`, `createWorkspaceOwnedResearchSessionRecord`) from `App.tsx`. Trimmed `AppTab` union to `'dashboard' | 'exposure' | 'diagnostics'`. Fixed `workspaceResearchSessionState.ts` import from deleted `backtest/rankingConstructionMaxPositionWeight`. All `setTab('workspace')` calls replaced with `setTab('dashboard')`. Monitoring inbox useEffects that guarded on workspace tab simplified to no-ops.
+- No backend or methodology change.
+- Tests: frontend 203 passed (13 test files); tsc clean (worktree uses symlinked node_modules from main repo).
+- Next: US-8.4 — Strip App.tsx workflow state and workspace storage.
 
 ### 2026-05-25 - Epic 8: US-8.1 — Remove workflow tabs from navigation (shipped)
 
