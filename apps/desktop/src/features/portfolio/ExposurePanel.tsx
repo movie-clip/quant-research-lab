@@ -1,10 +1,14 @@
 import { useMemo } from 'react'
 
 import { DenseInsightStrip, type DenseInsightStripItem, type DenseInsightMarker } from './DenseInsightStrip'
-import type { ExposureAnalysis } from './types'
+import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
+import type { DriftResult, ExposureAnalysis } from './types'
 
 type ExposurePanelProps = {
   result: ExposureAnalysis | null
+  driftResult?: DriftResult | null
+  driftBenchmark?: string
+  onDriftBenchmarkChange?: (symbol: string) => void
   snapshotOptions?: Array<{ id: string; label: string }>
   selectedSnapshotId?: string
   snapshotExitOption?: { id: string; label: string }
@@ -339,6 +343,9 @@ function UnavailablePanel({ title, detail }: { title: string; detail: string }) 
 
 export function ExposurePanel({
   result,
+  driftResult = null,
+  driftBenchmark = 'SPY',
+  onDriftBenchmarkChange,
   snapshotOptions = [],
   selectedSnapshotId = 'current',
   snapshotExitOption,
@@ -353,13 +360,20 @@ export function ExposurePanel({
 
   if (!result) {
     return (
-      <article className="panel exposure-panel exposure-shell-frame">
-        <div className="exposure-shell-heading">
-          <p className="panel-label">Exposure</p>
-          <h2>Look-Through Exposure Core</h2>
-        </div>
-        <p className="lead compact-lead">Import a portfolio from the Dashboard to review current ownership, sector composition, concentration, and benchmark-relative positioning.</p>
-      </article>
+      <>
+        <DriftBenchmarkPanel
+          result={driftResult}
+          benchmarkSymbol={driftBenchmark}
+          onBenchmarkChange={onDriftBenchmarkChange ?? (() => {})}
+        />
+        <article className="panel exposure-panel exposure-shell-frame">
+          <div className="exposure-shell-heading">
+            <p className="panel-label">Exposure</p>
+            <h2>Look-Through Exposure Core</h2>
+          </div>
+          <p className="lead compact-lead">Import a portfolio from the Dashboard to review current ownership, sector composition, concentration, and benchmark-relative positioning.</p>
+        </article>
+      </>
     )
   }
 
@@ -390,6 +404,12 @@ export function ExposurePanel({
   )
 
   return (
+    <>
+      <DriftBenchmarkPanel
+        result={driftResult}
+        benchmarkSymbol={driftBenchmark}
+        onBenchmarkChange={onDriftBenchmarkChange ?? (() => {})}
+      />
     <article className="panel exposure-panel exposure-shell-frame">
       <header className="section-header-inline exposure-header-row exposure-shell-header">
         <div className="exposure-shell-heading">
@@ -623,5 +643,6 @@ export function ExposurePanel({
         </section>
       </div>
     </article>
+    </>
   )
 }

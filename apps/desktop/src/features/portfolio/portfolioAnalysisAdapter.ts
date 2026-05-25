@@ -1,4 +1,4 @@
-import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, PortfolioBaselineView } from './types'
+import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, PortfolioBaselineView } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -89,6 +89,25 @@ export async function runExposureEngine(snapshot: PortfolioSnapshot, apiUrlOptio
   }
 
   return (await response.json()) as ExposureEngineResponse
+}
+
+export async function runDriftEngine(
+  snapshot: PortfolioSnapshot,
+  benchmarkSymbol: string,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<DriftResult> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/drift/run', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...buildSnapshotAnalysisRequest(snapshot), benchmark_symbol: benchmarkSymbol }),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(payload?.detail ?? 'Drift engine run failed')
+  }
+
+  return (await response.json()) as DriftResult
 }
 
 export async function runDiagnosticsEngine(
