@@ -4099,3 +4099,31 @@ export type SingleReplacementConstructionConstraintValidationResponse = {
   warnings: string[]
   rejection_reason: string | null
 }
+
+// --- Drift vs Benchmark ---
+
+export type DriftTrust = 'synthetic' | 'unavailable'
+
+export type DriftWindow = {
+  label: string
+  start_date: string | null
+  end_date: string | null
+  portfolio_return_pct: number | null
+  benchmark_return_pct: number | null
+  spread_pct: number | null
+  trust: DriftTrust
+  note: string | null
+}
+
+export type DriftDailyPoint = {
+  date: string
+  portfolio_indexed: number | null
+  benchmark_indexed: number | null
+}
+
+export type DriftResult = {
+  windows: DriftWindow[]
+  benchmark_symbol: string
+  daily_series: DriftDailyPoint[]
+  availability: 'available' | 'partial' | 'unavailable'
+}

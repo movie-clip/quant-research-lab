@@ -23,7 +23,7 @@ Strip the product to Dashboard + Exposure, clean up the codebase and docs, then 
 | US-8.6 | Remove backtest and monitoring backend | Done |
 | US-8.7 | Prune portfolio feature directory | Done |
 | US-8.8 | Reset docs and contracts | Done |
-| US-8.9 | Add portfolio drift vs index benchmarks | Next |
+| US-8.9 | Add portfolio drift vs index benchmarks | Done |
 
 ### Slice log
 
@@ -36,6 +36,7 @@ Strip the product to Dashboard + Exposure, clean up the codebase and docs, then 
 | 2026-05-25 | US-8.5+8.6 | Deleted 4 backend route modules, ~26 service files, 6 schemas, 16+ test files, 7 artifact directories |
 | 2026-05-25 | US-8.7 | Deleted 10 dead portfolio components; App.tsx tab type narrowed to dashboard/exposure |
 | 2026-05-25 | US-8.8 | Deleted 5 contract docs, 2 old PRDs; rewrote CLAUDE.md, current-product-state.md, epic-roadmap.md |
+| 2026-05-25 | US-8.9 | Added drift vs benchmark panel to Exposure tab; new /engines/drift/run endpoint |
 
 ---
 
