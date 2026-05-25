@@ -43,9 +43,15 @@ index.
 
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
-| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Complete** — all four stories shipped (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1–5.4 shipped — tab order; candidate labels; Review In Construction copy; replay comparison leads with returns | — | 2026-05-22 |
-| 6. Portfolio clarity | Dashboard that surfaces portfolio weaknesses and opportunities, not just holdings data | Planned | — | — | 2026-05-22 |
-| 7. Decision capture & tracking | Save decisions with quant evidence; monitor portfolio against saved plan | Planned | — | — | 2026-05-22 |
+| 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Complete** — all four stories shipped (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1–5.4 shipped | — | 2026-05-22 |
+| 8. Reset to analysis core | Strip product to Dashboard + Exposure; add portfolio drift vs index benchmarks | **Active** — in progress (PRD: `prd/epic-8-reset-to-analysis-core.md`) | US-8.1 shipped | US-8.2 (strip Workspace/Monitoring frontend) | 2026-05-25 |
+
+### Deprioritized / superseded
+
+| Epic | Objective | Status |
+| --- | --- | --- |
+| 6. Portfolio clarity | Dashboard that surfaces portfolio weaknesses and opportunities | Superseded by Epic 8 pivot |
+| 7. Decision capture & tracking | Save decisions with quant evidence; monitor portfolio against saved plan | Superseded by Epic 8 pivot |
 
 ## Cross-Epic Guardrails
 
@@ -57,12 +63,11 @@ index.
 
 ## Program Snapshot
 
-- Current stage: foundation complete (Epics 1–4); pivoting to MVP usability (Epics 5–7).
-- Active epic: `5. Usable core flow` — first MVP epic.
-- Foundation epics (1–4) are complete. No active slices on any of them.
-- Epic 3 breadth stories (US-3.1 inverse-vol weighting, US-3.2 inverse-rank opt-in, US-3.3 Top N in ETF Ranking tab) are deprioritized — they add construction breadth the researcher cannot reach because the core workflow is not yet usable end-to-end.
-- Biggest current gap: **the golden path (Dashboard → Workspace → rank → construct → replay → compare) is partially broken and confusing.** Tab order does not match the workflow. Workspace candidate section is not self-explanatory. "Review in Construction" is broken. Replay output is a methodology dump rather than a clear before/after decision view.
-- Next priority after Epic 5: Epic 6 (portfolio clarity — Dashboard tells you where you're weak), then Epic 7 (decision tracking).
+- Current stage: **product focus reset.** Epics 1–5 shipped the full ranking → construction → optimizer → monitoring workflow. The researcher finds only Dashboard (partially) and Exposure (fully) genuinely useful. Everything else is being removed in Epic 8.
+- Active epic: `8. Reset to analysis core` — strips the product to Dashboard + Exposure, adds portfolio drift vs index benchmarks.
+- Epic 3 breadth stories (US-3.1/3.2/3.3) are cancelled — the features they extend are being removed.
+- Epics 6 and 7 are superseded by the Epic 8 pivot. After Epic 8 ships, the roadmap will be re-evaluated from the clean two-tab foundation.
+- Biggest current need: **remove everything that isn't Dashboard or Exposure.** Add the one missing Exposure feature: portfolio drift vs market indexes.
 
 ## Epic 1. Imported-Portfolio Truth and Reconciliation Guard
 
@@ -281,6 +286,17 @@ Extend narrow review-scoped monitoring into broader persisted discipline workflo
 - Current phase is satisfied by persisted `benchmark_trend_overlay_v1` plus `data_quality_monitor_v1` review coverage, with no overclaim of continuous monitoring, scheduling, remediation, threshold management, or broader monitor-family support.
 
 ## Slice Update Log
+
+### 2026-05-25 - Epic 8: US-8.1 — Remove workflow tabs from navigation (shipped)
+
+- Epic: `8. Reset to analysis core`
+- Story: US-8.1 — Remove workflow tabs from navigation
+- Change: frontend nav-only change.
+  - `App.tsx`: `appTabs` array reduced from 8 items to 2: `[{ id: 'dashboard', label: 'Dashboard' }, { id: 'exposure', label: 'Exposure' }]`. `AppTab` union type unchanged — all downstream `setTab('workspace')` calls still compile.
+  - `App.test.tsx`: ~240 of 259 tests deleted (all tested Workspace navigation or removed-tab features). 19 tests retained: import flows, Dashboard values, Exposure snapshot selection, tab-order assertion. Helper functions `reopenDetailedReviewIfNeeded`, `expandSupportLayer`, `expandDraftToolLayer` removed. Unused imports cleaned.
+- No backend, schema, or methodology change. Feature-directory code left in place for US-8.2+.
+- Tests: frontend 421 passed (19 in App.test.tsx, 402 in other files); `tsc --noEmit` clean.
+- Next: US-8.2 — Strip Workspace and Monitoring frontend (`features/backtest/`).
 
 ### 2026-05-22 - Epic 5: US-5.4 — Clear replay comparison output (shipped)
 

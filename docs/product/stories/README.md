@@ -18,7 +18,27 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 5 — Usable Core Flow (active)
+### Epic 8 — Reset to Analysis Core (active)
+
+PRD: [`prd/epic-8-reset-to-analysis-core.md`](../prd/epic-8-reset-to-analysis-core.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-8.1](US-8.1-remove-workflow-tabs.md) | Remove workflow tabs from navigation | Frontend — nav only | Done |
+| US-8.2 | Strip Workspace and Monitoring frontend | Frontend — features/backtest/ | Backlog |
+| US-8.3 | Strip ranking and optimizer frontend | Frontend — features/strategy-lab/, features/generic-ranking/, features/optimizer/ | Backlog |
+| US-8.4 | Strip App.tsx workflow state and storage | Frontend — App.tsx, workspace storage | Backlog |
+| US-8.5 | Remove ranking, construction, and optimizer backend | Backend — routes, services, schemas | Backlog |
+| US-8.6 | Remove backtest and monitoring backend | Backend — routes, services, schemas | Backlog |
+| US-8.7 | Prune portfolio feature directory | Frontend — features/portfolio/ dead code | Backlog |
+| US-8.8 | Reset docs and contracts | Docs — contracts, PRDs, roadmap | Backlog |
+| US-8.9 | Add portfolio drift vs index benchmarks | Backend + Frontend — new Exposure feature | Backlog |
+
+Stories must be built in order (8.1 → 8.2 → ... → 8.9). Each leaves a compilable, test-green codebase. Story 8.9 (the one additive story) goes last.
+
+---
+
+### Epic 5 — Usable Core Flow (complete — superseded by Epic 8 pivot)
 
 | Story | Title | Status |
 |---|---|---|
@@ -27,19 +47,13 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 | [US-5.3](US-5.3-fix-review-in-construction.md) | Fix "Review in Construction" end-to-end | Done |
 | [US-5.4](US-5.4-clear-replay-comparison-output.md) | Clear replay comparison output | Done |
 
-US-5.1 story file will be created with the `write-story` skill. Backlog
-stories are defined in the PRD but not yet written as story files.
-
-### Epic 3 — Construction & Optimizer Methodology (deprioritized)
-
-These stories are written and ticketed but deprioritized pending Epic 5
-completion. Do not pick them up until the core flow is usable.
+### Epic 3 — Construction & Optimizer Methodology (cancelled — features removed in Epic 8)
 
 | Story | Title | Status |
 |---|---|---|
-| [US-3.1](US-3.1-inverse-volatility-weighting-policy.md) | Risk-aware (inverse-volatility) weighting policy | Deprioritized |
-| [US-3.2](US-3.2-inverse-rank-weight-opt-in.md) | Make inverse-rank-weight selectable at launch | Deprioritized |
-| [US-3.3](US-3.3-top-n-in-etf-ranking-tab.md) | Set Top N directly in the ETF Ranking tab | Deprioritized |
+| [US-3.1](US-3.1-inverse-volatility-weighting-policy.md) | Risk-aware (inverse-volatility) weighting policy | Cancelled |
+| [US-3.2](US-3.2-inverse-rank-weight-opt-in.md) | Make inverse-rank-weight selectable at launch | Cancelled |
+| [US-3.3](US-3.3-top-n-in-etf-ranking-tab.md) | Set Top N directly in the ETF Ranking tab | Cancelled |
 
 To implement a story, invoke the `build-story` skill and point it at the file.
 To author a new story from a feature idea, invoke the `write-story` skill.
