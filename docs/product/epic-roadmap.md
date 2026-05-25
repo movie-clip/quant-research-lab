@@ -44,7 +44,7 @@ index.
 | Epic | Objective | Current status | Current slice | Next slice | Last updated |
 | --- | --- | --- | --- | --- | --- |
 | 5. Usable core flow | Make the end-to-end portfolio improvement workflow clear, connected, and working | **Complete** — all four stories shipped (PRD: `prd/epic-5-usable-core-flow.md`) | US-5.1–5.4 shipped | — | 2026-05-22 |
-| 8. Reset to analysis core | Strip product to Dashboard + Exposure; add portfolio drift vs index benchmarks | **Active** — in progress (PRD: `prd/epic-8-reset-to-analysis-core.md`) | US-8.2, US-8.3 shipped | US-8.4 (strip App.tsx workflow state and storage) | 2026-05-25 |
+| 8. Reset to analysis core | Strip product to Dashboard + Exposure; add portfolio drift vs index benchmarks | **Active** — in progress (PRD: `prd/epic-8-reset-to-analysis-core.md`) | US-8.4 shipped | US-8.7 (prune portfolio feature directory) | 2026-05-25 |
 
 ### Deprioritized / superseded
 
