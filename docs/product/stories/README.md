@@ -31,8 +31,8 @@ PRD: [`prd/epic-8-reset-to-analysis-core.md`](../prd/epic-8-reset-to-analysis-co
 | [US-8.5](US-8.5-strip-ranking-construction-optimizer-backend.md) | Remove ranking, construction, and optimizer backend | Backend — routes, services, schemas | Done |
 | [US-8.6](US-8.6-strip-backtest-monitoring-backend.md) | Remove backtest and monitoring backend | Backend — routes, services, schemas | Done |
 | [US-8.7](US-8.7-prune-portfolio-feature-dir.md) | Prune portfolio feature directory | Frontend — features/portfolio/ dead code | Done |
-| US-8.8 | Reset docs and contracts | Docs — contracts, PRDs, roadmap | Backlog |
-| US-8.9 | Add portfolio drift vs index benchmarks | Backend + Frontend — new Exposure feature | Backlog |
+| [US-8.8](US-8.8-reset-docs-and-contracts.md) | Reset docs and contracts | Docs — contracts, PRDs, roadmap | Done |
+| US-8.9 | Add portfolio drift vs index benchmarks | Backend + Frontend — new Exposure feature | Next phase |
 
 Stories must be built in order (8.1 → 8.2 → ... → 8.9). Each leaves a compilable, test-green codebase. Story 8.9 (the one additive story) goes last.
 
