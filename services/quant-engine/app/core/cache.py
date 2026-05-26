@@ -21,7 +21,11 @@ class JsonFileCache:
         if not path.exists():
             return None
 
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            # Corrupted cache file — treat as a cache miss so the caller fetches fresh data.
+            return None
         fetched_at = float(payload.get("fetched_at", 0))
         age_seconds = time.time() - fetched_at
 
