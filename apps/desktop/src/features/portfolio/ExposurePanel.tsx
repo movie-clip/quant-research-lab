@@ -1,5 +1,3 @@
-import { useMemo } from 'react'
-
 import type { ExposureAnalysis } from './types'
 
 type ExposurePanelProps = {
@@ -8,28 +6,6 @@ type ExposurePanelProps = {
   selectedSnapshotId?: string
   snapshotExitOption?: { id: string; label: string }
   onSnapshotSelect?: (snapshotId: string) => void
-}
-
-type BenchmarkPositioningTrust = 'verified' | 'degraded' | 'partial' | 'unavailable'
-
-type BenchmarkPositioningRow = {
-  symbol: string
-  name: string
-  portfolioWeight: number
-  benchmarkWeight: number
-  activeWeight: number
-}
-
-type BenchmarkPositioningModuleState = {
-  trust: BenchmarkPositioningTrust
-  benchmarkSymbol: string
-  portfolioInBenchmarkWeight: number | null
-  activeShare: number | null
-  overweights: BenchmarkPositioningRow[]
-  underweights: BenchmarkPositioningRow[]
-  basisNote: string
-  coverageNote: string
-  limitationNote: string | null
 }
 
 type ConcentrationAvailabilityTone = 'trusted' | 'partial' | 'unavailable'
@@ -135,83 +111,6 @@ function buildLookthroughLimitationNote(result: ExposureAnalysis) {
   return 'Limitation: constituent ownership is withheld because look-through is unavailable.'
 }
 
-function getBenchmarkPositioningTrust(result: ExposureAnalysis): BenchmarkPositioningTrust {
-  const availability = result.exposure_availability
-  const overlapStatus = availability?.benchmark_overlap_status ?? 'unavailable'
-  if (overlapStatus === 'unavailable') return 'unavailable'
-  if (overlapStatus === 'partial') return 'partial'
-
-  const holdingsSupport = result.run_metadata?.source_status?.benchmark_holdings ?? 'unavailable'
-  if (holdingsSupport === 'verified') return 'verified'
-  if (holdingsSupport === 'degraded') return 'degraded'
-  return 'unavailable'
-}
-
-function normalizeBenchmarkPositioningRows(
-  rows: ExposureAnalysis['market_overlap']['top_overweights'] | ExposureAnalysis['market_overlap']['top_underweights'] | undefined,
-  direction: 'overweight' | 'underweight',
-): BenchmarkPositioningRow[] {
-  const filtered = (rows ?? []).filter((row) => {
-    if (row.portfolio_weight == null || row.benchmark_weight == null || row.active_weight == null) return false
-    if (direction === 'overweight') return row.active_weight > 0
-    return row.active_weight < 0
-  })
-
-  return filtered
-    .map((row) => ({
-      symbol: row.symbol,
-      name: row.name,
-      portfolioWeight: row.portfolio_weight,
-      benchmarkWeight: row.benchmark_weight,
-      activeWeight: row.active_weight,
-    }))
-    .sort((left, right) => {
-      const activeDelta = Math.abs(right.activeWeight) - Math.abs(left.activeWeight)
-      if (activeDelta !== 0) return activeDelta
-      const portfolioDelta = right.portfolioWeight - left.portfolioWeight
-      if (portfolioDelta !== 0) return portfolioDelta
-      const benchmarkDelta = right.benchmarkWeight - left.benchmarkWeight
-      if (benchmarkDelta !== 0) return benchmarkDelta
-      return left.symbol.localeCompare(right.symbol)
-    })
-}
-
-function buildBenchmarkPositioningModuleState(result: ExposureAnalysis): BenchmarkPositioningModuleState {
-  const trust = getBenchmarkPositioningTrust(result)
-  const benchmarkSymbol = result.market_overlap?.benchmark_symbol ?? result.run_metadata?.reproducibility?.benchmark_symbol ?? 'benchmark'
-  const overweights = normalizeBenchmarkPositioningRows(result.market_overlap?.top_overweights, 'overweight')
-  const underweights = normalizeBenchmarkPositioningRows(result.market_overlap?.top_underweights, 'underweight')
-
-  let basisNote = 'Basis: benchmark-relative positioning compares current composition with the selected benchmark composition.'
-  let coverageNote = 'Benchmark-relative positioning unavailable for this snapshot.'
-  let limitationNote: string | null = 'Limitation: no benchmark-relative cues are shown rather than implying neutral benchmark positioning.'
-
-  if (trust === 'verified') {
-    coverageNote = `Benchmark-relative positioning is available versus ${benchmarkSymbol}.`
-    limitationNote = 'Limitation: current active bets only.'
-  } else if (trust === 'degraded') {
-    coverageNote = `Benchmark-relative positioning is degraded versus ${benchmarkSymbol}.`
-    limitationNote = 'Limitation: incomplete benchmark composition can omit active bets.'
-  } else if (trust === 'partial') {
-    coverageNote = `Benchmark-relative positioning is partial versus ${benchmarkSymbol}.`
-    limitationNote = result.lookthrough.uncovered_positions.length
-      ? `Limitation: unresolved holdings (${result.lookthrough.uncovered_positions.join(', ')}) leave some active bets only partially mapped.`
-      : 'Limitation: partial look-through leaves some active bets only partially mapped.'
-  }
-
-  return {
-    trust,
-    benchmarkSymbol,
-    portfolioInBenchmarkWeight: result.market_overlap?.portfolio_in_benchmark_weight ?? null,
-    activeShare: result.market_overlap?.active_share ?? null,
-    overweights,
-    underweights,
-    basisNote,
-    coverageNote,
-    limitationNote,
-  }
-}
-
 function SummaryMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="summary-card metric-card metric-card-neutral">
@@ -238,8 +137,6 @@ export function ExposurePanel({
   snapshotExitOption,
   onSnapshotSelect,
 }: ExposurePanelProps) {
-  const benchmarkPositioningModule = useMemo(() => (result ? buildBenchmarkPositioningModuleState(result) : null), [result])
-
   if (!result) {
     return (
       <article className="panel exposure-panel exposure-shell-frame">
@@ -260,10 +157,6 @@ export function ExposurePanel({
   const concentrationSummaryMetrics = buildConcentrationSummaryMetrics(concentration)
   const topPositions = (concentration?.top_positions ?? []).slice(0, 5)
   const topSectors = (concentration?.top_sectors ?? []).slice(0, 5)
-  const hasBenchmarkPositioningRows = Boolean(
-    benchmarkPositioningModule
-    && (benchmarkPositioningModule.overweights.length || benchmarkPositioningModule.underweights.length),
-  )
   const hasConcentrationFacts = Boolean(
     concentrationSummaryMetrics.length
     || topPositions.length
@@ -337,71 +230,6 @@ export function ExposurePanel({
         ) : (
           <UnavailablePanel title="Top constituents unavailable" detail="No defensible constituent list is shown because current look-through inputs did not resolve one." />
         )}
-        </section>
-
-        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
-          <div className="section-header-inline sector-list-header exposure-section-header">
-            <div className="panel-section-title-block"><p className="panel-label">Benchmark-Relative Positioning</p></div>
-            <p className="helper">Current-state active bets only.</p>
-          </div>
-        {benchmarkPositioningModule ? (
-          <>
-            <div className="empty-state-panel compact-empty-state">
-              <div className="benchmark-positioning-header-row">
-                <p className="empty-state-title">{benchmarkPositioningModule.basisNote}</p>
-                <span className={`dashboard-snapshot-status dashboard-snapshot-status-${benchmarkPositioningModule.trust === 'verified' ? 'trusted' : benchmarkPositioningModule.trust}`}>
-                  {benchmarkPositioningModule.trust}
-                </span>
-              </div>
-              <p className="helper">{benchmarkPositioningModule.coverageNote}</p>
-              {benchmarkPositioningModule.limitationNote ? <p className="helper">{benchmarkPositioningModule.limitationNote}</p> : null}
-            </div>
-            <div className="dashboard-summary compact-summary-grid">
-              <SummaryMetric label="Portfolio in benchmark" value={formatWeightPct(benchmarkPositioningModule.portfolioInBenchmarkWeight)} detail="Current portfolio weight mapped to benchmark constituents only." />
-              <SummaryMetric label="Active share" value={formatWeightPct(benchmarkPositioningModule.activeShare)} detail="Current composition difference versus the selected benchmark." />
-              <SummaryMetric label="Largest overweight" value={benchmarkPositioningModule.overweights[0] ? `${benchmarkPositioningModule.overweights[0].symbol} ${formatWeightPct(benchmarkPositioningModule.overweights[0].activeWeight)}` : 'Unavailable'} detail="Largest composition-based overweight with valid inputs." />
-              <SummaryMetric label="Largest underweight" value={benchmarkPositioningModule.underweights[0] ? `${benchmarkPositioningModule.underweights[0].symbol} ${formatWeightPct(Math.abs(benchmarkPositioningModule.underweights[0].activeWeight))}` : 'Unavailable'} detail="Largest composition-based underweight with valid inputs." />
-            </div>
-            {hasBenchmarkPositioningRows ? (
-              <div className="split-grid dashboard-bottom-grid">
-                <section>
-                  <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
-                    <div className="panel-section-title-block"><p className="panel-label">Top Overweights</p></div>
-                    <p className="helper">Current-state composition deltas only.</p>
-                  </div>
-                  <div className="list-table">
-                    {benchmarkPositioningModule.overweights.map((item) => (
-                      <div className="list-row list-row-wide comparison-data-row comparison-tone-positive benchmark-positioning-row" key={`benchmark-overweight-${item.symbol}`}>
-                        <span>{item.symbol}</span>
-                        <span>{formatWeightPct(item.activeWeight)} active</span>
-                        <span>{formatWeightPct(item.portfolioWeight)} portfolio vs {formatWeightPct(item.benchmarkWeight)} benchmark</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-                <section>
-                  <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
-                    <div className="panel-section-title-block"><p className="panel-label">Top Underweights</p></div>
-                    <p className="helper">Rows without complete inputs stay suppressed.</p>
-                  </div>
-                  {benchmarkPositioningModule.underweights.length ? (
-                    <div className="list-table">
-                      {benchmarkPositioningModule.underweights.map((item) => (
-                        <div className="list-row list-row-wide comparison-data-row comparison-tone-negative benchmark-positioning-row" key={`benchmark-underweight-${item.symbol}`}>
-                          <span>{item.symbol}</span>
-                          <span>{formatWeightPct(Math.abs(item.activeWeight))} active</span>
-                          <span>{formatWeightPct(item.portfolioWeight)} portfolio vs {formatWeightPct(item.benchmarkWeight)} benchmark</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : <UnavailablePanel title="Top underweights unavailable" detail="No benchmark constituents with valid underweight inputs are available for this snapshot." />}
-                </section>
-              </div>
-            ) : (
-              <UnavailablePanel title="Benchmark-relative positioning unavailable" detail="Current-state benchmark-relative cues are withheld until benchmark composition and mapped portfolio weights are defensible." />
-            )}
-          </>
-        ) : null}
         </section>
 
         <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
@@ -142,20 +142,6 @@ describe('ExposurePanel', () => {
     expect(screen.queryByText('Position HHI')).toBeNull()
   })
 
-  it('renders benchmark-relative positioning as current-state composition only', () => {
-    render(<ExposurePanel result={mockExposureView} />)
-
-    const positioningSection = screen.getByText('Benchmark-Relative Positioning').closest('section') as HTMLElement
-    expect(screen.getByText('Benchmark-Relative Positioning')).toBeTruthy()
-    expect(screen.getByText('Current-state active bets only.')).toBeTruthy()
-    expect(screen.getByText('Portfolio in benchmark')).toBeTruthy()
-    expect(screen.getByText('Active share')).toBeTruthy()
-    expect(screen.getByText('Top Overweights')).toBeTruthy()
-    expect(within(positioningSection).getByText('AAPL')).toBeTruthy()
-    expect(within(positioningSection).getByText('17.00% active')).toBeTruthy()
-    expect(screen.queryByText(/partly aligned/i)).toBeNull()
-  })
-
   it('keeps partial look-through trust inline and does not imply full resolution', () => {
     render(
       <ExposurePanel
@@ -204,82 +190,6 @@ describe('ExposurePanel', () => {
 
     expect(sliceText.includes('Benchmark-relative overlap is unavailable')).toBe(false)
     expect(sliceText.includes('benchmark composition could not be loaded')).toBe(false)
-  })
-
-  it('marks benchmark-relative positioning unavailable instead of implying neutrality', () => {
-    render(
-      <ExposurePanel
-        result={{
-          ...mockExposureView,
-          market_overlap: {
-            ...mockExposureView.market_overlap,
-            active_share: null,
-            portfolio_in_benchmark_weight: null,
-            top_overweights: [],
-            top_underweights: [],
-          },
-          exposure_availability: {
-            ...mockExposureView.exposure_availability!,
-            benchmark_overlap_status: 'unavailable',
-            benchmark_overlap_confidence: 'low',
-          },
-        }}
-      />,
-    )
-
-    expect(screen.getByText('Benchmark-relative positioning unavailable')).toBeTruthy()
-    expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
-    expect(screen.queryByText('0.00% active')).toBeNull()
-  })
-
-  it('shows degraded benchmark-relative trust when benchmark holdings support is incomplete', () => {
-    render(
-      <ExposurePanel
-        result={{
-          ...mockExposureView,
-          run_metadata: {
-            ...mockExposureView.run_metadata!,
-            source_status: {
-              ...mockExposureView.run_metadata!.source_status,
-              benchmark_holdings: 'degraded',
-            },
-          },
-        }}
-      />,
-    )
-
-    expect(screen.getAllByText('degraded').length).toBeGreaterThan(0)
-    expect(screen.getByText('Benchmark-relative positioning is degraded versus SPY.')).toBeTruthy()
-  })
-
-  it('orders benchmark-relative cues deterministically and suppresses invalid rows', () => {
-    render(
-      <ExposurePanel
-        result={{
-          ...mockExposureView,
-          market_overlap: {
-            ...mockExposureView.market_overlap,
-            top_overweights: [
-              { symbol: 'MSFT', name: 'Microsoft', portfolio_weight: 0.18, benchmark_weight: 0.06, active_weight: 0.12 },
-              { symbol: 'AAPL', name: 'Apple', portfolio_weight: 0.24, benchmark_weight: 0.07, active_weight: 0.17 },
-              { symbol: 'NVDA', name: 'NVIDIA', portfolio_weight: null as unknown as number, benchmark_weight: 0.05, active_weight: 0.11 },
-            ],
-            top_underweights: [
-              { symbol: 'AMZN', name: 'Amazon', portfolio_weight: 0.0, benchmark_weight: 0.04, active_weight: -0.04 },
-              { symbol: 'GOOG', name: 'Alphabet', portfolio_weight: 0.01, benchmark_weight: 0.04, active_weight: -0.03 },
-            ],
-          },
-        }}
-      />,
-    )
-
-    const overweightRows = screen.getAllByText(/active$/).map((node) => node.textContent)
-    expect(overweightRows[0]).toBe('17.00% active')
-    expect(overweightRows[1]).toBe('12.00% active')
-    expect(screen.queryByText('NVDA')).toBeNull()
-    const activeRows = screen.getAllByText(/active$/).map((node) => node.textContent)
-    expect(activeRows).toContain('4.00% active')
-    expect(activeRows).toContain('3.00% active')
   })
 
   it('withholds sector and concentration modules when inputs are unavailable', () => {

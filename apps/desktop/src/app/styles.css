@@ -790,7 +790,7 @@ select.path-input option {
 
 .dashboard-panel .dashboard-snapshot-header .dashboard-snapshot-status,
 .dashboard-panel .dense-insight-card-header .dashboard-snapshot-status,
-.exposure-panel .benchmark-positioning-header-row .dashboard-snapshot-status,
+.dashboard-panel .benchmark-card-header .dashboard-snapshot-status,
 .exposure-panel .dense-insight-card-header .dashboard-snapshot-status,
 .exposure-panel .concentration-pack-status-strip .dashboard-snapshot-status {
   flex-shrink: 0;
@@ -2071,44 +2071,61 @@ select.path-input option {
   height: 520px;
 }
 
-/* ── Sector Donut Card ─────────────────────────────────────────────────────── */
+/* ── Dashboard composition row ─────────────────────────────────────────────── */
 
-.sector-donut-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.dashboard-composition-row {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+  align-items: start;
 }
 
-.sector-donut-header {
+/* ── Sector Pie Card ───────────────────────────────────────────────────────── */
+
+.sector-pie-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sector-pie-header {
   display: flex;
   align-items: baseline;
   gap: 10px;
 }
 
-.sector-donut-header .helper {
+.sector-pie-header .helper {
   margin: 0;
 }
 
-.sector-donut-body {
+.sector-pie-body {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
 }
 
-.sector-donut-chart-wrap {
-  flex: 0 0 108px;
-  width: 108px;
-  height: 108px;
+.sector-pie-chart-wrap {
+  flex: 0 0 128px;
+  width: 128px;
+  height: 128px;
 }
 
-.sector-donut-legend {
+.sector-pie-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sector-pie-legend {
   list-style: none;
   margin: 0;
   padding: 0;
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .sector-legend-row {
@@ -2117,6 +2134,14 @@ select.path-input option {
   gap: 7px;
   font-size: 11.5px;
   line-height: 1.3;
+  cursor: default;
+  border-radius: 4px;
+  padding: 1px 3px;
+  transition: background 0.12s ease;
+}
+
+.sector-legend-row-active {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .sector-legend-dot {
@@ -2128,16 +2153,174 @@ select.path-input option {
 
 .sector-legend-name {
   flex: 1;
-  color: rgba(248, 251, 254, 0.82);
+  color: rgba(248, 251, 254, 0.78);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.12s ease;
+}
+
+.sector-legend-row-active .sector-legend-name {
+  color: rgba(248, 251, 254, 0.95);
 }
 
 .sector-legend-pct {
-  color: rgba(248, 251, 254, 0.55);
+  color: rgba(248, 251, 254, 0.5);
   font-variant-numeric: tabular-nums;
   font-size: 11px;
+  transition: color 0.12s ease;
+}
+
+.sector-legend-row-active .sector-legend-pct {
+  color: rgba(248, 251, 254, 0.82);
+}
+
+.sector-pie-tooltip-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 9px;
+  border-left: 3px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0 5px 5px 0;
+  font-size: 11.5px;
+  min-height: 28px;
+  transition: border-color 0.15s ease;
+}
+
+.sector-pie-tooltip-name {
+  color: rgba(248, 251, 254, 0.88);
+}
+
+.sector-pie-tooltip-pct {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 12px;
+  color: rgba(248, 251, 254, 0.9);
+}
+
+.sector-pie-tooltip-hint {
+  color: rgba(248, 251, 254, 0.28);
+  font-size: 11px;
+}
+
+/* ── Benchmark Positioning Card ────────────────────────────────────────────── */
+
+.benchmark-positioning-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.benchmark-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.benchmark-card-note {
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.benchmark-card-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.benchmark-card-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.benchmark-card-value {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(248, 251, 254, 0.9);
+  line-height: 1.2;
+}
+
+.benchmark-card-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.benchmark-card-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.benchmark-card-col-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 4px 0;
+  line-height: 1;
+}
+
+.benchmark-card-col-over {
+  color: #3ec878;
+}
+
+.benchmark-card-col-under {
+  color: #e06b6b;
+}
+
+.benchmark-card-col-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.benchmark-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.benchmark-card-row:last-child {
+  border-bottom: none;
+}
+
+.benchmark-card-symbol {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(248, 251, 254, 0.88);
+}
+
+.benchmark-card-active {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.benchmark-card-active-over {
+  color: #3ec878;
+}
+
+.benchmark-card-active-under {
+  color: #e06b6b;
+}
+
+.benchmark-card-empty {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .factor-chart-toolbar {
@@ -3971,7 +4154,8 @@ select.path-input option {
 
   .grid,
   .grid-wide,
-  .split-grid {
+  .split-grid,
+  .dashboard-composition-row {
     grid-template-columns: 1fr;
   }
 

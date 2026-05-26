@@ -1,6 +1,7 @@
 import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse } from './types'
+import { BenchmarkPositioningCard } from './BenchmarkPositioningCard'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
-import { SectorDonutCard } from './SectorDonutCard'
+import { SectorPieCard } from './SectorPieCard'
 
 function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: string | null) {
   if (!loadedStatementsLabel) return null
@@ -57,7 +58,19 @@ type DashboardPanelProps = {
   onResetLocalDatabase?: () => void | Promise<void>
 }
 
-export function DashboardPanel({ result, exposureResult = null, factorModel = null, importing = false, importError = null, lastImportedFileNames = [], restoredSession = false, onImportPortfolio, onAppendStatement, onClearImportedSession, onResetLocalDatabase }: DashboardPanelProps) {
+export function DashboardPanel({
+  result,
+  exposureResult = null,
+  factorModel = null,
+  importing = false,
+  importError = null,
+  lastImportedFileNames = [],
+  restoredSession = false,
+  onImportPortfolio,
+  onAppendStatement,
+  onClearImportedSession,
+  onResetLocalDatabase,
+}: DashboardPanelProps) {
   const statementCount = (result?.snapshot?.statements?.length ?? 0) || lastImportedFileNames.length
   const loadedStatementsLabel = formatLoadedStatements(result, lastImportedFileNames)
   const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
@@ -67,10 +80,30 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
 
     return (
       <div className="dashboard-action-row">
-        {onImportPortfolio ? <button className="secondary-button" onClick={onImportPortfolio} type="button">{importing ? 'Importing...' : loadedStatementsLabel ? 'Replace Import' : 'Import Portfolio'}</button> : null}
-        {onAppendStatement ? <button className="secondary-button dashboard-append-button" onClick={onAppendStatement} type="button">{importing ? 'Importing...' : 'Add Statement'}</button> : null}
-        {onClearImportedSession ? <button className="secondary-button dashboard-clear-button" onClick={onClearImportedSession} type="button">Clear Imported Session</button> : null}
-        {onResetLocalDatabase ? <button className="secondary-button dashboard-clear-button" onClick={() => void onResetLocalDatabase()} type="button">Reset Local DB</button> : null}
+        {onImportPortfolio ? (
+          <button className="secondary-button" onClick={onImportPortfolio} type="button">
+            {importing ? 'Importing...' : loadedStatementsLabel ? 'Replace Import' : 'Import Portfolio'}
+          </button>
+        ) : null}
+        {onAppendStatement ? (
+          <button className="secondary-button dashboard-append-button" onClick={onAppendStatement} type="button">
+            {importing ? 'Importing...' : 'Add Statement'}
+          </button>
+        ) : null}
+        {onClearImportedSession ? (
+          <button className="secondary-button dashboard-clear-button" onClick={onClearImportedSession} type="button">
+            Clear Imported Session
+          </button>
+        ) : null}
+        {onResetLocalDatabase ? (
+          <button
+            className="secondary-button dashboard-clear-button"
+            onClick={() => void onResetLocalDatabase()}
+            type="button"
+          >
+            Reset Local DB
+          </button>
+        ) : null}
       </div>
     )
   }
@@ -87,7 +120,10 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
 
       <div className="dashboard-shell-stack">
         <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
-        <SectorDonutCard result={result} exposureResult={exposureResult} />
+        <div className="dashboard-composition-row">
+          <SectorPieCard result={result} exposureResult={exposureResult} />
+          <BenchmarkPositioningCard exposureResult={exposureResult} />
+        </div>
       </div>
 
       <div className="dashboard-shell-footer-notes">
