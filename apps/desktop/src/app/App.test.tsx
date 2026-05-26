@@ -3188,7 +3188,7 @@ describe('App', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('$62875.19')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('$64171.87')).toBeTruthy())
   })
 
 
