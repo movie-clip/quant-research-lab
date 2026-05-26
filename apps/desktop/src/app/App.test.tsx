@@ -3134,8 +3134,7 @@ describe('App', () => {
     const ffFile = new File(['ff'], 'FF2026.pdf', { type: 'application/pdf', lastModified: 2 })
 
     fireEvent.change(input, { target: { files: [ibFile] } })
-    await waitFor(() => expect(screen.getByText('Open detailed review')).toBeTruthy())
-    expect(screen.getByText('Open detailed review')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy())
 
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [ffFile] } })
@@ -3144,7 +3143,6 @@ describe('App', () => {
     expect(screen.getAllByText('Loaded file: FF2026.pdf').length).toBeGreaterThan(0)
     expect(screen.queryByText('$15000.00')).toBeNull()
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy()
   })
 
 
@@ -3348,7 +3346,6 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
     await waitFor(() => expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy())
-    expect(screen.getByRole('button', { name: 'Open detailed review' })).toBeTruthy()
     expect(screen.queryByText('Detailed review')).toBeNull()
     expect(screen.queryByText('Saved Variants')).toBeNull()
   })
@@ -3382,7 +3379,6 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
 
     await waitFor(() => expect(screen.getByText('Trusted Portfolio Snapshot')).toBeTruthy())
-    expect(screen.getByText('Open detailed review')).toBeTruthy()
     expect(screen.queryByText('Portfolio vs SPY path for the selected range')).toBeNull()
     expect(screen.queryByText('Loading dashboard...')).toBeNull()
   })
@@ -3693,8 +3689,7 @@ describe('App', () => {
     expect(setActiveNodeSpy).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-    await waitFor(() => expect(screen.getByText('Detailed review unavailable here')).toBeTruthy())
-    expect(screen.getByText('Imported snapshot not active here')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Imported snapshot not active here')).toBeTruthy())
   })
 
   it('uses snapshot-history diagnostics instead of imported replay for a child variant under an imported snapshot', async () => {

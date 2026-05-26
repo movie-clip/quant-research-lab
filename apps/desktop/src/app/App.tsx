@@ -845,7 +845,6 @@ export function App() {
             onAppendStatement={dashboardSnapshot && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
             onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
             onResetLocalDatabase={handleResetLocalDatabase}
-            detailEligible={dashboardSession.detailEligible}
             onSaveAdmissionReviewDisposition={async (disposition) => {
               if (!activeWorkspace) return
               const saved = await saveImportAdmissionReviewDisposition({

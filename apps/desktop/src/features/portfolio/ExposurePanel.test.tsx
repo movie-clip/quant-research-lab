@@ -58,10 +58,6 @@ describe('ExposurePanel', () => {
     render(<ExposurePanel result={mockExposureView} />)
 
     expect(screen.getByText('Look-Through Exposure Core').closest('article')?.className.includes('exposure-panel')).toBe(true)
-    expect(screen.getByLabelText('Exposure Dense Insight Strip')).toBeTruthy()
-    expect(screen.getByText('Look-through coverage is 100.00% of the portfolio.')).toBeTruthy()
-    expect(screen.getByText('Technology leads sector mix at 40.00%.')).toBeTruthy()
-    expect(screen.getByText('Active share is 62.00% versus SPY.')).toBeTruthy()
     expect(screen.getByText('Look-Through Summary')).toBeTruthy()
     expect(screen.getByText('Coverage state')).toBeTruthy()
     expect(screen.getByText('live')).toBeTruthy()
@@ -193,7 +189,6 @@ describe('ExposurePanel', () => {
     )
 
     expect(screen.getAllByText('partial').length).toBeGreaterThan(0)
-    expect(screen.getByText('Look-through coverage is 10.00% (partial).')).toBeTruthy()
     expect(screen.getByText('Basis: imported snapshot truth plus resolved ETF constituents; unresolved ETFs stay partial.')).toBeTruthy()
     expect(screen.getByText('Look-through coverage 10.00% ($5000.00 of $50000.00).')).toBeTruthy()
     expect(screen.getByText(/Limitation: partial look-through leaves VUAA unresolved/)).toBeTruthy()

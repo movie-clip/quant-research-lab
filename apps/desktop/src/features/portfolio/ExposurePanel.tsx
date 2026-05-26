@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 
-import { DenseInsightStrip, type DenseInsightStripItem, type DenseInsightMarker } from './DenseInsightStrip'
 import type { ExposureAnalysis } from './types'
 
 type ExposurePanelProps = {
@@ -46,11 +45,6 @@ type ConcentrationAvailabilityTone = 'trusted' | 'partial' | 'unavailable'
 type ConcentrationMetric = {
   label: string
   value: string
-}
-
-function normalizeExposureMarker(marker: string): DenseInsightMarker {
-  if (marker === 'trusted' || marker === 'partial' || marker === 'degraded' || marker === 'stale' || marker === 'withheld' || marker === 'unavailable') return marker
-  return marker === 'verified' ? 'trusted' : 'unavailable'
 }
 
 function formatMoney(value: number | null | undefined) {
@@ -261,63 +255,6 @@ function buildBenchmarkPositioningModuleState(result: ExposureAnalysis): Benchma
   }
 }
 
-function buildExposureDenseInsightItems(
-  result: ExposureAnalysis,
-  sectorModule: SectorModuleState | null,
-  benchmarkPositioningModule: BenchmarkPositioningModuleState | null,
-): DenseInsightStripItem[] {
-  const lookthroughStatus = result.exposure_availability?.lookthrough_status ?? 'unavailable'
-  const items: DenseInsightStripItem[] = []
-
-    items.push({
-      title: 'Look-Through Coverage',
-      headline: lookthroughStatus === 'live'
-        ? `Look-through coverage is ${formatWeightPct(result.lookthrough.coverage_ratio)} of the portfolio.`
-      : lookthroughStatus === 'partial'
-        ? `Look-through coverage is ${formatWeightPct(result.lookthrough.coverage_ratio)} (partial).`
-        : 'Look-through coverage unavailable.',
-    facts: [
-      `Covered market value ${formatMoney(result.lookthrough.covered_market_value)}.`,
-      result.lookthrough.top_constituents[0]
-        ? `${result.lookthrough.top_constituents[0].symbol} is the largest resolved constituent at ${formatWeightPct(result.lookthrough.top_constituents[0].portfolio_weight)}.`
-        : 'Top constituent unavailable.',
-    ],
-    marker: lookthroughStatus === 'live' ? 'trusted' : lookthroughStatus === 'partial' ? 'partial' : 'unavailable',
-  })
-
-    items.push({
-      title: 'Sector Composition',
-      headline: sectorModule?.items[0]
-        ? `${sectorModule.items[0].name} leads sector mix at ${formatWeightPct(sectorModule.items[0].weight)}.`
-        : 'Sector composition unavailable.',
-    facts: [
-      sectorModule?.items[1] ? `${sectorModule.items[1].name} is next at ${formatWeightPct(sectorModule.items[1].weight)}.` : 'Second sector unavailable.',
-      sectorModule?.basisNote ?? 'Sector basis unavailable.',
-    ],
-    marker: lookthroughStatus === 'live' && result.lookthrough_sector_exposure?.length ? 'trusted' : sectorModule ? 'partial' : 'unavailable',
-  })
-
-  if (benchmarkPositioningModule) {
-    items.push({
-      title: 'Benchmark Positioning',
-      headline: benchmarkPositioningModule.activeShare != null
-        ? `Active share is ${formatWeightPct(benchmarkPositioningModule.activeShare)} versus ${benchmarkPositioningModule.benchmarkSymbol}.`
-        : 'Benchmark positioning is unavailable.',
-      facts: [
-        benchmarkPositioningModule.portfolioInBenchmarkWeight != null
-          ? `Portfolio in benchmark ${formatWeightPct(benchmarkPositioningModule.portfolioInBenchmarkWeight)}.`
-          : 'Portfolio in benchmark unavailable.',
-        benchmarkPositioningModule.overweights[0]
-          ? `${benchmarkPositioningModule.overweights[0].symbol} is the largest overweight at ${formatWeightPct(benchmarkPositioningModule.overweights[0].activeWeight)} active.`
-          : 'Largest overweight unavailable.',
-      ],
-      marker: normalizeExposureMarker(benchmarkPositioningModule.trust),
-    })
-  }
-
-  return items
-}
-
 function SummaryMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="summary-card metric-card metric-card-neutral">
@@ -346,10 +283,6 @@ export function ExposurePanel({
 }: ExposurePanelProps) {
   const sectorModule = useMemo(() => (result ? buildSectorModuleState(result) : null), [result])
   const benchmarkPositioningModule = useMemo(() => (result ? buildBenchmarkPositioningModuleState(result) : null), [result])
-  const denseInsightItems = useMemo(
-    () => (result ? buildExposureDenseInsightItems(result, sectorModule, benchmarkPositioningModule) : []),
-    [benchmarkPositioningModule, result, sectorModule],
-  )
 
   if (!result) {
     return (
@@ -414,16 +347,6 @@ export function ExposurePanel({
       </header>
 
       <div className="exposure-shell-stack">
-        {denseInsightItems.length ? (
-          <DenseInsightStrip
-            ariaLabel="Exposure Dense Insight Strip"
-            heading="Dense Insight Strip"
-            subheading="Current-state composition"
-            className="exposure-dense-insight-strip exposure-shell-section"
-            items={denseInsightItems}
-          />
-        ) : null}
-
         <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section exposure-top-path-section">
           <div className="section-header-inline sector-list-header exposure-section-header">
             <div className="panel-section-title-block"><p className="panel-label">Look-Through Summary</p></div>
