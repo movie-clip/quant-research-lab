@@ -103,6 +103,11 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "IUHC": _instrument("etf-iuhc", "IUHC", "iShares S&P 500 Health Care Sector UCITS ETF", "etf", "Health Care", "Sector UCITS ETF", "USD"),
     "IUIT": _instrument("etf-iuit", "IUIT", "iShares S&P 500 Information Technology Sector UCITS ETF", "etf", "Technology", "Sector UCITS ETF", "USD"),
     "SEMI": _instrument("etf-semi", "SEMI", "iShares MSCI Global Semiconductors UCITS ETF", "etf", "Technology", "Thematic UCITS ETF", "GBP"),
+    # European UCITS ETFs present in IB statements but without a direct FMP price feed.
+    # Sector and category are assigned explicitly here to avoid relying on description parsing.
+    "DEFS": _instrument("etf-defs", "DEFS", "Amundi STOXX Europe Defense UCITS ETF", "etf", "Defense", "Thematic UCITS ETF", "USD"),
+    "IAUP": _instrument("etf-iaup", "IAUP", "iShares Gold Producers UCITS ETF", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
+    "IDFN": _instrument("etf-idfn", "IDFN", "Invesco Defence Innovation UCITS ETF", "etf", "Defense", "Thematic UCITS ETF", "USD"),
     "VDST": _instrument("etf-vdst", "VDST", "Vanguard USD 0-1 Year Treasury Bond UCITS ETF", "etf", "Fixed Income", "Bond UCITS ETF", "USD"),
     "HOOD": _instrument("equity-hood", "HOOD", "Robinhood Markets", "equity", "Financials", "Equity", "USD"),
     "TSM": _instrument("equity-tsm", "TSM", "Taiwan Semiconductor", "equity", "Technology", "Equity", "USD"),

@@ -32,6 +32,14 @@ DEFAULT_SYMBOL_RULES: tuple[SymbolResolutionRule, ...] = (
     SymbolResolutionRule(canonical_symbol="DFND", quote_candidates=("DFND",), history_candidates=("DFND",), holdings_candidates=("DFND",), proxy_candidates=("ITA", "PPA")),
     SymbolResolutionRule(canonical_symbol="VDST", quote_candidates=("VDST",), history_candidates=("VDST",), holdings_candidates=("VDST",), proxy_candidates=("BIL", "VGSH")),
     SymbolResolutionRule(canonical_symbol="ACOMO", quote_candidates=("ACOMO.AS", "ACOMO"), history_candidates=("ACOMO.AS", "ACOMO"), aliases=("ACOMO.AS",)),
+    # UCITS ETFs without direct FMP coverage — exchange suffixes tried first; proxy is a US-listed equivalent
+    # used as a fallback when allow_proxy_fallback=True is passed to MarketDataService.
+    SymbolResolutionRule(canonical_symbol="IUIT", quote_candidates=("IUIT.L", "IUIT"), history_candidates=("IUIT.L", "IUIT"), holdings_candidates=("IUIT.L", "IUIT"), proxy_candidates=("XLK",), aliases=("IUIT.L",)),
+    SymbolResolutionRule(canonical_symbol="SEMI", quote_candidates=("SEMI.L", "SEMI"), history_candidates=("SEMI.L", "SEMI"), holdings_candidates=("SEMI.L", "SEMI"), proxy_candidates=("SOXX", "SMH"), aliases=("SEMI.L",)),
+    SymbolResolutionRule(canonical_symbol="SXRV", quote_candidates=("SXRV.DE", "SXRV"), history_candidates=("SXRV.DE", "SXRV"), holdings_candidates=("SXRV.DE", "SXRV"), proxy_candidates=("QQQ",), aliases=("SXRV.DE",)),
+    SymbolResolutionRule(canonical_symbol="DEFS", quote_candidates=("DEFS.L", "DEFS"), history_candidates=("DEFS.L", "DEFS"), holdings_candidates=("DEFS.L", "DEFS"), proxy_candidates=("ITA", "PPA"), aliases=("DEFS.L",)),
+    SymbolResolutionRule(canonical_symbol="IAUP", quote_candidates=("IAUP.L", "IAUP"), history_candidates=("IAUP.L", "IAUP"), holdings_candidates=("IAUP.L", "IAUP"), proxy_candidates=("GDX",), aliases=("IAUP.L",)),
+    SymbolResolutionRule(canonical_symbol="IDFN", quote_candidates=("IDFN.L", "IDFN"), history_candidates=("IDFN.L", "IDFN"), holdings_candidates=("IDFN.L", "IDFN"), proxy_candidates=("ITA", "PPA"), aliases=("IDFN.L",)),
 )
 
 

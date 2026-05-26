@@ -4,55 +4,78 @@ import type { ImportedDashboardSource, ImportedPortfolioSnapshotSource } from '.
 export const ib2026DashboardGolden = {
   "accountId": "U8516450",
   "brokerLabel": "Interactive Brokers",
-  "sourceLabel": "Sample or reconstructed history",
-  "statementPeriod": "January 1, 2026 - April 30, 2026",
-  "accountSummary": "Interactive Brokers \u00b7 January 1, 2026 - April 30, 2026",
+  "sourceLabel": "Live market history",
+  "statementPeriod": "January 1, 2026 - May 25, 2026",
+  "accountSummary": "Interactive Brokers \u00b7 January 1, 2026 - May 25, 2026",
   "performanceTitle": "Portfolio vs SPY path for the selected range",
   "loadedFileLabel": "Loaded file: IB2026.pdf",
-  "monthlyStatusLabel": "Monthly-return status: Sample or reconstructed history",
-  "portfolioValue": "n/a",
-  "startValue": "n/a",
+  "monthlyStatusLabel": "Monthly-return status: Live market history",
+  "portfolioValue": "$64171.87",
+  "startValue": "$52386.10",
   "timeWeightedReturn": "n/a",
-  "netContributions": "$0.00",
-  "moneyWeightedReturn": "n/a",
+  "netContributions": "$9963.00",
+  "moneyWeightedReturn": "3.19%",
   "drawdown": "n/a",
   "loadedFiles": [
     "IB2026.pdf"
   ],
-  "monthlyReturns": [],
+  "monthlyReturns": [
+    {
+      "month": "2026-01",
+      "returnPct": "0.00%"
+    },
+    {
+      "month": "2026-02",
+      "returnPct": "1.12%"
+    },
+    {
+      "month": "2026-03",
+      "returnPct": "-3.11%"
+    },
+    {
+      "month": "2026-04",
+      "returnPct": "71.41%"
+    },
+    {
+      "month": "2026-05",
+      "returnPct": "-33.28%"
+    }
+  ],
   "sectors": {
-    "Fixed Income": "21.6%",
-    "Broad Market": "20.3%",
-    "Commodities": "18.6%",
-    "Technology": "16.2%",
-    "Defense": "13.6%",
-    "Consumer Discretionary": "5.9%",
-    "Communication Services": "1.4%",
-    "Financials": "1.2%",
-    "Health Care": "1.2%"
+    "Broad Market": "22.7%",
+    "Fixed Income": "19.8%",
+    "Technology": "18.7%",
+    "Commodities": "15.6%",
+    "Defense": "14.5%",
+    "Consumer Discretionary": "5.4%",
+    "Communication Services": "1.3%",
+    "Health Care": "1.0%",
+    "Financials": "1.0%"
   },
   "draftCapitalCheck": "$0.00",
   "draftCapitalHelper": "Remaining capital after edits \u00b7 Leverage 1.00x",
   "technologyHoldings": [
     "SXRV",
-    "CRM",
     "IUIT",
     "SEMI",
+    "CRM",
     "ADBE"
   ],
   "technologyHoldingWeights": {
-    "SXRV": "9.80%",
-    "CRM": "2.27%",
-    "IUIT": "1.63%",
-    "SEMI": "1.59%",
-    "ADBE": "0.90%"
+    "SXRV": "9.91%",
+    "IUIT": "3.35%",
+    "SEMI": "2.51%",
+    "CRM": "2.12%",
+    "ADBE": "0.82%"
   },
-  "sxrvValue": "5336.8",
+  "sxrvValue": "5889.6",
   "broadMarketHoldings": [
-    "VUAA"
+    "VUAA",
+    "COPX"
   ],
   "broadMarketHoldingWeights": {
-    "VUAA": "20.30%"
+    "VUAA": "19.46%",
+    "COPX": "3.27%"
   }
 } as const
 
@@ -66,8 +89,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "detected_format": "pdf",
       "account_id": "U8516450",
       "base_currency": "USD",
-      "statement_period": "January 1, 2026 - April 30, 2026",
-      "page_count": 20
+      "statement_period": "January 1, 2026 - May 25, 2026",
+      "page_count": 21
     },
     "statements": [
       {
@@ -77,22 +100,22 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "detected_format": "pdf",
         "account_id": "U8516450",
         "base_currency": "USD",
-        "statement_period": "January 1, 2026 - April 30, 2026",
-        "page_count": 20
+        "statement_period": "January 1, 2026 - May 25, 2026",
+        "page_count": 21
       }
     ],
     "statement_totals": {
       "starting_nav": 52381.12,
-      "ending_nav": 62875.19,
-      "cash_total": 5475.71,
-      "stock_total": 57398.2,
+      "ending_nav": 64171.87,
+      "cash_total": 2524.24,
+      "stock_total": 61647.63,
       "dividends_total": 120.82,
-      "withholding_tax_total": 16.87,
-      "interest_total": null,
+      "withholding_tax_total": 17.2,
+      "interest_total": 1.64,
       "other_fees_total": 1.05,
-      "commissions_total": 130.02,
+      "commissions_total": 154.99,
       "deposits_total": 9963.0,
-      "time_weighted_return_pct": 0.67,
+      "time_weighted_return_pct": 2.75,
       "fx_rates": {
         "USDUSD": 1.0
       }
@@ -174,6 +197,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "symbol": "BTEC",
         "description": "ISHARES NSDQ US BIOTECH UCIT",
         "isin": "IE00BYXG2H39",
+        "listing_exchange": "LSEETF",
+        "instrument_type": "ETF",
+        "currency": null
+      },
+      {
+        "symbol": "COPX",
+        "description": "GX COPPER MINERS UCITS",
+        "isin": "IE0003Z9E2Y3",
         "listing_exchange": "LSEETF",
         "instrument_type": "ETF",
         "currency": null
@@ -302,6 +333,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "symbol": "ICOM",
         "description": "ISH DIVERS COMMOD SWAP ETF",
         "isin": "IE00BDFL4P12",
+        "listing_exchange": "LSEETF",
+        "instrument_type": "ETF",
+        "currency": null
+      },
+      {
+        "symbol": "IDFN",
+        "description": "IVZ DEFENCE ACC",
+        "isin": "IE000BRM9046",
         "listing_exchange": "LSEETF",
         "instrument_type": "ETF",
         "currency": null
@@ -587,199 +626,219 @@ export const ib2026ImportedDashboardGoldenFixture = {
       {
         "currency": "USD",
         "starting_cash": 4672.04,
-        "ending_cash": 5475.71,
-        "ending_settled_cash": 5475.71
+        "ending_cash": 2524.24,
+        "ending_settled_cash": 2524.24
       }
     ],
     "positions": [
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "SXRV",
         "quantity": 4.0,
         "cost_basis": 5049.36,
-        "close_price": 1334.2,
-        "market_value": 5336.8,
-        "unrealized_pnl": 287.44,
+        "close_price": 1472.4,
+        "market_value": 5889.6,
+        "unrealized_pnl": 840.24,
         "currency": "EUR"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "DFND",
-        "quantity": 700.0,
-        "cost_basis": 5123.21,
-        "close_price": 6.835,
-        "market_value": 4784.5,
-        "unrealized_pnl": -338.71,
+        "quantity": 300.0,
+        "cost_basis": 2164.76,
+        "close_price": 7.013,
+        "market_value": 2103.9,
+        "unrealized_pnl": -60.86,
         "currency": "GBP"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "SEMI",
-        "quantity": 70.0,
-        "cost_basis": 854.02,
-        "close_price": 12.382,
-        "market_value": 866.74,
-        "unrealized_pnl": 12.72,
+        "quantity": 100.0,
+        "cost_basis": 1268.44,
+        "close_price": 14.9,
+        "market_value": 1490.0,
+        "unrealized_pnl": 221.56,
         "currency": "GBP"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "ADBE",
         "quantity": 2.0,
         "cost_basis": 717.03,
-        "close_price": 246.1,
-        "market_value": 492.2,
-        "unrealized_pnl": -224.83,
+        "close_price": 244.76,
+        "market_value": 489.52,
+        "unrealized_pnl": -227.51,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "ALLO",
         "quantity": 45.0,
         "cost_basis": 688.3,
-        "close_price": 2.13,
-        "market_value": 95.85,
-        "unrealized_pnl": -592.45,
+        "close_price": 2.0,
+        "market_value": 90.0,
+        "unrealized_pnl": -598.3,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "AMZN",
         "quantity": 10.0,
         "cost_basis": 1654.08,
-        "close_price": 265.06,
-        "market_value": 2650.6,
-        "unrealized_pnl": 996.52,
+        "close_price": 266.32,
+        "market_value": 2663.2,
+        "unrealized_pnl": 1009.12,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
+        "symbol": "COPX",
+        "quantity": 30.0,
+        "cost_basis": 2026.26,
+        "close_price": 64.86,
+        "market_value": 1945.8,
+        "unrealized_pnl": -80.46,
+        "currency": "USD"
+      },
+      {
+        "as_of_date": "2026-05-25",
         "symbol": "CRM",
         "quantity": 7.0,
         "cost_basis": 1813.89,
-        "close_price": 176.53,
-        "market_value": 1235.71,
-        "unrealized_pnl": -578.18,
+        "close_price": 180.07,
+        "market_value": 1260.49,
+        "unrealized_pnl": -553.4,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "CRSP",
         "quantity": 8.0,
         "cost_basis": 668.15,
-        "close_price": 52.34,
-        "market_value": 418.72,
-        "unrealized_pnl": -249.43,
+        "close_price": 50.36,
+        "market_value": 402.88,
+        "unrealized_pnl": -265.27,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "DEFS",
-        "quantity": 400.0,
-        "cost_basis": 2873.7,
-        "close_price": 6.578,
-        "market_value": 2631.2,
-        "unrealized_pnl": -242.5,
+        "quantity": 500.0,
+        "cost_basis": 3513.08,
+        "close_price": 6.495,
+        "market_value": 3247.5,
+        "unrealized_pnl": -265.58,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "DUOL",
         "quantity": 7.0,
         "cost_basis": 1530.27,
-        "close_price": 110.1,
-        "market_value": 770.7,
-        "unrealized_pnl": -759.57,
+        "close_price": 106.61,
+        "market_value": 746.27,
+        "unrealized_pnl": -784.0,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "EDIT",
         "quantity": 42.0,
         "cost_basis": 702.43,
-        "close_price": 3.0,
-        "market_value": 126.0,
-        "unrealized_pnl": -576.43,
+        "close_price": 2.76,
+        "market_value": 115.92,
+        "unrealized_pnl": -586.51,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "IAUP",
-        "quantity": 20.0,
-        "cost_basis": 867.5,
-        "close_price": 40.82,
-        "market_value": 816.4,
-        "unrealized_pnl": -51.1,
+        "quantity": 80.0,
+        "cost_basis": 3409.1,
+        "close_price": 39.23,
+        "market_value": 3138.4,
+        "unrealized_pnl": -270.7,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "ICOM",
-        "quantity": 600.0,
-        "cost_basis": 5920.51,
-        "close_price": 10.295,
-        "market_value": 6177.0,
-        "unrealized_pnl": 256.49,
+        "quantity": 300.0,
+        "cost_basis": 2947.65,
+        "close_price": 10.235,
+        "market_value": 3070.5,
+        "unrealized_pnl": 122.85,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
+        "symbol": "IDFN",
+        "quantity": 300.0,
+        "cost_basis": 3098.51,
+        "close_price": 10.823,
+        "market_value": 3246.9,
+        "unrealized_pnl": 148.39,
+        "currency": "USD"
+      },
+      {
+        "as_of_date": "2026-05-25",
         "symbol": "IUIT",
-        "quantity": 20.0,
-        "cost_basis": 891.9,
-        "close_price": 44.45,
-        "market_value": 889.0,
-        "unrealized_pnl": -2.9,
+        "quantity": 40.0,
+        "cost_basis": 1826.5,
+        "close_price": 49.78,
+        "market_value": 1991.2,
+        "unrealized_pnl": 164.7,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "LYFT",
         "quantity": 40.0,
         "cost_basis": 863.05,
-        "close_price": 14.15,
-        "market_value": 566.0,
-        "unrealized_pnl": -297.05,
+        "close_price": 13.9,
+        "market_value": 556.0,
+        "unrealized_pnl": -307.05,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "PYPL",
         "quantity": 13.0,
         "cost_basis": 1286.94,
-        "close_price": 50.14,
-        "market_value": 651.82,
-        "unrealized_pnl": -635.12,
+        "close_price": 44.23,
+        "market_value": 574.99,
+        "unrealized_pnl": -711.95,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "SGLD",
         "quantity": 7.0,
         "cost_basis": 1387.1,
-        "close_price": 444.96,
-        "market_value": 3114.72,
-        "unrealized_pnl": 1727.62,
+        "close_price": 434.84,
+        "market_value": 3043.88,
+        "unrealized_pnl": 1656.78,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "VDST",
         "quantity": 200.0,
         "cost_basis": 11753.48,
-        "close_price": 58.81,
-        "market_value": 11762.0,
-        "unrealized_pnl": 8.52,
+        "close_price": 58.957,
+        "market_value": 11791.4,
+        "unrealized_pnl": 37.92,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-04-30",
+        "as_of_date": "2026-05-25",
         "symbol": "VUAA",
         "quantity": 80.0,
         "cost_basis": 10081.46,
-        "close_price": 138.14,
-        "market_value": 11051.2,
-        "unrealized_pnl": 969.74,
+        "close_price": 144.52,
+        "market_value": 11561.6,
+        "unrealized_pnl": 1480.14,
         "currency": "USD"
       }
     ],
@@ -995,6 +1054,51 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "source_line": "DFND 2026-04-14, 09:57:20 -200 7.4190 7.4520 1,483.80 -1.00 -1,451.36 31.44 -6.60 C;IA"
       },
       {
+        "entry_type": "SELL",
+        "trade_date": "2026-05-06",
+        "symbol": "DFND",
+        "description": "IB trade 06:27:00",
+        "quantity": 200.0,
+        "price": 7.03,
+        "gross_amount": 1406.0,
+        "net_amount": 1405.0,
+        "fee": 1.0,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "DFND 2026-05-06, 06:27:00 -200 7.0300 7.0880 1,406.00 -1.00 -1,461.66 -56.66 -11.60 C;IA"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-06",
+        "symbol": "DFND",
+        "description": "IB trade 07:12:03",
+        "quantity": 100.0,
+        "price": 7.075,
+        "gross_amount": -707.5,
+        "net_amount": -708.56,
+        "fee": 1.06,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "DFND 2026-05-06, 07:12:03 100 7.0750 7.0880 -707.50 -1.06 708.56 0.00 1.30 O"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-05-07",
+        "symbol": "DFND",
+        "description": "IB trade 04:27:50",
+        "quantity": 300.0,
+        "price": 7.065,
+        "gross_amount": 2119.5,
+        "net_amount": 2118.44,
+        "fee": 1.06,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "DFND 2026-05-07, 04:27:50 -300 7.0650 7.0290 2,119.50 -1.06 -2,205.35 -86.91 10.80 C;IA"
+      },
+      {
         "entry_type": "BUY",
         "trade_date": "2026-04-24",
         "symbol": "SEMI",
@@ -1008,6 +1112,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "GBP",
         "source_section": "Trades",
         "source_line": "SEMI 2026-04-24, 04:58:53 70 12.1860 12.4260 -853.02 -1.00 854.02 0.00 16.80 IA;O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-06",
+        "symbol": "SEMI",
+        "description": "IB trade 06:39:27",
+        "quantity": 30.0,
+        "price": 13.7807,
+        "gross_amount": -413.42,
+        "net_amount": -414.42,
+        "fee": 1.0,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "SEMI 2026-05-06, 06:39:27 30 13.7807 13.7280 -413.42 -1.00 414.42 0.00 -1.58 O"
       },
       {
         "entry_type": "SELL",
@@ -1160,6 +1279,36 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "source_line": "BTEC 2026-04-10, 08:30:02 -100 8.6700 8.5525 867.00 -1.70 -871.94 -6.64 11.75 C;IA"
       },
       {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-12",
+        "symbol": "COPX",
+        "description": "IB trade 06:52:46",
+        "quantity": 20.0,
+        "price": 68.0582,
+        "gross_amount": -1361.16,
+        "net_amount": -1362.8600000000001,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "COPX 2026-05-12, 06:52:46 20 68.0582 67.7500 -1,361.16 -1.70 1,362.86 0.00 -6.16 O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-15",
+        "symbol": "COPX",
+        "description": "IB trade 10:16:17",
+        "quantity": 10.0,
+        "price": 66.17,
+        "gross_amount": -661.7,
+        "net_amount": -663.4000000000001,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "COPX 2026-05-15, 10:16:17 10 66.1700 65.3000 -661.70 -1.70 663.40 0.00 -8.70 IA;O"
+      },
+      {
         "entry_type": "SELL",
         "trade_date": "2026-01-29",
         "symbol": "CPRT",
@@ -1203,6 +1352,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "USD",
         "source_section": "Trades",
         "source_line": "DEFS 2026-04-14, 06:57:32 200 7.1770 7.2250 -1,435.40 -1.78 1,437.18 0.00 9.60 O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-11",
+        "symbol": "DEFS",
+        "description": "IB trade 05:53:52",
+        "quantity": 100.0,
+        "price": 6.376,
+        "gross_amount": -637.6,
+        "net_amount": -639.38,
+        "fee": 1.78,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "DEFS 2026-05-11, 05:53:52 100 6.3760 6.4020 -637.60 -1.78 639.38 0.00 2.60 O"
       },
       {
         "entry_type": "BUY",
@@ -1461,6 +1625,36 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "entry_type": "BUY",
+        "trade_date": "2026-05-05",
+        "symbol": "IAUP",
+        "description": "IB trade 03:24:00",
+        "quantity": 20.0,
+        "price": 40.05,
+        "gross_amount": -801.0,
+        "net_amount": -802.7,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "IAUP 2026-05-05, 03:24:00 20 40.0500 39.9500 -801.00 -1.70 802.70 0.00 -2.00 IA;O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-07",
+        "symbol": "IAUP",
+        "description": "IB trade 05:35:19",
+        "quantity": 40.0,
+        "price": 43.43,
+        "gross_amount": -1737.2,
+        "net_amount": -1738.9,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "IAUP 2026-05-07, 05:35:19 40 43.4300 43.9200 -1,737.20 -1.70 1,738.90 0.00 19.60 IA;O"
+      },
+      {
+        "entry_type": "BUY",
         "trade_date": "2026-04-07",
         "symbol": "ICOM",
         "description": "IB trade 03:44:40",
@@ -1533,6 +1727,51 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "USD",
         "source_section": "Trades",
         "source_line": "ICOM 2026-04-13, 09:59:14 200 9.8425 9.8875 -1,968.50 -1.78 1,970.28 0.00 9.00 O"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-05-07",
+        "symbol": "ICOM",
+        "description": "IB trade 05:09:14",
+        "quantity": 300.0,
+        "price": 10.0853,
+        "gross_amount": 3025.59,
+        "net_amount": 3023.8900000000003,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "ICOM 2026-05-07, 05:09:14 -300 10.0853 10.0550 3,025.59 -1.70 -2,972.86 51.03 9.09 C"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-07",
+        "symbol": "IDFN",
+        "description": "IB trade 03:34:07",
+        "quantity": 100.0,
+        "price": 10.3237,
+        "gross_amount": -1032.37,
+        "net_amount": -1034.07,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "IDFN 2026-05-07, 03:34:07 100 10.3237 10.1550 -1,032.37 -1.70 1,034.07 0.00 -16.87 O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-07",
+        "symbol": "IDFN",
+        "description": "IB trade 03:45:25",
+        "quantity": 200.0,
+        "price": 10.3137,
+        "gross_amount": -2062.74,
+        "net_amount": -2064.4399999999996,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "IDFN 2026-05-07, 03:45:25 200 10.3137 10.1550 -2,062.74 -1.70 2,064.44 0.00 -31.74 O"
       },
       {
         "entry_type": "BUY",
@@ -1803,6 +2042,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "USD",
         "source_section": "Trades",
         "source_line": "IUIT 2026-04-23, 07:46:43 20 44.5100 44.6700 -890.20 -1.70 891.90 0.00 3.20 IA;O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-05-06",
+        "symbol": "IUIT",
+        "description": "IB trade 06:27:56",
+        "quantity": 20.0,
+        "price": 46.64515,
+        "gross_amount": -932.9,
+        "net_amount": -934.6,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "IUIT 2026-05-06, 06:27:56 20 46.64515 46.8600 -932.90 -1.70 934.60 0.00 4.30 O;P"
       },
       {
         "entry_type": "BUY",
@@ -3200,6 +3454,36 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "source_line": "2026-04-23 CRM(US79466L3024) Cash Dividend USD 0.44 per Share - US Tax -0.46"
       },
       {
+        "entry_type": "WITHHOLDING_TAX",
+        "trade_date": "2026-05-05",
+        "symbol": null,
+        "description": "Withholding @ 20% on Credit Interest for Apr-2026",
+        "quantity": null,
+        "price": null,
+        "gross_amount": -0.33,
+        "net_amount": -0.33,
+        "fee": 0.0,
+        "tax": 0.33,
+        "currency": "USD",
+        "source_section": "Withholding Tax",
+        "source_line": "2026-05-05 Withholding @ 20% on Credit Interest for Apr-2026 -0.33"
+      },
+      {
+        "entry_type": "INTEREST",
+        "trade_date": "2026-05-05",
+        "symbol": null,
+        "description": "USD Credit Interest for Apr-2026",
+        "quantity": null,
+        "price": null,
+        "gross_amount": 1.64,
+        "net_amount": 1.64,
+        "fee": 0.0,
+        "tax": 0.0,
+        "currency": "USD",
+        "source_section": "Interest",
+        "source_line": "2026-05-05 USD Credit Interest for Apr-2026 1.64"
+      },
+      {
         "entry_type": "FEE",
         "trade_date": "2026-01-13",
         "symbol": "NICE",
@@ -3294,350 +3578,19114 @@ export const ib2026ImportedDashboardGoldenFixture = {
   "overview": {
     "account_id": "U8516450",
     "base_currency": "USD",
-    "statement_period": "January 1, 2026 - April 30, 2026",
-    "positions_count": 19,
-    "instruments_count": 59,
-    "ledger_entries_count": 167,
-    "total_market_value": 54437.16,
-    "total_cost_basis": 54726.38,
-    "total_unrealized_pnl": -289.22,
+    "statement_period": "January 1, 2026 - May 25, 2026",
+    "positions_count": 21,
+    "instruments_count": 61,
+    "ledger_entries_count": 182,
+    "total_market_value": 59419.95,
+    "total_cost_basis": 58449.84,
+    "total_unrealized_pnl": 970.11,
     "cash_by_currency": {
       "EUR": 0.0,
       "GBP": 0.0,
-      "USD": 5475.71
+      "USD": 2524.24
     },
     "top_positions": [
       {
         "symbol": "VDST",
-        "market_value": 11762.0,
-        "weight": 0.2161,
-        "unrealized_pnl": 8.52
+        "market_value": 11791.4,
+        "weight": 0.1984,
+        "unrealized_pnl": 37.92
       },
       {
         "symbol": "VUAA",
-        "market_value": 11051.2,
-        "weight": 0.203,
-        "unrealized_pnl": 969.74
-      },
-      {
-        "symbol": "ICOM",
-        "market_value": 6177.0,
-        "weight": 0.1135,
-        "unrealized_pnl": 256.49
+        "market_value": 11561.6,
+        "weight": 0.1946,
+        "unrealized_pnl": 1480.14
       },
       {
         "symbol": "SXRV",
-        "market_value": 5336.8,
-        "weight": 0.098,
-        "unrealized_pnl": 287.44
-      },
-      {
-        "symbol": "DFND",
-        "market_value": 4784.5,
-        "weight": 0.0879,
-        "unrealized_pnl": -338.71
-      },
-      {
-        "symbol": "SGLD",
-        "market_value": 3114.72,
-        "weight": 0.0572,
-        "unrealized_pnl": 1727.62
-      },
-      {
-        "symbol": "AMZN",
-        "market_value": 2650.6,
-        "weight": 0.0487,
-        "unrealized_pnl": 996.52
+        "market_value": 5889.6,
+        "weight": 0.0991,
+        "unrealized_pnl": 840.24
       },
       {
         "symbol": "DEFS",
-        "market_value": 2631.2,
-        "weight": 0.0483,
-        "unrealized_pnl": -242.5
+        "market_value": 3247.5,
+        "weight": 0.0547,
+        "unrealized_pnl": -265.58
       },
       {
-        "symbol": "CRM",
-        "market_value": 1235.71,
-        "weight": 0.0227,
-        "unrealized_pnl": -578.18
+        "symbol": "IDFN",
+        "market_value": 3246.9,
+        "weight": 0.0546,
+        "unrealized_pnl": 148.39
       },
       {
-        "symbol": "IUIT",
-        "market_value": 889.0,
-        "weight": 0.0163,
-        "unrealized_pnl": -2.9
+        "symbol": "IAUP",
+        "market_value": 3138.4,
+        "weight": 0.0528,
+        "unrealized_pnl": -270.7
+      },
+      {
+        "symbol": "ICOM",
+        "market_value": 3070.5,
+        "weight": 0.0517,
+        "unrealized_pnl": 122.85
+      },
+      {
+        "symbol": "SGLD",
+        "market_value": 3043.88,
+        "weight": 0.0512,
+        "unrealized_pnl": 1656.78
+      },
+      {
+        "symbol": "AMZN",
+        "market_value": 2663.2,
+        "weight": 0.0448,
+        "unrealized_pnl": 1009.12
+      },
+      {
+        "symbol": "DFND",
+        "market_value": 2103.9,
+        "weight": 0.0354,
+        "unrealized_pnl": -60.86
       }
     ],
     "sector_allocation": [
       {
-        "sector": "Fixed Income",
-        "market_value": 11762.0,
-        "weight": 0.2161
-      },
-      {
         "sector": "Broad Market",
-        "market_value": 11051.2,
-        "weight": 0.203
+        "market_value": 13507.4,
+        "weight": 0.2273
       },
       {
-        "sector": "Commodities",
-        "market_value": 10108.12,
-        "weight": 0.1857
+        "sector": "Fixed Income",
+        "market_value": 11791.4,
+        "weight": 0.1984
       },
       {
         "sector": "Technology",
-        "market_value": 8820.45,
-        "weight": 0.162
+        "market_value": 11120.81,
+        "weight": 0.1872
+      },
+      {
+        "sector": "Commodities",
+        "market_value": 9252.78,
+        "weight": 0.1557
       },
       {
         "sector": "Defense",
-        "market_value": 7415.7,
-        "weight": 0.1362
+        "market_value": 8598.3,
+        "weight": 0.1447
       },
       {
         "sector": "Consumer Discretionary",
-        "market_value": 3216.6,
-        "weight": 0.0591
+        "market_value": 3219.2,
+        "weight": 0.0542
       },
       {
         "sector": "Communication Services",
-        "market_value": 770.7,
-        "weight": 0.0142
-      },
-      {
-        "sector": "Financials",
-        "market_value": 651.82,
-        "weight": 0.012
+        "market_value": 746.27,
+        "weight": 0.0126
       },
       {
         "sector": "Health Care",
-        "market_value": 640.57,
-        "weight": 0.0118
+        "market_value": 608.8,
+        "weight": 0.0102
+      },
+      {
+        "sector": "Financials",
+        "market_value": 574.99,
+        "weight": 0.0097
       }
     ],
     "sector_position_breakdown": {
       "Technology": [
         {
           "symbol": "SXRV",
-          "market_value": 5336.8,
-          "weight": 0.098
-        },
-        {
-          "symbol": "CRM",
-          "market_value": 1235.71,
-          "weight": 0.0227
+          "market_value": 5889.6,
+          "weight": 0.0991
         },
         {
           "symbol": "IUIT",
-          "market_value": 889.0,
-          "weight": 0.0163
+          "market_value": 1991.2,
+          "weight": 0.0335
         },
         {
           "symbol": "SEMI",
-          "market_value": 866.74,
-          "weight": 0.0159
+          "market_value": 1490.0,
+          "weight": 0.0251
+        },
+        {
+          "symbol": "CRM",
+          "market_value": 1260.49,
+          "weight": 0.0212
         },
         {
           "symbol": "ADBE",
-          "market_value": 492.2,
-          "weight": 0.009
+          "market_value": 489.52,
+          "weight": 0.0082
         }
       ],
       "Defense": [
         {
-          "symbol": "DFND",
-          "market_value": 4784.5,
-          "weight": 0.0879
+          "symbol": "DEFS",
+          "market_value": 3247.5,
+          "weight": 0.0547
         },
         {
-          "symbol": "DEFS",
-          "market_value": 2631.2,
-          "weight": 0.0483
+          "symbol": "IDFN",
+          "market_value": 3246.9,
+          "weight": 0.0546
+        },
+        {
+          "symbol": "DFND",
+          "market_value": 2103.9,
+          "weight": 0.0354
         }
       ],
       "Health Care": [
         {
           "symbol": "CRSP",
-          "market_value": 418.72,
-          "weight": 0.0077
+          "market_value": 402.88,
+          "weight": 0.0068
         },
         {
           "symbol": "EDIT",
-          "market_value": 126.0,
-          "weight": 0.0023
+          "market_value": 115.92,
+          "weight": 0.002
         },
         {
           "symbol": "ALLO",
-          "market_value": 95.85,
-          "weight": 0.0018
+          "market_value": 90.0,
+          "weight": 0.0015
         }
       ],
       "Consumer Discretionary": [
         {
           "symbol": "AMZN",
-          "market_value": 2650.6,
-          "weight": 0.0487
+          "market_value": 2663.2,
+          "weight": 0.0448
         },
         {
           "symbol": "LYFT",
-          "market_value": 566.0,
-          "weight": 0.0104
-        }
-      ],
-      "Communication Services": [
-        {
-          "symbol": "DUOL",
-          "market_value": 770.7,
-          "weight": 0.0142
-        }
-      ],
-      "Commodities": [
-        {
-          "symbol": "ICOM",
-          "market_value": 6177.0,
-          "weight": 0.1135
-        },
-        {
-          "symbol": "SGLD",
-          "market_value": 3114.72,
-          "weight": 0.0572
-        },
-        {
-          "symbol": "IAUP",
-          "market_value": 816.4,
-          "weight": 0.015
-        }
-      ],
-      "Financials": [
-        {
-          "symbol": "PYPL",
-          "market_value": 651.82,
-          "weight": 0.012
-        }
-      ],
-      "Fixed Income": [
-        {
-          "symbol": "VDST",
-          "market_value": 11762.0,
-          "weight": 0.2161
+          "market_value": 556.0,
+          "weight": 0.0094
         }
       ],
       "Broad Market": [
         {
           "symbol": "VUAA",
-          "market_value": 11051.2,
-          "weight": 0.203
+          "market_value": 11561.6,
+          "weight": 0.1946
+        },
+        {
+          "symbol": "COPX",
+          "market_value": 1945.8,
+          "weight": 0.0327
+        }
+      ],
+      "Communication Services": [
+        {
+          "symbol": "DUOL",
+          "market_value": 746.27,
+          "weight": 0.0126
+        }
+      ],
+      "Commodities": [
+        {
+          "symbol": "IAUP",
+          "market_value": 3138.4,
+          "weight": 0.0528
+        },
+        {
+          "symbol": "ICOM",
+          "market_value": 3070.5,
+          "weight": 0.0517
+        },
+        {
+          "symbol": "SGLD",
+          "market_value": 3043.88,
+          "weight": 0.0512
+        }
+      ],
+      "Financials": [
+        {
+          "symbol": "PYPL",
+          "market_value": 574.99,
+          "weight": 0.0097
+        }
+      ],
+      "Fixed Income": [
+        {
+          "symbol": "VDST",
+          "market_value": 11791.4,
+          "weight": 0.1984
         }
       ]
     },
     "ledger_counts": {
       "DIVIDEND": 23,
-      "WITHHOLDING_TAX": 25,
+      "WITHHOLDING_TAX": 26,
       "FEE": 5,
-      "BUY": 59,
-      "SELL": 54,
-      "DEPOSIT": 1
+      "BUY": 69,
+      "SELL": 57,
+      "DEPOSIT": 1,
+      "INTEREST": 1
     },
     "realized_cash_flow": {
-      "USD": 11426.05,
+      "USD": 5210.9,
       "EUR": -4132.6,
-      "GBP": -5945.79
+      "GBP": -3545.33
     }
   },
   "risk_summary": {
     "benchmark_symbol": "SPY",
     "methodology": "imported dashboard history",
-    "start_date": null,
-    "end_date": null,
-    "observations": 0,
+    "start_date": "2026-01-08",
+    "end_date": "2026-05-22",
+    "observations": 94,
     "portfolio_beta": null,
     "portfolio_correlation": null,
     "r_squared": null,
     "portfolio_volatility_pct": null,
     "benchmark_volatility_pct": null
   },
-  "benchmark": null,
-  "daily_states": [],
-  "performance_series": [],
+  "benchmark": {
+    "symbol": "SPY",
+    "start_price": 689.51,
+    "end_price": 745.64,
+    "return_pct": null,
+    "return_basis_contract": "price_return_only",
+    "points": [
+      {
+        "date": "2026-01-08",
+        "price": 689.51
+      },
+      {
+        "date": "2026-01-09",
+        "price": 694.07
+      },
+      {
+        "date": "2026-01-12",
+        "price": 695.16
+      },
+      {
+        "date": "2026-01-13",
+        "price": 693.77
+      },
+      {
+        "date": "2026-01-14",
+        "price": 690.36
+      },
+      {
+        "date": "2026-01-15",
+        "price": 692.24
+      },
+      {
+        "date": "2026-01-16",
+        "price": 691.66
+      },
+      {
+        "date": "2026-01-20",
+        "price": 677.58
+      },
+      {
+        "date": "2026-01-21",
+        "price": 685.4
+      },
+      {
+        "date": "2026-01-22",
+        "price": 688.98
+      },
+      {
+        "date": "2026-01-23",
+        "price": 689.23
+      },
+      {
+        "date": "2026-01-26",
+        "price": 692.73
+      },
+      {
+        "date": "2026-01-27",
+        "price": 695.49
+      },
+      {
+        "date": "2026-01-28",
+        "price": 695.42
+      },
+      {
+        "date": "2026-01-29",
+        "price": 694.04
+      },
+      {
+        "date": "2026-01-30",
+        "price": 691.97
+      },
+      {
+        "date": "2026-02-02",
+        "price": 695.41
+      },
+      {
+        "date": "2026-02-03",
+        "price": 689.53
+      },
+      {
+        "date": "2026-02-04",
+        "price": 686.19
+      },
+      {
+        "date": "2026-02-05",
+        "price": 677.62
+      },
+      {
+        "date": "2026-02-06",
+        "price": 690.62
+      },
+      {
+        "date": "2026-02-09",
+        "price": 693.95
+      },
+      {
+        "date": "2026-02-10",
+        "price": 692.12
+      },
+      {
+        "date": "2026-02-11",
+        "price": 691.96
+      },
+      {
+        "date": "2026-02-12",
+        "price": 681.27
+      },
+      {
+        "date": "2026-02-13",
+        "price": 681.75
+      },
+      {
+        "date": "2026-02-17",
+        "price": 682.85
+      },
+      {
+        "date": "2026-02-18",
+        "price": 686.29
+      },
+      {
+        "date": "2026-02-19",
+        "price": 684.48
+      },
+      {
+        "date": "2026-02-20",
+        "price": 689.43
+      },
+      {
+        "date": "2026-02-23",
+        "price": 682.39
+      },
+      {
+        "date": "2026-02-24",
+        "price": 687.35
+      },
+      {
+        "date": "2026-02-25",
+        "price": 693.15
+      },
+      {
+        "date": "2026-02-26",
+        "price": 689.3
+      },
+      {
+        "date": "2026-02-27",
+        "price": 685.99
+      },
+      {
+        "date": "2026-03-02",
+        "price": 686.38
+      },
+      {
+        "date": "2026-03-03",
+        "price": 680.33
+      },
+      {
+        "date": "2026-03-04",
+        "price": 685.13
+      },
+      {
+        "date": "2026-03-05",
+        "price": 681.31
+      },
+      {
+        "date": "2026-03-06",
+        "price": 672.38
+      },
+      {
+        "date": "2026-03-09",
+        "price": 678.27
+      },
+      {
+        "date": "2026-03-10",
+        "price": 677.18
+      },
+      {
+        "date": "2026-03-11",
+        "price": 676.33
+      },
+      {
+        "date": "2026-03-12",
+        "price": 666.06
+      },
+      {
+        "date": "2026-03-13",
+        "price": 662.29
+      },
+      {
+        "date": "2026-03-16",
+        "price": 669.03
+      },
+      {
+        "date": "2026-03-17",
+        "price": 670.79
+      },
+      {
+        "date": "2026-03-18",
+        "price": 661.43
+      },
+      {
+        "date": "2026-03-19",
+        "price": 659.8
+      },
+      {
+        "date": "2026-03-20",
+        "price": 648.57
+      },
+      {
+        "date": "2026-03-23",
+        "price": 655.38
+      },
+      {
+        "date": "2026-03-24",
+        "price": 653.18
+      },
+      {
+        "date": "2026-03-25",
+        "price": 656.82
+      },
+      {
+        "date": "2026-03-26",
+        "price": 645.09
+      },
+      {
+        "date": "2026-03-27",
+        "price": 634.09
+      },
+      {
+        "date": "2026-03-30",
+        "price": 631.97
+      },
+      {
+        "date": "2026-03-31",
+        "price": 650.34
+      },
+      {
+        "date": "2026-04-01",
+        "price": 655.24
+      },
+      {
+        "date": "2026-04-02",
+        "price": 655.83
+      },
+      {
+        "date": "2026-04-06",
+        "price": 658.93
+      },
+      {
+        "date": "2026-04-07",
+        "price": 659.22
+      },
+      {
+        "date": "2026-04-08",
+        "price": 676.01
+      },
+      {
+        "date": "2026-04-09",
+        "price": 679.91
+      },
+      {
+        "date": "2026-04-10",
+        "price": 679.46
+      },
+      {
+        "date": "2026-04-13",
+        "price": 686.1
+      },
+      {
+        "date": "2026-04-14",
+        "price": 694.46
+      },
+      {
+        "date": "2026-04-15",
+        "price": 699.94
+      },
+      {
+        "date": "2026-04-16",
+        "price": 701.66
+      },
+      {
+        "date": "2026-04-17",
+        "price": 710.14
+      },
+      {
+        "date": "2026-04-20",
+        "price": 708.72
+      },
+      {
+        "date": "2026-04-21",
+        "price": 704.08
+      },
+      {
+        "date": "2026-04-22",
+        "price": 711.21
+      },
+      {
+        "date": "2026-04-23",
+        "price": 708.45
+      },
+      {
+        "date": "2026-04-24",
+        "price": 713.94
+      },
+      {
+        "date": "2026-04-27",
+        "price": 715.17
+      },
+      {
+        "date": "2026-04-28",
+        "price": 711.69
+      },
+      {
+        "date": "2026-04-29",
+        "price": 711.58
+      },
+      {
+        "date": "2026-04-30",
+        "price": 718.66
+      },
+      {
+        "date": "2026-05-01",
+        "price": 720.65
+      },
+      {
+        "date": "2026-05-04",
+        "price": 718.01
+      },
+      {
+        "date": "2026-05-05",
+        "price": 723.77
+      },
+      {
+        "date": "2026-05-06",
+        "price": 733.83
+      },
+      {
+        "date": "2026-05-07",
+        "price": 731.58
+      },
+      {
+        "date": "2026-05-08",
+        "price": 737.62
+      },
+      {
+        "date": "2026-05-11",
+        "price": 739.3
+      },
+      {
+        "date": "2026-05-12",
+        "price": 738.18
+      },
+      {
+        "date": "2026-05-13",
+        "price": 742.31
+      },
+      {
+        "date": "2026-05-14",
+        "price": 748.17
+      },
+      {
+        "date": "2026-05-15",
+        "price": 739.17
+      },
+      {
+        "date": "2026-05-18",
+        "price": 738.65
+      },
+      {
+        "date": "2026-05-19",
+        "price": 733.73
+      },
+      {
+        "date": "2026-05-20",
+        "price": 741.25
+      },
+      {
+        "date": "2026-05-21",
+        "price": 742.72
+      },
+      {
+        "date": "2026-05-22",
+        "price": 745.64
+      }
+    ]
+  },
+  "daily_states": [
+    {
+      "date": "2026-01-08",
+      "cash": {
+        "USD": 37574.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 339.04,
+          "market_value": 678.08
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.49,
+          "market_value": 67.05
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 246.29,
+          "market_value": 3940.64
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 260.53,
+          "market_value": 1823.71
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.4,
+          "market_value": 451.2
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 173.87,
+          "market_value": 869.35
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.14,
+          "market_value": 89.88
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 19.44,
+          "market_value": 777.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 58.27,
+          "market_value": 757.51
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14811.22,
+      "total_portfolio_value": 52386.1,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-09",
+      "cash": {
+        "USD": 37574.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 333.95,
+          "market_value": 667.9
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.71,
+          "market_value": 76.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 247.38,
+          "market_value": 3958.08
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 259.94,
+          "market_value": 1819.58
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.84,
+          "market_value": 430.72
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 176.66,
+          "market_value": 883.3
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.07,
+          "market_value": 86.94
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 19.21,
+          "market_value": 768.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 57.66,
+          "market_value": 749.58
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14797.65,
+      "total_portfolio_value": 52372.53,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-12",
+      "cash": {
+        "USD": 37574.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 327.65,
+          "market_value": 655.3
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.67,
+          "market_value": 75.15
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 246.47,
+          "market_value": 3943.52
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 259.4,
+          "market_value": 1815.8
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 55.3,
+          "market_value": 442.4
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 161.74,
+          "market_value": 808.7
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.13,
+          "market_value": 89.46
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 19.69,
+          "market_value": 787.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 57.29,
+          "market_value": 744.77
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14718.9,
+      "total_portfolio_value": 52293.78,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-13",
+      "cash": {
+        "USD": 37574.68
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 309.93,
+          "market_value": 619.86
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.64,
+          "market_value": 73.8
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 242.6,
+          "market_value": 3881.6
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 241.06,
+          "market_value": 1687.42
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.18,
+          "market_value": 449.44
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 165.8,
+          "market_value": 829.0
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.09,
+          "market_value": 87.78
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 19.25,
+          "market_value": 770.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 56.56,
+          "market_value": 735.28
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14490.38,
+      "total_portfolio_value": 52065.06,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-14",
+      "cash": {
+        "USD": 37585.95
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 304.44,
+          "market_value": 608.88
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.7,
+          "market_value": 76.5
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 236.65,
+          "market_value": 3786.4
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 239.57,
+          "market_value": 1676.99
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.89,
+          "market_value": 455.12
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 156.27,
+          "market_value": 781.35
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.22,
+          "market_value": 93.24
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 18.92,
+          "market_value": 756.8
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 57.66,
+          "market_value": 749.58
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14341.06,
+      "total_portfolio_value": 51927.01,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-15",
+      "cash": {
+        "USD": 37138.26
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 304.09,
+          "market_value": 608.18
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.61,
+          "market_value": 72.45
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 238.18,
+          "market_value": 3810.88
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 233.53,
+          "market_value": 1634.71
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.21,
+          "market_value": 433.68
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 154.42,
+          "market_value": 772.1
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.09,
+          "market_value": 87.78
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 18.88,
+          "market_value": 755.2
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 13.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 56.74,
+          "market_value": 737.62
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14268.8,
+      "total_portfolio_value": 51407.06,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-16",
+      "cash": {
+        "USD": 37141.97
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 296.12,
+          "market_value": 592.24
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.63,
+          "market_value": 73.35
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 239.12,
+          "market_value": 3825.92
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 227.11,
+          "market_value": 1589.77
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.51,
+          "market_value": 428.08
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 150.16,
+          "market_value": 750.8
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.03,
+          "market_value": 85.26
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 18.33,
+          "market_value": 733.2
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 13.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 56.89,
+          "market_value": 739.57
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14174.39,
+      "total_portfolio_value": 51316.36,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-20",
+      "cash": {
+        "USD": 36693.69
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 290.37,
+          "market_value": 580.74
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.57,
+          "market_value": 70.65
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 231.0,
+          "market_value": 3696.0
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 220.07,
+          "market_value": 1540.49
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.61,
+          "market_value": 420.88
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 148.58,
+          "market_value": 742.9
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.02,
+          "market_value": 84.84
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 18.2,
+          "market_value": 728.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 13.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 55.08,
+          "market_value": 716.04
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13936.74,
+      "total_portfolio_value": 50630.43,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-21",
+      "cash": {
+        "USD": 36442.3
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 294.23,
+          "market_value": 588.46
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.6,
+          "market_value": 72.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 231.31,
+          "market_value": 3700.96
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 221.58,
+          "market_value": 1551.06
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.73,
+          "market_value": 437.84
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 146.81,
+          "market_value": 734.05
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.12,
+          "market_value": 89.04
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 18.49,
+          "market_value": 739.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 55.89,
+          "market_value": 726.57
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13995.78,
+      "total_portfolio_value": 50438.08,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-22",
+      "cash": {
+        "USD": 36442.3
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 299.73,
+          "market_value": 599.46
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.72,
+          "market_value": 77.4
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 234.34,
+          "market_value": 3749.44
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 228.09,
+          "market_value": 1596.63
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 60.81,
+          "market_value": 486.48
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 153.7,
+          "market_value": 768.5
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.38,
+          "market_value": 99.96
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 18.2,
+          "market_value": 728.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 57.15,
+          "market_value": 742.95
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14205.02,
+      "total_portfolio_value": 50647.32,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-23",
+      "cash": {
+        "USD": 36442.3
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 301.07,
+          "market_value": 602.14
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.72,
+          "market_value": 77.4
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 239.16,
+          "market_value": 3826.56
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 228.05,
+          "market_value": 1596.35
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 55.52,
+          "market_value": 444.16
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 155.98,
+          "market_value": 779.9
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.16,
+          "market_value": 90.72
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 17.9,
+          "market_value": 716.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 56.62,
+          "market_value": 736.06
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14225.49,
+      "total_portfolio_value": 50667.79,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-26",
+      "cash": {
+        "USD": 36442.3
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 304.72,
+          "market_value": 609.44
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.51,
+          "market_value": 67.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 238.42,
+          "market_value": 3814.72
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 229.4,
+          "market_value": 1605.8
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.65,
+          "market_value": 437.2
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 151.56,
+          "market_value": 757.8
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.06,
+          "market_value": 86.52
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 17.98,
+          "market_value": 719.2
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 56.6,
+          "market_value": 735.8
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14190.63,
+      "total_portfolio_value": 50632.93,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-27",
+      "cash": {
+        "USD": 36442.3
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 297.42,
+          "market_value": 594.84
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.53,
+          "market_value": 68.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 244.68,
+          "market_value": 3914.88
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 228.53,
+          "market_value": 1599.71
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.26,
+          "market_value": 434.08
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 146.08,
+          "market_value": 730.4
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.11,
+          "market_value": 88.62
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 17.54,
+          "market_value": 701.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 55.51,
+          "market_value": 721.63
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14210.81,
+      "total_portfolio_value": 50653.11,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-28",
+      "cash": {
+        "USD": 36442.37
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACN",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 299.58,
+          "market_value": 599.16
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.45,
+          "market_value": 65.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 243.01,
+          "market_value": 3888.16
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CPRT",
+          "quantity": 14.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 227.96,
+          "market_value": 1595.72
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.69,
+          "market_value": 429.52
+        },
+        {
+          "symbol": "DOCN",
+          "quantity": 12.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 142.8,
+          "market_value": 714.0
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.06,
+          "market_value": 86.52
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 17.2,
+          "market_value": 688.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NVO",
+          "quantity": 15.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 54.08,
+          "market_value": 703.04
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TW",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VRTX",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14125.57,
+      "total_portfolio_value": 50567.94,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-29",
+      "cash": {
+        "USD": 40861.17
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 291.65,
+          "market_value": 583.3
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.59,
+          "market_value": 71.55
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 241.73,
+          "market_value": 3867.68
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 214.08,
+          "market_value": 1498.56
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.35,
+          "market_value": 426.8
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 139.47,
+          "market_value": 697.35
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.06,
+          "market_value": 86.52
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 17.75,
+          "market_value": 710.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 53.11,
+          "market_value": 690.43
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13988.39,
+      "total_portfolio_value": 54849.56,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-01-30",
+      "cash": {
+        "USD": 41331.07
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 293.25,
+          "market_value": 586.5
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.84,
+          "market_value": 82.8
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 239.3,
+          "market_value": 3828.8
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 212.29,
+          "market_value": 1486.03
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.96,
+          "market_value": 399.68
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 134.06,
+          "market_value": 670.3
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.99,
+          "market_value": 83.58
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 16.87,
+          "market_value": 674.8
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 52.69,
+          "market_value": 684.97
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13853.66,
+      "total_portfolio_value": 55184.73,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-02",
+      "cash": {
+        "USD": 41331.07
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 293.38,
+          "market_value": 586.76
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.87,
+          "market_value": 84.15
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 242.96,
+          "market_value": 3887.36
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 210.81,
+          "market_value": 1475.67
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.31,
+          "market_value": 410.48
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 131.93,
+          "market_value": 659.65
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.01,
+          "market_value": 84.42
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 17.26,
+          "market_value": 690.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 52.33,
+          "market_value": 680.29
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13915.38,
+      "total_portfolio_value": 55246.45,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-03",
+      "cash": {
+        "USD": 40621.42
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 271.93,
+          "market_value": 543.86
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.74,
+          "market_value": 78.3
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 238.62,
+          "market_value": 3817.92
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 196.38,
+          "market_value": 1374.66
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.0,
+          "market_value": 416.0
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 120.28,
+          "market_value": 601.4
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.06,
+          "market_value": 86.52
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 16.76,
+          "market_value": 670.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.7,
+          "market_value": 542.1
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13487.36,
+      "total_portfolio_value": 54108.78,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-04",
+      "cash": {
+        "USD": 40621.42
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 279.71,
+          "market_value": 559.42
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.8,
+          "market_value": 81.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 232.99,
+          "market_value": 3727.84
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 199.44,
+          "market_value": 1396.08
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 50.17,
+          "market_value": 401.36
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 116.9,
+          "market_value": 584.5
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.95,
+          "market_value": 81.9
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 16.16,
+          "market_value": 646.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.03,
+          "market_value": 533.39
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13368.09,
+      "total_portfolio_value": 53989.51,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-05",
+      "cash": {
+        "USD": 39040.9
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 269.39,
+          "market_value": 538.78
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.63,
+          "market_value": 73.35
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 222.69,
+          "market_value": 3563.04
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 189.97,
+          "market_value": 1329.79
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 45.88,
+          "market_value": 367.04
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 114.34,
+          "market_value": 571.7
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.67,
+          "market_value": 70.14
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 15.84,
+          "market_value": 633.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 39.9,
+          "market_value": 518.7
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13022.34,
+      "total_portfolio_value": 52063.24,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-06",
+      "cash": {
+        "USD": 39040.9
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 268.38,
+          "market_value": 536.76
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.69,
+          "market_value": 76.05
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 210.32,
+          "market_value": 3365.12
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 191.35,
+          "market_value": 1339.45
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.74,
+          "market_value": 389.92
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 119.4,
+          "market_value": 597.0
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.82,
+          "market_value": 76.44
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 16.46,
+          "market_value": 658.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 40.42,
+          "market_value": 525.46
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 12920.8,
+      "total_portfolio_value": 51961.7,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-09",
+      "cash": {
+        "USD": 39045.34
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 266.9,
+          "market_value": 533.8
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.69,
+          "market_value": 76.05
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 208.72,
+          "market_value": 3339.52
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 194.03,
+          "market_value": 1358.21
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.7,
+          "market_value": 397.6
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 118.91,
+          "market_value": 594.55
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.81,
+          "market_value": 76.02
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 16.61,
+          "market_value": 664.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.15,
+          "market_value": 534.95
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 12931.3,
+      "total_portfolio_value": 51976.64,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-10",
+      "cash": {
+        "USD": 38641.16
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 264.67,
+          "market_value": 529.34
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.69,
+          "market_value": 76.05
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 206.96,
+          "market_value": 3311.36
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 193.45,
+          "market_value": 1354.15
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.83,
+          "market_value": 390.64
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 120.7,
+          "market_value": 603.5
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.78,
+          "market_value": 74.76
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 16.85,
+          "market_value": 674.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.49,
+          "market_value": 539.37
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 12909.37,
+      "total_portfolio_value": 51550.53,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-11",
+      "cash": {
+        "USD": 38641.16
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 257.16,
+          "market_value": 514.32
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.65,
+          "market_value": 74.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 204.08,
+          "market_value": 3265.28
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.0,
+          "market_value": 1295.0
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.32,
+          "market_value": 386.56
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 109.3,
+          "market_value": 546.5
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.77,
+          "market_value": 74.34
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.99,
+          "market_value": 559.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 40.46,
+          "market_value": 525.98
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 12598.03,
+      "total_portfolio_value": 51239.19,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-12",
+      "cash": {
+        "USD": 37975.21
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 262.5,
+          "market_value": 525.0
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.62,
+          "market_value": 72.9
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 199.6,
+          "market_value": 3193.6
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.43,
+          "market_value": 1298.01
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.93,
+          "market_value": 391.44
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 112.05,
+          "market_value": 560.25
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.68,
+          "market_value": 70.56
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.05,
+          "market_value": 522.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 39.08,
+          "market_value": 508.04
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 12498.0,
+      "total_portfolio_value": 50473.21,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-13",
+      "cash": {
+        "USD": 37978.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 263.97,
+          "market_value": 527.94
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.8,
+          "market_value": 81.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 198.79,
+          "market_value": 3180.64
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 189.72,
+          "market_value": 1328.04
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.07,
+          "market_value": 424.56
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 112.57,
+          "market_value": 562.85
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.76,
+          "market_value": 73.92
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.27,
+          "market_value": 530.8
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 40.29,
+          "market_value": 523.77
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 16.0,
+          "market_price": 144.52,
+          "market_value": 2312.32
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 12589.72,
+      "total_portfolio_value": 50568.6,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-17",
+      "cash": {
+        "USD": 37453.02
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 260.45,
+          "market_value": 520.9
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.16,
+          "market_value": 97.2
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 201.15,
+          "market_value": 3218.4
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 184.29,
+          "market_value": 1290.03
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.17,
+          "market_value": 425.36
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 112.08,
+          "market_value": 560.4
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.74,
+          "market_value": 73.08
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.3,
+          "market_value": 532.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 40.81,
+          "market_value": 530.53
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13182.18,
+      "total_portfolio_value": 50635.2,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-18",
+      "cash": {
+        "USD": 37457.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 263.17,
+          "market_value": 526.34
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.27,
+          "market_value": 102.15
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 204.79,
+          "market_value": 3276.64
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 187.79,
+          "market_value": 1314.53
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.52,
+          "market_value": 428.16
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 112.46,
+          "market_value": 562.3
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.72,
+          "market_value": 72.24
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.71,
+          "market_value": 548.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.45,
+          "market_value": 538.85
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13303.89,
+      "total_portfolio_value": 50761.77,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-19",
+      "cash": {
+        "USD": 37457.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 259.21,
+          "market_value": 518.42
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.13,
+          "market_value": 95.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 204.86,
+          "market_value": 3277.76
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.29,
+          "market_value": 1297.03
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.64,
+          "market_value": 437.12
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 111.11,
+          "market_value": 555.55
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.81,
+          "market_value": 76.02
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.9,
+          "market_value": 556.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.73,
+          "market_value": 542.49
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13290.52,
+      "total_portfolio_value": 50748.4,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-20",
+      "cash": {
+        "USD": 37457.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 258.61,
+          "market_value": 517.22
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.05,
+          "market_value": 92.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 210.11,
+          "market_value": 3361.76
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.16,
+          "market_value": 1296.12
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.46,
+          "market_value": 427.68
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 112.94,
+          "market_value": 564.7
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.79,
+          "market_value": 75.18
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.95,
+          "market_value": 558.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.65,
+          "market_value": 541.45
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13368.64,
+      "total_portfolio_value": 50826.52,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-23",
+      "cash": {
+        "USD": 37457.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 246.68,
+          "market_value": 493.36
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.08,
+          "market_value": 93.6
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 205.27,
+          "market_value": 3284.32
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 178.16,
+          "market_value": 1247.12
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.98,
+          "market_value": 431.84
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 106.14,
+          "market_value": 530.7
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.89,
+          "market_value": 79.38
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.29,
+          "market_value": 531.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.05,
+          "market_value": 572.65
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13198.85,
+      "total_portfolio_value": 50656.73,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-24",
+      "cash": {
+        "USD": 37457.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 255.17,
+          "market_value": 510.34
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.29,
+          "market_value": 103.05
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 208.56,
+          "market_value": 3336.96
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.42,
+          "market_value": 1297.94
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.77,
+          "market_value": 454.16
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 109.43,
+          "market_value": 547.15
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.11,
+          "market_value": 88.62
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.53,
+          "market_value": 541.2
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 47.02,
+          "market_value": 611.26
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13424.96,
+      "total_portfolio_value": 50882.84,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-25",
+      "cash": {
+        "USD": 37457.88
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 257.81,
+          "market_value": 515.62
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.53,
+          "market_value": 113.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 210.64,
+          "market_value": 3370.24
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 191.75,
+          "market_value": 1342.25
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 55.2,
+          "market_value": 441.6
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 111.65,
+          "market_value": 558.25
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.13,
+          "market_value": 89.46
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.4,
+          "market_value": 536.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 47.32,
+          "market_value": 615.16
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UBER",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13516.71,
+      "total_portfolio_value": 50974.59,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-26",
+      "cash": {
+        "USD": 37905.19
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 259.04,
+          "market_value": 518.08
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.73,
+          "market_value": 122.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 207.92,
+          "market_value": 3326.72
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 199.47,
+          "market_value": 1396.29
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 61.74,
+          "market_value": 493.92
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 117.45,
+          "market_value": 587.25
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.18,
+          "market_value": 91.56
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.1,
+          "market_value": 564.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.53,
+          "market_value": 591.89
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13626.84,
+      "total_portfolio_value": 51532.03,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-02-27",
+      "cash": {
+        "USD": 37910.64
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 262.41,
+          "market_value": 524.82
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.78,
+          "market_value": 125.1
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 210.0,
+          "market_value": 3360.0
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 194.79,
+          "market_value": 1363.53
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 60.14,
+          "market_value": 481.12
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 101.0,
+          "market_value": 505.0
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.2,
+          "market_value": 92.4
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.84,
+          "market_value": 553.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.21,
+          "market_value": 600.73
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13540.58,
+      "total_portfolio_value": 51451.22,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-02",
+      "cash": {
+        "USD": 37910.64
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 260.88,
+          "market_value": 521.76
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.65,
+          "market_value": 119.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 208.39,
+          "market_value": 3334.24
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 192.95,
+          "market_value": 1350.65
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 60.77,
+          "market_value": 486.16
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 100.82,
+          "market_value": 504.1
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.15,
+          "market_value": 90.3
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.73,
+          "market_value": 549.2
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.63,
+          "market_value": 593.19
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13483.13,
+      "total_portfolio_value": 51393.77,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-03",
+      "cash": {
+        "USD": 36597.32
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 270.99,
+          "market_value": 541.98
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.53,
+          "market_value": 113.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 208.73,
+          "market_value": 3339.68
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 196.05,
+          "market_value": 1372.35
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 58.06,
+          "market_value": 464.48
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 101.61,
+          "market_value": 508.05
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.04,
+          "market_value": 85.68
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.21,
+          "market_value": 528.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.38,
+          "market_value": 602.94
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13491.69,
+      "total_portfolio_value": 50089.01,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-04",
+      "cash": {
+        "USD": 36597.32
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 273.12,
+          "market_value": 546.24
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.53,
+          "market_value": 113.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 216.82,
+          "market_value": 3469.12
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 193.08,
+          "market_value": 1351.56
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 60.0,
+          "market_value": 480.0
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 96.17,
+          "market_value": 480.85
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.19,
+          "market_value": 91.98
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.84,
+          "market_value": 553.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NICE",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.75,
+          "market_value": 607.75
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13629.23,
+      "total_portfolio_value": 50226.55,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-05",
+      "cash": {
+        "USD": 37235.27
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 281.74,
+          "market_value": 563.48
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.31,
+          "market_value": 103.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 218.94,
+          "market_value": 3503.04
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 201.39,
+          "market_value": 1409.73
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 57.33,
+          "market_value": 458.64
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 101.54,
+          "market_value": 507.7
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 1.9,
+          "market_value": 79.8
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.18,
+          "market_value": 527.2
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 47.64,
+          "market_value": 619.32
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13707.14,
+      "total_portfolio_value": 50942.41,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-06",
+      "cash": {
+        "USD": 37235.27
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 283.62,
+          "market_value": 567.24
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.3,
+          "market_value": 103.5
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 213.21,
+          "market_value": 3411.36
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 202.11,
+          "market_value": 1414.77
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.5,
+          "market_value": 452.0
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 101.92,
+          "market_value": 509.6
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.0,
+          "market_value": 84.0
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.25,
+          "market_value": 530.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.97,
+          "market_value": 610.61
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13617.36,
+      "total_portfolio_value": 50852.63,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-09",
+      "cash": {
+        "USD": 37235.27
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 282.44,
+          "market_value": 564.88
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.5,
+          "market_value": 112.5
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 213.49,
+          "market_value": 3415.84
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 198.79,
+          "market_value": 1391.53
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 58.78,
+          "market_value": 470.24
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 100.42,
+          "market_value": 502.1
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.32,
+          "market_value": 97.44
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.76,
+          "market_value": 550.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.16,
+          "market_value": 600.08
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13639.29,
+      "total_portfolio_value": 50874.56,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-10",
+      "cash": {
+        "USD": 37242.34
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 275.13,
+          "market_value": 550.26
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.71,
+          "market_value": 121.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 214.33,
+          "market_value": 3429.28
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 194.91,
+          "market_value": 1364.37
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.8,
+          "market_value": 422.4
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 95.18,
+          "market_value": 475.9
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.64,
+          "market_value": 110.88
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.25,
+          "market_value": 530.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.02,
+          "market_value": 585.26
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13524.58,
+      "total_portfolio_value": 50766.92,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-11",
+      "cash": {
+        "USD": 37267.75
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 273.71,
+          "market_value": 547.42
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.63,
+          "market_value": 118.35
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 212.65,
+          "market_value": 3402.4
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 194.13,
+          "market_value": 1358.91
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.93,
+          "market_value": 399.44
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 98.81,
+          "market_value": 494.05
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.66,
+          "market_value": 111.72
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.31,
+          "market_value": 532.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.57,
+          "market_value": 592.41
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13491.38,
+      "total_portfolio_value": 50759.13,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-12",
+      "cash": {
+        "USD": 37267.75
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 269.78,
+          "market_value": 539.56
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.47,
+          "market_value": 111.15
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 209.53,
+          "market_value": 3352.48
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 199.28,
+          "market_value": 1394.96
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.87,
+          "market_value": 390.96
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 94.92,
+          "market_value": 474.6
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.54,
+          "market_value": 106.68
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 12.95,
+          "market_value": 518.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.36,
+          "market_value": 576.68
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13399.35,
+      "total_portfolio_value": 50667.1,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-13",
+      "cash": {
+        "USD": 37269.5
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 249.32,
+          "market_value": 498.64
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.4,
+          "market_value": 108.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 207.67,
+          "market_value": 3322.72
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 192.83,
+          "market_value": 1349.81
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.75,
+          "market_value": 390.0
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 98.39,
+          "market_value": 491.95
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.44,
+          "market_value": 102.48
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.07,
+          "market_value": 522.8
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.9,
+          "market_value": 583.7
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13304.38,
+      "total_portfolio_value": 50573.88,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-16",
+      "cash": {
+        "USD": 37272.36
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 251.86,
+          "market_value": 503.72
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.44,
+          "market_value": 109.8
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 211.74,
+          "market_value": 3387.84
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 198.34,
+          "market_value": 1388.38
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.42,
+          "market_value": 387.36
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 101.95,
+          "market_value": 509.75
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.54,
+          "market_value": 106.68
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.55,
+          "market_value": 542.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.42,
+          "market_value": 590.46
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 4.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13460.27,
+      "total_portfolio_value": 50732.63,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-17",
+      "cash": {
+        "USD": 37617.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 254.2,
+          "market_value": 508.4
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.27,
+          "market_value": 102.15
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 215.2,
+          "market_value": 3443.2
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 195.31,
+          "market_value": 1367.17
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 50.09,
+          "market_value": 400.72
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 104.36,
+          "market_value": 521.8
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.46,
+          "market_value": 103.32
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.04,
+          "market_value": 561.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.13,
+          "market_value": 599.69
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13542.33,
+      "total_portfolio_value": 51159.9,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-18",
+      "cash": {
+        "USD": 37617.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 246.0,
+          "market_value": 492.0
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.15,
+          "market_value": 96.75
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 209.87,
+          "market_value": 3357.92
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 194.34,
+          "market_value": 1360.38
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 47.69,
+          "market_value": 381.52
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 100.05,
+          "market_value": 500.25
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.35,
+          "market_value": 98.7
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.46,
+          "market_value": 538.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.59,
+          "market_value": 579.67
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13339.87,
+      "total_portfolio_value": 50957.44,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-19",
+      "cash": {
+        "USD": 37617.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 245.99,
+          "market_value": 491.98
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.22,
+          "market_value": 99.9
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 208.76,
+          "market_value": 3340.16
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 194.99,
+          "market_value": 1364.93
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 46.95,
+          "market_value": 375.6
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 99.61,
+          "market_value": 498.05
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.35,
+          "market_value": 98.7
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.38,
+          "market_value": 535.2
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.19,
+          "market_value": 574.47
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13313.27,
+      "total_portfolio_value": 50930.84,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-20",
+      "cash": {
+        "USD": 37617.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 248.15,
+          "market_value": 496.3
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.07,
+          "market_value": 93.15
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 205.37,
+          "market_value": 3285.92
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 195.38,
+          "market_value": 1367.66
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 46.24,
+          "market_value": 369.92
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 98.05,
+          "market_value": 490.25
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.34,
+          "market_value": 98.28
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.47,
+          "market_value": 538.8
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.01,
+          "market_value": 572.13
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13246.69,
+      "total_portfolio_value": 50864.26,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-23",
+      "cash": {
+        "USD": 37617.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 247.64,
+          "market_value": 495.28
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.44,
+          "market_value": 109.8
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 210.14,
+          "market_value": 3362.24
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 195.29,
+          "market_value": 1367.03
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 46.88,
+          "market_value": 375.04
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 99.75,
+          "market_value": 498.75
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.4,
+          "market_value": 100.8
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.34,
+          "market_value": 533.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.49,
+          "market_value": 591.37
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13368.19,
+      "total_portfolio_value": 50985.76,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-24",
+      "cash": {
+        "USD": 37617.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 238.87,
+          "market_value": 477.74
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.21,
+          "market_value": 99.45
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 207.24,
+          "market_value": 3315.84
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 183.02,
+          "market_value": 1281.14
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 46.43,
+          "market_value": 371.44
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 97.68,
+          "market_value": 488.4
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.25,
+          "market_value": 94.5
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.16,
+          "market_value": 526.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.21,
+          "market_value": 574.73
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13163.92,
+      "total_portfolio_value": 50781.49,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-25",
+      "cash": {
+        "USD": 36609.68
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 237.25,
+          "market_value": 474.5
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.33,
+          "market_value": 104.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 211.71,
+          "market_value": 3387.36
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 181.96,
+          "market_value": 1273.72
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 47.09,
+          "market_value": 376.72
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 99.12,
+          "market_value": 495.6
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.32,
+          "market_value": 97.44
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "INTU",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.26,
+          "market_value": 530.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.85,
+          "market_value": 583.05
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13257.92,
+      "total_portfolio_value": 49867.6,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-26",
+      "cash": {
+        "USD": 37485.19
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 240.88,
+          "market_value": 481.76
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.41,
+          "market_value": 108.45
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 207.54,
+          "market_value": 3320.64
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.57,
+          "market_value": 1298.99
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 47.55,
+          "market_value": 380.4
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 98.11,
+          "market_value": 490.55
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.32,
+          "market_value": 97.44
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.0,
+          "market_value": 520.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.2,
+          "market_value": 587.6
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13220.11,
+      "total_portfolio_value": 50705.3,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-27",
+      "cash": {
+        "USD": 37485.19
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 234.84,
+          "market_value": 469.68
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.26,
+          "market_value": 101.7
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 199.34,
+          "market_value": 3189.44
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 179.31,
+          "market_value": 1255.17
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 45.75,
+          "market_value": 366.0
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 95.35,
+          "market_value": 476.75
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.23,
+          "market_value": 93.66
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 12.86,
+          "market_value": 514.4
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 43.59,
+          "market_value": 566.67
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 12967.75,
+      "total_portfolio_value": 50452.94,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-30",
+      "cash": {
+        "USD": 37491.82
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 241.13,
+          "market_value": 482.26
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.22,
+          "market_value": 99.9
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 200.95,
+          "market_value": 3215.2
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.03,
+          "market_value": 1295.21
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 44.34,
+          "market_value": 354.72
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 5.0,
+          "market_price": 94.12,
+          "market_value": 470.6
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.23,
+          "market_value": 93.66
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 12.65,
+          "market_value": 506.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.67,
+          "market_value": 580.71
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 20.0,
+          "market_price": 144.52,
+          "market_value": 2890.4
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 13032.54,
+      "total_portfolio_value": 50524.36,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-03-31",
+      "cash": {
+        "USD": 35751.87
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 243.08,
+          "market_value": 486.16
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.44,
+          "market_value": 109.8
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 208.27,
+          "market_value": 3332.32
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 186.67,
+          "market_value": 1306.69
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 47.57,
+          "market_value": 380.56
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 98.57,
+          "market_value": 689.99
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.47,
+          "market_value": 103.74
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.3,
+          "market_value": 532.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.23,
+          "market_value": 587.99
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 24.0,
+          "market_price": 144.52,
+          "market_value": 3468.48
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14041.61,
+      "total_portfolio_value": 49793.48,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-01",
+      "cash": {
+        "USD": 35032.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 241.37,
+          "market_value": 482.74
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.56,
+          "market_value": 115.2
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 210.57,
+          "market_value": 3369.12
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 186.24,
+          "market_value": 1303.68
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.81,
+          "market_value": 390.48
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 96.19,
+          "market_value": 673.33
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.61,
+          "market_value": 109.62
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.29,
+          "market_value": 531.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.63,
+          "market_value": 580.19
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 24.0,
+          "market_price": 144.52,
+          "market_value": 3468.48
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14068.32,
+      "total_portfolio_value": 49100.89,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-02",
+      "cash": {
+        "USD": 35032.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 242.92,
+          "market_value": 485.84
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.48,
+          "market_value": 111.6
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 209.77,
+          "market_value": 3356.32
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 187.18,
+          "market_value": 1310.26
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.51,
+          "market_value": 396.08
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 96.54,
+          "market_value": 675.78
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.67,
+          "market_value": 112.14
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.34,
+          "market_value": 533.6
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.34,
+          "market_value": 589.42
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 24.0,
+          "market_price": 144.52,
+          "market_value": 3468.48
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14083.4,
+      "total_portfolio_value": 49115.97,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-06",
+      "cash": {
+        "USD": 35032.57
+      },
+      "positions": [
+        {
+          "symbol": "AAPL",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ACOMO",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 244.36,
+          "market_value": 488.72
+        },
+        {
+          "symbol": "ADM",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.6,
+          "market_value": 117.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 212.79,
+          "market_value": 3404.64
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BRK B",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.03,
+          "market_value": 1295.21
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.15,
+          "market_value": 393.2
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 99.38,
+          "market_value": 695.66
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.72,
+          "market_value": 114.24
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.7,
+          "market_value": 548.0
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NTR",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.48,
+          "market_value": 591.24
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 8.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TXRH",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VALE",
+          "quantity": 50.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 24.0,
+          "market_price": 144.52,
+          "market_value": 3468.48
+        },
+        {
+          "symbol": "ZM",
+          "quantity": 5.0,
+          "market_price": null,
+          "market_value": null
+        }
+      ],
+      "total_market_value": 14160.27,
+      "total_portfolio_value": 49192.84,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-07",
+      "cash": {
+        "USD": 37676.64
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 240.14,
+          "market_value": 480.28
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.62,
+          "market_value": 117.9
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 213.77,
+          "market_value": 3420.32
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 182.96,
+          "market_value": 1280.72
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.7,
+          "market_value": 397.6
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 96.29,
+          "market_value": 674.03
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.74,
+          "market_value": 115.08
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "HOOD",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 150.0,
+          "market_price": 10.235,
+          "market_value": 1535.25
+        },
+        {
+          "symbol": "JPM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.77,
+          "market_value": 550.8
+        },
+        {
+          "symbol": "MA",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "MCO",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "META",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "NFLX",
+          "quantity": 16.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.87,
+          "market_value": 583.31
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SPGI",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UNH",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 24.0,
+          "market_price": 144.52,
+          "market_value": 3468.48
+        }
+      ],
+      "total_market_value": 17771.55,
+      "total_portfolio_value": 55448.19,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-08",
+      "cash": {
+        "USD": 36225.67
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 239.31,
+          "market_value": 478.62
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.7,
+          "market_value": 121.5
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 221.25,
+          "market_value": 3540.0
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BTEC",
+          "quantity": 100.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 176.37,
+          "market_value": 1234.59
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.76,
+          "market_value": 414.08
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 400.0,
+          "market_price": 7.013,
+          "market_value": 2805.2
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 91.06,
+          "market_value": 637.42
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.76,
+          "market_value": 115.92
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "HOOD",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 250.0,
+          "market_price": 10.235,
+          "market_value": 2558.75
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 100.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.46,
+          "market_value": 538.4
+        },
+        {
+          "symbol": "META",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.85,
+          "market_value": 596.05
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UNH",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 50.0,
+          "market_price": 58.957,
+          "market_value": 2947.85
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 30.0,
+          "market_price": 144.52,
+          "market_value": 4335.6
+        }
+      ],
+      "total_market_value": 23367.86,
+      "total_portfolio_value": 59593.53,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-09",
+      "cash": {
+        "USD": 34921.14
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 229.94,
+          "market_value": 459.88
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.91,
+          "market_value": 130.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 16.0,
+          "market_price": 233.65,
+          "market_value": 3738.4
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "BTEC",
+          "quantity": 100.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 170.85,
+          "market_value": 1195.95
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.72,
+          "market_value": 413.76
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 400.0,
+          "market_price": 7.013,
+          "market_value": 2805.2
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 90.53,
+          "market_value": 633.71
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.89,
+          "market_value": 121.38
+        },
+        {
+          "symbol": "EFX",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 9.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "HOOD",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 250.0,
+          "market_price": 10.235,
+          "market_value": 2558.75
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 100.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.22,
+          "market_value": 528.8
+        },
+        {
+          "symbol": "META",
+          "quantity": 7.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.98,
+          "market_value": 597.74
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "TSM",
+          "quantity": 3.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UNH",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 50.0,
+          "market_price": 58.957,
+          "market_value": 2947.85
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 40.0,
+          "market_price": 144.52,
+          "market_value": 5780.8
+        }
+      ],
+      "total_market_value": 24957.05,
+      "total_portfolio_value": 59878.19,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-10",
+      "cash": {
+        "USD": 45230.11
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 225.35,
+          "market_value": 450.7
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.72,
+          "market_value": 122.4
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 238.38,
+          "market_value": 2383.8
+        },
+        {
+          "symbol": "ASML",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 164.96,
+          "market_value": 1154.72
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.22,
+          "market_value": 409.76
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 600.0,
+          "market_price": 7.013,
+          "market_value": 4207.8
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 90.03,
+          "market_value": 630.21
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.94,
+          "market_value": 123.48
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "HOOD",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 400.0,
+          "market_price": 10.235,
+          "market_value": 4094.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.23,
+          "market_value": 529.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.24,
+          "market_value": 588.12
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "TROW",
+          "quantity": 6.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "UNH",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 100.0,
+          "market_price": 58.957,
+          "market_value": 5895.7
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 35195.37,
+      "total_portfolio_value": 80425.48,
+      "external_cash_flow": 9963.0
+    },
+    {
+      "date": "2026-04-13",
+      "cash": {
+        "USD": 42112.49
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 240.11,
+          "market_value": 480.22
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 3.06,
+          "market_value": 137.7
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 239.89,
+          "market_value": 2398.9
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 172.82,
+          "market_value": 1209.74
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.83,
+          "market_value": 438.64
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 900.0,
+          "market_price": 7.013,
+          "market_value": 6311.7
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 93.53,
+          "market_value": 654.71
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.2,
+          "market_value": 134.4
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "HOOD",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.6,
+          "market_value": 544.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 47.51,
+          "market_value": 617.63
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 2.0,
+          "market_price": 1472.4,
+          "market_value": 2944.8
+        },
+        {
+          "symbol": "UNH",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 100.0,
+          "market_price": 58.957,
+          "market_value": 5895.7
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 42514.62,
+      "total_portfolio_value": 84627.11,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-14",
+      "cash": {
+        "USD": 34920.33
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 235.72,
+          "market_value": 471.44
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.28,
+          "market_value": 102.6
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 249.02,
+          "market_value": 2490.2
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 171.31,
+          "market_value": 1199.17
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.86,
+          "market_value": 454.88
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DFNS",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 91.46,
+          "market_value": 640.22
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.39,
+          "market_value": 142.38
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "HOOD",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LQQ",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.71,
+          "market_value": 548.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 47.97,
+          "market_value": 623.61
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 2.0,
+          "market_price": 1472.4,
+          "market_value": 2944.8
+        },
+        {
+          "symbol": "UNH",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 46714.83,
+      "total_portfolio_value": 81635.16,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-15",
+      "cash": {
+        "USD": 34920.33
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 244.66,
+          "market_value": 489.32
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.17,
+          "market_value": 97.65
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 248.5,
+          "market_value": 2485.0
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 177.6,
+          "market_value": 1243.2
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.76,
+          "market_value": 454.08
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DFNS",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 98.78,
+          "market_value": 691.46
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.37,
+          "market_value": 141.54
+        },
+        {
+          "symbol": "EQNR",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "HOOD",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LQQ",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.66,
+          "market_value": 586.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 49.57,
+          "market_value": 644.41
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 2.0,
+          "market_price": 1472.4,
+          "market_value": 2944.8
+        },
+        {
+          "symbol": "UNH",
+          "quantity": 2.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 46874.99,
+      "total_portfolio_value": 81795.32,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-16",
+      "cash": {
+        "USD": 37154.63
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 248.16,
+          "market_value": 496.32
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.37,
+          "market_value": 106.65
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 249.7,
+          "market_value": 2497.0
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 181.22,
+          "market_value": 1268.54
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 55.72,
+          "market_value": 445.76
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DFNS",
+          "quantity": 20.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 103.45,
+          "market_value": 724.15
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.35,
+          "market_value": 140.7
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LQQ",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.72,
+          "market_value": 588.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 49.81,
+          "market_value": 647.53
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 2.0,
+          "market_price": 1472.4,
+          "market_value": 2944.8
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 46957.38,
+      "total_portfolio_value": 84112.01,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-17",
+      "cash": {
+        "USD": 37528.5
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 244.45,
+          "market_value": 488.9
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.39,
+          "market_value": 107.55
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 250.56,
+          "market_value": 2505.6
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 182.14,
+          "market_value": 1274.98
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 57.99,
+          "market_value": 463.92
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 100.51,
+          "market_value": 703.57
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.49,
+          "market_value": 146.58
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.95,
+          "market_value": 598.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 50.81,
+          "market_value": 660.53
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 49936.36,
+      "total_portfolio_value": 87464.86,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-20",
+      "cash": {
+        "USD": 37528.5
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 248.63,
+          "market_value": 497.26
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.42,
+          "market_value": 108.9
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 248.28,
+          "market_value": 2482.8
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 186.27,
+          "market_value": 1303.89
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 57.69,
+          "market_value": 461.52
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 104.84,
+          "market_value": 733.88
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.57,
+          "market_value": 149.94
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.42,
+          "market_value": 576.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 51.46,
+          "market_value": 668.98
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 49970.7,
+      "total_portfolio_value": 87499.2,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-21",
+      "cash": {
+        "USD": 37528.5
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 247.18,
+          "market_value": 494.36
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.32,
+          "market_value": 104.4
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 249.91,
+          "market_value": 2499.1
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 187.11,
+          "market_value": 1309.77
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 55.54,
+          "market_value": 444.32
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 102.63,
+          "market_value": 718.41
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.3,
+          "market_value": 138.6
+        },
+        {
+          "symbol": "FICO",
+          "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.75,
+          "market_value": 590.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 50.88,
+          "market_value": 661.44
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 49947.13,
+      "total_portfolio_value": 87475.63,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-22",
+      "cash": {
+        "USD": 38431.23
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 255.94,
+          "market_value": 511.88
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.39,
+          "market_value": 107.55
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 255.36,
+          "market_value": 2553.6
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 189.8,
+          "market_value": 1328.6
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.42,
+          "market_value": 451.36
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 105.52,
+          "market_value": 738.64
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.33,
+          "market_value": 139.86
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "ISLN",
+          "quantity": 10.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.44,
+          "market_value": 577.6
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 51.22,
+          "market_value": 665.86
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 50061.68,
+      "total_portfolio_value": 88492.91,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-23",
+      "cash": {
+        "USD": 37374.26
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 238.98,
+          "market_value": 477.96
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.35,
+          "market_value": 105.75
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 255.08,
+          "market_value": 2550.8
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 173.3,
+          "market_value": 1213.1
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 55.18,
+          "market_value": 441.44
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 100.29,
+          "market_value": 702.03
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.21,
+          "market_value": 134.82
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.03,
+          "market_value": 561.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 49.75,
+          "market_value": 646.75
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 150.0,
+          "market_price": 58.957,
+          "market_value": 8843.55
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 51600.78,
+      "total_portfolio_value": 88975.04,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-24",
+      "cash": {
+        "USD": 33575.64
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 245.44,
+          "market_value": 490.88
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.31,
+          "market_value": 103.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 263.99,
+          "market_value": 2639.9
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 178.16,
+          "market_value": 1247.12
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.79,
+          "market_value": 390.32
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 103.45,
+          "market_value": 724.15
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.91,
+          "market_value": 122.22
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUFS",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUHC",
+          "quantity": 200.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.24,
+          "market_value": 569.6
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 50.48,
+          "market_value": 656.24
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 34.91,
+          "market_value": 2443.7
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 57102.86,
+      "total_portfolio_value": 90678.5,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-27",
+      "cash": {
+        "USD": 38917.56
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 239.31,
+          "market_value": 478.62
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.25,
+          "market_value": 101.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 261.12,
+          "market_value": 2611.2
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 180.18,
+          "market_value": 1261.26
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 50.99,
+          "market_value": 407.92
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 103.3,
+          "market_value": 723.1
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.89,
+          "market_value": 121.38
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.49,
+          "market_value": 579.6
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 49.77,
+          "market_value": 647.01
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 34.98,
+          "market_value": 2448.6
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 57094.72,
+      "total_portfolio_value": 96012.28,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-28",
+      "cash": {
+        "USD": 38917.56
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 243.2,
+          "market_value": 486.4
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.19,
+          "market_value": 98.55
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 259.7,
+          "market_value": 2597.0
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 181.32,
+          "market_value": 1269.24
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.06,
+          "market_value": 416.48
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 106.24,
+          "market_value": 743.68
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.06,
+          "market_value": 128.52
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.22,
+          "market_value": 568.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 49.64,
+          "market_value": 645.32
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 34.35,
+          "market_value": 2404.5
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 57073.27,
+      "total_portfolio_value": 95990.83,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-29",
+      "cash": {
+        "USD": 38917.56
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 243.57,
+          "market_value": 487.14
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.11,
+          "market_value": 94.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 263.04,
+          "market_value": 2630.4
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 181.22,
+          "market_value": 1268.54
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 50.71,
+          "market_value": 405.68
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 106.82,
+          "market_value": 747.74
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.82,
+          "market_value": 118.44
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.34,
+          "market_value": 573.6
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 50.94,
+          "market_value": 662.22
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 34.48,
+          "market_value": 2413.6
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 57117.09,
+      "total_portfolio_value": 96034.65,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-04-30",
+      "cash": {
+        "USD": 38917.56
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 246.1,
+          "market_value": 492.2
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.13,
+          "market_value": 95.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 265.06,
+          "market_value": 2650.6
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 176.53,
+          "market_value": 1235.71
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.34,
+          "market_value": 418.72
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 110.1,
+          "market_value": 770.7
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.0,
+          "market_value": 126.0
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.15,
+          "market_value": 566.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 50.14,
+          "market_value": 651.82
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 34.61,
+          "market_value": 2422.7
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 57145.08,
+      "total_portfolio_value": 96062.64,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-01",
+      "cash": {
+        "USD": 38917.56
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 250.71,
+          "market_value": 501.42
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.15,
+          "market_value": 96.75
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 268.26,
+          "market_value": 2682.6
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 183.82,
+          "market_value": 1286.74
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.63,
+          "market_value": 413.04
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 111.25,
+          "market_value": 778.75
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.9,
+          "market_value": 121.8
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.42,
+          "market_value": 576.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 50.44,
+          "market_value": 655.72
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 34.85,
+          "market_value": 2439.5
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 57267.9,
+      "total_portfolio_value": 96185.46,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-04",
+      "cash": {
+        "USD": 38917.56
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 253.96,
+          "market_value": 507.92
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.26,
+          "market_value": 101.7
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 272.05,
+          "market_value": 2720.5
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.48,
+          "market_value": 1298.36
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.58,
+          "market_value": 428.64
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 110.23,
+          "market_value": 771.61
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.0,
+          "market_value": 126.0
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 20.0,
+          "market_price": 39.23,
+          "market_value": 784.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.06,
+          "market_value": 562.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 50.39,
+          "market_value": 655.07
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 34.9,
+          "market_value": 2443.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 57329.98,
+      "total_portfolio_value": 96247.54,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-05",
+      "cash": {
+        "USD": 38116.17
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 255.62,
+          "market_value": 511.24
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.17,
+          "market_value": 97.65
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 273.55,
+          "market_value": 2735.5
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 186.99,
+          "market_value": 1308.93
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.38,
+          "market_value": 419.04
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 700.0,
+          "market_price": 7.013,
+          "market_value": 4909.1
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 104.03,
+          "market_value": 728.21
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.04,
+          "market_value": 127.68
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 40.0,
+          "market_price": 39.23,
+          "market_value": 1569.2
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 20.0,
+          "market_price": 49.78,
+          "market_value": 995.6
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.09,
+          "market_value": 563.6
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.49,
+          "market_value": 604.37
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 70.0,
+          "market_price": 35.48,
+          "market_value": 2483.6
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 58079.2,
+      "total_portfolio_value": 96195.37,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-06",
+      "cash": {
+        "USD": 37463.59
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 250.17,
+          "market_value": 500.34
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.31,
+          "market_value": 103.95
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 274.99,
+          "market_value": 2749.9
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 181.19,
+          "market_value": 1268.33
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 55.08,
+          "market_value": 440.64
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 600.0,
+          "market_price": 7.013,
+          "market_value": 4207.8
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 105.02,
+          "market_value": 735.14
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.18,
+          "market_value": 133.56
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 40.0,
+          "market_price": 39.23,
+          "market_value": 1569.2
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 600.0,
+          "market_price": 10.235,
+          "market_value": 6141.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.23,
+          "market_value": 569.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.27,
+          "market_value": 601.51
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 36.51,
+          "market_value": 3651.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 59547.25,
+      "total_portfolio_value": 97010.84,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-07",
+      "cash": {
+        "USD": 37768.51
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 256.51,
+          "market_value": 513.02
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.27,
+          "market_value": 102.15
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 271.17,
+          "market_value": 2711.7
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 186.34,
+          "market_value": 1304.38
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.42,
+          "market_value": 419.36
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 113.61,
+          "market_value": 795.27
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.03,
+          "market_value": 127.26
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.16,
+          "market_value": 566.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 46.22,
+          "market_value": 600.86
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 36.28,
+          "market_value": 3628.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 59203.78,
+      "total_portfolio_value": 96972.29,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-08",
+      "cash": {
+        "USD": 37768.51
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 253.04,
+          "market_value": 506.08
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.28,
+          "market_value": 102.6
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 272.68,
+          "market_value": 2726.8
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 181.82,
+          "market_value": 1272.74
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.83,
+          "market_value": 438.64
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 400.0,
+          "market_price": 6.495,
+          "market_value": 2598.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 107.99,
+          "market_value": 755.93
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.11,
+          "market_value": 130.62
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.35,
+          "market_value": 574.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.37,
+          "market_value": 589.81
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.2,
+          "market_value": 3720.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 59252.6,
+      "total_portfolio_value": 97021.11,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-11",
+      "cash": {
+        "USD": 37129.13
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 246.15,
+          "market_value": 492.3
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.28,
+          "market_value": 102.6
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 268.99,
+          "market_value": 2689.9
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 177.49,
+          "market_value": 1242.43
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.01,
+          "market_value": 432.08
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 105.15,
+          "market_value": 736.05
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.06,
+          "market_value": 128.52
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.87,
+          "market_value": 554.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.07,
+          "market_value": 585.91
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.46,
+          "market_value": 3746.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 59795.47,
+      "total_portfolio_value": 96924.6,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-12",
+      "cash": {
+        "USD": 35766.27
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 240.83,
+          "market_value": 481.66
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.3,
+          "market_value": 103.5
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 265.82,
+          "market_value": 2658.2
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 20.0,
+          "market_price": 90.77,
+          "market_value": 1815.4
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 171.31,
+          "market_value": 1199.17
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.83,
+          "market_value": 422.64
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 106.01,
+          "market_value": 742.07
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.93,
+          "market_value": 123.06
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.88,
+          "market_value": 555.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.44,
+          "market_value": 590.72
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.02,
+          "market_value": 3702.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 61478.5,
+      "total_portfolio_value": 97244.77,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-13",
+      "cash": {
+        "USD": 35766.27
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 236.07,
+          "market_value": 472.14
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.33,
+          "market_value": 104.85
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 270.13,
+          "market_value": 2701.3
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 20.0,
+          "market_price": 91.91,
+          "market_value": 1838.2
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 165.84,
+          "market_value": 1160.88
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.75,
+          "market_value": 422.0
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 104.98,
+          "market_value": 734.86
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.9,
+          "market_value": 121.8
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.68,
+          "market_value": 547.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.23,
+          "market_value": 587.99
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.56,
+          "market_value": 3756.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 61532.1,
+      "total_portfolio_value": 97298.37,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-14",
+      "cash": {
+        "USD": 35766.27
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 237.01,
+          "market_value": 474.02
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.14,
+          "market_value": 96.3
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 267.22,
+          "market_value": 2672.2
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 20.0,
+          "market_price": 89.38,
+          "market_value": 1787.6
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 167.58,
+          "market_value": 1173.06
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 50.45,
+          "market_value": 403.6
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 109.16,
+          "market_value": 764.12
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.85,
+          "market_value": 119.7
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.05,
+          "market_value": 522.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.04,
+          "market_value": 585.52
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 38.18,
+          "market_value": 3818.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 61501.0,
+      "total_portfolio_value": 97267.27,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-15",
+      "cash": {
+        "USD": 35102.87
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 247.6,
+          "market_value": 495.2
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.0,
+          "market_value": 90.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 264.14,
+          "market_value": 2641.4
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": 83.05,
+          "market_value": 2491.5
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 173.51,
+          "market_value": 1214.57
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.41,
+          "market_value": 387.28
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 112.06,
+          "market_value": 784.42
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.62,
+          "market_value": 110.04
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 12.97,
+          "market_value": 518.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.41,
+          "market_value": 577.33
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.35,
+          "market_value": 3735.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 62130.42,
+      "total_portfolio_value": 97233.29,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-18",
+      "cash": {
+        "USD": 35102.87
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 255.64,
+          "market_value": 511.28
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.94,
+          "market_value": 87.3
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 264.86,
+          "market_value": 2648.6
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": 81.85,
+          "market_value": 2455.5
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 179.48,
+          "market_value": 1256.36
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.56,
+          "market_value": 388.48
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 113.24,
+          "market_value": 792.68
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.53,
+          "market_value": 106.26
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.37,
+          "market_value": 534.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.39,
+          "market_value": 577.07
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 36.74,
+          "market_value": 3674.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 62117.21,
+      "total_portfolio_value": 97220.08,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-19",
+      "cash": {
+        "USD": 35102.87
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 254.99,
+          "market_value": 509.98
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.89,
+          "market_value": 85.05
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 259.34,
+          "market_value": 2593.4
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": 79.37,
+          "market_value": 2381.1
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 179.42,
+          "market_value": 1255.94
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 47.59,
+          "market_value": 380.72
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 114.1,
+          "market_value": 798.7
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.46,
+          "market_value": 103.32
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.18,
+          "market_value": 527.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 43.83,
+          "market_value": 569.79
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 36.34,
+          "market_value": 3634.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 61924.08,
+      "total_portfolio_value": 97026.95,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-20",
+      "cash": {
+        "USD": 35102.87
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 253.37,
+          "market_value": 506.74
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.9,
+          "market_value": 85.5
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 265.01,
+          "market_value": 2650.1
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": 82.31,
+          "market_value": 2469.3
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 180.1,
+          "market_value": 1260.7
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 48.55,
+          "market_value": 388.4
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 106.82,
+          "market_value": 747.74
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.6,
+          "market_value": 109.2
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.35,
+          "market_value": 534.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.38,
+          "market_value": 576.94
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.29,
+          "market_value": 3729.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 62142.5,
+      "total_portfolio_value": 97245.37,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-21",
+      "cash": {
+        "USD": 35102.87
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 244.1,
+          "market_value": 488.2
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.96,
+          "market_value": 88.2
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 268.46,
+          "market_value": 2684.6
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": 83.02,
+          "market_value": 2490.6
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 176.31,
+          "market_value": 1234.17
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.9,
+          "market_value": 399.2
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 105.64,
+          "market_value": 739.48
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.67,
+          "market_value": 112.14
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.48,
+          "market_value": 539.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.3,
+          "market_value": 575.9
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.47,
+          "market_value": 3747.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 62183.57,
+      "total_portfolio_value": 97286.44,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-22",
+      "cash": {
+        "USD": 2524.24
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 244.76,
+          "market_value": 489.52
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.0,
+          "market_value": 90.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 266.32,
+          "market_value": 2663.2
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": 83.35,
+          "market_value": 2500.5
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 180.07,
+          "market_value": 1260.49
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 50.36,
+          "market_value": 402.88
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.495,
+          "market_value": 3247.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": 7.013,
+          "market_value": 2103.9
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 106.61,
+          "market_value": 746.27
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.76,
+          "market_value": 115.92
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.23,
+          "market_value": 3138.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.235,
+          "market_value": 3070.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.823,
+          "market_value": 3246.9
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": 49.78,
+          "market_value": 1991.2
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.9,
+          "market_value": 556.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.23,
+          "market_value": 574.99
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.56,
+          "market_value": 3756.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 434.84,
+          "market_value": 3043.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1472.4,
+          "market_value": 5889.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.957,
+          "market_value": 11791.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 62240.65,
+      "total_portfolio_value": 64171.87,
+      "external_cash_flow": 0.0
+    }
+  ],
+  "performance_series": [
+    {
+      "date": "2026-01-08",
+      "portfolio_value": 52386.1,
+      "benchmark_price": 689.51,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-09",
+      "portfolio_value": 52372.53,
+      "benchmark_price": 694.07,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-12",
+      "portfolio_value": 52293.78,
+      "benchmark_price": 695.16,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-13",
+      "portfolio_value": 52065.06,
+      "benchmark_price": 693.77,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-14",
+      "portfolio_value": 51927.01,
+      "benchmark_price": 690.36,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-15",
+      "portfolio_value": 51407.06,
+      "benchmark_price": 692.24,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-16",
+      "portfolio_value": 51316.36,
+      "benchmark_price": 691.66,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-20",
+      "portfolio_value": 50630.43,
+      "benchmark_price": 677.58,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-21",
+      "portfolio_value": 50438.08,
+      "benchmark_price": 685.4,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-22",
+      "portfolio_value": 50647.32,
+      "benchmark_price": 688.98,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-23",
+      "portfolio_value": 50667.79,
+      "benchmark_price": 689.23,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-26",
+      "portfolio_value": 50632.93,
+      "benchmark_price": 692.73,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-27",
+      "portfolio_value": 50653.11,
+      "benchmark_price": 695.49,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-28",
+      "portfolio_value": 50567.94,
+      "benchmark_price": 695.42,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-29",
+      "portfolio_value": 54849.56,
+      "benchmark_price": 694.04,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-01-30",
+      "portfolio_value": 55184.73,
+      "benchmark_price": 691.97,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-02",
+      "portfolio_value": 55246.45,
+      "benchmark_price": 695.41,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-03",
+      "portfolio_value": 54108.78,
+      "benchmark_price": 689.53,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-04",
+      "portfolio_value": 53989.51,
+      "benchmark_price": 686.19,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-05",
+      "portfolio_value": 52063.24,
+      "benchmark_price": 677.62,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-06",
+      "portfolio_value": 51961.7,
+      "benchmark_price": 690.62,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-09",
+      "portfolio_value": 51976.64,
+      "benchmark_price": 693.95,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-10",
+      "portfolio_value": 51550.53,
+      "benchmark_price": 692.12,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-11",
+      "portfolio_value": 51239.19,
+      "benchmark_price": 691.96,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-12",
+      "portfolio_value": 50473.21,
+      "benchmark_price": 681.27,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-13",
+      "portfolio_value": 50568.6,
+      "benchmark_price": 681.75,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-17",
+      "portfolio_value": 50635.2,
+      "benchmark_price": 682.85,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-18",
+      "portfolio_value": 50761.77,
+      "benchmark_price": 686.29,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-19",
+      "portfolio_value": 50748.4,
+      "benchmark_price": 684.48,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-20",
+      "portfolio_value": 50826.52,
+      "benchmark_price": 689.43,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-23",
+      "portfolio_value": 50656.73,
+      "benchmark_price": 682.39,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-24",
+      "portfolio_value": 50882.84,
+      "benchmark_price": 687.35,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-25",
+      "portfolio_value": 50974.59,
+      "benchmark_price": 693.15,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-26",
+      "portfolio_value": 51532.03,
+      "benchmark_price": 689.3,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-02-27",
+      "portfolio_value": 51451.22,
+      "benchmark_price": 685.99,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-02",
+      "portfolio_value": 51393.77,
+      "benchmark_price": 686.38,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-03",
+      "portfolio_value": 50089.01,
+      "benchmark_price": 680.33,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-04",
+      "portfolio_value": 50226.55,
+      "benchmark_price": 685.13,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-05",
+      "portfolio_value": 50942.41,
+      "benchmark_price": 681.31,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-06",
+      "portfolio_value": 50852.63,
+      "benchmark_price": 672.38,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-09",
+      "portfolio_value": 50874.56,
+      "benchmark_price": 678.27,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-10",
+      "portfolio_value": 50766.92,
+      "benchmark_price": 677.18,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-11",
+      "portfolio_value": 50759.13,
+      "benchmark_price": 676.33,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-12",
+      "portfolio_value": 50667.1,
+      "benchmark_price": 666.06,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-13",
+      "portfolio_value": 50573.88,
+      "benchmark_price": 662.29,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-16",
+      "portfolio_value": 50732.63,
+      "benchmark_price": 669.03,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-17",
+      "portfolio_value": 51159.9,
+      "benchmark_price": 670.79,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-18",
+      "portfolio_value": 50957.44,
+      "benchmark_price": 661.43,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-19",
+      "portfolio_value": 50930.84,
+      "benchmark_price": 659.8,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-20",
+      "portfolio_value": 50864.26,
+      "benchmark_price": 648.57,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-23",
+      "portfolio_value": 50985.76,
+      "benchmark_price": 655.38,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-24",
+      "portfolio_value": 50781.49,
+      "benchmark_price": 653.18,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-25",
+      "portfolio_value": 49867.6,
+      "benchmark_price": 656.82,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-26",
+      "portfolio_value": 50705.3,
+      "benchmark_price": 645.09,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-27",
+      "portfolio_value": 50452.94,
+      "benchmark_price": 634.09,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-30",
+      "portfolio_value": 50524.36,
+      "benchmark_price": 631.97,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-31",
+      "portfolio_value": 49793.48,
+      "benchmark_price": 650.34,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-01",
+      "portfolio_value": 49100.89,
+      "benchmark_price": 655.24,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-02",
+      "portfolio_value": 49115.97,
+      "benchmark_price": 655.83,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-06",
+      "portfolio_value": 49192.84,
+      "benchmark_price": 658.93,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-07",
+      "portfolio_value": 55448.19,
+      "benchmark_price": 659.22,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-08",
+      "portfolio_value": 59593.53,
+      "benchmark_price": 676.01,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-09",
+      "portfolio_value": 59878.19,
+      "benchmark_price": 679.91,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-10",
+      "portfolio_value": 80425.48,
+      "benchmark_price": 679.46,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-13",
+      "portfolio_value": 84627.11,
+      "benchmark_price": 686.1,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-14",
+      "portfolio_value": 81635.16,
+      "benchmark_price": 694.46,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-15",
+      "portfolio_value": 81795.32,
+      "benchmark_price": 699.94,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-16",
+      "portfolio_value": 84112.01,
+      "benchmark_price": 701.66,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-17",
+      "portfolio_value": 87464.86,
+      "benchmark_price": 710.14,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-20",
+      "portfolio_value": 87499.2,
+      "benchmark_price": 708.72,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-21",
+      "portfolio_value": 87475.63,
+      "benchmark_price": 704.08,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-22",
+      "portfolio_value": 88492.91,
+      "benchmark_price": 711.21,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-23",
+      "portfolio_value": 88975.04,
+      "benchmark_price": 708.45,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-24",
+      "portfolio_value": 90678.5,
+      "benchmark_price": 713.94,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-27",
+      "portfolio_value": 96012.28,
+      "benchmark_price": 715.17,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-28",
+      "portfolio_value": 95990.83,
+      "benchmark_price": 711.69,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-29",
+      "portfolio_value": 96034.65,
+      "benchmark_price": 711.58,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-30",
+      "portfolio_value": 96062.64,
+      "benchmark_price": 718.66,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-01",
+      "portfolio_value": 96185.46,
+      "benchmark_price": 720.65,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-04",
+      "portfolio_value": 96247.54,
+      "benchmark_price": 718.01,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-05",
+      "portfolio_value": 96195.37,
+      "benchmark_price": 723.77,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-06",
+      "portfolio_value": 97010.84,
+      "benchmark_price": 733.83,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-07",
+      "portfolio_value": 96972.29,
+      "benchmark_price": 731.58,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-08",
+      "portfolio_value": 97021.11,
+      "benchmark_price": 737.62,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-11",
+      "portfolio_value": 96924.6,
+      "benchmark_price": 739.3,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-12",
+      "portfolio_value": 97244.77,
+      "benchmark_price": 738.18,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-13",
+      "portfolio_value": 97298.37,
+      "benchmark_price": 742.31,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-14",
+      "portfolio_value": 97267.27,
+      "benchmark_price": 748.17,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-15",
+      "portfolio_value": 97233.29,
+      "benchmark_price": 739.17,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-18",
+      "portfolio_value": 97220.08,
+      "benchmark_price": 738.65,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-19",
+      "portfolio_value": 97026.95,
+      "benchmark_price": 733.73,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-20",
+      "portfolio_value": 97245.37,
+      "benchmark_price": 741.25,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-21",
+      "portfolio_value": 97286.44,
+      "benchmark_price": 742.72,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-22",
+      "portfolio_value": 64171.87,
+      "benchmark_price": 745.64,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    }
+  ],
   "source_status": {
-    "performance_history": "unavailable",
-    "monthly_returns": "unavailable"
+    "performance_history": "live",
+    "monthly_returns": "live"
   },
   "range_metrics": {
     "1M": {
       "summary": {
-        "start_value": null,
-        "end_value": null,
+        "start_value": 52386.1,
+        "end_value": 64171.87,
         "net_contributions": 0.0,
-        "investment_gain": null,
+        "investment_gain": 11785.770000000004,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": null,
+        "money_weighted_return_pct": 22.49789543409417,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
       "max_drawdown_pct": null,
-      "monthly_returns": [],
-      "monthly_returns_reliable": false
+      "monthly_returns": [
+        {
+          "month": "2026-01",
+          "return_pct": 0.0
+        },
+        {
+          "month": "2026-04",
+          "return_pct": 5.9376147598382945
+        },
+        {
+          "month": "2026-05",
+          "return_pct": -33.28319061945535
+        }
+      ],
+      "monthly_returns_reliable": true
     },
     "3M": {
       "summary": {
-        "start_value": null,
-        "end_value": null,
-        "net_contributions": 0.0,
-        "investment_gain": null,
+        "start_value": 52386.1,
+        "end_value": 64171.87,
+        "net_contributions": 9963.0,
+        "investment_gain": 1822.770000000004,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": null,
+        "money_weighted_return_pct": 3.1905438361922562,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
       "max_drawdown_pct": null,
-      "monthly_returns": [],
-      "monthly_returns_reliable": false
+      "monthly_returns": [
+        {
+          "month": "2026-01",
+          "return_pct": 0.0
+        },
+        {
+          "month": "2026-02",
+          "return_pct": 1.117036706284491
+        },
+        {
+          "month": "2026-03",
+          "return_pct": -3.1137820790340776
+        },
+        {
+          "month": "2026-04",
+          "return_pct": 71.40734049340085
+        },
+        {
+          "month": "2026-05",
+          "return_pct": -33.28319061945535
+        }
+      ],
+      "monthly_returns_reliable": true
     },
     "YTD": {
       "summary": {
-        "start_value": null,
-        "end_value": null,
-        "net_contributions": 0.0,
-        "investment_gain": null,
+        "start_value": 52386.1,
+        "end_value": 64171.87,
+        "net_contributions": 9963.0,
+        "investment_gain": 1822.770000000004,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": null,
+        "money_weighted_return_pct": 3.278365021193161,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
       "max_drawdown_pct": null,
-      "monthly_returns": [],
-      "monthly_returns_reliable": false
+      "monthly_returns": [
+        {
+          "month": "2026-01",
+          "return_pct": 5.342314087133793
+        },
+        {
+          "month": "2026-02",
+          "return_pct": -6.869635967559862
+        },
+        {
+          "month": "2026-03",
+          "return_pct": -3.1137820790340776
+        },
+        {
+          "month": "2026-04",
+          "return_pct": 71.40734049340085
+        },
+        {
+          "month": "2026-05",
+          "return_pct": -33.28319061945535
+        }
+      ],
+      "monthly_returns_reliable": true
     },
     "1Y": {
       "summary": {
-        "start_value": null,
-        "end_value": null,
-        "net_contributions": 0.0,
-        "investment_gain": null,
+        "start_value": 52386.1,
+        "end_value": 64171.87,
+        "net_contributions": 9963.0,
+        "investment_gain": 1822.770000000004,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": null,
+        "money_weighted_return_pct": 3.278365021193161,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
       "max_drawdown_pct": null,
-      "monthly_returns": [],
-      "monthly_returns_reliable": false
+      "monthly_returns": [
+        {
+          "month": "2026-01",
+          "return_pct": 5.342314087133793
+        },
+        {
+          "month": "2026-02",
+          "return_pct": -6.869635967559862
+        },
+        {
+          "month": "2026-03",
+          "return_pct": -3.1137820790340776
+        },
+        {
+          "month": "2026-04",
+          "return_pct": 71.40734049340085
+        },
+        {
+          "month": "2026-05",
+          "return_pct": -33.28319061945535
+        }
+      ],
+      "monthly_returns_reliable": true
     },
     "All": {
       "summary": {
-        "start_value": null,
-        "end_value": null,
-        "net_contributions": 0.0,
-        "investment_gain": null,
+        "start_value": 52386.1,
+        "end_value": 64171.87,
+        "net_contributions": 9963.0,
+        "investment_gain": 1822.770000000004,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": null,
+        "money_weighted_return_pct": 3.278365021193161,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
       "max_drawdown_pct": null,
-      "monthly_returns": [],
-      "monthly_returns_reliable": false
+      "monthly_returns": [
+        {
+          "month": "2026-01",
+          "return_pct": 5.342314087133793
+        },
+        {
+          "month": "2026-02",
+          "return_pct": -6.869635967559862
+        },
+        {
+          "month": "2026-03",
+          "return_pct": -3.1137820790340776
+        },
+        {
+          "month": "2026-04",
+          "return_pct": 71.40734049340085
+        },
+        {
+          "month": "2026-05",
+          "return_pct": -33.28319061945535
+        }
+      ],
+      "monthly_returns_reliable": true
     }
   }
 } satisfies ImportedDashboardSource
