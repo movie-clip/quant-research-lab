@@ -17,25 +17,12 @@ export type DashboardSession = {
   result: DashboardAnalysis | null
   exposureResult: ExposureAnalysis | null
   factorModel: ExposureFactorModelResponse | null
-  detailEligible: boolean
   activeNodeKind: PortfolioNode['kind'] | null
   admissionSummary: DashboardAnalysis['admission_summary'] | null
   lastImportedFileNames: string[]
   restoredSession: boolean
   importing: boolean
   importError: string | null
-}
-
-export function isDashboardDetailedReviewEligible(
-  result: DashboardAnalysis | null,
-  activeNodeKind: PortfolioNode['kind'] | null | undefined,
-) {
-  const performanceSeries = result?.performance_series ?? []
-  const dailyStates = result?.daily_states ?? []
-  const hasDashboardData = Boolean(result && (performanceSeries.length || dailyStates.length || result.source_status))
-  if (!hasDashboardData) return false
-  if (activeNodeKind && activeNodeKind !== 'imported_base' && activeNodeKind !== 'imported_snapshot') return false
-  return true
 }
 
 export function composeDashboardSession(input: DashboardSessionInput): DashboardSession {
@@ -45,7 +32,6 @@ export function composeDashboardSession(input: DashboardSessionInput): Dashboard
     result: input.result,
     exposureResult: input.exposureResult,
     factorModel: input.factorModel,
-    detailEligible: isDashboardDetailedReviewEligible(input.result, activeNode?.kind),
     activeNodeKind: input.activeNode?.kind ?? null,
     admissionSummary: input.result?.admission_summary ?? (!activeNode || !('kind' in (activeNode.source ?? {})) ? activeNode?.source?.admissionSummary ?? null : null),
     lastImportedFileNames: input.lastImportedFileNames,
