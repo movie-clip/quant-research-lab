@@ -17,8 +17,6 @@ export type DashboardSession = {
   result: DashboardAnalysis | null
   exposureResult: ExposureAnalysis | null
   factorModel: ExposureFactorModelResponse | null
-  activeNodeKind: PortfolioNode['kind'] | null
-  admissionSummary: DashboardAnalysis['admission_summary'] | null
   lastImportedFileNames: string[]
   restoredSession: boolean
   importing: boolean
@@ -26,14 +24,10 @@ export type DashboardSession = {
 }
 
 export function composeDashboardSession(input: DashboardSessionInput): DashboardSession {
-  const activeNode = input.activeNode
-
   return {
     result: input.result,
     exposureResult: input.exposureResult,
     factorModel: input.factorModel,
-    activeNodeKind: input.activeNode?.kind ?? null,
-    admissionSummary: input.result?.admission_summary ?? (!activeNode || !('kind' in (activeNode.source ?? {})) ? activeNode?.source?.admissionSummary ?? null : null),
     lastImportedFileNames: input.lastImportedFileNames,
     restoredSession: input.restoredSession,
     importing: input.importing,

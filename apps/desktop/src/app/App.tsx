@@ -10,7 +10,7 @@ import { composeDashboardSession, type DashboardSession } from './dashboardSessi
 import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidation'
 import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
-import { buildImportAdmissionSummaryFingerprint, buildImportSnapshotFingerprint, clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportAdmissionReviewDisposition, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 
@@ -308,15 +308,6 @@ export function App() {
     importing: importingPortfolio || restoringPortfolio,
     importError,
   })
-  const dashboardImportAnchorNode = getImportedSourceAnchorNode(activeNode, workspaceNodes, activeWorkspace)
-  const dashboardImportSource = getNodeImportSource(dashboardImportAnchorNode, activeWorkspace)
-  const dashboardAdmissionSummary = dashboardImportSource?.admissionSummary ?? dashboardSession.result?.admission_summary ?? dashboardSession.admissionSummary
-  const dashboardAdmissionReviewDispositions = dashboardImportSource?.admissionReviewDispositions ?? {}
-  const dashboardAdmissionSnapshotFingerprint = buildImportSnapshotFingerprint({
-    portfolioSnapshot: dashboardImportAnchorNode?.portfolioSnapshot ?? null,
-    importedSource: dashboardImportSource,
-  })
-  const dashboardAdmissionSummaryFingerprint = buildImportAdmissionSummaryFingerprint(dashboardAdmissionSummary)
   const workflowState = activeWorkspace ? 'Portfolio Loaded' : 'Workspace Empty'
 
   function applyDashboardSession(session: DashboardSession) {
@@ -832,11 +823,6 @@ export function App() {
             result={dashboardSession.result}
             exposureResult={dashboardSession.exposureResult}
             factorModel={dashboardSession.factorModel}
-            activeNodeKind={dashboardSession.activeNodeKind}
-            admissionSummary={dashboardAdmissionSummary}
-            admissionReviewDispositions={dashboardAdmissionReviewDispositions}
-            admissionSnapshotFingerprint={dashboardAdmissionSnapshotFingerprint}
-            admissionSummaryFingerprint={dashboardAdmissionSummaryFingerprint}
             importing={dashboardSession.importing}
             importError={dashboardSession.importError}
             lastImportedFileNames={dashboardSession.lastImportedFileNames}
@@ -845,19 +831,6 @@ export function App() {
             onAppendStatement={dashboardSnapshot && activeWorkspace ? () => openImportPicker('add_snapshot') : undefined}
             onClearImportedSession={activeWorkspace ? handleClearImportedSession : undefined}
             onResetLocalDatabase={handleResetLocalDatabase}
-            onSaveAdmissionReviewDisposition={async (disposition) => {
-              if (!activeWorkspace) return
-              const saved = await saveImportAdmissionReviewDisposition({
-                workspaceId: activeWorkspace.id,
-                nodeId: dashboardImportAnchorNode?.id ?? null,
-                disposition,
-              })
-              setActiveWorkspace(saved.workspace)
-              if (saved.node) {
-                setWorkspaceNodes((nodes) => nodes.map((node) => node.id === saved.node?.id ? saved.node : node))
-                if (saved.node.id === activeNode?.id) setActiveNode(saved.node)
-              }
-            }}
           />
         </section>
       ) : null}
