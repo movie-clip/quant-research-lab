@@ -10,14 +10,6 @@ type ExposurePanelProps = {
   onSnapshotSelect?: (snapshotId: string) => void
 }
 
-type SectorModuleState = {
-  title: string
-  items: Array<{ name: string; marketValue: number; weight: number }>
-  basisNote: string
-  coverageNote: string
-  limitationNote: string | null
-}
-
 type BenchmarkPositioningTrust = 'verified' | 'degraded' | 'partial' | 'unavailable'
 
 type BenchmarkPositioningRow = {
@@ -143,41 +135,6 @@ function buildLookthroughLimitationNote(result: ExposureAnalysis) {
   return 'Limitation: constituent ownership is withheld because look-through is unavailable.'
 }
 
-function buildSectorModuleState(result: ExposureAnalysis): SectorModuleState | null {
-  const availability = result.exposure_availability
-  const lookthroughStatus = availability?.lookthrough_status ?? 'unavailable'
-  const lookthroughSectors = (result.lookthrough_sector_exposure ?? []).filter((item) => item.weight > 0)
-  const holdingsSectors = (result.overview.sector_allocation ?? []).filter((item) => item.weight > 0)
-
-  if (lookthroughStatus !== 'unavailable' && lookthroughSectors.length) {
-    return {
-      title: 'Sector Composition',
-      items: lookthroughSectors.slice(0, 8).map((item) => ({ name: item.sector, marketValue: item.market_value, weight: item.weight })),
-      basisNote: lookthroughStatus === 'live'
-        ? 'Basis: sector mix uses look-through composition.'
-        : 'Basis: sector mix uses look-through where resolved and imported snapshot truth elsewhere.',
-      coverageNote: `Look-through coverage ${formatWeightPct(result.lookthrough.coverage_ratio)} (${lookthroughStatus}).`,
-      limitationNote: lookthroughStatus === 'partial'
-        ? 'Limitation: partial look-through can still shift sector mix.'
-        : null,
-    }
-  }
-
-  if (holdingsSectors.length) {
-    return {
-      title: 'Sector Composition',
-      items: holdingsSectors.slice(0, 8).map((item) => ({ name: item.sector, marketValue: item.market_value, weight: item.weight })),
-      basisNote: 'Basis: sector mix uses imported snapshot truth only.',
-      coverageNote: 'Look-through coverage unavailable for sector mix.',
-      limitationNote: lookthroughStatus === 'partial'
-        ? 'Limitation: sector mix falls back to imported snapshot truth despite partial look-through elsewhere.'
-        : 'Limitation: sector mix does not include constituent ETF unpacking.',
-    }
-  }
-
-  return null
-}
-
 function getBenchmarkPositioningTrust(result: ExposureAnalysis): BenchmarkPositioningTrust {
   const availability = result.exposure_availability
   const overlapStatus = availability?.benchmark_overlap_status ?? 'unavailable'
@@ -281,7 +238,6 @@ export function ExposurePanel({
   snapshotExitOption,
   onSnapshotSelect,
 }: ExposurePanelProps) {
-  const sectorModule = useMemo(() => (result ? buildSectorModuleState(result) : null), [result])
   const benchmarkPositioningModule = useMemo(() => (result ? buildBenchmarkPositioningModuleState(result) : null), [result])
 
   if (!result) {
@@ -380,38 +336,6 @@ export function ExposurePanel({
           </section>
         ) : (
           <UnavailablePanel title="Top constituents unavailable" detail="No defensible constituent list is shown because current look-through inputs did not resolve one." />
-        )}
-        </section>
-
-        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
-          <div className="section-header-inline sector-list-header exposure-section-header">
-            <div className="panel-section-title-block"><p className="panel-label">Sector Composition</p></div>
-            <p className="helper">Look-through when available; otherwise imported snapshot truth.</p>
-          </div>
-        {sectorModule ? (
-          <>
-            <div className="empty-state-panel compact-empty-state">
-              <p className="empty-state-title">{sectorModule.basisNote}</p>
-              <p className="helper">{sectorModule.coverageNote}</p>
-              {sectorModule.limitationNote ? <p className="helper">{sectorModule.limitationNote}</p> : null}
-            </div>
-            <div className="allocation-list">
-              {sectorModule.items.map((item) => (
-                <div className="allocation-row" key={`sector-${item.name}`}>
-                  <div className="allocation-head">
-                    <span>{item.name}</span>
-                    <span>{formatWeightPct(item.weight)}</span>
-                  </div>
-                  <div className="allocation-bar">
-                    <div className="allocation-fill" style={{ width: `${Math.max(item.weight * 100, 2)}%` }} />
-                  </div>
-                  <p className="helper">{formatCompactMoney(item.marketValue)}</p>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <UnavailablePanel title="Sector composition unavailable" detail="Sector output is withheld because neither defensible look-through sector composition nor holdings-level sector truth is available." />
         )}
         </section>
 

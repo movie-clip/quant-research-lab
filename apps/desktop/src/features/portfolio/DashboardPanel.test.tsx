@@ -1,7 +1,11 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
+import { composeExposureView } from './portfolioAnalysisAdapter'
+
+const mockExposureView = composeExposureView(createExposureEngineFixture(), createDiagnosticsEngineFixture())
 
 afterEach(() => {
   cleanup()
@@ -35,6 +39,45 @@ describe('DashboardPanel', () => {
 
     rerender(<DashboardPanel result={null} importError="Import failed: unreadable PDF" />)
     expect(screen.getByText('Import failed: unreadable PDF')).toBeTruthy()
+  })
+
+  it('renders sector donut with look-through sectors when exposure result is provided', () => {
+    render(<DashboardPanel result={null} exposureResult={mockExposureView} />)
+
+    expect(screen.getByLabelText('Sector Composition')).toBeTruthy()
+    expect(screen.getByText('Look-through composition')).toBeTruthy()
+    expect(screen.getByText('Technology')).toBeTruthy()
+    expect(screen.getByText('Health Care')).toBeTruthy()
+    // weights from fixture: Technology 0.4 → 40.0%, Health Care 0.2 → 20.0%
+    expect(screen.getByText('40.0%')).toBeTruthy()
+    expect(screen.getByText('20.0%')).toBeTruthy()
+  })
+
+  it('shows sector donut unavailable state when no data is available', () => {
+    render(<DashboardPanel result={null} exposureResult={null} />)
+
+    expect(screen.getByLabelText('Sector Composition')).toBeTruthy()
+    expect(screen.getByText(/Unavailable/i)).toBeTruthy()
+  })
+
+  it('falls back to dashboard sector allocation when exposure look-through is unavailable', () => {
+    render(
+      <DashboardPanel
+        result={null}
+        exposureResult={{
+          ...mockExposureView,
+          lookthrough_sector_exposure: [],
+          exposure_availability: {
+            ...mockExposureView.exposure_availability!,
+            lookthrough_status: 'unavailable',
+          },
+        }}
+      />,
+    )
+
+    // Falls back to exposureResult.overview.sector_allocation from fixture
+    expect(screen.getByText('Imported snapshot composition')).toBeTruthy()
+    expect(screen.getByText('Technology')).toBeTruthy()
   })
 
   it('normalizes all-range performance from first non-zero portfolio point', () => {

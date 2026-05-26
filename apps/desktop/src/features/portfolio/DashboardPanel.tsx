@@ -1,5 +1,6 @@
 import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse } from './types'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
+import { SectorDonutCard } from './SectorDonutCard'
 
 function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: string | null) {
   if (!loadedStatementsLabel) return null
@@ -86,6 +87,7 @@ export function DashboardPanel({ result, exposureResult = null, factorModel = nu
 
       <div className="dashboard-shell-stack">
         <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
+        <SectorDonutCard result={result} exposureResult={exposureResult} />
       </div>
 
       <div className="dashboard-shell-footer-notes">

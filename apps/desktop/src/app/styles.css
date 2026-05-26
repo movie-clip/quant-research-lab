@@ -2071,6 +2071,75 @@ select.path-input option {
   height: 520px;
 }
 
+/* ── Sector Donut Card ─────────────────────────────────────────────────────── */
+
+.sector-donut-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sector-donut-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.sector-donut-header .helper {
+  margin: 0;
+}
+
+.sector-donut-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.sector-donut-chart-wrap {
+  flex: 0 0 108px;
+  width: 108px;
+  height: 108px;
+}
+
+.sector-donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sector-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+
+.sector-legend-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.sector-legend-name {
+  flex: 1;
+  color: rgba(248, 251, 254, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sector-legend-pct {
+  color: rgba(248, 251, 254, 0.55);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
 .factor-chart-toolbar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -68,16 +68,6 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Look-through coverage 100.00% ($50000.00 of $50000.00).')).toBeTruthy()
   })
 
-  it('renders sector composition from look-through-aware composition when available', () => {
-    render(<ExposurePanel result={mockExposureView} />)
-
-    expect(screen.getAllByText('Sector Composition').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Basis: sector mix uses look-through composition.').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Technology').length).toBeGreaterThan(0)
-    expect(screen.getByText('40.00%')).toBeTruthy()
-    expect(screen.getByText('Health Care')).toBeTruthy()
-  })
-
   it('renders current-state concentration facts only', () => {
     render(<ExposurePanel result={mockExposureView} />)
 
@@ -192,7 +182,6 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Basis: imported snapshot truth plus resolved ETF constituents; unresolved ETFs stay partial.')).toBeTruthy()
     expect(screen.getByText('Look-through coverage 10.00% ($5000.00 of $50000.00).')).toBeTruthy()
     expect(screen.getByText(/Limitation: partial look-through leaves VUAA unresolved/)).toBeTruthy()
-    expect(screen.getByText('Limitation: partial look-through can still shift sector mix.')).toBeTruthy()
     expect(screen.queryByText(/benchmark overlap is unavailable/i)).toBeNull()
   })
 
@@ -293,25 +282,6 @@ describe('ExposurePanel', () => {
     expect(activeRows).toContain('3.00% active')
   })
 
-  it('falls back to holdings truth for sectors when look-through sectors are unavailable', () => {
-    render(
-      <ExposurePanel
-        result={{
-          ...mockExposureView,
-          lookthrough_sector_exposure: [],
-          exposure_availability: {
-            ...mockExposureView.exposure_availability!,
-            lookthrough_status: 'unavailable',
-          },
-        }}
-      />,
-    )
-
-    expect(screen.getAllByText('Basis: sector mix uses imported snapshot truth only.').length).toBeGreaterThan(0)
-    expect(screen.getByText('Look-through coverage unavailable for sector mix.')).toBeTruthy()
-    expect(screen.getByText('Limitation: sector mix does not include constituent ETF unpacking.')).toBeTruthy()
-  })
-
   it('withholds sector and concentration modules when inputs are unavailable', () => {
     render(
       <ExposurePanel
@@ -350,7 +320,6 @@ describe('ExposurePanel', () => {
     )
 
     expect(screen.getByText('Top constituents unavailable')).toBeTruthy()
-    expect(screen.getByText('Sector composition unavailable')).toBeTruthy()
     expect(screen.getByText('Concentration read unavailable')).toBeTruthy()
   })
 })
