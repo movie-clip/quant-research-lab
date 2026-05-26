@@ -124,6 +124,11 @@ FACTOR_BY_LABEL: dict[str, FactorDefinition] = {item.label: item for item in DEF
 ROLLING_WINDOWS: tuple[int, ...] = (20, 60, 252)
 COLLINEARITY_WARNING_THRESHOLD = 0.85
 WINDOW_MIN_OBSERVATIONS: dict[int, int] = {20: 25, 60: 75, 252: 275}
+# Ridge regularization floor per window. Per-window Gram-Schmidt ensures factors are
+# orthogonal within each rolling window, so X'X is well-conditioned and λ=1e-5 provides
+# adequate numerical stability without material coefficient shrinkage. Larger λ values
+# (like 0.01) would shrink daily-return-scale coefficients by >80% — unacceptable bias.
+ROLLING_RIDGE_FLOOR: dict[int, float] = {20: 1e-5, 60: 1e-5, 252: 1e-5}
 SHIFT_FLAG_20D_THRESHOLD = 0.25
 SHIFT_FLAG_60D_THRESHOLD = 0.35
 STABILITY_GAP_THRESHOLD = 0.30
@@ -1351,14 +1356,20 @@ def build_statistical_factor_model(daily_states: list, factor_histories: dict[st
 
     y = [portfolio_returns[date] for date in common_dates]
     factor_series = {factor: [factor_returns[proxy][date] for date in common_dates] for factor, proxy in active_factors}
+    # Global orthogonalization is used only for the full-period model (alpha, specific risk,
+    # current snapshot). Rolling windows re-orthogonalize per-window so that factors are
+    # uncorrelated within each estimation window (see docs/finance/financial-methodology.md).
     orthogonalized_factors = _orthogonalize_factor_series(active_factors, factor_series)
     coefficients, residuals, r_squared = _fit_factor_model(y, orthogonalized_factors)
     alpha_annualized = coefficients[0] * 252 * 100
     specific_risk = _calculate_annualized_volatility(residuals) * 100 if len(residuals) >= 2 else None
     collinearity_warnings = _build_factor_collinearity_warnings(common_dates, factor_series, window=60)
-    rolling_loadings = _build_rolling_factor_loadings(common_dates, y, orthogonalized_factors, window=20)
-    rolling_loadings_60d = _build_rolling_factor_loadings(common_dates, y, orthogonalized_factors, window=60)
-    rolling_loadings_252d = _build_rolling_factor_loadings(common_dates, y, orthogonalized_factors, window=252)
+    # Pass raw (non-orthogonalized) factor series to the rolling functions — orthogonalization
+    # is performed inside _build_rolling_factor_loadings on each window slice.
+    raw_factor_data = [(factor, proxy, factor_series[factor]) for factor, proxy in active_factors]
+    rolling_loadings = _build_rolling_factor_loadings(common_dates, y, raw_factor_data, window=20)
+    rolling_loadings_60d = _build_rolling_factor_loadings(common_dates, y, raw_factor_data, window=60)
+    rolling_loadings_252d = _build_rolling_factor_loadings(common_dates, y, raw_factor_data, window=252)
     current_factor_snapshot = _build_current_factor_snapshot(rolling_loadings, rolling_loadings_60d, rolling_loadings_252d)
     collinearity_diagnostics = _build_collinearity_diagnostics(common_dates, factor_series)
     insufficient_history = _build_insufficient_history(common_dates, active_factors)
@@ -1572,9 +1583,36 @@ def _orthogonalize_factor_series(active_factors: list[tuple[str, str]], factor_s
 
 
 
-def _fit_factor_model(y: list[float], orthogonalized_factors: list[tuple[str, str, list[float]]]) -> tuple[list[float], list[float], float | None]:
+def _orthogonalize_factors_window(raw_factors: list[tuple[str, str, list[float]]]) -> list[tuple[str, str, list[float]]]:
+    """Gram-Schmidt orthogonalization over a single pre-sliced window.
+
+    Unlike _orthogonalize_factor_series (which works from a full-series dict),
+    this helper operates on already-windowed (factor, proxy, values) tuples.
+    Calling this inside every rolling-window iteration guarantees that the
+    resulting factors are mutually uncorrelated *within that window*, which is
+    the correctness requirement for per-window ridge OLS.
+    """
+    orthogonalized: list[tuple[str, str, list[float]]] = []
+    for factor, proxy, values in raw_factors:
+        if not orthogonalized:
+            orthogonalized.append((factor, proxy, values))
+            continue
+        design_matrix = [[1.0] + [prior_values[i] for _, _, prior_values in orthogonalized] for i in range(len(values))]
+        proj_coefficients = _least_squares(design_matrix, values, ridge_lambda=1e-5)
+        fitted = [_dot(row, proj_coefficients) for row in design_matrix]
+        residualized = [actual - expected for actual, expected in zip(values, fitted, strict=False)]
+        if not any(abs(v) > 1e-12 for v in residualized):
+            # Factor is collinear with earlier ones in this window — keep raw to
+            # preserve its label for coefficient mapping, but coefficient is unreliable.
+            orthogonalized.append((factor, proxy, values))
+            continue
+        orthogonalized.append((factor, proxy, residualized))
+    return orthogonalized
+
+
+def _fit_factor_model(y: list[float], orthogonalized_factors: list[tuple[str, str, list[float]]], ridge_lambda: float = 1e-5) -> tuple[list[float], list[float], float | None]:
     x = [[1.0] + [values[index] for _, _, values in orthogonalized_factors] for index in range(len(y))]
-    coefficients = _least_squares(x, y, ridge_lambda=1e-5)
+    coefficients = _least_squares(x, y, ridge_lambda=ridge_lambda)
     fitted = [_dot(row, coefficients) for row in x]
     residuals = [actual - expected for actual, expected in zip(y, fitted, strict=False)]
     mean_y = sum(y) / len(y)
@@ -1584,18 +1622,35 @@ def _fit_factor_model(y: list[float], orthogonalized_factors: list[tuple[str, st
     return coefficients, residuals, r_squared
 
 
-def _build_rolling_factor_loadings(dates: list[str], y: list[float], orthogonalized_factors: list[tuple[str, str, list[float]]], window: int = 20) -> list[RollingFactorLoadingPoint]:
+def _build_rolling_factor_loadings(dates: list[str], y: list[float], raw_factors: list[tuple[str, str, list[float]]], window: int = 20) -> list[RollingFactorLoadingPoint]:
+    """Build rolling OLS factor loadings with per-window orthogonalization.
+
+    For each date t the function:
+      1. Slices the raw factor return series to the rolling window [t-w+1, t].
+      2. Gram-Schmidt orthogonalizes the sliced factors so they are uncorrelated
+         *within this window* (not just over the full history).
+      3. Fits ridge OLS with a window-proportional floor (see ROLLING_RIDGE_FLOOR)
+         to prevent coefficient blowup in short, near-singular windows.
+
+    raw_factors must be the unorthogonalized series; the caller (build_statistical_factor_model)
+    is responsible for passing raw_factor_data, not the globally-orthogonalized series.
+    """
     points: list[RollingFactorLoadingPoint] = []
     factor_keys = {definition.label: definition.key for definition in DEFAULT_FACTOR_DEFINITIONS}
     min_observations = WINDOW_MIN_OBSERVATIONS.get(window, window)
+    ridge_floor = ROLLING_RIDGE_FLOOR.get(window, 1e-5)
     for index, date in enumerate(dates):
         if index + 1 < min_observations:
             points.append(RollingFactorLoadingPoint(date=date))
             continue
-        y_window = y[index - window + 1 : index + 1]
-        factors_window = [(factor, proxy, values[index - window + 1 : index + 1]) for factor, proxy, values in orthogonalized_factors]
-        coefficients, residuals, r_squared = _fit_factor_model(y_window, factors_window)
-        values_map = {factor_keys[factor]: round(coefficients[position + 1], 4) for position, (factor, _, _) in enumerate(factors_window) if factor in factor_keys}
+        start = index - window + 1
+        y_window = y[start : index + 1]
+        raw_window = [(factor, proxy, values[start : index + 1]) for factor, proxy, values in raw_factors]
+        # Per-window Gram-Schmidt: orthogonalize within this window so that each
+        # coefficient is a clean partial loading after controlling for higher-priority factors.
+        orthogonalized_window = _orthogonalize_factors_window(raw_window)
+        coefficients, residuals, r_squared = _fit_factor_model(y_window, orthogonalized_window, ridge_lambda=ridge_floor)
+        values_map = {factor_keys[factor]: round(coefficients[position + 1], 4) for position, (factor, _, _) in enumerate(orthogonalized_window) if factor in factor_keys}
         points.append(
             RollingFactorLoadingPoint(
                 date=date,

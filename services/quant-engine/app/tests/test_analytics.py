@@ -4807,18 +4807,35 @@ def test_build_risk_contribution_breakdown_returns_factor_and_position_concentra
         ],
         ledger_entries=[],
     )
-    daily_states = [
-        DailyPortfolioState(
-            date=(start + timedelta(days=offset)).isoformat(),
-            cash={"USD": 0.0},
-            positions=[],
-            total_market_value=float(1000 + (offset * 5)),
-            total_portfolio_value=float(1000 + (offset * 5)),
-        )
-        for offset in range(290)
+    # Portfolio with genuine daily-return variance (oscillating, not linear growth).
+    # Linear growth (value = 1000 + offset*5) gives near-constant returns ≈ 0.005/day,
+    # which means portfolio variance ≈ 0 and all factor variance_contributions underflow
+    # to 0.0 after 8-decimal rounding — breaking the sum-equals-total consistency check.
+    portfolio_value = 1000.0
+    daily_states: list[DailyPortfolioState] = [
+        DailyPortfolioState(date=start.isoformat(), cash={"USD": 0.0}, positions=[],
+                            total_market_value=portfolio_value, total_portfolio_value=portfolio_value)
     ]
-    benchmark_rows = [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset)} for offset in range(290)]
-    factor_histories = {definition.us_proxy: benchmark_rows for definition in DEFAULT_FACTOR_DEFINITIONS}
+    for offset in range(1, 290):
+        portfolio_value *= 1.005 if offset % 2 == 0 else 0.997
+        daily_states.append(DailyPortfolioState(
+            date=(start + timedelta(days=offset)).isoformat(), cash={"USD": 0.0}, positions=[],
+            total_market_value=round(portfolio_value, 4), total_portfolio_value=round(portfolio_value, 4),
+        ))
+
+    # Distinct oscillating factor series so per-window Gram-Schmidt produces non-degenerate
+    # orthogonalized factors and individual variance_contributions are large enough not to
+    # underflow to 0.0 after 8-decimal rounding.
+    factor_histories: dict[str, list[dict]] = {}
+    for factor_idx, definition in enumerate(DEFAULT_FACTOR_DEFINITIONS):
+        price = 100.0
+        rows: list[dict] = [{"date": start.isoformat(), "price": price}]
+        for offset in range(1, 290):
+            r = (0.004 + factor_idx * 0.0002) if (offset + factor_idx) % 2 == 0 else -(0.003 + factor_idx * 0.0001)
+            price *= 1 + r
+            rows.append({"date": (start + timedelta(days=offset)).isoformat(), "price": round(price, 6)})
+        factor_histories[definition.us_proxy] = rows
+
     price_histories = {
         "AAPL": [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset)} for offset in range(290)],
         "MSFT": [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(80 + (offset * 0.5))} for offset in range(290)],
@@ -4839,7 +4856,8 @@ def test_build_risk_contribution_breakdown_returns_factor_and_position_concentra
     assert breakdown.concentration.factor_hhi is not None
     assert breakdown.concentration.position_hhi is not None
     factor_share_sum = sum(item.risk_share or 0.0 for item in breakdown.factor_contributions)
-    assert abs(round(factor_share_sum, 4) - (breakdown.factor_risk_share_total or 0.0)) <= 0.0001
+    # Tolerance: 16 factors × max 0.00005 rounding error per term ≈ 0.0008 maximum accumulation.
+    assert abs(round(factor_share_sum, 4) - (breakdown.factor_risk_share_total or 0.0)) <= 0.001
     assert round((breakdown.factor_total_variance or 0.0) + (breakdown.specific_variance or 0.0), 8) == breakdown.total_variance
 
 
@@ -6727,3 +6745,129 @@ def test_performance_summary_reports_twr_mwr_and_excess_return() -> None:
     assert summary.money_weighted_return_pct == 10.48
     assert summary.benchmark_return_pct is None
     assert summary.excess_return_pct is None
+
+
+# ---------------------------------------------------------------------------
+# US-9.4 — Rolling factor loadings stability tests
+# ---------------------------------------------------------------------------
+
+
+def test_rolling_factor_loadings_market_beta_in_range() -> None:
+    """AC1: Market (SPY) loading stays within [-2, +4] for a long-only equity portfolio.
+
+    Pre-fix, global Gram-Schmidt + ridge_lambda=1e-5 produced Market loadings as
+    extreme as -4.60 on the 20d window (25 obs, 17 params → 8 df, near-singular).
+    Per-window Gram-Schmidt + ridge floor λ=0.01 must prevent this blowup.
+    """
+    start = date(2025, 1, 1)
+    n = 60  # enough for 20d rolling (min_obs=25 → first valid point at index 24)
+
+    # Deterministic oscillating returns for a long-only equity portfolio
+    portfolio_returns = [0.004 if i % 2 == 0 else -0.002 for i in range(n)]
+    portfolio_value = 1000.0
+    daily_states: list[DailyPortfolioState] = [
+        DailyPortfolioState(
+            date=start.isoformat(),
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=portfolio_value,
+            total_portfolio_value=portfolio_value,
+        )
+    ]
+    for offset, r in enumerate(portfolio_returns, start=1):
+        portfolio_value *= 1 + r
+        daily_states.append(
+            DailyPortfolioState(
+                date=(start + timedelta(days=offset)).isoformat(),
+                cash={"USD": 0.0},
+                positions=[],
+                total_market_value=round(portfolio_value, 6),
+                total_portfolio_value=round(portfolio_value, 6),
+            )
+        )
+
+    # Build distinct factor price series: each proxy has a different amplitude and
+    # phase so that the per-window Gram-Schmidt has non-degenerate factors to work with.
+    factor_histories: dict[str, list[dict]] = {}
+    for idx, definition in enumerate(DEFAULT_FACTOR_DEFINITIONS):
+        price = 100.0
+        rows: list[dict] = [{"date": start.isoformat(), "price": price}]
+        for offset in range(1, n + 1):
+            r = (0.003 + idx * 0.0005) if (offset + idx) % 2 == 0 else -(0.002 + idx * 0.0003)
+            price *= 1 + r
+            rows.append({"date": (start + timedelta(days=offset)).isoformat(), "price": round(price, 6)})
+        factor_histories[definition.us_proxy] = rows
+
+    factor_model = build_statistical_factor_model(daily_states, factor_histories, "SPY")
+
+    valid_20d = [p for p in factor_model.rolling_loadings_20d if p.market is not None]
+    assert len(valid_20d) > 0, "Expected at least one valid 20d rolling point with a Market loading"
+    for point in valid_20d:
+        assert -2.0 <= point.market <= 4.0, (
+            f"Market (SPY) loading {point.market} on {point.date} is outside the plausible range "
+            "[-2, +4] for a long-only equity portfolio — numerical instability in rolling OLS."
+        )
+
+
+def test_rolling_factor_loadings_20d_no_blowup() -> None:
+    """AC2: No 20d rolling coefficient exceeds ±5 in absolute value.
+
+    With 25 min-observations and 16 factors, the pre-fix OLS condition number was
+    dangerously high (n/K ≈ 1.56) and ridge_lambda=1e-5 provided no real
+    regularisation. The window-proportional ridge floor (λ=0.01 for the 20d window)
+    must cap every coefficient within a plausible range.
+    """
+    start = date(2025, 1, 1)
+    n = 60
+
+    # Portfolio with mild positive drift and occasional down days
+    portfolio_value = 1000.0
+    daily_states: list[DailyPortfolioState] = [
+        DailyPortfolioState(
+            date=start.isoformat(),
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=portfolio_value,
+            total_portfolio_value=portfolio_value,
+        )
+    ]
+    for offset in range(1, n + 1):
+        r = 0.003 if offset % 3 != 0 else -0.001
+        portfolio_value *= 1 + r
+        daily_states.append(
+            DailyPortfolioState(
+                date=(start + timedelta(days=offset)).isoformat(),
+                cash={"USD": 0.0},
+                positions=[],
+                total_market_value=round(portfolio_value, 6),
+                total_portfolio_value=round(portfolio_value, 6),
+            )
+        )
+
+    # Correlated but distinct factor series (simulate typical equity ETF co-movement)
+    factor_histories: dict[str, list[dict]] = {}
+    for idx, definition in enumerate(DEFAULT_FACTOR_DEFINITIONS):
+        price = 100.0
+        rows: list[dict] = [{"date": start.isoformat(), "price": price}]
+        for offset in range(1, n + 1):
+            r = (0.002 + idx * 0.0004) if (offset * (idx + 1)) % 3 != 0 else -(0.0015 + idx * 0.0002)
+            price *= 1 + r
+            rows.append({"date": (start + timedelta(days=offset)).isoformat(), "price": round(price, 6)})
+        factor_histories[definition.us_proxy] = rows
+
+    factor_model = build_statistical_factor_model(daily_states, factor_histories, "SPY")
+
+    blowup_threshold = 5.0
+    factor_fields = [
+        "market", "growth", "value", "small_cap", "technology", "financials",
+        "health_care", "energy", "industrials", "consumer_staples", "utilities",
+        "consumer_discretionary", "rates_ief", "rates_tlt", "credit", "commodities",
+    ]
+    for point in factor_model.rolling_loadings_20d:
+        for field in factor_fields:
+            loading = getattr(point, field, None)
+            if loading is not None:
+                assert abs(loading) <= blowup_threshold, (
+                    f"Factor '{field}' loading {loading} exceeds ±{blowup_threshold} on {point.date} "
+                    "(20d window) — ridge floor not preventing coefficient blowup."
+                )

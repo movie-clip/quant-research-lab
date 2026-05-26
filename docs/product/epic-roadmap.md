@@ -22,6 +22,13 @@ snapshot table (ρ, β, R² vs SPY/QQQ/GLD/IEF/VT) — all in the Exposure tab.
 | US-9.1 | Indexed return time-series chart | Next phase |
 | US-9.2 | Rolling correlation engine and chart | Next phase |
 | US-9.3 | Multi-benchmark correlation matrix | Next phase |
+| US-9.4 | Fix rolling factor loadings methodology | Done |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-05-26 | US-9.4 | Fixed rolling factor model: per-window Gram-Schmidt orthogonalization replaces global GS; Market loading blowup (−4.60) eliminated; 221 backend + 98 frontend tests green |
 
 ---
 

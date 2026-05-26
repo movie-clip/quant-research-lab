@@ -173,14 +173,68 @@ Implementation:
 - `services/quant-engine/app/analytics/risk.py`
 - `factor_model_methodology()`
 
-Core mechanics:
-- factor proxy returns use simple daily returns on the selected history price series
-- later factors are orthogonalized against earlier factors in configured order
-- regression uses a very light ridge stabilization term
-- rolling windows currently include `20d`, `60d`, and `252d`
+### Per-window orthogonalization (corrected methodology — US-9.4)
+
+Gram-Schmidt orthogonalization is performed **within each rolling window**, not
+over the full date range. This guarantees that the orthogonalized factors are
+mutually uncorrelated within the window used for regression, so each coefficient
+has a clean "partial loading" interpretation.
+
+```text
+For each date t with window w = [t−w+1, t]:
+
+  1. Slice raw factor returns to the window:
+       f_k(window) = daily returns of proxy_k on dates [t−w+1, t]
+
+  2. Gram-Schmidt within the window (orthogonalization order: market=1,
+     growth=2, value=3, small_cap=4, technology=5, financials=6, ...):
+       F*_1 = f_1          (Market/SPY — unmodified)
+       F*_k = f_k − Σ_{j<k} (<f_k, F*_j> / <F*_j, F*_j>) × F*_j
+              where <a, b> = Σ_i a_i × b_i  (inner product over the window)
+
+  3. Ridge-stabilized OLS:
+       X = [1, F*_1, ..., F*_K]       (K = active factor count)
+       β = (X'X + λ·D)⁻¹ X'y
+       D = diag(0, 1, 1, ..., 1)      (ridge on factor columns only)
+
+       Ridge floor: λ = 1e-5 for all windows.
+       Per-window Gram-Schmidt guarantees orthogonal factors within each window,
+       so X'X is well-conditioned and a small λ provides numerical stability
+       without material coefficient shrinkage. (λ=0.01 would shrink a typical
+       daily-return-scale coefficient by >80% — unacceptable bias.)
+
+  4. Reported loading for factor k = β_{k+1}
+     Interpretation: unit of portfolio return per unit of orthogonalized factor k
+                     after controlling for all higher-priority factors.
+```
+
+Edge cases:
+- Window has fewer than `WINDOW_MIN_OBSERVATIONS[w]` dates: return null for all
+  factors on that date; never partial-fill.
+- A factor's orthogonalized residual has zero variance (collinear with earlier
+  factors in this window): skip that factor's coefficient (null), do not
+  propagate to later factors.
+- R² reported per point is the in-sample OLS fit; it is diagnostic only and
+  must not be used to claim out-of-sample explanatory power.
+
+Academic precedent:
+- Fama, E.F. & French, K.R. (1993). "Common risk factors in the returns on
+  stocks and bonds." *Journal of Financial Economics*, 33(1), 3–56.
+  (Orthogonal factor construction over the estimation window.)
+- Connor, G. & Korajczyk, R. (1988). "Risk and return in an equilibrium APT."
+  *Journal of Financial Economics*, 21(2), 255–289.
+  (Rolling estimation consistency for factor models.)
+- Bai, J. & Ng, S. (2002). "Determining the number of factors in approximate
+  factor models." *Econometrica*, 70(1), 191–221.
+  (Stability of factor estimates under short windows.)
 
 Contract rule:
 - factor-model and risk-contribution paths degrade explicitly when their return-basis trust is not proven
+- rolling window coefficients are in-sample regression coefficients; they carry
+  synthetic-history trust class (not verified), because they apply current
+  holdings weights to historical price data
+- a Market loading outside [−2, +4] for a long-only equity portfolio indicates
+  numerical instability; the ridge floor must be sufficient to prevent this
 
 ## Risk Contribution and Concentration
 
