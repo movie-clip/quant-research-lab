@@ -257,24 +257,15 @@ export function RollingFactorLoadingsCard({ result, factorModel }: { result: Exp
     <section className="dashboard-bottom-grid factor-master-detail-section">
       <div className="section-header-inline sector-list-header">
         <div><p className="panel-label">Rolling Factor Analysis</p></div>
-        <p className="helper">Historical rolling-factor diagnostics across the selected window. {formatCoverageLabel(rollingFactorCoverage)}{selectedWindowSummary ? ` · status ${selectedWindowSummary.status}` : ''}{scenarioPreview ? ' Scenario edits do not rerun these rolling historical loadings.' : ''}</p>
-      </div>
-      <div className="factor-snapshot-meta-row">
-        <p className="helper">Methodology: {resolvedFactorModel.methodology}</p>
-        <p className="helper">Window status: {selectedWindowSummary?.status ?? resolvedFactorModel.statistical_factor_model.status ?? 'n/a'}</p>
-        <p className="helper">Observations: {selectedWindowSummary?.observations ?? 0}</p>
-        <p className="helper">Benchmark: {resolvedFactorModel.statistical_factor_model.benchmark_symbol ?? result.benchmark?.symbol ?? 'SPY'}</p>
-        <p className="helper">Reliability: {result.model_reliability.confidence} confidence{scenarioPreview ? ' · current snapshot values stay scenario-aware elsewhere while this chart remains baseline historical' : ''}</p>
+        <p className="helper">{formatCoverageLabel(rollingFactorCoverage)}{scenarioPreview ? ' · scenario edits do not rerun these loadings.' : ''}</p>
       </div>
       <div className="factor-chart-toolbar factor-chart-toolbar-inline">
         <div className="factor-chart-toolbar-group">
-          <p className="stat-label">Window</p>
           <div className="toggle-group factor-toggle-group" aria-label="Rolling loading window selector">
             {ROLLING_WINDOW_OPTIONS.map((window) => <button className={`toggle-chip factor-toggle-chip${rollingWindow === window ? ' active' : ''}`} key={window} onClick={() => setRollingWindow(window)} type="button">{window}d</button>)}
           </div>
         </div>
         <div className="factor-chart-toolbar-group">
-          <p className="stat-label">Group</p>
           <div className="toggle-group factor-toggle-group" aria-label="Factor group filter">
             <button className={`toggle-chip factor-toggle-chip${factorFilter === 'all' ? ' active' : ''}`} onClick={() => setFactorFilter('all')} type="button">All</button>
             <button className={`toggle-chip factor-toggle-chip${factorFilter === 'market_style' ? ' active' : ''}`} onClick={() => setFactorFilter('market_style')} type="button">Market/Style</button>

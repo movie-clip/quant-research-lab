@@ -80,12 +80,10 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Technology')).toBeTruthy()
   })
 
-  it('renders benchmark positioning card with trust badge and compact active rows', () => {
+  it('renders benchmark positioning card with summary metrics and compact active rows', () => {
     render(<DashboardPanel result={null} exposureResult={mockExposureView} />)
 
     expect(screen.getByLabelText('Benchmark Positioning')).toBeTruthy()
-    // Trust badge from fixture (verified benchmark holdings)
-    expect(screen.getByText('verified')).toBeTruthy()
     // Summary metrics present
     expect(screen.getByText('In benchmark')).toBeTruthy()
     expect(screen.getByText('Active share')).toBeTruthy()
@@ -117,10 +115,9 @@ describe('DashboardPanel', () => {
     )
 
     expect(screen.getByText('Benchmark-relative positioning unavailable')).toBeTruthy()
-    expect(screen.getByText('unavailable')).toBeTruthy()
   })
 
-  it('shows degraded trust badge when benchmark holdings support is degraded', () => {
+  it('shows degraded coverage note when benchmark holdings support is degraded', () => {
     render(
       <DashboardPanel
         result={null}
@@ -137,7 +134,6 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    expect(screen.getByText('degraded')).toBeTruthy()
     expect(screen.getByText(/Positioning degraded versus SPY/)).toBeTruthy()
   })
 

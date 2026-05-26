@@ -47,7 +47,7 @@ function buildState(
     if (status !== 'unavailable' && ltSectors.length) {
       return {
         kind: 'data',
-        slices: ltSectors.slice(0, 10).map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
+        slices: ltSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
         basisNote: status === 'live' ? 'Look-through composition' : 'Look-through (partial)',
       }
     }
@@ -55,7 +55,7 @@ function buildState(
     if (expSectors.length) {
       return {
         kind: 'data',
-        slices: expSectors.slice(0, 10).map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
+        slices: expSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
         basisNote: 'Imported snapshot composition',
       }
     }
@@ -65,7 +65,7 @@ function buildState(
   if (dashSectors.length) {
     return {
       kind: 'data',
-      slices: dashSectors.slice(0, 10).map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
+      slices: dashSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
       basisNote: 'Imported snapshot composition',
     }
   }

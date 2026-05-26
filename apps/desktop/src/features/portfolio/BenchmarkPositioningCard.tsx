@@ -103,15 +103,6 @@ function buildBenchmarkState(result: ExposureAnalysis): BenchmarkState {
   }
 }
 
-// ─── badge ────────────────────────────────────────────────────────────────────
-
-const TRUST_BADGE: Record<BenchmarkTrust, string> = {
-  verified: 'dashboard-snapshot-status-trusted',
-  degraded: 'dashboard-snapshot-status-degraded',
-  partial: 'dashboard-snapshot-status-partial',
-  unavailable: 'dashboard-snapshot-status-unavailable',
-}
-
 // ─── component ────────────────────────────────────────────────────────────────
 
 type BenchmarkPositioningCardProps = {
@@ -139,7 +130,6 @@ export function BenchmarkPositioningCard({ exposureResult }: BenchmarkPositionin
     <section className="summary-card benchmark-positioning-card" aria-label="Benchmark Positioning">
       <div className="benchmark-card-header">
         <p className="panel-label">Benchmark Positioning</p>
-        <span className={`dashboard-snapshot-status ${TRUST_BADGE[bm.trust]}`}>{bm.trust}</span>
       </div>
 
       <p className="helper benchmark-card-note">{bm.coverageNote}</p>

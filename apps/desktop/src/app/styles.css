@@ -2101,13 +2101,13 @@ select.path-input option {
 .sector-pie-body {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
 }
 
 .sector-pie-chart-wrap {
-  flex: 0 0 128px;
-  width: 128px;
-  height: 128px;
+  flex: 0 0 168px;
+  width: 168px;
+  height: 168px;
 }
 
 .sector-pie-svg {
@@ -2125,18 +2125,18 @@ select.path-input option {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .sector-legend-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 11.5px;
-  line-height: 1.3;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
   cursor: default;
   border-radius: 4px;
-  padding: 1px 3px;
+  padding: 2px 4px;
   transition: background 0.12s ease;
 }
 
@@ -2145,9 +2145,9 @@ select.path-input option {
 }
 
 .sector-legend-dot {
-  flex: 0 0 8px;
-  width: 8px;
-  height: 8px;
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
 }
 
@@ -2167,7 +2167,7 @@ select.path-input option {
 .sector-legend-pct {
   color: rgba(248, 251, 254, 0.5);
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size: 12.5px;
   transition: color 0.12s ease;
 }
 
