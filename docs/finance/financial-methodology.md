@@ -236,6 +236,67 @@ Contract rule:
 - a Market loading outside [−2, +4] for a long-only equity portfolio indicates
   numerical instability; the ridge floor must be sufficient to prevent this
 
+### Sector exposure vs. factor loading — why they can diverge
+
+**Sector exposure** (Exposure tab) and **factor loading** (Rolling Factor Analysis) measure
+fundamentally different quantities and will routinely disagree. Treating a negative
+Technology factor loading as evidence the portfolio is "short tech" when the Exposure tab
+shows 32% Technology is a misreading of both numbers.
+
+```text
+Sector exposure  = Σ w_i  for all holdings i classified in sector S
+                 = portfolio weight in that sector by current holdings composition
+                 Source: snapshot analytics (holdings-based, no return history needed)
+
+Factor loading   = β_k in the orthogonalized OLS regression:
+                   r_portfolio = α + β_market·F*_market + β_growth·F*_growth
+                                   + β_value·F*_value + β_small_cap·F*_small_cap
+                                   + β_technology·F*_technology + ...
+                 where F*_technology = XLK_returns − proj(XLK onto all prior factors)
+                 = sensitivity of portfolio RETURNS to the RESIDUAL sector effect
+                   after removing everything the higher-priority factors already explain
+                 Source: synthetic history (returns-based, 20/60/252d rolling window)
+```
+
+**Why a negative Technology loading is compatible with a large Technology sector weight:**
+
+The orthogonalization order places Growth (QQQ, order 2) before Technology (XLK, order 5).
+QQQ (Nasdaq-100) is ~50% Technology sector companies by GICS classification and overlaps
+heavily with XLK. Gram-Schmidt removes the QQQ component from XLK before Technology enters
+the regression. The residual `F*_technology` then represents the *pure sector-specific* tech
+move not explained by the growth/QQQ factor.
+
+For a portfolio whose technology holdings are dominated by mega-cap names (Apple, Microsoft,
+Nvidia) that also constitute the bulk of QQQ, the Growth factor absorbs most of the tech
+return variation. The residual `F*_technology` effect can be small, noisy, or negative over
+any given 20-day window — even when 30%+ of the portfolio is classified as Technology
+by GICS.
+
+Concretely, β_technology = −0.64 means:
+  "Over the last 20 trading days, after accounting for broad market, growth-style, value,
+   and size moves, the pure XLK sector effect had a mild negative relationship with this
+   portfolio's daily returns."
+
+This is not evidence of a short position or a data error. It is evidence that:
+  (a) the portfolio's technology exposure is better captured by the Growth factor than by
+      the residual sector factor, and/or
+  (b) the specific XLK sector constituents (non-QQQ-overlap tech) moved opposite to the
+      portfolio during this window.
+
+Academic reference:
+- Grinold, R.C. & Kahn, R.N. (2000). *Active Portfolio Management*, 2nd ed., Ch. 2–3
+  (McGraw-Hill). (Factor loading vs. portfolio weight distinction; why holdings composition
+  and return attribution diverge in orthogonalized multi-factor models.)
+- Barra / MSCI factor model documentation: sector factor loadings are orthogonal to style
+  factors by construction; a neutral sector loading is expected when style factors dominate
+  return variation within that sector.
+
+Consumer rule:
+- Do not interpret a negative sector factor loading as a short position.
+- Do not treat sector factor loading and sector holdings weight as interchangeable.
+- The factor loading describes return behaviour over the rolling window; the sector
+  weight describes current composition. They answer different questions.
+
 ## Risk Contribution and Concentration
 
 The project reports position and factor risk contribution metrics plus concentration diagnostics.
