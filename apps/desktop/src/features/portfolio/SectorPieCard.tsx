@@ -37,13 +37,18 @@ type SectorPieState =
   | { kind: 'data'; slices: SectorSlice[]; basisNote: string }
   | { kind: 'unavailable' }
 
+// Minimum weight to render a slice — suppresses "0.0%" phantom entries from
+// futures (Equity Index) and other sub-basis-point residuals that pass the
+// backend's weight>0 check but round to 0.0% in the display.
+const MIN_SLICE_WEIGHT = 0.0005
+
 function buildState(
   result: DashboardAnalysis | null,
   exposureResult: ExposureAnalysis | null,
 ): SectorPieState {
   if (exposureResult) {
     const status = exposureResult.exposure_availability?.lookthrough_status ?? 'unavailable'
-    const ltSectors = (exposureResult.lookthrough_sector_exposure ?? []).filter((s) => s.weight > 0)
+    const ltSectors = (exposureResult.lookthrough_sector_exposure ?? []).filter((s) => s.weight >= MIN_SLICE_WEIGHT)
     if (status !== 'unavailable' && ltSectors.length) {
       return {
         kind: 'data',
@@ -51,7 +56,7 @@ function buildState(
         basisNote: status === 'live' ? 'Look-through composition' : 'Look-through (partial)',
       }
     }
-    const expSectors = (exposureResult.overview?.sector_allocation ?? []).filter((s) => s.weight > 0)
+    const expSectors = (exposureResult.overview?.sector_allocation ?? []).filter((s) => s.weight >= MIN_SLICE_WEIGHT)
     if (expSectors.length) {
       return {
         kind: 'data',
@@ -61,7 +66,7 @@ function buildState(
     }
   }
 
-  const dashSectors = (result?.overview?.sector_allocation ?? []).filter((s) => s.weight > 0)
+  const dashSectors = (result?.overview?.sector_allocation ?? []).filter((s) => s.weight >= MIN_SLICE_WEIGHT)
   if (dashSectors.length) {
     return {
       kind: 'data',

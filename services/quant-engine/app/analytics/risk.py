@@ -1029,6 +1029,10 @@ def build_lookthrough_sector_exposure(lookthrough_constituents: list[LookThrough
         if abs(remainder) > 0.01:
             sector_totals[default_sector] += remainder
 
+    # Suppress sectors below 0.05% weight — these round to "0.0%" in the UI
+    # and typically represent futures residuals (Equity Index) or tiny ETF tail
+    # constituents that would appear as phantom zero-weight entries.
+    MIN_SECTOR_WEIGHT = 0.0005
     return [
         LookThroughSectorExposure(
             sector=sector,
@@ -1036,6 +1040,7 @@ def build_lookthrough_sector_exposure(lookthrough_constituents: list[LookThrough
             weight=round(market_value / total_market_value, 4) if total_market_value else 0.0,
         )
         for sector, market_value in sorted(sector_totals.items(), key=lambda item: item[1], reverse=True)
+        if total_market_value and market_value / total_market_value >= MIN_SECTOR_WEIGHT
     ]
 
 
