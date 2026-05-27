@@ -226,30 +226,33 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
             onSelect={setSelectedIndex}
           />
         </div>
-        <ul className="sector-pie-legend" aria-label="Sector weights">
-          {state.slices.map((slice, index) => {
-            const isSelected = selectedIndex === index
-            const isHovered = hoverIndex === index
-            return (
-              <li
-                key={slice.name}
-                className={[
-                  'sector-legend-row',
-                  isSelected ? 'sector-legend-row-selected' : '',
-                  isHovered ? 'sector-legend-row-active' : '',
-                ].filter(Boolean).join(' ')}
-                style={isSelected ? { borderLeftColor: slice.color } : undefined}
-                onMouseEnter={() => setHoverIndex(index)}
-                onMouseLeave={() => setHoverIndex(null)}
-                onClick={() => setSelectedIndex(index)}
-              >
-                <span className="sector-legend-dot" style={{ background: slice.color }} />
-                <span className="sector-legend-name">{slice.name}</span>
-                <span className="sector-legend-pct">{(slice.weight * 100).toFixed(1)}%</span>
-              </li>
-            )
-          })}
-        </ul>
+        <div className="sector-legend-column">
+          <p className="sector-holdings-cap" style={{ color: 'rgba(248,251,254,0.28)' }}>Sectors</p>
+          <ul className="sector-pie-legend" aria-label="Sector weights">
+            {state.slices.map((slice, index) => {
+              const isSelected = selectedIndex === index
+              const isHovered = hoverIndex === index
+              return (
+                <li
+                  key={slice.name}
+                  className={[
+                    'sector-legend-row',
+                    isSelected ? 'sector-legend-row-selected' : '',
+                    isHovered ? 'sector-legend-row-active' : '',
+                  ].filter(Boolean).join(' ')}
+                  style={isSelected ? { borderLeftColor: slice.color } : undefined}
+                  onMouseEnter={() => setHoverIndex(index)}
+                  onMouseLeave={() => setHoverIndex(null)}
+                  onClick={() => setSelectedIndex(index)}
+                >
+                  <span className="sector-legend-dot" style={{ background: slice.color }} />
+                  <span className="sector-legend-name">{slice.name}</span>
+                  <span className="sector-legend-pct">{(slice.weight * 100).toFixed(1)}%</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
         {displaySlice && (
           <HoldingsPanel
             slice={displaySlice}

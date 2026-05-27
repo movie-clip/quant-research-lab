@@ -2114,12 +2114,18 @@ select.path-input option {
   overflow: visible;
 }
 
+.sector-legend-column {
+  flex: 0 0 auto;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .sector-pie-legend {
   list-style: none;
   margin: 0;
   padding: 0;
-  flex: 0 0 auto;
-  width: 200px;
   display: flex;
   flex-direction: column;
   gap: 1px;
