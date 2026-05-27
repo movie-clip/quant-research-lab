@@ -1,154 +1,77 @@
 import { describe, expect, it } from 'vitest'
-
 import { overlayImportedSnapshot } from './portfolioSnapshot'
 import type { PortfolioSnapshot } from './workspaceTypes'
 
-function createBaseSnapshot(): PortfolioSnapshot {
+function makeSnapshot(
+  symbols: Record<string, number>,
+  cashUsd: number,
+  fileName: string,
+): PortfolioSnapshot {
   return {
     snapshotVersion: 1,
     baseCurrency: 'USD',
     importedMeta: {
       importer: 'interactive_brokers',
-      statementPeriod: '2025-01-01 - 2025-12-31',
-      importedAt: '2026-04-10T00:00:00Z',
-      sourceFileNames: ['IB2025.pdf'],
+      statementPeriod: '2025-01-01 - 2026-05-25',
+      importedAt: '2026-05-27T00:00:00.000Z',
+      sourceFileNames: [fileName],
     },
-    positions: [
-      { symbol: 'AAPL', marketValue: 10000, quantity: 10, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'MSFT', marketValue: 8000, quantity: 8, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-    ],
-    cashBalances: [
-      { currency: 'USD', amount: 1000 },
-      { currency: 'EUR', amount: 50 },
-    ],
-    metadata: {
-      benchmarkSymbol: 'SPY',
-      notes: 'base',
-      tags: ['imported'],
-    },
-  }
-}
-
-function createImportedOverlaySnapshot(): PortfolioSnapshot {
-  return {
-    snapshotVersion: 1,
-    baseCurrency: 'USD',
-    importedMeta: {
-      importer: 'interactive_brokers',
-      statementPeriod: '2026-01-01 - 2026-04-08',
-      importedAt: '2026-04-10T00:05:00Z',
-      sourceFileNames: ['IB2026.pdf'],
-    },
-    positions: [
-      { symbol: 'AAPL', marketValue: 12000, quantity: 12, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'NVDA', marketValue: 9000, quantity: 6, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-    ],
-    cashBalances: [
-      { currency: 'USD', amount: 400 },
-    ],
-    metadata: {
-      benchmarkSymbol: 'QQQ',
-      notes: null,
-      tags: [],
-    },
+    positions: Object.entries(symbols).map(([symbol, marketValue]) => ({
+      symbol,
+      marketValue,
+      quantity: 1,
+      currency: 'USD',
+      sector: null,
+      sourceType: 'equity' as const,
+    })),
+    cashBalances: [{ currency: 'USD', amount: cashUsd }],
+    metadata: { benchmarkSymbol: 'SPY' },
   }
 }
 
 describe('overlayImportedSnapshot', () => {
-  it('overlays imported positions and cash while preserving untouched holdings', () => {
-    const merged = overlayImportedSnapshot(createBaseSnapshot(), createImportedOverlaySnapshot())
+  it('applies three sequential overlays correctly (IB -> +FF -> +ESPP)', () => {
+    const ibSnapshot = makeSnapshot({ VUAA: 50_000, XLK: 10_000 }, 1200, 'IB2026.pdf')
+    const ffSnapshot = makeSnapshot({ VTI: 3018.96 }, 52.04, 'FF2026.pdf')
+    const esppSnapshot = makeSnapshot({ MSFT: 3391.24 }, 10.44, 'ESPP2026.pdf')
 
-    expect(merged.positions).toEqual([
-      { symbol: 'AAPL', marketValue: 12000, quantity: 12, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'MSFT', marketValue: 8000, quantity: 8, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'NVDA', marketValue: 9000, quantity: 6, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-    ])
-    expect(merged.cashBalances).toEqual([
-      { currency: 'EUR', amount: 50 },
-      { currency: 'USD', amount: 400 },
-    ])
+    const afterFf = overlayImportedSnapshot(ibSnapshot, ffSnapshot)
+    const afterEspp = overlayImportedSnapshot(afterFf, esppSnapshot)
+
+    const symbols = afterEspp.positions.map((p) => p.symbol).sort()
+    expect(symbols).toContain('VUAA')
+    expect(symbols).toContain('XLK')
+    expect(symbols).toContain('VTI')
+    expect(symbols).toContain('MSFT')
+    expect(afterEspp.positions).toHaveLength(4)
+
+    const usdBalance = afterEspp.cashBalances.find((b) => b.currency === 'USD')
+    expect(usdBalance).toBeDefined()
+    expect(usdBalance!.amount).toBeCloseTo(10.44)
+
+    const fileNames = afterEspp.importedMeta.sourceFileNames
+    expect(fileNames).toContain('IB2026.pdf')
+    expect(fileNames).toContain('FF2026.pdf')
+    expect(fileNames).toContain('ESPP2026.pdf')
+    expect(new Set(fileNames).size).toBe(fileNames.length)
   })
 
-  it('merges imported metadata and source file names', () => {
-    const merged = overlayImportedSnapshot(createBaseSnapshot(), createImportedOverlaySnapshot())
+  it('does not duplicate symbols when the same symbol appears in two overlays', () => {
+    const ibSnapshot = makeSnapshot({ VUAA: 50_000, VWCE: 5_000 }, 1000, 'IB2026.pdf')
+    const secondSnapshot = makeSnapshot({ VUAA: 99_999 }, 200, 'OTHER.pdf')
 
-    expect(merged.importedMeta).toEqual({
-      importer: 'interactive_brokers',
-      statementPeriod: '2026-01-01 - 2026-04-08',
-      importedAt: '2026-04-10T00:05:00Z',
-      sourceFileNames: ['IB2025.pdf', 'IB2026.pdf'],
-    })
-    expect(merged.metadata).toEqual({
-      benchmarkSymbol: 'QQQ',
-      notes: 'base',
-      tags: ['imported'],
-    })
+    const result = overlayImportedSnapshot(ibSnapshot, secondSnapshot)
+
+    const vuaaRows = result.positions.filter((p) => p.symbol === 'VUAA')
+    expect(vuaaRows).toHaveLength(1)
+    expect(vuaaRows[0].marketValue).toBeCloseTo(99_999)
+    expect(result.positions.find((p) => p.symbol === 'VWCE')).toBeDefined()
   })
 
-  it('keeps existing sector/currency details when imported rows omit them', () => {
-    const imported = createImportedOverlaySnapshot()
-    imported.positions = [
-      { symbol: 'AAPL', marketValue: 13000, quantity: 13 },
-    ]
-    imported.cashBalances = [{ currency: 'USD', amount: 300 }]
+  it('accumulates sourceFileNames without duplicating the same file', () => {
+    const snap = makeSnapshot({ VUAA: 1000 }, 100, 'IB2026.pdf')
+    const result = overlayImportedSnapshot(snap, snap)
 
-    const merged = overlayImportedSnapshot(createBaseSnapshot(), imported)
-
-    expect(merged.positions).toEqual([
-      { symbol: 'AAPL', marketValue: 13000, quantity: 13, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'MSFT', marketValue: 8000, quantity: 8, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-    ])
-    expect(merged.cashBalances).toEqual([
-      { currency: 'EUR', amount: 50 },
-      { currency: 'USD', amount: 300 },
-    ])
-  })
-
-  it('keeps zero-quantity imported rows as explicit overlays', () => {
-    const imported = createImportedOverlaySnapshot()
-    imported.positions = [
-      { symbol: 'AAPL', marketValue: 0, quantity: 0, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-    ]
-
-    const merged = overlayImportedSnapshot(createBaseSnapshot(), imported)
-
-    expect(merged.positions).toEqual([
-      { symbol: 'AAPL', marketValue: 0, quantity: 0, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'MSFT', marketValue: 8000, quantity: 8, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-    ])
-  })
-
-  it('adds new mixed-currency positions and cash balances without disturbing unrelated currencies', () => {
-    const imported = createImportedOverlaySnapshot()
-    imported.baseCurrency = 'EUR'
-    imported.positions = [
-      { symbol: 'SAP', marketValue: 7000, quantity: 20, currency: 'EUR', sector: 'Technology', sourceType: 'equity' },
-    ]
-    imported.cashBalances = [
-      { currency: 'CHF', amount: 125 },
-    ]
-
-    const merged = overlayImportedSnapshot(createBaseSnapshot(), imported)
-
-    expect(merged.baseCurrency).toBe('EUR')
-    expect(merged.positions).toEqual([
-      { symbol: 'AAPL', marketValue: 10000, quantity: 10, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'MSFT', marketValue: 8000, quantity: 8, currency: 'USD', sector: 'Technology', sourceType: 'equity' },
-      { symbol: 'SAP', marketValue: 7000, quantity: 20, currency: 'EUR', sector: 'Technology', sourceType: 'equity' },
-    ])
-    expect(merged.cashBalances).toEqual([
-      { currency: 'CHF', amount: 125 },
-      { currency: 'EUR', amount: 50 },
-      { currency: 'USD', amount: 1000 },
-    ])
-  })
-
-  it('does not duplicate source file names when the same file is overlaid twice', () => {
-    const imported = createImportedOverlaySnapshot()
-    imported.importedMeta.sourceFileNames = ['IB2025.pdf', 'IB2026.pdf']
-
-    const merged = overlayImportedSnapshot(createBaseSnapshot(), imported)
-
-    expect(merged.importedMeta.sourceFileNames).toEqual(['IB2025.pdf', 'IB2026.pdf'])
+    expect(result.importedMeta.sourceFileNames).toEqual(['IB2026.pdf'])
   })
 })

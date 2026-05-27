@@ -18,7 +18,18 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 9 — Portfolio Correlation & Co-movement Analysis (active)
+### Epic 10 — Multi-broker Import Correctness (active)
+
+PRD: [`prd/epic-10-multi-broker-import-correctness.md`](../prd/epic-10-multi-broker-import-correctness.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-10.1](US-10.1-three-broker-combine-tests.md) | 3-way combine and API-level import tests | Backend pytest — combine + import_statements + analytics | Done |
+| [US-10.2](US-10.2-add-statement-overlay-tests.md) | Sequential add-statement overlay tests | Frontend vitest — overlayImportedSnapshot 3-step flow | Done |
+
+---
+
+### Epic 9 — Portfolio Correlation & Co-movement Analysis (parked)
 
 PRD: [`prd/epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.md)
 

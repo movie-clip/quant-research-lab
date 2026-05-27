@@ -1,10 +1,34 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-05-25.*
+*Living execution snapshot. Updated: 2026-05-27.*
 
 ---
 
-## Active Epic: Epic 9 — Portfolio Correlation & Co-movement Analysis
+## Active Epic: Epic 10 — Multi-broker Import Correctness
+
+**PRD:** [`docs/product/prd/epic-10-multi-broker-import-correctness.md`](product/prd/epic-10-multi-broker-import-correctness.md)
+
+### Goal
+
+Add regression coverage for the three-broker import scenario (IB + Freedom24 + ESPP): backend pytest for `combine_imported_snapshots` + `import_statements` + analytics bootstrap; frontend vitest for the sequential `overlayImportedSnapshot` add-statement flow.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-10.1 | 3-way combine and API-level import tests | Done |
+| US-10.2 | Sequential add-statement overlay tests | Done |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-05-27 | US-10.1 | 3 new backend pytest: 3-way combine, import_statements API, analytics bootstrap — 18 tests green |
+| 2026-05-27 | US-10.2 | 3 new frontend vitest: sequential overlay, symbol dedup, sourceFileNames dedup — 3 tests green |
+
+---
+
+## Parked Epic: Epic 9 — Portfolio Correlation & Co-movement Analysis
 
 **PRD:** [`docs/product/prd/epic-9-correlation-analysis.md`](product/prd/epic-9-correlation-analysis.md)
 

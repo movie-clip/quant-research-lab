@@ -289,3 +289,85 @@ def test_import_statement_surfaces_parser_errors_for_supported_broker_pdf() -> N
         import_statement(DOCS_DIR / "FF2026.pdf")
 
     assert "Unsupported broker statement PDF" not in str(exc_info.value)
+
+
+def test_three_broker_combine_ib_ff_espp() -> None:
+    if not STATEMENT_2026_PATH.exists() or not FREEDOM24_2026_PATH.exists() or not ESPP_PATH.exists():
+        return
+
+    ib = import_interactive_brokers_statement(STATEMENT_2026_PATH)
+    ff = import_freedom24_statement(FREEDOM24_2026_PATH)
+    espp = import_espp_statement(ESPP_PATH)
+
+    combined = combine_imported_snapshots([ib, ff, espp])
+
+    # Importer and account ID
+    assert combined.statement.importer == "multi_broker"
+    assert "U8516450" in combined.statement.account_id   # IB
+    assert "185960" in combined.statement.account_id     # FF
+    assert "I09548809" in combined.statement.account_id  # ESPP
+    assert len(combined.statements) == 3
+
+    # Source paths include all three files
+    source_paths = combined.statement.source_path
+    assert STATEMENT_2026_PATH.name in source_paths
+    assert FREEDOM24_2026_PATH.name in source_paths
+    assert ESPP_PATH.name in source_paths
+
+    # Period spans from earliest start (ESPP 2025-01-01) to IB end
+    assert combined.statement.statement_period is not None
+    assert combined.statement.statement_period.startswith("2025-01-01")
+
+    # Positions: all three brokers contribute distinct symbols (no IB/ESPP overlap)
+    symbols = {p.symbol for p in combined.positions}
+    assert "VTI" in symbols    # from FF2026
+    assert "MSFT" in symbols   # from ESPP2026
+    assert "VUAA" in symbols   # from IB2026
+    assert len(combined.positions) == len(ib.positions) + 2  # +VTI +MSFT
+
+    # Ledger: all three brokers' entries are present (with dedup tolerance)
+    total_raw = len(ib.ledger_entries) + len(ff.ledger_entries) + len(espp.ledger_entries)
+    assert len(combined.ledger_entries) >= total_raw - 10
+
+    # Starting NAV: ESPP has no starting_nav (None) — combined must NOT be zero or None.
+    # The earliest non-null starting_nav from the sorted snapshot list (FF or IB) is used.
+    assert combined.statement_totals is not None
+    assert (combined.statement_totals.starting_nav or 0) > 0
+
+
+def test_import_statements_three_broker_api_function() -> None:
+    if not STATEMENT_2026_PATH.exists() or not FREEDOM24_2026_PATH.exists() or not ESPP_PATH.exists():
+        return
+
+    from app.services.statement_importer import import_statements
+
+    combined = import_statements([str(STATEMENT_2026_PATH), str(FREEDOM24_2026_PATH), str(ESPP_PATH)])
+
+    assert combined.statement.importer == "multi_broker"
+    assert len(combined.statements) == 3
+    symbols = {p.symbol for p in combined.positions}
+    assert "VTI" in symbols
+    assert "MSFT" in symbols
+    assert "VUAA" in symbols
+    assert combined.statement.statement_period is not None
+    assert combined.statement.statement_period.startswith("2025-01-01")
+
+
+def test_import_bootstrap_three_broker_no_crash() -> None:
+    if not STATEMENT_2026_PATH.exists() or not FREEDOM24_2026_PATH.exists() or not ESPP_PATH.exists():
+        return
+
+    from app.services.import_engine import build_import_bootstrap
+    from app.schemas.import_bootstrap import ImportedBootstrapResponse
+
+    result = build_import_bootstrap(
+        [str(STATEMENT_2026_PATH), str(FREEDOM24_2026_PATH), str(ESPP_PATH)],
+        "SPY",
+        {},
+    )
+
+    assert isinstance(result, ImportedBootstrapResponse)
+    assert result.overview is not None
+    assert len(result.overview.sector_allocation) > 0
+    assert result.history_context is not None
+    assert result.history_context.history_start_date == "2025-01-01"
