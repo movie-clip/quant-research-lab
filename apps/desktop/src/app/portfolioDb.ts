@@ -1,24 +1,28 @@
 const databaseName = 'portfolio-workstation'
-const databaseVersion = 17
+const databaseVersion = 18
 
 export const appStateStoreName = 'app-state'
 export const workspaceStoreName = 'workspaces'
 export const portfolioNodeStoreName = 'portfolio_nodes'
 export const workingDraftStoreName = 'working_drafts'
 export const workspaceStateStoreName = 'workspace_state'
-export const candidateImprovementDraftStoreName = 'candidate_improvement_drafts'
-export const intentBoundSeededEtfReplacementRankingDraftStoreName = 'intent_bound_seeded_etf_replacement_ranking_drafts'
-export const replacementIntentDraftStoreName = 'replacement_intent_drafts'
-export const formedCandidateStoreName = 'formed_candidate_drafts'
-export const constructedCandidateStoreName = 'constructed_candidate_drafts'
-export const constructionConstraintValidationStoreName = 'construction_constraint_validation_drafts'
-export const selectedConstructionRuleStoreName = 'selected_construction_rule_drafts'
-export const hypotheticalReplacementReplayDraftStoreName = 'hypothetical_replacement_replay_drafts'
-export const versionedProposalStoreName = 'versioned_proposals'
-export const activeThesisStoreName = 'active_thesis'
-export const persistedConstructionArtifactReviewStoreName = 'persisted_construction_artifact_reviews'
-export const persistedOptimizerHandoffReviewStoreName = 'persisted_optimizer_handoff_reviews'
-export const reviewSnapshotArtifactStoreName = 'review_snapshot_artifacts'
+
+// Store names for removed workflow features — kept here only to delete them on upgrade
+const _legacyStoreNames = [
+  'candidate_improvement_drafts',
+  'intent_bound_seeded_etf_replacement_ranking_drafts',
+  'replacement_intent_drafts',
+  'formed_candidate_drafts',
+  'constructed_candidate_drafts',
+  'construction_constraint_validation_drafts',
+  'selected_construction_rule_drafts',
+  'hypothetical_replacement_replay_drafts',
+  'versioned_proposals',
+  'active_thesis',
+  'persisted_construction_artifact_reviews',
+  'persisted_optimizer_handoff_reviews',
+  'review_snapshot_artifacts',
+]
 
 let databasePromise: Promise<IDBDatabase> | null = null
 let openDatabaseHandle: IDBDatabase | null = null
@@ -44,6 +48,7 @@ export function openPortfolioDatabase() {
         const database = request.result
         const oldVersion = event.oldVersion
 
+        // v3 migration: clean up very-old store names that were renamed
         if (request.transaction && oldVersion < 3) {
           const storeNames = [
             appStateStoreName,
@@ -51,22 +56,19 @@ export function openPortfolioDatabase() {
             portfolioNodeStoreName,
             workingDraftStoreName,
             workspaceStateStoreName,
-            candidateImprovementDraftStoreName,
-            intentBoundSeededEtfReplacementRankingDraftStoreName,
-            replacementIntentDraftStoreName,
-            formedCandidateStoreName,
-            constructedCandidateStoreName,
-            constructionConstraintValidationStoreName,
-            selectedConstructionRuleStoreName,
-            hypotheticalReplacementReplayDraftStoreName,
-            versionedProposalStoreName,
-            activeThesisStoreName,
-            persistedConstructionArtifactReviewStoreName,
-            persistedOptimizerHandoffReviewStoreName,
-            reviewSnapshotArtifactStoreName,
+            ..._legacyStoreNames,
           ]
 
           for (const storeName of storeNames) {
+            if (database.objectStoreNames.contains(storeName)) {
+              database.deleteObjectStore(storeName)
+            }
+          }
+        }
+
+        // v18 migration: remove workflow stores no longer used after Epic 8
+        if (request.transaction && oldVersion < 18) {
+          for (const storeName of _legacyStoreNames) {
             if (database.objectStoreNames.contains(storeName)) {
               database.deleteObjectStore(storeName)
             }
@@ -90,59 +92,6 @@ export function openPortfolioDatabase() {
         }
         if (!database.objectStoreNames.contains(workspaceStateStoreName)) {
           database.createObjectStore(workspaceStateStoreName, { keyPath: 'workspaceId' })
-        }
-        if (!database.objectStoreNames.contains(candidateImprovementDraftStoreName)) {
-          const store = database.createObjectStore(candidateImprovementDraftStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(intentBoundSeededEtfReplacementRankingDraftStoreName)) {
-          const store = database.createObjectStore(intentBoundSeededEtfReplacementRankingDraftStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(replacementIntentDraftStoreName)) {
-          const store = database.createObjectStore(replacementIntentDraftStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(formedCandidateStoreName)) {
-          const store = database.createObjectStore(formedCandidateStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(constructedCandidateStoreName)) {
-          const store = database.createObjectStore(constructedCandidateStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(constructionConstraintValidationStoreName)) {
-          const store = database.createObjectStore(constructionConstraintValidationStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(selectedConstructionRuleStoreName)) {
-          const store = database.createObjectStore(selectedConstructionRuleStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(hypotheticalReplacementReplayDraftStoreName)) {
-          const store = database.createObjectStore(hypotheticalReplacementReplayDraftStoreName, { keyPath: 'draftId' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(versionedProposalStoreName)) {
-          const store = database.createObjectStore(versionedProposalStoreName, { keyPath: 'id' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(activeThesisStoreName)) {
-          database.createObjectStore(activeThesisStoreName, { keyPath: 'workspaceId' })
-        }
-        if (!database.objectStoreNames.contains(persistedConstructionArtifactReviewStoreName)) {
-          const store = database.createObjectStore(persistedConstructionArtifactReviewStoreName, { keyPath: 'workspaceId' })
-          store.createIndex('constructionArtifactId', 'constructionArtifactId', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(persistedOptimizerHandoffReviewStoreName)) {
-          const store = database.createObjectStore(persistedOptimizerHandoffReviewStoreName, { keyPath: 'workspaceId' })
-          store.createIndex('handoffId', 'handoffReference.handoff_id', { unique: false })
-          store.createIndex('artifactId', 'handoffReference.artifact_id', { unique: false })
-        }
-        if (!database.objectStoreNames.contains(reviewSnapshotArtifactStoreName)) {
-          const store = database.createObjectStore(reviewSnapshotArtifactStoreName, { keyPath: 'id' })
-          store.createIndex('workspaceId', 'workspaceId', { unique: false })
-          store.createIndex('reviewSnapshotArtifactId', 'reviewSnapshotArtifactId', { unique: false })
         }
       }
 

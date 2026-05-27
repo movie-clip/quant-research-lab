@@ -716,7 +716,6 @@ describe('portfolioWorkspaceStorage', () => {
     const draft = await portfolioWorkspaceStorage.createDraftFromNode({ workspaceId: 'workspace-1', baseNodeId: 'node-1' })
 
     expect(getNodeSpy).toHaveBeenCalled()
-    expect(getNodeSpy.mock.calls.some((call) => call[0] === portfolioDb.candidateImprovementDraftStoreName && call[1] === 'readwrite')).toBe(true)
     expect(draft).toMatchObject({
       id: 'draft-1',
       workspaceId: 'workspace-1',

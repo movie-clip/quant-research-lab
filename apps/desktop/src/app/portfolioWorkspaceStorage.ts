@@ -1,4 +1,4 @@
-import { activeThesisStoreName, appStateStoreName, candidateImprovementDraftStoreName, constructedCandidateStoreName, constructionConstraintValidationStoreName, deletePortfolioDatabase, formedCandidateStoreName, hypotheticalReplacementReplayDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, persistedConstructionArtifactReviewStoreName, persistedOptimizerHandoffReviewStoreName, portfolioNodeStoreName, replacementIntentDraftStoreName, reviewSnapshotArtifactStoreName, selectedConstructionRuleStoreName, versionedProposalStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
+import { appStateStoreName, deletePortfolioDatabase, portfolioNodeStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount } from '../features/portfolio/portfolioSnapshot'
 import type { ImportAdmissionReviewDispositionV1, ImportAdmissionSummaryV1, ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
@@ -464,70 +464,6 @@ export async function saveDraft(draft: WorkingDraft) {
   })
 }
 
-async function deleteCandidateImprovementDraft(draftId: string) {
-  await withStore<void>(candidateImprovementDraftStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete candidate improvement draft'))
-  })
-}
-
-async function deleteIntentBoundSeededEtfReplacementRankingDraft(draftId: string) {
-  await withStore<void>(intentBoundSeededEtfReplacementRankingDraftStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete intent-bound seeded ETF replacement ranking draft'))
-  })
-}
-
-async function deleteFormedCandidateArtifact(draftId: string) {
-  await withStore<void>(formedCandidateStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete formed candidate artifact'))
-  })
-}
-
-async function deleteConstructionConstraintValidationArtifact(draftId: string) {
-  await withStore<void>(constructionConstraintValidationStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete construction constraint validation artifact'))
-  })
-}
-
-async function deleteConstructedCandidateArtifact(draftId: string) {
-  await withStore<void>(constructedCandidateStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete constructed candidate artifact'))
-  })
-}
-
-async function deleteSelectedConstructionRule(draftId: string) {
-  await withStore<void>(selectedConstructionRuleStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete selected construction rule'))
-  })
-}
-
-async function deleteReplacementIntentDraft(draftId: string) {
-  await withStore<void>(replacementIntentDraftStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete replacement intent draft'))
-  })
-}
-
-async function deleteHypotheticalReplacementReplayDraft(draftId: string) {
-  await withStore<void>(hypotheticalReplacementReplayDraftStoreName, 'readwrite', (store, resolve, reject) => {
-    const request = store.delete(draftId)
-    request.onsuccess = () => resolve(undefined)
-    request.onerror = () => reject(request.error ?? new Error('Failed to delete hypothetical replay draft'))
-  })
-}
-
 export async function createDraftFromNode(input: { workspaceId: string; baseNodeId: string; name?: string }) {
   const node = await getNode(input.baseNodeId)
   if (!node) throw new Error('Base node not found')
@@ -543,14 +479,6 @@ export async function createDraftFromNode(input: { workspaceId: string; baseNode
     portfolioSnapshot: clonePortfolioSnapshot(node.portfolioSnapshot),
   }
   await saveDraft(draft)
-  await deleteCandidateImprovementDraft(draft.id)
-  await deleteIntentBoundSeededEtfReplacementRankingDraft(draft.id)
-  await deleteReplacementIntentDraft(draft.id)
-  await deleteFormedCandidateArtifact(draft.id)
-  await deleteConstructedCandidateArtifact(draft.id)
-  await deleteConstructionConstraintValidationArtifact(draft.id)
-  await deleteSelectedConstructionRule(draft.id)
-  await deleteHypotheticalReplacementReplayDraft(draft.id)
   return draft
 }
 
@@ -641,7 +569,7 @@ export async function saveImportedSnapshotNode(input: {
     baseCurrency: input.portfolioSnapshot.baseCurrency,
     historyContext: input.historyContext ?? null,
     importedHistorySnapshot: input.importedHistorySnapshot ?? null,
-    admissionSummary: input.admissionSummary ?? (!('kind' in workspace.source) ? workspace.source.admissionSummary ?? null : null),
+    admissionSummary: input.admissionSummary ?? workspace.source.admissionSummary ?? null,
   })
 
   const node: PortfolioNode = {
@@ -669,23 +597,11 @@ export async function saveImportedSnapshotNode(input: {
 }
 
 export async function clearPortfolioWorkspaceState() {
-  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName, candidateImprovementDraftStoreName, intentBoundSeededEtfReplacementRankingDraftStoreName, replacementIntentDraftStoreName, formedCandidateStoreName, constructedCandidateStoreName, constructionConstraintValidationStoreName, selectedConstructionRuleStoreName, hypotheticalReplacementReplayDraftStoreName, versionedProposalStoreName, activeThesisStoreName, persistedConstructionArtifactReviewStoreName, persistedOptimizerHandoffReviewStoreName], 'readwrite', (transaction, resolve, reject) => {
+  await withStores([workspaceStoreName, portfolioNodeStoreName, workingDraftStoreName, workspaceStateStoreName, appStateStoreName], 'readwrite', (transaction, resolve, reject) => {
     transaction.objectStore(workspaceStoreName).clear()
     transaction.objectStore(portfolioNodeStoreName).clear()
     transaction.objectStore(workingDraftStoreName).clear()
     transaction.objectStore(workspaceStateStoreName).clear()
-    transaction.objectStore(candidateImprovementDraftStoreName).clear()
-    transaction.objectStore(intentBoundSeededEtfReplacementRankingDraftStoreName).clear()
-    transaction.objectStore(replacementIntentDraftStoreName).clear()
-    transaction.objectStore(formedCandidateStoreName).clear()
-    transaction.objectStore(constructedCandidateStoreName).clear()
-    transaction.objectStore(constructionConstraintValidationStoreName).clear()
-    transaction.objectStore(selectedConstructionRuleStoreName).clear()
-    transaction.objectStore(hypotheticalReplacementReplayDraftStoreName).clear()
-    transaction.objectStore(versionedProposalStoreName).clear()
-    transaction.objectStore(activeThesisStoreName).clear()
-    transaction.objectStore(persistedConstructionArtifactReviewStoreName).clear()
-    transaction.objectStore(persistedOptimizerHandoffReviewStoreName).clear()
     const request = transaction.objectStore(appStateStoreName).delete(activeWorkspacePointerKey)
     request.onsuccess = () => resolve(undefined)
     request.onerror = () => reject(request.error ?? new Error('Failed to clear workspace state'))
