@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
@@ -44,12 +44,15 @@ describe('DashboardPanel', () => {
   it('renders sector pie with direct portfolio composition when exposure result is provided', () => {
     render(<DashboardPanel result={null} exposureResult={mockExposureView} />)
 
-    expect(screen.getByLabelText('Sector Composition')).toBeTruthy()
-    expect(screen.getByText('Technology')).toBeTruthy()
-    expect(screen.getByText('Financials')).toBeTruthy()
+    const pieCard = screen.getByLabelText('Sector Composition')
+    expect(pieCard).toBeTruthy()
+    // legend contains both sectors (Technology appears in legend + holdings header, use legend scope)
+    const legend = within(pieCard).getByLabelText('Sector weights')
+    expect(within(legend).getByText('Technology')).toBeTruthy()
+    expect(within(legend).getByText('Financials')).toBeTruthy()
     // weights from fixture overview.sector_allocation: Technology 0.36 → 36.0%, Financials 0.24 → 24.0%
-    expect(screen.getByText('36.0%')).toBeTruthy()
-    expect(screen.getByText('24.0%')).toBeTruthy()
+    expect(within(legend).getByText('36.0%')).toBeTruthy()
+    expect(within(legend).getByText('24.0%')).toBeTruthy()
   })
 
   it('shows sector pie unavailable state when no data is available', () => {
@@ -75,7 +78,8 @@ describe('DashboardPanel', () => {
     )
 
     // Always uses direct ETF-level allocation from overview.sector_allocation
-    expect(screen.getByText('Technology')).toBeTruthy()
+    const pieCard = screen.getByLabelText('Sector Composition')
+    expect(within(within(pieCard).getByLabelText('Sector weights')).getByText('Technology')).toBeTruthy()
   })
 
   it('renders benchmark positioning card with summary metrics and compact active rows', () => {
@@ -86,8 +90,9 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('In benchmark')).toBeTruthy()
     expect(screen.getByText('Active share')).toBeTruthy()
     // Compact active weight format — fixture top overweight: AAPL +17%
-    expect(screen.getByText('AAPL')).toBeTruthy()
-    expect(screen.getByText('+17.0%')).toBeTruthy()
+    const bmCard = screen.getByLabelText('Benchmark Positioning')
+    expect(within(bmCard).getByText('AAPL')).toBeTruthy()
+    expect(within(bmCard).getByText('+17.0%')).toBeTruthy()
   })
 
   it('shows benchmark positioning unavailable when benchmark overlap is unavailable', () => {

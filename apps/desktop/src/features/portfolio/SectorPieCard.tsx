@@ -32,26 +32,30 @@ function sectorColor(name: string, index: number): string {
 // ─── data model ──────────────────────────────────────────────────────────────
 
 type SectorSlice = { name: string; weight: number; color: string }
+type HoldingRow = { symbol: string; weight: number }
 
 type SectorPieState =
-  | { kind: 'data'; slices: SectorSlice[]; basisNote: string }
+  | { kind: 'data'; slices: SectorSlice[]; breakdown: Record<string, HoldingRow[]> }
   | { kind: 'unavailable' }
 
-// Minimum weight to render a slice — suppresses "0.0%" phantom entries from
-// futures (Equity Index) and other sub-basis-point residuals that pass the
-// backend's weight>0 check but round to 0.0% in the display.
 const MIN_SLICE_WEIGHT = 0.0005
 
 function buildState(
   result: DashboardAnalysis | null,
   exposureResult: ExposureAnalysis | null,
 ): SectorPieState {
+  const rawBreakdown = exposureResult?.overview?.sector_position_breakdown ?? {}
+  const breakdown: Record<string, HoldingRow[]> = {}
+  for (const [sector, rows] of Object.entries(rawBreakdown)) {
+    breakdown[sector] = [...rows].sort((a, b) => b.weight - a.weight)
+  }
+
   const expSectors = (exposureResult?.overview?.sector_allocation ?? []).filter((s) => s.weight >= MIN_SLICE_WEIGHT)
   if (expSectors.length) {
     return {
       kind: 'data',
       slices: expSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
-      basisNote: 'Portfolio composition',
+      breakdown,
     }
   }
 
@@ -60,7 +64,7 @@ function buildState(
     return {
       kind: 'data',
       slices: dashSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
-      basisNote: 'Portfolio composition',
+      breakdown,
     }
   }
 
@@ -72,7 +76,7 @@ function buildState(
 const CX = 80
 const CY = 80
 const R = 72
-const GAP_RAD = 0.03 // gap between slices in radians
+const GAP_RAD = 0.03
 
 interface SliceGeometry {
   slice: SectorSlice
@@ -87,7 +91,7 @@ function buildSliceGeometry(slices: SectorSlice[]): SliceGeometry[] {
     const a0 = cum * 2 * Math.PI - Math.PI / 2 + GAP_RAD / 2
     const a1 = (cum + slice.weight) * 2 * Math.PI - Math.PI / 2 - GAP_RAD / 2
     cum += slice.weight
-    if (a1 <= a0) continue // slice too small after gap
+    if (a1 <= a0) continue
 
     const x0 = (CX + R * Math.cos(a0)).toFixed(3)
     const y0 = (CY + R * Math.sin(a0)).toFixed(3)
@@ -105,40 +109,85 @@ function buildSliceGeometry(slices: SectorSlice[]): SliceGeometry[] {
 
 function PieSvg({
   sliceGeometry,
-  activeIndex,
+  hoverIndex,
+  selectedIndex,
   onHover,
+  onSelect,
 }: {
   sliceGeometry: SliceGeometry[]
-  activeIndex: number | null
+  hoverIndex: number | null
+  selectedIndex: number
   onHover: (i: number | null) => void
+  onSelect: (i: number) => void
 }) {
   return (
     <svg
       viewBox="0 0 160 160"
       className="sector-pie-svg"
       aria-hidden="true"
-      style={{ display: 'block', width: '100%', height: '100%' }}
+      style={{ display: 'block', width: '100%', height: 'auto' }}
     >
       {sliceGeometry.map(({ slice, d }, i) => {
-        const isActive = activeIndex === i
-        const isOther = activeIndex != null && !isActive
+        const isHovered = hoverIndex === i
+        const isSelected = selectedIndex === i
+        const isDimmed = hoverIndex != null && !isHovered
         return (
           <path
             key={slice.name}
             d={d}
             fill={slice.color}
             style={{
-              opacity: isOther ? 0.3 : 1,
-              transition: 'opacity 0.15s ease',
-              cursor: 'default',
-              filter: isActive ? `drop-shadow(0 0 3px ${slice.color}88)` : undefined,
+              opacity: isDimmed ? 0.25 : 1,
+              transition: 'opacity 0.15s ease, filter 0.15s ease',
+              cursor: 'pointer',
+              filter: isHovered
+                ? `drop-shadow(0 0 4px ${slice.color}bb)`
+                : isSelected && hoverIndex == null
+                  ? `drop-shadow(0 0 3px ${slice.color}66)`
+                  : undefined,
             }}
             onMouseEnter={() => onHover(i)}
             onMouseLeave={() => onHover(null)}
+            onClick={() => onSelect(i)}
           />
         )
       })}
     </svg>
+  )
+}
+
+// ─── holdings panel ───────────────────────────────────────────────────────────
+
+function HoldingsPanel({
+  slice,
+  holdings,
+  isHover,
+}: {
+  slice: SectorSlice
+  holdings: HoldingRow[]
+  isHover: boolean
+}) {
+  return (
+    <div className="sector-holdings-panel">
+      <div className="sector-holdings-header" style={{ borderLeftColor: slice.color }}>
+        <span className="sector-holdings-sector-name">{slice.name}</span>
+        <span className="sector-holdings-total">{(slice.weight * 100).toFixed(1)}%</span>
+      </div>
+      {holdings.length > 0 ? (
+        <ul className="sector-holdings-list" aria-label={`Holdings in ${slice.name}`}>
+          {holdings.map((h) => (
+            <li key={h.symbol} className="sector-holdings-row">
+              <span className="sector-holdings-symbol">{h.symbol}</span>
+              <span className="sector-holdings-weight">{(h.weight * 100).toFixed(1)}%</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="sector-holdings-empty">
+          {isHover ? 'No holdings detail' : 'No holdings detail available'}
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -150,7 +199,9 @@ export type SectorPieCardProps = {
 }
 
 export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<number>(0)
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
+
   const state = buildState(result, exposureResult)
 
   if (state.kind === 'unavailable') {
@@ -164,43 +215,54 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
     )
   }
 
+  const displayIndex = hoverIndex ?? selectedIndex
   const sliceGeometry = buildSliceGeometry(state.slices)
-  const activeSlice = activeIndex != null ? state.slices[activeIndex] : null
+  const displaySlice = state.slices[displayIndex]
+  const displayHoldings = state.breakdown[displaySlice?.name] ?? []
 
   return (
     <section className="summary-card sector-pie-card" aria-label="Sector Composition">
       <p className="panel-label">Sector Composition</p>
       <div className="sector-pie-body">
         <div className="sector-pie-chart-wrap">
-          <PieSvg sliceGeometry={sliceGeometry} activeIndex={activeIndex} onHover={setActiveIndex} />
+          <PieSvg
+            sliceGeometry={sliceGeometry}
+            hoverIndex={hoverIndex}
+            selectedIndex={selectedIndex}
+            onHover={setHoverIndex}
+            onSelect={setSelectedIndex}
+          />
         </div>
         <ul className="sector-pie-legend" aria-label="Sector weights">
-          {state.slices.map((slice, index) => (
-            <li
-              key={slice.name}
-              className={`sector-legend-row${activeIndex === index ? ' sector-legend-row-active' : ''}`}
-              onMouseEnter={() => setActiveIndex(index)}
-              onMouseLeave={() => setActiveIndex(null)}
-            >
-              <span className="sector-legend-dot" style={{ background: slice.color }} />
-              <span className="sector-legend-name">{slice.name}</span>
-              <span className="sector-legend-pct">{(slice.weight * 100).toFixed(1)}%</span>
-            </li>
-          ))}
+          {state.slices.map((slice, index) => {
+            const isSelected = selectedIndex === index
+            const isHovered = hoverIndex === index
+            return (
+              <li
+                key={slice.name}
+                className={[
+                  'sector-legend-row',
+                  isSelected ? 'sector-legend-row-selected' : '',
+                  isHovered ? 'sector-legend-row-active' : '',
+                ].filter(Boolean).join(' ')}
+                style={isSelected ? { borderLeftColor: slice.color } : undefined}
+                onMouseEnter={() => setHoverIndex(index)}
+                onMouseLeave={() => setHoverIndex(null)}
+                onClick={() => setSelectedIndex(index)}
+              >
+                <span className="sector-legend-dot" style={{ background: slice.color }} />
+                <span className="sector-legend-name">{slice.name}</span>
+                <span className="sector-legend-pct">{(slice.weight * 100).toFixed(1)}%</span>
+              </li>
+            )
+          })}
         </ul>
-      </div>
-      <div
-        className="sector-pie-tooltip-bar"
-        style={activeSlice ? { borderLeftColor: activeSlice.color } : undefined}
-        aria-live="polite"
-      >
-        {activeSlice ? (
-          <>
-            <span className="sector-pie-tooltip-name">{activeSlice.name}</span>
-            <span className="sector-pie-tooltip-pct">{(activeSlice.weight * 100).toFixed(1)}%</span>
-          </>
-        ) : (
-          <span className="sector-pie-tooltip-hint">Hover a slice for details</span>
+        {displaySlice && (
+          <HoldingsPanel
+            slice={displaySlice}
+            holdings={displayHoldings}
+            isHover={hoverIndex != null}
+          />
         )}
       </div>
     </section>
