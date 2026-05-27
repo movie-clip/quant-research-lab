@@ -2075,9 +2075,9 @@ select.path-input option {
 
 .dashboard-composition-row {
   display: grid;
-  grid-template-columns: 3fr 2fr;
+  grid-template-columns: 7fr 3fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 /* ── Sector Pie Card ───────────────────────────────────────────────────────── */
@@ -2085,35 +2085,31 @@ select.path-input option {
 .sector-pie-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
-.sector-pie-header {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.sector-pie-header .helper {
-  margin: 0;
+.sector-pie-card > .panel-label {
+  margin-bottom: 14px;
 }
 
 .sector-pie-body {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
+  min-height: 0;
 }
 
 .sector-pie-chart-wrap {
-  flex: 0 0 168px;
-  width: 168px;
-  height: 168px;
+  flex: 0 0 auto;
+  width: clamp(160px, 44%, 240px);
+  aspect-ratio: 1;
 }
 
 .sector-pie-svg {
   display: block;
   width: 100%;
-  height: 100%;
+  height: auto;
   overflow: visible;
 }
 
@@ -2125,35 +2121,36 @@ select.path-input option {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  justify-content: center;
+  gap: 1px;
 }
 
 .sector-legend-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 12.5px;
+  line-height: 1.5;
   cursor: default;
-  border-radius: 4px;
-  padding: 2px 4px;
+  border-radius: 5px;
+  padding: 3px 6px;
   transition: background 0.12s ease;
 }
 
 .sector-legend-row-active {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .sector-legend-dot {
-  flex: 0 0 9px;
-  width: 9px;
-  height: 9px;
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
 .sector-legend-name {
   flex: 1;
-  color: rgba(248, 251, 254, 0.78);
+  color: rgba(248, 251, 254, 0.72);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2165,23 +2162,27 @@ select.path-input option {
 }
 
 .sector-legend-pct {
-  color: rgba(248, 251, 254, 0.5);
+  color: rgba(248, 251, 254, 0.55);
   font-variant-numeric: tabular-nums;
-  font-size: 12.5px;
+  font-size: 12px;
+  font-weight: 500;
   transition: color 0.12s ease;
+  min-width: 36px;
+  text-align: right;
 }
 
 .sector-legend-row-active .sector-legend-pct {
-  color: rgba(248, 251, 254, 0.82);
+  color: rgba(248, 251, 254, 0.88);
 }
 
 .sector-pie-tooltip-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 9px;
-  border-left: 3px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+  padding: 5px 10px;
+  margin-top: 12px;
+  border-left: 3px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.025);
   border-radius: 0 5px 5px 0;
   font-size: 11.5px;
   min-height: 28px;
@@ -2189,7 +2190,7 @@ select.path-input option {
 }
 
 .sector-pie-tooltip-name {
-  color: rgba(248, 251, 254, 0.88);
+  color: rgba(248, 251, 254, 0.85);
 }
 
 .sector-pie-tooltip-pct {
@@ -2200,7 +2201,7 @@ select.path-input option {
 }
 
 .sector-pie-tooltip-hint {
-  color: rgba(248, 251, 254, 0.28);
+  color: rgba(248, 251, 254, 0.25);
   font-size: 11px;
 }
 
@@ -2209,7 +2210,7 @@ select.path-input option {
 .benchmark-positioning-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .benchmark-card-header {
@@ -2222,7 +2223,8 @@ select.path-input option {
 
 .benchmark-card-note {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 11px;
+  color: rgba(248, 251, 254, 0.45);
 }
 
 .benchmark-card-summary {
@@ -2234,39 +2236,40 @@ select.path-input option {
 .benchmark-card-metric {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 8px 10px;
+  gap: 4px;
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .benchmark-card-value {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: rgba(248, 251, 254, 0.9);
+  color: rgba(248, 251, 254, 0.92);
   line-height: 1.2;
 }
 
 .benchmark-card-lists {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
+  flex: 1;
 }
 
 .benchmark-card-col {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0;
 }
 
 .benchmark-card-col-label {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 0 0 4px 0;
+  letter-spacing: 0.07em;
+  margin: 0 0 6px 0;
   line-height: 1;
 }
 
@@ -2281,15 +2284,14 @@ select.path-input option {
 .benchmark-card-col-rows {
   display: flex;
   flex-direction: column;
-  gap: 1px;
 }
 
 .benchmark-card-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .benchmark-card-row:last-child {
@@ -2297,9 +2299,9 @@ select.path-input option {
 }
 
 .benchmark-card-symbol {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
-  color: rgba(248, 251, 254, 0.88);
+  color: rgba(248, 251, 254, 0.85);
 }
 
 .benchmark-card-active {
@@ -2317,9 +2319,13 @@ select.path-input option {
 }
 
 .benchmark-card-empty {
-  padding: 10px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 7px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 

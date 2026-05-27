@@ -46,23 +46,12 @@ function buildState(
   result: DashboardAnalysis | null,
   exposureResult: ExposureAnalysis | null,
 ): SectorPieState {
-  if (exposureResult) {
-    const status = exposureResult.exposure_availability?.lookthrough_status ?? 'unavailable'
-    const ltSectors = (exposureResult.lookthrough_sector_exposure ?? []).filter((s) => s.weight >= MIN_SLICE_WEIGHT)
-    if (status !== 'unavailable' && ltSectors.length) {
-      return {
-        kind: 'data',
-        slices: ltSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
-        basisNote: status === 'live' ? 'Look-through composition' : 'Look-through (partial)',
-      }
-    }
-    const expSectors = (exposureResult.overview?.sector_allocation ?? []).filter((s) => s.weight >= MIN_SLICE_WEIGHT)
-    if (expSectors.length) {
-      return {
-        kind: 'data',
-        slices: expSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
-        basisNote: 'Imported snapshot composition',
-      }
+  const expSectors = (exposureResult?.overview?.sector_allocation ?? []).filter((s) => s.weight >= MIN_SLICE_WEIGHT)
+  if (expSectors.length) {
+    return {
+      kind: 'data',
+      slices: expSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
+      basisNote: 'Portfolio composition',
     }
   }
 
@@ -71,7 +60,7 @@ function buildState(
     return {
       kind: 'data',
       slices: dashSectors.map((s, i) => ({ name: s.sector, weight: s.weight, color: sectorColor(s.sector, i) })),
-      basisNote: 'Imported snapshot composition',
+      basisNote: 'Portfolio composition',
     }
   }
 
@@ -167,9 +156,7 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
   if (state.kind === 'unavailable') {
     return (
       <section className="summary-card sector-pie-card" aria-label="Sector Composition">
-        <div className="sector-pie-header">
-          <p className="panel-label">Sector Composition</p>
-        </div>
+        <p className="panel-label">Sector Composition</p>
         <p className="helper" style={{ marginTop: 4 }}>
           Unavailable — import a portfolio to see sector mix.
         </p>
@@ -182,10 +169,7 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
 
   return (
     <section className="summary-card sector-pie-card" aria-label="Sector Composition">
-      <div className="sector-pie-header">
-        <p className="panel-label">Sector Composition</p>
-        <p className="helper">{state.basisNote}</p>
-      </div>
+      <p className="panel-label">Sector Composition</p>
       <div className="sector-pie-body">
         <div className="sector-pie-chart-wrap">
           <PieSvg sliceGeometry={sliceGeometry} activeIndex={activeIndex} onHover={setActiveIndex} />

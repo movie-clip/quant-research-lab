@@ -41,16 +41,15 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Import failed: unreadable PDF')).toBeTruthy()
   })
 
-  it('renders sector pie with look-through sectors when exposure result is provided', () => {
+  it('renders sector pie with direct portfolio composition when exposure result is provided', () => {
     render(<DashboardPanel result={null} exposureResult={mockExposureView} />)
 
     expect(screen.getByLabelText('Sector Composition')).toBeTruthy()
-    expect(screen.getByText('Look-through composition')).toBeTruthy()
     expect(screen.getByText('Technology')).toBeTruthy()
-    expect(screen.getByText('Health Care')).toBeTruthy()
-    // weights from fixture: Technology 0.4 → 40.0%, Health Care 0.2 → 20.0%
-    expect(screen.getByText('40.0%')).toBeTruthy()
-    expect(screen.getByText('20.0%')).toBeTruthy()
+    expect(screen.getByText('Financials')).toBeTruthy()
+    // weights from fixture overview.sector_allocation: Technology 0.36 → 36.0%, Financials 0.24 → 24.0%
+    expect(screen.getByText('36.0%')).toBeTruthy()
+    expect(screen.getByText('24.0%')).toBeTruthy()
   })
 
   it('shows sector pie unavailable state when no data is available', () => {
@@ -60,7 +59,7 @@ describe('DashboardPanel', () => {
     expect(screen.getAllByText(/Unavailable/i).length).toBeGreaterThan(0)
   })
 
-  it('falls back to dashboard sector allocation when exposure look-through is unavailable', () => {
+  it('uses overview.sector_allocation regardless of look-through status', () => {
     render(
       <DashboardPanel
         result={null}
@@ -75,8 +74,7 @@ describe('DashboardPanel', () => {
       />,
     )
 
-    // Falls back to exposureResult.overview.sector_allocation from fixture
-    expect(screen.getByText('Imported snapshot composition')).toBeTruthy()
+    // Always uses direct ETF-level allocation from overview.sector_allocation
     expect(screen.getByText('Technology')).toBeTruthy()
   })
 

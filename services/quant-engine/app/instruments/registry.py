@@ -109,6 +109,7 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "IAUP": _instrument("etf-iaup", "IAUP", "iShares Gold Producers UCITS ETF", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
     "IDFN": _instrument("etf-idfn", "IDFN", "Invesco Defence Innovation UCITS ETF", "etf", "Defense", "Thematic UCITS ETF", "USD"),
     "VDST": _instrument("etf-vdst", "VDST", "Vanguard USD 0-1 Year Treasury Bond UCITS ETF", "etf", "Fixed Income", "Bond UCITS ETF", "USD"),
+    "COPX": _instrument("etf-copx", "COPX", "Global X Copper Miners ETF", "etf", "Commodities", "Thematic ETF", "USD"),
     "HOOD": _instrument("equity-hood", "HOOD", "Robinhood Markets", "equity", "Financials", "Equity", "USD"),
     "TSM": _instrument("equity-tsm", "TSM", "Taiwan Semiconductor", "equity", "Technology", "Equity", "USD"),
     "DUOL": _instrument("equity-duol", "DUOL", "Duolingo", "equity", "Communication Services", "Equity", "USD"),
