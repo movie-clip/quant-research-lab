@@ -4,6 +4,32 @@
 
 ---
 
+## Completed Epic: Epic 11 — Factor Return Attribution
+
+**PRD:** [`docs/product/prd/epic-11-factor-return-attribution.md`](product/prd/epic-11-factor-return-attribution.md)
+
+### Goal
+
+Give the researcher a clear answer to "where did my returns come from?" by decomposing portfolio daily returns into per-factor contributions (β × orthogonalized factor return) and a residual, displayed as a cumulative line chart and period attribution table in the Exposure tab.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-11.1 | Attribution engine + endpoint | Done |
+| US-11.2 | Attribution card (chart + table) | Done |
+| US-11.3 | Docs, contracts, roadmap close-out | Done |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-05-27 | US-11.1 | `analytics/attribution.py` + Pydantic schema + `POST /engines/attribution/run` route + attribution_engine service — 15 backend tests green (239 total) |
+| 2026-05-27 | US-11.2 | `FactorAttributionCard` in Exposure tab: cumulative line chart, 20d/60d/252d window selector, period attribution table, Synthetic badge with tooltip, unavailable/loading/error states — 14 frontend tests green (92 total); `npx tsc --noEmit` clean |
+| 2026-05-27 | US-11.3 | `docs/contracts/attribution-fields.md` created; `financial-methodology.md` §Factor Return Attribution verified complete; roadmap and story files updated |
+
+---
+
 ## Active Epic: Epic 10 — Multi-broker Import Correctness
 
 **PRD:** [`docs/product/prd/epic-10-multi-broker-import-correctness.md`](product/prd/epic-10-multi-broker-import-correctness.md)

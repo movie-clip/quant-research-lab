@@ -18,6 +18,20 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 11 — Factor Return Attribution (proposed)
+
+PRD: [`prd/epic-11-factor-return-attribution.md`](../prd/epic-11-factor-return-attribution.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-11.1](US-11.1-attribution-engine-endpoint.md) | Attribution engine + endpoint | Backend — analytics function, Pydantic schema, FastAPI route, pytest | Next phase |
+| [US-11.2](US-11.2-attribution-card-chart-table.md) | Attribution card (chart + table) | Frontend — FactorAttributionCard, vitest | Next phase |
+| [US-11.3](US-11.3-attribution-docs-closeout.md) | Docs, contracts, roadmap close-out | Docs — attribution-fields.md, methodology verification, slice log | Next phase |
+
+Stories must be built in order (11.1 → 11.2 → 11.3). US-11.2 depends on the endpoint from US-11.1.
+
+---
+
 ### Epic 10 — Multi-broker Import Correctness (active)
 
 PRD: [`prd/epic-10-multi-broker-import-correctness.md`](../prd/epic-10-multi-broker-import-correctness.md)

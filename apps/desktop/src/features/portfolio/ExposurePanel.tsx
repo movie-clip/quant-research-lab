@@ -1,4 +1,5 @@
 import type { ExposureAnalysis } from './types'
+import { FactorAttributionCard } from './FactorAttributionCard'
 
 type ExposurePanelProps = {
   result: ExposureAnalysis | null
@@ -296,6 +297,8 @@ export function ExposurePanel({
           <UnavailablePanel title="Concentration read unavailable" detail="Current-state concentration facts are unavailable for this snapshot, so the module is withheld rather than filled with estimates." />
         )}
         </section>
+
+        <FactorAttributionCard snapshot={result.snapshot ?? null} />
       </div>
     </article>
   )

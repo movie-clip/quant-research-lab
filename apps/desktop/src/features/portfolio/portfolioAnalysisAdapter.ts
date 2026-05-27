@@ -1,4 +1,4 @@
-import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, PortfolioBaselineView } from './types'
+import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, PortfolioBaselineView } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -218,6 +218,26 @@ export function composeExposureView(exposure: ExposureEngineResponse, diagnostic
     exposure_availability: exposure.availability,
     availability: diagnostics.availability,
   }
+}
+
+export async function runAttributionEngine(
+  snapshot: ImportedSnapshot,
+  window: 20 | 60 | 252,
+  benchmarkSymbol: string = 'SPY',
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<FactorAttributionResponse> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/attribution/run', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snapshot, window, benchmark_symbol: benchmarkSymbol }),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(errorPayload?.detail ?? 'Attribution engine run failed')
+  }
+
+  return (await response.json()) as FactorAttributionResponse
 }
 
 export function composeDashboardAnalysisFromEngines(exposure: ExposureEngineResponse, diagnostics: DiagnosticsEngineResponse): DashboardAnalysis {

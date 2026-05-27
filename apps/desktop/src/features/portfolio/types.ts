@@ -1251,3 +1251,35 @@ export type DriftResult = {
   daily_series: DriftDailyPoint[]
   availability: 'available' | 'partial' | 'unavailable'
 }
+
+// --- Factor Return Attribution ---
+
+export type FactorContributionPoint = {
+  factor_key: string
+  cumul_contribution: number | null
+}
+
+export type AttributionSeriesEntry = {
+  date: string
+  contributions: FactorContributionPoint[]
+  cumul_unexplained: number | null
+  cumul_portfolio_return: number | null
+}
+
+export type FactorPeriodRow = {
+  factor_key: string
+  factor_label: string
+  avg_beta: number | null
+  factor_return_pct: number | null
+  contribution_pct: number | null
+}
+
+export type FactorAttributionResponse = {
+  attribution_status: 'available' | 'unavailable'
+  window: number
+  cumulative_series: AttributionSeriesEntry[]
+  period_attribution: FactorPeriodRow[]
+  total_portfolio_return_pct: number | null
+  total_unexplained_pct: number | null
+  methodology_note: string
+}

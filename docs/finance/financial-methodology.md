@@ -463,6 +463,126 @@ Contract rule:
 - R² is synthetic history trust. Reported alongside beta and correlation as a
   trio; never shown without the correlation from which it derives.
 
+## Factor Return Attribution
+
+Factor return attribution decomposes the portfolio's daily return history into
+contributions from each systematic factor and a residual (idiosyncratic + alpha)
+component. Each factor's daily contribution is the product of its per-window
+rolling OLS loading (β) and the orthogonalized factor return on that day.
+Contributions are summed arithmetically over any selected period to produce
+period-level attribution.
+
+This is the *return* counterpart to the Rolling Factor Model: where the factor
+model shows *exposures* (betas), attribution shows *realized contributions* (how
+much return each exposure actually generated over the history).
+
+### Daily factor contribution
+
+```text
+contribution_k(t) = β̂_k(w, t) × f*_k(t)
+
+where:
+  β̂_k(w, t)  = rolling OLS loading for factor k using window w ending at date t
+                (output of _build_rolling_factor_loadings; see §Statistical Factor Model)
+  f*_k(t)    = orthogonalized daily return of factor k on day t
+                (the Gram-Schmidt residual of factor k after projecting out all
+                 higher-priority factors; computed within the same window w)
+  w           = rolling estimation window: 20, 60, or 252 trading days
+  t           = trading date in the portfolio return history
+  k           = factor index in orthogonalization order
+                (market=1, growth=2, value=3, small_cap=4, technology=5,
+                 financials=6, health_care=7, energy=8, industrials=9,
+                 consumer_staples=10, utilities=11, consumer_discretionary=12,
+                 rates_ief=13, rates_tlt=14, credit=15, commodities=16)
+
+Units: decimal (e.g. 0.012 = 1.2%). Multiply by 100 for percentage display.
+```
+
+### Daily residual contribution
+
+```text
+residual(t) = r_p(t) − Σ_k contribution_k(t)
+
+where:
+  r_p(t) = cash-flow-neutral daily portfolio return (see Portfolio Return Methodology)
+  Σ_k    = sum over all K active factors with non-null β̂_k(w, t)
+```
+
+### Period attribution (arithmetic sum)
+
+```text
+period_contribution_k(t1, t2) = Σ_{t=t1}^{t2} contribution_k(t)
+period_residual(t1, t2)        = Σ_{t=t1}^{t2} residual(t)
+period_portfolio_return(t1, t2) = Σ_{t=t1}^{t2} r_p(t)   [arithmetic, not compounded]
+
+Reconciliation identity (exact by construction):
+  Σ_k period_contribution_k + period_residual = period_portfolio_return
+```
+
+*Arithmetic note:* The arithmetic sum of daily contributions equals the
+arithmetic sum of daily returns. It does not equal the compound return
+((1+r₁)(1+r₂)…(1+rₙ) − 1). For windows ≤ 3 months the difference is negligible;
+for longer windows the compounding gap widens. The engine labels all outputs
+as arithmetic and the UI must communicate this to the researcher.
+
+### Cumulative contribution series (for chart)
+
+```text
+cumul_contribution_k(t) = Σ_{s=t0}^{t} contribution_k(s)
+cumul_residual(t)         = Σ_{s=t0}^{t} residual(s)
+cumul_portfolio_return(t) = Σ_{s=t0}^{t} r_p(s)
+
+where t0 = first date in the analysis window
+```
+
+### Edge cases
+
+```text
+β̂_k(w, t) = null (window not filled or factor collinear):
+  → contribution_k(t) = null
+  → residual(t) = null
+  → that date is excluded from all period and cumulative sums
+
+Any factor contribution null on date t:
+  → exclude date t entirely from period sums and cumulative series
+
+Period attribution null when:
+  → fewer than min_window_observations dates have non-null contributions for the
+     selected window (e.g. portfolio history < 20 days for 20d window)
+  → emit attribution_status = 'unavailable', not fabricated zeros
+
+Residual must never be labeled "alpha" or "skill" in UI or contracts:
+  → label as "Unexplained / idiosyncratic" — contains both alpha and model error
+```
+
+Academic precedent:
+- Brinson, G.P., Hood, L.R. & Beebower, G.L. (1986). "Determinants of
+  portfolio performance." *Financial Analysts Journal*, 42(4), 39–44.
+  (Original arithmetic performance attribution decomposition framework.)
+- Fama, E.F. & French, K.R. (1993). "Common risk factors in the returns on
+  stocks and bonds." *Journal of Financial Economics*, 33(1), 3–56.
+  (Factor-based return decomposition and the separation of systematic vs.
+  idiosyncratic return components.)
+- Bacon, C.R. (2008). *Practical Portfolio Performance Measurement and
+  Attribution*, 2nd ed., Ch. 8–9 (Wiley). (Arithmetic linking, residual
+  interpretation, and reconciliation identities in time-series attribution.)
+
+Implementation target:
+- `services/quant-engine/app/analytics/attribution.py` (Epic 11)
+- `services/quant-engine/app/services/attribution_engine.py` (Epic 11)
+- `services/quant-engine/app/api/routes/attribution.py` (Epic 11)
+
+Contract rule:
+- Factor return attribution is always synthetic history trust class. Never
+  labelled verified. Any field can be null; never fabricate.
+- The residual field must be labelled "unexplained_pct" or "idiosyncratic_pct"
+  in the schema — never "alpha_pct".
+- Arithmetic attribution must carry a `methodology_note` field in the response
+  explaining that sums are arithmetic, not compounded.
+- The reconciliation identity (Σ contributions + residual = arithmetic portfolio
+  return) must hold to floating-point precision. If it does not, the engine must
+  return an error rather than emit inconsistent data.
+
 ## Current Known Financial Limitations
 
 At the time of writing, the main finance-related limitations are:
