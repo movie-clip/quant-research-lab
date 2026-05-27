@@ -2095,7 +2095,7 @@ select.path-input option {
 .sector-pie-body {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 24px;
   min-height: 0;
 }
@@ -2103,9 +2103,8 @@ select.path-input option {
 .sector-pie-chart-wrap {
   flex: 1 1 0;
   min-width: 120px;
-  max-width: 240px;
+  max-width: 220px;
   aspect-ratio: 1;
-  align-self: center;
 }
 
 .sector-pie-svg {
@@ -2123,7 +2122,6 @@ select.path-input option {
   width: 200px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 1px;
 }
 
@@ -2188,38 +2186,20 @@ select.path-input option {
 
 .sector-holdings-panel {
   flex: 1 1 0;
-  min-width: 120px;
+  min-width: 100px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  align-self: center;
+  gap: 4px;
 }
 
-.sector-holdings-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 0 6px 8px;
-  border-left: 2px solid rgba(255, 255, 255, 0.15);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  transition: border-color 0.15s ease;
-}
-
-.sector-holdings-sector-name {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: rgba(248, 251, 254, 0.9);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sector-holdings-total {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: rgba(248, 251, 254, 0.5);
-  white-space: nowrap;
+.sector-holdings-cap {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 0 0 4px 0;
+  line-height: 1;
+  transition: color 0.15s ease;
 }
 
 .sector-holdings-list {
@@ -2228,15 +2208,14 @@ select.path-input option {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 .sector-holdings-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 3px 0 3px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sector-holdings-row:last-child {
@@ -2246,21 +2225,19 @@ select.path-input option {
 .sector-holdings-symbol {
   font-size: 12.5px;
   font-weight: 600;
-  color: rgba(248, 251, 254, 0.82);
-  font-variant-numeric: tabular-nums;
+  color: rgba(248, 251, 254, 0.85);
 }
 
 .sector-holdings-weight {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: rgba(248, 251, 254, 0.48);
+  color: rgba(248, 251, 254, 0.42);
   font-weight: 500;
 }
 
 .sector-holdings-empty {
   font-size: 11.5px;
-  color: rgba(248, 251, 254, 0.28);
-  padding: 4px 0 0 8px;
+  color: rgba(248, 251, 254, 0.25);
   margin: 0;
 }
 

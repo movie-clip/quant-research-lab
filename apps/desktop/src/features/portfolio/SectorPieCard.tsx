@@ -161,18 +161,13 @@ function PieSvg({
 function HoldingsPanel({
   slice,
   holdings,
-  isHover,
 }: {
   slice: SectorSlice
   holdings: HoldingRow[]
-  isHover: boolean
 }) {
   return (
     <div className="sector-holdings-panel">
-      <div className="sector-holdings-header" style={{ borderLeftColor: slice.color }}>
-        <span className="sector-holdings-sector-name">{slice.name}</span>
-        <span className="sector-holdings-total">{(slice.weight * 100).toFixed(1)}%</span>
-      </div>
+      <p className="sector-holdings-cap" style={{ color: slice.color }}>Holdings</p>
       {holdings.length > 0 ? (
         <ul className="sector-holdings-list" aria-label={`Holdings in ${slice.name}`}>
           {holdings.map((h) => (
@@ -183,9 +178,7 @@ function HoldingsPanel({
           ))}
         </ul>
       ) : (
-        <p className="sector-holdings-empty">
-          {isHover ? 'No holdings detail' : 'No holdings detail available'}
-        </p>
+        <p className="sector-holdings-empty">No detail available</p>
       )}
     </div>
   )
@@ -261,7 +254,6 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
           <HoldingsPanel
             slice={displaySlice}
             holdings={displayHoldings}
-            isHover={hoverIndex != null}
           />
         )}
       </div>
