@@ -2075,7 +2075,7 @@ select.path-input option {
 
 .dashboard-composition-row {
   display: grid;
-  grid-template-columns: 7fr 3fr;
+  grid-template-columns: 3fr 2fr;
   gap: 16px;
   align-items: stretch;
 }
@@ -2101,9 +2101,11 @@ select.path-input option {
 }
 
 .sector-pie-chart-wrap {
-  flex: 0 0 auto;
-  width: clamp(160px, 44%, 240px);
+  flex: 1 1 0;
+  min-width: 120px;
+  max-width: 240px;
   aspect-ratio: 1;
+  align-self: center;
 }
 
 .sector-pie-svg {
@@ -2117,8 +2119,8 @@ select.path-input option {
   list-style: none;
   margin: 0;
   padding: 0;
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
+  width: 220px;
   display: flex;
   flex-direction: column;
   justify-content: center;
