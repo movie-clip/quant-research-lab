@@ -31,6 +31,11 @@ const FACTOR_LINE_COLORS: Record<string, string> = {
 const UNEXPLAINED_COLOR = '#6b7280'
 const PORTFOLIO_COLOR = '#ffffff'
 
+// Each exposed-panel list-row: padding 9+9px + ~17px line-height + 1px border ≈ 36px.
+// Exposure-panel list-table gap: 14px. Six rows visible:
+//   6 × 36 + 5 × 14 = 286px.
+const SCROLL_MAX_HEIGHT = 286
+
 type ChartPoint = {
   date: string
   unexplained: number | null
@@ -68,6 +73,20 @@ function buildChartData(attribution: FactorAttributionResponse): ChartPoint[] {
     return point
   })
 }
+
+// ── Line opacity / width helpers ───────────────────────────────────────────────
+
+function lineOpacity(key: string, hovered: string | null): number {
+  if (!hovered) return 1
+  return hovered === key ? 1 : 0.15
+}
+
+function lineWidth(key: string, hovered: string | null, defaultWidth: number, hoveredWidth: number): number {
+  if (!hovered) return defaultWidth
+  return hovered === key ? hoveredWidth : defaultWidth
+}
+
+// ── Subcomponents ──────────────────────────────────────────────────────────────
 
 function SyntheticBadge() {
   const [showTooltip, setShowTooltip] = useState(false)
@@ -160,7 +179,6 @@ function AttributionTooltip({ active, payload, label }: CustomTooltipProps) {
   const unexplainedEntry = payload.find((p) => p.dataKey === 'unexplained')
   const factorEntries = payload
     .filter((p) => p.dataKey !== 'portfolio' && p.dataKey !== 'unexplained')
-    // Sort factors by absolute contribution descending — biggest movers at top.
     .sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0))
 
   const orderedItems: TooltipPayloadEntry[] = [
@@ -223,6 +241,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
   const [attribution, setAttribution] = useState<FactorAttributionResponse | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [tableExpanded, setTableExpanded] = useState(true)
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!snapshot) {
@@ -330,9 +349,11 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                         type="monotone"
                         dataKey={key}
                         stroke={FACTOR_LINE_COLORS[key] ?? '#888'}
-                        strokeWidth={1.5}
+                        strokeWidth={lineWidth(key, hoveredKey, 1.5, 2.8)}
+                        opacity={lineOpacity(key, hoveredKey)}
                         dot={false}
                         connectNulls
+                        isAnimationActive={false}
                         name={attribution.period_attribution.find((r) => r.factor_key === key)?.factor_label ?? key}
                       />
                     ))}
@@ -342,10 +363,12 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       type="monotone"
                       dataKey="unexplained"
                       stroke={UNEXPLAINED_COLOR}
-                      strokeWidth={1.5}
+                      strokeWidth={lineWidth('unexplained', hoveredKey, 1.5, 2.8)}
+                      opacity={lineOpacity('unexplained', hoveredKey)}
                       strokeDasharray="4 2"
                       dot={false}
                       connectNulls
+                      isAnimationActive={false}
                       name="Unexplained"
                     />
 
@@ -354,16 +377,18 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       type="monotone"
                       dataKey="portfolio"
                       stroke={PORTFOLIO_COLOR}
-                      strokeWidth={2.5}
+                      strokeWidth={lineWidth('portfolio', hoveredKey, 2.5, 4)}
+                      opacity={lineOpacity('portfolio', hoveredKey)}
                       dot={false}
                       connectNulls
+                      isAnimationActive={false}
                       name="Total Portfolio (arithmetic)"
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* Period attribution table — collapsible */}
+              {/* Period attribution table — collapsible, scrollable body */}
               <div>
                 <button
                   type="button"
@@ -389,15 +414,14 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       borderRight: '4px solid transparent',
                       borderTop: tableExpanded ? '5px solid #6b7280' : undefined,
                       borderBottom: tableExpanded ? undefined : '5px solid #6b7280',
-                      transition: 'transform 0.15s',
                     }}
                   />
                   Period attribution — arithmetic (not compounded)
                 </button>
 
                 {tableExpanded && (
-                  <div className="list-table">
-                    {/* Header row */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Header row — not scrollable */}
                     <div className="list-row" style={{ fontWeight: 600, fontSize: '11px', color: '#6b7280' }}>
                       <span style={{ flex: 2 }}>Factor</span>
                       <span style={{ flex: 1, textAlign: 'right' }}>Avg β</span>
@@ -405,11 +429,78 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       <span style={{ flex: 1, textAlign: 'right' }}>Contribution %</span>
                     </div>
 
-                    {/* Data rows */}
-                    {attribution.period_attribution.map((row) => {
-                      const contrib = row.contribution_pct ?? 0
-                      return (
-                        <div className="list-row" key={row.factor_key} style={{ fontSize: '12px' }}>
+                    {/* Scrollable data body — shows 6 rows at a time */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '14px',
+                        overflowY: 'auto',
+                        maxHeight: SCROLL_MAX_HEIGHT,
+                        paddingRight: '4px',
+                      }}
+                    >
+                      {/* Factor data rows */}
+                      {attribution.period_attribution.map((row) => {
+                        const contrib = row.contribution_pct ?? 0
+                        const isHovered = hoveredKey === row.factor_key
+                        return (
+                          <div
+                            className="list-row"
+                            key={row.factor_key}
+                            style={{
+                              fontSize: '12px',
+                              cursor: 'default',
+                              outline: isHovered ? `1px solid ${FACTOR_LINE_COLORS[row.factor_key] ?? '#888'}` : undefined,
+                            }}
+                            onMouseEnter={() => setHoveredKey(row.factor_key)}
+                            onMouseLeave={() => setHoveredKey(null)}
+                          >
+                            <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '2px',
+                                  backgroundColor: FACTOR_LINE_COLORS[row.factor_key] ?? '#888',
+                                  flexShrink: 0,
+                                }}
+                              />
+                              {row.factor_label}
+                            </span>
+                            <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
+                              {formatBeta(row.avg_beta)}
+                            </span>
+                            <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
+                              {formatPct(row.factor_return_pct)}
+                            </span>
+                            <span
+                              style={{
+                                flex: 1,
+                                textAlign: 'right',
+                                color: contrib >= 0 ? '#48bb78' : '#fc8181',
+                                fontWeight: 500,
+                              }}
+                            >
+                              {formatPct(row.contribution_pct)}
+                            </span>
+                          </div>
+                        )
+                      })}
+
+                      {/* Unexplained row */}
+                      {attribution.total_unexplained_pct != null && (
+                        <div
+                          className="list-row"
+                          style={{
+                            fontSize: '12px',
+                            cursor: 'default',
+                            outline: hoveredKey === 'unexplained' ? `1px solid ${UNEXPLAINED_COLOR}` : undefined,
+                          }}
+                          onMouseEnter={() => setHoveredKey('unexplained')}
+                          onMouseLeave={() => setHoveredKey(null)}
+                        >
                           <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span
                               style={{
@@ -417,67 +508,41 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                                 width: '8px',
                                 height: '8px',
                                 borderRadius: '2px',
-                                backgroundColor: FACTOR_LINE_COLORS[row.factor_key] ?? '#888',
+                                backgroundColor: UNEXPLAINED_COLOR,
                                 flexShrink: 0,
                               }}
                             />
-                            {row.factor_label}
+                            Unexplained / idiosyncratic
                           </span>
-                          <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
-                            {formatBeta(row.avg_beta)}
-                          </span>
-                          <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
-                            {formatPct(row.factor_return_pct)}
-                          </span>
+                          <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
+                          <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
                           <span
                             style={{
                               flex: 1,
                               textAlign: 'right',
-                              color: contrib >= 0 ? '#48bb78' : '#fc8181',
+                              color: (attribution.total_unexplained_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
                               fontWeight: 500,
                             }}
                           >
-                            {formatPct(row.contribution_pct)}
+                            {formatPct(attribution.total_unexplained_pct)}
                           </span>
                         </div>
-                      )
-                    })}
+                      )}
+                    </div>
 
-                    {/* Unexplained row */}
-                    {attribution.total_unexplained_pct != null && (
-                      <div className="list-row" style={{ fontSize: '12px' }}>
-                        <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '2px',
-                              backgroundColor: UNEXPLAINED_COLOR,
-                              flexShrink: 0,
-                            }}
-                          />
-                          Unexplained / idiosyncratic
-                        </span>
-                        <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
-                        <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
-                        <span
-                          style={{
-                            flex: 1,
-                            textAlign: 'right',
-                            color: (attribution.total_unexplained_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
-                            fontWeight: 500,
-                          }}
-                        >
-                          {formatPct(attribution.total_unexplained_pct)}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Total footer */}
+                    {/* Total footer — not scrollable */}
                     <div
                       className="list-row"
-                      style={{ fontSize: '12px', fontWeight: 700, borderTop: '1px solid #2d3448', marginTop: '4px', paddingTop: '4px' }}
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        borderTop: '1px solid #2d3448',
+                        paddingTop: '4px',
+                        cursor: 'default',
+                        outline: hoveredKey === 'portfolio' ? `1px solid ${PORTFOLIO_COLOR}` : undefined,
+                      }}
+                      onMouseEnter={() => setHoveredKey('portfolio')}
+                      onMouseLeave={() => setHoveredKey(null)}
                     >
                       <span style={{ flex: 2 }}>Total Portfolio (arithmetic)</span>
                       <span style={{ flex: 1, textAlign: 'right' }} />
