@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import attribution, dashboard_history, diagnostics, drift, exposure, health, imports, market_data
+from app.api.routes import attribution, correlation, dashboard_history, diagnostics, drift, exposure, health, imports, market_data
 from app.core.logging import configure_logging
 
 
@@ -23,3 +23,4 @@ app.include_router(dashboard_history.router)
 app.include_router(market_data.router)
 app.include_router(drift.router)
 app.include_router(attribution.router)
+app.include_router(correlation.router)

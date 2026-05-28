@@ -2,7 +2,7 @@
 
 **Epic:** Epic 9 — Portfolio Correlation & Co-movement Analysis
 **PRD:** [`epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.md)
-**Status:** Next phase
+**Status:** Done
 **Last updated:** 2026-05-28
 
 ## Story
@@ -30,20 +30,20 @@ Implementer must read:
 
 ## Acceptance criteria
 
-- [ ] AC1 — `docs/contracts/correlation-fields.md` exists and contains a table
+- [x] AC1 — `docs/contracts/correlation-fields.md` exists and contains a table
   for every field in `DriftDailyPoint` (US-9.1), `RollingRiskPoint`
   correlation/beta columns (US-9.2), and `BenchmarkStats` (US-9.3), with
   columns: Field | Backend type | TS type | UI display | Trust | Nullable.
-- [ ] AC2 — `docs/finance/financial-methodology.md` contains a complete section
+- [x] AC2 — `docs/finance/financial-methodology.md` contains a complete section
   for each of the four formulas used in this epic (Indexed Return Series,
   Rolling Pearson Correlation, Beta, R²), each with: formula block, symbol
   definitions, edge-case rules, and at least one academic citation.
-- [ ] AC3 — `docs/product/epic-roadmap.md` shows Epic 9 status as Active (not
+- [x] AC3 — `docs/product/epic-roadmap.md` shows Epic 9 status as Active (not
   Parked) and the slice log contains an entry for each of US-9.1, US-9.2,
   US-9.3, and US-9.5.
-- [ ] AC4 — `docs/product/stories/README.md` shows US-9.1, US-9.2, US-9.3,
+- [x] AC4 — `docs/product/stories/README.md` shows US-9.1, US-9.2, US-9.3,
   and US-9.5 as Done; US-9.4 remains Done.
-- [ ] AC5 — No acceptance criterion in US-9.1, US-9.2, or US-9.3 references a
+- [x] AC5 — No acceptance criterion in US-9.1, US-9.2, or US-9.3 references a
   formula not documented in `financial-methodology.md`.
 
 ## Test plan
@@ -60,20 +60,20 @@ Regression / guardrail:
 
 ## Tickets
 
-- [ ] T-9.5.1 — **Contract doc**: create
+- [x] T-9.5.1 — **Contract doc**: create
   `docs/contracts/correlation-fields.md` with field inventory tables for
   US-9.1 (indexed return chart fields), US-9.2 (rolling correlation/beta
   chart fields from `RollingRiskPoint`), and US-9.3 (multi-benchmark table
   fields from `BenchmarkStats` and `MultiBenchmarkCorrelationResult`). Follow
   the style of `docs/contracts/attribution-fields.md`.
 
-- [ ] T-9.5.2 — **Methodology verification**: read
+- [x] T-9.5.2 — **Methodology verification**: read
   `docs/finance/financial-methodology.md` §Indexed Return Series, §Rolling
   Pearson Correlation, §Beta (Market Beta), §R² — confirm all four sections
   contain formula blocks, symbol definitions, edge-case rules, and academic
   citations. Add any missing content; make no changes if already complete.
 
-- [ ] T-9.5.3 — **Roadmap and story close-out**: update
+- [x] T-9.5.3 — **Roadmap and story close-out**: update
   `docs/product/epic-roadmap.md` — change Epic 9 from "Parked" to "Active"
   header, add slice log entries for US-9.1, US-9.2, US-9.3, US-9.5; update
   `docs/product/stories/README.md` — set US-9.1, US-9.2, US-9.3, US-9.5

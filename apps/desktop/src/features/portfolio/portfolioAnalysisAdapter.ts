@@ -1,4 +1,4 @@
-import type { DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, PortfolioBaselineView } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -238,6 +238,25 @@ export async function runAttributionEngine(
   }
 
   return (await response.json()) as FactorAttributionResponse
+}
+
+export async function runMultiBenchmarkCorrelation(
+  snapshot: ImportedSnapshot,
+  lookbackDays: number = 252,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<MultiBenchmarkCorrelationResult> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/correlation/multi', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snapshot, lookback_days: lookbackDays }),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(errorPayload?.detail ?? 'Multi-benchmark correlation run failed')
+  }
+
+  return (await response.json()) as MultiBenchmarkCorrelationResult
 }
 
 export function composeDashboardAnalysisFromEngines(exposure: ExposureEngineResponse, diagnostics: DiagnosticsEngineResponse): DashboardAnalysis {

@@ -1,4 +1,5 @@
 import type { DriftResult, ExposureAnalysis } from './types'
+import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
 import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
 import { FactorAttributionCard } from './FactorAttributionCard'
 import { RollingCorrelationChart } from './RollingCorrelationChart'
@@ -315,6 +316,8 @@ export function ExposurePanel({
         <FactorAttributionCard snapshot={result.snapshot ?? null} />
 
         <RollingCorrelationChart rollingRisk={result.rolling_risk ?? []} />
+
+        <BenchmarkCorrelationTable snapshot={result.snapshot ?? null} />
       </div>
     </article>
   )

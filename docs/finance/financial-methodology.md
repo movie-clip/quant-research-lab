@@ -365,7 +365,7 @@ rho_t(w) = cov(r_p[t-w+1 : t], r_b[t-w+1 : t])
 where:
   r_p_t  = daily portfolio return (cash-flow-neutral formula, see Portfolio Return Methodology)
   r_b_t  = (price_b_t / price_b_(t-1)) - 1  (simple daily price return)
-  w      = rolling window in trading days: 30, 60, or 90
+  w      = rolling window in trading days: 20, 60, or 252
   t      = current date index in the sorted series
 
 Range: [-1, +1]

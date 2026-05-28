@@ -1283,3 +1283,19 @@ export type FactorAttributionResponse = {
   total_unexplained_pct: number | null
   methodology_note: string
 }
+
+// ── Multi-Benchmark Correlation ───────────────────────────────────────────────
+
+export type BenchmarkStats = {
+  symbol: string
+  label: string
+  correlation: number | null
+  beta: number | null
+  r_squared: number | null
+  trust: 'synthetic' | 'unavailable'
+}
+
+export type MultiBenchmarkCorrelationResult = {
+  benchmarks: BenchmarkStats[]
+  lookback_days: number
+}

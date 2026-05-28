@@ -2,7 +2,7 @@
 
 **Epic:** 9 — Portfolio Correlation & Co-movement Analysis
 **PRD:** [`epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.md)
-**Status:** Next phase
+**Status:** Done
 **Last updated:** 2026-05-28
 
 ## Story
@@ -38,27 +38,27 @@ Implementer must read:
 
 ## Acceptance criteria
 
-- [ ] AC1 — `POST /engines/correlation/multi` accepts a
+- [x] AC1 — `POST /engines/correlation/multi` accepts a
   `MultiBenchmarkCorrelationRequest` (same holdings fields as
   `PortfolioEngineRequest` + `lookback_days: int`, default 252) and returns a
   `MultiBenchmarkCorrelationResult` containing stats for all five hardcoded
   benchmarks (SPY, QQQ, GLD, IEF, VT).
-- [ ] AC2 — Each `BenchmarkStats` entry contains: `symbol`, `label` (human
+- [x] AC2 — Each `BenchmarkStats` entry contains: `symbol`, `label` (human
   name e.g. "S&P 500"), `correlation: float | null`, `beta: float | null`,
   `r_squared: float | null`, `trust: 'synthetic' | 'unavailable'`.
-- [ ] AC3 — When a benchmark has insufficient price history (< 20 trading
+- [x] AC3 — When a benchmark has insufficient price history (< 20 trading
   days overlap with the portfolio), its `correlation`, `beta`, and `r_squared`
   are all null and its `trust` is `'unavailable'`.
-- [ ] AC4 — The Exposure tab shows a `BenchmarkCorrelationTable` below the
+- [x] AC4 — The Exposure tab shows a `BenchmarkCorrelationTable` below the
   rolling correlation chart. Columns: Benchmark, ρ (correlation), β (beta),
   R², Trust. Rows are sorted by |ρ| descending by default.
-- [ ] AC5 — Null cells render as "—" (not zero, not blank, not "N/A").
-- [ ] AC6 — A "Synthetic" badge appears in the table header or as a per-row
+- [x] AC5 — Null cells render as "—" (not zero, not blank, not "N/A").
+- [x] AC6 — A "Synthetic" badge appears in the table header or as a per-row
   indicator next to unavailable rows.
-- [ ] AC7 — The table loads data once when the Exposure tab is opened (or a
+- [x] AC7 — The table loads data once when the Exposure tab is opened (or a
   new portfolio is loaded) — it does not re-fetch on every benchmark selector
   change in the drift/correlation charts above it.
-- [ ] AC8 — `npx tsc --noEmit` clean; `npx vitest run` passes; backend pytest
+- [x] AC8 — `npx tsc --noEmit` clean; `npx vitest run` passes; backend pytest
   passes; `python scripts/run_all_tests.py` is green.
 
 ## Test plan
@@ -83,7 +83,7 @@ Regression / guardrail:
 
 ## Tickets
 
-- [ ] T-9.3.1 — **Backend analytics module**: create
+- [x] T-9.3.1 — **Backend analytics module**: create
   `services/quant-engine/app/analytics/correlation.py` with scalar functions:
   `pearson(r_p, r_b) -> float | None` (Pearson ρ; null when len < 2 or std = 0),
   `beta(r_p, r_b) -> float | None` (cov/var; null when var = 0 or len < 20),
@@ -91,7 +91,7 @@ Regression / guardrail:
   in `test_correlation_engine.py` covering edge cases: all-null input, zero
   variance, short series.
 
-- [ ] T-9.3.2 — **Backend schema + service + route**: create
+- [x] T-9.3.2 — **Backend schema + service + route**: create
   `app/schemas/correlation.py` with `MultiBenchmarkCorrelationRequest` and
   `MultiBenchmarkCorrelationResult` (containing `list[BenchmarkStats]` +
   `lookback_days`); create `app/services/correlation_engine.py` with
@@ -102,24 +102,24 @@ Regression / guardrail:
   register in `app/api/main.py`. Add 5 integration pytest tests to
   `test_correlation_engine.py`.
 
-- [ ] T-9.3.3 — **Frontend types**: add `BenchmarkStats`,
+- [x] T-9.3.3 — **Frontend types**: add `BenchmarkStats`,
   `MultiBenchmarkCorrelationResult` to `features/portfolio/types.ts`; add
   `runMultiBenchmarkCorrelation(snapshot, lookbackDays?)` to
   `portfolioAnalysisAdapter.ts`.
 
-- [ ] T-9.3.4 — **Frontend component**: create
+- [x] T-9.3.4 — **Frontend component**: create
   `features/portfolio/BenchmarkCorrelationTable.tsx` — `<table>` with columns
   Benchmark / ρ / β / R² / Trust; sorts rows by |ρ| descending;
   null → "—"; unavailable trust → "Unavailable" badge; Synthetic trust →
   "Synthetic" badge. Create `BenchmarkCorrelationTable.test.tsx` with 5 tests.
 
-- [ ] T-9.3.5 — **Wire into Exposure tab**: add `multiBenchmarkResult` state
+- [x] T-9.3.5 — **Wire into Exposure tab**: add `multiBenchmarkResult` state
   to `App.tsx`; call `runMultiBenchmarkCorrelation` in parallel with
   exposure + drift in `analyzeExposureSnapshot`; pass result as
   prop to `ExposurePanel`; render `BenchmarkCorrelationTable` in
   `ExposurePanel.tsx` beneath `RollingCorrelationChart`.
 
-- [ ] T-9.3.6 — **Docs close-out**: update `docs/contracts/correlation-fields.md`
+- [x] T-9.3.6 — **Docs close-out**: update `docs/contracts/correlation-fields.md`
   with multi-benchmark fields; set US-9.3 to Done in
   `docs/product/stories/README.md`; add slice log entry to
   `docs/product/epic-roadmap.md`; set Epic 9 snapshot to all Done.
