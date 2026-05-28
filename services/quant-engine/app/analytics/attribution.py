@@ -117,7 +117,13 @@ def build_factor_attribution(
         if factor_returns.get(proxy)
     ]
 
-    min_observations = WINDOW_MIN_OBSERVATIONS.get(window, window)
+    # Attribution only requires the rolling window to be filled once.
+    # WINDOW_MIN_OBSERVATIONS adds a buffer for OLS stability in the risk path,
+    # but attribution uses the same Gram-Schmidt + ridge pipeline and works fine
+    # with exactly `window` observations.  Using the inflated value caused a
+    # spurious "unavailable" for portfolios with slightly more than `window`
+    # common dates (e.g. 21 days with the 20d selector).
+    min_observations = window
 
     # Common dates: intersection of portfolio return dates and all active factor dates.
     if not active_factors or not portfolio_returns:

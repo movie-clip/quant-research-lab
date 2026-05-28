@@ -222,7 +222,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
             <div className="empty-state-panel compact-empty-state">
               <p className="empty-state-title">Not enough history</p>
               <p className="helper">
-                Need at least {window} trading days of common history between portfolio and factor proxies.
+                Need at least {window + 1} trading days of common history between portfolio and factor proxies.
                 Try a shorter window or import a longer statement.
               </p>
             </div>

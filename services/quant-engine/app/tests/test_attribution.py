@@ -94,10 +94,10 @@ class TestBuildFactorAttributionReconciliation:
     """Reconciliation identity: Σ contributions + unexplained = r_p(t) on every date."""
 
     def test_reconciliation_holds_for_all_attributed_dates(self):
-        # window=20, min_observations=25 → need ≥25 common dates.
+        # window=20, min_observations=20 → need ≥20 common dates.
         # 35 daily states → 34 portfolio return dates.
         # 36 factor rows (starting one day earlier) → 35 factor return dates.
-        # common dates = 34 ∩ 35 = 34.  Non-null after index 24 = 10 dates.
+        # common dates = 34 ∩ 35 = 34.  Non-null after index 19 = 15 dates.
         states = _make_daily_states(35, daily_return=0.001)
         histories = _standard_histories(36)
         result = build_factor_attribution(states, histories, window=20)
@@ -158,7 +158,7 @@ class TestBuildFactorAttributionWindows:
         assert result.window == 60
 
     def test_window_252_requires_enough_history(self):
-        # min_obs for w=252 is 275. Only 30 common dates → unavailable.
+        # min_observations = window = 252. Only 30 common dates → unavailable.
         states = _make_daily_states(30, daily_return=0.001)
         histories = _standard_histories(31)
         result = build_factor_attribution(states, histories, window=252)
@@ -170,7 +170,7 @@ class TestBuildFactorAttributionUnavailable:
     """Unavailable state is emitted when history is insufficient."""
 
     def test_short_history_returns_unavailable(self):
-        # Fewer than 25 common dates for window=20 → unavailable.
+        # Fewer than 20 common dates for window=20 → unavailable.
         states = _make_daily_states(10, daily_return=0.001)
         histories = _standard_histories(11)
         result = build_factor_attribution(states, histories, window=20)
