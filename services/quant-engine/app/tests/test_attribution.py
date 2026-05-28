@@ -311,7 +311,7 @@ class TestAttributionRoute:
         response = client.post("/engines/attribution/run", json=payload)
         assert response.status_code == 200
         body = response.json()
-        # No ledger / positions → no history → unavailable.
+        # No positions → engine returns unavailable immediately.
         assert body["attribution_status"] == "unavailable"
         assert body["cumulative_series"] == []
         assert body["period_attribution"] == []
