@@ -23,6 +23,17 @@ The brief is rigorous enough that any implementer (or another agent running
 `write-story`) can author well-grounded acceptance criteria without needing
 additional financial context.
 
+## The cycle this skill plugs into
+
+```
+quant-research → write-story → build-story → write-tests → verify-story → update-docs
+ (this skill)     (plan)        (implement)    (cover)        (QA)         (sync docs)
+```
+
+This skill's output is the **Research Brief** + a methodology-doc section.
+That brief is consumed by `write-story` to produce a ticketed story.
+Do not draft tickets here — that's write-story's job.
+
 ---
 
 ## Where things live
@@ -34,7 +45,25 @@ additional financial context.
 | `docs/product/prd/<epic>.md` | PRD per epic — the brief feeds directly into this |
 | `docs/product/current-product-state.md` | What already ships — do not re-describe shipped code |
 | `docs/contracts/<area>-fields.md` | Backend ↔ TS ↔ UI field contracts |
-| `services/quant-engine/app/analytics/risk.py` | Main analytics implementation — read before proposing new metrics |
+
+## Analytics module layout (read before proposing)
+
+Already-shipped analytics live here. **Read the relevant module before
+proposing related work** — duplication is a much worse smell than coupling.
+
+| Module | What lives here | Don't propose to extend if … |
+|---|---|---|
+| `app/analytics/portfolio.py` | TWR, money-weighted return, portfolio value series | Already covers basic returns |
+| `app/analytics/risk.py` | Volatility, drawdown, rolling factor model, rolling-risk series (correlation/beta vs primary benchmark) | Already covers primary-benchmark rolling stats |
+| `app/analytics/correlation.py` | Pearson ρ, beta, R² scalar helpers; used by multi-benchmark engine | Need a new pairwise-stat helper — extend in place |
+| `app/analytics/attribution.py` | Factor-return decomposition (per-factor contribution + residual) | Already covers factor attribution |
+| `app/analytics/drift.py` | Portfolio vs benchmark drift (1m/3m/6m/12m/since-import + indexed series) | Already covers drift windows |
+| `app/analytics/exposure.py` | Sector + look-through composition | Already covers ownership composition |
+| `app/services/<name>_engine.py` | Wires market data → pure analytics. Use `MarketDataService`. |
+| `app/services/attribution_engine.py` | Has the `_lookback_calendar_days(window) = ceil(window*1.6)+30` heuristic + uses `_build_synthetic_snapshot_history_states` from `diagnostics_engine.py` — reuse for any new windowed synthetic-history analytic |
+
+A new analytic that fits none of these gets its own `app/analytics/<name>.py`
+file. Don't shoehorn into `risk.py`.
 
 ---
 
@@ -77,6 +106,11 @@ Write every formula the backend must implement, in the exact notation used in `f
 - Symbol definitions
 - Assumptions (e.g. daily returns, trading-day count = 252)
 - Edge-case handling (what happens when N < window? when variance = 0?)
+- **Lookback heuristic** (for windowed analytics): use
+  `_lookback_calendar_days(window) = ceil(window * 1.6) + 30` to convert
+  trading-day windows to calendar-day fetches. This is the project standard
+  — never re-derive it. State the window-to-fetch mapping in the brief
+  (e.g. "window=252 trading days → fetch ~434 calendar days").
 
 Example block format:
 

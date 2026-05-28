@@ -43,8 +43,13 @@ Exposure also shows a **vs Market drift panel** at the top: rolling portfolio re
 | `docs/finance/financial-methodology.md` | Source of truth for every financial formula |
 | `docs/architecture/system-architecture.md` | Backend seams, route inventory, truth class semantics |
 | `docs/contracts/*.md` | Field inventory — backend ↔ TS type ↔ UI traceability |
-| `.claude/skills/build-story/SKILL.md` | Build-story skill |
-| `.claude/skills/write-story/SKILL.md` | Write-story skill |
+| `.claude/skills/quant-research/SKILL.md` | Research a financial concept; produce a brief + methodology section |
+| `.claude/skills/write-story/SKILL.md` | Turn idea / brief into a ticketed user story |
+| `.claude/skills/build-story/SKILL.md` | Implement a ticketed story end-to-end |
+| `.claude/skills/write-tests/SKILL.md` | Write pytest / vitest per project conventions (auto-invoked by build-story) |
+| `.claude/skills/verify-story/SKILL.md` | QA gate — checks ACs / tests / docs / regressions; blocks commit on FAIL |
+| `.claude/skills/update-docs/SKILL.md` | Reconcile contracts / methodology / slice log after implementation |
+| `.claude/skills/fmp-data/SKILL.md` | FMP integration reference — symbol resolution, cache, adding tickers |
 
 ## Tech Stack
 
@@ -133,12 +138,23 @@ python scripts/manage_cache.py
 
 Work is delivered as **PRD → User Story → Ticket**. See `docs/product/stories/README.md` for the story index.
 
-Two project skills drive the workflow:
+Six project skills compose the full development cycle:
+
+```
+quant-research → write-story → build-story → write-tests → verify-story → update-docs
+   (research)      (plan)       (implement)    (cover)        (QA gate)    (sync docs)
+```
 
 | Skill | When to use |
 |---|---|
-| **`write-story`** | Feature idea → complete, ticketed User Story file |
-| **`build-story`** | Implement a ticketed story end-to-end |
+| **`quant-research`** | New financial concept — produce a Research Brief + methodology section |
+| **`write-story`** | Feature idea (or research brief) → complete, ticketed User Story file |
+| **`build-story`** | Implement a ticketed story end-to-end. Auto-invokes write-tests, verify-story, update-docs |
+| **`write-tests`** | Write pytest / vitest per project conventions. Usually auto-invoked from build-story |
+| **`verify-story`** | QA gate before commit. **Returns FAIL → commit is blocked.** Auto-invoked from build-story |
+| **`update-docs`** | Reconcile contracts, methodology, slice log after implementation. Auto-invoked at close-out |
+
+Plus one reference skill: **`fmp-data`** (FMP integration deep-dive — read when adding tickers or debugging market-data flows).
 
 ## When in doubt
 

@@ -16,6 +16,18 @@ quant engine, how symbol resolution works, what the common failure modes are,
 and how to add support for new tickers — including European UCITS ETFs that
 FMP's basic plan does not cover.
 
+This is a **reference skill**, not a workflow skill. It's read by other skills
+(`quant-research` when proposing data dependencies, `build-story` when wiring
+a new engine to market data, `verify-story` when debugging market-data mocks)
+and by the user directly when something market-data-related is broken.
+
+## Skills that often follow this one
+
+- **quant-research** — if you came here to check data feasibility for a new
+  analytic, the brief belongs in quant-research's §2.4 (Data requirements)
+- **build-story** — if you came here to wire a new engine, the autouse mocks
+  in `conftest.py` will need a sibling for your engine
+
 ---
 
 ## Architecture overview
