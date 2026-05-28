@@ -54,20 +54,6 @@ describe('ExposurePanel', () => {
     expect(onSnapshotSelect).toHaveBeenCalledWith('node-1')
   })
 
-  it('renders the look-through summary first with explicit live coverage messaging', () => {
-    render(<ExposurePanel result={mockExposureView} />)
-
-    expect(screen.getByText('Look-Through Exposure Core').closest('article')?.className.includes('exposure-panel')).toBe(true)
-    expect(screen.getByText('Look-Through Summary')).toBeTruthy()
-    expect(screen.getByText('Coverage state')).toBeTruthy()
-    expect(screen.getByText('live')).toBeTruthy()
-    expect(screen.getByText('Covered market value')).toBeTruthy()
-    expect(screen.getByText('Coverage ratio')).toBeTruthy()
-    expect(screen.getByText('Top Constituents')).toBeTruthy()
-    expect(screen.getByText('Basis: imported snapshot truth plus resolved ETF constituents.')).toBeTruthy()
-    expect(screen.getByText('Look-through coverage 100.00% ($50000.00 of $50000.00).')).toBeTruthy()
-  })
-
   it('renders current-state concentration facts only', () => {
     render(<ExposurePanel result={mockExposureView} />)
 
@@ -142,56 +128,6 @@ describe('ExposurePanel', () => {
     expect(screen.queryByText('Position HHI')).toBeNull()
   })
 
-  it('keeps partial look-through trust inline and does not imply full resolution', () => {
-    render(
-      <ExposurePanel
-        result={{
-          ...mockExposureView,
-          lookthrough: {
-            ...mockExposureView.lookthrough,
-            covered_market_value: 5000,
-            coverage_ratio: 0.1,
-            uncovered_positions: ['VUAA'],
-          },
-          exposure_availability: {
-            lookthrough_status: 'partial',
-            lookthrough_confidence: 'medium',
-            benchmark_overlap_status: 'unavailable',
-            benchmark_overlap_confidence: 'low',
-            note: 'Look-through exposure is partial because some holdings could not be resolved, and benchmark overlap is unavailable because benchmark composition could not be loaded.',
-          },
-        }}
-      />,
-    )
-
-    expect(screen.getAllByText('partial').length).toBeGreaterThan(0)
-    expect(screen.getByText('Basis: imported snapshot truth plus resolved ETF constituents; unresolved ETFs stay partial.')).toBeTruthy()
-    expect(screen.getByText('Look-through coverage 10.00% ($5000.00 of $50000.00).')).toBeTruthy()
-    expect(screen.getByText(/Limitation: partial look-through leaves VUAA unresolved/)).toBeTruthy()
-    expect(screen.queryByText(/benchmark overlap is unavailable/i)).toBeNull()
-  })
-
-  it('suppresses benchmark-relative availability notes inside Look-Through Exposure Core', () => {
-    render(
-      <ExposurePanel
-        result={{
-          ...mockExposureView,
-          exposure_availability: {
-            ...mockExposureView.exposure_availability!,
-            note: 'Benchmark-relative overlap is unavailable because benchmark composition could not be loaded. Current look-through exposure is still shown.',
-          },
-        }}
-      />,
-    )
-
-    const lookthroughSection = screen.getByText('Look-Through Summary').closest('section')
-    expect(lookthroughSection).toBeTruthy()
-    const sliceText = lookthroughSection?.textContent ?? ''
-
-    expect(sliceText.includes('Benchmark-relative overlap is unavailable')).toBe(false)
-    expect(sliceText.includes('benchmark composition could not be loaded')).toBe(false)
-  })
-
   it('withholds sector and concentration modules when inputs are unavailable', () => {
     render(
       <ExposurePanel
@@ -229,7 +165,6 @@ describe('ExposurePanel', () => {
       />,
     )
 
-    expect(screen.getByText('Top constituents unavailable')).toBeTruthy()
     expect(screen.getByText('Concentration read unavailable')).toBeTruthy()
   })
 })

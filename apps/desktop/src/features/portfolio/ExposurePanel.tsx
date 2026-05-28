@@ -85,39 +85,6 @@ function buildConcentrationSummaryMetrics(concentration: ExposureAnalysis['curre
   ].filter((metric): metric is ConcentrationMetric => metric != null)
 }
 
-function formatCoverageState(status: ExposureAnalysis['exposure_availability']) {
-  const state = status?.lookthrough_status ?? 'unavailable'
-  if (state === 'live') return 'live'
-  if (state === 'partial') return 'partial'
-  return 'unavailable'
-}
-
-function buildLookthroughBasisNote(result: ExposureAnalysis) {
-  const status = result.exposure_availability?.lookthrough_status ?? 'unavailable'
-  if (status === 'live') return 'Basis: imported snapshot truth plus resolved ETF constituents.'
-  if (status === 'partial') return 'Basis: imported snapshot truth plus resolved ETF constituents; unresolved ETFs stay partial.'
-  return 'Basis: imported snapshot truth only; constituent look-through unavailable.'
-}
-
-function buildLookthroughCoverageNote(result: ExposureAnalysis) {
-  const lookthrough = result.lookthrough
-  const status = result.exposure_availability?.lookthrough_status ?? 'unavailable'
-  if (status === 'unavailable') return 'Look-through coverage unavailable for this snapshot.'
-  return `Look-through coverage ${formatWeightPct(lookthrough.coverage_ratio)} (${formatMoney(lookthrough.covered_market_value)} of ${formatMoney(lookthrough.portfolio_market_value)}).`
-}
-
-function buildLookthroughLimitationNote(result: ExposureAnalysis) {
-  const status = result.exposure_availability?.lookthrough_status ?? 'unavailable'
-  if (status === 'live') return null
-  if (status === 'partial') {
-    const uncovered = result.lookthrough.uncovered_positions
-    return uncovered.length
-      ? `Limitation: partial look-through leaves ${uncovered.join(', ')} unresolved.`
-      : 'Limitation: partial look-through leaves constituent and sector reads incomplete.'
-  }
-  return 'Limitation: constituent ownership is withheld because look-through is unavailable.'
-}
-
 function SummaryMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="summary-card metric-card metric-card-neutral">
@@ -159,9 +126,6 @@ export function ExposurePanel({
     )
   }
 
-  const lookthroughState = formatCoverageState(result.exposure_availability)
-  const limitationNote = buildLookthroughLimitationNote(result)
-  const topConstituents = (result.lookthrough.top_constituents ?? []).slice(0, 8)
   const concentration = result.current_state_concentration
   const concentrationAvailability = buildConcentrationAvailabilityState(concentration)
   const concentrationSummaryMetrics = buildConcentrationSummaryMetrics(concentration)
@@ -212,41 +176,7 @@ export function ExposurePanel({
           onBenchmarkChange={(symbol) => { onDriftBenchmarkChange?.(symbol) }}
         />
 
-        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section exposure-top-path-section">
-          <div className="section-header-inline sector-list-header exposure-section-header">
-            <div className="panel-section-title-block"><p className="panel-label">Look-Through Summary</p></div>
-            <p className="helper">Current-state composition only.</p>
-          </div>
-        <div className="dashboard-summary compact-summary-grid">
-          <SummaryMetric label="Coverage state" value={lookthroughState} detail="Explicit look-through state." />
-          <SummaryMetric label="Covered market value" value={formatMoney(result.lookthrough.covered_market_value)} detail="Imported market value resolved through look-through." />
-          <SummaryMetric label="Coverage ratio" value={lookthroughState === 'unavailable' ? 'Unavailable' : formatWeightPct(result.lookthrough.coverage_ratio)} detail="Actual look-through coverage only." />
-          <SummaryMetric label="Resolved constituents shown" value={String(topConstituents.length)} detail="Top resolved constituents shown." />
-        </div>
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">{buildLookthroughBasisNote(result)}</p>
-          <p className="helper">{buildLookthroughCoverageNote(result)}</p>
-          {limitationNote ? <p className="helper">{limitationNote}</p> : null}
-        </div>
-        {topConstituents.length ? (
-          <section>
-            <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
-              <div className="panel-section-title-block"><p className="panel-label">Top Constituents</p></div>
-              <p className="helper">Current-state look-through only.</p>
-            </div>
-            <div className="list-table">
-              {topConstituents.map((item) => (
-                <div className="list-row" key={`lookthrough-${item.symbol}`}>
-                  <span>{item.symbol}</span>
-                  <span>{formatCompactMoney(item.effective_market_value)} · {formatWeightPct(item.portfolio_weight)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : (
-          <UnavailablePanel title="Top constituents unavailable" detail="No defensible constituent list is shown because current look-through inputs did not resolve one." />
-        )}
-        </section>
+        <RollingCorrelationChart rollingRisk={result.rolling_risk ?? []} />
 
         <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
           <div className="section-header-inline sector-list-header exposure-section-header">
@@ -314,8 +244,6 @@ export function ExposurePanel({
         </section>
 
         <FactorAttributionCard snapshot={result.snapshot ?? null} />
-
-        <RollingCorrelationChart rollingRisk={result.rolling_risk ?? []} />
 
         <BenchmarkCorrelationTable snapshot={result.snapshot ?? null} />
       </div>
