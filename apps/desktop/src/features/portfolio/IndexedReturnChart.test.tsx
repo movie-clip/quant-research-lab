@@ -35,9 +35,10 @@ const windows: DriftWindow[] = [
 describe('IndexedReturnChart', () => {
   it('renders window selector buttons for each window', () => {
     render(<IndexedReturnChart series={baseSeries} windows={windows} benchmarkSymbol="SPY" />)
-    expect(screen.getByRole('button', { name: '1M' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: '3M' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Since Import' })).toBeTruthy()
+    // WindowSelector primitive renders aria-label as "${label} window"
+    expect(screen.getByRole('button', { name: '1M window' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '3M window' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Since Import window' })).toBeTruthy()
   })
 
   it('shows insufficient history message when series is empty', () => {
@@ -55,9 +56,11 @@ describe('IndexedReturnChart', () => {
 
   it('changes active window button when a window is clicked', () => {
     render(<IndexedReturnChart series={baseSeries} windows={windows} benchmarkSymbol="SPY" />)
-    const btn1M = screen.getByRole('button', { name: '1M' })
+    // Window selector now uses primitive: button aria-label is "${label} window",
+    // active state via aria-pressed.
+    const btn1M = screen.getByRole('button', { name: '1M window' })
     fireEvent.click(btn1M)
-    expect(btn1M.className.includes('drift-chart-window-btn-active')).toBe(true)
+    expect(btn1M.getAttribute('aria-pressed')).toBe('true')
   })
 
   it('renders without crashing when windows array is empty', () => {

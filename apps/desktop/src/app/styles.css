@@ -79,6 +79,12 @@
   --color-value-positive: #48bb78;         /* positive contribution / gain */
   --color-value-negative: #fc8181;         /* negative contribution / loss */
 
+  /* Error accent — used by <ErrorState /> primitive to distinguish error from
+     plain empty state. Same hue family as --color-value-negative but kept as
+     a separate semantic token. */
+  --color-error: #fc8181;
+  --color-error-border: rgba(252, 129, 129, 0.42);
+
   /* Trust badge */
   --color-trust-badge-bg: rgba(91, 135, 197, 0.18);
   --color-trust-badge-text: #5b87c5;

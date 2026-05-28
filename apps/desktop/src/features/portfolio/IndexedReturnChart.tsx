@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { DriftDailyPoint, DriftWindow } from './types'
+import { EmptyState } from '../../app/primitives/EmptyState'
+import { WindowSelector } from '../../app/primitives/WindowSelector'
 
 function formatDateLabel(value: string | number | null | undefined): string {
   if (typeof value !== 'string') return ''
@@ -64,21 +66,14 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
   return (
     <div className="drift-chart-shell">
       {windowOptions.length > 1 && (
-        <div className="drift-chart-window-selector" role="group" aria-label="Chart window">
-          {windowOptions.map((opt) => (
-            <button
-              key={opt.label}
-              type="button"
-              className={`drift-chart-window-btn${selectedWindowLabel === opt.label ? ' drift-chart-window-btn-active' : ''}`}
-              onClick={() => { setSelectedWindowLabel(opt.label) }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <WindowSelector
+          options={windowOptions.map((o) => o.label)}
+          value={selectedWindowLabel}
+          onChange={(label) => { setSelectedWindowLabel(label) }}
+        />
       )}
       {!hasData ? (
-        <p className="helper drift-chart-empty">Insufficient history — chart unavailable.</p>
+        <EmptyState title="Insufficient history — chart unavailable." />
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>

@@ -18,6 +18,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const FEATURES = resolve(__dirname, '..', 'features', 'portfolio')
+const PRIMITIVES = resolve(__dirname, '..', 'app', 'primitives')
 
 /** Files that render their own Synthetic badge (4 of 5 — IndexedReturnChart
  *  lives inside DriftBenchmarkPanel which provides the badge for both). */
@@ -124,12 +125,38 @@ describe('Epic 12 design-system audit', () => {
     expect(offenders).toEqual({})
   })
 
-  it('synthetic_trust_badge_class_appears_in_all_badge_rendering_cards', () => {
+  it('trust_badge_primitive_imported_in_all_badge_rendering_cards', () => {
+    // After US-12.2 the badge JSX lives in `<TrustBadge />` (app/primitives/).
+    // Each card that renders a Synthetic badge must import the primitive
+    // rather than hand-roll the className.
     const missing: string[] = []
     for (const name of CARDS_WITH_BADGE) {
       const src = readCard(name)
-      if (!src.includes('attribution-trust-badge')) missing.push(name)
+      if (!src.includes("from '../../app/primitives/TrustBadge'")) missing.push(name)
     }
     expect(missing).toEqual([])
+  })
+
+  it('synthetic_label_string_is_single_source_of_truth', () => {
+    // The literal string "Synthetic" (capital S, in JSX text content) must
+    // appear in exactly ONE place: the TrustBadge primitive's LABELS map.
+    // Anywhere else means a card is hand-rolling a badge instead of using
+    // the primitive.
+    const surfaces: Array<{ dir: string; files: string[] }> = [
+      { dir: FEATURES, files: ALL_CARD_FILES },
+      { dir: PRIMITIVES, files: ['TrustBadge.tsx'] },
+    ]
+    const offenders: string[] = []
+    for (const { dir, files } of surfaces) {
+      for (const name of files) {
+        const src = readFileSync(resolve(dir, name), 'utf8')
+        const stripped = stripComments(src)
+        // Find `: 'Synthetic'`  or  `>Synthetic<`  literals (JSX text or string value).
+        if (/(?<![A-Za-z])Synthetic(?![A-Za-z])/.test(stripped) && name !== 'TrustBadge.tsx') {
+          offenders.push(name)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
   })
 })

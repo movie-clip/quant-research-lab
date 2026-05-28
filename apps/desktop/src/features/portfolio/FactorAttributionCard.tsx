@@ -3,6 +3,12 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 
 import type { FactorAttributionResponse, ImportedSnapshot } from './types'
 import { runAttributionEngine } from './portfolioAnalysisAdapter'
+import { CardShell } from '../../app/primitives/CardShell'
+import { EmptyState } from '../../app/primitives/EmptyState'
+import { ErrorState } from '../../app/primitives/ErrorState'
+import { LoadingState } from '../../app/primitives/LoadingState'
+import { TrustBadge } from '../../app/primitives/TrustBadge'
+import { WindowSelector } from '../../app/primitives/WindowSelector'
 
 type AttributionWindow = 20 | 60 | 252
 
@@ -90,75 +96,6 @@ function lineWidth(key: string, hovered: string | null, defaultWidth: number, ho
 }
 
 // ── Subcomponents ──────────────────────────────────────────────────────────────
-
-function SyntheticBadge() {
-  const [showTooltip, setShowTooltip] = useState(false)
-  return (
-    <span
-      className="attribution-trust-badge"
-      style={{ position: 'relative', cursor: 'help' }}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
-      Synthetic
-      {showTooltip && (
-        <span
-          className="attribution-badge-tooltip"
-          style={{
-            position: 'absolute',
-            bottom: '100%',
-            left: 0,
-            backgroundColor: 'var(--color-surface-elevated)',
-            border: 'var(--border-thin) solid var(--color-border-strong)',
-            borderRadius: 'var(--radius-sm)',
-            padding: 'var(--space-xs) var(--space-sm)',
-            fontSize: 'var(--font-caption)',
-            color: 'var(--color-text-muted)',
-            whiteSpace: 'nowrap',
-            zIndex: 100,
-            marginBottom: 'var(--space-xs)',
-            pointerEvents: 'none',
-          }}
-        >
-          Returns are reconstructed from current holdings and historical factor proxy prices.
-        </span>
-      )}
-    </span>
-  )
-}
-
-function WindowSelector({
-  value,
-  onChange,
-}: {
-  value: AttributionWindow
-  onChange: (w: AttributionWindow) => void
-}) {
-  return (
-    <div className="rolling-window-selector" style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-      {WINDOW_OPTIONS.map((w) => (
-        <button
-          key={w}
-          type="button"
-          className={`window-option-btn${value === w ? ' window-option-btn-active' : ''}`}
-          onClick={() => onChange(w)}
-          style={{
-            padding: 'var(--space-xs) var(--space-sm)',
-            fontSize: 'var(--font-caption)',
-            borderRadius: 'var(--radius-sm)',
-            border: 'var(--border-thin) solid',
-            borderColor: value === w ? 'var(--color-line-correlation)' : 'var(--color-border-strong)',
-            backgroundColor: value === w ? 'var(--color-surface-overlay)' : 'transparent',
-            color: value === w ? 'var(--color-line-correlation)' : 'var(--color-text-disabled)',
-            cursor: 'pointer',
-          }}
-        >
-          {WINDOW_LABELS[w]}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 // ── Custom tooltip ─────────────────────────────────────────────────────────────
 
@@ -282,46 +219,41 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
   const chartData = attribution ? buildChartData(attribution) : []
 
   return (
-    <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
-      <div className="section-header-inline sector-list-header exposure-section-header">
-        <div className="panel-section-title-block">
-          <p className="panel-label">Factor Return Attribution</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-          <SyntheticBadge />
-          <WindowSelector value={window} onChange={setWindow} />
-        </div>
-      </div>
-
-      {loadState === 'loading' && (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="helper">Computing attribution…</p>
-        </div>
-      )}
+    <CardShell
+      title="Factor Return Attribution"
+      badge={
+        <TrustBadge
+          type="synthetic"
+          tooltip="Returns are reconstructed from current holdings and historical factor proxy prices."
+        />
+      }
+      actions={
+        <WindowSelector<AttributionWindow>
+          options={WINDOW_OPTIONS}
+          value={window}
+          onChange={setWindow}
+          labelFn={(w) => WINDOW_LABELS[w]}
+        />
+      }
+      className="dashboard-bottom-grid exposure-primary-section exposure-shell-section"
+    >
+      {loadState === 'loading' && <LoadingState message="Computing attribution…" />}
 
       {loadState === 'error' && (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">Attribution unavailable</p>
-          <p className="helper">{errorMsg ?? 'The attribution engine returned an error.'}</p>
-        </div>
+        <ErrorState title="Attribution unavailable" detail={errorMsg ?? 'The attribution engine returned an error.'} />
       )}
 
       {loadState === 'idle' && (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="helper">Import a portfolio to view factor return attribution.</p>
-        </div>
+        <EmptyState title="Import a portfolio to view factor return attribution." />
       )}
 
       {loadState === 'done' && attribution && (
         <>
           {attribution.attribution_status === 'unavailable' ? (
-            <div className="empty-state-panel compact-empty-state">
-              <p className="empty-state-title">Not enough history</p>
-              <p className="helper">
-                Need at least {window + 1} trading days of common history between portfolio and factor proxies.
-                Try a shorter window or import a longer statement.
-              </p>
-            </div>
+            <EmptyState
+              title="Not enough history"
+              detail={`Need at least ${window + 1} trading days of common history between portfolio and factor proxies. Try a shorter window or import a longer statement.`}
+            />
           ) : (
             <>
               {/* Cumulative attribution line chart */}
@@ -569,6 +501,6 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
           )}
         </>
       )}
-    </section>
+    </CardShell>
   )
 }

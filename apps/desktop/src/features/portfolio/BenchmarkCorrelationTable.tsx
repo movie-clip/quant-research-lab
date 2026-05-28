@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { BenchmarkStats, ImportedSnapshot, MultiBenchmarkCorrelationResult } from './types'
 import { runMultiBenchmarkCorrelation } from './portfolioAnalysisAdapter'
+import { CardShell } from '../../app/primitives/CardShell'
+import { EmptyState } from '../../app/primitives/EmptyState'
+import { ErrorState } from '../../app/primitives/ErrorState'
+import { LoadingState } from '../../app/primitives/LoadingState'
+import { TrustBadge } from '../../app/primitives/TrustBadge'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -167,48 +172,32 @@ export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTabl
   }, [snapshot])
 
   return (
-    <section className="compact-chart-panel">
-      {/* Header */}
-      <div
-        className="section-header-inline sector-list-header exposure-section-header"
-        style={{ marginBottom: 'var(--space-md)' }}
-      >
-        <div className="panel-section-title-block">
-          <p className="panel-label" style={{ display: 'inline' }}>
-            Multi-Benchmark Correlation
-          </p>
-          <span
-            className="attribution-trust-badge"
-            title="Computed from current holdings applied to historical prices. Not verified broker return basis."
-            style={{ marginLeft: 'var(--space-sm)' }}
-          >
-            Synthetic
-          </span>
-        </div>
+    <CardShell
+      title="Multi-Benchmark Correlation"
+      badge={
+        <TrustBadge
+          type="synthetic"
+          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
+        />
+      }
+      actions={
         <p className="helper" style={{ margin: 0 }}>
           {result ? `${result.lookback_days}d lookback` : '252d lookback'}
         </p>
-      </div>
-
+      }
+    >
       {/* States */}
       {loadState === 'idle' && (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">Correlation unavailable</p>
-          <p className="helper">Import a portfolio to compute multi-benchmark correlation.</p>
-        </div>
+        <EmptyState
+          title="Correlation unavailable"
+          detail="Import a portfolio to compute multi-benchmark correlation."
+        />
       )}
 
-      {loadState === 'loading' && (
-        <p className="helper" style={{ textAlign: 'center', padding: 'var(--space-xl) 0' }}>
-          Computing correlation…
-        </p>
-      )}
+      {loadState === 'loading' && <LoadingState message="Computing correlation…" />}
 
       {loadState === 'error' && (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">Correlation unavailable</p>
-          <p className="helper">{errorMsg ?? 'Engine error'}</p>
-        </div>
+        <ErrorState title="Correlation unavailable" detail={errorMsg ?? 'Engine error'} />
       )}
 
       {loadState === 'done' && result && result.benchmarks.length > 0 && (
@@ -216,14 +205,11 @@ export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTabl
       )}
 
       {loadState === 'done' && (!result || result.benchmarks.length === 0) && (
-        <div className="empty-state-panel compact-empty-state">
-          <p className="empty-state-title">Correlation unavailable</p>
-          <p className="helper">
-            Multi-benchmark correlation requires at least 20 overlapping trading days of
-            synthetic portfolio history.
-          </p>
-        </div>
+        <EmptyState
+          title="Correlation unavailable"
+          detail="Multi-benchmark correlation requires at least 20 overlapping trading days of synthetic portfolio history."
+        />
       )}
-    </section>
+    </CardShell>
   )
 }

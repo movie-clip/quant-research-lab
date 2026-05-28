@@ -21,8 +21,8 @@ card slot in consistently.
 | Story | Title | Status |
 |---|---|---|
 | US-12.1 | Design tokens + apply to the four Exposure cards | Done |
-| US-12.2 | Primitive components + refactor cards | Next phase |
-| US-12.3 | Accessibility + Recharts defaults (ChartShell) | Backlog |
+| US-12.2 | Primitive components + refactor cards | Done |
+| US-12.3 | Accessibility + Recharts defaults (ChartShell) | Next phase |
 | US-12.4 | `ui-polish` skill + Epic 12 close-out | Backlog |
 
 Stories must be built in order (12.1 → 12.2 → 12.3 → 12.4).
@@ -33,6 +33,7 @@ Stories must be built in order (12.1 → 12.2 → 12.3 → 12.4).
 |---|---|---|
 | 2026-05-28 | — | Epic created from UX pass over Epic 9/11 cards; PRD authored; four-story plan (tokens → primitives → a11y → skill) |
 | 2026-05-28 | US-12.1 | Design tokens (`:root` block: 60+ tokens covering text/surface/border/correlation-sign/factor palette/spacing/typography/radius/border-widths); canonical `.attribution-trust-badge` CSS rule; refactored 5 card files to consume tokens; fixed RollingCorrelationChart dual-axis text overlap (YAxis width 44→64, margin right 56→72); audit regression test (`designSystem.audit.test.ts`, 3 tests) enforces no-hex / no-px in inline styles. 263 backend + 109 frontend green; `npx tsc --noEmit` clean. |
+| 2026-05-28 | US-12.2 | Primitive components extracted: `<CardShell>`, `<TrustBadge>`, `<WindowSelector>` (generic), `<EmptyState>`, `<LoadingState>`, `<ErrorState>` at `apps/desktop/src/app/primitives/`; refactored 5 cards to import + use primitives (deleted ~70 lines of duplicated JSX across them); audit test grew 3→4 tests (added "Synthetic" single-source-of-truth check + import-based badge check). New token: `--color-error` / `--color-error-border`. 263 backend + 132 frontend green (+23 frontend); `npx tsc --noEmit` clean. |
 
 ---
 

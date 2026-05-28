@@ -137,16 +137,17 @@ describe('FactorAttributionCard', () => {
       expect(screen.getByText('Synthetic')).toBeDefined()
     })
 
-    it('shows Synthetic badge tooltip text on hover', async () => {
+    it('exposes Synthetic badge tooltip via title attribute', async () => {
+      // After US-12.2 the badge is the canonical <TrustBadge /> primitive,
+      // which uses the native HTML `title` attribute (consistent with other
+      // cards). The previous custom hover-tooltip span was removed.
       render(<FactorAttributionCard snapshot={MINIMAL_SNAPSHOT} />)
       await waitFor(() => expect(mockRunAttributionEngine).toHaveBeenCalledTimes(1))
 
       const badge = screen.getByText('Synthetic')
-      fireEvent.mouseEnter(badge)
-
-      expect(
-        screen.getByText(/returns are reconstructed from current holdings and historical factor proxy prices/i),
-      ).toBeDefined()
+      expect(badge.getAttribute('title')).toMatch(
+        /returns are reconstructed from current holdings and historical factor proxy prices/i,
+      )
     })
 
     it('renders factor labels from period_attribution', async () => {

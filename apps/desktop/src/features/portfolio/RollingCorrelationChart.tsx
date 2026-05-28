@@ -10,6 +10,10 @@ import {
   YAxis,
 } from 'recharts'
 import type { RollingRiskPoint } from './types'
+import { CardShell } from '../../app/primitives/CardShell'
+import { EmptyState } from '../../app/primitives/EmptyState'
+import { TrustBadge } from '../../app/primitives/TrustBadge'
+import { WindowSelector } from '../../app/primitives/WindowSelector'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,35 +80,6 @@ function CorrelationTooltip({ active, payload, label }: TooltipProps) {
   )
 }
 
-// ── Window selector ───────────────────────────────────────────────────────────
-
-function WindowSelector({ value, onChange }: { value: CorrelationWindow; onChange: (w: CorrelationWindow) => void }) {
-  return (
-    <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-      {WINDOW_OPTIONS.map((w) => (
-        <button
-          key={w}
-          type="button"
-          aria-label={`${WINDOW_LABELS[w]} window`}
-          onClick={() => { onChange(w) }}
-          style={{
-            padding: 'var(--space-xs) var(--space-sm)',
-            fontSize: 'var(--font-caption)',
-            borderRadius: 'var(--radius-sm)',
-            border: 'var(--border-thin) solid',
-            borderColor: value === w ? 'var(--color-line-correlation)' : 'var(--color-border-strong)',
-            backgroundColor: value === w ? 'var(--color-surface-overlay)' : 'transparent',
-            color: value === w ? 'var(--color-line-correlation)' : 'var(--color-text-disabled)',
-            cursor: 'pointer',
-          }}
-        >
-          {WINDOW_LABELS[w]}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 type RollingCorrelationChartProps = {
@@ -118,27 +93,26 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
   const hasData = hasAnyData(chartData)
 
   return (
-    <section className="compact-chart-panel">
-      {/* Header */}
-      <div className="section-header-inline sector-list-header exposure-section-header" style={{ marginBottom: 'var(--space-md)' }}>
-        <div className="panel-section-title-block">
-          <p className="panel-label" style={{ display: 'inline' }}>Rolling Correlation &amp; Beta</p>
-          <span
-            className="attribution-trust-badge"
-            title="Computed from current holdings applied to historical prices. Not verified broker return basis."
-            style={{ marginLeft: 'var(--space-sm)' }}
-          >
-            Synthetic
-          </span>
-        </div>
-        <WindowSelector value={window} onChange={setWindow} />
-      </div>
-
+    <CardShell
+      title="Rolling Correlation & Beta"
+      badge={
+        <TrustBadge
+          type="synthetic"
+          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
+        />
+      }
+      actions={
+        <WindowSelector<CorrelationWindow>
+          options={WINDOW_OPTIONS}
+          value={window}
+          onChange={setWindow}
+          labelFn={(w) => WINDOW_LABELS[w]}
+        />
+      }
+    >
       {/* Chart or empty state */}
       {!hasData ? (
-        <p className="helper" style={{ textAlign: 'center', padding: 'var(--space-2xl) 0' }}>
-          Insufficient history for {window}d rolling window.
-        </p>
+        <EmptyState title={`Insufficient history for ${window}d rolling window.`} />
       ) : (
         <div style={{ height: 260 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -204,6 +178,6 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
           </ResponsiveContainer>
         </div>
       )}
-    </section>
+    </CardShell>
   )
 }

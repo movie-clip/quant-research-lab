@@ -1,5 +1,8 @@
 import type { DriftResult, DriftWindow } from './types'
 import { IndexedReturnChart } from './IndexedReturnChart'
+import { CardShell } from '../../app/primitives/CardShell'
+import { EmptyState } from '../../app/primitives/EmptyState'
+import { TrustBadge } from '../../app/primitives/TrustBadge'
 
 const BENCHMARK_OPTIONS = [
   { value: 'SPY', label: 'S&P 500 (SPY)' },
@@ -57,37 +60,38 @@ type DriftBenchmarkPanelProps = {
 export function DriftBenchmarkPanel({ result, benchmarkSymbol, onBenchmarkChange }: DriftBenchmarkPanelProps) {
   const hasSeries = Boolean(result && result.daily_series.length > 0)
 
-  return (
-    <section className="drift-panel">
-      <header className="drift-panel-header">
-        <div className="drift-panel-title-block">
-          <p className="panel-label">vs Market</p>
-          <span
-            className="attribution-trust-badge"
-            title="Computed from current holdings applied to historical prices. Not verified broker return basis."
-          >
-            Synthetic
-          </span>
-        </div>
-        <div className="drift-panel-controls">
-          <label htmlFor="drift-benchmark" className="drift-benchmark-label field-label">Benchmark</label>
-          <select
-            id="drift-benchmark"
-            className="path-input drift-benchmark-select"
-            value={benchmarkSymbol}
-            onChange={(e) => { onBenchmarkChange(e.target.value) }}
-          >
-            {BENCHMARK_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-      </header>
+  const benchmarkPicker = (
+    <div className="drift-panel-controls">
+      <label htmlFor="drift-benchmark" className="drift-benchmark-label field-label">Benchmark</label>
+      <select
+        id="drift-benchmark"
+        className="path-input drift-benchmark-select"
+        value={benchmarkSymbol}
+        onChange={(e) => { onBenchmarkChange(e.target.value) }}
+      >
+        {BENCHMARK_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+    </div>
+  )
 
+  return (
+    <CardShell
+      title="vs Market"
+      badge={
+        <TrustBadge
+          type="synthetic"
+          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
+        />
+      }
+      actions={benchmarkPicker}
+      className="drift-panel"
+    >
       {result == null ? (
-        <p className="helper">Import a portfolio to see drift vs benchmark.</p>
+        <EmptyState title="No drift data" detail="Import a portfolio to see drift vs benchmark." />
       ) : result.availability === 'unavailable' ? (
-        <p className="helper">Market data unavailable — drift cannot be computed.</p>
+        <EmptyState title="Drift unavailable" detail="Market data unavailable — drift cannot be computed." />
       ) : (
         <>
           <div className="drift-windows-grid">
@@ -104,6 +108,6 @@ export function DriftBenchmarkPanel({ result, benchmarkSymbol, onBenchmarkChange
           )}
         </>
       )}
-    </section>
+    </CardShell>
   )
 }
