@@ -138,6 +138,79 @@ function WindowSelector({
   )
 }
 
+// ── Custom tooltip ─────────────────────────────────────────────────────────────
+
+type TooltipPayloadEntry = {
+  dataKey: string
+  name: string
+  value: number | null | undefined
+  color: string
+}
+
+type CustomTooltipProps = {
+  active?: boolean
+  payload?: TooltipPayloadEntry[]
+  label?: string
+}
+
+function AttributionTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null
+
+  const portfolioEntry = payload.find((p) => p.dataKey === 'portfolio')
+  const unexplainedEntry = payload.find((p) => p.dataKey === 'unexplained')
+  const factorEntries = payload
+    .filter((p) => p.dataKey !== 'portfolio' && p.dataKey !== 'unexplained')
+    // Sort factors by absolute contribution descending — biggest movers at top.
+    .sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0))
+
+  const orderedItems: TooltipPayloadEntry[] = [
+    ...(portfolioEntry ? [portfolioEntry] : []),
+    ...factorEntries,
+    ...(unexplainedEntry ? [unexplainedEntry] : []),
+  ]
+
+  return (
+    <div
+      style={{
+        backgroundColor: '#1a1f2e',
+        border: '1px solid #2d3448',
+        borderRadius: '4px',
+        padding: '8px 12px',
+        fontSize: 12,
+        minWidth: 200,
+      }}
+    >
+      <p style={{ color: '#a0aec0', marginBottom: 6, marginTop: 0, fontWeight: 600 }}>
+        {typeof label === 'string' ? formatDateLabel(label) : label}
+      </p>
+      {orderedItems.map((entry) => {
+        const v = typeof entry.value === 'number' ? entry.value : null
+        const formatted = formatPct(v)
+        const isPortfolio = entry.dataKey === 'portfolio'
+        return (
+          <div
+            key={entry.dataKey}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 16,
+              marginBottom: isPortfolio ? 4 : 2,
+              paddingBottom: isPortfolio ? 4 : 0,
+              borderBottom: isPortfolio ? '1px solid #2d3448' : 'none',
+              fontWeight: isPortfolio ? 600 : 400,
+            }}
+          >
+            <span style={{ color: entry.color }}>{entry.name}</span>
+            <span style={{ color: entry.color, fontVariantNumeric: 'tabular-nums' }}>{formatted}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
 type FactorAttributionCardProps = {
   snapshot: ImportedSnapshot | null
 }
@@ -149,6 +222,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [attribution, setAttribution] = useState<FactorAttributionResponse | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [tableExpanded, setTableExpanded] = useState(true)
 
   useEffect(() => {
     if (!snapshot) {
@@ -247,23 +321,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       width={56}
                     />
                     <ReferenceLine y={0} stroke="#4a5568" strokeWidth={1} />
-                    <Tooltip
-                      formatter={(value, name) => {
-                        const v = typeof value === 'number' ? value : null
-                        const formatted = v != null ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : '—'
-                        const label =
-                          name === 'portfolio'
-                            ? 'Total Portfolio (arithmetic)'
-                            : name === 'unexplained'
-                              ? 'Unexplained'
-                              : String(name)
-                        return [formatted, label]
-                      }}
-                      labelFormatter={(label) => (typeof label === 'string' ? formatDateLabel(label) : String(label))}
-                      contentStyle={{ backgroundColor: '#1a1f2e', border: '1px solid #2d3448', fontSize: 12 }}
-                      labelStyle={{ color: '#a0aec0' }}
-                      itemStyle={{ color: '#e2e8f0' }}
-                    />
+                    <Tooltip content={<AttributionTooltip />} />
 
                     {/* Factor contribution lines */}
                     {activeFactorKeys.map((key) => (
@@ -291,7 +349,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       name="Unexplained"
                     />
 
-                    {/* Total Portfolio line */}
+                    {/* Total Portfolio line — rendered last so it draws on top */}
                     <Line
                       type="monotone"
                       dataKey="portfolio"
@@ -305,25 +363,89 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                 </ResponsiveContainer>
               </div>
 
-              {/* Period attribution table */}
+              {/* Period attribution table — collapsible */}
               <div>
-                <p className="helper" style={{ marginBottom: '8px', fontSize: '11px', color: '#6b7280' }}>
+                <button
+                  type="button"
+                  onClick={() => setTableExpanded((prev) => !prev)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '0 0 8px 0',
+                    color: '#6b7280',
+                    fontSize: '11px',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 0,
+                      height: 0,
+                      borderLeft: '4px solid transparent',
+                      borderRight: '4px solid transparent',
+                      borderTop: tableExpanded ? '5px solid #6b7280' : undefined,
+                      borderBottom: tableExpanded ? undefined : '5px solid #6b7280',
+                      transition: 'transform 0.15s',
+                    }}
+                  />
                   Period attribution — arithmetic (not compounded)
-                </p>
-                <div className="list-table">
-                  {/* Header row */}
-                  <div className="list-row" style={{ fontWeight: 600, fontSize: '11px', color: '#6b7280' }}>
-                    <span style={{ flex: 2 }}>Factor</span>
-                    <span style={{ flex: 1, textAlign: 'right' }}>Avg β</span>
-                    <span style={{ flex: 1, textAlign: 'right' }}>Factor Rtn %</span>
-                    <span style={{ flex: 1, textAlign: 'right' }}>Contribution %</span>
-                  </div>
+                </button>
 
-                  {/* Data rows */}
-                  {attribution.period_attribution.map((row) => {
-                    const contrib = row.contribution_pct ?? 0
-                    return (
-                      <div className="list-row" key={row.factor_key} style={{ fontSize: '12px' }}>
+                {tableExpanded && (
+                  <div className="list-table">
+                    {/* Header row */}
+                    <div className="list-row" style={{ fontWeight: 600, fontSize: '11px', color: '#6b7280' }}>
+                      <span style={{ flex: 2 }}>Factor</span>
+                      <span style={{ flex: 1, textAlign: 'right' }}>Avg β</span>
+                      <span style={{ flex: 1, textAlign: 'right' }}>Factor Rtn %</span>
+                      <span style={{ flex: 1, textAlign: 'right' }}>Contribution %</span>
+                    </div>
+
+                    {/* Data rows */}
+                    {attribution.period_attribution.map((row) => {
+                      const contrib = row.contribution_pct ?? 0
+                      return (
+                        <div className="list-row" key={row.factor_key} style={{ fontSize: '12px' }}>
+                          <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '2px',
+                                backgroundColor: FACTOR_LINE_COLORS[row.factor_key] ?? '#888',
+                                flexShrink: 0,
+                              }}
+                            />
+                            {row.factor_label}
+                          </span>
+                          <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
+                            {formatBeta(row.avg_beta)}
+                          </span>
+                          <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
+                            {formatPct(row.factor_return_pct)}
+                          </span>
+                          <span
+                            style={{
+                              flex: 1,
+                              textAlign: 'right',
+                              color: contrib >= 0 ? '#48bb78' : '#fc8181',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {formatPct(row.contribution_pct)}
+                          </span>
+                        </div>
+                      )
+                    })}
+
+                    {/* Unexplained row */}
+                    {attribution.total_unexplained_pct != null && (
+                      <div className="list-row" style={{ fontSize: '12px' }}>
                         <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span
                             style={{
@@ -331,82 +453,47 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                               width: '8px',
                               height: '8px',
                               borderRadius: '2px',
-                              backgroundColor: FACTOR_LINE_COLORS[row.factor_key] ?? '#888',
+                              backgroundColor: UNEXPLAINED_COLOR,
                               flexShrink: 0,
                             }}
                           />
-                          {row.factor_label}
+                          Unexplained / idiosyncratic
                         </span>
-                        <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
-                          {formatBeta(row.avg_beta)}
-                        </span>
-                        <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
-                          {formatPct(row.factor_return_pct)}
-                        </span>
+                        <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
+                        <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
                         <span
                           style={{
                             flex: 1,
                             textAlign: 'right',
-                            color: contrib >= 0 ? '#48bb78' : '#fc8181',
+                            color: (attribution.total_unexplained_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
                             fontWeight: 500,
                           }}
                         >
-                          {formatPct(row.contribution_pct)}
+                          {formatPct(attribution.total_unexplained_pct)}
                         </span>
                       </div>
-                    )
-                  })}
+                    )}
 
-                  {/* Unexplained row */}
-                  {attribution.total_unexplained_pct != null && (
-                    <div className="list-row" style={{ fontSize: '12px' }}>
-                      <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '2px',
-                            backgroundColor: UNEXPLAINED_COLOR,
-                            flexShrink: 0,
-                          }}
-                        />
-                        Unexplained / idiosyncratic
-                      </span>
-                      <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
-                      <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
+                    {/* Total footer */}
+                    <div
+                      className="list-row"
+                      style={{ fontSize: '12px', fontWeight: 700, borderTop: '1px solid #2d3448', marginTop: '4px', paddingTop: '4px' }}
+                    >
+                      <span style={{ flex: 2 }}>Total Portfolio (arithmetic)</span>
+                      <span style={{ flex: 1, textAlign: 'right' }} />
+                      <span style={{ flex: 1, textAlign: 'right' }} />
                       <span
                         style={{
                           flex: 1,
                           textAlign: 'right',
-                          color: (attribution.total_unexplained_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
-                          fontWeight: 500,
+                          color: (attribution.total_portfolio_return_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
                         }}
                       >
-                        {formatPct(attribution.total_unexplained_pct)}
+                        {formatPct(attribution.total_portfolio_return_pct)}
                       </span>
                     </div>
-                  )}
-
-                  {/* Total footer */}
-                  <div
-                    className="list-row"
-                    style={{ fontSize: '12px', fontWeight: 700, borderTop: '1px solid #2d3448', marginTop: '4px', paddingTop: '4px' }}
-                  >
-                    <span style={{ flex: 2 }}>Total Portfolio (arithmetic)</span>
-                    <span style={{ flex: 1, textAlign: 'right' }} />
-                    <span style={{ flex: 1, textAlign: 'right' }} />
-                    <span
-                      style={{
-                        flex: 1,
-                        textAlign: 'right',
-                        color: (attribution.total_portfolio_return_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
-                      }}
-                    >
-                      {formatPct(attribution.total_portfolio_return_pct)}
-                    </span>
                   </div>
-                </div>
+                )}
               </div>
             </>
           )}
