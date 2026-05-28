@@ -9,27 +9,30 @@ type AttributionWindow = 20 | 60 | 252
 const WINDOW_OPTIONS: AttributionWindow[] = [20, 60, 252]
 const WINDOW_LABELS: Record<AttributionWindow, string> = { 20: '20d', 60: '60d', 252: '252d' }
 
+// Maps factor_key → CSS variable. Tokens live in apps/desktop/src/app/styles.css
+// (`--color-factor-*`). Adding a new factor: add a token there, then a row here.
 const FACTOR_LINE_COLORS: Record<string, string> = {
-  market: '#5b87c5',
-  growth: '#3cb79f',
-  value: '#65c18c',
-  small_cap: '#2aa07b',
-  technology: '#3b82f6',
-  financials: '#cf8a4a',
-  health_care: '#d6a45e',
-  energy: '#de7047',
-  industrials: '#c99b5a',
-  consumer_staples: '#8f9b4f',
-  utilities: '#6aa3a1',
-  consumer_discretionary: '#b86f9b',
-  rates_ief: '#9aa7bf',
-  rates_tlt: '#7a8da8',
-  credit: '#b6a36a',
-  commodities: '#d7bf5c',
+  market: 'var(--color-factor-market)',
+  growth: 'var(--color-factor-growth)',
+  value: 'var(--color-factor-value)',
+  small_cap: 'var(--color-factor-small-cap)',
+  technology: 'var(--color-factor-technology)',
+  financials: 'var(--color-factor-financials)',
+  health_care: 'var(--color-factor-health-care)',
+  energy: 'var(--color-factor-energy)',
+  industrials: 'var(--color-factor-industrials)',
+  consumer_staples: 'var(--color-factor-consumer-staples)',
+  utilities: 'var(--color-factor-utilities)',
+  consumer_discretionary: 'var(--color-factor-consumer-discretionary)',
+  rates_ief: 'var(--color-factor-rates-ief)',
+  rates_tlt: 'var(--color-factor-rates-tlt)',
+  credit: 'var(--color-factor-credit)',
+  commodities: 'var(--color-factor-commodities)',
 }
 
-const UNEXPLAINED_COLOR = '#6b7280'
-const PORTFOLIO_COLOR = '#ffffff'
+const FACTOR_DEFAULT_COLOR = 'var(--color-factor-default)'
+const UNEXPLAINED_COLOR = 'var(--color-unexplained)'
+const PORTFOLIO_COLOR = 'var(--color-portfolio-total)'
 
 // Each exposed-panel list-row: padding 9+9px + ~17px line-height + 1px border ≈ 36px.
 // Exposure-panel list-table gap: 14px. Six rows visible:
@@ -92,7 +95,7 @@ function SyntheticBadge() {
   const [showTooltip, setShowTooltip] = useState(false)
   return (
     <span
-      className="backtest-source-badge attribution-synthetic-badge"
+      className="attribution-trust-badge"
       style={{ position: 'relative', cursor: 'help' }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -105,15 +108,15 @@ function SyntheticBadge() {
             position: 'absolute',
             bottom: '100%',
             left: 0,
-            backgroundColor: '#1a1f2e',
-            border: '1px solid #2d3448',
-            borderRadius: '4px',
-            padding: '6px 10px',
-            fontSize: '12px',
-            color: '#a0aec0',
+            backgroundColor: 'var(--color-surface-elevated)',
+            border: 'var(--border-thin) solid var(--color-border-strong)',
+            borderRadius: 'var(--radius-sm)',
+            padding: 'var(--space-xs) var(--space-sm)',
+            fontSize: 'var(--font-caption)',
+            color: 'var(--color-text-muted)',
             whiteSpace: 'nowrap',
             zIndex: 100,
-            marginBottom: '4px',
+            marginBottom: 'var(--space-xs)',
             pointerEvents: 'none',
           }}
         >
@@ -132,7 +135,7 @@ function WindowSelector({
   onChange: (w: AttributionWindow) => void
 }) {
   return (
-    <div className="rolling-window-selector" style={{ display: 'flex', gap: '4px' }}>
+    <div className="rolling-window-selector" style={{ display: 'flex', gap: 'var(--space-xs)' }}>
       {WINDOW_OPTIONS.map((w) => (
         <button
           key={w}
@@ -140,13 +143,13 @@ function WindowSelector({
           className={`window-option-btn${value === w ? ' window-option-btn-active' : ''}`}
           onClick={() => onChange(w)}
           style={{
-            padding: '2px 8px',
-            fontSize: '12px',
-            borderRadius: '3px',
-            border: '1px solid',
-            borderColor: value === w ? '#5b87c5' : '#2d3448',
-            backgroundColor: value === w ? '#1d3350' : 'transparent',
-            color: value === w ? '#5b87c5' : '#6b7280',
+            padding: 'var(--space-xs) var(--space-sm)',
+            fontSize: 'var(--font-caption)',
+            borderRadius: 'var(--radius-sm)',
+            border: 'var(--border-thin) solid',
+            borderColor: value === w ? 'var(--color-line-correlation)' : 'var(--color-border-strong)',
+            backgroundColor: value === w ? 'var(--color-surface-overlay)' : 'transparent',
+            color: value === w ? 'var(--color-line-correlation)' : 'var(--color-text-disabled)',
             cursor: 'pointer',
           }}
         >
@@ -190,15 +193,15 @@ function AttributionTooltip({ active, payload, label }: CustomTooltipProps) {
   return (
     <div
       style={{
-        backgroundColor: '#1a1f2e',
-        border: '1px solid #2d3448',
-        borderRadius: '4px',
-        padding: '8px 12px',
-        fontSize: 12,
+        backgroundColor: 'var(--color-surface-elevated)',
+        border: 'var(--border-thin) solid var(--color-border-strong)',
+        borderRadius: 'var(--radius-sm)',
+        padding: 'var(--space-sm) var(--space-md)',
+        fontSize: 'var(--font-caption)',
         minWidth: 200,
       }}
     >
-      <p style={{ color: '#a0aec0', marginBottom: 6, marginTop: 0, fontWeight: 600 }}>
+      <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-xs)', marginTop: 0, fontWeight: 600 }}>
         {typeof label === 'string' ? formatDateLabel(label) : label}
       </p>
       {orderedItems.map((entry) => {
@@ -211,10 +214,10 @@ function AttributionTooltip({ active, payload, label }: CustomTooltipProps) {
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              gap: 16,
-              marginBottom: isPortfolio ? 4 : 2,
-              paddingBottom: isPortfolio ? 4 : 0,
-              borderBottom: isPortfolio ? '1px solid #2d3448' : 'none',
+              gap: 'var(--space-lg)',
+              marginBottom: isPortfolio ? 'var(--space-xs)' : 'var(--space-xxs)',
+              paddingBottom: isPortfolio ? 'var(--space-xs)' : 0,
+              borderBottom: isPortfolio ? 'var(--border-thin) solid var(--color-border-strong)' : 'none',
               fontWeight: isPortfolio ? 600 : 400,
             }}
           >
@@ -284,7 +287,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
         <div className="panel-section-title-block">
           <p className="panel-label">Factor Return Attribution</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
           <SyntheticBadge />
           <WindowSelector value={window} onChange={setWindow} />
         </div>
@@ -322,24 +325,24 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
           ) : (
             <>
               {/* Cumulative attribution line chart */}
-              <div style={{ width: '100%', height: 280, marginBottom: '24px' }}>
+              <div style={{ width: '100%', height: 280, marginBottom: 'var(--space-xl)' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2d3448" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-strong)" />
                     <XAxis
                       dataKey="date"
                       tickFormatter={formatDateLabel}
-                      tick={{ fontSize: 10, fill: '#6b7280' }}
+                      tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-disabled)' }}
                       tickLine={false}
                       minTickGap={40}
                     />
                     <YAxis
                       tickFormatter={(v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
-                      tick={{ fontSize: 10, fill: '#6b7280' }}
+                      tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-disabled)' }}
                       tickLine={false}
                       width={56}
                     />
-                    <ReferenceLine y={0} stroke="#4a5568" strokeWidth={1} />
+                    <ReferenceLine y={0} stroke="var(--color-axis-reference)" strokeWidth={1} />
                     <Tooltip content={<AttributionTooltip />} />
 
                     {/* Factor contribution lines */}
@@ -348,7 +351,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                         key={key}
                         type="monotone"
                         dataKey={key}
-                        stroke={FACTOR_LINE_COLORS[key] ?? '#888'}
+                        stroke={FACTOR_LINE_COLORS[key] ?? FACTOR_DEFAULT_COLOR}
                         strokeWidth={lineWidth(key, hoveredKey, 1.5, 2.8)}
                         opacity={lineOpacity(key, hoveredKey)}
                         dot={false}
@@ -396,13 +399,13 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: 'var(--space-xs)',
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    padding: '0 0 8px 0',
-                    color: '#6b7280',
-                    fontSize: '11px',
+                    padding: '0 0 var(--space-sm) 0',
+                    color: 'var(--color-text-disabled)',
+                    fontSize: 'var(--font-chart-tick)',
                   }}
                 >
                   <span
@@ -410,19 +413,21 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       display: 'inline-block',
                       width: 0,
                       height: 0,
-                      borderLeft: '4px solid transparent',
-                      borderRight: '4px solid transparent',
-                      borderTop: tableExpanded ? '5px solid #6b7280' : undefined,
-                      borderBottom: tableExpanded ? undefined : '5px solid #6b7280',
+                      borderLeft: 'var(--space-xs) solid transparent',
+                      borderRight: 'var(--space-xs) solid transparent',
+                      // design-system: escape-hatch: CSS triangle pointer (vertex height = 5px, by convention 1px taller than base width 4px)
+                      borderTop: tableExpanded ? '5px solid var(--color-text-disabled)' : undefined,
+                      // design-system: escape-hatch: CSS triangle pointer (vertex height = 5px, by convention 1px taller than base width 4px)
+                      borderBottom: tableExpanded ? undefined : '5px solid var(--color-text-disabled)',
                     }}
                   />
                   Period attribution — arithmetic (not compounded)
                 </button>
 
                 {tableExpanded && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                     {/* Header row — not scrollable */}
-                    <div className="list-row" style={{ fontWeight: 600, fontSize: '11px', color: '#6b7280' }}>
+                    <div className="list-row" style={{ fontWeight: 600, fontSize: 'var(--font-chart-tick)', color: 'var(--color-text-disabled)' }}>
                       <span style={{ flex: 2 }}>Factor</span>
                       <span style={{ flex: 1, textAlign: 'right' }}>Avg β</span>
                       <span style={{ flex: 1, textAlign: 'right' }}>Factor Rtn %</span>
@@ -434,10 +439,10 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '14px',
+                        gap: 'var(--space-md)',
                         overflowY: 'auto',
                         maxHeight: SCROLL_MAX_HEIGHT,
-                        paddingRight: '4px',
+                        paddingRight: 'var(--space-xs)',
                       }}
                     >
                       {/* Factor data rows */}
@@ -449,37 +454,37 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                             className="list-row"
                             key={row.factor_key}
                             style={{
-                              fontSize: '12px',
+                              fontSize: 'var(--font-caption)',
                               cursor: 'default',
-                              outline: isHovered ? `1px solid ${FACTOR_LINE_COLORS[row.factor_key] ?? '#888'}` : undefined,
+                              outline: isHovered ? `var(--border-thin) solid ${FACTOR_LINE_COLORS[row.factor_key] ?? FACTOR_DEFAULT_COLOR}` : undefined,
                             }}
                             onMouseEnter={() => setHoveredKey(row.factor_key)}
                             onMouseLeave={() => setHoveredKey(null)}
                           >
-                            <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
                               <span
                                 style={{
                                   display: 'inline-block',
-                                  width: '8px',
-                                  height: '8px',
-                                  borderRadius: '2px',
-                                  backgroundColor: FACTOR_LINE_COLORS[row.factor_key] ?? '#888',
+                                  width: 'var(--space-sm)',
+                                  height: 'var(--space-sm)',
+                                  borderRadius: 'var(--space-xxs)',
+                                  backgroundColor: FACTOR_LINE_COLORS[row.factor_key] ?? FACTOR_DEFAULT_COLOR,
                                   flexShrink: 0,
                                 }}
                               />
                               {row.factor_label}
                             </span>
-                            <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
+                            <span style={{ flex: 1, textAlign: 'right', color: 'var(--color-text-muted)' }}>
                               {formatBeta(row.avg_beta)}
                             </span>
-                            <span style={{ flex: 1, textAlign: 'right', color: '#a0aec0' }}>
+                            <span style={{ flex: 1, textAlign: 'right', color: 'var(--color-text-muted)' }}>
                               {formatPct(row.factor_return_pct)}
                             </span>
                             <span
                               style={{
                                 flex: 1,
                                 textAlign: 'right',
-                                color: contrib >= 0 ? '#48bb78' : '#fc8181',
+                                color: contrib >= 0 ? 'var(--color-value-positive)' : 'var(--color-value-negative)',
                                 fontWeight: 500,
                               }}
                             >
@@ -494,33 +499,33 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                         <div
                           className="list-row"
                           style={{
-                            fontSize: '12px',
+                            fontSize: 'var(--font-caption)',
                             cursor: 'default',
-                            outline: hoveredKey === 'unexplained' ? `1px solid ${UNEXPLAINED_COLOR}` : undefined,
+                            outline: hoveredKey === 'unexplained' ? `var(--border-thin) solid ${UNEXPLAINED_COLOR}` : undefined,
                           }}
                           onMouseEnter={() => setHoveredKey('unexplained')}
                           onMouseLeave={() => setHoveredKey(null)}
                         >
-                          <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
                             <span
                               style={{
                                 display: 'inline-block',
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '2px',
+                                width: 'var(--space-sm)',
+                                height: 'var(--space-sm)',
+                                borderRadius: 'var(--space-xxs)',
                                 backgroundColor: UNEXPLAINED_COLOR,
                                 flexShrink: 0,
                               }}
                             />
                             Unexplained / idiosyncratic
                           </span>
-                          <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
-                          <span style={{ flex: 1, textAlign: 'right', color: '#6b7280' }}>—</span>
+                          <span style={{ flex: 1, textAlign: 'right', color: 'var(--color-text-disabled)' }}>—</span>
+                          <span style={{ flex: 1, textAlign: 'right', color: 'var(--color-text-disabled)' }}>—</span>
                           <span
                             style={{
                               flex: 1,
                               textAlign: 'right',
-                              color: (attribution.total_unexplained_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
+                              color: (attribution.total_unexplained_pct ?? 0) >= 0 ? 'var(--color-value-positive)' : 'var(--color-value-negative)',
                               fontWeight: 500,
                             }}
                           >
@@ -534,12 +539,12 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                     <div
                       className="list-row"
                       style={{
-                        fontSize: '12px',
+                        fontSize: 'var(--font-caption)',
                         fontWeight: 700,
-                        borderTop: '1px solid #2d3448',
-                        paddingTop: '4px',
+                        borderTop: 'var(--border-thin) solid var(--color-border-strong)',
+                        paddingTop: 'var(--space-xs)',
                         cursor: 'default',
-                        outline: hoveredKey === 'portfolio' ? `1px solid ${PORTFOLIO_COLOR}` : undefined,
+                        outline: hoveredKey === 'portfolio' ? `var(--border-thin) solid ${PORTFOLIO_COLOR}` : undefined,
                       }}
                       onMouseEnter={() => setHoveredKey('portfolio')}
                       onMouseLeave={() => setHoveredKey(null)}
@@ -551,7 +556,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                         style={{
                           flex: 1,
                           textAlign: 'right',
-                          color: (attribution.total_portfolio_return_pct ?? 0) >= 0 ? '#48bb78' : '#fc8181',
+                          color: (attribution.total_portfolio_return_pct ?? 0) >= 0 ? 'var(--color-value-positive)' : 'var(--color-value-negative)',
                         }}
                       >
                         {formatPct(attribution.total_portfolio_return_pct)}

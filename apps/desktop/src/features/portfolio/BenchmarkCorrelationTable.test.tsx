@@ -161,7 +161,8 @@ describe('BenchmarkCorrelationTable', () => {
     await waitFor(() => {
       expect(screen.getByText('Gold')).toBeTruthy()
     })
-    // Unavailable rows: opacity 0.55 (dimmed)
+    // Unavailable rows: dimmed via opacity 0.55 (per-row trust indicator).
+    // Literal value because JSDOM does not parse CSS var() in numeric props.
     const goldRow = screen.getByText('Gold').closest('tr') as HTMLElement
     const iefRow = screen.getByText('US 7-10yr Bonds').closest('tr') as HTMLElement
     expect(goldRow.style.opacity).toBe('0.55')

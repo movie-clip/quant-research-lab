@@ -17,6 +17,116 @@
   --red: #df5c5c;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
+  /* ── Design tokens (Epic 12) ───────────────────────────────────────────── */
+
+  /* Text colors (alias the older --text* tokens with semantic names) */
+  --color-text-primary: var(--text);          /* #d7dde6 — main body text on dark panels */
+  --color-text-secondary: #cbd5e1;            /* secondary cells in tables */
+  --color-text-muted: #94a3b8;                /* axis ticks, helper text, low-emphasis labels */
+  --color-text-disabled: #6b7280;             /* unavailable / disabled rows */
+  --color-text-on-accent: #ffffff;            /* text painted on filled accent backgrounds */
+
+  /* Surfaces (alias older --panel-* with semantic names) */
+  --color-surface-panel: var(--panel);        /* #151b23 — primary card surface */
+  --color-surface-elevated: var(--panel-2);   /* #1a212b — tooltips, hover panels */
+  --color-surface-overlay: #1d3350;           /* selected-button accent fill */
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.12);
+  --color-border-strong: #2d3448;
+  --color-border-card: #2d3748;
+
+  /* Correlation-sign palette (5 levels — see BenchmarkCorrelationTable AC6) */
+  --color-corr-strong-positive: #3cb79f;   /* |ρ| >= 0.7, ρ > 0 */
+  --color-corr-positive: #6ec98f;          /* 0.3 <= ρ < 0.7 */
+  --color-corr-neutral: #94a3b8;           /* |ρ| < 0.3 */
+  --color-corr-negative: #e08f5a;          /* -0.7 < ρ <= -0.3 */
+  --color-corr-strong-negative: #e06a5a;   /* ρ <= -0.7 */
+
+  /* Factor line colors — chart series strokes */
+  --color-line-correlation: #5b87c5;       /* rolling correlation line */
+  --color-line-beta: #3cb79f;              /* rolling beta line */
+  --color-line-portfolio: #4f8ef7;         /* indexed portfolio line */
+  --color-line-benchmark: #94a3b8;         /* indexed benchmark line */
+
+  /* Factor palette (FactorAttributionCard — named factors from the model) */
+  --color-factor-market: #5b87c5;
+  --color-factor-growth: #3cb79f;
+  --color-factor-value: #65c18c;
+  --color-factor-small-cap: #2aa07b;
+  --color-factor-technology: #3b82f6;
+  --color-factor-financials: #cf8a4a;
+  --color-factor-health-care: #d6a45e;
+  --color-factor-energy: #de7047;
+  --color-factor-industrials: #c99b5a;
+  --color-factor-consumer-staples: #8f9b4f;
+  --color-factor-utilities: #6aa3a1;
+  --color-factor-consumer-discretionary: #b86f9b;
+  --color-factor-rates-ief: #9aa7bf;
+  --color-factor-rates-tlt: #7a8da8;
+  --color-factor-credit: #b6a36a;
+  --color-factor-commodities: #d7bf5c;
+  --color-factor-default: #888888;         /* fallback when a factor key has no assigned color */
+
+  /* Attribution-specific palette */
+  --color-unexplained: #6b7280;            /* residual / unexplained line */
+  --color-portfolio-total: #ffffff;        /* cumulative portfolio line */
+  --color-axis-reference: #4a5568;         /* y=0 reference line in attribution chart */
+
+  /* Semantic gain/loss values (positive number, negative number) */
+  --color-value-positive: #48bb78;         /* positive contribution / gain */
+  --color-value-negative: #fc8181;         /* negative contribution / loss */
+
+  /* Trust badge */
+  --color-trust-badge-bg: rgba(91, 135, 197, 0.18);
+  --color-trust-badge-text: #5b87c5;
+  --color-trust-badge-border: rgba(91, 135, 197, 0.42);
+
+  /* Spacing scale */
+  --space-xxs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  /* Typography scale */
+  --font-chart-tick: 11px;        /* Recharts axis tick labels */
+  --font-caption: 12px;           /* helper / footer / small labels */
+  --font-body-sm: 13px;           /* table cells, secondary copy */
+  --font-body: 14px;              /* default body */
+  --font-heading-sm: 16px;        /* section sub-headings */
+
+  /* Radius */
+  --radius-sm: 3px;
+  --radius-md: 8px;
+
+  /* Border widths (use inside border / outline shorthand) */
+  --border-thin: 1px;
+  --border-medium: 2px;
+
+  /* Opacity */
+  --opacity-unavailable: 0.55;    /* dimmed rows in correlation/attribution tables */
+}
+
+/* ── Canonical "Synthetic" trust badge (Epic 12) ─────────────────────────── */
+/* Used by DriftBenchmarkPanel, RollingCorrelationChart, FactorAttributionCard,
+   BenchmarkCorrelationTable. Renders identically across all four. */
+.attribution-trust-badge {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-trust-badge-bg);
+  color: var(--color-trust-badge-text);
+  border: 1px solid var(--color-trust-badge-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-caption);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 * {

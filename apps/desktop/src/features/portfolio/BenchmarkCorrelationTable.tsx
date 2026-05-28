@@ -8,14 +8,15 @@ function formatValue(value: number | null | undefined): string {
   return value == null ? '—' : value.toFixed(2)
 }
 
-// Return a CSS color based on correlation sign and magnitude.
+// Return a token-backed CSS color based on correlation sign and magnitude.
+// 5-level palette defined in styles.css under :root --color-corr-*.
 function correlationColor(value: number | null): string {
-  if (value == null) return '#6b7280'          // muted / unavailable
-  if (value >= 0.7) return '#3cb79f'           // strong positive → teal
-  if (value >= 0.3) return '#6ec98f'           // moderate positive → soft green
-  if (value > -0.3) return '#94a3b8'           // near-zero → neutral
-  if (value > -0.7) return '#e08f5a'           // moderate negative → orange
-  return '#e06a5a'                             // strong negative → red
+  if (value == null) return 'var(--color-text-disabled)'     // muted / unavailable
+  if (value >= 0.7) return 'var(--color-corr-strong-positive)'
+  if (value >= 0.3) return 'var(--color-corr-positive)'
+  if (value > -0.3) return 'var(--color-corr-neutral)'
+  if (value > -0.7) return 'var(--color-corr-negative)'
+  return 'var(--color-corr-strong-negative)'
 }
 
 // ── Row component ─────────────────────────────────────────────────────────────
@@ -24,25 +25,33 @@ function BenchmarkRow({ row }: { row: BenchmarkStats }) {
   const isUnavailable = row.trust === 'unavailable'
   const corrColor = correlationColor(row.correlation)
 
+  // Standardised once: cell padding 8/12 (was 7/12), cell font from --font-body-sm,
+  // unavailable text from --color-text-disabled. The 7px → 8px change rounds to
+  // the spacing scale; visual delta is sub-pixel at typical row heights.
+  const cellPadding = 'var(--space-sm) var(--space-md)'
   return (
     <tr
       style={{
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: 'var(--border-thin) solid var(--color-border-subtle)',
+        // Literal 0.55 not tokenized: React inline-style opacity is numeric;
+        // JSDOM rejects var() values in numeric CSS props (returns NaN).
+        // The token --opacity-unavailable still exists in styles.css for any
+        // future CSS-class-based rendering.
         opacity: isUnavailable ? 0.55 : 1,
       }}
     >
-      <td style={{ padding: '7px 12px', color: '#cbd5e1', fontWeight: 500, fontSize: 13 }}>
-        <span style={{ marginRight: 6, color: '#94a3b8', fontVariantNumeric: 'tabular-nums', fontSize: 11 }}>
+      <td style={{ padding: cellPadding, color: 'var(--color-text-secondary)', fontWeight: 500, fontSize: 'var(--font-body-sm)' }}>
+        <span style={{ marginRight: 'var(--space-xs)', color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', fontSize: 'var(--font-chart-tick)' }}>
           {row.symbol}
         </span>
         {row.label}
       </td>
       <td
         style={{
-          padding: '7px 12px',
-          color: isUnavailable ? '#6b7280' : corrColor,
+          padding: cellPadding,
+          color: isUnavailable ? 'var(--color-text-disabled)' : corrColor,
           fontWeight: 600,
-          fontSize: 13,
+          fontSize: 'var(--font-body-sm)',
           fontVariantNumeric: 'tabular-nums',
           textAlign: 'right',
         }}
@@ -51,9 +60,9 @@ function BenchmarkRow({ row }: { row: BenchmarkStats }) {
       </td>
       <td
         style={{
-          padding: '7px 12px',
-          color: isUnavailable ? '#6b7280' : '#94a3b8',
-          fontSize: 13,
+          padding: cellPadding,
+          color: isUnavailable ? 'var(--color-text-disabled)' : 'var(--color-text-muted)',
+          fontSize: 'var(--font-body-sm)',
           fontVariantNumeric: 'tabular-nums',
           textAlign: 'right',
         }}
@@ -62,9 +71,9 @@ function BenchmarkRow({ row }: { row: BenchmarkStats }) {
       </td>
       <td
         style={{
-          padding: '7px 12px',
-          color: isUnavailable ? '#6b7280' : '#94a3b8',
-          fontSize: 13,
+          padding: cellPadding,
+          color: isUnavailable ? 'var(--color-text-disabled)' : 'var(--color-text-muted)',
+          fontSize: 'var(--font-body-sm)',
           fontVariantNumeric: 'tabular-nums',
           textAlign: 'right',
         }}
@@ -81,19 +90,19 @@ function CorrelationDataTable({ result }: { result: MultiBenchmarkCorrelationRes
   return (
     <div style={{ overflowX: 'auto' }}>
       <table
-        style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}
+        style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-body-sm)' }}
         aria-label="Multi-benchmark correlation statistics"
       >
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+          <tr style={{ borderBottom: 'var(--border-thin) solid var(--color-border-default)' }}>
             {(['Benchmark', 'ρ (Correlation)', 'β (Beta)', 'R²'] as const).map((col, i) => (
               <th
                 key={col}
                 style={{
-                  padding: '6px 12px',
+                  padding: 'var(--space-sm) var(--space-md)',
                   textAlign: i === 0 ? 'left' : 'right',
-                  fontSize: 11,
-                  color: '#94a3b8',
+                  fontSize: 'var(--font-chart-tick)',
+                  color: 'var(--color-text-muted)',
                   fontWeight: 500,
                   letterSpacing: '0.04em',
                   textTransform: 'uppercase',
@@ -162,7 +171,7 @@ export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTabl
       {/* Header */}
       <div
         className="section-header-inline sector-list-header exposure-section-header"
-        style={{ marginBottom: 12 }}
+        style={{ marginBottom: 'var(--space-md)' }}
       >
         <div className="panel-section-title-block">
           <p className="panel-label" style={{ display: 'inline' }}>
@@ -171,7 +180,7 @@ export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTabl
           <span
             className="attribution-trust-badge"
             title="Computed from current holdings applied to historical prices. Not verified broker return basis."
-            style={{ marginLeft: 8 }}
+            style={{ marginLeft: 'var(--space-sm)' }}
           >
             Synthetic
           </span>
@@ -190,7 +199,7 @@ export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTabl
       )}
 
       {loadState === 'loading' && (
-        <p className="helper" style={{ textAlign: 'center', padding: '24px 0' }}>
+        <p className="helper" style={{ textAlign: 'center', padding: 'var(--space-xl) 0' }}>
           Computing correlation…
         </p>
       )}

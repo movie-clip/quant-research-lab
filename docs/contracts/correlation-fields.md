@@ -146,3 +146,21 @@ Rows where `correlation` is `null` sort last. The frontend preserves this order 
 These symbols are defined in `BENCHMARK_UNIVERSE` in
 `services/quant-engine/app/services/correlation_engine.py` and are not
 configurable by the client.
+
+## UI rendering (Epic 12 / US-12.1)
+
+The correlation-color palette is sourced from CSS variables in
+`apps/desktop/src/app/styles.css` under the `:root` block, **not** from
+hex literals in component code:
+
+| Magnitude | Token | Component reference |
+|---|---|---|
+| ρ ≥ 0.7  | `--color-corr-strong-positive` | `correlationColor()` in `BenchmarkCorrelationTable.tsx` |
+| 0.3 ≤ ρ < 0.7 | `--color-corr-positive` | same |
+| \|ρ\| < 0.3 | `--color-corr-neutral` | same |
+| -0.7 < ρ ≤ -0.3 | `--color-corr-negative` | same |
+| ρ ≤ -0.7 | `--color-corr-strong-negative` | same |
+| `null` / unavailable | `--color-text-disabled` | same |
+
+When changing the palette, edit the tokens in `styles.css`; do not edit the
+component. The `designSystem.audit.test.ts` regression test enforces this.

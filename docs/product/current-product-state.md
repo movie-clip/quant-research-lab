@@ -25,11 +25,13 @@ Requires a history context (imported price history or synthetic from current hol
 
 ### Exposure
 Shows current portfolio composition:
-- **vs Market drift panel** (top): rolling portfolio return vs benchmark for 1m, 3m, 6m, 12m, and since-import windows. Benchmark selectable; default SPY. Trust-level badge shown when synthetic history is used.
-- Sector exposure (look-through ETF constituents)
-- Market overlap vs benchmark
+- **vs Market drift panel** (top): rolling portfolio return vs benchmark for 1m, 3m, 6m, 12m, and since-import windows. Benchmark selectable; default SPY. Synthetic-history Trust badge.
+- **Rolling correlation & beta chart**: dual-axis (ρ left, β right), 20d/60d/252d window selector. Synthetic-history Trust badge.
 - Current state concentration (top positions, asset class split)
-- Factor model exposure (book trend, macro, sector, style)
+- **Factor return attribution card**: cumulative chart + period attribution table; 20d/60d/252d window. Synthetic-history Trust badge.
+- **Multi-benchmark correlation table**: ρ / β / R² vs SPY, QQQ, GLD, IEF, VT; rows sorted by |ρ| desc, unavailable last. Synthetic-history Trust badge.
+
+The visual surface uses design tokens from `apps/desktop/src/app/styles.css` (`:root` block — colors, spacing, typography, radius). The `designSystem.audit.test.ts` regression test enforces that the four card files have no literal hex / pixel values in inline styles. See Epic 12 PRD for the design-system contract.
 
 ---
 

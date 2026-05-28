@@ -86,17 +86,17 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
             <XAxis
               dataKey="date"
               tickFormatter={formatDateLabel}
-              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' }}
               minTickGap={40}
             />
             <YAxis
-              label={{ value: 'Indexed value (base = 100)', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: 10, fill: '#94a3b8' } }}
+              label={{ value: 'Indexed value (base = 100)', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' } }}
               tickFormatter={(v: number) => v.toFixed(0)}
-              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' }}
               width={48}
               domain={['auto', 'auto']}
             />
-            <ReferenceLine y={100} stroke="#94a3b8" strokeDasharray="2 2" strokeOpacity={0.5} />
+            <ReferenceLine y={100} stroke="var(--color-text-muted)" strokeDasharray="2 2" strokeOpacity={0.5} />
             <Tooltip
               formatter={(value: unknown, name: unknown) => [
                 typeof value === 'number' ? formatIndexValue(value) : 'n/a',
@@ -105,13 +105,13 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
               labelFormatter={(label: unknown) =>
                 formatDateLabel(typeof label === 'string' || typeof label === 'number' ? label : undefined)
               }
-              contentStyle={{ background: '#1a212b', border: '1px solid #2d3748', borderRadius: 8, fontSize: 12 }}
+              contentStyle={{ background: 'var(--color-surface-elevated)', border: 'var(--border-thin) solid var(--color-border-card)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-caption)' }}
             />
             <Line
               type="monotone"
               dataKey="portfolio"
               name="Portfolio"
-              stroke="#4f8ef7"
+              stroke="var(--color-line-portfolio)"
               dot={false}
               connectNulls={false}
               strokeWidth={2}
@@ -121,7 +121,7 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
               type="monotone"
               dataKey="benchmark"
               name={benchmarkSymbol}
-              stroke="#94a3b8"
+              stroke="var(--color-text-muted)"
               strokeDasharray="5 5"
               dot={false}
               connectNulls={false}

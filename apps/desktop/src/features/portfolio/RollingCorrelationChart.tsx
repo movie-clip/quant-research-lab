@@ -64,12 +64,12 @@ function CorrelationTooltip({ active, payload, label }: TooltipProps) {
   const corrEntry = payload.find((p) => p.dataKey === 'correlation')
   const betaEntry = payload.find((p) => p.dataKey === 'beta')
   return (
-    <div style={{ background: '#1a212b', border: '1px solid #2d3748', borderRadius: 8, padding: '8px 12px', fontSize: 12, lineHeight: 1.6 }}>
-      <p style={{ margin: '0 0 4px', color: '#94a3b8', fontSize: 11 }}>{formatDateLabel(label)}</p>
-      <p style={{ margin: 0, color: corrEntry?.color ?? '#5b87c5' }}>
+    <div style={{ background: 'var(--color-surface-elevated)', border: 'var(--border-thin) solid var(--color-border-card)', borderRadius: 'var(--radius-md)', padding: 'var(--space-sm) var(--space-md)', fontSize: 'var(--font-caption)', lineHeight: 1.6 }}>
+      <p style={{ margin: '0 0 var(--space-xs)', color: 'var(--color-text-muted)', fontSize: 'var(--font-chart-tick)' }}>{formatDateLabel(label)}</p>
+      <p style={{ margin: 0, color: corrEntry?.color ?? 'var(--color-line-correlation)' }}>
         Correlation (ρ): <strong>{formatVal(corrEntry?.value)}</strong>
       </p>
-      <p style={{ margin: 0, color: betaEntry?.color ?? '#3cb79f' }}>
+      <p style={{ margin: 0, color: betaEntry?.color ?? 'var(--color-line-beta)' }}>
         Beta (β): <strong>{formatVal(betaEntry?.value)}</strong>
       </p>
     </div>
@@ -80,7 +80,7 @@ function CorrelationTooltip({ active, payload, label }: TooltipProps) {
 
 function WindowSelector({ value, onChange }: { value: CorrelationWindow; onChange: (w: CorrelationWindow) => void }) {
   return (
-    <div style={{ display: 'flex', gap: '4px' }}>
+    <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
       {WINDOW_OPTIONS.map((w) => (
         <button
           key={w}
@@ -88,13 +88,13 @@ function WindowSelector({ value, onChange }: { value: CorrelationWindow; onChang
           aria-label={`${WINDOW_LABELS[w]} window`}
           onClick={() => { onChange(w) }}
           style={{
-            padding: '2px 8px',
-            fontSize: '12px',
-            borderRadius: '3px',
-            border: '1px solid',
-            borderColor: value === w ? '#5b87c5' : '#2d3448',
-            backgroundColor: value === w ? '#1d3350' : 'transparent',
-            color: value === w ? '#5b87c5' : '#6b7280',
+            padding: 'var(--space-xs) var(--space-sm)',
+            fontSize: 'var(--font-caption)',
+            borderRadius: 'var(--radius-sm)',
+            border: 'var(--border-thin) solid',
+            borderColor: value === w ? 'var(--color-line-correlation)' : 'var(--color-border-strong)',
+            backgroundColor: value === w ? 'var(--color-surface-overlay)' : 'transparent',
+            color: value === w ? 'var(--color-line-correlation)' : 'var(--color-text-disabled)',
             cursor: 'pointer',
           }}
         >
@@ -120,13 +120,13 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
   return (
     <section className="compact-chart-panel">
       {/* Header */}
-      <div className="section-header-inline sector-list-header exposure-section-header" style={{ marginBottom: 12 }}>
+      <div className="section-header-inline sector-list-header exposure-section-header" style={{ marginBottom: 'var(--space-md)' }}>
         <div className="panel-section-title-block">
           <p className="panel-label" style={{ display: 'inline' }}>Rolling Correlation &amp; Beta</p>
           <span
             className="attribution-trust-badge"
             title="Computed from current holdings applied to historical prices. Not verified broker return basis."
-            style={{ marginLeft: 8 }}
+            style={{ marginLeft: 'var(--space-sm)' }}
           >
             Synthetic
           </span>
@@ -136,18 +136,22 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
 
       {/* Chart or empty state */}
       {!hasData ? (
-        <p className="helper" style={{ textAlign: 'center', padding: '32px 0' }}>
+        <p className="helper" style={{ textAlign: 'center', padding: 'var(--space-2xl) 0' }}>
           Insufficient history for {window}d rolling window.
         </p>
       ) : (
         <div style={{ height: 260 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 4, right: 56, bottom: 4, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            {/* Axis-overlap fix (US-12.1 T-12.1.3): widened both YAxis widths
+                from 44→64 and bumped right margin 56→72 so the rotated
+                axis-name labels render outside the plot area and don't
+                collide with tick labels at narrow widths. */}
+            <ComposedChart data={chartData} margin={{ top: 8, right: 72, bottom: 8, left: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle)" />
               <XAxis
                 dataKey="date"
                 tickFormatter={formatDateLabel}
-                tick={{ fontSize: 11, fill: '#94a3b8' }}
+                tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' }}
                 minTickGap={40}
               />
               {/* Left axis: Correlation */}
@@ -157,9 +161,9 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
                 domain={[-1, 1]}
                 ticks={[-1, -0.5, 0, 0.5, 1]}
                 tickFormatter={(v: number) => v.toFixed(1)}
-                tick={{ fontSize: 11, fill: '#5b87c5' }}
-                width={44}
-                label={{ value: 'Correlation (ρ)', angle: -90, position: 'insideLeft', offset: 12, style: { fontSize: 10, fill: '#5b87c5' } }}
+                tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-correlation)' }}
+                width={64}
+                label={{ value: 'Correlation (ρ)', angle: -90, position: 'insideLeft', offset: 18, style: { fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-correlation)' } }}
               />
               {/* Right axis: Beta */}
               <YAxis
@@ -167,19 +171,19 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
                 orientation="right"
                 domain={['auto', 'auto']}
                 tickFormatter={(v: number) => v.toFixed(1)}
-                tick={{ fontSize: 11, fill: '#3cb79f' }}
-                width={44}
-                label={{ value: 'Beta (β)', angle: 90, position: 'insideRight', offset: 12, style: { fontSize: 10, fill: '#3cb79f' } }}
+                tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-beta)' }}
+                width={64}
+                label={{ value: 'Beta (β)', angle: 90, position: 'insideRight', offset: 18, style: { fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-beta)' } }}
               />
-              <ReferenceLine yAxisId="correlation" y={0} stroke="#5b87c5" strokeDasharray="3 3" strokeOpacity={0.5} />
-              <ReferenceLine yAxisId="beta" y={1} stroke="#3cb79f" strokeDasharray="3 3" strokeOpacity={0.5} />
+              <ReferenceLine yAxisId="correlation" y={0} stroke="var(--color-line-correlation)" strokeDasharray="3 3" strokeOpacity={0.5} />
+              <ReferenceLine yAxisId="beta" y={1} stroke="var(--color-line-beta)" strokeDasharray="3 3" strokeOpacity={0.5} />
               <Tooltip content={<CorrelationTooltip />} />
               <Line
                 yAxisId="correlation"
                 type="monotone"
                 dataKey="correlation"
                 name="Correlation (ρ)"
-                stroke="#5b87c5"
+                stroke="var(--color-line-correlation)"
                 dot={false}
                 connectNulls={false}
                 strokeWidth={2}
@@ -190,7 +194,7 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
                 type="monotone"
                 dataKey="beta"
                 name="Beta (β)"
-                stroke="#3cb79f"
+                stroke="var(--color-line-beta)"
                 dot={false}
                 connectNulls={false}
                 strokeWidth={2}

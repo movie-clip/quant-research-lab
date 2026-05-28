@@ -18,6 +18,21 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 12 — UI Polish & Design System (active)
+
+PRD: [`prd/epic-12-ui-polish-design-system.md`](../prd/epic-12-ui-polish-design-system.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-12.1](US-12.1-design-tokens-and-card-polish.md) | Design tokens + apply to the four Exposure cards | Frontend — `styles.css` :root tokens + refactor 5 card files + fix rolling-correlation axis overlap + audit test | Done |
+| US-12.2 | Primitive components + refactor cards | Frontend — `<CardShell>`, `<WindowSelector>`, `<TrustBadge>`, `<EmptyState>`, `<LoadingState>`, `<ErrorState>` + refactor 5 cards | Next phase |
+| US-12.3 | Accessibility + Recharts defaults (ChartShell) | Frontend — ARIA, focus-visible, color-blind-safe, `<ChartShell>` wrapper + contrast audit | Backlog |
+| US-12.4 | `ui-polish` skill + Epic 12 close-out | `.claude/skills/ui-polish/SKILL.md` + `docs/contracts/ui-design-system.md` + roadmap close | Backlog |
+
+Stories must be built in order (12.1 → 12.2 → 12.3 → 12.4).
+
+---
+
 ### Epic 11 — Factor Return Attribution (proposed)
 
 PRD: [`prd/epic-11-factor-return-attribution.md`](../prd/epic-11-factor-return-attribution.md)

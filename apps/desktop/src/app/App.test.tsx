@@ -969,7 +969,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Replace Import' })).toBeTruthy()
 
     fireEvent.click(screen.getByText('Exposure'))
-    await waitFor(() => expect(screen.getByText('Look-Through Summary')).toBeTruthy())
+    // Look-Through Summary section was removed; Rolling Correlation chart
+    // now sits where it used to. Assert the topmost Exposure surface instead.
+    await waitFor(() => expect(screen.getByText('Rolling Correlation & Beta')).toBeTruthy())
     expect(screen.getByText('Concentration Pack')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))

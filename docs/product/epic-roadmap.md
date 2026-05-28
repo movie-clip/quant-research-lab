@@ -1,6 +1,38 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-05-27.*
+*Living execution snapshot. Updated: 2026-05-28.*
+
+---
+
+## Active Epic: Epic 12 — UI Polish & Design System
+
+**PRD:** [`docs/product/prd/epic-12-ui-polish-design-system.md`](product/prd/epic-12-ui-polish-design-system.md)
+
+### Goal
+
+Turn the four new Exposure cards (drift, indexed return, rolling correlation,
+factor attribution, multi-benchmark correlation) into a production-ready
+surface backed by a small design system: tokens, shared primitive components,
+accessibility baseline, and a `ui-polish` skill that lets the next analytics
+card slot in consistently.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-12.1 | Design tokens + apply to the four Exposure cards | Done |
+| US-12.2 | Primitive components + refactor cards | Next phase |
+| US-12.3 | Accessibility + Recharts defaults (ChartShell) | Backlog |
+| US-12.4 | `ui-polish` skill + Epic 12 close-out | Backlog |
+
+Stories must be built in order (12.1 → 12.2 → 12.3 → 12.4).
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-05-28 | — | Epic created from UX pass over Epic 9/11 cards; PRD authored; four-story plan (tokens → primitives → a11y → skill) |
+| 2026-05-28 | US-12.1 | Design tokens (`:root` block: 60+ tokens covering text/surface/border/correlation-sign/factor palette/spacing/typography/radius/border-widths); canonical `.attribution-trust-badge` CSS rule; refactored 5 card files to consume tokens; fixed RollingCorrelationChart dual-axis text overlap (YAxis width 44→64, margin right 56→72); audit regression test (`designSystem.audit.test.ts`, 3 tests) enforces no-hex / no-px in inline styles. 263 backend + 109 frontend green; `npx tsc --noEmit` clean. |
 
 ---
 
