@@ -1,8 +1,12 @@
-import type { ExposureAnalysis } from './types'
+import type { DriftResult, ExposureAnalysis } from './types'
+import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
 import { FactorAttributionCard } from './FactorAttributionCard'
 
 type ExposurePanelProps = {
   result: ExposureAnalysis | null
+  driftResult?: DriftResult | null
+  driftBenchmark?: string
+  onDriftBenchmarkChange?: (symbol: string) => void
   snapshotOptions?: Array<{ id: string; label: string }>
   selectedSnapshotId?: string
   snapshotExitOption?: { id: string; label: string }
@@ -133,6 +137,9 @@ function UnavailablePanel({ title, detail }: { title: string; detail: string }) 
 
 export function ExposurePanel({
   result,
+  driftResult = null,
+  driftBenchmark = 'SPY',
+  onDriftBenchmarkChange,
   snapshotOptions = [],
   selectedSnapshotId = 'current',
   snapshotExitOption,
@@ -197,6 +204,12 @@ export function ExposurePanel({
       </header>
 
       <div className="exposure-shell-stack">
+        <DriftBenchmarkPanel
+          result={driftResult}
+          benchmarkSymbol={driftBenchmark}
+          onBenchmarkChange={(symbol) => { onDriftBenchmarkChange?.(symbol) }}
+        />
+
         <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section exposure-top-path-section">
           <div className="section-header-inline sector-list-header exposure-section-header">
             <div className="panel-section-title-block"><p className="panel-label">Look-Through Summary</p></div>

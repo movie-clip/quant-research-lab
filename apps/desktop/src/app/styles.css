@@ -1962,6 +1962,153 @@ select.path-input option {
   height: 520px;
 }
 
+/* ── Drift vs Benchmark panel ───────────────────────────────────────────────── */
+
+.drift-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(180deg, var(--panel-2) 0%, #121920 100%);
+  border-radius: 16px;
+}
+
+.drift-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.drift-panel-title-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drift-panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drift-benchmark-label {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+}
+
+.drift-benchmark-select {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.drift-windows-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .drift-windows-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.drift-window-card {
+  background: var(--panel-3, #202a36);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drift-window-unavailable {
+  opacity: 0.5;
+}
+
+.drift-window-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.drift-window-na {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+.drift-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.drift-row-label {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.drift-row-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.drift-alpha-row .drift-row-value {
+  font-weight: 600;
+}
+
+.drift-spread-positive .drift-row-value { color: #4ade80; }
+.drift-spread-negative .drift-row-value { color: #f87171; }
+.drift-spread-neutral  .drift-row-value { color: #94a3b8; }
+
+.drift-chart-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drift-chart-window-selector {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.drift-chart-window-btn {
+  background: var(--panel-3, #202a36);
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 10px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.drift-chart-window-btn:hover {
+  background: #2d3748;
+  color: #e2e8f0;
+}
+
+.drift-chart-window-btn-active {
+  background: #1e3a5f;
+  border-color: #4f8ef7;
+  color: #4f8ef7;
+}
+
+.drift-chart-empty {
+  text-align: center;
+  padding: 32px 0;
+}
+
 /* ── Dashboard composition row ─────────────────────────────────────────────── */
 
 .dashboard-composition-row {

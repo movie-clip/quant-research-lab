@@ -3,7 +3,7 @@
 **Epic:** 9 — Portfolio Correlation & Co-movement Analysis
 **PRD:** [`epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.md)
 **Status:** Next phase
-**Last updated:** 2026-05-25
+**Last updated:** 2026-05-28
 
 ## Story
 
@@ -15,17 +15,26 @@ my portfolio most resembles without manually switching benchmarks.
 
 ## Context
 
-After US-9.2 the researcher can see rolling correlation for one benchmark at a
-time. This story adds a snapshot comparison across all five benchmarks in a
-single backend call and a table in the UI. The backend analytics (ρ, β, R²)
-are implemented in `app/analytics/correlation.py` (US-9.2) — this story adds
-only the multi-benchmark orchestration and the table component.
+After US-9.2 the researcher can see rolling correlation (vs their primary
+benchmark) in the Exposure tab. That story was frontend-only — it consumed
+fields already in `rolling_risk`. This story adds a **new backend endpoint**
+that computes correlation, beta, and R² against five hardcoded benchmarks
+simultaneously, and a frontend table that displays them side-by-side.
+
+The backend reuses the existing private helpers `_calculate_beta` and
+`_calculate_correlation` from `services/quant-engine/app/analytics/risk.py`.
+This story introduces a new `app/analytics/correlation.py` module (scalar
+functions only — `pearson`, `beta`, `r_squared`) and a new
+`POST /engines/correlation/multi` endpoint.
 
 Implementer must read:
 - `docs/finance/financial-methodology.md` — "Rolling Pearson Correlation",
   "Beta", "R²" sections
-- `services/quant-engine/app/services/correlation_engine.py` (from US-9.2)
-- `services/quant-engine/app/schemas/correlation.py` (from US-9.2)
+- `services/quant-engine/app/analytics/risk.py` — `_calculate_beta`,
+  `_calculate_correlation` (existing helpers to reuse)
+- `services/quant-engine/app/services/attribution_engine.py` — pattern for
+  window-based lookback date computation (`_lookback_calendar_days`) and
+  synthetic daily state construction (`_build_synthetic_snapshot_history_states`)
 
 ## Acceptance criteria
 
@@ -74,36 +83,45 @@ Regression / guardrail:
 
 ## Tickets
 
-- [ ] T-9.3.1 — **Backend schema + service + route**: add
-  `MultiBenchmarkCorrelationRequest` and `MultiBenchmarkCorrelationResult`
-  (containing `list[BenchmarkStats]` + `lookback_days`) to
-  `app/schemas/correlation.py`; add `run_multi_benchmark_correlation` to
-  `app/services/correlation_engine.py` (fetches all five benchmark price
-  series in parallel, calls analytics functions from `correlation.py` for
-  each, sorts by |ρ| descending); add `POST /engines/correlation/multi` to
-  `app/api/routes/correlation.py` (already registered from US-9.2). Add
-  5 pytest tests to `test_correlation_engine.py`.
+- [ ] T-9.3.1 — **Backend analytics module**: create
+  `services/quant-engine/app/analytics/correlation.py` with scalar functions:
+  `pearson(r_p, r_b) -> float | None` (Pearson ρ; null when len < 2 or std = 0),
+  `beta(r_p, r_b) -> float | None` (cov/var; null when var = 0 or len < 20),
+  `r_squared(r_p, r_b) -> float | None` (ρ²; null when ρ is null). Unit tests
+  in `test_correlation_engine.py` covering edge cases: all-null input, zero
+  variance, short series.
 
-- [ ] T-9.3.2 — **Frontend types**: add `BenchmarkStats`,
+- [ ] T-9.3.2 — **Backend schema + service + route**: create
+  `app/schemas/correlation.py` with `MultiBenchmarkCorrelationRequest` and
+  `MultiBenchmarkCorrelationResult` (containing `list[BenchmarkStats]` +
+  `lookback_days`); create `app/services/correlation_engine.py` with
+  `run_multi_benchmark_correlation` (builds synthetic daily states via
+  `_build_synthetic_snapshot_history_states`, fetches all five benchmark price
+  histories, calls analytics functions for each, sorts rows by |ρ| descending);
+  create `app/api/routes/correlation.py` with `POST /engines/correlation/multi`;
+  register in `app/api/main.py`. Add 5 integration pytest tests to
+  `test_correlation_engine.py`.
+
+- [ ] T-9.3.3 — **Frontend types**: add `BenchmarkStats`,
   `MultiBenchmarkCorrelationResult` to `features/portfolio/types.ts`; add
   `runMultiBenchmarkCorrelation(snapshot, lookbackDays?)` to
   `portfolioAnalysisAdapter.ts`.
 
-- [ ] T-9.3.3 — **Frontend component**: create
+- [ ] T-9.3.4 — **Frontend component**: create
   `features/portfolio/BenchmarkCorrelationTable.tsx` — `<table>` with columns
   Benchmark / ρ / β / R² / Trust; sorts rows by |ρ| descending;
   null → "—"; unavailable trust → "Unavailable" badge; Synthetic trust →
   "Synthetic" badge. Create `BenchmarkCorrelationTable.test.tsx` with 5 tests.
 
-- [ ] T-9.3.4 — **Wire into Exposure tab**: add `multiBenchmarkResult` state
+- [ ] T-9.3.5 — **Wire into Exposure tab**: add `multiBenchmarkResult` state
   to `App.tsx`; call `runMultiBenchmarkCorrelation` in parallel with
-  exposure + drift + correlation in `analyzeExposureSnapshot`; pass result as
+  exposure + drift in `analyzeExposureSnapshot`; pass result as
   prop to `ExposurePanel`; render `BenchmarkCorrelationTable` in
   `ExposurePanel.tsx` beneath `RollingCorrelationChart`.
 
-- [ ] T-9.3.5 — **Docs close-out**: update
-  `docs/contracts/correlation-fields.md` with multi-benchmark fields; set
-  US-9.3 to Done in `docs/product/stories/README.md`; add slice log entry to
+- [ ] T-9.3.6 — **Docs close-out**: update `docs/contracts/correlation-fields.md`
+  with multi-benchmark fields; set US-9.3 to Done in
+  `docs/product/stories/README.md`; add slice log entry to
   `docs/product/epic-roadmap.md`; set Epic 9 snapshot to all Done.
 
 ## Out of scope

@@ -43,18 +43,19 @@ PRD: [`prd/epic-10-multi-broker-import-correctness.md`](../prd/epic-10-multi-bro
 
 ---
 
-### Epic 9 — Portfolio Correlation & Co-movement Analysis (parked)
+### Epic 9 — Portfolio Correlation & Co-movement Analysis (active)
 
 PRD: [`prd/epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.md)
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
-| [US-9.1](US-9.1-indexed-return-chart.md) | Indexed return time-series chart | Frontend — chart of existing daily_series data | Next phase |
-| [US-9.2](US-9.2-rolling-correlation-chart.md) | Rolling correlation engine and chart | Backend analytics + new endpoint + frontend chart | Next phase |
-| [US-9.3](US-9.3-multi-benchmark-correlation-matrix.md) | Multi-benchmark correlation matrix | Backend multi endpoint + frontend comparison table | Next phase |
+| [US-9.1](US-9.1-indexed-return-chart.md) | Indexed return time-series chart | Frontend — chart of existing `daily_series` data (no backend work) | Done |
+| [US-9.2](US-9.2-rolling-correlation-chart.md) | Rolling correlation and beta chart | Frontend — chart of existing `rolling_risk` data (no backend work) | Next phase |
+| [US-9.3](US-9.3-multi-benchmark-correlation-matrix.md) | Multi-benchmark correlation matrix | Full-stack — new `correlation.py` analytics + `POST /engines/correlation/multi` + frontend table | Next phase |
 | [US-9.4](US-9.4-fix-rolling-factor-loadings-methodology.md) | Fix rolling factor loadings methodology | Backend bugfix — per-window orthogonalization + ridge floor | Done |
+| [US-9.5](US-9.5-correlation-docs-closeout.md) | Docs, contracts, roadmap close-out | Docs — `correlation-fields.md`, methodology verification, slice log | Next phase |
 
-Stories must be built in order (9.1 → 9.2 → 9.3). US-9.4 is a bugfix independent of 9.1–9.3 and can be built at any time.
+Stories must be built in order (9.1 → 9.2 → 9.3 → 9.5). US-9.4 is a Done bugfix independent of 9.1–9.3.
 
 ---
 
