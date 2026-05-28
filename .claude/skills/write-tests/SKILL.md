@@ -53,6 +53,21 @@ This is an FMP-cache artifact, not a real change.
 
 ## Backend pytest patterns
 
+### Before adding tests to an existing file: inventory the helpers
+
+When extending an existing test file (vs creating a new one), grep for
+existing fixtures and helpers first:
+
+```bash
+grep -n "^def \|^class \|^@pytest.fixture" path/to/test_foo.py
+```
+
+Common helpers to reuse: `_minimal_snapshot()`, `_make_daily_states()`,
+`_make_factor_rows()`, `client` fixture. The story's test plan usually names
+the ones to reuse; check anyway. **Don't invent a helper that "feels
+obvious"** — either reuse an existing one or add the new helper explicitly
+in your diff at module scope (not inside a class).
+
 ### Test file structure
 
 One test file per service/analytics module. Suffix `_engine.py` modules with
@@ -168,6 +183,22 @@ def test_trust_unavailable_when_insufficient_history(...): ...
 That regresses the trust-vs-fabrication guardrail.
 
 ## Frontend vitest patterns
+
+### Before adding tests to an existing file: inventory the helpers
+
+When extending an existing test file (vs creating a new one), **grep the
+file first** for existing factories / fixtures:
+
+```bash
+grep -n "^function\|^const.*=\|^type" path/to/Component.test.tsx
+```
+
+Common helpers to look for: `makeFullResult`, `makeFooRow`, `MINIMAL_SNAPSHOT`,
+`makePoint`. The story's test plan often names the ones to reuse; even if it
+doesn't, **never invent a helper that "feels obvious"** — write tests in
+terms of what the file already exports, or add the helper explicitly in your
+diff. A test that references an undefined `makeSyntheticRow` will fail at
+import time with a confusing `ReferenceError`, not a useful assertion error.
 
 ### Test file structure
 
