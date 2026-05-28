@@ -8,6 +8,8 @@ Coverage:
 from __future__ import annotations
 
 import math
+from datetime import date, timedelta
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -211,3 +213,96 @@ class TestMultiCorrelationRoute:
         response = client.post("/engines/correlation/multi", json=payload)
         assert response.status_code == 200
         assert response.json()["lookback_days"] == 60
+
+
+# ── Sort-order contract tests (US-9.6) ────────────────────────────────────────
+#
+# US-9.3 AC4 says rows are sorted by |correlation| descending with unavailable
+# (null) rows last.  The sort happens in correlation_engine.py:202-206 but was
+# not previously pinned by a test.  These tests inject deterministic
+# correlation values via mocker.patch on the scalar analytics functions, so
+# the assertion is on the sort contract rather than on a specific price series.
+
+def _stable_price_rows(n_days: int = 80, start: date = date(2025, 1, 1)) -> list[dict]:
+    """Deterministic price series ≥ _MIN_OBSERVATIONS (20) trading days.
+
+    The exact values don't matter — the sort tests patch the analytics
+    functions to inject correlation values directly.  This price series only
+    needs to be long enough that the service reaches the sort step (≥ 20
+    overlapping common dates for every benchmark).
+    """
+    return [
+        {"date": (start + timedelta(days=d)).isoformat(), "price": 100.0 + d * 0.1}
+        for d in range(n_days)
+    ]
+
+
+def _install_correlation_market_data_mock(mocker) -> None:
+    """Patch MarketDataService inside correlation_engine so the service runs
+    end-to-end through the sort step without hitting FMP."""
+    mock_rows = _stable_price_rows()
+    mock_svc = MagicMock()
+    inst = mock_svc.return_value
+    inst.get_historical_prices.return_value = mock_rows
+    inst.get_historical_prices_for_symbols.return_value = {"AAPL": mock_rows}
+    mocker.patch("app.services.correlation_engine.MarketDataService", mock_svc)
+
+
+class TestSortOrder:
+    """Pins the AC4 sort contract from US-9.3 (added in US-9.6).
+
+    Benchmarks are computed in BENCHMARK_UNIVERSE order (SPY, QQQ, GLD, IEF, VT)
+    and then sorted by abs(correlation) descending, with unavailable rows last.
+    """
+
+    def test_benchmarks_sorted_by_abs_correlation_descending(self, mocker, client):
+        # side_effect order follows BENCHMARK_UNIVERSE: SPY, QQQ, GLD, IEF, VT
+        mocker.patch(
+            "app.services.correlation_engine.compute_pearson",
+            side_effect=[0.30, 0.90, -0.70, 0.10, -0.50],
+        )
+        mocker.patch(
+            "app.services.correlation_engine.compute_beta",
+            return_value=1.0,
+        )
+        mocker.patch(
+            "app.services.correlation_engine.compute_r_squared",
+            side_effect=[0.09, 0.81, 0.49, 0.01, 0.25],
+        )
+        _install_correlation_market_data_mock(mocker)
+
+        payload = {"snapshot": _minimal_snapshot(), "lookback_days": 60}
+        response = client.post("/engines/correlation/multi", json=payload)
+        assert response.status_code == 200
+        symbols = [b["symbol"] for b in response.json()["benchmarks"]]
+        # Expected order by |ρ| descending:
+        #   QQQ (|0.90|) > GLD (|-0.70|) > VT (|-0.50|) > SPY (|0.30|) > IEF (|0.10|)
+        assert symbols == ["QQQ", "GLD", "VT", "SPY", "IEF"]
+
+    def test_unavailable_benchmarks_sort_last(self, mocker, client):
+        # 2 synthetic (SPY ρ=0.4, QQQ ρ=0.6) + 3 unavailable (GLD, IEF, VT all None)
+        mocker.patch(
+            "app.services.correlation_engine.compute_pearson",
+            side_effect=[0.40, 0.60, None, None, None],
+        )
+        mocker.patch(
+            "app.services.correlation_engine.compute_beta",
+            side_effect=[1.0, 1.0, None, None, None],
+        )
+        mocker.patch(
+            "app.services.correlation_engine.compute_r_squared",
+            side_effect=[0.16, 0.36, None, None, None],
+        )
+        _install_correlation_market_data_mock(mocker)
+
+        payload = {"snapshot": _minimal_snapshot(), "lookback_days": 60}
+        response = client.post("/engines/correlation/multi", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        trusts = [b["trust"] for b in data["benchmarks"]]
+        # First 2 synthetic, sorted by |ρ| desc: QQQ (0.6) before SPY (0.4)
+        assert trusts[:2] == ["synthetic", "synthetic"]
+        assert data["benchmarks"][0]["symbol"] == "QQQ"
+        assert data["benchmarks"][1]["symbol"] == "SPY"
+        # Last 3 are all unavailable
+        assert trusts[2:] == ["unavailable", "unavailable", "unavailable"]

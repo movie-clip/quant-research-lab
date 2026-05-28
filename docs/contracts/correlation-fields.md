@@ -111,7 +111,7 @@ Data source: `POST /api/engines/correlation/multi`
 | `correlation` | `float \| None` | `number \| null` | ρ (Correlation) | synthetic | Yes | Pearson ρ ∈ [-1, 1]. Null when < 20 overlapping trading days. |
 | `beta` | `float \| None` | `number \| null` | β (Beta) | synthetic | Yes | cov(r_p, r_b) / var(r_b). Null when < 20 overlapping days or var=0. |
 | `r_squared` | `float \| None` | `number \| null` | R² | synthetic | Yes | ρ². Null when ρ is null. |
-| `trust` | `Literal["synthetic", "unavailable"]` | `'synthetic' \| 'unavailable'` | Trust indicator | — | No | `"unavailable"` when all three metrics are null. |
+| `trust` | `Literal["synthetic", "unavailable"]` | `'synthetic' \| 'unavailable'` | Per-row dim (no column) | — | No | `"unavailable"` when all three metrics are null. **UI rendering:** trust is shown as row opacity (`0.55` for `unavailable`, `1` for `synthetic`) plus a single table-header `Synthetic` badge — *not* as a dedicated table column. There are 4 columns: Benchmark, ρ, β, R². |
 
 ### Unavailable state rules
 

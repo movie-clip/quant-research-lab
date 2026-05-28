@@ -54,6 +54,7 @@ PRD: [`prd/epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.m
 | [US-9.3](US-9.3-multi-benchmark-correlation-matrix.md) | Multi-benchmark correlation matrix | Full-stack — new `correlation.py` analytics + `POST /engines/correlation/multi` + frontend table | Done |
 | [US-9.4](US-9.4-fix-rolling-factor-loadings-methodology.md) | Fix rolling factor loadings methodology | Backend bugfix — per-window orthogonalization + ridge floor | Done |
 | [US-9.5](US-9.5-correlation-docs-closeout.md) | Docs, contracts, roadmap close-out | Docs — `correlation-fields.md`, methodology verification, slice log | Done |
+| [US-9.6](US-9.6-correlation-followups.md) | Multi-benchmark correlation follow-ups | Tests + docs — sort regression, trust-indicator pinning, umbrella methodology section | Done |
 
 Stories must be built in order (9.1 → 9.2 → 9.3 → 9.5). US-9.4 is a Done bugfix independent of 9.1–9.3.
 

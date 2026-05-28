@@ -463,6 +463,34 @@ Contract rule:
 - R² is synthetic history trust. Reported alongside beta and correlation as a
   trio; never shown without the correlation from which it derives.
 
+## Multi-Benchmark Correlation
+
+A point-in-time snapshot of how the portfolio co-moves with multiple market
+benchmarks over a single lookback window. Uses the formulas above —
+§Rolling Pearson Correlation, §Beta (Market Beta), §R² — applied pairwise
+between the synthetic portfolio return series and each benchmark's daily
+price return series.
+
+Benchmark universe (hardcoded in `services/quant-engine/app/services/correlation_engine.py`):
+- SPY (S&P 500), QQQ (Nasdaq-100), GLD (Gold), IEF (US 7-10yr Bonds), VT (Global Equity)
+
+Sort contract:
+- Rows are returned ordered by `abs(correlation)` descending; rows with
+  `correlation = None` (unavailable) sort last.
+
+Edge cases:
+- < 20 overlapping trading-day returns for a benchmark: `correlation`,
+  `beta`, `r_squared` all null and `trust = 'unavailable'`.
+- Benchmark price history not fetchable: same — null + unavailable.
+
+Implementation:
+- `services/quant-engine/app/analytics/correlation.py` — scalar helpers
+- `services/quant-engine/app/services/correlation_engine.py` — orchestration + sort
+- `POST /engines/correlation/multi` — route
+
+Contract: see `docs/contracts/correlation-fields.md` (US-9.3 section) for the
+field-level inventory and UI rendering rules.
+
 ## Factor Return Attribution
 
 Factor return attribution decomposes the portfolio's daily return history into
