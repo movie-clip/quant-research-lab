@@ -71,7 +71,7 @@ the Exposure tab.
 | Story | Title | Status |
 |---|---|---|
 | US-9.1 | Indexed return time-series chart | Done |
-| US-9.2 | Rolling correlation and beta chart | Next phase |
+| US-9.2 | Rolling correlation and beta chart | Done |
 | US-9.3 | Multi-benchmark correlation matrix | Next phase |
 | US-9.4 | Fix rolling factor loadings methodology | Done |
 | US-9.5 | Docs, contracts, roadmap close-out | Next phase |
@@ -83,6 +83,7 @@ the Exposure tab.
 | 2026-05-26 | US-9.4 | Fixed rolling factor model: per-window Gram-Schmidt orthogonalization replaces global GS; Market loading blowup (−4.60) eliminated; 221 backend + 98 frontend tests green |
 | 2026-05-28 | — | Epic activated from Parked; US-9.2 revised to frontend-only (rolling_risk fields already computed); US-9.5 added for docs close-out |
 | 2026-05-28 | US-9.1 | `DriftBenchmarkPanel` + `IndexedReturnChart` added to Exposure tab; drift engine wired in App.tsx; 5 new frontend tests; 97 frontend + 239 backend tests green |
+| 2026-05-28 | US-9.2 | `RollingCorrelationChart` added to Exposure tab (bottom); dual-axis ρ + β chart with 20d/60d/252d window selector; 5 new frontend tests; 102 frontend + 239 backend tests green |
 
 ---
 
