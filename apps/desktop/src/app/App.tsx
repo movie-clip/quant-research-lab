@@ -465,11 +465,15 @@ export function App() {
     // its failure mode — silently swallowing meant the panel rendered a
     // misleading "No drift data" instead of surfacing real errors.
     const driftPromise = runDriftEngine(snapshot, driftBenchmark)
-      .then((d) => ({ result: d, error: null as string | null }))
-      .catch((err: unknown) => ({
-        result: null,
-        error: err instanceof Error ? err.message : 'Drift engine failed',
-      }))
+      .then((d) => {
+        console.info('[drift] success', { windows: d.windows?.length, availability: d.availability, series: d.daily_series?.length })
+        return { result: d, error: null as string | null }
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : 'Drift engine failed'
+        console.error('[drift] FAILED:', msg, err)
+        return { result: null, error: msg }
+      })
     const [exposure, diagnostics, drift] = await Promise.all([
       runExposureEngine(snapshot),
       options?.historySource?.kind === 'imported_replay'

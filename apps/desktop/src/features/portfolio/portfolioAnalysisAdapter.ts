@@ -96,15 +96,26 @@ export async function runDriftEngine(
   benchmarkSymbol: string,
   apiUrlOptions?: ResolveDesktopApiUrlOptions,
 ): Promise<DriftResult> {
+  const requestBody = { ...buildSnapshotAnalysisRequest(snapshot), benchmark_symbol: benchmarkSymbol }
+  // Debug log: confirm the adapter is reached and inspect the actual outgoing
+  // payload. Removeable once drift-card "No drift data" issue is diagnosed.
+  console.info('[drift] POST', {
+    url: resolvePortfolioEngineUrl('/api/engines/drift/run', apiUrlOptions),
+    positions: requestBody.positions.length,
+    benchmark: benchmarkSymbol,
+    imported_at: requestBody.imported_at,
+    base_currency: requestBody.base_currency,
+  })
   const response = await fetch(resolvePortfolioEngineUrl('/api/engines/drift/run', apiUrlOptions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...buildSnapshotAnalysisRequest(snapshot), benchmark_symbol: benchmarkSymbol }),
+    body: JSON.stringify(requestBody),
   })
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null
-    throw new Error(payload?.detail ?? 'Drift engine run failed')
+    const detail = payload?.detail ?? `HTTP ${response.status}`
+    throw new Error(`Drift engine run failed: ${detail}`)
   }
 
   return (await response.json()) as DriftResult
