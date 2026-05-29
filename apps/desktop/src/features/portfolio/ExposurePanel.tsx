@@ -9,6 +9,7 @@ import { TrustBadge } from '../../app/primitives/TrustBadge'
 type ExposurePanelProps = {
   result: ExposureAnalysis | null
   driftResult?: DriftResult | null
+  driftError?: string | null
   driftBenchmark?: string
   onDriftBenchmarkChange?: (symbol: string) => void
   snapshotOptions?: Array<{ id: string; label: string }>
@@ -109,6 +110,7 @@ function UnavailablePanel({ title, detail }: { title: string; detail: string }) 
 export function ExposurePanel({
   result,
   driftResult = null,
+  driftError = null,
   driftBenchmark = 'SPY',
   onDriftBenchmarkChange,
   snapshotOptions = [],
@@ -174,6 +176,7 @@ export function ExposurePanel({
       <div className="exposure-shell-stack">
         <DriftBenchmarkPanel
           result={driftResult}
+          error={driftError}
           benchmarkSymbol={driftBenchmark}
           onBenchmarkChange={(symbol) => { onDriftBenchmarkChange?.(symbol) }}
         />

@@ -2,6 +2,7 @@ import type { DriftResult, DriftWindow } from './types'
 import { IndexedReturnChart } from './IndexedReturnChart'
 import { CardShell } from '../../app/primitives/CardShell'
 import { EmptyState } from '../../app/primitives/EmptyState'
+import { ErrorState } from '../../app/primitives/ErrorState'
 import { TrustBadge } from '../../app/primitives/TrustBadge'
 
 const BENCHMARK_OPTIONS = [
@@ -53,11 +54,13 @@ function WindowCard({ window: w }: { window: DriftWindow }) {
 
 type DriftBenchmarkPanelProps = {
   result: DriftResult | null
+  /** Error message from the most recent runDriftEngine call (null when no error). */
+  error?: string | null
   benchmarkSymbol: string
   onBenchmarkChange: (symbol: string) => void
 }
 
-export function DriftBenchmarkPanel({ result, benchmarkSymbol, onBenchmarkChange }: DriftBenchmarkPanelProps) {
+export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onBenchmarkChange }: DriftBenchmarkPanelProps) {
   const hasSeries = Boolean(result && result.daily_series.length > 0)
 
   const benchmarkPicker = (
@@ -88,7 +91,9 @@ export function DriftBenchmarkPanel({ result, benchmarkSymbol, onBenchmarkChange
       actions={benchmarkPicker}
       className="drift-panel"
     >
-      {result == null ? (
+      {error != null ? (
+        <ErrorState title="Drift engine failed" detail={error} />
+      ) : result == null ? (
         <EmptyState title="No drift data" detail="Import a portfolio to see drift vs benchmark." />
       ) : result.availability === 'unavailable' ? (
         <EmptyState title="Drift unavailable" detail="Market data unavailable — drift cannot be computed." />

@@ -277,6 +277,7 @@ export function App() {
   const [diagnosticsAnalysis, setDiagnosticsAnalysis] = useState<DiagnosticsEngineResponse | null>(null)
   const [exposureFactorModel, setExposureFactorModel] = useState<ExposureFactorModelResponse | null>(null)
   const [driftResult, setDriftResult] = useState<DriftResult | null>(null)
+  const [driftError, setDriftError] = useState<string | null>(null)
   const [driftBenchmark, setDriftBenchmark] = useState<string>('SPY')
   const [importingPortfolio, setImportingPortfolio] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -460,12 +461,21 @@ export function App() {
       historySource?: ImportedHistorySource | null
     },
   ) {
+    // Drift is non-critical (never blocks exposure render) but we MUST capture
+    // its failure mode — silently swallowing meant the panel rendered a
+    // misleading "No drift data" instead of surfacing real errors.
+    const driftPromise = runDriftEngine(snapshot, driftBenchmark)
+      .then((d) => ({ result: d, error: null as string | null }))
+      .catch((err: unknown) => ({
+        result: null,
+        error: err instanceof Error ? err.message : 'Drift engine failed',
+      }))
     const [exposure, diagnostics, drift] = await Promise.all([
       runExposureEngine(snapshot),
       options?.historySource?.kind === 'imported_replay'
         ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
         : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? getWorkspaceHistorySource(activeWorkspace)?.historyContext ?? null),
-      runDriftEngine(snapshot, driftBenchmark).catch(() => null),  // non-critical; never blocks exposure
+      driftPromise,
     ])
     const exposureView = composeExposureView(exposure, diagnostics)
     let factorModel: ExposureFactorModelResponse | null
@@ -478,7 +488,8 @@ export function App() {
     setExposureAnalysis(exposureView)
     setDiagnosticsAnalysis(diagnostics)
     setExposureFactorModel(factorModel)
-    setDriftResult(drift)
+    setDriftResult(drift.result)
+    setDriftError(drift.error)
     if (!options?.preserveDashboardAnalysis) {
       setAnalysis(composeDashboardAnalysisFromEngines(exposure, diagnostics))
     }
@@ -655,8 +666,14 @@ export function App() {
     setDriftBenchmark(benchmark)
     const snapshot = lastAnalyzedSnapshotRef.current
     if (!snapshot) return
-    const drift = await runDriftEngine(snapshot, benchmark).catch(() => null)
-    setDriftResult(drift)
+    try {
+      const drift = await runDriftEngine(snapshot, benchmark)
+      setDriftResult(drift)
+      setDriftError(null)
+    } catch (err: unknown) {
+      setDriftResult(null)
+      setDriftError(err instanceof Error ? err.message : 'Drift engine failed')
+    }
   }
 
   function handleClearImportedSession() {
@@ -666,6 +683,7 @@ export function App() {
     setDiagnosticsAnalysis(null)
     setExposureFactorModel(null)
     setDriftResult(null)
+    setDriftError(null)
     setLastImportedFileNames([])
     setActiveWorkspace(null)
     setActiveNode(null)
@@ -854,6 +872,7 @@ export function App() {
             <ExposurePanel
               result={exposureAnalysis}
               driftResult={driftResult}
+              driftError={driftError}
               driftBenchmark={driftBenchmark}
               onDriftBenchmarkChange={(b) => { void handleDriftBenchmarkChange(b) }}
               snapshotOptions={[
