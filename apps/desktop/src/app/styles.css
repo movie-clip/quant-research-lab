@@ -560,8 +560,12 @@ select.path-input option {
   margin-top: 10px;
 }
 
+/* CardShell's outer section (Epic 12). Sizes to content — the previous
+   `height: 250px` was leftover from a pre-design-system use case and caused
+   cards taller than ~200px (every chart card) to overflow into the next
+   sibling in the .exposure-shell-stack flex column. */
 .compact-chart-panel {
-  height: 250px;
+  /* intentionally empty — height removed, layout-neutral */
 }
 
 .secondary-chart-panel {
