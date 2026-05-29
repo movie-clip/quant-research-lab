@@ -4,13 +4,14 @@ import {
   ComposedChart,
   Line,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
 import type { RollingRiskPoint } from './types'
 import { CardShell } from '../../app/primitives/CardShell'
+import { ChartShell } from '../../app/primitives/ChartShell'
+import { defaultAxisTickStyle, defaultChartGrid, defaultMinTickGap } from '../../app/primitives/chartDefaults'
 import { EmptyState } from '../../app/primitives/EmptyState'
 import { TrustBadge } from '../../app/primitives/TrustBadge'
 import { WindowSelector } from '../../app/primitives/WindowSelector'
@@ -114,41 +115,40 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
       {!hasData ? (
         <EmptyState title={`Insufficient history for ${window}d rolling window.`} />
       ) : (
-        <div style={{ height: 260 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            {/* Axis-overlap fix (US-12.1 T-12.1.3): widened both YAxis widths
-                from 44→64 and bumped right margin 56→72 so the rotated
-                axis-name labels render outside the plot area and don't
-                collide with tick labels at narrow widths. */}
-            <ComposedChart data={chartData} margin={{ top: 8, right: 72, bottom: 8, left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle)" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={formatDateLabel}
-                tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' }}
-                minTickGap={40}
-              />
-              {/* Left axis: Correlation */}
-              <YAxis
-                yAxisId="correlation"
-                orientation="left"
-                domain={[-1, 1]}
-                ticks={[-1, -0.5, 0, 0.5, 1]}
-                tickFormatter={(v: number) => v.toFixed(1)}
-                tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-correlation)' }}
-                width={64}
-                label={{ value: 'Correlation (ρ)', angle: -90, position: 'insideLeft', offset: 18, style: { fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-correlation)' } }}
-              />
-              {/* Right axis: Beta */}
-              <YAxis
-                yAxisId="beta"
-                orientation="right"
-                domain={['auto', 'auto']}
-                tickFormatter={(v: number) => v.toFixed(1)}
-                tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-beta)' }}
-                width={64}
-                label={{ value: 'Beta (β)', angle: 90, position: 'insideRight', offset: 18, style: { fontSize: 'var(--font-chart-tick)', fill: 'var(--color-line-beta)' } }}
-              />
+        <ChartShell ariaLabel="Rolling correlation and beta vs benchmark, dual-axis line chart">
+          {/* Axis-overlap fix (US-12.1 T-12.1.3): widened both YAxis widths
+              from 44→64 and bumped right margin 56→72 so the rotated
+              axis-name labels render outside the plot area and don't
+              collide with tick labels at narrow widths. */}
+          <ComposedChart data={chartData} margin={{ top: 8, right: 72, bottom: 8, left: 8 }}>
+            <CartesianGrid {...defaultChartGrid} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={formatDateLabel}
+              tick={defaultAxisTickStyle}
+              minTickGap={defaultMinTickGap}
+            />
+            {/* Left axis: Correlation (per-axis tick fill override) */}
+            <YAxis
+              yAxisId="correlation"
+              orientation="left"
+              domain={[-1, 1]}
+              ticks={[-1, -0.5, 0, 0.5, 1]}
+              tickFormatter={(v: number) => v.toFixed(1)}
+              tick={{ ...defaultAxisTickStyle, fill: 'var(--color-line-correlation)' }}
+              width={64}
+              label={{ value: 'Correlation (ρ)', angle: -90, position: 'insideLeft', offset: 18, style: { ...defaultAxisTickStyle, fill: 'var(--color-line-correlation)' } }}
+            />
+            {/* Right axis: Beta (per-axis tick fill override) */}
+            <YAxis
+              yAxisId="beta"
+              orientation="right"
+              domain={['auto', 'auto']}
+              tickFormatter={(v: number) => v.toFixed(1)}
+              tick={{ ...defaultAxisTickStyle, fill: 'var(--color-line-beta)' }}
+              width={64}
+              label={{ value: 'Beta (β)', angle: 90, position: 'insideRight', offset: 18, style: { ...defaultAxisTickStyle, fill: 'var(--color-line-beta)' } }}
+            />
               <ReferenceLine yAxisId="correlation" y={0} stroke="var(--color-line-correlation)" strokeDasharray="3 3" strokeOpacity={0.5} />
               <ReferenceLine yAxisId="beta" y={1} stroke="var(--color-line-beta)" strokeDasharray="3 3" strokeOpacity={0.5} />
               <Tooltip content={<CorrelationTooltip />} />
@@ -174,9 +174,8 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
                 strokeWidth={2}
                 isAnimationActive={false}
               />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+          </ComposedChart>
+        </ChartShell>
       )}
     </CardShell>
   )

@@ -11,7 +11,7 @@
  * pass any element — `<TrustBadge />`, a `<select>`, a `<WindowSelector />`,
  * or a custom composition.
  */
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 
 export type CardShellProps = {
   title: string
@@ -24,14 +24,17 @@ export type CardShellProps = {
 
 export function CardShell({ title, badge, actions, className, children }: CardShellProps) {
   const sectionClass = `compact-chart-panel${className ? ` ${className}` : ''}`
+  // a11y (US-12.3): stable id so the region's aria-labelledby points at the
+  // title <p>. Screen readers announce "region: <title>" on entry.
+  const titleId = useId()
   return (
-    <section className={sectionClass}>
+    <section className={sectionClass} role="region" aria-labelledby={titleId}>
       <div
         className="section-header-inline sector-list-header exposure-section-header"
         style={{ marginBottom: 'var(--space-md)' }}
       >
         <div className="panel-section-title-block">
-          <p className="panel-label" style={{ display: 'inline' }}>{title}</p>
+          <p id={titleId} className="panel-label" style={{ display: 'inline' }}>{title}</p>
           {badge ? <span style={{ marginLeft: 'var(--space-sm)' }}>{badge}</span> : null}
         </div>
         {actions ?? null}

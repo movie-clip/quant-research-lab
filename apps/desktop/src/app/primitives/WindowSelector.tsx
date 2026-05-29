@@ -36,6 +36,7 @@ export function WindowSelector<T>({
           <button
             key={String(opt)}
             type="button"
+            className="window-selector-btn"
             aria-label={resolvedAria(opt)}
             aria-pressed={active}
             onClick={() => { onChange(opt) }}

@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 import type { DriftDailyPoint, DriftWindow } from './types'
+import { ChartShell } from '../../app/primitives/ChartShell'
+import { defaultAxisTickStyle, defaultChartGrid, defaultMinTickGap, defaultTooltipContentStyle } from '../../app/primitives/chartDefaults'
 import { EmptyState } from '../../app/primitives/EmptyState'
 import { WindowSelector } from '../../app/primitives/WindowSelector'
 
@@ -75,19 +77,19 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
       {!hasData ? (
         <EmptyState title="Insufficient history — chart unavailable." />
       ) : (
-        <ResponsiveContainer width="100%" height={220}>
+        <ChartShell ariaLabel="Indexed return time series for portfolio and benchmark" height={220}>
           <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <CartesianGrid {...defaultChartGrid} />
             <XAxis
               dataKey="date"
               tickFormatter={formatDateLabel}
-              tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' }}
-              minTickGap={40}
+              tick={defaultAxisTickStyle}
+              minTickGap={defaultMinTickGap}
             />
             <YAxis
-              label={{ value: 'Indexed value (base = 100)', angle: -90, position: 'insideLeft', offset: 10, style: { fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' } }}
+              label={{ value: 'Indexed value (base = 100)', angle: -90, position: 'insideLeft', offset: 10, style: defaultAxisTickStyle }}
               tickFormatter={(v: number) => v.toFixed(0)}
-              tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-muted)' }}
+              tick={defaultAxisTickStyle}
               width={48}
               domain={['auto', 'auto']}
             />
@@ -100,7 +102,7 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
               labelFormatter={(label: unknown) =>
                 formatDateLabel(typeof label === 'string' || typeof label === 'number' ? label : undefined)
               }
-              contentStyle={{ background: 'var(--color-surface-elevated)', border: 'var(--border-thin) solid var(--color-border-card)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-caption)' }}
+              contentStyle={defaultTooltipContentStyle}
             />
             <Line
               type="monotone"
@@ -124,7 +126,7 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
               isAnimationActive={false}
             />
           </LineChart>
-        </ResponsiveContainer>
+        </ChartShell>
       )}
     </div>
   )

@@ -43,4 +43,17 @@ describe('CardShell', () => {
     )
     expect(screen.getByTestId('body-child')).toBeTruthy()
   })
+
+  it('applies_region_role_and_aria_labelledby', () => {
+    // US-12.3 a11y: screen readers should announce "region: <title>" on entry.
+    render(
+      <CardShell title="Rolling Correlation">body</CardShell>,
+    )
+    const region = screen.getByRole('region', { name: 'Rolling Correlation' })
+    const labelledBy = region.getAttribute('aria-labelledby')
+    expect(labelledBy).toBeTruthy()
+    // The id resolves to an element whose text matches the title prop.
+    const titleEl = document.getElementById(labelledBy!)
+    expect(titleEl?.textContent).toBe('Rolling Correlation')
+  })
 })

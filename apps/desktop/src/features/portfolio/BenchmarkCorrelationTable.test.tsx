@@ -171,4 +171,29 @@ describe('BenchmarkCorrelationTable', () => {
     const spyRow = screen.getByText('S&P 500').closest('tr') as HTMLElement
     expect(spyRow.style.opacity).toBe('1')
   })
+
+  it('correlation_column_shows_sign_symbol_per_magnitude_band', async () => {
+    // US-12.3 a11y: color is not the sole encoder for correlation sign.
+    // ▲▲ strong+ (ρ >= 0.7), ▲ moderate+, • neutral, ▼ moderate-, ▼▼ strong-.
+    const bands: MultiBenchmarkCorrelationResult = {
+      lookback_days: 252,
+      benchmarks: [
+        { symbol: 'SPY', label: 'StrongPositive', correlation: 0.9, beta: 1.0, r_squared: 0.81, trust: 'synthetic' },
+        { symbol: 'QQQ', label: 'ModeratePositive', correlation: 0.5, beta: 1.0, r_squared: 0.25, trust: 'synthetic' },
+        { symbol: 'GLD', label: 'Neutral', correlation: 0.0, beta: 0.0, r_squared: 0.0, trust: 'synthetic' },
+        { symbol: 'IEF', label: 'ModerateNegative', correlation: -0.5, beta: -1.0, r_squared: 0.25, trust: 'synthetic' },
+        { symbol: 'VT', label: 'StrongNegative', correlation: -0.9, beta: -1.0, r_squared: 0.81, trust: 'synthetic' },
+      ],
+    }
+    mockRun.mockResolvedValue(bands)
+    render(<BenchmarkCorrelationTable snapshot={MINIMAL_SNAPSHOT} />)
+    await waitFor(() => expect(screen.getByText('StrongPositive')).toBeTruthy())
+
+    // Each ρ cell prefixes its value with the band's symbol.
+    expect(screen.getByText(/▲▲ 0\.90/)).toBeTruthy()
+    expect(screen.getByText(/▲ 0\.50/)).toBeTruthy()
+    expect(screen.getByText(/• 0\.00/)).toBeTruthy()
+    expect(screen.getByText(/▼ -0\.50/)).toBeTruthy()
+    expect(screen.getByText(/▼▼ -0\.90/)).toBeTruthy()
+  })
 })

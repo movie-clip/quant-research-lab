@@ -159,4 +159,22 @@ describe('Epic 12 design-system audit', () => {
     }
     expect(offenders).toEqual([])
   })
+
+  it('chart_default_props_imported_in_all_chart_files', () => {
+    // US-12.3: the three chart files must import shared Recharts defaults
+    // from chartDefaults rather than hand-rolling tick/grid/tooltip styles.
+    const CHART_FILES = [
+      'IndexedReturnChart.tsx',
+      'RollingCorrelationChart.tsx',
+      'FactorAttributionCard.tsx',
+    ]
+    const missing: string[] = []
+    for (const name of CHART_FILES) {
+      const src = readCard(name)
+      if (!src.includes("from '../../app/primitives/chartDefaults'")) {
+        missing.push(name)
+      }
+    }
+    expect(missing).toEqual([])
+  })
 })

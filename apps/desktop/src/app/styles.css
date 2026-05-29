@@ -118,6 +118,15 @@
   --opacity-unavailable: 0.55;    /* dimmed rows in correlation/attribution tables */
 }
 
+/* ── Window-selector button focus ring (Epic 12 / US-12.3) ──────────────── */
+/* Keyboard users get a visible focus indicator when tabbing through the
+   button group. Mouse users do not (`:focus-visible` only matches keyboard
+   focus per the spec). */
+.window-selector-btn:focus-visible {
+  outline: var(--border-medium) solid var(--color-line-correlation);
+  outline-offset: var(--space-xxs);
+}
+
 /* ── Canonical "Synthetic" trust badge (Epic 12) ─────────────────────────── */
 /* Used by DriftBenchmarkPanel, RollingCorrelationChart, FactorAttributionCard,
    BenchmarkCorrelationTable. Renders identically across all four. */

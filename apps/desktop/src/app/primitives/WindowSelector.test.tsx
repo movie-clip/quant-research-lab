@@ -47,4 +47,19 @@ describe('WindowSelector', () => {
     expect(screen.getByText('60d')).toBeTruthy()
     expect(screen.getByText('252d')).toBeTruthy()
   })
+
+  it('focused_button_has_focus_outline_class', () => {
+    // jsdom does not paint :focus-visible styles, but the button must carry
+    // the className that the CSS rule (styles.css `.window-selector-btn:focus-visible`)
+    // attaches to. This pins the contract: a future refactor that drops the
+    // className loses the focus ring.
+    render(<WindowSelector options={[20, 60, 252] as const} value={60} onChange={() => undefined} />)
+    const buttons = screen.getAllByRole('button')
+    for (const b of buttons) {
+      expect(b.className).toContain('window-selector-btn')
+    }
+    // Programmatic focus is achievable (proves the button is keyboard-reachable)
+    buttons[0]!.focus()
+    expect(document.activeElement).toBe(buttons[0])
+  })
 })

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 
 import type { FactorAttributionResponse, ImportedSnapshot } from './types'
 import { runAttributionEngine } from './portfolioAnalysisAdapter'
 import { CardShell } from '../../app/primitives/CardShell'
+import { ChartShell } from '../../app/primitives/ChartShell'
+import { defaultAxisTickStyle, defaultChartGrid, defaultMinTickGap } from '../../app/primitives/chartDefaults'
 import { EmptyState } from '../../app/primitives/EmptyState'
 import { ErrorState } from '../../app/primitives/ErrorState'
 import { LoadingState } from '../../app/primitives/LoadingState'
@@ -257,20 +259,20 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
           ) : (
             <>
               {/* Cumulative attribution line chart */}
-              <div style={{ width: '100%', height: 280, marginBottom: 'var(--space-xl)' }}>
-                <ResponsiveContainer width="100%" height="100%">
+              <div style={{ width: '100%', marginBottom: 'var(--space-xl)' }}>
+                <ChartShell ariaLabel="Cumulative factor return attribution line chart" height={280}>
                   <LineChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-strong)" />
+                    <CartesianGrid {...defaultChartGrid} />
                     <XAxis
                       dataKey="date"
                       tickFormatter={formatDateLabel}
-                      tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-disabled)' }}
+                      tick={defaultAxisTickStyle}
                       tickLine={false}
-                      minTickGap={40}
+                      minTickGap={defaultMinTickGap}
                     />
                     <YAxis
                       tickFormatter={(v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
-                      tick={{ fontSize: 'var(--font-chart-tick)', fill: 'var(--color-text-disabled)' }}
+                      tick={defaultAxisTickStyle}
                       tickLine={false}
                       width={56}
                     />
@@ -320,7 +322,7 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                       name="Total Portfolio (arithmetic)"
                     />
                   </LineChart>
-                </ResponsiveContainer>
+                </ChartShell>
               </div>
 
               {/* Period attribution table — collapsible, scrollable body */}

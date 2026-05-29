@@ -24,6 +24,18 @@ function correlationColor(value: number | null): string {
   return 'var(--color-corr-strong-negative)'
 }
 
+// Sign-encoded symbol for the same 5 magnitude bands (US-12.3 a11y: color
+// is not the sole encoder). Unicode geometric shapes — render reliably
+// across OS/themes; no emoji. `▲ U+25B2`, `▼ U+25BC`, `• U+2022`.
+function correlationSymbol(value: number | null): string {
+  if (value == null) return ''
+  if (value >= 0.7) return '▲▲'
+  if (value >= 0.3) return '▲'
+  if (value > -0.3) return '•'
+  if (value > -0.7) return '▼'
+  return '▼▼'
+}
+
 // ── Row component ─────────────────────────────────────────────────────────────
 
 function BenchmarkRow({ row }: { row: BenchmarkStats }) {
@@ -61,7 +73,10 @@ function BenchmarkRow({ row }: { row: BenchmarkStats }) {
           textAlign: 'right',
         }}
       >
-        {formatValue(row.correlation)}
+        {/* a11y: sign symbol prefix means color is not the sole encoder (US-12.3) */}
+        {row.correlation == null
+          ? formatValue(row.correlation)
+          : `${correlationSymbol(row.correlation)} ${formatValue(row.correlation)}`}
       </td>
       <td
         style={{
