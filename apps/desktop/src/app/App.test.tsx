@@ -504,9 +504,13 @@ describe('App', () => {
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [file2026] } })
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
+    // Wait for both analyze-upload calls (initial + Add Statement). Asserting
+    // on total fetchMock.calls is brittle — drift / attribution / etc. fetches
+    // shift the count; the meaningful contract is "two analyze-uploads happened".
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')).toHaveLength(2))
 
-    const appendAnalyzeBody = fetchMock.mock.calls[4]?.[1]?.body as FormData
+    const analyzeCalls = matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')
+    const appendAnalyzeBody = analyzeCalls[1]?.[1]?.body as FormData
     const uploadedFiles = appendAnalyzeBody.getAll('statement_files') as File[]
     expect(uploadedFiles.map((file) => file.name)).toEqual(['IB2026.pdf'])
     expect(saveImportedSnapshotNodeSpy).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'workspace-1', parentNodeId: 'node-1', importedFileNames: ['IB2026.pdf'], name: 'IB 2026-04-08' }))

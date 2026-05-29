@@ -577,6 +577,12 @@ export function App() {
       : composeDashboardAnalysisFromEngines(exposure, diagnostics)
     const baselineView = buildPortfolioBaselineView(exposure)
 
+    // Stash the snapshot so `handleDriftBenchmarkChange` (the benchmark
+    // dropdown in the drift card header) can re-fetch when the user picks
+    // a different benchmark. Without this, the dropdown silently does
+    // nothing on a restored session.
+    lastAnalyzedSnapshotRef.current = snapshot
+
     return {
       diagnostics,
       baselineView,
