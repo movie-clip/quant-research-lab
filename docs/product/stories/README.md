@@ -18,7 +18,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 12 — UI Polish & Design System (active)
+### Epic 12 — UI Polish & Design System (complete)
 
 PRD: [`prd/epic-12-ui-polish-design-system.md`](../prd/epic-12-ui-polish-design-system.md)
 
@@ -27,7 +27,7 @@ PRD: [`prd/epic-12-ui-polish-design-system.md`](../prd/epic-12-ui-polish-design-
 | [US-12.1](US-12.1-design-tokens-and-card-polish.md) | Design tokens + apply to the four Exposure cards | Frontend — `styles.css` :root tokens + refactor 5 card files + fix rolling-correlation axis overlap + audit test | Done |
 | [US-12.2](US-12.2-primitive-components.md) | Primitive components + refactor cards | Frontend — `<CardShell>`, `<WindowSelector>`, `<TrustBadge>`, `<EmptyState>`, `<LoadingState>`, `<ErrorState>` + refactor 5 cards | Done |
 | [US-12.3](US-12.3-accessibility-and-chart-defaults.md) | Accessibility + Recharts defaults (ChartShell) | Frontend — ARIA, focus-visible, color-blind-safe, `<ChartShell>` wrapper + contrast audit | Done |
-| US-12.4 | `ui-polish` skill + Epic 12 close-out | `.claude/skills/ui-polish/SKILL.md` + `docs/contracts/ui-design-system.md` + roadmap close | Backlog |
+| [US-12.4](US-12.4-ui-polish-skill-and-closeout.md) | `ui-polish` skill + Epic 12 close-out | `.claude/skills/ui-polish/SKILL.md` + `docs/contracts/ui-design-system.md` + roadmap close | Done |
 
 Stories must be built in order (12.1 → 12.2 → 12.3 → 12.4).
 

@@ -49,6 +49,7 @@ Exposure also shows a **vs Market drift panel** at the top: rolling portfolio re
 | `.claude/skills/write-tests/SKILL.md` | Write pytest / vitest per project conventions (auto-invoked by build-story) |
 | `.claude/skills/verify-story/SKILL.md` | QA gate — checks ACs / tests / docs / regressions; blocks commit on FAIL |
 | `.claude/skills/update-docs/SKILL.md` | Reconcile contracts / methodology / slice log after implementation |
+| `.claude/skills/ui-polish/SKILL.md` | UI design system reference — tokens, primitives, chart defaults, a11y baseline (auto-invoked by build-story for frontend tickets) |
 | `.claude/skills/fmp-data/SKILL.md` | FMP integration reference — symbol resolution, cache, adding tickers |
 
 ## Tech Stack
@@ -149,12 +150,15 @@ quant-research → write-story → build-story → write-tests → verify-story 
 |---|---|
 | **`quant-research`** | New financial concept — produce a Research Brief + methodology section |
 | **`write-story`** | Feature idea (or research brief) → complete, ticketed User Story file |
-| **`build-story`** | Implement a ticketed story end-to-end. Auto-invokes write-tests, verify-story, update-docs |
+| **`build-story`** | Implement a ticketed story end-to-end. Auto-invokes write-tests, ui-polish, verify-story, update-docs |
 | **`write-tests`** | Write pytest / vitest per project conventions. Usually auto-invoked from build-story |
 | **`verify-story`** | QA gate before commit. **Returns FAIL → commit is blocked.** Auto-invoked from build-story |
 | **`update-docs`** | Reconcile contracts, methodology, slice log after implementation. Auto-invoked at close-out |
 
-Plus one reference skill: **`fmp-data`** (FMP integration deep-dive — read when adding tickers or debugging market-data flows).
+Plus two reference skills (consulted *from within* the cycle, not steps in it):
+
+- **`ui-polish`** — design system reference for any Exposure-tab card work (tokens, primitives, chart defaults, accessibility baseline). Auto-invoked by `build-story` for frontend tickets; the design-system audit fails the build if its contract is violated.
+- **`fmp-data`** — FMP integration deep-dive; read when adding tickers or debugging market-data flows.
 
 ## When in doubt
 

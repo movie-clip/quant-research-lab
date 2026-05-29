@@ -24,6 +24,7 @@ quant-research → write-story → build-story → write-tests → verify-story 
 ```
 
 - `write-tests` is invoked automatically during ticket delivery for the test slice.
+- `ui-polish` is invoked automatically for the UI slice of a frontend ticket — provides the design tokens, primitives (CardShell / TrustBadge / WindowSelector / ChartShell / state primitives), and accessibility baseline so the result matches the existing Exposure cards without a post-hoc polish pass.
 - `verify-story` is invoked automatically before you claim done; if it fails, the commit is blocked.
 - `update-docs` is invoked automatically during close-out to reconcile contracts, methodology, slice log.
 
@@ -91,6 +92,16 @@ Each ticket is a focused, reviewable change. Work tickets top to bottom.
 ### Project-specific implementation patterns
 
 These patterns came out of real friction; follow them by default:
+
+**For any Exposure-tab card work, invoke the `ui-polish` skill.** It owns
+the design tokens, primitive components (`CardShell`, `TrustBadge`,
+`WindowSelector`, `EmptyState`, `LoadingState`, `ErrorState`, `ChartShell`,
+`chartDefaults`), the canonical card pattern, and the accessibility
+baseline. Using it is not optional — the design-system audit
+(`apps/desktop/src/test/designSystem.audit.test.ts`) will fail the build
+if the card hand-rolls a Synthetic badge, inlines a hex value, or skips
+the chart defaults. Read `.claude/skills/ui-polish/SKILL.md` (or the
+contract doc `docs/contracts/ui-design-system.md`) for the full pattern.
 
 **Self-fetching components for engine calls.** Components that need engine data
 (attribution, correlation, multi-benchmark) should call the adapter inside their
