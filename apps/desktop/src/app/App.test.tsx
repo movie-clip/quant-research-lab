@@ -969,9 +969,10 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Replace Import' })).toBeTruthy()
 
     fireEvent.click(screen.getByText('Exposure'))
-    // Look-Through Summary section was removed; Rolling Correlation chart
-    // now sits where it used to. Assert the topmost Exposure surface instead.
-    await waitFor(() => expect(screen.getByText('Rolling Correlation & Beta')).toBeTruthy())
+    // After the post-Epic-12 layout fix, the rolling correlation chart and
+    // multi-benchmark correlation table share a combined "Benchmark Correlation"
+    // card. Assert that combined card's title to confirm the Exposure tab loaded.
+    await waitFor(() => expect(screen.getByText('Benchmark Correlation')).toBeTruthy())
     expect(screen.getByText('Concentration Pack')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))

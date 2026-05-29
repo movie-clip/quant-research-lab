@@ -3,6 +3,8 @@ import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
 import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
 import { FactorAttributionCard } from './FactorAttributionCard'
 import { RollingCorrelationChart } from './RollingCorrelationChart'
+import { CardShell } from '../../app/primitives/CardShell'
+import { TrustBadge } from '../../app/primitives/TrustBadge'
 
 type ExposurePanelProps = {
   result: ExposureAnalysis | null
@@ -176,7 +178,29 @@ export function ExposurePanel({
           onBenchmarkChange={(symbol) => { onDriftBenchmarkChange?.(symbol) }}
         />
 
-        <RollingCorrelationChart rollingRisk={result.rolling_risk ?? []} />
+        {/* Combined Benchmark Correlation card — rolling chart on top,
+            multi-benchmark snapshot table below. Each child is rendered with
+            noShell so they share a single outer CardShell. */}
+        <CardShell
+          title="Benchmark Correlation"
+          badge={
+            <TrustBadge
+              type="synthetic"
+              tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
+            />
+          }
+        >
+          <RollingCorrelationChart rollingRisk={result.rolling_risk ?? []} noShell />
+          <div
+            style={{
+              borderTop: 'var(--border-thin) solid var(--color-border-subtle)',
+              margin: 'var(--space-xl) 0 var(--space-lg)',
+            }}
+          />
+          <BenchmarkCorrelationTable snapshot={result.snapshot ?? null} noShell />
+        </CardShell>
+
+        <FactorAttributionCard snapshot={result.snapshot ?? null} />
 
         <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
           <div className="section-header-inline sector-list-header exposure-section-header">
@@ -242,10 +266,6 @@ export function ExposurePanel({
           <UnavailablePanel title="Concentration read unavailable" detail="Current-state concentration facts are unavailable for this snapshot, so the module is withheld rather than filled with estimates." />
         )}
         </section>
-
-        <FactorAttributionCard snapshot={result.snapshot ?? null} />
-
-        <BenchmarkCorrelationTable snapshot={result.snapshot ?? null} />
       </div>
     </article>
   )

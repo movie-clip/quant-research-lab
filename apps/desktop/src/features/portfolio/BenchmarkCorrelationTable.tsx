@@ -149,9 +149,13 @@ type LoadState = 'idle' | 'loading' | 'error' | 'done'
 
 type BenchmarkCorrelationTableProps = {
   snapshot: ImportedSnapshot | null
+  /** When true, render only the inner content (lookback header + table or
+   *  state primitive) without the outer <CardShell>. For composition inside
+   *  a combined card shared with RollingCorrelationChart. Defaults to false. */
+  noShell?: boolean
 }
 
-export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTableProps) {
+export function BenchmarkCorrelationTable({ snapshot, noShell = false }: BenchmarkCorrelationTableProps) {
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [result, setResult] = useState<MultiBenchmarkCorrelationResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -186,22 +190,22 @@ export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTabl
     }
   }, [snapshot])
 
-  return (
-    <CardShell
-      title="Multi-Benchmark Correlation"
-      badge={
-        <TrustBadge
-          type="synthetic"
-          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
-        />
-      }
-      actions={
-        <p className="helper" style={{ margin: 0 }}>
-          {result ? `${result.lookback_days}d lookback` : '252d lookback'}
-        </p>
-      }
-    >
-      {/* States */}
+  const lookbackHeader = (
+    <p className="helper" style={{ margin: 0 }}>
+      {result ? `${result.lookback_days}d lookback` : '252d lookback'}
+    </p>
+  )
+
+  const body = (
+    <>
+      {/* In noShell mode we still want to show the lookback context — render
+          it inline above the table since the outer CardShell's actions slot
+          is owned by the parent. */}
+      {noShell && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-sm)' }}>
+          {lookbackHeader}
+        </div>
+      )}
       {loadState === 'idle' && (
         <EmptyState
           title="Correlation unavailable"
@@ -225,6 +229,23 @@ export function BenchmarkCorrelationTable({ snapshot }: BenchmarkCorrelationTabl
           detail="Multi-benchmark correlation requires at least 20 overlapping trading days of synthetic portfolio history."
         />
       )}
+    </>
+  )
+
+  if (noShell) return body
+
+  return (
+    <CardShell
+      title="Multi-Benchmark Correlation"
+      badge={
+        <TrustBadge
+          type="synthetic"
+          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
+        />
+      }
+      actions={lookbackHeader}
+    >
+      {body}
     </CardShell>
   )
 }

@@ -85,33 +85,37 @@ function CorrelationTooltip({ active, payload, label }: TooltipProps) {
 
 type RollingCorrelationChartProps = {
   rollingRisk: RollingRiskPoint[]
+  /** When true, render only the inner content (window selector + chart body)
+   *  without the outer <CardShell>. For composition inside a combined card
+   *  shared with BenchmarkCorrelationTable. Defaults to false (standalone). */
+  noShell?: boolean
 }
 
-export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChartProps) {
+export function RollingCorrelationChart({ rollingRisk, noShell = false }: RollingCorrelationChartProps) {
   const [window, setWindow] = useState<CorrelationWindow>(60)
 
   const chartData = buildChartData(rollingRisk, window)
   const hasData = hasAnyData(chartData)
 
-  return (
-    <CardShell
-      title="Rolling Correlation & Beta"
-      badge={
-        <TrustBadge
-          type="synthetic"
-          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
-        />
-      }
-      actions={
-        <WindowSelector<CorrelationWindow>
-          options={WINDOW_OPTIONS}
-          value={window}
-          onChange={setWindow}
-          labelFn={(w) => WINDOW_LABELS[w]}
-        />
-      }
-    >
-      {/* Chart or empty state */}
+  const windowSelector = (
+    <WindowSelector<CorrelationWindow>
+      options={WINDOW_OPTIONS}
+      value={window}
+      onChange={setWindow}
+      labelFn={(w) => WINDOW_LABELS[w]}
+    />
+  )
+
+  const body = (
+    <>
+      {/* In noShell mode we still want the user to be able to switch the window
+          — render the selector inline above the chart since the outer
+          CardShell's actions slot is owned by the parent. */}
+      {noShell && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-sm)' }}>
+          {windowSelector}
+        </div>
+      )}
       {!hasData ? (
         <EmptyState title={`Insufficient history for ${window}d rolling window.`} />
       ) : (
@@ -177,6 +181,23 @@ export function RollingCorrelationChart({ rollingRisk }: RollingCorrelationChart
           </ComposedChart>
         </ChartShell>
       )}
+    </>
+  )
+
+  if (noShell) return body
+
+  return (
+    <CardShell
+      title="Rolling Correlation & Beta"
+      badge={
+        <TrustBadge
+          type="synthetic"
+          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
+        />
+      }
+      actions={windowSelector}
+    >
+      {body}
     </CardShell>
   )
 }

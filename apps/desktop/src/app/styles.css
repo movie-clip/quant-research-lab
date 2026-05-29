@@ -687,6 +687,16 @@ select.path-input option {
   letter-spacing: 0.02em;
 }
 
+/* Vertical card stack inside the Exposure tab (Epic 12 post-polish layout fix).
+   Without an explicit display:flex + gap, cards rendered as siblings overlap
+   each other (e.g. Rolling Correlation chart bleeding into Concentration Pack
+   when the chart's height exceeds its content box). */
+.exposure-shell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
 .dashboard-shell-section,
 .exposure-shell-section {
   border: 1px solid rgba(92, 112, 133, 0.46);
