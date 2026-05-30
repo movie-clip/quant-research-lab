@@ -41,17 +41,17 @@ describe('IndexedReturnChart', () => {
     expect(screen.getByRole('button', { name: 'Since Import window' })).toBeTruthy()
   })
 
-  it('shows insufficient history message when series is empty', () => {
+  it('shows empty-state title when series is empty', () => {
     render(<IndexedReturnChart series={[]} windows={windows} benchmarkSymbol="SPY" />)
-    expect(screen.getByText(/insufficient history/i)).toBeTruthy()
+    expect(screen.getByText(/no data for/i)).toBeTruthy()
   })
 
-  it('shows insufficient history message when all indexed values are null', () => {
+  it('shows empty-state title when all indexed values are null', () => {
     const nullSeries: DriftDailyPoint[] = [
       { date: '2025-01-01', portfolio_indexed: null, benchmark_indexed: null },
     ]
     render(<IndexedReturnChart series={nullSeries} windows={windows} benchmarkSymbol="SPY" />)
-    expect(screen.getByText(/insufficient history/i)).toBeTruthy()
+    expect(screen.getByText(/no data for/i)).toBeTruthy()
   })
 
   it('changes active window button when a window is clicked', () => {

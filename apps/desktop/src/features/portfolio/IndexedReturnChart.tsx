@@ -56,9 +56,26 @@ type IndexedReturnChartProps = {
   benchmarkSymbol: string
 }
 
+/** Filter the series for a given window start and check it has at least one
+ *  non-null portfolio data point. Used to pick the default selected window
+ *  (avoid defaulting to a window with zero data — e.g. "Since Import" when
+ *  the user imported today). */
+function windowHasData(series: DriftDailyPoint[], startDate: string | null): boolean {
+  const sliced = startDate ? series.filter((p) => p.date >= startDate) : series
+  return sliced.some((p) => p.portfolio_indexed != null)
+}
+
 export function IndexedReturnChart({ series, windows, benchmarkSymbol }: IndexedReturnChartProps) {
   const windowOptions = buildWindowOptions(windows)
-  const defaultWindowLabel = windowOptions[windowOptions.length - 1]?.label ?? ''
+  // Pick the LONGEST window (last in the list = "Since Import" usually) whose
+  // filter actually returns data. If "Since Import" is empty because the user
+  // imported recently and daily_series doesn't yet cover that range, fall back
+  // to the next shorter window (12M, 6M, ...). Prevents the "blank chart on
+  // first open" experience.
+  const defaultWindowLabel =
+    [...windowOptions].reverse().find((opt) => windowHasData(series, opt.startDate))?.label
+    ?? windowOptions[windowOptions.length - 1]?.label
+    ?? ''
   const [selectedWindowLabel, setSelectedWindowLabel] = useState<string>(defaultWindowLabel)
 
   const selectedWindow = windowOptions.find((w) => w.label === selectedWindowLabel) ?? windowOptions[windowOptions.length - 1]
@@ -75,7 +92,14 @@ export function IndexedReturnChart({ series, windows, benchmarkSymbol }: Indexed
         />
       )}
       {!hasData ? (
-        <EmptyState title="Insufficient history — chart unavailable." />
+        <EmptyState
+          title={`No data for ${selectedWindowLabel}.`}
+          detail={
+            selectedWindowLabel === 'Since Import'
+              ? 'Your portfolio was imported too recently to plot post-import returns. Try a longer window (12M, 6M, ...) for visible history.'
+              : 'Insufficient history for this window. Try a longer or shorter range.'
+          }
+        />
       ) : (
         <ChartShell ariaLabel="Indexed return time series for portfolio and benchmark" height={220}>
           <LineChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
