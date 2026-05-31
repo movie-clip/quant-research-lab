@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -268,6 +268,37 @@ export async function runMultiBenchmarkCorrelation(
   }
 
   return (await response.json()) as MultiBenchmarkCorrelationResult
+}
+
+/** Run the standalone drawdown analytics engine (Epic 13 — Risk tab).
+ *  Returns the underwater curve + top-N episodes. `window` selects the
+ *  lookback in trading days; `null` (or omitted) requests the maximum
+ *  available history (capped by the engine at ~8 years).
+ *  Per-field nullability is preserved on the unavailable path. */
+export async function runDrawdownEngine(
+  snapshot: PortfolioSnapshot,
+  window: DrawdownWindow | null = null,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<DrawdownEngineResponse> {
+  const body: SnapshotAnalysisRequest & { window_trading_days?: DrawdownWindow } = {
+    ...buildSnapshotAnalysisRequest(snapshot),
+  }
+  if (window !== null) {
+    body.window_trading_days = window
+  }
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/drawdown/run', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    const detail = errorPayload?.detail ?? `HTTP ${response.status}`
+    throw new Error(`Drawdown engine run failed: ${detail}`)
+  }
+
+  return (await response.json()) as DrawdownEngineResponse
 }
 
 /** Run the standalone stress-scenario engine (Epic 13 — Risk tab).

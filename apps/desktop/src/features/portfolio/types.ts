@@ -860,6 +860,44 @@ export type StressEngineResponse = {
   trust: StressTrustLevel
 }
 
+// ── Drawdown analytics (US-13.2) ─────────────────────────────────────────────
+
+/** Engine-level trust for the /engines/drawdown/run response.
+ *  Mirrors the Pydantic DrawdownTrustLevel literal. */
+export type DrawdownTrustLevel = 'synthetic' | 'unavailable'
+
+/** Supported lookback windows for the drawdown engine. `null` = max
+ *  available history (engine-capped at ~8 years). */
+export type DrawdownWindow = 252 | 756 | 1260
+
+/** One point on the underwater curve. drawdown_pct is signed percentage
+ *  from peak (0 at all-time high, -12.5 = 12.5 % below). */
+export type DrawdownDailyPoint = {
+  date: string
+  drawdown_pct: number | null
+}
+
+/** One drawdown episode (peak → trough → optional recovery).
+ *  `recovery_date === null` means still underwater at series end. */
+export type DrawdownEpisode = {
+  peak_date: string
+  trough_date: string
+  recovery_date: string | null
+  magnitude_pct: number   // always ≤ 0; "deepest" = most negative
+  duration_days: number   // trough - peak (calendar days)
+  underwater_days: number // (recovery or last) - peak (calendar days)
+}
+
+/** Response wrapper from POST /engines/drawdown/run (Epic 13 — Risk tab). */
+export type DrawdownEngineResponse = {
+  window_trading_days: number | null
+  underwater_series: DrawdownDailyPoint[]
+  current_drawdown_pct: number | null
+  max_drawdown_pct: number | null
+  episodes: DrawdownEpisode[]
+  trust: DrawdownTrustLevel
+}
+
 export type HistoryTruthClass =
   | 'imported_history_equivalent'
   | 'synthetic_history_derived'

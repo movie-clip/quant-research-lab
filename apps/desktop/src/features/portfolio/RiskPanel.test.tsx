@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RiskPanel } from './RiskPanel'
 import type { PortfolioSnapshot } from './workspaceTypes'
-import type { StressEngineResponse } from './types'
+import type { DrawdownEngineResponse, StressEngineResponse } from './types'
 
 afterEach(() => {
   cleanup()
@@ -36,10 +36,45 @@ const stressPayload: StressEngineResponse = {
   trust: 'synthetic',
 }
 
+/** Default drawdown payload used by URL-routed mocks so DrawdownAnalyticsCard
+ *  (which mounts as a sibling of StressScenariosCard) has a well-shaped
+ *  response. Tests that care about stress can ignore this and still pass. */
+const defaultDrawdownPayload: DrawdownEngineResponse = {
+  window_trading_days: 1260,
+  underwater_series: Array.from({ length: 25 }, (_, i) => ({
+    date: `2025-01-${String(i + 1).padStart(2, '0')}`,
+    drawdown_pct: i === 0 ? 0 : -i * 0.4,
+  })),
+  current_drawdown_pct: -9.6,
+  max_drawdown_pct: -9.6,
+  episodes: [],
+  trust: 'synthetic',
+}
+
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+/** URL-routed fetch mock: stress payload for /engines/stress/run, drawdown
+ *  payload for /engines/drawdown/run. The two cards mount in parallel and
+ *  fetch independently — order-based mocks (mockResolvedValueOnce) are
+ *  fragile here. */
+function makeRoutedFetch(
+  stressResponder: () => Response = () => jsonResponse(stressPayload),
+  drawdownResponder: () => Response = () => jsonResponse(defaultDrawdownPayload),
+) {
+  return vi.fn().mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/engines/stress/run')) {
+      return Promise.resolve(stressResponder())
+    }
+    if (url.includes('/engines/drawdown/run')) {
+      return Promise.resolve(drawdownResponder())
+    }
+    throw new Error(`Unexpected fetch URL: ${url}`)
   })
 }
 
@@ -55,7 +90,7 @@ describe('RiskPanel', () => {
   })
 
   it('fetches the stress engine and renders the card when snapshot is provided', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(stressPayload))
+    const fetchMock = makeRoutedFetch()
     vi.stubGlobal('fetch', fetchMock)
 
     render(<RiskPanel snapshot={snapshot} />)
@@ -65,17 +100,18 @@ describe('RiskPanel', () => {
       expect(screen.getByText('Broad Market Selloff')).toBeTruthy()
     })
 
-    expect(fetchMock).toHaveBeenCalledOnce()
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/engines/stress/run',
-      expect.objectContaining({ method: 'POST' }),
-    )
-    // Trust badge surfaced via card
-    expect(screen.getByText('Synthetic')).toBeTruthy()
+    // Stress route was hit at least once
+    const urlsCalled = fetchMock.mock.calls.map((c) => String(c[0]))
+    expect(urlsCalled.some((u) => u.includes('/api/engines/stress/run'))).toBe(true)
+    // Trust badge surfaced via card (both cards now show Synthetic, so query
+    // all and assert at least one)
+    expect(screen.getAllByText('Synthetic').length).toBeGreaterThan(0)
   })
 
   it('surfaces fetch errors via the card ErrorState', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: 'engine down' }, 500))
+    const fetchMock = makeRoutedFetch(
+      () => jsonResponse({ detail: 'engine down' }, 500),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     render(<RiskPanel snapshot={snapshot} />)
@@ -85,5 +121,34 @@ describe('RiskPanel', () => {
     })
     // Error detail from backend is preserved
     expect(screen.getByText(/engine down/i)).toBeTruthy()
+  })
+
+  it('renders both StressScenariosCard and DrawdownAnalyticsCard when snapshot present', async () => {
+    const drawdownPayloadWithEpisode: DrawdownEngineResponse = {
+      ...defaultDrawdownPayload,
+      episodes: [
+        { peak_date: '2025-01-01', trough_date: '2025-01-25', recovery_date: null, magnitude_pct: -9.6, duration_days: 24, underwater_days: 24 },
+      ],
+    }
+    const fetchMock = makeRoutedFetch(
+      () => jsonResponse(stressPayload),
+      () => jsonResponse(drawdownPayloadWithEpisode),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<RiskPanel snapshot={snapshot} />)
+
+    // Both cards' content eventually visible
+    await waitFor(() => expect(screen.getByText('Stress Scenarios')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Drawdown Analytics')).toBeTruthy())
+    // At least one scenario from stress payload + the peak_date of the drawdown
+    // episode confirm both data sources rendered
+    expect(screen.getByText('Broad Market Selloff')).toBeTruthy()
+    expect(screen.getByText('2025-01-01')).toBeTruthy()
+
+    // Both routes hit
+    const urlsCalled = fetchMock.mock.calls.map((c) => String(c[0]))
+    expect(urlsCalled.some((u) => u.includes('/engines/stress/run'))).toBe(true)
+    expect(urlsCalled.some((u) => u.includes('/engines/drawdown/run'))).toBe(true)
   })
 })

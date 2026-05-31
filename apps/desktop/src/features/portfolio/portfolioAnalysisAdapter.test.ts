@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../../test/portfolioFixtures'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
-import { runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runStressEngine } from './portfolioAnalysisAdapter'
-import type { StressEngineResponse } from './types'
+import { runDashboardHistoryEngine, runDiagnosticsEngine, runDrawdownEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runStressEngine } from './portfolioAnalysisAdapter'
+import type { DrawdownEngineResponse, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
@@ -127,5 +127,55 @@ describe('runStressEngine (Epic 13 — Risk tab)', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(runStressEngine(snapshot)).rejects.toThrowError(/factor model unavailable/)
+  })
+})
+
+describe('runDrawdownEngine (Epic 13 — Risk tab)', () => {
+  const drawdownPayload: DrawdownEngineResponse = {
+    window_trading_days: 1260,
+    underwater_series: [
+      { date: '2024-01-02', drawdown_pct: 0 },
+      { date: '2024-01-03', drawdown_pct: -2.4 },
+    ],
+    current_drawdown_pct: -2.4,
+    max_drawdown_pct: -2.4,
+    episodes: [
+      {
+        peak_date: '2024-01-02',
+        trough_date: '2024-01-03',
+        recovery_date: null,
+        magnitude_pct: -2.4,
+        duration_days: 1,
+        underwater_days: 1,
+      },
+    ],
+    trust: 'synthetic',
+  }
+
+  it('posts to /api/engines/drawdown/run without window_trading_days when window is null', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(drawdownPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runDrawdownEngine(snapshot)
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/engines/drawdown/run',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as Record<string, unknown>
+    expect(body.window_trading_days).toBeUndefined()
+  })
+
+  it('posts window_trading_days in the request body when window is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(drawdownPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runDrawdownEngine(snapshot, 252)
+
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as { window_trading_days: number }
+    expect(body.window_trading_days).toBe(252)
   })
 })
