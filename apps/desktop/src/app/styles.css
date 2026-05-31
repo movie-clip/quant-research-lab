@@ -701,6 +701,14 @@ select.path-input option {
   gap: var(--space-xl);
 }
 
+/* Risk tab card stack (Epic 13). Mirrors .exposure-shell-stack so cards
+   inside the Risk panel line up vertically with consistent spacing. */
+.risk-shell-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
 .dashboard-shell-section,
 .exposure-shell-section {
   border: 1px solid rgba(92, 112, 133, 0.46);

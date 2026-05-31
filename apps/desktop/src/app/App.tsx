@@ -13,17 +13,19 @@ import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, Port
 import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
+const RiskPanel = lazy(async () => ({ default: (await import('../features/portfolio/RiskPanel')).RiskPanel }))
 
 
 const defaultSymbolOverrides = '{}'
 type ImportMode = 'replace' | 'add_snapshot'
-type AppTab = 'dashboard' | 'exposure'
+type AppTab = 'dashboard' | 'exposure' | 'risk'
 
 const tauriAnalyzeUploadTimeoutMs = 30_000
 
 const appTabs: Array<{ id: AppTab; label: string }> = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'exposure', label: 'Exposure' },
+  { id: 'risk', label: 'Risk' },
 ]
 
 function isImportedWorkspaceSource(source: PortfolioWorkspace['source'] | null | undefined): source is Extract<PortfolioWorkspace['source'], { importedFileNames: string[] }> {
@@ -904,7 +906,15 @@ export function App() {
         </section>
       ) : null}
 
-  
+      {tab === 'risk' ? (
+        <section className="grid grid-single">
+          <Suspense fallback={<section className="panel"><p className="panel-label">Risk</p><p className="helper">Loading risk analytics...</p></section>}>
+            <RiskPanel snapshot={dashboardSnapshot} />
+          </Suspense>
+        </section>
+      ) : null}
+
+
     </main>
   )
 }

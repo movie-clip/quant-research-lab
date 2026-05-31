@@ -985,7 +985,34 @@ describe('App', () => {
     expect(screen.queryByText('Saved Variants')).toBeNull()
   })
 
+  it('exposes a Risk tab in the nav that activates and renders the Risk panel on click', async () => {
+    // Pre-import state: no workspace restored → RiskPanel renders the
+    // "Import a portfolio to see…" placeholder. No fetch should fire from
+    // the panel because snapshot is null.
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
 
+    render(<App />)
+
+    // Wait for the initial render so the tab bar is present.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Dashboard' })).toBeTruthy())
+
+    const riskButton = screen.getByRole('button', { name: 'Risk' })
+    expect(riskButton).toBeTruthy()
+
+    fireEvent.click(riskButton)
+
+    // RiskPanel is lazy-loaded; wait for its no-snapshot helper text to appear.
+    await waitFor(() => expect(screen.getByText(/import a portfolio to see stress scenarios/i)).toBeTruthy())
+
+    // Active state via the `active` CSS class (same convention as Dashboard/Exposure).
+    expect(riskButton.className).toMatch(/\bactive\b/)
+    expect(screen.getByRole('button', { name: 'Dashboard' }).className).not.toMatch(/\bactive\b/)
+    expect(screen.getByRole('button', { name: 'Exposure' }).className).not.toMatch(/\bactive\b/)
+  })
 
 
 
@@ -1441,7 +1468,7 @@ describe('App', () => {
     expect(String(matchingFetchCalls(fetchMock, '/api/engines/diagnostics/run', 'POST')[1]?.[1]?.body)).toContain('history_context')
   })
 
-  it('renders exactly Dashboard and Exposure tabs', async () => {
+  it('renders exactly Dashboard, Exposure, and Risk tabs', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
     installFetchMock(async (input, init) => {
@@ -1456,6 +1483,7 @@ describe('App', () => {
     expect(tabs).toEqual([
       'Dashboard',
       'Exposure',
+      'Risk',
     ])
   })
 })

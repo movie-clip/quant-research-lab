@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../../test/portfolioFixtures'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
-import { runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine } from './portfolioAnalysisAdapter'
+import { runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runStressEngine } from './portfolioAnalysisAdapter'
+import type { StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
@@ -80,5 +81,51 @@ describe('portfolioAnalysisAdapter API base resolution', () => {
       expectedUrl,
       expect.objectContaining({ method: 'POST' }),
     )
+  })
+})
+
+describe('runStressEngine (Epic 13 — Risk tab)', () => {
+  const stressPayload: StressEngineResponse = {
+    scenarios: [
+      { name: 'Broad Market Selloff', estimated_return_pct: -9.42, description: 'risk-off', status: 'ok' },
+      { name: 'Rates Down Risk-On', estimated_return_pct: 3.1, description: 'duration', status: 'ok' },
+      { name: 'Inflation Reacceleration', estimated_return_pct: -1.5, description: 'sticky inflation', status: 'ok' },
+    ],
+    trust: 'synthetic',
+  }
+
+  it('posts to /api/engines/stress/run with POST method', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(stressPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runStressEngine(snapshot)
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/engines/stress/run',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('posts the snapshot fields (positions, imported_at) in the request body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(stressPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runStressEngine(snapshot)
+
+    const callArgs = fetchMock.mock.calls[0]
+    const init = callArgs?.[1] as { body?: string } | undefined
+    expect(init?.body).toBeTypeOf('string')
+    const body = JSON.parse(init!.body!) as { positions: unknown[]; imported_at: string }
+    expect(body.imported_at).toBe(snapshot.importedMeta.importedAt)
+    expect(body.positions).toHaveLength(snapshot.positions.length)
+  })
+
+  it('throws an Error with backend detail on non-2xx response', async () => {
+    const errorBody = { detail: 'factor model unavailable' }
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(errorBody, 500))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(runStressEngine(snapshot)).rejects.toThrowError(/factor model unavailable/)
   })
 })

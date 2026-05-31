@@ -18,6 +18,22 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 13 — Risk Analytics Tab (active)
+
+PRD: [`prd/epic-13-risk-analytics-tab.md`](../prd/epic-13-risk-analytics-tab.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-13.1](US-13.1-risk-tab-and-stress-card.md) | Risk tab + Stress Scenarios card | Full-stack — `App.tsx` tab union extended + `RiskPanel.tsx` scaffold + `StressScenariosCard.tsx` + `POST /engines/stress/run` route + service | Done |
+| US-13.2 | Drawdown Analytics card | Full-stack — `analytics/drawdown.py` (episode identification) + `POST /engines/drawdown/run` + `DrawdownAnalyticsCard.tsx` (underwater curve + top-N table) | Backlog |
+| US-13.3 | VaR & Distribution card | Full-stack — `analytics/distribution.py` + `POST /engines/distribution/run` + `VarDistributionCard.tsx` (histogram + percentile/tail/shape table) | Backlog |
+| US-13.4 | Trust-state polish + a11y verification | Frontend — cross-card audit (badge wording, null rendering, aria labels) | Backlog |
+| US-13.5 | Docs close-out | Docs — `risk-fields.md`, methodology verification, roadmap, `current-product-state.md` | Backlog |
+
+Stories must be built in order (13.1 → 13.2 → 13.3 → 13.4 → 13.5).
+
+---
+
 ### Epic 12 — UI Polish & Design System (complete)
 
 PRD: [`prd/epic-12-ui-polish-design-system.md`](../prd/epic-12-ui-polish-design-system.md)

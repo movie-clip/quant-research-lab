@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -268,6 +268,30 @@ export async function runMultiBenchmarkCorrelation(
   }
 
   return (await response.json()) as MultiBenchmarkCorrelationResult
+}
+
+/** Run the standalone stress-scenario engine (Epic 13 — Risk tab).
+ *  Returns a list of scenario projections + engine-level trust. Per-scenario
+ *  pcts may be null (status='unavailable') when the factor model could not
+ *  be fit; in that case the wrapper trust is 'unavailable' and the UI must
+ *  render an empty state, not zeroes. */
+export async function runStressEngine(
+  snapshot: PortfolioSnapshot,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<StressEngineResponse> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/stress/run', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildSnapshotAnalysisRequest(snapshot)),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    const detail = errorPayload?.detail ?? `HTTP ${response.status}`
+    throw new Error(`Stress engine run failed: ${detail}`)
+  }
+
+  return (await response.json()) as StressEngineResponse
 }
 
 export function composeDashboardAnalysisFromEngines(exposure: ExposureEngineResponse, diagnostics: DiagnosticsEngineResponse): DashboardAnalysis {

@@ -126,10 +126,63 @@ wealth_t = wealth_(t-1) * (1 + daily_return_t)
 drawdown_t = (wealth_t / running_peak_t) - 1
 ```
 
+### Drawdown episode identification
+
+A drawdown *episode* is a contiguous run of `drawdown < 0` between two equal
+peaks in the wealth index.
+
+```text
+Algorithm (greedy walk forward through daily drawdown series):
+  state ← "at-peak"
+  for each date t in chronological order:
+    if state == "at-peak" and drawdown_t < 0:
+      episode.peak_date    ← date of max(wealth_{0..t-1})
+      episode.peak_value   ← wealth at peak_date
+      episode.trough_date  ← t
+      episode.trough_value ← wealth_t
+      state ← "in-drawdown"
+    elif state == "in-drawdown":
+      if wealth_t < episode.trough_value:
+        episode.trough_date  ← t
+        episode.trough_value ← wealth_t
+      if wealth_t >= episode.peak_value:
+        episode.recovery_date   ← t
+        episode.magnitude_pct   ← (trough_value / peak_value - 1) * 100
+        episode.duration_days   ← trough_date - peak_date     (calendar days)
+        episode.underwater_days ← recovery_date - peak_date
+        emit episode
+        state ← "at-peak"
+
+At end of series, if state == "in-drawdown":
+  emit incomplete episode with:
+    recovery_date   = null
+    underwater_days = (last_date - peak_date)
+```
+
+Edge cases:
+- single-day dip (`wealth_t < wealth_{t-1}` and `wealth_{t+1} >= wealth_{t-1}`):
+  episode is still emitted; `duration_days = 0`
+- series length < 20: emit zero episodes; surface as `trust = 'unavailable'`
+
+Top-N selection: sort emitted episodes by `magnitude_pct` ascending (deepest
+first); return first `N` (default `N = 5`).
+
+Academic precedent:
+- Magdon-Ismail & Atiya (2004), "Maximum drawdown," *Risk Magazine*, Oct 2004
+- Goldberg & Mahmoud (2017), "Drawdown: from practice to theory and back
+  again," *Mathematics and Financial Economics* 11(3): 275–297
+
 Implementation:
 - `services/quant-engine/app/analytics/risk.py`
 - `_build_wealth_index(...)`
 - `_build_drawdown_from_return_index(...)`
+- `services/quant-engine/app/analytics/drawdown.py` (episode identification —
+  added in Epic 13)
+
+Contract rule:
+- `recovery_date = null` is distinct from "no episode" — it explicitly signals
+  the portfolio is still under water. UI must surface this state, not collapse
+  it to "no data".
 
 ## Volatility and Relative Risk
 
@@ -610,6 +663,91 @@ Contract rule:
 - The reconciliation identity (Σ contributions + residual = arithmetic portfolio
   return) must hold to floating-point precision. If it does not, the engine must
   return an error rather than emit inconsistent data.
+
+## Value-at-Risk and Distribution
+
+Daily return distribution analytics measured from the synthetic portfolio return
+series over a lookback window. All outputs are synthetic-history trust class.
+
+### Daily return series
+
+```text
+r_t = (wealth_t - external_cash_flow_t) / wealth_{t-1} - 1
+
+  cash-flow-neutral, consistent with §Portfolio Return Methodology.
+  series r computed over the lookback window w trading days.
+  w ∈ {60, 252, 504}; default w = 252.
+  calendar-day fetch = ceil(w * 1.6) + 30   (project standard heuristic)
+```
+
+### Percentiles
+
+```text
+p_q = quantile(r, q)        for q ∈ {0.05, 0.10, 0.50, 0.90, 0.95}
+
+  NIST linear-interpolation method (numpy.quantile default).
+```
+
+### Historical Value-at-Risk
+
+```text
+VaR_α = -p_{1-α} * 100        for α ∈ {0.95, 0.99}
+
+  reported as positive loss in percent
+  e.g. VaR_95 = 2.34 means "5% of days lost ≥ 2.34%"
+```
+
+### Conditional VaR (Expected Shortfall)
+
+```text
+tail   = { r_t ∈ r : r_t ≤ p_{1-α} }
+CVaR_α = -mean(tail) * 100    for α ∈ {0.95, 0.99}
+
+  reported as positive loss in percent
+  CVaR_α ≥ VaR_α by construction (coherent risk measure)
+```
+
+### Distribution shape
+
+```text
+mean = mean(r)
+std  = sqrt(var(r))           (population N denominator)
+skew = E[((r - mean) / std)^3]            (Fisher-Pearson)
+kurt = E[((r - mean) / std)^4] - 3        (EXCESS kurtosis, Fisher)
+```
+
+### Histogram
+
+```text
+bins  = 30 (default)
+range = [min(r), max(r)]      (auto-fit; no symmetric padding; no outlier trim)
+```
+
+Edge cases:
+- `len(r) < 20`: every metric returns `null`; surface `trust = 'unavailable'`
+- `|tail| < 2`: `CVaR_α` returns `null` (single tail sample is not a mean)
+- `std = 0` (constant series): `skew`, `kurt` return `null`
+- all `r ≥ 0` (no loss days in window): `VaR_α` and `CVaR_α` may be NEGATIVE
+  (= "the tail day was still positive") — reported as-is, never clipped to zero
+
+Academic precedent:
+- Jorion (2007), *Value at Risk*, 3rd ed., McGraw-Hill, Ch. 5 — historical-
+  simulation VaR
+- Acerbi & Tasche (2002), "On the coherence of expected shortfall," *Journal
+  of Banking & Finance* 26(7): 1487–1503 — CVaR / ES as a coherent risk
+  measure
+- Embrechts, McNeil & Frey (2015), *Quantitative Risk Management*, 2nd ed.,
+  Princeton UP, Ch. 2.4 — historical vs parametric vs Monte Carlo VaR
+  comparison
+
+Implementation:
+- `services/quant-engine/app/analytics/distribution.py` (added in Epic 13)
+
+Contract rule:
+- never clip `VaR` to a positive number — a negative VaR is a meaningful
+  signal that the window contained no loss days at the requested confidence
+- `CVaR < VaR` is impossible by construction; if the engine emits such a
+  pair it must raise rather than return inconsistent data
 
 ## Current Known Financial Limitations
 

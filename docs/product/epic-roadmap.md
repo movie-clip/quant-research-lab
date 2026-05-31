@@ -1,6 +1,40 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-05-28.*
+*Living execution snapshot. Updated: 2026-06-01.*
+
+---
+
+## Active Epic: Epic 13 — Risk Analytics Tab
+
+**PRD:** [`docs/product/prd/epic-13-risk-analytics-tab.md`](product/prd/epic-13-risk-analytics-tab.md)
+
+### Goal
+
+Add a third tab, **Risk**, alongside Dashboard + Exposure, surfacing three
+synthetic-history risk views: stress scenarios (factor-shock projection),
+drawdown analytics (underwater curve + top-N episodes with recovery times),
+and VaR / distribution analysis (histogram + percentile / tail-risk / shape
+table). Two of the three engines already exist in `analytics/risk.py` but
+are not surfaced; VaR is new methodology.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-13.1 | Risk tab + Stress Scenarios card | Done |
+| US-13.2 | Drawdown Analytics card | Backlog |
+| US-13.3 | VaR & Distribution card | Backlog |
+| US-13.4 | Trust-state polish + a11y verification | Backlog |
+| US-13.5 | Docs close-out | Backlog |
+
+Stories must be built in order (13.1 → 13.2 → 13.3 → 13.4 → 13.5).
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-05-31 | — | Epic created. `quant-research` brief covering Stress + Drawdown + VaR; methodology extended with §Value-at-Risk and Distribution + drawdown episode identification under §Wealth Index and Drawdown; PRD authored; five-story plan (Stress + tab plumbing → Drawdown → VaR → polish → close-out). |
+| 2026-06-01 | US-13.1 | Third nav tab **Risk** wired into `App.tsx` (tab union + `appTabs` array + lazy-loaded panel). New `RiskPanel` mirrors `ExposurePanel` shell with `.risk-shell-stack` flex-column wrapper. New `StressScenariosCard` (3 scenario rows, sorted by abs magnitude desc, horizontal magnitude bar, color-coded pct, `Synthetic` TrustBadge, EmptyState on `trust='unavailable'`). Backend: `app/schemas/stress.py` (`StressEngineRequest` + `StressEngineResponse` wrapper), `app/services/stress_engine.py` (reuses `build_statistical_factor_model` + `build_stress_scenarios`; surfaces `trust='unavailable'` when factor model empty), `app/api/routes/stress.py` (`POST /engines/stress/run`). 268 backend (+5) + 155 frontend (+13) tests green; `npx tsc --noEmit` clean; design-system audit 5/5 green. |
 
 ---
 

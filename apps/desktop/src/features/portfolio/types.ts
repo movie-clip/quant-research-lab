@@ -848,6 +848,18 @@ export type StressScenarioResult = {
   status?: 'ok' | 'unavailable'
 }
 
+/** Engine-level trust for the standalone /engines/stress/run response.
+ *  `'synthetic'` = factor model fit, scenarios have non-null pcts.
+ *  `'unavailable'` = factor model could not be fit (empty/short history);
+ *                    per-scenario rows still present with null pcts. */
+export type StressTrustLevel = 'synthetic' | 'unavailable'
+
+/** Response wrapper from POST /engines/stress/run (Epic 13 — Risk tab). */
+export type StressEngineResponse = {
+  scenarios: StressScenarioResult[]
+  trust: StressTrustLevel
+}
+
 export type HistoryTruthClass =
   | 'imported_history_equivalent'
   | 'synthetic_history_derived'
