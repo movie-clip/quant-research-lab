@@ -42,10 +42,10 @@ export const ib2026DashboardGolden = {
     }
   ],
   "sectors": {
-    "Broad Market": "22.7%",
     "Fixed Income": "19.8%",
+    "Broad Market": "19.5%",
+    "Commodities": "18.8%",
     "Technology": "18.7%",
-    "Commodities": "15.6%",
     "Defense": "14.5%",
     "Consumer Discretionary": "5.4%",
     "Communication Services": "1.3%",
@@ -70,12 +70,10 @@ export const ib2026DashboardGolden = {
   },
   "sxrvValue": "5889.6",
   "broadMarketHoldings": [
-    "VUAA",
-    "COPX"
+    "VUAA"
   ],
   "broadMarketHoldingWeights": {
-    "VUAA": "19.46%",
-    "COPX": "3.27%"
+    "VUAA": "19.46%"
   }
 } as const
 
@@ -3654,24 +3652,24 @@ export const ib2026ImportedDashboardGoldenFixture = {
     ],
     "sector_allocation": [
       {
-        "sector": "Broad Market",
-        "market_value": 13507.4,
-        "weight": 0.2273
-      },
-      {
         "sector": "Fixed Income",
         "market_value": 11791.4,
         "weight": 0.1984
       },
       {
-        "sector": "Technology",
-        "market_value": 11120.81,
-        "weight": 0.1872
+        "sector": "Broad Market",
+        "market_value": 11561.6,
+        "weight": 0.1946
       },
       {
         "sector": "Commodities",
-        "market_value": 9252.78,
-        "weight": 0.1557
+        "market_value": 11198.58,
+        "weight": 0.1885
+      },
+      {
+        "sector": "Technology",
+        "market_value": 11120.81,
+        "weight": 0.1872
       },
       {
         "sector": "Defense",
@@ -3773,25 +3771,6 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "weight": 0.0094
         }
       ],
-      "Broad Market": [
-        {
-          "symbol": "VUAA",
-          "market_value": 11561.6,
-          "weight": 0.1946
-        },
-        {
-          "symbol": "COPX",
-          "market_value": 1945.8,
-          "weight": 0.0327
-        }
-      ],
-      "Communication Services": [
-        {
-          "symbol": "DUOL",
-          "market_value": 746.27,
-          "weight": 0.0126
-        }
-      ],
       "Commodities": [
         {
           "symbol": "IAUP",
@@ -3807,6 +3786,18 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "symbol": "SGLD",
           "market_value": 3043.88,
           "weight": 0.0512
+        },
+        {
+          "symbol": "COPX",
+          "market_value": 1945.8,
+          "weight": 0.0327
+        }
+      ],
+      "Communication Services": [
+        {
+          "symbol": "DUOL",
+          "market_value": 746.27,
+          "weight": 0.0126
         }
       ],
       "Financials": [
@@ -3821,6 +3812,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "symbol": "VDST",
           "market_value": 11791.4,
           "weight": 0.1984
+        }
+      ],
+      "Broad Market": [
+        {
+          "symbol": "VUAA",
+          "market_value": 11561.6,
+          "weight": 0.1946
         }
       ]
     },

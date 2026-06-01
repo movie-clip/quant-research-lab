@@ -92,6 +92,25 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "NTR": _instrument("equity-ntr", "NTR", "Nutrien", "equity", "Materials", "Equity", "USD"),
     "PLD": _instrument("equity-pld", "PLD", "Prologis", "equity", "Real Estate", "Equity", "USD"),
     "VNQ": _instrument("etf-vnq", "VNQ", "Vanguard Real Estate ETF", "etf", "Real Estate", "ETF", "USD"),
+    # Common US-listed broad-market / sector / benchmark ETFs. Without explicit
+    # entries here, `get_sector(symbol)` returns "Other" because neither the
+    # ticker-only description from Freedom24 nor the static asset_type from
+    # Interactive Brokers reliably triggers the description-based ETF
+    # classification in `classify_imported_instrument`.
+    "SPY": _instrument("etf-spy", "SPY", "SPDR S&P 500 ETF Trust", "etf", "Broad Market", "Broad Market ETF", "USD"),
+    "VOO": _instrument("etf-voo", "VOO", "Vanguard S&P 500 ETF", "etf", "Broad Market", "Broad Market ETF", "USD"),
+    "IVV": _instrument("etf-ivv", "IVV", "iShares Core S&P 500 ETF", "etf", "Broad Market", "Broad Market ETF", "USD"),
+    "VTI": _instrument("etf-vti", "VTI", "Vanguard Total Stock Market ETF", "etf", "Broad Market", "Broad Market ETF", "USD"),
+    "VT": _instrument("etf-vt", "VT", "Vanguard Total World Stock ETF", "etf", "Broad Market", "Broad Market ETF", "USD"),
+    "VEA": _instrument("etf-vea", "VEA", "Vanguard FTSE Developed Markets ETF", "etf", "Broad Market", "Broad Market ETF", "USD"),
+    "VWO": _instrument("etf-vwo", "VWO", "Vanguard FTSE Emerging Markets ETF", "etf", "Broad Market", "Broad Market ETF", "USD"),
+    "QQQ": _instrument("etf-qqq", "QQQ", "Invesco QQQ Trust", "etf", "Technology", "Thematic ETF", "USD"),
+    "GLD": _instrument("etf-gld", "GLD", "SPDR Gold Shares", "etf", "Commodities", "Commodity ETF", "USD"),
+    "SLV": _instrument("etf-slv", "SLV", "iShares Silver Trust", "etf", "Commodities", "Commodity ETF", "USD"),
+    "IEF": _instrument("etf-ief", "IEF", "iShares 7-10 Year Treasury Bond ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
+    "TLT": _instrument("etf-tlt", "TLT", "iShares 20+ Year Treasury Bond ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
+    "AGG": _instrument("etf-agg", "AGG", "iShares Core US Aggregate Bond ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
+    "BND": _instrument("etf-bnd", "BND", "Vanguard Total Bond Market ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
     "VUAA": _instrument("etf-vuaa", "VUAA", "Vanguard S&P 500 UCITS ETF", "etf", "Broad Market", "Broad Market UCITS ETF", "USD"),
     "SXRV": _instrument("etf-sxrv", "SXRV", "iShares Nasdaq 100 UCITS ETF", "etf", "Technology", "Thematic UCITS ETF", "EUR"),
     "ISLN": _instrument("etf-isln", "ISLN", "iShares Physical Silver ETC", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
