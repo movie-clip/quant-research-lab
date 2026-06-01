@@ -183,6 +183,28 @@ describe('VarDistributionCard', () => {
     expect(screen.getByRole('button', { name: '504 trading day window' })).toBeTruthy()
   })
 
+  it('section headers render compactly without uppercase or wide letter-spacing', async () => {
+    // US-13.4 density polish: the prior SectionHeader used
+    // textTransform: 'uppercase' + letterSpacing: '0.05em' + a wide top
+    // margin, which made the three sections (Percentiles, Tail Risk,
+    // Distribution shape) feel like loud chapter breaks. The polish
+    // removes both anti-patterns so the table reads as one quiet group.
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(syntheticPayload()))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<VarDistributionCard snapshot={snapshot} />)
+
+    // Wait for the data-driven body to mount so section headers exist
+    await waitFor(() => expect(screen.getByText('Percentiles')).toBeTruthy())
+
+    for (const title of ['Percentiles', 'Tail Risk', 'Distribution shape']) {
+      const el = screen.getByText(title) as HTMLElement
+      // Inline-style invariants from the polish
+      expect(el.style.textTransform).not.toBe('uppercase')
+      expect(el.style.letterSpacing).not.toBe('0.05em')
+    }
+  })
+
   it('refetches with window_trading_days=504 when the 504d button is clicked', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(syntheticPayload()))
     vi.stubGlobal('fetch', fetchMock)

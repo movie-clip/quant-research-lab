@@ -117,6 +117,28 @@ describe('RiskPanel', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('renders the page header in a two-tier hierarchy without a bulky h2.panel-label', () => {
+    // US-13.4 density polish: the prior implementation rendered
+    // <h2 className="panel-label">Risk Analytics</h2>, which made the
+    // page header visually compete with the first card's title. The
+    // polish replaces it with ExposurePanel's pattern: small
+    // panel-label eyebrow + plain <h2> subtitle.
+    vi.stubGlobal('fetch', vi.fn())
+    const { container } = render(<RiskPanel snapshot={null} />)
+
+    // The bulky pattern (h2 with panel-label class) MUST NOT appear.
+    const bulkyHeader = container.querySelector('h2.panel-label')
+    expect(bulkyHeader).toBeNull()
+
+    // The two-tier pattern: an eyebrow element with class `panel-label`
+    // AND a plain <h2> (without the panel-label class) both exist.
+    const eyebrow = container.querySelector('.panel-label')
+    expect(eyebrow).not.toBeNull()
+    const h2 = container.querySelector('h2')
+    expect(h2).not.toBeNull()
+    expect(h2?.classList.contains('panel-label')).toBe(false)
+  })
+
   it('fetches the stress engine and renders the card when snapshot is provided', async () => {
     const fetchMock = makeRoutedFetch()
     vi.stubGlobal('fetch', fetchMock)

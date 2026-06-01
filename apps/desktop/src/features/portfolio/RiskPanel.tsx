@@ -60,7 +60,11 @@ export function RiskPanel({ snapshot }: RiskPanelProps) {
     return (
       <main className="exposure-shell">
         <header className="exposure-header">
-          <h2 className="panel-label">Risk</h2>
+          {/* Two-tier header (US-13.4): small `panel-label` eyebrow + plain h2
+              subtitle. Mirrors ExposurePanel's pattern so the page header
+              doesn't compete with the first card's title. */}
+          <p className="panel-label">Risk</p>
+          <h2>Stress, drawdown, and tail-risk views</h2>
           <p className="helper">Import a portfolio to see stress scenarios and other risk analytics.</p>
         </header>
       </main>
@@ -75,7 +79,8 @@ export function RiskPanel({ snapshot }: RiskPanelProps) {
   return (
     <main className="exposure-shell">
       <header className="exposure-header">
-        <h2 className="panel-label">Risk Analytics</h2>
+        <p className="panel-label">Risk</p>
+        <h2>Stress, drawdown, and tail-risk views</h2>
       </header>
 
       <div className="risk-shell-stack">

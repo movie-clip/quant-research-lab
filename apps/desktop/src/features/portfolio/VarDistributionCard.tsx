@@ -225,15 +225,16 @@ function StatRow({ label, value, danger = false }: { label: string; value: strin
 }
 
 function SectionHeader({ title }: { title: string }) {
+  // US-13.4 polish: dropped uppercase + letterSpacing + tightened top margin
+  // so the three sections read as quiet group labels rather than loud chapter
+  // breaks. Keeps caption font + muted color so they still register as labels.
   return (
     <p
       style={{
-        margin: 'var(--space-md) 0 var(--space-xs) 0',
+        margin: 'var(--space-sm) 0 var(--space-xs) 0',
         fontSize: 'var(--font-caption)',
         fontWeight: 600,
         color: 'var(--color-text-muted)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
       }}
     >
       {title}
@@ -309,7 +310,7 @@ export function VarDistributionCard({ snapshot }: VarDistributionCardProps) {
       badge={
         <TrustBadge
           type={trust}
-          tooltip="Computed from synthetic daily portfolio returns (current holdings × historical prices). Historical-simulation VaR — backward-looking by construction."
+          tooltip="Synthetic: computed from current holdings × historical prices. Historical-simulation VaR — backward-looking by construction."
         />
       }
       actions={
