@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../../test/portfolioFixtures'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
-import { runDashboardHistoryEngine, runDiagnosticsEngine, runDrawdownEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runStressEngine } from './portfolioAnalysisAdapter'
-import type { DrawdownEngineResponse, StressEngineResponse } from './types'
+import { runDashboardHistoryEngine, runDiagnosticsEngine, runDistributionEngine, runDrawdownEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runStressEngine } from './portfolioAnalysisAdapter'
+import type { DistributionEngineResponse, DrawdownEngineResponse, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 
 const exposurePayload = createExposureEngineFixture()
@@ -177,5 +177,57 @@ describe('runDrawdownEngine (Epic 13 — Risk tab)', () => {
     const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
     const body = JSON.parse(init!.body!) as { window_trading_days: number }
     expect(body.window_trading_days).toBe(252)
+  })
+})
+
+describe('runDistributionEngine (Epic 13 — Risk tab US-13.3)', () => {
+  const distributionPayload: DistributionEngineResponse = {
+    window_trading_days: 252,
+    return_count: 247,
+    var_95: 2.34,
+    var_99: 4.51,
+    cvar_95: 3.12,
+    percentile_5: -1.84,
+    percentile_10: -1.21,
+    percentile_50: 0.08,
+    percentile_90: 1.42,
+    percentile_95: 1.91,
+    mean_pct: 0.04,
+    std_pct: 0.92,
+    skewness: -0.31,
+    kurtosis_excess: 2.84,
+    histogram_bins: [
+      { center: -0.025, count: 3 },
+      { center: 0.0, count: 240 },
+      { center: 0.025, count: 4 },
+    ],
+    trust: 'synthetic',
+  }
+
+  it('posts to /api/engines/distribution/run with default window_trading_days=252', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(distributionPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runDistributionEngine(snapshot)
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/engines/distribution/run',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as { window_trading_days: number }
+    expect(body.window_trading_days).toBe(252)
+  })
+
+  it('posts the supplied window when explicitly provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(distributionPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runDistributionEngine(snapshot, 504)
+
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as { window_trading_days: number }
+    expect(body.window_trading_days).toBe(504)
   })
 })

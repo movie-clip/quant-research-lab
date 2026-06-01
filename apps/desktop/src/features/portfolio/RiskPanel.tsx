@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 import { runStressEngine } from './portfolioAnalysisAdapter'
 import { DrawdownAnalyticsCard } from './DrawdownAnalyticsCard'
 import { StressScenariosCard } from './StressScenariosCard'
+import { VarDistributionCard } from './VarDistributionCard'
 import type { StressEngineResponse } from './types'
 import type { PortfolioSnapshot } from './workspaceTypes'
 
@@ -87,6 +88,8 @@ export function RiskPanel({ snapshot }: RiskPanelProps) {
         {/* DrawdownAnalyticsCard self-fetches via useEffect on [snapshot,
             selectedWindow]; RiskPanel does not own its state. */}
         <DrawdownAnalyticsCard snapshot={snapshot} />
+        {/* VarDistributionCard (US-13.3) — same self-fetching pattern. */}
+        <VarDistributionCard snapshot={snapshot} />
       </div>
     </main>
   )

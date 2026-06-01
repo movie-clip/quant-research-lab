@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -299,6 +299,34 @@ export async function runDrawdownEngine(
   }
 
   return (await response.json()) as DrawdownEngineResponse
+}
+
+/** Run the standalone distribution / VaR analytics engine (Epic 13 — Risk tab).
+ *  Returns daily return distribution + historical VaR_95 / VaR_99 / CVaR_95 +
+ *  percentiles + distribution shape (mean / std / skew / excess kurt) +
+ *  histogram. `window` defaults to 252 trading days. */
+export async function runDistributionEngine(
+  snapshot: PortfolioSnapshot,
+  window: DistributionWindow = 252,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<DistributionEngineResponse> {
+  const body = {
+    ...buildSnapshotAnalysisRequest(snapshot),
+    window_trading_days: window,
+  }
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/distribution/run', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    const detail = errorPayload?.detail ?? `HTTP ${response.status}`
+    throw new Error(`Distribution engine run failed: ${detail}`)
+  }
+
+  return (await response.json()) as DistributionEngineResponse
 }
 
 /** Run the standalone stress-scenario engine (Epic 13 — Risk tab).

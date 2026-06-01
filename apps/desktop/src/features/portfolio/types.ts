@@ -898,6 +898,45 @@ export type DrawdownEngineResponse = {
   trust: DrawdownTrustLevel
 }
 
+// ── VaR & Distribution analytics (US-13.3) ───────────────────────────────────
+
+/** Engine-level trust for the /engines/distribution/run response. */
+export type DistributionTrustLevel = 'synthetic' | 'unavailable'
+
+/** Supported lookback windows for the distribution engine (trading days). */
+export type DistributionWindow = 60 | 252 | 504
+
+/** One bin in the daily return histogram. `center` is decimal return,
+ *  NOT percent — UI multiplies by 100 for display. */
+export type HistogramBin = {
+  center: number
+  count: number
+}
+
+/** Response wrapper from POST /engines/distribution/run (Epic 13 — Risk tab).
+ *  All percent fields are in percent units (multiplied by 100).
+ *  `var_*` / `cvar_*` are sign-flipped: positive = loss. A negative VaR
+ *  means "tail day at requested confidence was still positive" — UI styles
+ *  this muted to distinguish from a real loss (methodology contract rule). */
+export type DistributionEngineResponse = {
+  window_trading_days: number
+  return_count: number
+  var_95: number | null
+  var_99: number | null
+  cvar_95: number | null
+  percentile_5: number | null
+  percentile_10: number | null
+  percentile_50: number | null
+  percentile_90: number | null
+  percentile_95: number | null
+  mean_pct: number | null
+  std_pct: number | null
+  skewness: number | null
+  kurtosis_excess: number | null
+  histogram_bins: HistogramBin[]
+  trust: DistributionTrustLevel
+}
+
 export type HistoryTruthClass =
   | 'imported_history_equivalent'
   | 'synthetic_history_derived'

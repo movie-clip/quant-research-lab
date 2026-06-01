@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RiskPanel } from './RiskPanel'
 import type { PortfolioSnapshot } from './workspaceTypes'
-import type { DrawdownEngineResponse, StressEngineResponse } from './types'
+import type { DistributionEngineResponse, DrawdownEngineResponse, StressEngineResponse } from './types'
 
 afterEach(() => {
   cleanup()
@@ -51,6 +51,30 @@ const defaultDrawdownPayload: DrawdownEngineResponse = {
   trust: 'synthetic',
 }
 
+/** Default distribution payload — same role as defaultDrawdownPayload. */
+const defaultDistributionPayload: DistributionEngineResponse = {
+  window_trading_days: 252,
+  return_count: 247,
+  var_95: 2.34,
+  var_99: 4.51,
+  cvar_95: 3.12,
+  percentile_5: -1.84,
+  percentile_10: -1.21,
+  percentile_50: 0.08,
+  percentile_90: 1.42,
+  percentile_95: 1.91,
+  mean_pct: 0.04,
+  std_pct: 0.92,
+  skewness: -0.31,
+  kurtosis_excess: 2.84,
+  histogram_bins: [
+    { center: -0.025, count: 3 },
+    { center: 0.0, count: 240 },
+    { center: 0.025, count: 4 },
+  ],
+  trust: 'synthetic',
+}
+
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -65,6 +89,7 @@ function jsonResponse(payload: unknown, status = 200) {
 function makeRoutedFetch(
   stressResponder: () => Response = () => jsonResponse(stressPayload),
   drawdownResponder: () => Response = () => jsonResponse(defaultDrawdownPayload),
+  distributionResponder: () => Response = () => jsonResponse(defaultDistributionPayload),
 ) {
   return vi.fn().mockImplementation((input: RequestInfo | URL) => {
     const url = String(input)
@@ -73,6 +98,9 @@ function makeRoutedFetch(
     }
     if (url.includes('/engines/drawdown/run')) {
       return Promise.resolve(drawdownResponder())
+    }
+    if (url.includes('/engines/distribution/run')) {
+      return Promise.resolve(distributionResponder())
     }
     throw new Error(`Unexpected fetch URL: ${url}`)
   })
@@ -150,5 +178,23 @@ describe('RiskPanel', () => {
     const urlsCalled = fetchMock.mock.calls.map((c) => String(c[0]))
     expect(urlsCalled.some((u) => u.includes('/engines/stress/run'))).toBe(true)
     expect(urlsCalled.some((u) => u.includes('/engines/drawdown/run'))).toBe(true)
+  })
+
+  it('renders all three cards (Stress, Drawdown, VaR & Distribution) when snapshot present', async () => {
+    const fetchMock = makeRoutedFetch()
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<RiskPanel snapshot={snapshot} />)
+
+    // All three card titles must render
+    await waitFor(() => expect(screen.getByText('Stress Scenarios')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Drawdown Analytics')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('VaR & Distribution')).toBeTruthy())
+
+    // All three engine routes were hit
+    const urlsCalled = fetchMock.mock.calls.map((c) => String(c[0]))
+    expect(urlsCalled.some((u) => u.includes('/engines/stress/run'))).toBe(true)
+    expect(urlsCalled.some((u) => u.includes('/engines/drawdown/run'))).toBe(true)
+    expect(urlsCalled.some((u) => u.includes('/engines/distribution/run'))).toBe(true)
   })
 })
