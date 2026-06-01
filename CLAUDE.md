@@ -19,14 +19,15 @@ The four hard guardrails (in priority order):
 3. **Trust semantics over fabrication** — `verified > degraded > withheld > unavailable`. Surface the level; don't fill in plausible values.
 4. **No execution** — the system never places trades or moves money.
 
-## Product: two tabs
+## Product: three tabs
 
-The product has two tabs: **Dashboard** and **Exposure**.
+The product has three tabs: **Dashboard**, **Exposure**, and **Risk**.
 
 | Tab | What it shows |
 |---|---|
 | Dashboard | Portfolio performance — time-weighted returns, benchmark comparison, monthly returns, risk metrics, investor economics |
 | Exposure | Holdings breakdown — sector exposure, ETF look-through, market overlap, factor model |
+| Risk | Pre-decision risk-budget views — stress scenarios (factor-shock projections), drawdown analytics (underwater curve + top-N episodes), VaR & distribution (histogram + percentiles + tail risk + shape) |
 
 Exposure also shows a **vs Market drift panel** at the top: rolling portfolio return vs a selectable benchmark (SPY default) for 1m, 3m, 6m, 12m, and since-import windows.
 
@@ -37,12 +38,13 @@ Exposure also shows a **vs Market drift panel** at the top: rolling portfolio re
 | `README.md` | Public-facing project overview |
 | `CLAUDE.md` (this file) | Agent onboarding: project identity, guardrails, conventions |
 | `docs/product/epic-roadmap.md` | Epic snapshot + slice log |
-| `docs/product/prd/epic-8-reset-to-analysis-core.md` | Active PRD |
+| `docs/product/prd/epic-13-risk-analytics-tab.md` | Most-recent shipped epic PRD (Epic 13) |
 | `docs/product/stories/` | User stories — one file per story |
 | `docs/product/current-product-state.md` | Canonical shipped-state inventory |
 | `docs/finance/financial-methodology.md` | Source of truth for every financial formula |
 | `docs/architecture/system-architecture.md` | Backend seams, route inventory, truth class semantics |
 | `docs/contracts/*.md` | Field inventory — backend ↔ TS type ↔ UI traceability |
+| `docs/contracts/risk-fields.md` | Risk-tab contract: stress, drawdown, VaR & distribution response shapes (Epic 13) |
 | `.claude/skills/quant-research/SKILL.md` | Research a financial concept; produce a brief + methodology section |
 | `.claude/skills/write-story/SKILL.md` | Turn idea / brief into a ticketed user story |
 | `.claude/skills/build-story/SKILL.md` | Implement a ticketed story end-to-end |
@@ -72,15 +74,15 @@ apps/desktop/src/
     settings/
 
 services/quant-engine/app/
-  api/routes/           # FastAPI routes: exposure, dashboard_history, diagnostics, imports, market_data, health
-  analytics/            # Portfolio analytics (returns, drawdown, exposure, risk)
+  api/routes/           # FastAPI routes: exposure, dashboard_history, diagnostics, drift, attribution, correlation, stress, drawdown, distribution, imports, market_data, health
+  analytics/            # Portfolio analytics (returns, drawdown, distribution, exposure, risk, attribution, correlation)
   clients/              # FMP market data client (with caching)
   core/                 # Settings, logging, caching infrastructure
   domain/               # Ledger + accounting domain model
   importers/            # Broker parsers (Interactive Brokers, Freedom24, ESPP)
   instruments/          # Instrument registry
   schemas/              # Pydantic models (CONTRACT SOURCE OF TRUTH)
-  services/             # Business logic services (dashboard, diagnostics, exposure, drift)
+  services/             # Business logic services (dashboard, diagnostics, exposure, drift, attribution, correlation, stress, drawdown, distribution)
   tests/                # Pytest suite
 
 docs/
@@ -165,6 +167,6 @@ Plus two reference skills (consulted *from within* the cycle, not steps in it):
 1. **For methodology questions** → `docs/finance/financial-methodology.md`
 2. **For "what's shipped today"** → `docs/product/current-product-state.md`
 3. **For "what's the next story"** → `docs/product/stories/` + the `build-story` skill
-4. **For "what's the scope of this epic"** → `docs/product/prd/epic-8-reset-to-analysis-core.md`
+4. **For "what's the scope of this epic"** → `docs/product/prd/epic-13-risk-analytics-tab.md` (most recent shipped epic) or whichever epic is Active per `docs/product/epic-roadmap.md`
 5. **For "where are we overall"** → `docs/product/epic-roadmap.md`
 6. **For "where does this field come from"** → `docs/contracts/<area>-fields.md`

@@ -173,11 +173,15 @@ Academic precedent:
   again," *Mathematics and Financial Economics* 11(3): 275–297
 
 Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `_build_wealth_index(...)`
-- `_build_drawdown_from_return_index(...)`
-- `services/quant-engine/app/analytics/drawdown.py` (episode identification —
-  added in Epic 13)
+- `services/quant-engine/app/analytics/risk.py` —
+  `_build_wealth_index(...)`, `_build_drawdown_from_return_index(...)`
+- `services/quant-engine/app/analytics/drawdown.py` —
+  `build_underwater_series(...)`, `identify_drawdown_episodes(...)`,
+  `current_drawdown_pct(...)`, `max_drawdown_pct(...)` (Epic 13 / US-13.2)
+- `services/quant-engine/app/services/drawdown_engine.py` —
+  `run_drawdown_engine(...)` (wires market data → analytics)
+- `services/quant-engine/app/api/routes/drawdown.py` —
+  `POST /engines/drawdown/run`
 
 Contract rule:
 - `recovery_date = null` is distinct from "no episode" — it explicitly signals
@@ -372,8 +376,12 @@ estimated_scenario_return = sum(current_factor_loading_i * shock_i)
 ```
 
 Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `build_stress_scenarios(...)`
+- `services/quant-engine/app/analytics/risk.py` —
+  `build_stress_scenarios(...)` + `STRESS_SCENARIOS` constant
+- `services/quant-engine/app/services/stress_engine.py` —
+  `run_stress_engine(...)` (Epic 13 / US-13.1)
+- `services/quant-engine/app/api/routes/stress.py` —
+  `POST /engines/stress/run`
 
 Contract rule:
 - unavailable stress support must return `null`, not fabricated zeroes
@@ -741,7 +749,14 @@ Academic precedent:
   comparison
 
 Implementation:
-- `services/quant-engine/app/analytics/distribution.py` (added in Epic 13)
+- `services/quant-engine/app/analytics/distribution.py` —
+  `compute_percentiles(...)`, `compute_var(...)`, `compute_cvar(...)`,
+  `compute_distribution_shape(...)`, `compute_histogram(...)` (Epic 13 /
+  US-13.3; pure-Python, no numpy / scipy)
+- `services/quant-engine/app/services/distribution_engine.py` —
+  `run_distribution_engine(...)` (enforces `CVaR ≥ VaR` invariant)
+- `services/quant-engine/app/api/routes/distribution.py` —
+  `POST /engines/distribution/run`
 
 Contract rule:
 - never clip `VaR` to a positive number — a negative VaR is a meaningful

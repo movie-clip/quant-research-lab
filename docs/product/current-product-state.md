@@ -1,16 +1,16 @@
 # Current Product State
 
-*Canonical shipped-state inventory. Updated: 2026-05-25 (after Epic 8).*
+*Canonical shipped-state inventory. Updated: 2026-06-01 (after Epic 13).*
 
 ---
 
 ## What the product is
 
-A local-first portfolio research tool. The researcher imports broker statements, and the product computes deterministic analytics displayed on two tabs.
+A local-first portfolio research tool. The researcher imports broker statements, and the product computes deterministic analytics displayed on three tabs.
 
 ---
 
-## Two tabs
+## Three tabs
 
 ### Dashboard
 Shows portfolio performance history:
@@ -35,6 +35,14 @@ The visual surface uses design tokens from `apps/desktop/src/app/styles.css` (`:
 
 **For agents building new Exposure-tab cards**: the `ui-polish` skill (`.claude/skills/ui-polish/SKILL.md`) is the canonical guidance — token inventory, primitive prop signatures, canonical card pattern code block, accessibility checklist, anti-patterns. Auto-invoked by `build-story` on frontend tickets. The long-lived contract doc is `docs/contracts/ui-design-system.md`.
 
+### Risk
+Shows pre-decision risk-budget views (Epic 13):
+- **Stress Scenarios card**: three predefined factor-shock scenarios (Broad Market Selloff, Rates Down Risk-On, Inflation Reacceleration) with projected portfolio % impact. Sorted by absolute magnitude desc; horizontal magnitude bar per row; color-coded ±% (red/green/muted). Point-in-time — no window selector. Synthetic-history Trust badge.
+- **Drawdown Analytics card**: underwater drawdown curve (Recharts AreaChart) plus top-5 historical drawdown episodes table (Peak / Trough / Recovery / Magnitude / Duration / Underwater). `recovery_date=null` renders as italic "Still underwater". 4-option window selector: 252d / 756d / 1260d / Max (engine cap 3000 calendar days). Synthetic-history Trust badge.
+- **VaR & Distribution card**: daily return histogram (Recharts BarChart; loss-tail bars colored red, rest muted; VaR-95 and Mean reference lines) plus a 3-section table — Percentiles (5/10/50/90/95) / Tail Risk (VaR 95, CVaR 95, VaR 99) / Distribution shape (Mean, Std, Skew, Kurtosis-excess). VaR / CVaR cells red when positive (real loss), muted when negative or null. 3-option window selector: 60d / 252d / 504d (default 252; no "Max" — VaR is interpretable only relative to a fixed lookback). Synthetic-history Trust badge.
+
+The Risk tab uses the same Epic 12 design-system primitives as Exposure (`CardShell`, `TrustBadge`, `WindowSelector`, `ChartShell`, `chartDefaults`, state primitives). All three cards self-fetch via `useEffect` on `[snapshot, window]` and surface `trust='unavailable'` with EmptyState when the factor model is empty (Stress) or fewer than 20 daily observations are available (Drawdown, VaR). The CVaR ≥ VaR invariant is enforced by the engine (raises on violation per Acerbi & Tasche 2002). Contract doc: `docs/contracts/risk-fields.md`.
+
 ---
 
 ## Import workflow
@@ -49,15 +57,21 @@ The researcher imports statements via the Import flow:
 
 ## Backend
 
-6 route modules:
+12 route modules:
 - `exposure.py` — portfolio exposure analysis
 - `dashboard_history.py` — portfolio performance history
 - `diagnostics.py` — factor model and risk diagnostics (called internally by Exposure)
+- `drift.py` — portfolio drift vs benchmark (Exposure top panel)
+- `attribution.py` — factor return attribution
+- `correlation.py` — multi-benchmark correlation matrix
+- `stress.py` — stress scenario projections (Risk tab, Epic 13)
+- `drawdown.py` — drawdown analytics + episodes (Risk tab, Epic 13)
+- `distribution.py` — VaR / CVaR / return distribution (Risk tab, Epic 13)
 - `imports.py` — broker statement import
 - `market_data.py` — historical prices and ETF holdings
 - `health.py` — health check
 
-~13 service files, all under `services/quant-engine/app/services/`.
+~16 service files, all under `services/quant-engine/app/services/`, plus pure-analytics modules under `services/quant-engine/app/analytics/` (incl. `drawdown.py` and `distribution.py` added in Epic 13).
 
 ---
 
