@@ -49,3 +49,28 @@ def test_unknown_symbol_falls_back_to_other() -> None:
     Prevents regression where every symbol matches something by accident."""
     registry = InstrumentRegistry()
     assert registry.get_sector("UNKNOWN_TICKER_ZZZZ") == "Other"
+
+
+def test_enriched_etf_description_round_trips_to_broad_market_sector() -> None:
+    """US-14.3: pin the contract that the existing
+    `classify_imported_instrument` description-based fallback correctly
+    handles FMP-style company names. An unknown symbol with an enriched
+    description (`description="Vanguard Total Stock Market ETF"`,
+    `instrument_type="ETF"`) should classify as `sector="Broad Market"`
+    via the existing description-keyword fallback — confirming that the
+    enrichment + registry combination produces correct sectors for new
+    tickers without needing static-registry additions."""
+    from app.schemas.imports import ImportedInstrument
+
+    registry = InstrumentRegistry()
+    enriched = ImportedInstrument(
+        symbol="ZZZ1",  # deliberately unknown — not in INSTRUMENT_DEFINITIONS
+        description="Vanguard Total Stock Market ETF",
+        instrument_type="ETF",
+    )
+    classified = registry.classify_imported_instrument(enriched)
+    # The description path falls through to the default ETF branch
+    # ("Broad Market") because none of the more specific keyword tests
+    # (commodities, defense, technology, financials, healthcare, bond,
+    # nasdaq-100, S&P500) match "Vanguard Total Stock Market ETF".
+    assert classified.sector == "Broad Market"

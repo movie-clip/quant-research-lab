@@ -18,7 +18,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 14 — Post-Epic-13 Bug Sweep (active)
+### Epic 14 — Post-Epic-13 Bug Sweep (complete)
 
 PRD: [`prd/epic-14-post-epic-13-bug-sweep.md`](../prd/epic-14-post-epic-13-bug-sweep.md)
 
@@ -26,7 +26,7 @@ PRD: [`prd/epic-14-post-epic-13-bug-sweep.md`](../prd/epic-14-post-epic-13-bug-s
 |---|---|---|---|
 | [US-14.1](US-14.1-fix-overlay-symbol-collision.md) | Fix overlay symbol collision (sum, don't replace) | Frontend — `overlayImportedSnapshot` in `portfolioSnapshot.ts` | Done |
 | [US-14.2](US-14.2-drawdown-smart-default-window.md) | DrawdownAnalyticsCard smart-default window fallback | Frontend — cycle 1260→756→252→Max on `trust='unavailable'` | Done |
-| US-14.3 | Freedom24 FMP company-profile enrichment for unknown symbols | Backend — new shared `enrich_imported_instrument` helper + Freedom24 parser wire-up | Backlog |
+| [US-14.3](US-14.3-freedom24-fmp-enrichment.md) | Freedom24 FMP company-profile enrichment for unknown symbols | Backend — new shared `enrich_imported_instruments` helper + Freedom24 parser wire-up | Done |
 
 Recommended build order: 14.1 → 14.2 → 14.3.
 

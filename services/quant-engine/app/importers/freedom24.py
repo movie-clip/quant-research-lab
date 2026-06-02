@@ -398,7 +398,7 @@ def import_statement(path: str | Path) -> ImportedPortfolioSnapshot:
         page_count=preview.page_count,
     )
 
-    return ImportedPortfolioSnapshot(
+    snapshot = ImportedPortfolioSnapshot(
         statement=statement,
         statements=[statement],
         statement_totals=_parse_statement_totals(page_texts),
@@ -407,3 +407,18 @@ def import_statement(path: str | Path) -> ImportedPortfolioSnapshot:
         positions=positions,
         ledger_entries=ledger_entries,
     )
+
+    # US-14.3: enrich instruments with FMP company-profile data so unknown
+    # symbols get their description + instrument_type populated (the
+    # Freedom24 parser sets description=ticker by design — too thin for
+    # the description-based ETF classification fallback in InstrumentRegistry).
+    # Fail-graceful: any enrichment failure leaves the import flow intact.
+    try:
+        from app.services.instrument_enrichment import enrich_imported_instruments
+        from app.services.market_data import MarketDataService
+
+        snapshot = enrich_imported_instruments(snapshot, MarketDataService())
+    except Exception:  # noqa: BLE001 — a bad import is worse than a missing sector
+        pass
+
+    return snapshot
