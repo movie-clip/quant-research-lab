@@ -274,6 +274,17 @@ export type DrawdownAnalyticsCardProps = {
 export function DrawdownAnalyticsCard({ snapshot }: DrawdownAnalyticsCardProps) {
   const [selectedWindow, setSelectedWindow] = useState<WindowOption>(DEFAULT_WINDOW)
   const [state, setState] = useState<LoadState>({ kind: 'idle' })
+  // US-14.2: tracks whether the user has manually clicked a WindowSelector
+  // button for the current snapshot. Once true, the cascade is disabled and
+  // we respect the user's explicit choice — even if it returns unavailable.
+  // Resets on snapshot change (separate effect below).
+  const [hasUserOverriddenWindow, setHasUserOverriddenWindow] = useState(false)
+
+  // Reset the user-override flag whenever the snapshot reference changes, so
+  // the cascade re-runs from window=1260 on the new portfolio.
+  useEffect(() => {
+    setHasUserOverriddenWindow(false)
+  }, [snapshot])
 
   useEffect(() => {
     if (!snapshot) {
@@ -282,21 +293,81 @@ export function DrawdownAnalyticsCard({ snapshot }: DrawdownAnalyticsCardProps) 
     }
     let cancelled = false
     setState({ kind: 'loading' })
-    runDrawdownEngine(snapshot, selectedWindow)
-      .then((response) => {
-        if (!cancelled) setState({ kind: 'done', response })
-      })
-      .catch((err: unknown) => {
+
+    // US-14.2: when the user has manually overridden, fetch once with the
+    // selected window and surface whatever the engine returns (even
+    // unavailable). When the user has NOT overridden, run the cascade:
+    // start at selectedWindow, fall back to next-shorter on unavailable,
+    // stop on the first synthetic response OR when all 4 options are
+    // exhausted.
+    const runCascade = async () => {
+      // Cascade order is explicit (longest → shortest → Max) to avoid
+      // depending on the WINDOW_OPTIONS array's display order.
+      const cascadeOrder: WindowOption[] = [1260, 756, 252, null]
+      const startIdx = Math.max(0, cascadeOrder.indexOf(selectedWindow))
+      const cascade = hasUserOverriddenWindow
+        ? [selectedWindow]
+        : cascadeOrder.slice(startIdx)
+
+      let lastResponse: Awaited<ReturnType<typeof runDrawdownEngine>> | null = null
+      for (const window of cascade) {
         if (cancelled) return
-        const message = err instanceof Error ? err.message : 'Drawdown engine failed'
-        setState({ kind: 'error', message })
-      })
+        try {
+          const response = await runDrawdownEngine(snapshot, window)
+          if (cancelled) return
+          lastResponse = response
+          if (response.trust === 'synthetic') {
+            // Stop on first success. We do NOT update `selectedWindow`
+            // here — that would re-trigger the effect and cause a
+            // redundant 3rd fetch. The WindowSelector's active button
+            // is derived from `state.response.window_trading_days` (see
+            // `displayedWindow` in render), so the UI still reflects
+            // the window that actually rendered.
+            setState({ kind: 'done', response })
+            return
+          }
+          // unavailable → continue to next window in cascade (if any)
+        } catch (err: unknown) {
+          if (cancelled) return
+          // AC7: network error stops the cascade and surfaces the error.
+          const message = err instanceof Error ? err.message : 'Drawdown engine failed'
+          setState({ kind: 'error', message })
+          return
+        }
+      }
+
+      // All cascade attempts returned unavailable. Surface the last
+      // response so the card renders its EmptyState. Display window
+      // tracks the last response's window via `displayedWindow` below.
+      if (cancelled || !lastResponse) return
+      setState({ kind: 'done', response: lastResponse })
+    }
+
+    void runCascade()
     return () => {
       cancelled = true
     }
-  }, [snapshot, selectedWindow])
+  }, [snapshot, selectedWindow, hasUserOverriddenWindow])
 
   const trust = state.kind === 'done' ? state.response.trust : 'unavailable'
+
+  // US-14.2: wrap the WindowSelector onChange so clicking a window both
+  // updates the selection AND disables the auto-fallback cascade. The
+  // user's explicit intent always wins.
+  const handleWindowChange = (next: WindowOption) => {
+    setHasUserOverriddenWindow(true)
+    setSelectedWindow(next)
+  }
+
+  // US-14.2: the WindowSelector active button reflects what's actually
+  // RENDERING — which during/after a cascade may differ from
+  // `selectedWindow`. When state.kind === 'done', derive the displayed
+  // window from the response's `window_trading_days`. Otherwise (idle,
+  // loading, error) fall through to `selectedWindow`.
+  const displayedWindow: WindowOption =
+    state.kind === 'done' && !hasUserOverriddenWindow
+      ? ((state.response.window_trading_days as DrawdownWindow | null) ?? null)
+      : selectedWindow
 
   return (
     <CardShell
@@ -310,8 +381,8 @@ export function DrawdownAnalyticsCard({ snapshot }: DrawdownAnalyticsCardProps) 
       actions={
         <WindowSelector<WindowOption>
           options={WINDOW_OPTIONS}
-          value={selectedWindow}
-          onChange={setSelectedWindow}
+          value={displayedWindow}
+          onChange={handleWindowChange}
           labelFn={labelForWindow}
           ariaLabelFn={ariaForWindow}
         />

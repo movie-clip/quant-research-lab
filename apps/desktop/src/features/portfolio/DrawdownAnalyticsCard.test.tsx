@@ -92,7 +92,12 @@ describe('DrawdownAnalyticsCard', () => {
   })
 
   it('renders the empty-state and no chart when trust is unavailable', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(unavailablePayload()))
+    // US-14.2: with the cascade fallback, an unavailable response triggers
+    // 4 sequential fetch calls (1260 → 756 → 252 → null). Use
+    // mockImplementation so each call gets a FRESH Response (Web Response
+    // bodies are single-use — mockResolvedValue would return the same
+    // already-consumed Response on the second call, throwing on .json()).
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(unavailablePayload())))
     vi.stubGlobal('fetch', fetchMock)
 
     render(<DrawdownAnalyticsCard snapshot={snapshot} />)
@@ -205,5 +210,106 @@ describe('DrawdownAnalyticsCard', () => {
       window_trading_days?: number
     }
     expect(secondBody.window_trading_days).toBe(252)
+  })
+
+  // ── US-14.2: smart-default window cascade fallback ──────────────────────────
+
+  /** Extract the window_trading_days from a fetch mock call's body. Returns
+   *  `undefined` when omitted (i.e. the Max window, where the adapter doesn't
+   *  send the field). */
+  function windowFromCall(call: unknown): number | undefined {
+    const init = (call as [string, { body: string }])[1]
+    const body = JSON.parse(init.body) as { window_trading_days?: number }
+    return body.window_trading_days
+  }
+
+  it('auto_falls_back_from_1260_to_756_when_1260_returns_unavailable', async () => {
+    // First call (1260) → unavailable. Second call (756) → synthetic with
+    // an episode. Cascade should stop at the 756 call and render the data.
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(init.body as string) as { window_trading_days?: number } : {}
+      if (body.window_trading_days === 1260) {
+        return Promise.resolve(jsonResponse(unavailablePayload()))
+      }
+      // 756 (or anything else) → synthetic with an episode
+      return Promise.resolve(jsonResponse(syntheticPayload({
+        episodes: [
+          { peak_date: '2025-03-01', trough_date: '2025-04-01', recovery_date: null, magnitude_pct: -7.5, duration_days: 31, underwater_days: 60 },
+        ],
+      })))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+
+    // Wait for the cascade to land on the synthetic payload from the 2nd call
+    await waitFor(() => expect(screen.getByText(/still underwater/i)).toBeTruthy())
+
+    // Exactly 2 fetch calls: cascade stopped at the first success.
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(windowFromCall(fetchMock.mock.calls[0])).toBe(1260)
+    expect(windowFromCall(fetchMock.mock.calls[1])).toBe(756)
+  })
+
+  it('auto_falls_back_through_all_four_windows_until_exhausted', async () => {
+    // Every window returns unavailable. Cascade walks 1260 → 756 → 252 →
+    // null(Max). Final state: EmptyState.
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(unavailablePayload())))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+
+    await waitFor(() => expect(screen.getByText(/drawdown analytics unavailable/i)).toBeTruthy())
+
+    // Exactly 4 fetch calls in cascade order: 1260, 756, 252, undefined (Max).
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    const windows = fetchMock.mock.calls.map((c) => windowFromCall(c))
+    expect(windows).toEqual([1260, 756, 252, undefined])
+
+    // Chart is not rendered on the unavailable path.
+    expect(screen.queryByRole('img', { name: /underwater drawdown curve/i })).toBeNull()
+  })
+
+  it('user_window_click_disables_auto_fallback', async () => {
+    // Every call returns unavailable. Initial render runs the cascade (4
+    // calls). Then user clicks 252d — the click disables auto-fallback,
+    // so the subsequent fetch is exactly ONE call (window=252) regardless
+    // of its result.
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(unavailablePayload())))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+
+    // Wait for the initial cascade (4 calls) to complete and land on
+    // EmptyState.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+    expect(screen.getByText(/drawdown analytics unavailable/i)).toBeTruthy()
+
+    // User clicks 252d explicitly — sets hasUserOverriddenWindow=true.
+    fireEvent.click(screen.getByRole('button', { name: '252 trading day window' }))
+
+    // Exactly ONE more fetch call (the 252 call), no cascade after override.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5))
+    expect(windowFromCall(fetchMock.mock.calls[4])).toBe(252)
+
+    // No further fetches happen — give the event loop a tick to confirm.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(fetchMock).toHaveBeenCalledTimes(5)
+  })
+
+  it('auto_fallback_does_not_run_when_first_window_succeeds', async () => {
+    // Happy-path sanity: when window=1260 succeeds immediately, the cascade
+    // does NOT over-fetch the shorter windows.
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(syntheticPayload())))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+
+    // Wait for the synthetic data to render
+    await waitFor(() => expect(screen.getByRole('img', { name: /underwater drawdown curve/i })).toBeTruthy())
+
+    // Exactly 1 fetch call — no fallback attempted.
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(windowFromCall(fetchMock.mock.calls[0])).toBe(1260)
   })
 })
