@@ -18,6 +18,20 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 14 — Post-Epic-13 Bug Sweep (active)
+
+PRD: [`prd/epic-14-post-epic-13-bug-sweep.md`](../prd/epic-14-post-epic-13-bug-sweep.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-14.1](US-14.1-fix-overlay-symbol-collision.md) | Fix overlay symbol collision (sum, don't replace) | Frontend — `overlayImportedSnapshot` in `portfolioSnapshot.ts` | Done |
+| US-14.2 | DrawdownAnalyticsCard smart-default window fallback | Frontend — cycle 1260→756→252→Max on `trust='unavailable'` | Backlog |
+| US-14.3 | Freedom24 FMP company-profile enrichment for unknown symbols | Backend — new shared `enrich_imported_instrument` helper + Freedom24 parser wire-up | Backlog |
+
+Recommended build order: 14.1 → 14.2 → 14.3.
+
+---
+
 ### Epic 13 — Risk Analytics Tab (complete)
 
 PRD: [`prd/epic-13-risk-analytics-tab.md`](../prd/epic-13-risk-analytics-tab.md)

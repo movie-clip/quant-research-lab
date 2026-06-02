@@ -1,6 +1,37 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-01 (Epic 13 complete).*
+*Living execution snapshot. Updated: 2026-06-01 (Epic 14 active).*
+
+---
+
+## Active Epic: Epic 14 — Post-Epic-13 Bug Sweep
+
+**PRD:** [`docs/product/prd/epic-14-post-epic-13-bug-sweep.md`](product/prd/epic-14-post-epic-13-bug-sweep.md)
+
+### Goal
+
+Sweep three independent bugs that surfaced from running the
+shipped Epic 13 product: overlay symbol-collision in
+"Add Statement", DrawdownAnalyticsCard missing smart-default
+window fallback, and Freedom24 unknown-symbol "Other" sector
+mis-classification.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-14.1 | Fix overlay symbol collision (sum, don't replace) | Done |
+| US-14.2 | DrawdownAnalyticsCard smart-default window fallback | Backlog |
+| US-14.3 | Freedom24 FMP company-profile enrichment for unknown symbols | Backlog |
+
+Recommended build order: 14.1 → 14.2 → 14.3.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-01 | — | Epic created from post-Epic-13 user-feedback bug sweep. PRD authored; three-story plan (overlay collision → drawdown smart-default → Freedom24 FMP enrichment). |
+| 2026-06-01 | US-14.1 | `overlayImportedSnapshot` (in `apps/desktop/src/features/portfolio/portfolioSnapshot.ts`) now SUMS `marketValue` + `quantity` when a symbol appears in both base and imported statements (was REPLACE — silently lost the base statement's dollars on any ticker overlap). Parallel fix for cash balances: sum amounts when the same currency appears in both. Quantity null-handling preserves fail-closed semantics: both-null stays null (no fabricated 0); one-null treats null as 0 in the sum. Two existing US-10.2 overlay tests that accidentally pinned the REPLACE behaviour (`does not duplicate symbols when the same symbol appears in two overlays` and the 3-broker USD cash assertion) updated to assert the SUM, with inline US-14.1 comments. +6 new vitest pinning marketValue sum, quantity sum, both null-cases, sector preservation, and cash-balance sum. 310 backend + 187 frontend (+6) green; `npx tsc --noEmit` clean. No retroactive remediation for users who already overlaid overlapping statements — fix applies to future imports only; they'd need to re-import. |
 
 ---
 
@@ -103,7 +134,7 @@ Give the researcher a clear answer to "where did my returns come from?" by decom
 
 ---
 
-## Active Epic: Epic 10 — Multi-broker Import Correctness
+## Completed Epic: Epic 10 — Multi-broker Import Correctness
 
 **PRD:** [`docs/product/prd/epic-10-multi-broker-import-correctness.md`](product/prd/epic-10-multi-broker-import-correctness.md)
 
