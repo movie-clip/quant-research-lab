@@ -312,4 +312,163 @@ describe('DrawdownAnalyticsCard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(windowFromCall(fetchMock.mock.calls[0])).toBe(1260)
   })
+
+  // ── US-15.2: Contributors drawer ────────────────────────────────────────────
+
+  /** Build a synthetic payload with 2 episodes, each carrying decomposition
+   *  fields populated per the schema landed in US-15.1. */
+  function decomposedPayload() {
+    const series = syntheticSeries()
+    return {
+      window_trading_days: 1260,
+      underwater_series: series,
+      current_drawdown_pct: -12.0,
+      max_drawdown_pct: -12.0,
+      episodes: [
+        {
+          peak_date: '2025-01-01',
+          trough_date: '2025-01-15',
+          recovery_date: null,
+          magnitude_pct: -10.0,
+          duration_days: 14,
+          underwater_days: 25,
+          top_contributors: [
+            { symbol: 'AAPL', weight_at_peak_pct: 60.0, return_pct: -10.0, contribution_pct: -6.0, trust: 'synthetic' as const },
+            { symbol: 'MSFT', weight_at_peak_pct: 40.0, return_pct: -10.0, contribution_pct: -4.0, trust: 'synthetic' as const },
+          ],
+          other_contribution_pct: null,
+          decomposition_residual_pct: 0.0,
+          decomposition_trust: 'synthetic' as const,
+        },
+        {
+          peak_date: '2025-02-01',
+          trough_date: '2025-02-20',
+          recovery_date: '2025-03-15',
+          magnitude_pct: -5.0,
+          duration_days: 19,
+          underwater_days: 42,
+          top_contributors: [
+            { symbol: 'NVDA', weight_at_peak_pct: 30.0, return_pct: -16.67, contribution_pct: -5.0, trust: 'synthetic' as const },
+          ],
+          other_contribution_pct: null,
+          decomposition_residual_pct: 0.0,
+          decomposition_trust: 'synthetic' as const,
+        },
+      ],
+      trust: 'synthetic' as const,
+    }
+  }
+
+  it('renders_expand_toggle_per_episode_row', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(decomposedPayload())))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+
+    await waitFor(() => expect(screen.getByText('2025-01-01')).toBeTruthy())
+
+    const toggles = screen.getAllByRole('button', { name: /expand contributors for/i })
+    expect(toggles).toHaveLength(2)
+    toggles.forEach((toggle) => {
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    })
+  })
+
+  it('clicking_expand_toggle_reveals_contributors_table_with_top_contributors_rendered', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(decomposedPayload())))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+
+    await waitFor(() => expect(screen.getByText('2025-01-01')).toBeTruthy())
+
+    // Before click, AAPL (episode 1's top contributor) is not in the DOM.
+    expect(screen.queryByText('AAPL')).toBeNull()
+
+    const firstToggle = screen.getAllByRole('button', { name: /expand contributors for/i })[0]!
+    fireEvent.click(firstToggle)
+
+    // After click, AAPL appears and toggle is expanded.
+    expect(screen.getByText('AAPL')).toBeTruthy()
+    // After expansion, the toggle's accessible name flips to "Collapse..."
+    const collapseToggle = screen.getByRole('button', { name: /collapse contributors for 2025-01-01/i })
+    expect(collapseToggle.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('clicking_another_episode_toggle_swaps_focus_and_collapses_first', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(decomposedPayload())))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+
+    await waitFor(() => expect(screen.getByText('2025-01-01')).toBeTruthy())
+
+    // Open episode 1 (the bigger -10% magnitude, sorted first).
+    const ep1Toggle = screen.getByRole('button', { name: /expand contributors for 2025-01-01/i })
+    fireEvent.click(ep1Toggle)
+    expect(screen.getByText('AAPL')).toBeTruthy()
+
+    // Click episode 2's toggle.
+    const ep2Toggle = screen.getByRole('button', { name: /expand contributors for 2025-02-01/i })
+    fireEvent.click(ep2Toggle)
+
+    // Episode 2's NVDA is now visible; episode 1's AAPL is gone (single-open).
+    expect(screen.getByText('NVDA')).toBeTruthy()
+    expect(screen.queryByText('AAPL')).toBeNull()
+  })
+
+  it('renders_partial_trust_caption_with_residual_value_when_decomposition_trust_is_partial', async () => {
+    const partial = decomposedPayload()
+    partial.episodes[0]!.decomposition_trust = 'partial' as const
+    partial.episodes[0]!.decomposition_residual_pct = -3.45
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(partial)))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+    await waitFor(() => expect(screen.getByText('2025-01-01')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: /expand contributors for 2025-01-01/i }))
+    // -3.45.toFixed(1) rounds to -3.5 in V8 (half-up away from zero).
+    expect(screen.getByText(/partial: -3\.[45]% unexplained/i)).toBeTruthy()
+  })
+
+  it('expand_toggle_is_disabled_when_decomposition_trust_is_unavailable', async () => {
+    const unavail = decomposedPayload()
+    unavail.episodes[0]!.decomposition_trust = 'unavailable' as const
+    unavail.episodes[0]!.top_contributors = null
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(unavail)))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+    await waitFor(() => expect(screen.getByText('2025-01-01')).toBeTruthy())
+
+    const disabledToggle = screen.getByRole('button', { name: /decomposition unavailable for 2025-01-01/i })
+    expect((disabledToggle as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('renders_other_and_residual_rows_when_applicable_and_skips_residual_when_near_zero', async () => {
+    const payload = decomposedPayload()
+    // Episode 1: has Other + material Residual → both rows should render
+    payload.episodes[0]!.other_contribution_pct = -1.5
+    payload.episodes[0]!.decomposition_residual_pct = -3.45
+    payload.episodes[0]!.decomposition_trust = 'partial' as const
+    // Episode 2: no Other (null) + negligible Residual (0.001) → neither row
+    payload.episodes[1]!.other_contribution_pct = null
+    payload.episodes[1]!.decomposition_residual_pct = 0.001
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(payload)))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DrawdownAnalyticsCard snapshot={snapshot} />)
+    await waitFor(() => expect(screen.getByText('2025-01-01')).toBeTruthy())
+
+    // Open episode 1: both rows visible.
+    fireEvent.click(screen.getByRole('button', { name: /expand contributors for 2025-01-01/i }))
+    expect(screen.getByText('Other')).toBeTruthy()
+    expect(screen.getByText(/residual \(unexplained\)/i)).toBeTruthy()
+
+    // Open episode 2 (single-open closes episode 1): neither row visible.
+    fireEvent.click(screen.getByRole('button', { name: /expand contributors for 2025-02-01/i }))
+    expect(screen.queryByText('Other')).toBeNull()
+    expect(screen.queryByText(/residual \(unexplained\)/i)).toBeNull()
+  })
 })

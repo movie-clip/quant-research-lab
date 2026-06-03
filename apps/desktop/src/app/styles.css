@@ -709,6 +709,15 @@ select.path-input option {
   gap: var(--space-xl);
 }
 
+/* Drawdown card "Contributors" drawer (Epic 15 / US-15.2). Below the
+   narrow-width threshold the Weight @ Peak and Return columns are
+   hidden — Symbol + Contribution alone carry the headline signal. */
+@media (max-width: 520px) {
+  .drawdown-contributor-secondary {
+    display: none;
+  }
+}
+
 .dashboard-shell-section,
 .exposure-shell-section {
   border: 1px solid rgba(92, 112, 133, 0.46);

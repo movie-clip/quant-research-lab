@@ -25,7 +25,7 @@ PRD: [`prd/epic-15-position-level-analytics.md`](../prd/epic-15-position-level-a
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-15.1](US-15.1-drawdown-decomposition-engine.md) | Drawdown decomposition engine + schema | Backend — `decompose_drawdown_episode()` in `analytics/drawdown.py`; extend `DrawdownEpisode` Pydantic schema; wire into `drawdown_engine` | Done |
-| US-15.2 | Drawdown card "Contributors" drawer | Frontend — expandable per-episode drawer in `DrawdownAnalyticsCard.tsx` | Backlog |
+| [US-15.2](US-15.2-drawdown-contributors-drawer.md) | Drawdown card "Contributors" drawer | Frontend — expandable per-episode drawer in `DrawdownAnalyticsCard.tsx` | Done |
 | US-15.3 | Factor loading drift chart (Exposure tab) | Frontend — new card visualizing existing `rolling_loadings_*` time series | Backlog |
 | US-15.4 | Epic 15 docs close-out | Docs — `risk-fields.md`, `exposure-fields.md`, methodology verify, current-product-state | Backlog |
 

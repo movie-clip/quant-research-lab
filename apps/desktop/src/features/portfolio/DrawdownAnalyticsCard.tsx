@@ -16,11 +16,11 @@
  * Self-fetching component — owns its window selector state and re-fetches
  * the engine on `[snapshot, selectedWindow]` change.
  */
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { runDrawdownEngine } from './portfolioAnalysisAdapter'
-import type { DrawdownEngineResponse, DrawdownEpisode, DrawdownWindow } from './types'
+import type { DrawdownEngineResponse, DrawdownEpisode, DrawdownWindow, EpisodeContributor } from './types'
 import { CardShell } from '../../app/primitives/CardShell'
 import { ChartShell } from '../../app/primitives/ChartShell'
 import {
@@ -182,11 +182,241 @@ function UnderwaterChart({ series }: { series: DrawdownEngineResponse['underwate
 
 // ── Episodes table ────────────────────────────────────────────────────────────
 
+function formatSignedPct(value: number | null | undefined): string {
+  if (value == null) return '—'
+  const sign = value >= 0 ? '+' : ''
+  return `${sign}${value.toFixed(2)}%`
+}
+
+function signedColor(value: number | null | undefined): string {
+  if (value == null) return 'var(--color-text-muted)'
+  if (value < 0) return 'var(--color-value-negative)'
+  if (value > 0) return 'var(--color-value-positive)'
+  return 'var(--color-text-muted)'
+}
+
+// US-15.2 visibility thresholds. Below these, the corresponding row is
+// treated as floating-point noise / immaterial and hidden — the
+// methodology Contract rule still requires `residual` is REPORTED in the
+// schema, but the UI hides cells that would otherwise look like clutter
+// from rounding artifacts.
+const _OTHER_ROW_THRESHOLD_PCT = 0.01
+const _RESIDUAL_ROW_THRESHOLD_PCT = 0.05
+
+/** Renders the per-episode "Contributors" sub-table inside a drawer row.
+ *  Pure rendering — no state, no side effects. */
+function ContributorsDrawer({ episode }: { episode: DrawdownEpisode }) {
+  const cellPadding = 'var(--space-xs) var(--space-md)'
+  const topContributors: EpisodeContributor[] = episode.top_contributors ?? []
+  const other = episode.other_contribution_pct
+  const residual = episode.decomposition_residual_pct
+  const showOther = other != null && Math.abs(other) >= _OTHER_ROW_THRESHOLD_PCT
+  const showResidual = residual != null && Math.abs(residual) > _RESIDUAL_ROW_THRESHOLD_PCT
+
+  return (
+    <div style={{ padding: 'var(--space-md) var(--space-md) var(--space-md) var(--space-xl)' }}>
+      {episode.decomposition_trust === 'partial' && residual != null && (
+        <p
+          style={{
+            margin: '0 0 var(--space-sm) 0',
+            fontSize: 'var(--font-caption)',
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          Partial: {residual.toFixed(1)}% unexplained (some positions missing price history).
+        </p>
+      )}
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: 'var(--border-thin) solid var(--color-border-subtle)' }}>
+            <th
+              style={{
+                padding: cellPadding,
+                textAlign: 'left',
+                fontSize: 'var(--font-caption)',
+                fontWeight: 600,
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              Symbol
+            </th>
+            <th
+              className="drawdown-contributor-secondary"
+              style={{
+                padding: cellPadding,
+                textAlign: 'right',
+                fontSize: 'var(--font-caption)',
+                fontWeight: 600,
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              Weight @ Peak
+            </th>
+            <th
+              className="drawdown-contributor-secondary"
+              style={{
+                padding: cellPadding,
+                textAlign: 'right',
+                fontSize: 'var(--font-caption)',
+                fontWeight: 600,
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              Return
+            </th>
+            <th
+              style={{
+                padding: cellPadding,
+                textAlign: 'right',
+                fontSize: 'var(--font-caption)',
+                fontWeight: 600,
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              Contribution
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {topContributors.map((c) => (
+            <tr key={c.symbol} style={{ borderBottom: 'var(--border-thin) solid var(--color-border-subtle)' }}>
+              <td
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  fontWeight: 500,
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                {c.symbol}
+              </td>
+              <td
+                className="drawdown-contributor-secondary"
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--color-text-muted)',
+                  textAlign: 'right',
+                }}
+              >
+                {c.weight_at_peak_pct == null ? '—' : `${c.weight_at_peak_pct.toFixed(2)}%`}
+              </td>
+              <td
+                className="drawdown-contributor-secondary"
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: signedColor(c.return_pct),
+                  textAlign: 'right',
+                }}
+              >
+                {formatSignedPct(c.return_pct)}
+              </td>
+              <td
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: signedColor(c.contribution_pct),
+                  textAlign: 'right',
+                }}
+              >
+                {formatSignedPct(c.contribution_pct)}
+              </td>
+            </tr>
+          ))}
+          {showOther && (
+            <tr style={{ borderBottom: 'var(--border-thin) solid var(--color-border-subtle)' }}>
+              <td
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Other
+              </td>
+              <td
+                className="drawdown-contributor-secondary"
+                style={{ padding: cellPadding, color: 'var(--color-text-muted)', textAlign: 'right' }}
+              >
+                —
+              </td>
+              <td
+                className="drawdown-contributor-secondary"
+                style={{ padding: cellPadding, color: 'var(--color-text-muted)', textAlign: 'right' }}
+              >
+                —
+              </td>
+              <td
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: signedColor(other),
+                  textAlign: 'right',
+                }}
+              >
+                {formatSignedPct(other)}
+              </td>
+            </tr>
+          )}
+          {showResidual && (
+            <tr>
+              <td
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  fontStyle: 'italic',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                Residual (unexplained)
+              </td>
+              <td
+                className="drawdown-contributor-secondary"
+                style={{ padding: cellPadding, color: 'var(--color-text-muted)', textAlign: 'right' }}
+              >
+                —
+              </td>
+              <td
+                className="drawdown-contributor-secondary"
+                style={{ padding: cellPadding, color: 'var(--color-text-muted)', textAlign: 'right' }}
+              >
+                —
+              </td>
+              <td
+                style={{
+                  padding: cellPadding,
+                  fontSize: 'var(--font-body-sm)',
+                  fontStyle: 'italic',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: signedColor(residual),
+                  textAlign: 'right',
+                }}
+              >
+                {formatSignedPct(residual)}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function EpisodesTable({ episodes }: { episodes: DrawdownEpisode[] }) {
   // Defensive sort: backend already sorts deepest-first, but the AC requires
   // the rendered table be deepest-first regardless of input order. magnitude_pct
   // is signed-negative, so ascending sort puts the most-negative first.
   const sorted = [...episodes].sort((a, b) => a.magnitude_pct - b.magnitude_pct)
+
+  // US-15.2: single-open drawer state. Episode key = `${peak}-${trough}`.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
   if (sorted.length === 0) {
     return (
@@ -197,11 +427,24 @@ function EpisodesTable({ episodes }: { episodes: DrawdownEpisode[] }) {
   }
 
   const cellPadding = 'var(--space-sm) var(--space-md)'
+  // Parent table has 7 columns now (toggle + 6 episode columns); drawer spans all.
+  const drawerColSpan = 7
 
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 'var(--space-md)' }}>
       <thead>
         <tr style={{ borderBottom: 'var(--border-thin) solid var(--color-border-card)' }}>
+          {/* Expand toggle column — no header label */}
+          <th
+            style={{
+              padding: cellPadding,
+              width: 'var(--space-xl)',
+              fontSize: 'var(--font-caption)',
+              fontWeight: 600,
+              color: 'var(--color-text-muted)',
+            }}
+            aria-hidden="true"
+          />
           {['Peak', 'Trough', 'Recovery', 'Magnitude', 'Duration', 'Underwater'].map((header, idx) => (
             <th
               key={header}
@@ -221,44 +464,93 @@ function EpisodesTable({ episodes }: { episodes: DrawdownEpisode[] }) {
         </tr>
       </thead>
       <tbody>
-        {sorted.map((episode) => (
-          <tr
-            key={`${episode.peak_date}-${episode.trough_date}`}
-            style={{ borderBottom: 'var(--border-thin) solid var(--color-border-subtle)' }}
-          >
-            <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
-              {episode.peak_date}
-            </td>
-            <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
-              {episode.trough_date}
-            </td>
-            <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
-              {episode.recovery_date == null ? (
-                <span style={{ fontStyle: 'italic', color: 'var(--color-text-muted)' }}>Still underwater</span>
-              ) : (
-                episode.recovery_date
+        {sorted.map((episode) => {
+          const key = `${episode.peak_date}-${episode.trough_date}`
+          const isExpanded = expandedKey === key
+          // US-15.2 AC9: toggle disabled when decomposition is unavailable
+          // OR top_contributors is null/absent.
+          const isDecomposed =
+            episode.decomposition_trust !== 'unavailable'
+            && episode.decomposition_trust !== undefined
+            && episode.top_contributors != null
+            && episode.top_contributors.length > 0
+          const drawerId = `contributors-${key}`
+          const toggleAriaLabel = !isDecomposed
+            ? `Decomposition unavailable for ${episode.peak_date} episode`
+            : isExpanded
+              ? `Collapse contributors for ${episode.peak_date} episode`
+              : `Expand contributors for ${episode.peak_date} episode`
+          const toggleTitle = !isDecomposed
+            ? "Position-level prices not available for this episode's date range."
+            : undefined
+
+          return (
+            <Fragment key={key}>
+              <tr style={{ borderBottom: 'var(--border-thin) solid var(--color-border-subtle)' }}>
+                <td style={{ padding: cellPadding, verticalAlign: 'middle' }}>
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={drawerId}
+                    aria-label={toggleAriaLabel}
+                    title={toggleTitle}
+                    disabled={!isDecomposed}
+                    onClick={() => { setExpandedKey(isExpanded ? null : key) }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 'var(--space-xs)',
+                      cursor: isDecomposed ? 'pointer' : 'not-allowed',
+                      color: isDecomposed ? 'var(--color-text-secondary)' : 'var(--color-text-disabled)',
+                      fontSize: 'var(--font-body-sm)',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {isExpanded ? '▾' : '▸'}
+                  </button>
+                </td>
+                <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
+                  {episode.peak_date}
+                </td>
+                <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
+                  {episode.trough_date}
+                </td>
+                <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-secondary)' }}>
+                  {episode.recovery_date == null ? (
+                    <span style={{ fontStyle: 'italic', color: 'var(--color-text-muted)' }}>Still underwater</span>
+                  ) : (
+                    episode.recovery_date
+                  )}
+                </td>
+                <td
+                  style={{
+                    padding: cellPadding,
+                    fontSize: 'var(--font-body-sm)',
+                    fontWeight: 600,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: 'var(--color-value-negative)',
+                    textAlign: 'right',
+                  }}
+                >
+                  {formatMagnitudePct(episode.magnitude_pct)}
+                </td>
+                <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-muted)', textAlign: 'right' }}>
+                  {formatDays(episode.duration_days)}
+                </td>
+                <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-muted)', textAlign: 'right' }}>
+                  {formatDays(episode.underwater_days)}
+                </td>
+              </tr>
+              {isExpanded && (
+                <tr id={drawerId}>
+                  <td colSpan={drawerColSpan} style={{ padding: 0 }}>
+                    <ContributorsDrawer episode={episode} />
+                  </td>
+                </tr>
               )}
-            </td>
-            <td
-              style={{
-                padding: cellPadding,
-                fontSize: 'var(--font-body-sm)',
-                fontWeight: 600,
-                fontVariantNumeric: 'tabular-nums',
-                color: 'var(--color-value-negative)',
-                textAlign: 'right',
-              }}
-            >
-              {formatMagnitudePct(episode.magnitude_pct)}
-            </td>
-            <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-muted)', textAlign: 'right' }}>
-              {formatDays(episode.duration_days)}
-            </td>
-            <td style={{ padding: cellPadding, fontSize: 'var(--font-body-sm)', fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-muted)', textAlign: 'right' }}>
-              {formatDays(episode.underwater_days)}
-            </td>
-          </tr>
-        ))}
+            </Fragment>
+          )
+        })}
       </tbody>
     </table>
   )
