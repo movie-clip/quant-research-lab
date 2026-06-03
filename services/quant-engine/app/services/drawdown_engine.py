@@ -17,6 +17,7 @@ from datetime import date, timedelta
 from app.analytics.drawdown import (
     build_underwater_series,
     current_drawdown_pct,
+    decompose_drawdown_episode,
     identify_drawdown_episodes,
     max_drawdown_pct,
 )
@@ -142,11 +143,38 @@ def run_drawdown_engine(request: DrawdownEngineRequest) -> DrawdownEngineRespons
     if len(underwater) < _MIN_OBSERVATIONS:
         return _empty_response(window)
 
+    episodes = identify_drawdown_episodes(underwater, top_n=_TOP_N_EPISODES)
+
+    # US-15.1: per-position decomposition for each top-N episode.
+    # Mutates each episode in place via model_copy (Pydantic) to populate the
+    # top_contributors / other_contribution_pct / decomposition_residual_pct
+    # / decomposition_trust fields. Skipped naturally when daily_states is
+    # empty (decompose returns 'unavailable'); fail-graceful per methodology.
+    decomposed_episodes = [
+        episode.model_copy(update=_decompose_fields(daily_states, episode))
+        for episode in episodes
+    ]
+
     return DrawdownEngineResponse(
         window_trading_days=window,
         underwater_series=underwater,
         current_drawdown_pct=current_drawdown_pct(underwater),
         max_drawdown_pct=max_drawdown_pct(underwater),
-        episodes=identify_drawdown_episodes(underwater, top_n=_TOP_N_EPISODES),
+        episodes=decomposed_episodes,
         trust="synthetic",
     )
+
+
+def _decompose_fields(daily_states: list, episode) -> dict:
+    """Run decompose_drawdown_episode and return a dict ready for
+    `model_copy(update=...)`. Pulled into a helper so the engine's main
+    body stays readable."""
+    top_contributors, other_contribution_pct, residual_pct, trust = (
+        decompose_drawdown_episode(daily_states, episode, top_n=_TOP_N_EPISODES)
+    )
+    return {
+        "top_contributors": top_contributors,
+        "other_contribution_pct": other_contribution_pct,
+        "decomposition_residual_pct": residual_pct,
+        "decomposition_trust": trust,
+    }

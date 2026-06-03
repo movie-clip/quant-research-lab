@@ -1,6 +1,38 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-01 (Epic 14 complete).*
+*Living execution snapshot. Updated: 2026-06-01 (Epic 15 active).*
+
+---
+
+## Active Epic: Epic 15 — Position-Level Analytics
+
+**PRD:** [`docs/product/prd/epic-15-position-level-analytics.md`](product/prd/epic-15-position-level-analytics.md)
+
+### Goal
+
+Answer "which positions drove that?" for every Risk-tab metric by
+decomposing drawdown episodes into per-position contributions
+(arithmetic Brinson under synthetic-history convention) AND
+visualize the existing rolling factor loadings on the Exposure tab
+so researchers can see how their factor mix has drifted over time.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-15.1 | Drawdown decomposition engine + schema | Done |
+| US-15.2 | Drawdown card "Contributors" drawer | Backlog |
+| US-15.3 | Factor loading drift chart (Exposure tab) | Backlog |
+| US-15.4 | Epic 15 docs close-out | Backlog |
+
+Recommended build order: 15.1 → 15.2 → 15.3 → 15.4.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-01 | — | Epic created. `quant-research` brief covering arithmetic Brinson-style position decomposition (Brinson Hood Beebower 1986; Goldberg & Mahmoud 2017 §3); methodology extended with `### Drawdown episode decomposition` subsection under §Wealth Index and Drawdown; PRD authored; four-story plan (decomposition engine → drawer UI → factor drift chart → docs close-out). |
+| 2026-06-01 | US-15.1 | Drawdown decomposition engine landed. New `decompose_drawdown_episode(daily_states, episode, top_n=5)` in `app/analytics/drawdown.py` implements arithmetic Brinson-style attribution under the synthetic-history convention: `contribution_pct = (V_i(t_peak) / V_p(t_peak)) × (p_i(t_trough) / p_i(t_peak) − 1) × 100`. Iterates `state.positions` only — cash naturally contributes 0 per methodology Contract rule. New `EpisodeContributor` schema + 4 nullable-default fields on `DrawdownEpisode` (`top_contributors`, `other_contribution_pct`, `decomposition_residual_pct`, `decomposition_trust ∈ {'synthetic','partial','unavailable'}`). Wire-up in `drawdown_engine.run_drawdown_engine` decomposes each top-N episode via `model_copy(update=...)`. Reconciliation invariant `|magnitude − (sum_top + other + residual)| < 1e-9` enforced as defensive ValueError post-condition. TS mirror types added (`EpisodeContributor`, `DrawdownDecompositionTrust`, extended `DrawdownEpisode`); all nullable so existing fixtures stay valid. +9 backend tests (7 analytics + 2 engine); 330 backend (+9) + 191 frontend green; `npx tsc --noEmit` clean; no dashboardGoldens regen. |
 
 ---
 

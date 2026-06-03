@@ -177,7 +177,8 @@ Implementation:
   `_build_wealth_index(...)`, `_build_drawdown_from_return_index(...)`
 - `services/quant-engine/app/analytics/drawdown.py` —
   `build_underwater_series(...)`, `identify_drawdown_episodes(...)`,
-  `current_drawdown_pct(...)`, `max_drawdown_pct(...)` (Epic 13 / US-13.2)
+  `current_drawdown_pct(...)`, `max_drawdown_pct(...)` (Epic 13 / US-13.2),
+  `decompose_drawdown_episode(...)` (Epic 15 / US-15.1)
 - `services/quant-engine/app/services/drawdown_engine.py` —
   `run_drawdown_engine(...)` (wires market data → analytics)
 - `services/quant-engine/app/api/routes/drawdown.py` —
@@ -187,6 +188,85 @@ Contract rule:
 - `recovery_date = null` is distinct from "no episode" — it explicitly signals
   the portfolio is still under water. UI must surface this state, not collapse
   it to "no data".
+
+### Drawdown episode decomposition
+
+Decomposes a drawdown episode's portfolio-level magnitude into per-position
+contributions using arithmetic Brinson-style attribution under the
+synthetic-history convention (current holdings × historical prices, no
+rebalancing).
+
+```text
+Per-position contribution:
+  contribution_i  =  w_i(t_peak)  ×  r_i
+
+where:
+  w_i(t_peak)  =  V_i(t_peak) / V_p(t_peak)
+                 = (q_i × p_i(t_peak)) / Σ_j (q_j × p_j(t_peak))
+  r_i          =  p_i(t_trough) / p_i(t_peak) − 1
+  q_i          =  synthetic quantity (current holdings; see
+                  `_build_synthetic_snapshot_history_states`)
+  p_i(t)       =  adjusted-close price for symbol i on date t
+  V_p(t)       =  Σ_j (q_j × p_j(t))    (portfolio market value at t)
+  V_i(t)       =  q_i × p_i(t)          (position i's market value at t)
+
+  contribution_i is in decimal; the schema reports
+    contribution_pct = contribution_i × 100.
+
+Episode-level residual:
+  residual_pct  =  episode.magnitude_pct
+                   − Σ_i contribution_i_non_null × 100
+  (sum runs over positions with non-null contribution_i only)
+
+Reconciliation invariant:
+  |episode.magnitude_pct − (Σ_i contribution_pct + residual_pct)|  <  1e-9
+  The engine MUST raise rather than emit values that violate this.
+
+Top-N selection:
+  Sort decomposable positions by abs(contribution_pct) descending; keep
+  first N (default N = 5). Positions ranked 6+ aggregate into a single
+  `other_contribution_pct` value preserving the reconciliation.
+```
+
+Edge cases:
+- `p_i(t_peak)` or `p_i(t_trough)` null: `contribution_i = null`; surface
+  as `trust='unavailable'` at the contributor level — never fabricate as zero.
+- `V_p(t_peak) = 0`: entire decomposition undefined →
+  `decomposition_trust = 'unavailable'`.
+- Cash: `r_cash = 0` ⇒ `contribution_cash = 0`; cash weight counts in the
+  denominator but cash is NOT listed as a contributor (zero row adds no
+  signal).
+- Position added after `t_peak`: no synthetic price pre-peak ⇒
+  `contribution_i = null`; portfolio residual absorbs the gap.
+
+Synthetic-history caveat:
+- The decomposition answers "given my current portfolio composition, what
+  would each position have contributed during this historical episode?" —
+  NOT "what each position actually contributed when this happened in my
+  real account history." The latter requires ledger history with per-day
+  weights, which is out of current scope.
+
+Academic precedent:
+- Brinson, Hood & Beebower (1986), "Determinants of Portfolio
+  Performance," *Financial Analysts Journal* 42(4): 39–44 — foundational
+  arithmetic attribution framework
+- Goldberg & Mahmoud (2017) §3, "Drawdown: from practice to theory and
+  back again," *Mathematics and Financial Economics* 11(3): 275–297 —
+  extends drawdown theory to position-level decomposition under
+  static-weight assumption
+- Bertsimas, Lauprete & Samarov (2004), "Shortfall as a risk measure:
+  properties, optimization and applications," *Journal of Economic
+  Dynamics and Control* 28(7): 1353–1381 — coherent contribution
+  measures (referenced for context; not used as the operative formula)
+
+Contract rule:
+- never fabricate a zero contribution to fill a price-data gap; surface
+  `null` + per-row `trust='unavailable'` instead
+- `residual_pct` is always reported (never hidden) so the UI can surface
+  partial-data states
+- the reconciliation identity must hold to within 1e-9; violations raise
+  rather than emit inconsistent data (same discipline as the CVaR ≥ VaR
+  invariant in §Value-at-Risk and Distribution)
 
 ## Volatility and Relative Risk
 

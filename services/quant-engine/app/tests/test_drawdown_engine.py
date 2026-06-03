@@ -102,3 +102,34 @@ def test_post_drawdown_run_returns_422_on_malformed_payload() -> None:
         json={"window_trading_days": "not-an-int"},
     )
     assert response.status_code == 422
+
+
+# ── US-15.1: per-position decomposition wire-up ──────────────────────────────
+
+
+def test_run_drawdown_engine_populates_decomposition_for_episodes_when_positions_present() -> None:
+    """Real AAPL + MSFT portfolio: every episode in the response should carry
+    decomposition fields with trust other than 'unavailable' (when synthetic
+    history is available). Reconciliation invariant is checked inside the
+    engine (raises if violated) so we just assert the fields look populated."""
+    request = _make_request()
+    result = run_drawdown_engine(request)
+
+    assert result.trust == "synthetic"
+    # At least one episode populated (real history usually has multiple).
+    assert len(result.episodes) >= 1
+    for episode in result.episodes:
+        assert episode.decomposition_trust in {"synthetic", "partial"}
+        assert episode.top_contributors is not None
+        assert len(episode.top_contributors) >= 1
+        # Residual is always non-null when decomposition ran.
+        assert episode.decomposition_residual_pct is not None
+
+
+def test_run_drawdown_engine_skips_decomposition_when_no_positions() -> None:
+    """Empty positions → engine returns trust='unavailable' with empty
+    episodes list (no decomposition runs). Sanity: no exception."""
+    request = _make_request(positions=[])
+    result = run_drawdown_engine(request)
+    assert result.trust == "unavailable"
+    assert result.episodes == []

@@ -877,8 +877,27 @@ export type DrawdownDailyPoint = {
   drawdown_pct: number | null
 }
 
+/** Per-episode decomposition trust (Epic 15 / US-15.1). 'partial' when
+ *  the episode could be decomposed but some positions had missing prices
+ *  at peak/trough. */
+export type DrawdownDecompositionTrust = 'synthetic' | 'partial' | 'unavailable'
+
+/** One position's contribution to a drawdown episode (Epic 15 / US-15.1).
+ *  contribution_pct is signed — negative = drag, positive = position rallied
+ *  while portfolio overall sank. trust='unavailable' when any of the three
+ *  pcts is null (missing price at peak or trough). */
+export type EpisodeContributor = {
+  symbol: string
+  weight_at_peak_pct: number | null
+  return_pct: number | null
+  contribution_pct: number | null
+  trust: 'synthetic' | 'unavailable'
+}
+
 /** One drawdown episode (peak → trough → optional recovery).
- *  `recovery_date === null` means still underwater at series end. */
+ *  `recovery_date === null` means still underwater at series end.
+ *  Decomposition fields (Epic 15) are nullable defaults — episodes
+ *  constructed without decomposition (older fixtures) stay valid. */
 export type DrawdownEpisode = {
   peak_date: string
   trough_date: string
@@ -886,6 +905,11 @@ export type DrawdownEpisode = {
   magnitude_pct: number   // always ≤ 0; "deepest" = most negative
   duration_days: number   // trough - peak (calendar days)
   underwater_days: number // (recovery or last) - peak (calendar days)
+  // Per-position decomposition (Epic 15 / US-15.1):
+  top_contributors?: EpisodeContributor[] | null
+  other_contribution_pct?: number | null
+  decomposition_residual_pct?: number | null
+  decomposition_trust?: DrawdownDecompositionTrust
 }
 
 /** Response wrapper from POST /engines/drawdown/run (Epic 13 — Risk tab). */
