@@ -2,6 +2,7 @@ import type { DriftResult, ExposureAnalysis } from './types'
 import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
 import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
 import { FactorAttributionCard } from './FactorAttributionCard'
+import { FactorDriftSummaryCard } from './FactorDriftSummaryCard'
 import { RollingCorrelationChart } from './RollingCorrelationChart'
 import { CardShell } from '../../app/primitives/CardShell'
 import { TrustBadge } from '../../app/primitives/TrustBadge'
@@ -204,6 +205,8 @@ export function ExposurePanel({
         </CardShell>
 
         <FactorAttributionCard snapshot={result.snapshot ?? null} />
+
+        <FactorDriftSummaryCard result={result} />
 
         <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
           <div className="section-header-inline sector-list-header exposure-section-header">

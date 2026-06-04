@@ -445,6 +445,64 @@ Contract rule:
 - diagnostics-side concentration fields are history-derived risk concentration outputs
 - current-state holdings concentration remains a separate snapshot truth class in exposure contracts
 
+### Factor Loading Drift
+
+A descriptive summary of *how* the rolling factor loadings (above) have moved
+over a selected window. For each factor `k`, drift is the first difference of
+the per-window rolling loading between the latest and the reference observation
+of the same `rolling_loadings_<window>` series:
+
+```text
+drift_k = β_k(t_latest) − β_k(t_reference)
+
+where:
+  β_k(t)       = the rolling OLS loading for factor k at date t (output of the
+                 per-window orthogonalized model above; see §Statistical Factor Model)
+  t_reference  = first date of the window's loading series after leading-null
+                 trimming (the earliest date at which any displayed factor has a
+                 filled window)
+  t_latest     = last date of that same series
+  window       = rolling estimation window: 20, 60, or 252 trading days
+```
+
+Drift is **not a new estimate** — it is a plain difference of two loadings the
+factor model has already produced. No regression, orthogonalization, or
+re-fit is performed to compute it. The reference point is deterministic (the
+first filled date), not user-selectable.
+
+Edge cases:
+- A factor whose reference *or* latest loading is null in the selected window is
+  excluded from the drift summary entirely — never imputed as a 0 drift.
+- If the selected window's loading series is empty after leading-null trimming
+  (insufficient history), no drift is reported and the surface fails closed.
+- A factor with equal reference and latest loadings reports `drift_k = 0`
+  (a real "no drift" reading, distinct from "excluded").
+
+Academic precedent:
+- Ferson, W.E. & Schadt, R.W. (1996). "Measuring Fund Strategy and Performance
+  in Changing Economic Conditions." *Journal of Finance*, 51(2), 425–461.
+  (Conditional, time-varying factor betas.)
+- Jagannathan, R. & Wang, Z. (1996). "The Conditional CAPM and the
+  Cross-Section of Expected Returns." *Journal of Finance*, 51(1), 3–53.
+  (Time-varying exposures as a function of the conditioning state.)
+- Rolling-window beta estimation as a drift proxy follows the standard
+  rolling-regression convention (cf. Fama & MacBeth 1973). The drift statistic
+  itself (`Δβ`) is a first difference requiring no further estimation theory.
+
+Implementation:
+- Computed client-side in
+  `apps/desktop/src/features/portfolio/FactorDriftSummaryCard.tsx` as a
+  presentation-layer rebasing of the engine-computed
+  `statistical_factor_model.rolling_loadings_<window>` series; no backend route.
+
+Contract rule:
+- Drift carries the **synthetic-history** trust class (it inherits the loadings'
+  trust): the loadings apply current holdings to historical proxy prices and are
+  never verified broker return basis. The card renders a `Synthetic` badge and
+  fails closed (EmptyState) when the window has insufficient history.
+- See `docs/contracts/factor-drift-fields.md` for the field-level inventory and
+  UI rendering rules.
+
 ## Stress Scenarios
 
 Stress scenario returns are estimated from current factor exposures.

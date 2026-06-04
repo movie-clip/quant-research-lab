@@ -27,6 +27,7 @@ const CARDS_WITH_BADGE = [
   'RollingCorrelationChart.tsx',
   'FactorAttributionCard.tsx',
   'BenchmarkCorrelationTable.tsx',
+  'FactorDriftSummaryCard.tsx',
 ]
 
 /** Every card file the design system covers (incl. IndexedReturnChart). */
@@ -36,6 +37,7 @@ const ALL_CARD_FILES = [
   'RollingCorrelationChart.tsx',
   'FactorAttributionCard.tsx',
   'BenchmarkCorrelationTable.tsx',
+  'FactorDriftSummaryCard.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g

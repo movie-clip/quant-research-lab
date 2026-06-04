@@ -1,6 +1,35 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-04 (Epic 15 complete).*
+*Living execution snapshot. Updated: 2026-06-04 (Epic 16 complete).*
+
+---
+
+## Completed Epic: Epic 16 — Factor Drift Visualization
+
+**PRD:** [`docs/product/prd/epic-16-factor-drift-visualization.md`](product/prd/epic-16-factor-drift-visualization.md)
+
+### Goal
+
+Answer "how have my factor exposures *moved*?" on the Exposure tab with a
+compact, ranked **Factor Drift Summary** card — per-factor delta (latest
+loading − reference loading) over a selectable rolling window, reusing the
+rolling loadings the engine already computes. Net-new value, no new backend.
+This ships the delta-indicator card parked during Epic 15.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-16.1 | Factor Drift Summary card | Done |
+
+Single-story epic (quick-win follow-up).
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-04 | US-16.1 | Factor Drift Summary card landed on the Exposure tab. New `FactorDriftSummaryCard.tsx` (frontend-only — derives the factor model from the Exposure `result` via `buildExposureFactorModel`, no backend): for the selected window it computes per-factor `drift = β_k(latest) − β_k(reference)` over the trimmed `rolling_loadings_<window>` series, ranks factors by `|drift|` desc (ties by label), and renders divergent magnitude bars (positive right of a zero baseline, negative left) with a signed value + ▲/▼ marker so direction survives color-blindness. Factors null at the reference/latest endpoints are excluded (never 0-imputed); fails closed to an EmptyState when the window has insufficient history. Uses Epic 12 primitives (`CardShell`/`TrustBadge`/`WindowSelector`/`EmptyState`) + factor-palette + value tokens (no hex/px); added to the `designSystem.audit.test.ts` scanned set (5/5 audit green). Wired into `ExposurePanel` after the factor attribution card. Methodology §Statistical Factor Model gained a `### Factor Loading Drift` subsection (Ferson & Schadt 1996; Jagannathan & Wang 1996); new `docs/contracts/factor-drift-fields.md`. **Incidental fix**: annotated `decomposedPayload()` return type in `DrawdownAnalyticsCard.test.tsx` to repair a pre-existing (Epic 15) `tsc` narrowing error unrelated to this story. +8 vitest (ranking, delta = latest−reference, null-endpoint exclusion, window re-rank, two EmptyState paths, badge tooltip, color-blind signal). 205 frontend (+8) green; backend unchanged (330); `npx tsc --noEmit` clean; no dashboardGoldens regen. **Epic 16 fully closed.** |
+| 2026-06-04 | — | Epic created from the Epic 15 parked backlog candidate ("complementary Factor Drift Summary delta-indicator card"). PRD authored; single frontend-only story (`FactorDriftSummaryCard` on the Exposure tab; ranked per-factor `latest − reference` drift bars; 20d/60d/252d window; Synthetic trust badge; methodology §Factor Loading Drift + `factor-drift-fields.md` contract at close-out). |
 
 ---
 
