@@ -49,9 +49,19 @@ hold a position.
   family (cross-sectional regression-based); future.
 - No custom decomposition windows / user-defined date ranges (UX
   scope creep; v1 uses the episode's peak→trough range).
-- No backend methodology change for factor loadings — US-15.3 just
-  visualizes already-computed data from
-  `ExposureAnalysis.statistical_factor_model.rolling_loadings_*`.
+- No new factor-loading-drift visualization. **US-15.3 was
+  cancelled during the cycle** (2026-06-04) after discovery
+  that `RollingFactorLoadingsCard` already ships on the
+  Dashboard tab and visualizes
+  `ExposureAnalysis.statistical_factor_model.rolling_loadings_*`
+  as a multi-line time series with the same 20d/60d/252d
+  window selector, factor-group filter, and per-factor
+  toggle. The use case the brief targeted ("researcher sees
+  how factor mix has drifted over time") is met by the
+  existing card. A future Epic could refactor it to use the
+  Epic 12 design system + add it to the Exposure tab, or
+  add a complementary "Factor Drift Summary" delta-indicator
+  card — left as backlog candidates.
 
 ---
 
@@ -61,8 +71,8 @@ hold a position.
 |---|---|---|
 | US-15.1 | Drawdown decomposition engine + schema | Backend: extend `app/analytics/drawdown.py` with `decompose_drawdown_episode(daily_states, episode, top_n=5)`; extend `DrawdownEpisode` Pydantic schema with `top_contributors`, `other_contribution_pct`, `decomposition_residual_pct`, `decomposition_trust`; wire into `drawdown_engine.run_drawdown_engine` so every episode in the response carries decomposition. Pytest covers the formula, reconciliation invariant, partial-data trust state, and cash handling. |
 | US-15.2 | Drawdown card "Contributors" drawer | Frontend: extend `DrawdownAnalyticsCard.tsx` to render an expandable per-episode drawer (Symbol / Weight @ Peak / Return / Contribution columns, plus "Other (N positions)" aggregate row and "Residual" row when applicable). New TS types in `types.ts`. Vitest covers the drawer interaction, partial-trust caption, and reconciliation render. |
-| US-15.3 | Factor loading drift chart (Exposure tab) | Frontend: new card visualizing existing `rolling_loadings_20d/60d/252d` from the statistical factor model. Multi-line chart (one line per active factor), 20d/60d/252d window selector, factor-color palette already exists. No new backend; no new methodology. Vitest covers line count, window switch, and empty state. |
-| US-15.4 | Epic 15 docs close-out | Docs: extend `docs/contracts/risk-fields.md` with the decomposition fields under the Drawdown section; extend `docs/contracts/exposure-fields.md` (or `correlation-fields.md` — implementer's call) with the factor drift card fields; verify methodology subsection `### Drawdown episode decomposition` matches shipped code; update `current-product-state.md`; flip Epic 15 → Completed in roadmap. |
+| US-15.3 | ~~Factor loading drift chart (Exposure tab)~~ | **Cancelled 2026-06-04**: existing `RollingFactorLoadingsCard` on Dashboard tab already covers the use case. No work shipped under this story; numbering preserved for audit trail. |
+| US-15.4 | Epic 15 docs close-out | Docs: extend `docs/contracts/risk-fields.md` with the decomposition fields under the Drawdown section; verify methodology subsection `### Drawdown episode decomposition` matches shipped code; update `current-product-state.md` with the Drawdown card Contributors drawer; flip Epic 15 → Completed in roadmap. (Originally scoped to also cover the factor drift chart from US-15.3; that scope dropped when US-15.3 was cancelled.) |
 
 Stories must be built in order (15.1 → 15.2 → 15.3 → 15.4).
 US-15.2 depends on US-15.1's schema extension; US-15.3 is

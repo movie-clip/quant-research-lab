@@ -168,6 +168,64 @@ Inherits from `PortfolioEngineRequest`. Adds one field:
 | `magnitude_pct` | `float` | `number` | Magnitude | No | Always ≤ 0; "deepest" = most negative |
 | `duration_days` | `int` | `number` | Duration | No | `trough_date − peak_date` (calendar days); 0 for single-day dips |
 | `underwater_days` | `int` | `number` | Underwater | No | `(recovery_date or last_date) − peak_date` (calendar days) |
+| `top_contributors` | `list[EpisodeContributor] \| None` | `EpisodeContributor[] \| null` | Drawer rows (`Symbol` / `Weight @ Peak` / `Return` / `Contribution`) | Yes | Top-N by `abs(contribution_pct)` desc; `null` when decomposition unavailable. See §Drawdown episode decomposition. (Epic 15 / US-15.1) |
+| `other_contribution_pct` | `float \| None` | `number \| null` | Drawer "Other" aggregate row | Yes | Σ contribution over positions ranked N+1 and beyond; UI hides row when `\|value\| < 0.01%`. (Epic 15 / US-15.1) |
+| `decomposition_residual_pct` | `float \| None` | `number \| null` | Drawer "Residual (unexplained)" row + partial-trust caption | Yes | `magnitude_pct − Σ contribution_pct_non_null`. Near-zero under `'synthetic'` trust; material under `'partial'`. UI hides row when `\|value\| ≤ 0.05%`. (Epic 15 / US-15.1) |
+| `decomposition_trust` | `Literal['synthetic', 'partial', 'unavailable']` | `'synthetic' \| 'partial' \| 'unavailable'` | Drives drawer visibility (toggle disabled if `'unavailable'`) + partial-trust caption | No | Default `'unavailable'` for backward compatibility. (Epic 15 / US-15.1) |
+
+### `EpisodeContributor`
+
+One position's contribution to a drawdown episode (Epic 15 / US-15.1).
+`contribution_pct` is signed: negative = position dragged the portfolio
+down during the episode; positive = position rallied while the portfolio
+overall sank.
+
+| Field | Backend type (Python) | TS type | UI surface (drawer column) | Nullable | Notes |
+|---|---|---|---|---|---|
+| `symbol` | `str` | `string` | Symbol | No | The position's ticker (matches `DailyStatePosition.symbol`) |
+| `weight_at_peak_pct` | `float \| None` | `number \| null` | Weight @ Peak | Yes | `(V_i(t_peak) / V_p(t_peak)) × 100`; null when `p_i(t_peak)` missing |
+| `return_pct` | `float \| None` | `number \| null` | Return | Yes | `(p_i(t_trough) / p_i(t_peak) − 1) × 100`; null when either price missing |
+| `contribution_pct` | `float \| None` | `number \| null` | Contribution (bold, sign-coloured) | Yes | `weight × return × 100`; null when either component null |
+| `trust` | `Literal['synthetic', 'unavailable']` | `'synthetic' \| 'unavailable'` | (Drives null-cell rendering) | No | Per-row: `'synthetic'` ⇔ all three pcts non-null; `'unavailable'` when any is null |
+
+### Decomposition trust state semantics
+
+| Condition | `decomposition_trust` | `top_contributors` | `other_contribution_pct` | `decomposition_residual_pct` |
+|---|---|---|---|---|
+| Peak state missing from `daily_states` | `"unavailable"` | `[]` | `null` | `null` |
+| `V_p(t_peak) == 0` | `"unavailable"` | `[]` | `null` | `null` |
+| No positions yield non-null contribution | `"unavailable"` | `[]` | `null` | `null` |
+| At least one position decomposable; at least one has null contribution (data gap) | `"partial"` | populated (mix of synthetic + unavailable rows) | populated when > top_n decomposable positions | non-zero (captures missing-data share) |
+| Every position decomposable AND `\|residual_pct\| < 0.001` | `"synthetic"` | populated (all `trust='synthetic'`) | populated when > top_n positions | near-zero (floating-point noise only) |
+
+### Decomposition edge cases
+
+- **Data gaps surface as null contribution + per-row `trust='unavailable'`.**
+  When `p_i(t_peak)` or `p_i(t_trough)` is missing, the position's
+  `weight_at_peak_pct` / `return_pct` / `contribution_pct` are all
+  `null` and the per-row `trust='unavailable'`. The engine never
+  fabricates a zero contribution to fill the gap — that would mask
+  the data quality issue.
+- **Cash contributes 0 by construction.** Cash isn't iterated in the
+  decomposition (engine walks `state.positions` only, not
+  `state.cash`); with `r_cash = 0` the contribution would be 0
+  anyway. Cash weight IS in the `V_p(t_peak)` denominator only
+  insofar as the engine uses `total_market_value` (positions-only,
+  excluding cash) — keeping numerator and denominator consistent.
+- **Reconciliation invariant**:
+  `|magnitude_pct − (Σ top_contributors.contribution_pct + (other_contribution_pct or 0) + decomposition_residual_pct)| < 1e-9`.
+  The engine raises `ValueError` (HTTP 400 at the route boundary)
+  when violated. By construction `residual_pct` is defined as the
+  remainder, so violation indicates a floating-point edge case or
+  implementation bug.
+- **Top-N selection sort order**: backend sorts decomposable
+  positions by `abs(contribution_pct)` descending; null contributors
+  sort last. UI does NOT re-sort.
+- **`other_contribution_pct` excludes nulls**: positions ranked N+1
+  and beyond contribute to `other_contribution_pct` only if their
+  `contribution_pct` is non-null. Null contributions are absorbed
+  by `decomposition_residual_pct` (which is what makes residual
+  material on the `'partial'` path).
 
 ### Trust state semantics
 
@@ -235,6 +293,70 @@ Default selected window in the UI is `1260` (≈ 5 years).
   "trust": "unavailable"
 }
 ```
+
+### Example response (with decomposition — Epic 15)
+
+Two episodes showing the per-position decomposition: the first with
+`decomposition_trust='synthetic'` (clean — every position decomposed,
+residual is floating-point noise) and the second with `'partial'`
+(one position had missing price data at the trough, so the residual
+is material and captures the missing-data share). Per
+methodology §Drawdown episode decomposition.
+
+```json
+{
+  "window_trading_days": 1260,
+  "underwater_series": [
+    { "date": "2024-01-02", "drawdown_pct": 0.0 },
+    { "date": "2024-01-03", "drawdown_pct": -0.4 }
+  ],
+  "current_drawdown_pct": -0.4,
+  "max_drawdown_pct": -24.5,
+  "episodes": [
+    {
+      "peak_date": "2022-01-03",
+      "trough_date": "2022-10-12",
+      "recovery_date": "2024-01-19",
+      "magnitude_pct": -24.5,
+      "duration_days": 282,
+      "underwater_days": 747,
+      "top_contributors": [
+        { "symbol": "TSLA", "weight_at_peak_pct": 14.2, "return_pct": -65.0, "contribution_pct": -9.23, "trust": "synthetic" },
+        { "symbol": "NVDA", "weight_at_peak_pct": 8.6,  "return_pct": -50.3, "contribution_pct": -4.33, "trust": "synthetic" },
+        { "symbol": "AAPL", "weight_at_peak_pct": 12.0, "return_pct": -27.0, "contribution_pct": -3.24, "trust": "synthetic" },
+        { "symbol": "MSFT", "weight_at_peak_pct": 10.5, "return_pct": -28.0, "contribution_pct": -2.94, "trust": "synthetic" },
+        { "symbol": "GOOGL","weight_at_peak_pct": 6.8,  "return_pct": -39.0, "contribution_pct": -2.65, "trust": "synthetic" }
+      ],
+      "other_contribution_pct": -2.10,
+      "decomposition_residual_pct": 0.0,
+      "decomposition_trust": "synthetic"
+    },
+    {
+      "peak_date": "2023-07-31",
+      "trough_date": "2023-10-27",
+      "recovery_date": "2023-12-14",
+      "magnitude_pct": -10.0,
+      "duration_days": 88,
+      "underwater_days": 136,
+      "top_contributors": [
+        { "symbol": "AAPL",  "weight_at_peak_pct": 12.5, "return_pct": -16.0, "contribution_pct": -2.00, "trust": "synthetic" },
+        { "symbol": "MSFT",  "weight_at_peak_pct": 10.8, "return_pct": -12.0, "contribution_pct": -1.30, "trust": "synthetic" },
+        { "symbol": "ESPP_X","weight_at_peak_pct": null, "return_pct": null,  "contribution_pct": null,  "trust": "unavailable" }
+      ],
+      "other_contribution_pct": -1.20,
+      "decomposition_residual_pct": -5.50,
+      "decomposition_trust": "partial"
+    }
+  ],
+  "trust": "synthetic"
+}
+```
+
+In the second episode, `decomposition_residual_pct: -5.50` captures
+the contribution that ESPP_X *would have* made if its prices were
+available — the UI surfaces this via a "Partial: -5.5% unexplained
+(some positions missing price history)." caption above the Contributors
+drawer and a "Residual (unexplained)" row in the table.
 
 ---
 

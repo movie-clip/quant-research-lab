@@ -18,7 +18,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 15 — Position-Level Analytics (active)
+### Epic 15 — Position-Level Analytics (complete)
 
 PRD: [`prd/epic-15-position-level-analytics.md`](../prd/epic-15-position-level-analytics.md)
 
@@ -26,8 +26,8 @@ PRD: [`prd/epic-15-position-level-analytics.md`](../prd/epic-15-position-level-a
 |---|---|---|---|
 | [US-15.1](US-15.1-drawdown-decomposition-engine.md) | Drawdown decomposition engine + schema | Backend — `decompose_drawdown_episode()` in `analytics/drawdown.py`; extend `DrawdownEpisode` Pydantic schema; wire into `drawdown_engine` | Done |
 | [US-15.2](US-15.2-drawdown-contributors-drawer.md) | Drawdown card "Contributors" drawer | Frontend — expandable per-episode drawer in `DrawdownAnalyticsCard.tsx` | Done |
-| US-15.3 | Factor loading drift chart (Exposure tab) | Frontend — new card visualizing existing `rolling_loadings_*` time series | Backlog |
-| US-15.4 | Epic 15 docs close-out | Docs — `risk-fields.md`, `exposure-fields.md`, methodology verify, current-product-state | Backlog |
+| ~~US-15.3~~ | ~~Factor loading drift chart~~ | **Cancelled 2026-06-04**: existing `RollingFactorLoadingsCard` on Dashboard tab already covers the use case | Cancelled |
+| [US-15.4](US-15.4-epic-15-docs-closeout.md) | Epic 15 docs close-out | Docs — `risk-fields.md` decomposition fields, methodology verify, current-product-state Risk-tab extension | Done |
 
 Recommended build order: 15.1 → 15.2 → 15.3 → 15.4.
 
