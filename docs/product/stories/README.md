@@ -18,6 +18,18 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 16 — Factor Drift Visualization (complete)
+
+PRD: [`prd/epic-16-factor-drift-visualization.md`](../prd/epic-16-factor-drift-visualization.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-16.1](US-16.1-factor-drift-summary-card.md) | Factor Drift Summary card | Frontend-only — `FactorDriftSummaryCard` on the Exposure tab: ranked per-factor delta (latest − reference) bars, 20d/60d/252d window, Synthetic badge, unavailable state | Done |
+
+Single-story epic (quick-win follow-up). No build-order constraints.
+
+---
+
 ### Epic 15 — Position-Level Analytics (complete)
 
 PRD: [`prd/epic-15-position-level-analytics.md`](../prd/epic-15-position-level-analytics.md)
@@ -78,21 +90,21 @@ Stories must be built in order (12.1 → 12.2 → 12.3 → 12.4).
 
 ---
 
-### Epic 11 — Factor Return Attribution (proposed)
+### Epic 11 — Factor Return Attribution (complete)
 
 PRD: [`prd/epic-11-factor-return-attribution.md`](../prd/epic-11-factor-return-attribution.md)
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
-| [US-11.1](US-11.1-attribution-engine-endpoint.md) | Attribution engine + endpoint | Backend — analytics function, Pydantic schema, FastAPI route, pytest | Next phase |
-| [US-11.2](US-11.2-attribution-card-chart-table.md) | Attribution card (chart + table) | Frontend — FactorAttributionCard, vitest | Next phase |
-| [US-11.3](US-11.3-attribution-docs-closeout.md) | Docs, contracts, roadmap close-out | Docs — attribution-fields.md, methodology verification, slice log | Next phase |
+| [US-11.1](US-11.1-attribution-engine-endpoint.md) | Attribution engine + endpoint | Backend — analytics function, Pydantic schema, FastAPI route, pytest | Done |
+| [US-11.2](US-11.2-attribution-card-chart-table.md) | Attribution card (chart + table) | Frontend — FactorAttributionCard, vitest | Done |
+| [US-11.3](US-11.3-attribution-docs-closeout.md) | Docs, contracts, roadmap close-out | Docs — attribution-fields.md, methodology verification, slice log | Done |
 
 Stories must be built in order (11.1 → 11.2 → 11.3). US-11.2 depends on the endpoint from US-11.1.
 
 ---
 
-### Epic 10 — Multi-broker Import Correctness (active)
+### Epic 10 — Multi-broker Import Correctness (complete)
 
 PRD: [`prd/epic-10-multi-broker-import-correctness.md`](../prd/epic-10-multi-broker-import-correctness.md)
 
@@ -103,7 +115,7 @@ PRD: [`prd/epic-10-multi-broker-import-correctness.md`](../prd/epic-10-multi-bro
 
 ---
 
-### Epic 9 — Portfolio Correlation & Co-movement Analysis (active)
+### Epic 9 — Portfolio Correlation & Co-movement Analysis (complete)
 
 PRD: [`prd/epic-9-correlation-analysis.md`](../prd/epic-9-correlation-analysis.md)
 

@@ -317,7 +317,7 @@ describe('DrawdownAnalyticsCard', () => {
 
   /** Build a synthetic payload with 2 episodes, each carrying decomposition
    *  fields populated per the schema landed in US-15.1. */
-  function decomposedPayload() {
+  function decomposedPayload(): DrawdownEngineResponse {
     const series = syntheticSeries()
     return {
       window_trading_days: 1260,
