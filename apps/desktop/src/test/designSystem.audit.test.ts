@@ -40,6 +40,7 @@ const ALL_CARD_FILES = [
   'BenchmarkCorrelationTable.tsx',
   'FactorDriftSummaryCard.tsx',
   'IntraCorrelationHeatmap.tsx',
+  'DataSourcesPanel.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g

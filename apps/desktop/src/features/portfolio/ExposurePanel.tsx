@@ -1,5 +1,6 @@
 import type { DriftResult, ExposureAnalysis } from './types'
 import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
+import { DataSourcesPanel } from './DataSourcesPanel'
 import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
 import { FactorAttributionCard } from './FactorAttributionCard'
 import { FactorDriftSummaryCard } from './FactorDriftSummaryCard'
@@ -176,6 +177,8 @@ export function ExposurePanel({
       </header>
 
       <div className="exposure-shell-stack">
+        <DataSourcesPanel snapshot={result.snapshot ?? null} />
+
         <DriftBenchmarkPanel
           result={driftResult}
           error={driftError}

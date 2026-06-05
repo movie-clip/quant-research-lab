@@ -153,6 +153,14 @@ yfinance-sourced holdings carry that fact (e.g. `IntraCorrelationResult.yahoo_so
 and the UI shows a visible "via Yahoo Finance (secondary source)" marker.
 (The `.claude/skills/fmp-data` skill is the multi-provider reference.)
 
+A dedicated `POST /engines/provenance/run` engine (`provenance_engine.py`,
+US-18.2) reports per-holding provenance for the whole portfolio (FMP / yfinance
+/ unavailable) by a short probe of `last_fetch_meta` vendor; the Exposure tab's
+"Data sources" panel renders it once at the portfolio level rather than
+repeating a marker on every card. Provenance is a **source label, not a
+return-basis trust claim** — it never asserts `verified`/`synthetic` for the
+analytics.
+
 ## API Boundary
 
 Current API direction:

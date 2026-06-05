@@ -1,10 +1,10 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-05 (Epic 18 active; Epic 17 complete).*
+*Living execution snapshot. Updated: 2026-06-05 (Epic 18 complete).*
 
 ---
 
-## Active Epic: Epic 18 — Secondary Market-Data Provider
+## Completed Epic: Epic 18 — Secondary Market-Data Provider
 
 **PRD:** [`docs/product/prd/epic-18-secondary-market-data-provider.md`](product/prd/epic-18-secondary-market-data-provider.md)
 
@@ -22,15 +22,16 @@ adjusted-close data.
 | Story | Title | Status |
 |---|---|---|
 | US-18.1 | yfinance fallback provider + data provenance | Done |
-| US-18.2 | Broaden provenance badges across analytics | Backlog |
+| US-18.2 | Portfolio-level data-sources indicator (one Exposure panel) | Done |
 | US-18.3 | Defense-ETF Yahoo symbol mapping (DFND/DEFS/IDFN) | Done |
 
-Recommended build order: 18.1 → 18.2 → 18.3.
+Recommended build order: 18.1 → 18.2 → 18.3. **Epic 18 complete.**
 
 ### Slice log
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-05 | US-18.2 | Portfolio-level data-sources indicator. New `app/schemas/provenance.py` + `app/services/provenance_engine.py` + `POST /engines/provenance/run`: probes a short window per holding and reads `MarketDataService.last_fetch_meta` vendor to group holdings into FMP (primary) / Yahoo (secondary) / unpriced — provider identity is window-independent so the probe is cheap (cached). New self-fetching `DataSourcesPanel` on the Exposure tab renders the grouping once at the portfolio level (design decision: single indicator over per-card markers; the intra card keeps its inline marker). TS types + `runProvenanceEngine` adapter; panel added to the design-system audit set. New `docs/contracts/provenance-fields.md`; system-architecture + current-product-state updated. Provenance is a **source label, not a trust claim**. +5 backend (4 engine + 1 route) + 5 frontend (4 panel + 1 adapter); 225 frontend + 367 backend pass (only the 4 pre-existing FMP-offline failures remain); `npx tsc --noEmit` clean; audit 5/5; goldens untouched. **Epic 18 complete.** |
 | 2026-06-05 | US-18.3 | Defense-ETF Yahoo symbol mapping. Investigation (yfinance `longName`) showed only `DFND` was a real gap and carried a correctness trap: `DFND.L` is **iShares Global Aerospace & Defence UCITS ETF**, a *different* fund — while the `DFND` rule had only the bare (404ing) `DFND` candidate. Fixed the `DFND` `SymbolResolutionRule` to the real VanEck Defense lines `("DFNS.L","DFEN.DE","DFNG.L","DFND")` (USD first; never `DFND.L`), proxies `ITA/PPA` preserved. `DEFS` (`DEFS.L`) and `IDFN` (`IDFN.L`) were already correct via US-18.1 — the earlier "3 deferred" was a probe artifact (2024 date range predating the 2024/25 fund launches). +3 backend resolution tests incl. a wrong-fund guard pinning that no `DFND` candidate list ever contains `DFND.L`. fmp-data skill UCITS table updated. No methodology/contract/frontend change. Backend green (only the 4 pre-existing FMP-offline failures remain). |
 | 2026-06-05 | US-18.1 | yfinance fallback provider + data provenance. New `app/clients/yfinance_client.py` (`YFinanceClient.get_historical_price_light` → FMP-shaped rows with `adjClose`; lazy yfinance import; JsonFileCache namespace `history_yf` incl. negative caching; all errors → `[]`). `MarketDataService.get_historical_prices` gains a yfinance fallback after the FMP candidate loop (same suffixed candidates, never proxies), recording `last_fetch_meta[...]['vendor']` ∈ {`fmp`,`yfinance`}; FMP-first path byte-for-byte unchanged. `IntraCorrelationResult` + TS gained `yahoo_sourced_symbols`; the engine populates it from `last_fetch_meta`; `IntraCorrelationHeatmap` renders a visible "◆ N holdings via Yahoo Finance (secondary source): …" marker. `yfinance` added to `requirements.txt`. New autouse conftest fixture disables the fallback by default so no test hits the network; 5 pre-existing `test_market_data.py` proxy assertions updated for the additive `vendor` key. Docs: system-architecture gained a "Market-data providers and data provenance" subsection; `intra-correlation-fields.md` + current-product-state updated. +11 backend (5 yfinance client + 4 MDS fallback + 2 engine provenance) + 2 frontend; 220 frontend + 359 backend pass (only the 4 pre-existing FMP-dependent stress/drawdown/distribution tests fail offline — unrelated); `npx tsc --noEmit` clean; audit 5/5; goldens untouched. Recovers 7/10 of the user's excluded UCITS ETFs; the 3 defense ETFs (DFND/DEFS/IDFN) are US-18.3. |
 | 2026-06-05 | — | Epic created after a user hit "10 holdings excluded: insufficient history" (all European UCITS ETFs FMP's plan 402s). yfinance POC confirmed Yahoo serves the suffixed symbols (VUAA.L, SXRV.DE, …) with adjusted close. PRD authored; three-story plan (fallback provider + provenance → broaden badges → defense-ETF symbol mapping). US-18.1 authored and ticketed. |

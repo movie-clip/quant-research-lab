@@ -75,7 +75,7 @@ The researcher imports statements via the Import flow:
 
 ~16 service files, all under `services/quant-engine/app/services/`, plus pure-analytics modules under `services/quant-engine/app/analytics/` (incl. `drawdown.py` and `distribution.py` added in Epic 13).
 
-**Market-data providers (Epic 18):** price history is served behind `MarketDataService` with two providers tried in priority order — **FMP (primary)** then **Yahoo Finance via `yfinance` (secondary fallback)**, the latter used only when FMP returns nothing (e.g. European UCITS ETFs FMP's plan 402s). Provenance (`fmp` vs `yfinance`) is recorded per symbol and surfaced visibly — the Intra-Portfolio Correlation card shows a "via Yahoo Finance (secondary source)" marker for Yahoo-sourced holdings (`yahoo_sourced_symbols`). yfinance is a real second source, never a proxy substitute.
+**Market-data providers (Epic 18):** price history is served behind `MarketDataService` with two providers tried in priority order — **FMP (primary)** then **Yahoo Finance via `yfinance` (secondary fallback)**, the latter used only when FMP returns nothing (e.g. European UCITS ETFs FMP's plan 402s). Provenance (`fmp` vs `yfinance`) is recorded per symbol and surfaced visibly. The Exposure tab shows a portfolio-level **"Data sources" panel** (US-18.2) grouping holdings into FMP (primary) / Yahoo Finance (secondary) / unpriced via the `POST /engines/provenance/run` engine; the Intra-Portfolio Correlation card also keeps an inline "via Yahoo Finance" marker (US-18.1). The `DFND` (VanEck Defense) symbol resolves to the real Yahoo lines `DFNS.L`/`DFEN.DE`/`DFNG.L` — never the look-alike `DFND.L` (a different fund) (US-18.3). yfinance is a real second source, never a proxy substitute.
 
 ---
 

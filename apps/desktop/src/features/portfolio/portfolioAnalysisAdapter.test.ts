@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../../test/portfolioFixtures'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
-import { runDashboardHistoryEngine, runDiagnosticsEngine, runDistributionEngine, runDrawdownEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runIntraCorrelationEngine, runStressEngine } from './portfolioAnalysisAdapter'
+import { runDashboardHistoryEngine, runDiagnosticsEngine, runDistributionEngine, runDrawdownEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runIntraCorrelationEngine, runProvenanceEngine, runStressEngine } from './portfolioAnalysisAdapter'
 import type { DistributionEngineResponse, DrawdownEngineResponse, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 
@@ -136,6 +136,15 @@ describe('runIntraCorrelationEngine (Epic 17 — Exposure tab)', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(runIntraCorrelationEngine(bootstrapPayload.snapshot, 60)).rejects.toThrowError(/intra correlation unavailable/)
+  })
+})
+
+describe('runProvenanceEngine (Epic 18 — Exposure tab)', () => {
+  it('throws an Error with backend detail on non-2xx response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: 'provenance unavailable' }, 500))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(runProvenanceEngine(bootstrapPayload.snapshot)).rejects.toThrowError(/provenance unavailable/)
   })
 })
 
