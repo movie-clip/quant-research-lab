@@ -1437,6 +1437,9 @@ export type IntraCorrelationResult = {
   effective_number_of_bets: number | null
   /** Holdings dropped for no / insufficient price history. */
   excluded_symbols: string[]
+  /** Holdings whose history came from the secondary provider (Yahoo Finance)
+   *  rather than the primary (FMP). Surfaced as a visible provenance marker. (US-18.1) */
+  yahoo_sourced_symbols: string[]
   lookback_days: number
   trust: 'synthetic' | 'unavailable'
 }

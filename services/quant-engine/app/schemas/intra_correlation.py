@@ -56,5 +56,8 @@ class IntraCorrelationResult(BaseModel):
     effective_number_of_bets: float | None = None
     # Holdings dropped because they had no fetchable / insufficient price history.
     excluded_symbols: list[str] = Field(default_factory=list)
+    # Holdings whose price history came from the secondary provider (Yahoo Finance)
+    # rather than the primary (FMP). Surfaced as a visible provenance marker. (US-18.1)
+    yahoo_sourced_symbols: list[str] = Field(default_factory=list)
     lookback_days: int
     trust: Literal["synthetic", "unavailable"]

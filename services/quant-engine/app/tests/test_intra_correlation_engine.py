@@ -142,7 +142,7 @@ def _request(positions, *, lookback_days=60, max_holdings=15, cash=None) -> Intr
     })
 
 
-def _install_market_data_mock(mocker, returns_by_symbol: dict[str, list[float]], *, n_dates=40, missing=()):
+def _install_market_data_mock(mocker, returns_by_symbol: dict[str, list[float]], *, n_dates=40, missing=(), yahoo=()):
     dates = [(date(2025, 1, 1) + timedelta(days=d)).isoformat() for d in range(n_dates)]
     spy_rows = [{"date": d, "price": 100.0 + i} for i, d in enumerate(dates)]
     histories: dict[str, list[dict]] = {}
@@ -157,6 +157,12 @@ def _install_market_data_mock(mocker, returns_by_symbol: dict[str, list[float]],
     inst = mock_svc.return_value
     inst.get_historical_prices.return_value = spy_rows
     inst.get_historical_prices_for_symbols.return_value = histories
+    # Real dict so the engine's provenance lookup works; mark `yahoo` symbols as
+    # sourced from the secondary provider.
+    inst.last_fetch_meta = {
+        sym: {"type": "history", "vendor": ("yfinance" if sym in yahoo else "fmp")}
+        for sym in histories
+    }
     mocker.patch("app.services.intra_correlation_engine.MarketDataService", mock_svc)
 
 
@@ -251,6 +257,26 @@ class TestIntraCorrelationEngine:
         assert res.diversification_ratio is None
         assert res.effective_number_of_bets is None
 
+    def test_yahoo_sourced_symbols_surfaced(self, mocker):
+        # VUAA history comes from yfinance; AAA/BBB from FMP.
+        _install_market_data_mock(mocker, {
+            "AAA": _RET_A, "BBB": [2.0 * x for x in _RET_A], "VUAA": [-x for x in _RET_A],
+        }, yahoo=("VUAA",))
+        res = run_intra_correlation(_request([
+            _position("AAA", 300.0), _position("BBB", 200.0), _position("VUAA", 100.0),
+        ]))
+        assert "VUAA" in res.symbols  # included, not excluded
+        assert res.yahoo_sourced_symbols == ["VUAA"]
+
+    def test_yahoo_sourced_empty_for_all_fmp_portfolio(self, mocker):
+        _install_market_data_mock(mocker, {
+            "AAA": _RET_A, "BBB": [2.0 * x for x in _RET_A],
+        })
+        res = run_intra_correlation(_request([
+            _position("AAA", 300.0), _position("BBB", 200.0),
+        ]))
+        assert res.yahoo_sourced_symbols == []
+
 
 # ── Route shape ───────────────────────────────────────────────────────────────
 
@@ -285,7 +311,7 @@ class TestIntraCorrelationRoute:
             "symbols", "matrix", "average_pairwise_correlation",
             "most_correlated_pair", "least_correlated_pair",
             "diversification_ratio", "effective_number_of_bets",
-            "excluded_symbols", "lookback_days", "trust",
+            "excluded_symbols", "yahoo_sourced_symbols", "lookback_days", "trust",
         }
         assert data["lookback_days"] == 60
         assert data["trust"] in ("synthetic", "unavailable")

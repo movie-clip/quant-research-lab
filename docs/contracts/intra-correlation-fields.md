@@ -46,6 +46,7 @@ All fields are **synthetic history** trust class.
 | `diversification_ratio` | `float \| None` | `number \| null` | Summary "Diversification Ratio" (2-dp) | synthetic | Yes (US-17.2) |
 | `effective_number_of_bets` | `float \| None` | `number \| null` | Summary "Effective number of bets" (1-dp) | synthetic | Yes (US-17.2) |
 | `excluded_symbols` | `list[str]` | `string[]` | Excluded-holdings caption | synthetic | No (may be empty) |
+| `yahoo_sourced_symbols` | `list[str]` | `string[]` | "via Yahoo Finance (secondary source)" provenance marker | synthetic | No (may be empty) (US-18.1) |
 | `lookback_days` | `int` | `number` | (window echo) | — | No |
 | `trust` | `Literal['synthetic','unavailable']` | `'synthetic' \| 'unavailable'` | TrustBadge / EmptyState switch | — | No |
 

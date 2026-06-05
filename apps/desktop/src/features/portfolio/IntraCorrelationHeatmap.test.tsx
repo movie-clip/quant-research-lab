@@ -32,6 +32,7 @@ function makeResult(overrides?: Partial<IntraCorrelationResult>): IntraCorrelati
     diversification_ratio: 1.42,
     effective_number_of_bets: 2.3,
     excluded_symbols: [],
+    yahoo_sourced_symbols: [],
     lookback_days: 60,
     trust: 'synthetic',
     ...overrides,
@@ -128,6 +129,22 @@ describe('IntraCorrelationHeatmap', () => {
     await waitFor(() => expect(container.textContent).toContain('Effective number of bets'))
     expect(container.textContent).not.toContain('2.3')
     expect(container.textContent).toContain('Unavailable')
+  })
+
+  it('renders the via-Yahoo provenance marker when holdings are Yahoo-sourced', async () => {
+    mockRun.mockResolvedValue(makeResult({ yahoo_sourced_symbols: ['VUAA', 'SXRV'] }))
+    const { container } = render(<IntraCorrelationHeatmap snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toMatch(/via Yahoo Finance/i))
+    expect(container.textContent).toContain('VUAA')
+    expect(container.textContent).toContain('SXRV')
+    expect(container.textContent).toMatch(/secondary source/i)
+  })
+
+  it('omits the provenance marker when no holdings are Yahoo-sourced', async () => {
+    mockRun.mockResolvedValue(makeResult({ yahoo_sourced_symbols: [] }))
+    const { container } = render(<IntraCorrelationHeatmap snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toContain('Diversification Ratio'))
+    expect(container.textContent).not.toMatch(/via Yahoo Finance/i)
   })
 
   it('renders an EmptyState when trust is unavailable', async () => {

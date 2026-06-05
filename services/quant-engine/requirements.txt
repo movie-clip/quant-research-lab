@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 numpy
+yfinance
 pydantic
 pypdf
 httpx

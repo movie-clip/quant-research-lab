@@ -1,6 +1,38 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-05 (Epic 17 complete).*
+*Living execution snapshot. Updated: 2026-06-05 (Epic 18 active; Epic 17 complete).*
+
+---
+
+## Active Epic: Epic 18 — Secondary Market-Data Provider
+
+**PRD:** [`docs/product/prd/epic-18-secondary-market-data-provider.md`](product/prd/epic-18-secondary-market-data-provider.md)
+
+### Goal
+
+Add **yfinance as a fallback market-data provider** behind `MarketDataService`
+(FMP first, Yahoo when FMP returns 402/empty) so European UCITS ETFs stop being
+excluded from history-based analytics — with an explicit, **visible data-provenance**
+dimension (`fmp` vs `yfinance`) per the traceability guardrail. Verified POC:
+7 of 10 currently-excluded UCITS tickers resolve immediately via Yahoo with
+adjusted-close data.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-18.1 | yfinance fallback provider + data provenance | Done |
+| US-18.2 | Broaden provenance badges across analytics | Backlog |
+| US-18.3 | Defense-ETF Yahoo symbol mapping (DFND/DEFS/IDFN) | Backlog |
+
+Recommended build order: 18.1 → 18.2 → 18.3.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-05 | US-18.1 | yfinance fallback provider + data provenance. New `app/clients/yfinance_client.py` (`YFinanceClient.get_historical_price_light` → FMP-shaped rows with `adjClose`; lazy yfinance import; JsonFileCache namespace `history_yf` incl. negative caching; all errors → `[]`). `MarketDataService.get_historical_prices` gains a yfinance fallback after the FMP candidate loop (same suffixed candidates, never proxies), recording `last_fetch_meta[...]['vendor']` ∈ {`fmp`,`yfinance`}; FMP-first path byte-for-byte unchanged. `IntraCorrelationResult` + TS gained `yahoo_sourced_symbols`; the engine populates it from `last_fetch_meta`; `IntraCorrelationHeatmap` renders a visible "◆ N holdings via Yahoo Finance (secondary source): …" marker. `yfinance` added to `requirements.txt`. New autouse conftest fixture disables the fallback by default so no test hits the network; 5 pre-existing `test_market_data.py` proxy assertions updated for the additive `vendor` key. Docs: system-architecture gained a "Market-data providers and data provenance" subsection; `intra-correlation-fields.md` + current-product-state updated. +11 backend (5 yfinance client + 4 MDS fallback + 2 engine provenance) + 2 frontend; 220 frontend + 359 backend pass (only the 4 pre-existing FMP-dependent stress/drawdown/distribution tests fail offline — unrelated); `npx tsc --noEmit` clean; audit 5/5; goldens untouched. Recovers 7/10 of the user's excluded UCITS ETFs; the 3 defense ETFs (DFND/DEFS/IDFN) are US-18.3. |
+| 2026-06-05 | — | Epic created after a user hit "10 holdings excluded: insufficient history" (all European UCITS ETFs FMP's plan 402s). yfinance POC confirmed Yahoo serves the suffixed symbols (VUAA.L, SXRV.DE, …) with adjusted close. PRD authored; three-story plan (fallback provider + provenance → broaden badges → defense-ETF symbol mapping). US-18.1 authored and ticketed. |
 
 ---
 

@@ -4,6 +4,7 @@ from typing import Iterable, Literal
 
 from app.core.symbols import canonicalize_symbol, resolve_etf_holdings_candidates, resolve_symbol_candidates
 from app.clients.fmp import FmpClient
+from app.clients.yfinance_client import YFinanceClient
 from app.schemas.return_basis import ReturnBasisContract, ReturnBasisEvidence, ReturnBasisPathTrust
 from app.services.holdings_history import HoldingsHistoryStore
 
@@ -220,6 +221,13 @@ class MarketDataService:
         self.client = FmpClient()
         self.holdings_history = HoldingsHistoryStore()
         self.last_fetch_meta: dict[str, dict[str, object]] = {}
+        # Secondary provider, constructed lazily on first fallback use.
+        self._yfinance_client: YFinanceClient | None = None
+
+    def _yfinance(self) -> YFinanceClient:
+        if self._yfinance_client is None:
+            self._yfinance_client = YFinanceClient()
+        return self._yfinance_client
 
     def get_latest_quotes(self, symbols: Iterable[str], symbol_overrides: dict[str, list[str]] | None = None) -> dict[str, dict]:
         quotes: dict[str, dict] = {}
@@ -258,8 +266,20 @@ class MarketDataService:
             except Exception:  # noqa: BLE001
                 continue
             if rows:
-                self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True}
+                self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True, "vendor": "fmp"}
                 return rows
+
+        # Secondary provider (Yahoo Finance) fallback — only when FMP has nothing.
+        # Uses the same real-symbol candidates (e.g. VUAA.L), never proxy substitutes.
+        for candidate in symbol_candidates:
+            try:
+                rows = self._yfinance().get_historical_price_light(candidate, from_date, to_date)
+            except Exception:  # noqa: BLE001
+                continue
+            if rows:
+                self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True, "vendor": "yfinance"}
+                return rows
+
         return []
 
     def get_direct_spy_benchmark_history(self, from_date: str, to_date: str) -> list[dict]:

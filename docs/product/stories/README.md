@@ -18,6 +18,20 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 18 — Secondary Market-Data Provider (active)
+
+PRD: [`prd/epic-18-secondary-market-data-provider.md`](../prd/epic-18-secondary-market-data-provider.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-18.1](US-18.1-yfinance-fallback-provider.md) | yfinance fallback provider + data provenance | Backend — `YFinanceClient` + `MarketDataService` fallback + provenance; provenance marker on the Intra-Portfolio Correlation card | Done |
+| US-18.2 | Broaden provenance badges across analytics | Surface the provenance marker on factor model / drift / rolling risk / multi-benchmark surfaces | Backlog |
+| US-18.3 | Defense-ETF Yahoo symbol mapping | Correct Yahoo symbols/resolution rules for DFND, DEFS, IDFN | Backlog |
+
+Recommended build order: 18.1 → 18.2 → 18.3.
+
+---
+
 ### Epic 17 — Intra-Portfolio Correlation (complete)
 
 PRD: [`prd/epic-17-intra-portfolio-correlation.md`](../prd/epic-17-intra-portfolio-correlation.md)

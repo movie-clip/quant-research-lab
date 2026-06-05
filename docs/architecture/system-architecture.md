@@ -128,6 +128,31 @@ Architecture-level trust rule:
 
 Docs and UI must not collapse `withheld` into generic `unavailable`.
 
+### Market-data providers and data provenance
+
+Market data is served behind a single seam, `MarketDataService`
+(`app/services/market_data.py`), which resolves each symbol to ordered
+candidates and tries providers in priority order:
+
+1. **FMP (primary)** — `FmpClient`. Covers US-listed equities/ETFs. Returns
+   HTTP 402 for European exchange-listed symbols (`.L`, `.DE`, …).
+2. **Yahoo Finance (secondary/fallback)** — `YFinanceClient`, tried only when
+   FMP returns nothing for a candidate (US-18.1). Recovers European UCITS ETFs
+   (`VUAA.L`, `SXRV.DE`, …) with adjusted-close history.
+
+`MarketDataService.last_fetch_meta[symbol]['vendor']` records which provider
+satisfied each symbol (`'fmp'` | `'yfinance'`). The FMP-first path is unchanged
+when FMP has data; yfinance is never a proxy substitute (it fetches the *real*
+holding from a second source).
+
+**Data provenance is a distinct dimension from return-basis trust.** Yahoo data
+carries adjusted close, so its return-basis is `verified_adjusted_close` — the
+same class as FMP — but the *source* differs. Per the traceability guardrail,
+provenance must be **surfaced, never hidden**: engine responses that include
+yfinance-sourced holdings carry that fact (e.g. `IntraCorrelationResult.yahoo_sourced_symbols`)
+and the UI shows a visible "via Yahoo Finance (secondary source)" marker.
+(The `.claude/skills/fmp-data` skill is the multi-provider reference.)
+
 ## API Boundary
 
 Current API direction:
