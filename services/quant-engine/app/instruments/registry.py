@@ -116,7 +116,7 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "ISLN": _instrument("etf-isln", "ISLN", "iShares Physical Silver ETC", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
     "SGLD": _instrument("etf-sgld", "SGLD", "Invesco Physical Gold ETC", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
     "ICOM": _instrument("etf-icom", "ICOM", "iShares Diversified Commodity Swap UCITS ETF", "etf", "Commodities", "Commodity UCITS ETF", "USD"),
-    "DFND": _instrument("etf-dfnd", "DFND", "VanEck Defense UCITS ETF", "etf", "Defense", "Thematic UCITS ETF", "GBP"),
+    "DFND": _instrument("etf-dfnd", "DFND", "iShares Global Aerospace & Defence UCITS ETF", "etf", "Defense", "Thematic UCITS ETF", "GBP"),
     "BTEC": _instrument("etf-btec", "BTEC", "iShares Nasdaq US Biotechnology UCITS ETF", "etf", "Health Care", "Sector UCITS ETF", "USD"),
     "IUFS": _instrument("etf-iufs", "IUFS", "iShares S&P 500 Financials Sector UCITS ETF", "etf", "Financials", "Sector UCITS ETF", "USD"),
     "IUHC": _instrument("etf-iuhc", "IUHC", "iShares S&P 500 Health Care Sector UCITS ETF", "etf", "Health Care", "Sector UCITS ETF", "USD"),
