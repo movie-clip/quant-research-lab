@@ -29,6 +29,8 @@ function makeResult(overrides?: Partial<IntraCorrelationResult>): IntraCorrelati
     average_pairwise_correlation: 0.36,
     most_correlated_pair: { symbol_a: 'AAA', symbol_b: 'BBB', correlation: 0.82 },
     least_correlated_pair: { symbol_a: 'BBB', symbol_b: 'CCC', correlation: -0.10 },
+    diversification_ratio: 1.42,
+    effective_number_of_bets: 2.3,
     excluded_symbols: [],
     lookback_days: 60,
     trust: 'synthetic',
@@ -100,6 +102,32 @@ describe('IntraCorrelationHeatmap', () => {
     expect(badge.getAttribute('title')).toBe(
       'Pairwise correlations are computed from current holdings applied to historical prices. Not verified broker return basis.',
     )
+  })
+
+  it('renders the diversification ratio and effective number of bets', async () => {
+    mockRun.mockResolvedValue(makeResult())
+    const { container } = render(<IntraCorrelationHeatmap snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toContain('Diversification Ratio'))
+    expect(container.textContent).toContain('1.42')
+    expect(container.textContent).toContain('Effective number of bets')
+    expect(container.textContent).toContain('2.3')
+  })
+
+  it('renders Unavailable for diversification ratio when null', async () => {
+    mockRun.mockResolvedValue(makeResult({ diversification_ratio: null }))
+    const { container } = render(<IntraCorrelationHeatmap snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toContain('Diversification Ratio'))
+    // The DR value reads "Unavailable", not a fabricated 0.
+    expect(container.textContent).not.toContain('1.42')
+    expect(container.textContent).toContain('Unavailable')
+  })
+
+  it('renders Unavailable for effective number of bets when null', async () => {
+    mockRun.mockResolvedValue(makeResult({ effective_number_of_bets: null }))
+    const { container } = render(<IntraCorrelationHeatmap snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toContain('Effective number of bets'))
+    expect(container.textContent).not.toContain('2.3')
+    expect(container.textContent).toContain('Unavailable')
   })
 
   it('renders an EmptyState when trust is unavailable', async () => {

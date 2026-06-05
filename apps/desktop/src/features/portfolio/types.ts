@@ -1429,6 +1429,12 @@ export type IntraCorrelationResult = {
   average_pairwise_correlation: number | null
   most_correlated_pair: IntraCorrelationPair | null
   least_correlated_pair: IntraCorrelationPair | null
+  /** Diversification Ratio Σwᵢσᵢ/σ_p (Choueifaty & Coignard 2008); null when σ_p
+   *  is 0 or history is insufficient. (US-17.2) */
+  diversification_ratio: number | null
+  /** Effective Number of Bets exp(−Σpₖln pₖ) over the correlation eigenvalues
+   *  (Meucci 2009); null when <2 holdings, an incomplete matrix, or non-PSD. (US-17.2) */
+  effective_number_of_bets: number | null
   /** Holdings dropped for no / insufficient price history. */
   excluded_symbols: string[]
   lookback_days: number

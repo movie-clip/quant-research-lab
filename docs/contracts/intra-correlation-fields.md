@@ -43,6 +43,8 @@ All fields are **synthetic history** trust class.
 | `average_pairwise_correlation` | `float \| None` | `number \| null` | Summary "Avg pairwise ρ" | synthetic | Yes |
 | `most_correlated_pair` | `PairStat \| None` | `IntraCorrelationPair \| null` | Summary "Most correlated" | synthetic | Yes |
 | `least_correlated_pair` | `PairStat \| None` | `IntraCorrelationPair \| null` | Summary "Least correlated" | synthetic | Yes |
+| `diversification_ratio` | `float \| None` | `number \| null` | Summary "Diversification Ratio" (2-dp) | synthetic | Yes (US-17.2) |
+| `effective_number_of_bets` | `float \| None` | `number \| null` | Summary "Effective number of bets" (1-dp) | synthetic | Yes (US-17.2) |
 | `excluded_symbols` | `list[str]` | `string[]` | Excluded-holdings caption | synthetic | No (may be empty) |
 | `lookback_days` | `int` | `number` | (window echo) | — | No |
 | `trust` | `Literal['synthetic','unavailable']` | `'synthetic' \| 'unavailable'` | TrustBadge / EmptyState switch | — | No |
@@ -90,11 +92,20 @@ palette background is a secondary encoder, never the sole one.
 ```
 
 The `AAA·CCC` pair is `null` (insufficient overlap) and renders "n/a" — not 0.
+(`diversification_ratio` / `effective_number_of_bets` omitted from the snippet for
+brevity; both are present and synthetic per US-17.2.)
 
 ---
 
-## Not in this contract (US-17.2)
+## Diversification summary (US-17.2)
 
-`diversification_ratio` and `effective_number_of_bets` are deferred to US-17.2
-(ENB introduces numpy). When added they extend `IntraCorrelationResult` and this
-contract.
+- `diversification_ratio` = `Σ wᵢσᵢ / σ_p` (Choueifaty & Coignard 2008). `wᵢ` are
+  current market-value weights renormalised over the selected priceable universe;
+  `σᵢ` is the population stdev of each holding's daily returns; `σ_p` is the
+  population stdev of the constant-weight portfolio return series `Σ wᵢrᵢ`. `null`
+  when `σ_p` is 0 or fewer than 20 portfolio returns. Rendered 2-dp;
+  `Unavailable` when null.
+- `effective_number_of_bets` = `exp(−Σ pₖ ln pₖ)` over the normalised eigenvalues
+  of the correlation matrix (Meucci 2009; numpy `eigvalsh`). `null` when < 2
+  holdings, any off-diagonal cell is null (incomplete matrix), or the spectrum is
+  non-positive. Rendered 1-dp; `Unavailable` when null.

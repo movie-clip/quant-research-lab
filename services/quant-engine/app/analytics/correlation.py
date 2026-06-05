@@ -179,3 +179,92 @@ def average_pairwise_correlation(
     if not values:
         return None
     return sum(values) / len(values)
+
+
+def population_stdev(values: Sequence[float | None]) -> float | None:
+    """Population (N-denominator) standard deviation of a return series.
+
+    Nulls are dropped first.  Returns None when fewer than 2 non-null values
+    remain (variance undefined / not meaningful) — never a fabricated 0.
+    """
+    xs = [v for v in values if v is not None]
+    if len(xs) < 2:
+        return None
+    n = len(xs)
+    mean = sum(xs) / n
+    var = sum((x - mean) ** 2 for x in xs) / n
+    return math.sqrt(var)
+
+
+def diversification_ratio(
+    weights: Sequence[float],
+    stdevs: Sequence[float | None],
+    portfolio_stdev: float | None,
+) -> float | None:
+    """Diversification Ratio = Σ wᵢ σᵢ / σ_p (Choueifaty & Coignard 2008).
+
+    See docs/finance/financial-methodology.md §Intra-Portfolio Correlation.
+
+    Args:
+        weights: per-holding weights (renormalised over the priceable universe).
+        stdevs: per-holding population stdev of daily returns (aligned to weights).
+        portfolio_stdev: population stdev of the synthetic portfolio daily returns.
+
+    Returns:
+        DR (≥ 1 in the absence of negative weights / perfect anti-correlation),
+        or None when:
+        - portfolio_stdev is None or 0
+        - any per-holding stdev is None (incomplete inputs)
+        - weights and stdevs lengths differ or are empty
+    """
+    if portfolio_stdev is None or portfolio_stdev == 0.0:
+        return None
+    if not weights or len(weights) != len(stdevs):
+        return None
+    if any(s is None for s in stdevs):
+        return None
+    weighted_vol = sum(w * s for w, s in zip(weights, stdevs))  # type: ignore[misc]
+    return weighted_vol / portfolio_stdev
+
+
+def effective_number_of_bets(
+    matrix: Sequence[Sequence[float | None]],
+) -> float | None:
+    """Effective Number of Bets = exp(−Σ pₖ ln pₖ) over the normalised
+    eigenvalues pₖ = λₖ / Σλ of the holdings correlation matrix (Meucci 2009).
+
+    See docs/finance/financial-methodology.md §Intra-Portfolio Correlation.
+
+    Returns None when:
+    - the matrix has fewer than 2 rows
+    - any off-diagonal cell is None (the matrix is not fully populated — the
+      eigendecomposition requires a complete numeric matrix)
+    - the eigenvalue sum is non-positive (degenerate / non-PSD)
+
+    Tiny-negative eigenvalues from floating-point noise are clamped to 0
+    (0·ln 0 ≡ 0).
+    """
+    n = len(matrix)
+    if n < 2:
+        return None
+    # Require a fully-populated matrix (no null cell anywhere).
+    for i in range(n):
+        if len(matrix[i]) != n:
+            return None
+        for j in range(n):
+            if matrix[i][j] is None:
+                return None
+
+    import numpy as np  # local import: numpy is only needed for the ENB path
+
+    arr = np.array(matrix, dtype=float)
+    eigenvalues = np.linalg.eigvalsh(arr)
+    eigenvalues = np.clip(eigenvalues, 0.0, None)
+    total = float(eigenvalues.sum())
+    if total <= 0.0:
+        return None
+
+    p = eigenvalues / total
+    # 0·ln0 ≡ 0 — only sum over strictly-positive probabilities.
+    entropy = float(-np.sum(p[p > 0.0] * np.log(p[p > 0.0])))
+    return float(np.exp(entropy))

@@ -18,17 +18,17 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 17 — Intra-Portfolio Correlation (active)
+### Epic 17 — Intra-Portfolio Correlation (complete)
 
 PRD: [`prd/epic-17-intra-portfolio-correlation.md`](../prd/epic-17-intra-portfolio-correlation.md)
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-17.1](US-17.1-pairwise-correlation-heatmap.md) | Pairwise correlation matrix engine + heatmap | Full-stack — `pairwise_correlation_matrix()` + `average_pairwise_correlation()` in `analytics/correlation.py`; `intra_correlation_engine.py`; `POST /engines/correlation/intra`; `IntraCorrelationHeatmap` card on the Exposure tab | Done |
-| US-17.2 | Diversification summary metrics | Diversification Ratio + Effective Number of Bets (introduces numpy) | Backlog |
-| US-17.3 | Docs, contracts, roadmap close-out | `intra-correlation-fields.md`, methodology verify, slice log | Backlog |
+| [US-17.2](US-17.2-diversification-summary-metrics.md) | Diversification summary metrics | Full-stack — `diversification_ratio()` + `effective_number_of_bets()` (numpy) in `analytics/correlation.py`; engine wiring; summary-strip additions on `IntraCorrelationHeatmap` | Done |
+| ~~US-17.3~~ | ~~Docs, contracts, roadmap close-out~~ | Cancelled — docs reconciled per-story via update-docs | Cancelled |
 
-Recommended build order: 17.1 → 17.2 → 17.3.
+Recommended build order: 17.1 → 17.2.
 
 ---
 

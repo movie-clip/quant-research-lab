@@ -142,8 +142,13 @@ function SummaryStrip({ result }: { result: IntraCorrelationResult }) {
   const pairLabel = (pair: typeof most): string =>
     pair == null ? 'Unavailable' : `${pair.symbol_a} · ${pair.symbol_b}  ${formatRho(pair.correlation)}`
 
+  const dr = result.diversification_ratio
+  const enb = result.effective_number_of_bets
+
   const items: Array<{ label: string; value: string }> = [
     { label: 'Avg pairwise ρ', value: avg == null ? 'Unavailable' : formatRho(avg) },
+    { label: 'Diversification Ratio', value: dr == null ? 'Unavailable' : dr.toFixed(2) },
+    { label: 'Effective number of bets', value: enb == null ? 'Unavailable' : enb.toFixed(1) },
     { label: 'Most correlated', value: pairLabel(most) },
     { label: 'Least correlated', value: pairLabel(least) },
   ]

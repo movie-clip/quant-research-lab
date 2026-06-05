@@ -768,17 +768,21 @@ DR(w) = ( Σ_i w_i × σ_i(w) ) / σ_p(w)
 where:
   w_i    = current weight of holding i (market value / total priceable market value)
   σ_i(w) = population stdev of holding i's daily returns over the window
-  σ_p(w) = population stdev of the synthetic portfolio's daily returns over the
-           window (the same synthetic-portfolio return series used by
-           §Multi-Benchmark Correlation)
+  σ_p(w) = population stdev of the synthetic portfolio daily return series under
+           *constant current weights*: r_p(t) = Σ_i w_i × r_i(t), defined only on
+           dates where every selected holding has a non-null return. This is the
+           coherent DR denominator (guarantees DR ≥ 1 for long-only weights) and
+           is self-consistent with the w_i and σ_i used in the numerator.
 
 Edge cases:
-  σ_p(w) = 0, or fewer than MIN_PAIR_OBSERVATIONS portfolio returns: DR = null
-  weights restricted to the priceable universe (cash and non-priceable
-    positions excluded and weights renormalised over priceable holdings)
+  σ_p(w) = 0, or fewer than MIN_PAIR_OBSERVATIONS (20) constant-weight portfolio
+    returns: DR = null
+  weights restricted to the priceable universe shown in the matrix (cash and
+    non-priceable positions excluded; weights renormalised over the selected
+    top-N holdings)
 ```
 
-### Effective Number of Bets (Meucci 2009) — optional / later story
+### Effective Number of Bets (Meucci 2009)
 
 A spectral diversification measure: the entropy of the normalised eigenvalue
 spectrum of the correlation matrix. ENB = 1 when one principal component
@@ -796,16 +800,15 @@ where:
 Edge cases:
   any λ_k ≤ 0 from floating-point noise: clamp to 0 and drop from the entropy
     sum (0·ln 0 ≡ 0)
+  any off-diagonal matrix cell is null (matrix not fully populated): ENB = null
+    — the eigendecomposition requires a complete numeric matrix
   matrix not positive-semidefinite / fewer than 2 holdings: ENB = null
 
 Implementation note: ENB requires an eigendecomposition of a symmetric matrix.
-The engine has historically avoided numpy/scipy (see §Value-at-Risk and
-Distribution), but the dependency decision for this path has been made:
-**numpy is approved for the ENB eigendecomposition** (`numpy.linalg.eigvalsh`
-on the symmetric correlation matrix). ENB remains scoped to its own story
-(US-17.2) so the numpy dependency is introduced in a single, reviewable change
-with its own tests; it is not a blocker for the US-17.1 matrix + average
-correlation, which stay pure-Python.
+Shipped in US-17.2 using **numpy** (`numpy.linalg.eigvalsh` on the symmetric
+correlation matrix) — numpy is imported lazily inside `effective_number_of_bets`
+so it is only a dependency of the ENB path. DR and `population_stdev` remain
+pure-Python.
 ```
 
 Academic precedent:
@@ -818,13 +821,13 @@ Academic precedent:
   (Effective Number of Bets via the entropy of the eigenvalue spectrum.)
 
 Implementation:
-- `services/quant-engine/app/analytics/correlation.py` — extend with a
-  `pairwise_correlation_matrix(...)` helper (reuses `pearson()`) plus
-  `average_pairwise_correlation(...)` and `diversification_ratio(...)`
+- `services/quant-engine/app/analytics/correlation.py` — `pairwise_correlation_matrix(...)`
+  (reuses `pearson()`), `average_pairwise_correlation(...)`, `population_stdev(...)`,
+  `diversification_ratio(...)`, and `effective_number_of_bets(...)` (numpy, US-17.2)
 - `services/quant-engine/app/services/intra_correlation_engine.py` — orchestrates
-  market-data fetch, per-symbol return series, matrix + summary assembly
-  (reuses `_build_synthetic_snapshot_history_states`, `_returns_from_price_series`,
-  and `_lookback_calendar_days`)
+  market-data fetch, per-symbol return series, matrix + summary assembly; derives
+  σ_p from the constant-weight portfolio return series (Σ w_i r_i). Reuses
+  `_returns_from_price_series` and `_lookback_calendar_days` from `correlation_engine.py`
 - `POST /engines/correlation/intra` — route
 
 Contract rule:

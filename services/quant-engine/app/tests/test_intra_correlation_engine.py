@@ -16,7 +16,10 @@ from fastapi.testclient import TestClient
 
 from app.analytics.correlation import (
     average_pairwise_correlation,
+    diversification_ratio,
+    effective_number_of_bets,
     pairwise_correlation_matrix,
+    population_stdev,
 )
 from app.api.main import app
 from app.schemas.intra_correlation import IntraCorrelationRequest
@@ -69,6 +72,36 @@ class TestPairwiseCorrelationMatrix:
         b = [None] * 5 + _RET_A[5:]
         m = pairwise_correlation_matrix({"A": a, "B": b}, ["A", "B"], min_observations=20)
         assert average_pairwise_correlation(m) is None
+
+
+# ── Diversification summary analytics (US-17.2) ───────────────────────────────
+
+class TestDiversificationAnalytics:
+    def test_population_stdev_value_and_none(self):
+        # mean 0; var = (0.02² + 0.02²)/4 = 0.0002 → std = sqrt(0.0002)
+        assert population_stdev([0.0, 0.02, -0.02, 0.0]) == pytest.approx(math.sqrt(0.0002))
+        assert population_stdev([0.01]) is None          # < 2 values
+        assert population_stdev([None, 0.01]) is None     # < 2 non-null
+
+    def test_diversification_ratio_value(self):
+        # Σwσ = .5×.2 + .5×.2 = .2 ; /σ_p .1 → 2.0
+        assert diversification_ratio([0.5, 0.5], [0.2, 0.2], 0.1) == pytest.approx(2.0)
+
+    def test_diversification_ratio_none_when_portfolio_vol_zero_or_none(self):
+        assert diversification_ratio([0.5, 0.5], [0.2, 0.2], 0.0) is None
+        assert diversification_ratio([0.5, 0.5], [0.2, 0.2], None) is None
+
+    def test_effective_number_of_bets_identity_matrix(self):
+        identity = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+        assert effective_number_of_bets(identity) == pytest.approx(3.0)
+
+    def test_effective_number_of_bets_all_ones_matrix(self):
+        ones = [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]
+        assert effective_number_of_bets(ones) == pytest.approx(1.0)
+
+    def test_effective_number_of_bets_none_when_cell_missing(self):
+        partial = [[1.0, None, 0.2], [None, 1.0, 0.3], [0.2, 0.3, 1.0]]
+        assert effective_number_of_bets(partial) is None
 
 
 # ── Engine service (MarketDataService mocked) ─────────────────────────────────
@@ -195,6 +228,29 @@ class TestIntraCorrelationEngine:
         assert res.least_correlated_pair is not None
         assert abs(res.least_correlated_pair.correlation - (-1.0)) < 1e-9
 
+    def test_populates_diversification_summary_on_happy_path(self, mocker):
+        # Three independent-ish series → matrix fully populated → DR + ENB finite.
+        _install_market_data_mock(mocker, {
+            "AAA": [0.01 * math.sin(d) for d in range(1, 40)],
+            "BBB": [0.01 * math.cos(d) for d in range(1, 40)],
+            "CCC": [0.01 * math.sin(d * 0.5 + 1.0) for d in range(1, 40)],
+        })
+        res = run_intra_correlation(_request([
+            _position("AAA", 300.0), _position("BBB", 200.0), _position("CCC", 100.0),
+        ]))
+        assert res.diversification_ratio is not None and res.diversification_ratio > 0
+        assert res.effective_number_of_bets is not None
+        assert 1.0 - 1e-9 <= res.effective_number_of_bets <= 3.0 + 1e-9
+
+    def test_diversification_summary_null_when_unavailable(self, mocker):
+        _install_market_data_mock(mocker, {"AAA": _RET_A}, missing=("BBB",))
+        res = run_intra_correlation(_request([
+            _position("AAA", 300.0), _position("BBB", 200.0),
+        ]))
+        assert res.trust == "unavailable"
+        assert res.diversification_ratio is None
+        assert res.effective_number_of_bets is None
+
 
 # ── Route shape ───────────────────────────────────────────────────────────────
 
@@ -228,6 +284,7 @@ class TestIntraCorrelationRoute:
         assert set(data.keys()) >= {
             "symbols", "matrix", "average_pairwise_correlation",
             "most_correlated_pair", "least_correlated_pair",
+            "diversification_ratio", "effective_number_of_bets",
             "excluded_symbols", "lookback_days", "trust",
         }
         assert data["lookback_days"] == 60
