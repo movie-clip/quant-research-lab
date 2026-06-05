@@ -20,7 +20,10 @@ from datetime import date, timedelta
 
 from app.analytics.correlation import (
     average_pairwise_correlation,
+    diversification_ratio,
+    effective_number_of_bets,
     pairwise_correlation_matrix,
+    population_stdev,
 )
 from app.schemas.intra_correlation import (
     IntraCorrelationRequest,
@@ -150,12 +153,44 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
     avg = average_pairwise_correlation(matrix)
     most, least = _extreme_pairs(matrix, selected)
 
+    # ── Diversification summary (US-17.2) ──────────────────────────────────────
+    # Current market-value weights renormalised over the selected priceable
+    # universe (the same universe the matrix is built over).
+    raw_weights = [mv_by_symbol[sym] for sym in selected]
+    total_weight = sum(raw_weights)
+    weights = [w / total_weight for w in raw_weights] if total_weight > 0 else []
+
+    # Per-holding standalone volatilities (population stdev of daily returns).
+    sigmas = [population_stdev(returns_by_symbol[sym]) for sym in selected]
+
+    # Synthetic portfolio daily return under *constant current weights*:
+    # r_p(t) = Σ wᵢ rᵢ(t), defined only on dates where every selected holding has
+    # a return. This is the coherent DR denominator (guarantees DR ≥ 1) and is
+    # consistent with the weights/σ used in the numerator.
+    portfolio_returns: list[float | None] = []
+    n_dates = len(valuation_dates)
+    for idx in range(n_dates):
+        components = [returns_by_symbol[sym][idx] for sym in selected]
+        if weights and all(c is not None for c in components):
+            portfolio_returns.append(sum(w * c for w, c in zip(weights, components)))  # type: ignore[misc]
+        else:
+            portfolio_returns.append(None)
+    non_null_portfolio = sum(1 for r in portfolio_returns if r is not None)
+    portfolio_stdev = (
+        population_stdev(portfolio_returns) if non_null_portfolio >= _MIN_OBSERVATIONS else None
+    )
+
+    dr = diversification_ratio(weights, sigmas, portfolio_stdev)
+    enb = effective_number_of_bets(matrix)
+
     return IntraCorrelationResult(
         symbols=selected,
         matrix=matrix,
         average_pairwise_correlation=avg,
         most_correlated_pair=most,
         least_correlated_pair=least,
+        diversification_ratio=dr,
+        effective_number_of_bets=enb,
         excluded_symbols=excluded_symbols,
         lookback_days=lookback_days,
         trust="synthetic",

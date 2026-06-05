@@ -48,6 +48,12 @@ class IntraCorrelationResult(BaseModel):
     average_pairwise_correlation: float | None = None
     most_correlated_pair: PairStat | None = None
     least_correlated_pair: PairStat | None = None
+    # Diversification summary (US-17.2). Both synthetic trust; null (never 0)
+    # when inputs are insufficient.
+    #   DR  = Σ wᵢσᵢ / σ_p           (Choueifaty & Coignard 2008)
+    #   ENB = exp(−Σ pₖ ln pₖ)       (Meucci 2009; pₖ = normalised eigenvalues)
+    diversification_ratio: float | None = None
+    effective_number_of_bets: float | None = None
     # Holdings dropped because they had no fetchable / insufficient price history.
     excluded_symbols: list[str] = Field(default_factory=list)
     lookback_days: int
