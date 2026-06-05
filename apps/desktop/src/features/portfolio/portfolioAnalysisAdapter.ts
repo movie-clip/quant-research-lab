@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, ProvenanceResult, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -290,6 +290,26 @@ export async function runIntraCorrelationEngine(
   }
 
   return (await response.json()) as IntraCorrelationResult
+}
+
+/** Run the portfolio data-provenance engine (Epic 18 — Exposure tab).
+ *  Returns which provider (FMP vs Yahoo Finance) priced each holding. */
+export async function runProvenanceEngine(
+  snapshot: ImportedSnapshot,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<ProvenanceResult> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/provenance/run', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snapshot }),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(errorPayload?.detail ?? 'Provenance run failed')
+  }
+
+  return (await response.json()) as ProvenanceResult
 }
 
 /** Run the standalone drawdown analytics engine (Epic 13 — Risk tab).

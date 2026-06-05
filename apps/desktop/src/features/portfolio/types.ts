@@ -1338,6 +1338,22 @@ export type ExposureFactorModelResponse = {
 }
 
 
+// --- Data provenance (Epic 18 / US-18.2) ---
+export type ProvenanceVendor = 'fmp' | 'yfinance' | 'unavailable'
+
+export type HoldingProvenance = {
+  symbol: string
+  vendor: ProvenanceVendor
+}
+
+export type ProvenanceResult = {
+  holdings: HoldingProvenance[]
+  fmp_symbols: string[]
+  yahoo_sourced_symbols: string[]
+  unavailable_symbols: string[]
+  lookback_days: number
+}
+
 // --- Drift vs Benchmark ---
 export type DriftTrust = 'synthetic' | 'unavailable'
 
