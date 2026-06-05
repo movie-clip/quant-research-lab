@@ -85,7 +85,7 @@ describe('FactorDriftSummaryCard', () => {
   it('renders ranked drift rows largest absolute mover first', () => {
     // deltas: market +0.5, growth -0.9, value +0.1 → rank growth, market, value
     const result = makeResult(['market', 'growth', 'value'], {
-      d60: [
+      d20: [
         loadingRow('2025-01-01', { market: 1.0, growth: 1.0, value: 1.0 }),
         loadingRow('2025-04-01', { market: 1.5, growth: 0.1, value: 1.1 }),
       ],
@@ -104,7 +104,7 @@ describe('FactorDriftSummaryCard', () => {
 
   it('computes delta as latest minus reference of trimmed window', () => {
     const result = makeResult(['market'], {
-      d60: [
+      d20: [
         loadingRow('2025-01-01', { market: 0.8 }),
         loadingRow('2025-04-01', { market: 1.23 }),
       ],
@@ -119,7 +119,7 @@ describe('FactorDriftSummaryCard', () => {
   it('excludes factors with null reference or latest loading', () => {
     // growth is null at the reference row → excluded; market is fully present.
     const result = makeResult(['market', 'growth'], {
-      d60: [
+      d20: [
         loadingRow('2025-01-01', { market: 1.0, growth: null }),
         loadingRow('2025-04-01', { market: 1.4, growth: 1.0 }),
       ],
@@ -132,7 +132,7 @@ describe('FactorDriftSummaryCard', () => {
 
   it('window selector switches series and re-ranks', () => {
     const result = makeResult(['market'], {
-      d60: [
+      d20: [
         loadingRow('2025-01-01', { market: 1.0 }),
         loadingRow('2025-04-01', { market: 1.2 }),
       ],
@@ -150,10 +150,10 @@ describe('FactorDriftSummaryCard', () => {
   })
 
   it('shows EmptyState when selected window series is empty', () => {
-    const result = makeResult(['market', 'growth'], { d60: [] })
+    const result = makeResult(['market', 'growth'], { d20: [] })
     render(<FactorDriftSummaryCard result={result} />)
 
-    expect(screen.getByText('Not enough history for 60d factor drift.')).toBeTruthy()
+    expect(screen.getByText('Not enough history for 20d factor drift.')).toBeTruthy()
     expect(screen.queryByText('Market')).toBeNull()
   })
 
@@ -161,7 +161,7 @@ describe('FactorDriftSummaryCard', () => {
     // Series is non-empty (a middle row has market) but the reference/latest of
     // the trimmed window leave market null → no rankable rows (AC8).
     const result = makeResult(['market'], {
-      d60: [
+      d20: [
         loadingRow('2025-01-01', { market: null }),
         loadingRow('2025-02-01', { market: 0.5 }),
         loadingRow('2025-03-01', { market: null }),
@@ -169,12 +169,12 @@ describe('FactorDriftSummaryCard', () => {
     })
     render(<FactorDriftSummaryCard result={result} />)
 
-    expect(screen.getByText('Not enough history for 60d factor drift.')).toBeTruthy()
+    expect(screen.getByText('Not enough history for 20d factor drift.')).toBeTruthy()
   })
 
   it('synthetic badge tooltip text', () => {
     const result = makeResult(['market'], {
-      d60: [loadingRow('2025-01-01', { market: 1.0 }), loadingRow('2025-04-01', { market: 1.2 })],
+      d20: [loadingRow('2025-01-01', { market: 1.0 }), loadingRow('2025-04-01', { market: 1.2 })],
     })
     render(<FactorDriftSummaryCard result={result} />)
 
@@ -187,7 +187,7 @@ describe('FactorDriftSummaryCard', () => {
 
   it('direction encoded by sign and arrow, not color alone', () => {
     const result = makeResult(['market'], {
-      d60: [loadingRow('2025-01-01', { market: 1.5 }), loadingRow('2025-04-01', { market: 0.6 })],
+      d20: [loadingRow('2025-01-01', { market: 1.5 }), loadingRow('2025-04-01', { market: 0.6 })],
     })
     const { container } = render(<FactorDriftSummaryCard result={result} />)
     const text = container.textContent ?? ''

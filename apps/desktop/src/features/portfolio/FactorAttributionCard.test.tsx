@@ -227,12 +227,12 @@ describe('FactorAttributionCard', () => {
       expect(mockRunAttributionEngine).toHaveBeenLastCalledWith(MINIMAL_SNAPSHOT, 252)
     })
 
-    it('defaults to window=60', async () => {
+    it('defaults to window=20', async () => {
       mockRunAttributionEngine.mockResolvedValue(makeAvailableAttribution())
       render(<FactorAttributionCard snapshot={MINIMAL_SNAPSHOT} />)
       await waitFor(() => expect(mockRunAttributionEngine).toHaveBeenCalledTimes(1))
 
-      expect(mockRunAttributionEngine).toHaveBeenCalledWith(MINIMAL_SNAPSHOT, 60)
+      expect(mockRunAttributionEngine).toHaveBeenCalledWith(MINIMAL_SNAPSHOT, 20)
     })
   })
 })

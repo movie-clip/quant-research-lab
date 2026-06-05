@@ -41,8 +41,8 @@ describe('RollingCorrelationChart', () => {
 
   it('shows "Insufficient history" when all values for the selected window are null', () => {
     render(<RollingCorrelationChart rollingRisk={allNullSeries} />)
-    // Default window is 60d; all correlation_60d/beta_60d are null → insufficient
-    expect(screen.getByText(/insufficient history.*60d/i)).toBeTruthy()
+    // Default window is 20d; all correlation_20d/beta_20d are null → insufficient
+    expect(screen.getByText(/insufficient history.*20d/i)).toBeTruthy()
   })
 
   it('shows "Insufficient history" when rolling_risk array is empty', () => {
@@ -66,7 +66,7 @@ describe('RollingCorrelationChart', () => {
       makePoint('2025-01-02', { correlation_60d: 0.82, beta_60d: 1.12 }),
     ]
     render(<RollingCorrelationChart rollingRisk={only60dSeries} />)
-    // Default 60d is fine, but switching to 20d shows insufficient
+    // Default is now 20d; with only 60d data present, the 20d view is insufficient.
     fireEvent.click(screen.getByRole('button', { name: /20d window/i }))
     expect(screen.getByText(/insufficient history.*20d/i)).toBeTruthy()
   })

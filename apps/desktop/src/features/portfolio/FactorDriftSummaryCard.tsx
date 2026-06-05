@@ -195,7 +195,7 @@ function DriftBarRow({ row, maxAbs }: { row: DriftRow; maxAbs: number }) {
 }
 
 export function FactorDriftSummaryCard({ result }: { result: ExposureAnalysis | null }) {
-  const [window, setWindow] = useState<DriftWindow>(60)
+  const [window, setWindow] = useState<DriftWindow>(20)
 
   const factorModel = useMemo(() => (result ? buildExposureFactorModel(result) : null), [result])
   const registryByKey = useMemo(

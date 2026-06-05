@@ -168,7 +168,7 @@ function SummaryStrip({ result }: { result: IntraCorrelationResult }) {
 }
 
 export function IntraCorrelationHeatmap({ snapshot }: { snapshot: ImportedSnapshot | null }) {
-  const [window, setWindow] = useState<CorrWindow>(60)
+  const [window, setWindow] = useState<CorrWindow>(20)
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [result, setResult] = useState<IntraCorrelationResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)

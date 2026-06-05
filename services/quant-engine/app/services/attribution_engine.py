@@ -6,11 +6,12 @@ ImportedPortfolioSnapshot.
 
 Unlike run_imported_diagnostics_engine (which derives its date range from
 ledger trade dates), attribution is *synthetic history*: the engine holds
-current holdings constant and asks "how would this portfolio have performed
-over the last N trading days?"  The date window is therefore determined
-entirely by the requested `window` (20 / 60 / 252), not by anything in the
-snapshot.  This means attribution works correctly even when the snapshot was
-built by the exposure engine (which carries no ledger history).
+current holdings constant and asks "how would this portfolio have performed?"
+The fetched date range is a fixed display span (≈1 year) plus the rolling
+`window`, NOT scaled to the window — so the cumulative chart spans the same
+range for every window (20 / 60 / 252); the window only sets each rolling
+estimate's length. This works even when the snapshot was built by the exposure
+engine (which carries no ledger history).
 """
 from __future__ import annotations
 
@@ -23,12 +24,20 @@ from app.schemas.attribution import FactorAttributionRequest, FactorAttributionR
 from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states
 from app.services.market_data import MarketDataService
 
-# Calendar-day lookback per window size.  We multiply by 1.6 and add a 30-day
-# buffer to safely cover weekends, public holidays, and thin trading periods.
-# This ensures we always fetch at least (window + 1) trading days of data
-# even in the worst-case holiday clustering.
+# Calendar-day lookback per trading-day count.  We multiply by 1.6 and add a
+# 30-day buffer to safely cover weekends, public holidays, and thin trading
+# periods.
 def _lookback_calendar_days(window: int) -> int:
     return math.ceil(window * 1.6) + 30
+
+
+# Target span (trading days) of the cumulative-attribution time series shown on
+# the chart — independent of the rolling window. The fetch covers this display
+# span PLUS the window, so the rolling estimator has `window` days to fill before
+# the first plotted point and every window (20/60/252) shows the same ~1-year
+# series. (Previously the fetch was scaled to the window alone, so the 20d chart
+# only spanned ~2 months — see US-18.x fix.)
+ATTRIBUTION_DISPLAY_TRADING_DAYS = 252
 
 
 def run_attribution_engine(request: FactorAttributionRequest) -> FactorAttributionResponse:
@@ -56,8 +65,12 @@ def run_attribution_engine(request: FactorAttributionRequest) -> FactorAttributi
     # snapshots with ledger_entries=[] and as_of_date=today, so we must not
     # rely on those fields here.
     history_end_date = date.today().isoformat()
+    # Fetch the full display span PLUS the window so the cumulative series spans
+    # the same ~1-year range for every window (the window only sets how many days
+    # each rolling beta estimate uses, not how far back the chart starts).
+    fetch_trading_days = ATTRIBUTION_DISPLAY_TRADING_DAYS + window
     history_start_date = (
-        date.today() - timedelta(days=_lookback_calendar_days(window))
+        date.today() - timedelta(days=_lookback_calendar_days(fetch_trading_days))
     ).isoformat()
 
     market_data = MarketDataService()

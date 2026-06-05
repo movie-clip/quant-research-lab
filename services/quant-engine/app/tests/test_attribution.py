@@ -315,3 +315,67 @@ class TestAttributionRoute:
         assert body["attribution_status"] == "unavailable"
         assert body["cumulative_series"] == []
         assert body["period_attribution"] == []
+
+
+# ── Engine lookback / display-span tests ────────────────────────────────────────
+
+def _attr_price_rows(n_days: int = 520) -> list[dict]:
+    """Synthetic daily prices ending today (non-constant returns)."""
+    end = datetime.date.today()
+    rows: list[dict] = []
+    p = 100.0
+    for i in range(n_days):
+        d = end - datetime.timedelta(days=n_days - 1 - i)
+        p = p * (1 + (0.001 if i % 2 else -0.0008) + 0.0002 * ((i % 5) - 2))
+        rows.append({"date": d.isoformat(), "price": round(p, 4)})
+    return rows
+
+
+def _attr_snapshot_dict() -> dict:
+    return {
+        "statement": {
+            "importer": "interactive_brokers",
+            "imported_at": "2026-01-01T00:00:00",
+            "source_path": "/test/fixture.csv",
+            "detected_format": "ib_flex_2023",
+        },
+        "instruments": [],
+        "cash_balances": [],
+        "positions": [{
+            "as_of_date": "2026-06-01", "symbol": "AAPL", "quantity": 10.0,
+            "cost_basis": 800.0, "close_price": 100.0, "market_value": 1000.0,
+            "unrealized_pnl": 200.0, "currency": "USD",
+        }],
+        "ledger_entries": [],
+    }
+
+
+class TestAttributionEngineLookback:
+    """US-18.x fix: the cumulative series spans a fixed ~1y display window for
+    every rolling window — it is no longer truncated to ~(1.6×window) days."""
+
+    def test_20d_series_spans_full_display_range_not_just_window(self, mocker):
+        from unittest.mock import MagicMock
+        from app.services.attribution_engine import run_attribution_engine
+
+        rows = _attr_price_rows(520)
+
+        def _hist(sym, start, end, *a, **k):
+            return [r for r in rows if start <= r["date"] <= end]
+
+        mock = MagicMock()
+        inst = mock.return_value
+        inst.get_historical_prices.side_effect = _hist
+        inst.get_historical_prices_for_symbols.side_effect = (
+            lambda syms, a, b: {s: [r for r in rows if a <= r["date"] <= b] for s in syms}
+        )
+        mocker.patch("app.services.attribution_engine.MarketDataService", mock)
+
+        resp = run_attribution_engine(FactorAttributionRequest.model_validate(
+            {"snapshot": _attr_snapshot_dict(), "window": 20, "benchmark_symbol": "SPY"}
+        ))
+
+        assert resp.attribution_status == "available"
+        # With the old window-scaled fetch (~62 calendar days) this would be ~40.
+        # The fix fetches display(252)+window, so the 20d chart spans ~1 year.
+        assert len(resp.cumulative_series) > 150
