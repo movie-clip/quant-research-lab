@@ -28,6 +28,7 @@ const CARDS_WITH_BADGE = [
   'FactorAttributionCard.tsx',
   'BenchmarkCorrelationTable.tsx',
   'FactorDriftSummaryCard.tsx',
+  'IntraCorrelationHeatmap.tsx',
 ]
 
 /** Every card file the design system covers (incl. IndexedReturnChart). */
@@ -38,6 +39,7 @@ const ALL_CARD_FILES = [
   'FactorAttributionCard.tsx',
   'BenchmarkCorrelationTable.tsx',
   'FactorDriftSummaryCard.tsx',
+  'IntraCorrelationHeatmap.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g

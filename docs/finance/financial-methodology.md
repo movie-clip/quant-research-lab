@@ -690,6 +690,154 @@ Implementation:
 Contract: see `docs/contracts/correlation-fields.md` (US-9.3 section) for the
 field-level inventory and UI rendering rules.
 
+## Intra-Portfolio Correlation
+
+Where §Multi-Benchmark Correlation measures how the *portfolio as a whole*
+co-moves with external benchmarks, intra-portfolio correlation measures how the
+portfolio's *own holdings co-move with each other*. It answers the
+diversification question Markowitz framed: a basket of highly mutually
+correlated holdings carries far less diversification than its position count
+suggests, because their returns move together. The output is a symmetric
+holdings × holdings Pearson correlation matrix plus diversification summary
+statistics derived from it.
+
+All series are **synthetic history**: each holding's daily return series is the
+simple price return of its symbol over the lookback window (current holdings
+applied to historical prices), identical in construction to the per-symbol
+series already built inside `correlation_engine.py`. No new market-data source
+is introduced.
+
+### Pairwise correlation
+
+```text
+ρ_ij(w) = cov(r_i[t-w:t], r_j[t-w:t])
+          / (std(r_i[t-w:t]) × std(r_j[t-w:t]))
+
+where:
+  r_i_t = simple daily price return of holding i on date t = price_i(t)/price_i(t-1) − 1
+  r_j_t = simple daily price return of holding j on date t
+  w     = lookback window in trading days (20, 60, or 252)
+  cov/std use the population (N-denominator) convention, matching analytics/correlation.py
+
+  ρ_ii  = 1.0 by definition (diagonal)
+  ρ_ij  = ρ_ji          (matrix is symmetric)
+
+Computed via the existing pearson() helper in analytics/correlation.py, which
+drops non-overlapping (null) pairs before computing.
+
+Edge cases:
+  fewer than MIN_PAIR_OBSERVATIONS (20) overlapping non-null daily returns for
+    the pair (i, j): ρ_ij = null, pair trust = 'unavailable' (never 0)
+  either holding's return series has zero variance over the window
+    (constant/flat price): ρ_ij = null (pearson() already returns None)
+  a holding with no fetchable price history: excluded from the matrix entirely
+    (it is not rendered as a null row — it never enters the priceable universe)
+  cash balances and non-priceable instruments: excluded — they have no return
+    series and therefore no correlation
+```
+
+### Average pairwise correlation
+
+A single scalar summarising overall internal co-movement: the mean of the
+off-diagonal upper triangle over pairs that produced a non-null ρ.
+
+```text
+avg_pairwise_ρ = ( Σ_{i<j, ρ_ij ≠ null} ρ_ij ) / N_valid_pairs
+
+where:
+  N_valid_pairs = count of (i, j), i<j, with ρ_ij ≠ null
+
+Edge case:
+  N_valid_pairs = 0 (fewer than 2 priceable holdings with sufficient history):
+    avg_pairwise_ρ = null, summary trust = 'unavailable'
+
+Interpretation: closer to +1 → holdings move together (low diversification);
+near 0 → largely independent; negative → holdings hedge each other.
+```
+
+### Diversification Ratio (Choueifaty & Coignard 2008)
+
+The ratio of the weighted-average standalone volatility of the holdings to the
+realised volatility of the portfolio. DR = 1 means no diversification benefit
+(all holdings perfectly correlated); DR > 1 quantifies the volatility reduction
+from imperfect correlation.
+
+```text
+DR(w) = ( Σ_i w_i × σ_i(w) ) / σ_p(w)
+
+where:
+  w_i    = current weight of holding i (market value / total priceable market value)
+  σ_i(w) = population stdev of holding i's daily returns over the window
+  σ_p(w) = population stdev of the synthetic portfolio's daily returns over the
+           window (the same synthetic-portfolio return series used by
+           §Multi-Benchmark Correlation)
+
+Edge cases:
+  σ_p(w) = 0, or fewer than MIN_PAIR_OBSERVATIONS portfolio returns: DR = null
+  weights restricted to the priceable universe (cash and non-priceable
+    positions excluded and weights renormalised over priceable holdings)
+```
+
+### Effective Number of Bets (Meucci 2009) — optional / later story
+
+A spectral diversification measure: the entropy of the normalised eigenvalue
+spectrum of the correlation matrix. ENB = 1 when one principal component
+explains everything (no diversification); ENB → m (number of holdings) when
+risk is spread evenly across independent components.
+
+```text
+ENB = exp( − Σ_k p_k × ln(p_k) )
+
+where:
+  λ_k = eigenvalues of the m × m holdings correlation matrix
+  p_k = λ_k / Σ_j λ_j        (normalised so Σ_k p_k = 1)
+  m   = number of priceable holdings in the matrix
+
+Edge cases:
+  any λ_k ≤ 0 from floating-point noise: clamp to 0 and drop from the entropy
+    sum (0·ln 0 ≡ 0)
+  matrix not positive-semidefinite / fewer than 2 holdings: ENB = null
+
+Implementation note: ENB requires an eigendecomposition of a symmetric matrix.
+The engine has historically avoided numpy/scipy (see §Value-at-Risk and
+Distribution), but the dependency decision for this path has been made:
+**numpy is approved for the ENB eigendecomposition** (`numpy.linalg.eigvalsh`
+on the symmetric correlation matrix). ENB remains scoped to its own story
+(US-17.2) so the numpy dependency is introduced in a single, reviewable change
+with its own tests; it is not a blocker for the US-17.1 matrix + average
+correlation, which stay pure-Python.
+```
+
+Academic precedent:
+- Markowitz, H. (1952). "Portfolio Selection." *Journal of Finance*, 7(1),
+  77–91. (Diversification depends on the covariance/correlation structure of
+  holdings, not merely their count.)
+- Choueifaty, Y. & Coignard, Y. (2008). "Toward Maximum Diversification."
+  *Journal of Portfolio Management*, 35(1), 40–51. (Diversification Ratio.)
+- Meucci, A. (2009). "Managing Diversification." *Risk*, 22(5), 74–79.
+  (Effective Number of Bets via the entropy of the eigenvalue spectrum.)
+
+Implementation:
+- `services/quant-engine/app/analytics/correlation.py` — extend with a
+  `pairwise_correlation_matrix(...)` helper (reuses `pearson()`) plus
+  `average_pairwise_correlation(...)` and `diversification_ratio(...)`
+- `services/quant-engine/app/services/intra_correlation_engine.py` — orchestrates
+  market-data fetch, per-symbol return series, matrix + summary assembly
+  (reuses `_build_synthetic_snapshot_history_states`, `_returns_from_price_series`,
+  and `_lookback_calendar_days`)
+- `POST /engines/correlation/intra` — route
+
+Contract rule:
+- Every cell and summary value is **synthetic history**; never `verified`.
+- A pair below the minimum overlap is `null` with pair-level
+  `trust='unavailable'` — never rendered as 0. The diagonal is always exactly
+  `1.0` and is not subject to the trust ladder.
+- Cash and non-priceable instruments never enter the matrix; the priceable
+  universe is the contract surface, and weights for the Diversification Ratio
+  are renormalised over it.
+- See `docs/contracts/intra-correlation-fields.md` for the field-level inventory
+  and heatmap rendering rules.
+
 ## Factor Return Attribution
 
 Factor return attribution decomposes the portfolio's daily return history into

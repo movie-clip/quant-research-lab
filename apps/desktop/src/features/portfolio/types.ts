@@ -1412,3 +1412,25 @@ export type MultiBenchmarkCorrelationResult = {
   benchmarks: BenchmarkStats[]
   lookback_days: number
 }
+
+// --- Intra-Portfolio Correlation (Epic 17 / US-17.1) ---
+export type IntraCorrelationPair = {
+  symbol_a: string
+  symbol_b: string
+  correlation: number
+}
+
+export type IntraCorrelationResult = {
+  /** Priceable holdings in matrix order (by weight desc, capped at max_holdings). */
+  symbols: string[]
+  /** Square symmetric N×N matrix aligned to `symbols`. Diagonal = 1.0; a cell is
+   *  null when the pair is below the overlap minimum or has zero variance. */
+  matrix: Array<Array<number | null>>
+  average_pairwise_correlation: number | null
+  most_correlated_pair: IntraCorrelationPair | null
+  least_correlated_pair: IntraCorrelationPair | null
+  /** Holdings dropped for no / insufficient price history. */
+  excluded_symbols: string[]
+  lookback_days: number
+  trust: 'synthetic' | 'unavailable'
+}

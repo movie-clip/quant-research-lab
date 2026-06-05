@@ -1,6 +1,36 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-04 (Epic 16 complete).*
+*Living execution snapshot. Updated: 2026-06-05 (Epic 17 active; Epic 16 complete).*
+
+---
+
+## Active Epic: Epic 17 — Intra-Portfolio Correlation
+
+**PRD:** [`docs/product/prd/epic-17-intra-portfolio-correlation.md`](product/prd/epic-17-intra-portfolio-correlation.md)
+
+### Goal
+
+Answer "what is actually diversifying me?" on the Exposure tab with a holdings ×
+holdings Pearson correlation heatmap (selectable 20d/60d/252d window) plus
+diversification summary stats — reusing the existing synthetic-history machinery
+and `pearson()` helper. No new data provider.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-17.1 | Pairwise correlation matrix engine + heatmap | Done |
+| US-17.2 | Diversification summary metrics (DR + ENB; introduces numpy) | Backlog |
+| US-17.3 | Docs, contracts, roadmap close-out | Backlog |
+
+Recommended build order: 17.1 → 17.2 → 17.3.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-05 | US-17.1 | Pairwise correlation matrix engine + heatmap landed on the Exposure tab. Extended `analytics/correlation.py` with `pairwise_correlation_matrix()` (reuses `pearson()`; symmetric, diagonal 1.0, null below 20-overlap / zero-variance) + `average_pairwise_correlation()`. New `services/intra_correlation_engine.py` (reuses `_returns_from_price_series` + `_lookback_calendar_days`; per-symbol returns over the SPY grid; cash/non-priceable/no-history holdings excluded → `excluded_symbols`; weight-ranked, top-15 cap; most/least pair). New `POST /engines/correlation/intra` on the existing correlation router; new `schemas/intra_correlation.py`. Frontend: TS types + `runIntraCorrelationEngine` adapter; new `IntraCorrelationHeatmap` card (color-blind-safe heatmap — numeric ρ + ▲▲/▲/•/▼/▼▼ glyph over `--color-corr-*`; muted diagonal; "n/a" null cells; summary strip; excluded caption; Synthetic badge; EmptyState), added to the design-system audit set and wired into `ExposurePanel`. Contract `docs/contracts/intra-correlation-fields.md`. +14 backend (6 analytics + 6 engine + 2 route) + 10 frontend (9 card + 1 adapter); 215 frontend green; `npx tsc --noEmit` clean; audit 5/5; goldens reverted. (Pre-existing FMP-dependent stress/drawdown/distribution "real portfolio" tests fail in the offline sandbox — confirmed identical on base, unrelated to this story.) DR + ENB remain US-17.2. |
+| 2026-06-05 | — | Epic created from a `quant-research` brief (intra-portfolio correlation). Methodology extended with §Intra-Portfolio Correlation (pairwise Pearson matrix reusing `pearson()`; average pairwise correlation; Diversification Ratio — Choueifaty & Coignard 2008; Effective Number of Bets — Meucci 2009; Markowitz 1952 grounding; numpy approved for the ENB eigendecomposition). PRD authored; three-story plan. US-17.1 authored and ticketed (schema → analytics → service+route → types/adapter → heatmap card → docs). |
 
 ---
 

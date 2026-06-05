@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -268,6 +268,28 @@ export async function runMultiBenchmarkCorrelation(
   }
 
   return (await response.json()) as MultiBenchmarkCorrelationResult
+}
+
+/** Run the intra-portfolio correlation engine (Epic 17 — Exposure tab).
+ *  Returns a holdings × holdings Pearson correlation matrix + summary stats
+ *  over the requested lookback window. Synthetic-history trust. */
+export async function runIntraCorrelationEngine(
+  snapshot: ImportedSnapshot,
+  lookbackDays: number = 60,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<IntraCorrelationResult> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/correlation/intra', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snapshot, lookback_days: lookbackDays }),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(errorPayload?.detail ?? 'Intra-portfolio correlation run failed')
+  }
+
+  return (await response.json()) as IntraCorrelationResult
 }
 
 /** Run the standalone drawdown analytics engine (Epic 13 — Risk tab).

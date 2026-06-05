@@ -3,6 +3,7 @@ import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
 import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
 import { FactorAttributionCard } from './FactorAttributionCard'
 import { FactorDriftSummaryCard } from './FactorDriftSummaryCard'
+import { IntraCorrelationHeatmap } from './IntraCorrelationHeatmap'
 import { RollingCorrelationChart } from './RollingCorrelationChart'
 import { CardShell } from '../../app/primitives/CardShell'
 import { TrustBadge } from '../../app/primitives/TrustBadge'
@@ -203,6 +204,8 @@ export function ExposurePanel({
           />
           <BenchmarkCorrelationTable snapshot={result.snapshot ?? null} noShell />
         </CardShell>
+
+        <IntraCorrelationHeatmap snapshot={result.snapshot ?? null} />
 
         <FactorAttributionCard snapshot={result.snapshot ?? null} />
 
