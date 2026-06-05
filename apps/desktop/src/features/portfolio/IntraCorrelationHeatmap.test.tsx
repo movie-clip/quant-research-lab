@@ -74,7 +74,7 @@ describe('IntraCorrelationHeatmap', () => {
   it('re-fetches with the selected window', async () => {
     mockRun.mockResolvedValue(makeResult())
     render(<IntraCorrelationHeatmap snapshot={snapshot} />)
-    await waitFor(() => expect(mockRun).toHaveBeenCalledWith(snapshot, 60))
+    await waitFor(() => expect(mockRun).toHaveBeenCalledWith(snapshot, 20))
 
     fireEvent.click(screen.getByRole('button', { name: '252d window' }))
     await waitFor(() => expect(mockRun).toHaveBeenCalledWith(snapshot, 252))

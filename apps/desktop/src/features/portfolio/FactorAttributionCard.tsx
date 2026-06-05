@@ -178,7 +178,7 @@ type FactorAttributionCardProps = {
 type LoadState = 'idle' | 'loading' | 'error' | 'done'
 
 export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) {
-  const [window, setWindow] = useState<AttributionWindow>(60)
+  const [window, setWindow] = useState<AttributionWindow>(20)
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [attribution, setAttribution] = useState<FactorAttributionResponse | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)

@@ -92,7 +92,7 @@ type RollingCorrelationChartProps = {
 }
 
 export function RollingCorrelationChart({ rollingRisk, noShell = false }: RollingCorrelationChartProps) {
-  const [window, setWindow] = useState<CorrelationWindow>(60)
+  const [window, setWindow] = useState<CorrelationWindow>(20)
 
   const chartData = buildChartData(rollingRisk, window)
   const hasData = hasAnyData(chartData)
