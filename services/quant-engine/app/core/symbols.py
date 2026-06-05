@@ -29,7 +29,11 @@ DEFAULT_SYMBOL_RULES: tuple[SymbolResolutionRule, ...] = (
     SymbolResolutionRule(canonical_symbol="IUFS", quote_candidates=("IUFS",), history_candidates=("IUFS",), holdings_candidates=("IUFS",), proxy_candidates=("XLF",)),
     SymbolResolutionRule(canonical_symbol="IUHC", quote_candidates=("IUHC",), history_candidates=("IUHC",), holdings_candidates=("IUHC",), proxy_candidates=("XLV",)),
     SymbolResolutionRule(canonical_symbol="BTEC", quote_candidates=("BTEC",), history_candidates=("BTEC",), holdings_candidates=("BTEC",), proxy_candidates=("IBB",)),
-    SymbolResolutionRule(canonical_symbol="DFND", quote_candidates=("DFND",), history_candidates=("DFND",), holdings_candidates=("DFND",), proxy_candidates=("ITA", "PPA")),
+    # DFND = VanEck Defense UCITS ETF. Real Yahoo lines: DFNS.L (USD), DFEN.DE
+    # (EUR), DFNG.L (GBP), USD first to minimise FX noise in USD analytics.
+    # NEVER add DFND.L — that ticker is iShares Global Aerospace & Defence UCITS
+    # ETF, a DIFFERENT fund (verified via yfinance longName; see US-18.3).
+    SymbolResolutionRule(canonical_symbol="DFND", quote_candidates=("DFNS.L", "DFEN.DE", "DFNG.L", "DFND"), history_candidates=("DFNS.L", "DFEN.DE", "DFNG.L", "DFND"), holdings_candidates=("DFNS.L", "DFEN.DE", "DFNG.L", "DFND"), proxy_candidates=("ITA", "PPA"), aliases=("DFNS.L", "DFEN.DE", "DFNG.L")),
     SymbolResolutionRule(canonical_symbol="VDST", quote_candidates=("VDST",), history_candidates=("VDST",), holdings_candidates=("VDST",), proxy_candidates=("BIL", "VGSH")),
     SymbolResolutionRule(canonical_symbol="ACOMO", quote_candidates=("ACOMO.AS", "ACOMO"), history_candidates=("ACOMO.AS", "ACOMO"), aliases=("ACOMO.AS",)),
     # UCITS ETFs without direct FMP coverage — exchange suffixes tried first; proxy is a US-listed equivalent

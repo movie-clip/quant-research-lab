@@ -26,7 +26,7 @@ PRD: [`prd/epic-18-secondary-market-data-provider.md`](../prd/epic-18-secondary-
 |---|---|---|---|
 | [US-18.1](US-18.1-yfinance-fallback-provider.md) | yfinance fallback provider + data provenance | Backend — `YFinanceClient` + `MarketDataService` fallback + provenance; provenance marker on the Intra-Portfolio Correlation card | Done |
 | US-18.2 | Broaden provenance badges across analytics | Surface the provenance marker on factor model / drift / rolling risk / multi-benchmark surfaces | Backlog |
-| US-18.3 | Defense-ETF Yahoo symbol mapping | Correct Yahoo symbols/resolution rules for DFND, DEFS, IDFN | Backlog |
+| [US-18.3](US-18.3-defense-etf-symbol-mapping.md) | Defense-ETF Yahoo symbol mapping | `DFND` → real VanEck Defense lines (not the look-alike `DFND.L`); DEFS/IDFN already correct | Done |
 
 Recommended build order: 18.1 → 18.2 → 18.3.
 
