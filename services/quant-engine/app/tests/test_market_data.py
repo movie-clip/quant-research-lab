@@ -39,6 +39,15 @@ def test_defs_and_idfn_resolution_unchanged() -> None:
     assert resolve_symbol_candidates("IDFN", kind="history")[0] == "IDFN.L"
 
 
+def test_icom_and_vdst_resolve_to_lse_lines() -> None:
+    # US-18.3 follow-up: both are LSE/USD UCITS ETFs → .L line on Yahoo.
+    # ICOM.L = iShares Diversified Commodity Swap; VDST.L = Vanguard US Treasury 0-1y.
+    assert resolve_symbol_candidates("ICOM", kind="history") == ["ICOM.L", "ICOM"]
+    assert resolve_symbol_candidates("VDST", kind="history") == ["VDST.L", "VDST"]
+    assert canonicalize_symbol("ICOM.L") == "ICOM"
+    assert canonicalize_symbol("VDST.L") == "VDST"
+
+
 def test_get_historical_prices_uses_etf_holdings_proxy_fallback(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
@@ -82,13 +91,13 @@ def test_get_historical_prices_uses_gld_proxy_fallback_for_sgld(mocker) -> None:
 def test_get_historical_prices_uses_dbc_proxy_fallback_for_icom(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
-    instance.get_historical_price_light.side_effect = [[], [{"date": "2024-01-02", "price": 25.0}]]
+    instance.get_historical_price_light.side_effect = [[], [], [{"date": "2024-01-02", "price": 25.0}]]
 
     service = MarketDataService()
     rows = service.get_historical_prices("ICOM", "2024-01-01", "2024-01-31", allow_proxy_fallback=True)
 
     assert rows == [{"date": "2024-01-02", "price": 25.0}]
-    assert [call.args[0] for call in instance.get_historical_price_light.call_args_list] == ["ICOM", "DBC"]
+    assert [call.args[0] for call in instance.get_historical_price_light.call_args_list] == ["ICOM.L", "ICOM", "DBC"]
     assert service.get_last_fetch_meta("ICOM") == {"type": "history", "resolved_symbol": "DBC", "cached": True, "vendor": "fmp"}
 
 
