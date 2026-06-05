@@ -25,7 +25,8 @@ DEFAULT_SYMBOL_RULES: tuple[SymbolResolutionRule, ...] = (
     SymbolResolutionRule(canonical_symbol="VUAA", quote_candidates=("VUAA.L", "VUAA"), history_candidates=("VUAA.L", "VUAA"), holdings_candidates=("VUAA.L", "VUAA"), proxy_candidates=("SPY",), aliases=("VUAA.L",)),
     SymbolResolutionRule(canonical_symbol="SGLD", quote_candidates=("SGLD.L", "SGLD"), history_candidates=("SGLD.L", "SGLD"), holdings_candidates=("SGLD.L", "SGLD"), proxy_candidates=("GLD",), aliases=("SGLD.L",)),
     SymbolResolutionRule(canonical_symbol="ISLN", quote_candidates=("ISLN.L", "ISLN"), history_candidates=("ISLN.L", "ISLN"), holdings_candidates=("ISLN.L", "ISLN"), proxy_candidates=("SLV",), aliases=("ISLN.L",)),
-    SymbolResolutionRule(canonical_symbol="ICOM", quote_candidates=("ICOM",), history_candidates=("ICOM",), holdings_candidates=("ICOM",), proxy_candidates=("DBC",)),
+    # ICOM = iShares Diversified Commodity Swap UCITS ETF (LSE, USD) → ICOM.L on Yahoo.
+    SymbolResolutionRule(canonical_symbol="ICOM", quote_candidates=("ICOM.L", "ICOM"), history_candidates=("ICOM.L", "ICOM"), holdings_candidates=("ICOM.L", "ICOM"), proxy_candidates=("DBC",), aliases=("ICOM.L",)),
     SymbolResolutionRule(canonical_symbol="IUFS", quote_candidates=("IUFS",), history_candidates=("IUFS",), holdings_candidates=("IUFS",), proxy_candidates=("XLF",)),
     SymbolResolutionRule(canonical_symbol="IUHC", quote_candidates=("IUHC",), history_candidates=("IUHC",), holdings_candidates=("IUHC",), proxy_candidates=("XLV",)),
     SymbolResolutionRule(canonical_symbol="BTEC", quote_candidates=("BTEC",), history_candidates=("BTEC",), holdings_candidates=("BTEC",), proxy_candidates=("IBB",)),
@@ -34,7 +35,8 @@ DEFAULT_SYMBOL_RULES: tuple[SymbolResolutionRule, ...] = (
     # statement; see US-18.3 correction). Do NOT map to DFNS.L/DFEN.DE/DFNG.L —
     # those are VanEck Defense, a DIFFERENT fund. Proxies ITA/PPA (US A&D).
     SymbolResolutionRule(canonical_symbol="DFND", quote_candidates=("DFND.L", "DFND"), history_candidates=("DFND.L", "DFND"), holdings_candidates=("DFND.L", "DFND"), proxy_candidates=("ITA", "PPA"), aliases=("DFND.L",)),
-    SymbolResolutionRule(canonical_symbol="VDST", quote_candidates=("VDST",), history_candidates=("VDST",), holdings_candidates=("VDST",), proxy_candidates=("BIL", "VGSH")),
+    # VDST = Vanguard U.S. Treasury 0-1 Year Bond UCITS ETF (LSE, USD) → VDST.L on Yahoo.
+    SymbolResolutionRule(canonical_symbol="VDST", quote_candidates=("VDST.L", "VDST"), history_candidates=("VDST.L", "VDST"), holdings_candidates=("VDST.L", "VDST"), proxy_candidates=("BIL", "VGSH"), aliases=("VDST.L",)),
     SymbolResolutionRule(canonical_symbol="ACOMO", quote_candidates=("ACOMO.AS", "ACOMO"), history_candidates=("ACOMO.AS", "ACOMO"), aliases=("ACOMO.AS",)),
     # UCITS ETFs without direct FMP coverage — exchange suffixes tried first; proxy is a US-listed equivalent
     # used as a fallback when allow_proxy_fallback=True is passed to MarketDataService.
