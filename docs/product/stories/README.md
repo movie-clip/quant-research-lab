@@ -24,7 +24,7 @@ PRD: [`prd/epic-17-intra-portfolio-correlation.md`](../prd/epic-17-intra-portfol
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
-| [US-17.1](US-17.1-pairwise-correlation-heatmap.md) | Pairwise correlation matrix engine + heatmap | Full-stack — `pairwise_correlation_matrix()` + `average_pairwise_correlation()` in `analytics/correlation.py`; `intra_correlation_engine.py`; `POST /engines/correlation/intra`; `IntraCorrelationHeatmap` card on the Exposure tab | Next phase |
+| [US-17.1](US-17.1-pairwise-correlation-heatmap.md) | Pairwise correlation matrix engine + heatmap | Full-stack — `pairwise_correlation_matrix()` + `average_pairwise_correlation()` in `analytics/correlation.py`; `intra_correlation_engine.py`; `POST /engines/correlation/intra`; `IntraCorrelationHeatmap` card on the Exposure tab | Done |
 | US-17.2 | Diversification summary metrics | Diversification Ratio + Effective Number of Bets (introduces numpy) | Backlog |
 | US-17.3 | Docs, contracts, roadmap close-out | `intra-correlation-fields.md`, methodology verify, slice log | Backlog |
 

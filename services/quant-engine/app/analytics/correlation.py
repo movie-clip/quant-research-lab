@@ -115,3 +115,67 @@ def r_squared(
     """
     rho = pearson(r_p, r_b)
     return rho * rho if rho is not None else None
+
+
+def pairwise_correlation_matrix(
+    returns_by_symbol: dict[str, Sequence[float | None]],
+    symbols: Sequence[str],
+    min_observations: int = 20,
+) -> list[list[float | None]]:
+    """Symmetric holdings × holdings Pearson correlation matrix.
+
+    See docs/finance/financial-methodology.md §Intra-Portfolio Correlation.
+
+    Args:
+        returns_by_symbol: symbol → daily return series, each aligned to a
+            common date index (may contain None for missing days).
+        symbols: ordered symbols defining the matrix rows/columns.
+        min_observations: minimum overlapping non-null daily-return pairs
+            required for an off-diagonal cell; below this the cell is None.
+
+    Returns:
+        An N×N matrix (N = len(symbols)) where:
+        - matrix[i][i] == 1.0 (diagonal, by definition)
+        - matrix[i][j] == matrix[j][i] (symmetric)
+        - matrix[i][j] is None when the (i, j) pair has fewer than
+          min_observations overlapping returns or a zero-variance series
+          (pearson() returns None) — never 0 as a fabricated fill.
+    """
+    n = len(symbols)
+    matrix: list[list[float | None]] = [[None] * n for _ in range(n)]
+    for i in range(n):
+        matrix[i][i] = 1.0
+
+    for i in range(n):
+        r_i = returns_by_symbol.get(symbols[i], [])
+        for j in range(i + 1, n):
+            r_j = returns_by_symbol.get(symbols[j], [])
+            overlap = sum(
+                1 for a, b in zip(r_i, r_j) if a is not None and b is not None
+            )
+            rho = pearson(r_i, r_j) if overlap >= min_observations else None
+            matrix[i][j] = rho
+            matrix[j][i] = rho
+
+    return matrix
+
+
+def average_pairwise_correlation(
+    matrix: Sequence[Sequence[float | None]],
+) -> float | None:
+    """Mean of the off-diagonal (upper-triangle) non-null entries of a
+    symmetric correlation matrix.
+
+    Returns None when there are no non-null off-diagonal pairs (fewer than 2
+    holdings with a computable correlation).
+    """
+    values: list[float] = []
+    n = len(matrix)
+    for i in range(n):
+        for j in range(i + 1, n):
+            v = matrix[i][j]
+            if v is not None:
+                values.append(v)
+    if not values:
+        return None
+    return sum(values) / len(values)
