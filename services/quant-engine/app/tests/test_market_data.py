@@ -16,6 +16,27 @@ def test_symbol_resolver_returns_kind_specific_candidates() -> None:
     assert resolve_symbol_candidates("ISLN", kind="history", include_proxy=True) == ["ISLN.L", "ISLN", "SLV"]
 
 
+def test_dfnd_resolves_to_real_vaneck_defense_lines() -> None:
+    # US-18.3: DFND = VanEck Defense UCITS ETF → real Yahoo lines, USD first.
+    history = resolve_symbol_candidates("DFND", kind="history")
+    for sym in ("DFNS.L", "DFEN.DE", "DFNG.L"):
+        assert sym in history
+    assert history.index("DFNS.L") < history.index("DFND")  # real line before bare
+
+
+def test_dfnd_never_maps_to_lookalike_dfnd_l() -> None:
+    # DFND.L is iShares Global Aerospace & Defence UCITS ETF — a DIFFERENT fund.
+    # It must never appear in any DFND candidate list (wrong-fund guard).
+    for kind in ("quote", "history", "holdings"):
+        assert "DFND.L" not in resolve_symbol_candidates("DFND", kind=kind)
+
+
+def test_defs_and_idfn_resolution_unchanged() -> None:
+    # US-18.3 AC3: these already resolved correctly via US-18.1 — leading .L line.
+    assert resolve_symbol_candidates("DEFS", kind="history")[0] == "DEFS.L"
+    assert resolve_symbol_candidates("IDFN", kind="history")[0] == "IDFN.L"
+
+
 def test_get_historical_prices_uses_etf_holdings_proxy_fallback(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value

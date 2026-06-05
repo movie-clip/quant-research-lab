@@ -262,7 +262,7 @@ All 10 of these are LSE/IBIS2-listed and return 402 on FMP basic:
 | VUAA | Vanguard S&P 500 UCITS ETF | SPY |
 | SGLD | Invesco Physical Gold ETC | GLD |
 | ICOM | iShares Diversified Commodity Swap UCITS ETF | DBC |
-| DFND | VanEck Defense UCITS ETF | ITA, PPA |
+| DFND | VanEck Defense UCITS ETF | ITA, PPA |  ⚠ Yahoo line is **DFNS.L** (USD) / DFEN.DE / DFNG.L — **never DFND.L** (that's iShares Global Aerospace & Defence, a different fund). See US-18.3. |
 | VDST | Vanguard USD 0-1 Year Treasury Bond UCITS ETF | BIL, VGSH |
 | IUIT | iShares S&P 500 IT Sector UCITS ETF | XLK |
 | SEMI | iShares MSCI Global Semiconductors UCITS ETF | SOXX, SMH |
