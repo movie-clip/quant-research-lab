@@ -159,6 +159,18 @@ _SPY_MOCK_ETF_HOLDINGS: list[dict] = [
 
 
 @pytest.fixture(autouse=True)
+def _disable_yfinance_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable the yfinance secondary-provider fallback (US-18.1) by default so
+    no test accidentally hits the network when FMP returns empty. The default
+    yfinance client returns no rows; tests that exercise the fallback patch
+    `app.services.market_data.YFinanceClient` themselves (which takes precedence).
+    """
+    yf_mock = MagicMock()
+    yf_mock.return_value.get_historical_price_light.return_value = []
+    monkeypatch.setattr("app.services.market_data.YFinanceClient", yf_mock, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _mock_exposure_engine_market_data(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock MarketDataService in the exposure engine so that benchmark ETF holdings
     are available (SPY → verified, 100 % weight covered) without a live FMP connection.

@@ -228,6 +228,14 @@ export function IntraCorrelationHeatmap({ snapshot }: { snapshot: ImportedSnapsh
         <div>
           <SummaryStrip result={result} />
           <HeatmapGrid result={result} />
+          {result.yahoo_sourced_symbols.length > 0 && (
+            <p
+              className="helper"
+              style={{ margin: 'var(--space-sm) 0 0 0', color: 'var(--color-text-secondary)' }}
+            >
+              {`◆ ${result.yahoo_sourced_symbols.length} holding${result.yahoo_sourced_symbols.length === 1 ? '' : 's'} via Yahoo Finance (secondary source): ${result.yahoo_sourced_symbols.join(', ')}`}
+            </p>
+          )}
           {result.excluded_symbols.length > 0 && (
             <p className="helper" style={{ margin: 'var(--space-sm) 0 0 0' }}>
               {`${result.excluded_symbols.length} holding${result.excluded_symbols.length === 1 ? '' : 's'} excluded: insufficient history (${result.excluded_symbols.join(', ')})`}

@@ -144,6 +144,14 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
     # Cap to top-N priceable holdings by weight (already rank-ordered).
     selected = priceable_in_rank_order[:max_holdings]
 
+    # Provenance: which selected holdings were sourced from the secondary
+    # provider (Yahoo Finance) rather than FMP. Read from MarketDataService's
+    # per-symbol fetch metadata recorded during get_historical_prices_for_symbols.
+    yahoo_sourced_symbols = [
+        sym for sym in selected
+        if (market_data.last_fetch_meta.get(sym) or {}).get("vendor") == "yfinance"
+    ]
+
     if len(selected) < 2:
         return _unavailable(excluded_symbols)
 
@@ -192,6 +200,7 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
         diversification_ratio=dr,
         effective_number_of_bets=enb,
         excluded_symbols=excluded_symbols,
+        yahoo_sourced_symbols=yahoo_sourced_symbols,
         lookback_days=lookback_days,
         trust="synthetic",
     )

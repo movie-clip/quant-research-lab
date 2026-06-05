@@ -242,6 +242,17 @@ FMP's basic plan does **not** cover:
 - European exchange-listed ETFs with `.L`, `.AS`, `.DE`, `.MI` suffixes
 - These return **HTTP 402 Payment Required**
 
+> **Multi-provider (Epic 18 / US-18.1):** `MarketDataService` now falls back to
+> **Yahoo Finance (`YFinanceClient`, `app/clients/yfinance_client.py`)** when FMP
+> returns nothing for a candidate. Yahoo serves most of these UCITS symbols
+> (`VUAA.L`, `SXRV.DE`, …) with adjusted close. Provenance is recorded in
+> `last_fetch_meta[...]['vendor']` (`fmp`|`yfinance`) and surfaced visibly in the
+> UI — it is **not** a proxy substitute (it fetches the real holding). So a
+> "no FMP coverage" symbol is no longer automatically "no data". See
+> `docs/architecture/system-architecture.md` → "Market-data providers and data
+> provenance". The proxy-fallback machinery below is a separate, still-disabled
+> mechanism.
+
 ### European UCITS ETFs in IB statements (as of 2026)
 
 All 10 of these are LSE/IBIS2-listed and return 402 on FMP basic:

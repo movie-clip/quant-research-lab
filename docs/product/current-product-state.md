@@ -75,6 +75,8 @@ The researcher imports statements via the Import flow:
 
 ~16 service files, all under `services/quant-engine/app/services/`, plus pure-analytics modules under `services/quant-engine/app/analytics/` (incl. `drawdown.py` and `distribution.py` added in Epic 13).
 
+**Market-data providers (Epic 18):** price history is served behind `MarketDataService` with two providers tried in priority order — **FMP (primary)** then **Yahoo Finance via `yfinance` (secondary fallback)**, the latter used only when FMP returns nothing (e.g. European UCITS ETFs FMP's plan 402s). Provenance (`fmp` vs `yfinance`) is recorded per symbol and surfaced visibly — the Intra-Portfolio Correlation card shows a "via Yahoo Finance (secondary source)" marker for Yahoo-sourced holdings (`yahoo_sourced_symbols`). yfinance is a real second source, never a proxy substitute.
+
 ---
 
 ## Trust semantics (always-on)
