@@ -1,6 +1,35 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-04 (Epic 16 complete).*
+*Living execution snapshot. Updated: 2026-06-05 (Epic 17 active; Epic 16 complete).*
+
+---
+
+## Active Epic: Epic 17 — Intra-Portfolio Correlation
+
+**PRD:** [`docs/product/prd/epic-17-intra-portfolio-correlation.md`](product/prd/epic-17-intra-portfolio-correlation.md)
+
+### Goal
+
+Answer "what is actually diversifying me?" on the Exposure tab with a holdings ×
+holdings Pearson correlation heatmap (selectable 20d/60d/252d window) plus
+diversification summary stats — reusing the existing synthetic-history machinery
+and `pearson()` helper. No new data provider.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-17.1 | Pairwise correlation matrix engine + heatmap | Next phase |
+| US-17.2 | Diversification summary metrics (DR + ENB; introduces numpy) | Backlog |
+| US-17.3 | Docs, contracts, roadmap close-out | Backlog |
+
+Recommended build order: 17.1 → 17.2 → 17.3.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-05 | — | Epic created from a `quant-research` brief (intra-portfolio correlation). Methodology extended with §Intra-Portfolio Correlation (pairwise Pearson matrix reusing `pearson()`; average pairwise correlation; Diversification Ratio — Choueifaty & Coignard 2008; Effective Number of Bets — Meucci 2009; Markowitz 1952 grounding; numpy approved for the ENB eigendecomposition). PRD authored; three-story plan. US-17.1 authored and ticketed (schema → analytics → service+route → types/adapter → heatmap card → docs). |
 
 ---
 
