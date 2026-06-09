@@ -1,6 +1,35 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-05 (Epic 19 active; Epic 18 complete).*
+*Living execution snapshot. Updated: 2026-06-05 (Epic 20 active; Epic 18 complete).*
+
+---
+
+## Active Epic: Epic 20 — Market-Data Cache Efficiency & Control
+
+**PRD:** [`docs/product/prd/epic-20-market-data-cache-efficiency.md`](product/prd/epic-20-market-data-cache-efficiency.md)
+
+### Goal
+
+Cut FMP overuse and latency by making the **local** cache smarter (range
+normalization, in-memory layer, parallel fetch) and giving the user cache
+visibility + a clear button. No Redis (local-first desktop; wouldn't fix the
+core redundant-range issue).
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-20.1 | Cache stats + clear (route + UI) | Done |
+| US-20.2 | History range normalization (FMP-call reduction) | Backlog |
+| US-20.3 | In-memory layer + parallel fetch (latency) | Backlog |
+
+Recommended build order: 20.1 → 20.2 → 20.3.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-05 | — | Epic created from a cache review. Found the dominant FMP-overuse cause is date-range fragmentation (each engine fetches overlapping ranges → distinct cache keys), plus no in-memory layer, sequential fetches, and no cache route/UI. Decision: enhance the local file cache (range-normalization + memo + parallel + control surface); **no Redis** (local-first; doesn't fix the range issue). Three-story plan; US-20.1 (stats + clear) authored first to also provide the observability used to validate 20.2/20.3. |
 
 ---
 

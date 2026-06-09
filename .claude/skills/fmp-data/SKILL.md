@@ -210,6 +210,11 @@ python scripts/manage_cache.py clear
 python scripts/manage_cache.py clear history
 ```
 
+**In-app (Epic 20 / US-20.1):** `GET /cache/stats` (footprint + per-namespace
+counts) and `POST /cache/clear` (`{namespace}` optional; null = all FMP + Yahoo)
+back the "Market-data cache" card on the Exposure tab. Service:
+`app/services/cache_admin.py`; contract: `docs/contracts/cache-fields.md`.
+
 ### Corrupt cache files
 
 If a cache JSON file is malformed (e.g. truncated write), `JsonFileCache.get()`

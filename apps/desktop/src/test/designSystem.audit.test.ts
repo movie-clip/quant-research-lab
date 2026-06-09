@@ -41,6 +41,7 @@ const ALL_CARD_FILES = [
   'FactorDriftSummaryCard.tsx',
   'IntraCorrelationHeatmap.tsx',
   'DataSourcesPanel.tsx',
+  'CacheControlCard.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g
