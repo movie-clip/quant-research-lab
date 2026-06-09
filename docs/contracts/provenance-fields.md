@@ -42,7 +42,25 @@ serves it regardless), so the engine probes a short lookback purely to populate
 | `fmp_symbols` | `list[str]` | `string[]` | "N via FMP (primary)" line | No (may be empty) |
 | `yahoo_sourced_symbols` | `list[str]` | `string[]` | "N via Yahoo Finance (secondary source): …" line | No (may be empty) |
 | `unavailable_symbols` | `list[str]` | `string[]` | "N with no price history: …" line | No (may be empty) |
+| `identity_warnings` | `list[InstrumentIdentityMismatch]` | `InstrumentIdentityMismatch[]` | "⚠ Possible identity mismatch…" line(s) | No (may be empty) (US-19.1) |
 | `lookback_days` | `int` | `number` | (probe window echo) | No |
+
+### `InstrumentIdentityMismatch` (US-19.1)
+
+A registry-known holding whose broker-statement description is identity-disjoint
+from the registry fund name (possible ticker→fund mislabel). **Flag only** — never
+auto-corrected. Also emitted as the `instrument_description_registry_consistency`
+Import Admission check (`warn`/`degraded` when present).
+
+| Field | Backend type | TS type | Notes |
+|---|---|---|---|
+| `symbol` | `str` | `string` | Broker ticker |
+| `statement_description` | `str` | `string` | The broker statement's description of the holding |
+| `registry_name` | `str` | `string` | The registry's fund name for that ticker |
+
+Detection is conservative: flags only when the two names' normalized significant
+tokens are **disjoint** (catches different-issuer mislabels; ignores formatting /
+share-class suffix noise). Detector: `app/services/instrument_identity.py`.
 
 ### `HoldingProvenance`
 

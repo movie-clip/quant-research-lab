@@ -214,6 +214,7 @@ def test_analyze_snapshot_route_accepts_portfolio_snapshot_payload() -> None:
         "symbol_security_identity_consistency",
         "parsed_position_market_value_comparability",
         "nav_market_value_comparability",
+        "instrument_description_registry_consistency",
     }
 
 

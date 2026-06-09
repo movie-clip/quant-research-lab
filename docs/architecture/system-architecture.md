@@ -161,6 +161,14 @@ repeating a marker on every card. Provenance is a **source label, not a
 return-basis trust claim** — it never asserts `verified`/`synthetic` for the
 analytics.
 
+Instrument identity (Epic 19 / US-19.1): `app/services/instrument_identity.py`
+cross-checks each registry-known holding's broker-statement description against
+the registry fund name and flags identity-disjoint mismatches (possible
+ticker→fund mislabels). It is emitted both as the
+`instrument_description_registry_consistency` Import Admission check and (for
+visibility) in the provenance result rendered by the Data Sources panel.
+Flag only — never auto-corrects the registry or remaps the symbol.
+
 ## API Boundary
 
 Current API direction:

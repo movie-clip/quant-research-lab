@@ -1,6 +1,32 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-05 (Epic 18 complete).*
+*Living execution snapshot. Updated: 2026-06-05 (Epic 19 active; Epic 18 complete).*
+
+---
+
+## Active Epic: Epic 19 — Instrument Identity Integrity
+
+**PRD:** [`docs/product/prd/epic-19-instrument-identity-integrity.md`](product/prd/epic-19-instrument-identity-integrity.md)
+
+### Goal
+
+Detect and surface ticker→fund mislabels (like the `DFND` case) by cross-checking
+the registry's fund name against the broker statement's own description, instead
+of silently trusting the registry.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-19.1 | Instrument description-consistency check | Done |
+| US-19.2 | ISIN-keyed registry identity | Backlog |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-05 | US-19.1 | Instrument description-consistency check. New pure detector `app/services/instrument_identity.py` (`detect_instrument_identity_mismatches`) flags registry-known holdings whose broker description is **identity-disjoint** from the registry fund name (conservative token comparison; catches different-issuer mislabels, ignores formatting/share-class noise). Surfaced two ways: a new `instrument_description_registry_consistency` Import Admission check (`warn`/`degraded`), and — because the admission summary isn't rendered today — a visible "⚠ Possible identity mismatch" line on the Exposure **Data Sources panel** (`ProvenanceResult.identity_warnings`, computed in `provenance_engine`). Schema + TS `InstrumentIdentityMismatch`. Flag only — never auto-corrects. +6 detector + 3 admission + 2 engine + 2 panel tests; 2 pre-existing exact-check-set assertions (clean-pass, analyze-snapshot route) updated for the additive check. 227 frontend + backend green (only the 4 pre-existing FMP-offline failures remain); `npx tsc --noEmit` clean; audit 5/5. |
+| 2026-06-05 | — | Epic created after the `DFND` mislabel (registry said "VanEck Defense"; user's holding is iShares Global Aerospace & Defence). PRD authored; description-consistency flag chosen over ISIN (providers don't return ISINs for these EU funds). Grounding found the Import Admission Review summary is computed/persisted but not rendered, so US-19.1 surfaces the flag on the visible Data Sources panel (US-18.2) in addition to the persisted admission check. |
 
 ---
 

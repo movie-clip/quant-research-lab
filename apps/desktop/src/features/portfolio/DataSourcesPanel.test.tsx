@@ -24,6 +24,7 @@ function makeResult(overrides?: Partial<ProvenanceResult>): ProvenanceResult {
     fmp_symbols: ['AAPL', 'MSFT'],
     yahoo_sourced_symbols: [],
     unavailable_symbols: [],
+    identity_warnings: [],
     lookback_days: 30,
     ...overrides,
   }
@@ -51,6 +52,26 @@ describe('DataSourcesPanel', () => {
     const { container } = render(<DataSourcesPanel snapshot={snapshot} />)
     await waitFor(() => expect(container.textContent).toMatch(/no price history/i))
     expect(container.textContent).toContain('NOPE')
+  })
+
+  it('renders an identity-mismatch warning when present', async () => {
+    mockRun.mockResolvedValue(makeResult({
+      identity_warnings: [
+        { symbol: 'DFND', statement_description: 'iShares Global Aerospace & Defence UCITS ETF', registry_name: 'VanEck Defense UCITS ETF' },
+      ],
+    }))
+    const { container } = render(<DataSourcesPanel snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toMatch(/identity mismatch/i))
+    expect(container.textContent).toContain('DFND')
+    expect(container.textContent).toContain('iShares Global Aerospace & Defence UCITS ETF')
+    expect(container.textContent).toContain('VanEck Defense UCITS ETF')
+  })
+
+  it('renders no identity warning when there are none', async () => {
+    mockRun.mockResolvedValue(makeResult({ identity_warnings: [] }))
+    const { container } = render(<DataSourcesPanel snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toMatch(/via FMP \(primary\)/i))
+    expect(container.textContent).not.toMatch(/identity mismatch/i)
   })
 
   it('renders nothing before a snapshot is loaded', () => {

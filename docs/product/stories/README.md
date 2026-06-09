@@ -18,6 +18,19 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 19 — Instrument Identity Integrity (active)
+
+PRD: [`prd/epic-19-instrument-identity-integrity.md`](../prd/epic-19-instrument-identity-integrity.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-19.1](US-19.1-instrument-description-consistency.md) | Instrument description-consistency check | Backend detector + admission check + Data Sources panel warning for ticker↔description mismatches | Done |
+| US-19.2 | ISIN-keyed registry identity | Validate statement ISIN vs registry expected ISIN (needs authoritative ISIN data) | Backlog |
+
+Recommended build order: 19.1 → 19.2.
+
+---
+
 ### Epic 18 — Secondary Market-Data Provider (complete)
 
 PRD: [`prd/epic-18-secondary-market-data-provider.md`](../prd/epic-18-secondary-market-data-provider.md)

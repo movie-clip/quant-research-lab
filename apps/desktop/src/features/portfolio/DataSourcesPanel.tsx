@@ -93,6 +93,15 @@ export function DataSourcesPanel({ snapshot }: { snapshot: ImportedSnapshot | nu
               {`${countLabel(unavailable.length)} with no price history: ${unavailable.join(', ')}`}
             </p>
           )}
+
+          {(result.identity_warnings ?? []).map((w) => (
+            <p
+              key={`identity-${w.symbol}`}
+              style={{ margin: 0, fontSize: 'var(--font-body-sm)', color: 'var(--color-value-negative)' }}
+            >
+              {`⚠ Possible identity mismatch: ${w.symbol} — statement says "${w.statement_description}", registry says "${w.registry_name}"`}
+            </p>
+          ))}
         </div>
       )}
     </CardShell>

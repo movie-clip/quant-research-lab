@@ -1346,11 +1346,20 @@ export type HoldingProvenance = {
   vendor: ProvenanceVendor
 }
 
+export type InstrumentIdentityMismatch = {
+  symbol: string
+  statement_description: string
+  registry_name: string
+}
+
 export type ProvenanceResult = {
   holdings: HoldingProvenance[]
   fmp_symbols: string[]
   yahoo_sourced_symbols: string[]
   unavailable_symbols: string[]
+  /** Holdings whose statement description disagrees with the registry fund name
+   *  (possible ticker→fund mislabel). Flag only. (US-19.1) */
+  identity_warnings: InstrumentIdentityMismatch[]
   lookback_days: number
 }
 
