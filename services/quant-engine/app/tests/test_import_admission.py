@@ -68,6 +68,7 @@ def test_import_admission_summary_clean_pass() -> None:
         "symbol_security_identity_consistency": "pass",
         "parsed_position_market_value_comparability": "pass",
         "nav_market_value_comparability": "pass",
+        "instrument_description_registry_consistency": "pass",
     }
     assert summary.provenance.tolerance_policy == "absolute_currency_delta_lte_0.01_same_currency_only"
 
@@ -337,3 +338,36 @@ def test_import_admission_schema_rejects_non_finite_evidence_and_pass_review_sta
                 "affected_fields": [],
             },
         })
+
+
+def test_admission_flags_instrument_description_mismatch() -> None:
+    # VUAA is registry-known as "Vanguard S&P 500 UCITS ETF"; a disjoint
+    # description (different fund) must flag (US-19.1).
+    snapshot = _snapshot(instruments=[
+        ImportedInstrument(symbol="VUAA", currency="USD", description="iShares Core MSCI World UCITS ETF"),
+    ])
+    summary = build_import_admission_summary(snapshot)
+    check = next(c for c in summary.checks if c.check_id == "instrument_description_registry_consistency")
+
+    assert check.status == "warn"
+    assert check.severity == "warning"
+    assert check.trust_impact == "degraded"
+    assert "VUAA" in check.message
+
+
+def test_admission_instrument_description_consistent_passes() -> None:
+    snapshot = _snapshot(instruments=[
+        ImportedInstrument(symbol="VUAA", currency="USD", description="VANGUARD S&P 500 UCITS ETF USD ACC"),
+    ])
+    summary = build_import_admission_summary(snapshot)
+    check = next(c for c in summary.checks if c.check_id == "instrument_description_registry_consistency")
+
+    assert check.status == "pass"
+    assert check.trust_impact == "none"
+
+
+def test_admission_includes_instrument_description_check() -> None:
+    summary = build_import_admission_summary(
+        _snapshot(statement_totals=ImportedStatementTotals(stock_total=200.0, cash_total=100.0, ending_nav=300.0))
+    )
+    assert any(c.check_id == "instrument_description_registry_consistency" for c in summary.checks)

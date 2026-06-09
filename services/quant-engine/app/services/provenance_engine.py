@@ -15,12 +15,17 @@ from datetime import date, timedelta
 from app.core.symbols import canonicalize_symbol
 from app.schemas.provenance import HoldingProvenance, ProvenanceRequest, ProvenanceResult
 from app.services.correlation_engine import _lookback_calendar_days
+from app.services.instrument_identity import detect_instrument_identity_mismatches
 from app.services.market_data import MarketDataService
 
 
 def run_provenance(request: ProvenanceRequest) -> ProvenanceResult:
     snapshot = request.snapshot
     lookback_days = request.lookback_days
+
+    # Identity warnings come from instrument descriptions vs the registry, so they
+    # are computed independently of price-history provenance (and of positions).
+    identity_warnings = detect_instrument_identity_mismatches(snapshot)
 
     symbols = sorted({pos.symbol for pos in snapshot.positions if pos.symbol})
     if not symbols:
@@ -29,6 +34,7 @@ def run_provenance(request: ProvenanceRequest) -> ProvenanceResult:
             fmp_symbols=[],
             yahoo_sourced_symbols=[],
             unavailable_symbols=[],
+            identity_warnings=identity_warnings,
             lookback_days=lookback_days,
         )
 
@@ -63,5 +69,6 @@ def run_provenance(request: ProvenanceRequest) -> ProvenanceResult:
         fmp_symbols=fmp_symbols,
         yahoo_sourced_symbols=yahoo_sourced_symbols,
         unavailable_symbols=unavailable_symbols,
+        identity_warnings=identity_warnings,
         lookback_days=lookback_days,
     )

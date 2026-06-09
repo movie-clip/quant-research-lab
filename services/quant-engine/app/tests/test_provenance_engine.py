@@ -98,3 +98,35 @@ def test_route_returns_grouped_shape(mocker):
     data = response.json()
     assert set(data.keys()) >= {"holdings", "fmp_symbols", "yahoo_sourced_symbols", "unavailable_symbols", "lookback_days"}
     assert data["yahoo_sourced_symbols"] == ["VUAA"]
+
+
+# ── Identity warnings (US-19.1) ─────────────────────────────────────────────────
+
+def _snapshot_with_instruments(instruments: list[dict]) -> dict:
+    snap = _snapshot([])  # no positions → run_provenance early-returns (no market data)
+    snap["instruments"] = instruments
+    return snap
+
+
+def test_identity_warnings_surfaced_for_mislabeled_holding():
+    # VUAA is registry-known as "Vanguard S&P 500 UCITS ETF".
+    req = ProvenanceRequest.model_validate({
+        "snapshot": _snapshot_with_instruments([
+            {"symbol": "VUAA", "description": "iShares Core MSCI World UCITS ETF"},
+        ]),
+        "lookback_days": 30,
+    })
+    res = run_provenance(req)
+    assert len(res.identity_warnings) == 1
+    assert res.identity_warnings[0].symbol == "VUAA"
+
+
+def test_identity_warnings_empty_when_consistent():
+    req = ProvenanceRequest.model_validate({
+        "snapshot": _snapshot_with_instruments([
+            {"symbol": "VUAA", "description": "VANGUARD S&P 500 UCITS ETF USD ACC"},
+        ]),
+        "lookback_days": 30,
+    })
+    res = run_provenance(req)
+    assert res.identity_warnings == []

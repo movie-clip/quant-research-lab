@@ -9,6 +9,7 @@ from app.schemas.import_bootstrap import (
     ImportAdmissionSummaryV1,
 )
 from app.schemas.imports import ImportedCashBalance, ImportedInstrument, ImportedPortfolioSnapshot, ImportedPosition
+from app.services.instrument_identity import detect_instrument_identity_mismatches
 
 
 CURRENCY_TOLERANCE_ABSOLUTE = 0.01
@@ -388,12 +389,44 @@ def _build_nav_check(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionChec
     )
 
 
+def _build_instrument_description_consistency_check(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionCheckV1:
+    """Flag registry-known holdings whose broker description is identity-disjoint
+    from the registry fund name (possible ticker→fund mislabel). Flag only."""
+    mismatches = detect_instrument_identity_mismatches(snapshot)
+    affected = ["instruments.symbol", "instruments.description"]
+
+    if mismatches:
+        symbols = ", ".join(m.symbol for m in mismatches)
+        return ImportAdmissionCheckV1(
+            check_id="instrument_description_registry_consistency",
+            status="warn",
+            severity="warning",
+            trust_impact="degraded",
+            message=(
+                f"Instrument identity may be mislabeled for: {symbols}. "
+                "The broker statement description disagrees with the registry fund name."
+            ),
+            affected_fields=affected,
+            observed=ImportAdmissionCheckValue(label="mismatched_symbols", value=symbols),
+        )
+
+    return ImportAdmissionCheckV1(
+        check_id="instrument_description_registry_consistency",
+        status="pass",
+        severity="info",
+        trust_impact="none",
+        message="Every registry-known holding's description is consistent with its registry fund name.",
+        affected_fields=affected,
+    )
+
+
 def build_import_admission_summary(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionSummaryV1:
     checks = [
         _build_cash_check(snapshot),
         _build_symbol_identity_check(snapshot),
         _build_positions_market_value_check(snapshot),
         _build_nav_check(snapshot),
+        _build_instrument_description_consistency_check(snapshot),
     ]
     statuses = {check.status for check in checks}
     if "fail" in statuses:
