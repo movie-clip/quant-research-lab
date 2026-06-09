@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, ProvenanceResult, StressEngineResponse } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, ProvenanceResult, StressEngineResponse, CacheStats, CacheClearResult } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -310,6 +310,35 @@ export async function runProvenanceEngine(
   }
 
   return (await response.json()) as ProvenanceResult
+}
+
+/** Read the local market-data cache footprint (Epic 20 — Cache control). */
+export async function getCacheStats(
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<CacheStats> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/cache/stats', apiUrlOptions), { method: 'GET' })
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(errorPayload?.detail ?? 'Cache stats request failed')
+  }
+  return (await response.json()) as CacheStats
+}
+
+/** Clear the local market-data cache (all namespaces, or a single one). */
+export async function clearCache(
+  namespace?: string | null,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<CacheClearResult> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/cache/clear', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ namespace: namespace ?? null }),
+  })
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(errorPayload?.detail ?? 'Cache clear failed')
+  }
+  return (await response.json()) as CacheClearResult
 }
 
 /** Run the standalone drawdown analytics engine (Epic 13 — Risk tab).

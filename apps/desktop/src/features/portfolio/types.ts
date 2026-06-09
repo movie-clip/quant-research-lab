@@ -1338,6 +1338,24 @@ export type ExposureFactorModelResponse = {
 }
 
 
+// --- Market-data cache admin (Epic 20 / US-20.1) ---
+export type CacheNamespaceStat = {
+  namespace: string
+  entries: number
+}
+
+export type CacheStats = {
+  enabled: boolean
+  cache_dir: string
+  total_entries: number
+  namespaces: CacheNamespaceStat[]
+}
+
+export type CacheClearResult = {
+  removed: number
+  namespace: string | null
+}
+
 // --- Data provenance (Epic 18 / US-18.2) ---
 export type ProvenanceVendor = 'fmp' | 'yfinance' | 'unavailable'
 
