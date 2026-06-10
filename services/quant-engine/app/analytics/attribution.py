@@ -22,6 +22,7 @@ Trust class: synthetic history.  Never label the residual "alpha".
 """
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 
 from app.analytics.risk import (
@@ -194,6 +195,20 @@ def build_factor_attribution(
 
         sum_contributions = sum(contributions.values())
         residual = r_p_t - sum_contributions
+
+        # Fail-closed on degenerate windows: a singular / zero-variance rolling
+        # window can make the OLS solve return a non-finite beta, producing NaN
+        # contributions that (a) silently pass the reconciliation check below
+        # (NaN comparisons are always False) and (b) break JSON serialization of
+        # the response. Skip such dates entirely — never emit NaN.
+        if not (
+            math.isfinite(r_p_t)
+            and math.isfinite(residual)
+            and all(math.isfinite(v) for v in contributions.values())
+            and all(math.isfinite(b) for b in betas.values())
+            and all(math.isfinite(fs) for fs in f_stars.values())
+        ):
+            continue
 
         # Sanity check: reconciliation identity holds by construction.
         discrepancy = abs((sum_contributions + residual) - r_p_t)

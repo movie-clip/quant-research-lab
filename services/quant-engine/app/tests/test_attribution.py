@@ -379,3 +379,40 @@ class TestAttributionEngineLookback:
         # With the old window-scaled fetch (~62 calendar days) this would be ~40.
         # The fix fetches display(252)+window, so the 20d chart spans ~1 year.
         assert len(resp.cumulative_series) > 150
+
+
+# ── Non-finite (NaN) guard regression (critical bug 2026-06-10) ─────────────────
+
+def test_nonfinite_window_skipped_and_response_is_json_safe(monkeypatch):
+    """A degenerate rolling window can make the OLS solve return a non-finite
+    beta → NaN contributions that broke JSON serialization (500). The engine must
+    skip such dates and never emit NaN."""
+    import json
+    import math as _math
+    from app.analytics import attribution as attr_mod
+
+    states = _make_daily_states(40, daily_return=0.001)
+    histories = _standard_histories(41)
+
+    real_fit = attr_mod._fit_factor_model
+    calls = {"n": 0}
+
+    def fake_fit(y_window, orth_window, ridge_lambda=1e-5):
+        calls["n"] += 1
+        coeffs, a, b = real_fit(y_window, orth_window, ridge_lambda=ridge_lambda)
+        if calls["n"] == 1:
+            coeffs = [float("nan")] * len(coeffs)  # simulate a degenerate window
+        return coeffs, a, b
+
+    monkeypatch.setattr(attr_mod, "_fit_factor_model", fake_fit)
+
+    result = build_factor_attribution(states, histories, window=20)
+
+    assert result.attribution_status == "available"
+    # Replicates FastAPI's strict JSON render: raises if any NaN/inf is present.
+    json.dumps(result.model_dump(), allow_nan=False)
+    for entry in result.cumulative_series:
+        assert _math.isfinite(entry.cumul_portfolio_return)
+        assert _math.isfinite(entry.cumul_unexplained)
+        for point in entry.contributions:
+            assert _math.isfinite(point.cumul_contribution)
