@@ -70,6 +70,7 @@ PRD: [`prd/epic-18-secondary-market-data-provider.md`](../prd/epic-18-secondary-
 | [US-18.1](US-18.1-yfinance-fallback-provider.md) | yfinance fallback provider + data provenance | Backend — `YFinanceClient` + `MarketDataService` fallback + provenance; provenance marker on the Intra-Portfolio Correlation card | Done |
 | [US-18.2](US-18.2-portfolio-provenance-indicator.md) | Portfolio-level data-sources indicator | One Exposure-tab "Data sources" panel (FMP vs Yahoo vs unpriced) via a dedicated provenance engine | Done |
 | [US-18.3](US-18.3-defense-etf-symbol-mapping.md) | Defense-ETF Yahoo symbol mapping | `DFND` → real VanEck Defense lines (not the look-alike `DFND.L`); DEFS/IDFN already correct | Done |
+| [US-18.4](US-18.4-sanitize-nonfinite-price-rows.md) | Sanitize non-finite price rows (bugfix) | Yahoo NaN bars skipped at the client + seam-level row sanitization in `MarketDataService` (fixes correlation 500s) | Done |
 
 Recommended build order: 18.1 → 18.2 → 18.3.
 

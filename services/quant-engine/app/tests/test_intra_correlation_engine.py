@@ -296,6 +296,39 @@ class TestIntraCorrelationRoute:
         assert data["matrix"] == []
         assert data["lookback_days"] == 60
 
+    def test_nan_price_bars_do_not_500_the_route(self, client, mocker):
+        """Regression for the 2026-06-10 live bug: cached NaN price bars reached
+        the correlation math (pearson's variance guard passes NaN) and broke
+        JSON serialization → 500. Goes through the REAL MarketDataService so the
+        seam sanitization (US-18.4) is exercised; only the FMP client is mocked."""
+        dates = [(date(2025, 1, 1) + timedelta(days=d)).isoformat() for d in range(40)]
+
+        def _rows(symbol: str, *_a, **_k) -> list[dict]:
+            rows = []
+            price = 100.0
+            for i, d in enumerate(dates):
+                price *= 1.0 + 0.01 * math.sin(i + (1.0 if symbol == "BBB" else 0.0))
+                rows.append({"symbol": symbol, "date": d, "price": price})
+            # Poisoned bar, as cached on 2026-06-09 for the Yahoo-sourced UCITS.
+            rows[-1] = {"symbol": symbol, "date": dates[-1], "price": float("nan")}
+            return rows
+
+        fmp_mock = MagicMock()
+        fmp_mock.return_value.get_historical_price_light.side_effect = _rows
+        mocker.patch("app.services.market_data.FmpClient", fmp_mock)
+
+        payload = {
+            "snapshot": _snapshot([_position("AAA", 300.0), _position("BBB", 200.0)]),
+            "lookback_days": 60,
+        }
+        response = client.post("/engines/correlation/intra", json=payload)
+
+        # FastAPI's strict JSON render is the assertion: NaN anywhere → 500.
+        assert response.status_code == 200
+        data = response.json()
+        assert data["trust"] == "synthetic"
+        assert set(data["symbols"]) == {"AAA", "BBB"}
+
     def test_route_returns_valid_shape_with_positions(self, client, mocker):
         _install_market_data_mock(mocker, {
             "AAA": _RET_A, "BBB": [2.0 * x for x in _RET_A],

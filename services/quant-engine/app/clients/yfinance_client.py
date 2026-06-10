@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +80,13 @@ class YFinanceClient:
                 try:
                     adj_value = float(adj)
                 except (TypeError, ValueError):
+                    continue
+                # pandas encodes missing bars as float('nan'), which passes the
+                # None check and float() conversion above. A non-finite bar is
+                # "no data for that date" — skip it (fail-closed), never cache it.
+                # (Bug 2026-06-10: NaN bars cached for 2026-06-09 poisoned the
+                # correlation engines → JSON 500.)
+                if not math.isfinite(adj_value):
                     continue
                 date_str = index.date().isoformat() if hasattr(index, "date") else str(index)[:10]
                 volume_raw = record.get("Volume")

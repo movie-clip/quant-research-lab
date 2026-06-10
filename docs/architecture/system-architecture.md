@@ -145,6 +145,13 @@ satisfied each symbol (`'fmp'` | `'yfinance'`). The FMP-first path is unchanged
 when FMP has data; yfinance is never a proxy substitute (it fetches the *real*
 holding from a second source).
 
+**Row sanitization rule (US-18.4):** rows with an absent or non-finite `price`
+(NaN/inf — e.g. a Yahoo/pandas missing bar) never leave the seam:
+`MarketDataService` filters them on every history return path, and the yfinance
+client additionally skips non-finite bars at the source. A non-finite bar is
+"no data for that date" — dropped, never zero-filled or interpolated. This also
+neutralizes already-cached poisoned entries.
+
 **Data provenance is a distinct dimension from return-basis trust.** Yahoo data
 carries adjusted close, so its return-basis is `verified_adjusted_close` — the
 same class as FMP — but the *source* differs. Per the traceability guardrail,

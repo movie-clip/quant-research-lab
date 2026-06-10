@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Iterable, Literal
 
 from app.core.symbols import canonicalize_symbol, resolve_etf_holdings_candidates, resolve_symbol_candidates
@@ -244,6 +245,21 @@ class MarketDataService:
                     break
         return quotes
 
+    @staticmethod
+    def _sanitize_price_rows(rows: list[dict]) -> list[dict]:
+        """Drop rows whose `price` is absent or non-finite (NaN/inf).
+
+        A non-finite bar means "no data for that date" (e.g. Yahoo/pandas NaN
+        for an untraded day) — it must never reach the engines or the JSON
+        layer. Order and valid rows are preserved untouched. This is the single
+        choke-point for all providers AND for already-cached poisoned entries.
+        (Bug 2026-06-10: cached NaN bars 500'd the correlation routes.)
+        """
+        return [
+            row for row in rows
+            if isinstance(row.get("price"), (int, float)) and math.isfinite(row["price"])
+        ]
+
     def get_historical_prices(
         self,
         symbol: str,
@@ -260,9 +276,13 @@ class MarketDataService:
             holdings_candidates = resolve_etf_holdings_candidates(requested_symbol, symbol_overrides)
             ordered_candidates = list(dict.fromkeys([*symbol_candidates, *holdings_candidates]))
 
+        # Sanitization happens BEFORE the truthiness check so an all-bad result
+        # counts as "no data" and falls through to the next candidate/provider.
         for candidate in ordered_candidates:
             try:
-                rows = self.client.get_historical_price_light(candidate, from_date, to_date)
+                rows = self._sanitize_price_rows(
+                    self.client.get_historical_price_light(candidate, from_date, to_date)
+                )
             except Exception:  # noqa: BLE001
                 continue
             if rows:
@@ -273,7 +293,9 @@ class MarketDataService:
         # Uses the same real-symbol candidates (e.g. VUAA.L), never proxy substitutes.
         for candidate in symbol_candidates:
             try:
-                rows = self._yfinance().get_historical_price_light(candidate, from_date, to_date)
+                rows = self._sanitize_price_rows(
+                    self._yfinance().get_historical_price_light(candidate, from_date, to_date)
+                )
             except Exception:  # noqa: BLE001
                 continue
             if rows:
@@ -290,7 +312,9 @@ class MarketDataService:
         if requested_symbol not in VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST:
             return []
         try:
-            rows = self.client.get_historical_price_light(requested_symbol, from_date, to_date)
+            rows = self._sanitize_price_rows(
+                self.client.get_historical_price_light(requested_symbol, from_date, to_date)
+            )
         except Exception:  # noqa: BLE001
             return []
         if rows:
