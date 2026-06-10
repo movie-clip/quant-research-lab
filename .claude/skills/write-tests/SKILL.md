@@ -53,6 +53,26 @@ This is an FMP-cache artifact, not a real change.
 
 ## Backend pytest patterns
 
+### No live network in tests (US-21.1 — enforced)
+
+The default backend run **blocks real network connections** via `pytest-socket`
+(`pytest.ini`: `--disable-socket --allow-hosts=127.0.0.1,::1`). A test that
+forgets to mock market data fails loudly with `SocketConnectBlockedError`
+instead of silently passing online and failing offline.
+
+- **Engine tests:** `conftest.py` autouse-mocks `MarketDataService` for the
+  exposure / dashboard-history / diagnostics / stress / drawdown / distribution
+  engines with deterministic synthetic rows (`_mock_price_rows`,
+  `_mock_prices_for_symbols`). A test-local `mocker.patch` of an engine's
+  `MarketDataService` takes precedence.
+- **Client tests:** mock the provider library itself (`yfinance.Ticker`,
+  `httpx` via `FmpClient` patch) — never the network.
+- **Genuinely-live tests** (rare): mark `@pytest.mark.live_data` (plus
+  `@pytest.mark.enable_socket`). They are **deselected** by default
+  (`-m "not live_data"` in addopts) and run explicitly via `pytest -m live_data`.
+- Loopback and file I/O are unaffected (in-process `TestClient`, `tmp_path`,
+  `JsonFileCache` all work under the guard).
+
 ### Before adding tests to an existing file: inventory the helpers
 
 When extending an existing test file (vs creating a new one), grep for

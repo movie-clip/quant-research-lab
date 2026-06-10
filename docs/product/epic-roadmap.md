@@ -20,7 +20,7 @@ parallel suite.
 
 | Story | Title | Status |
 |---|---|---|
-| US-21.1 | Deterministic suite — no live network in tests | Next phase |
+| US-21.1 | Deterministic suite — no live network in tests | Done |
 | US-21.2 | Shared test-fixtures module | Backlog |
 | US-21.3 | Engine response-integrity property test | Backlog |
 | US-21.4 | Golden pipeline determinism | Backlog |
@@ -32,6 +32,7 @@ Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-10 | US-21.1 | Deterministic suite landed — **first fully-green backend run (397 passed, 0 failed) since Epic 17**. (1) New conftest autouse fixture `_mock_risk_engines_market_data` mocks `MarketDataService` in the stress / drawdown / distribution engines with the existing deterministic synthetic rows — the 4 "real portfolio" tests now pass offline with original assertions intact. (2) New `pytest.ini`: `pytest-socket` guard (`--disable-socket --allow-hosts=127.0.0.1,::1 --allow-unix-socket`) blocks any real network connection — a test that forgets to mock fails loudly with `SocketConnectBlockedError`; loopback (in-process TestClient / Windows asyncio socketpairs) and file I/O unaffected. `live_data` marker registered and **deselected** by default (`-m "not live_data"`). `pytest-socket` added to requirements. +3 guard tests (`test_network_guard.py`: external blocked, marker deselection pinned, loopback+file-I/O pass). write-tests skill gained a "No live network in tests" policy section. Test-layer only — no production code change. |
 | 2026-06-10 | — | Epic created from a testing-architecture review prompted by the attribution NaN-500 (a bug class no test guarded) and by recurring friction in Epics 16–20: 4 live-FMP tests failing offline for weeks, goldens churn requiring `git checkout` before commits, exact-set assertions breaking twice on additive changes, fixture duplication across ~7 files, 10 frontend tests pinned to an implicit default. PRD authored with five-story plan; US-21.1 (deterministic suite + network guard) authored and ticketed. |
 
 ---

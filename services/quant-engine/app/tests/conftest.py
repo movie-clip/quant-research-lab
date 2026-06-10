@@ -258,3 +258,28 @@ def _mock_diagnostics_engine_market_data(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
+@pytest.fixture(autouse=True)
+def _mock_risk_engines_market_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock MarketDataService in the stress / drawdown / distribution engines so
+    their "real portfolio" tests run against deterministic synthetic rows instead
+    of live FMP data (US-21.1 — the suite must pass offline with no API key).
+
+    Tests that patch an engine's MarketDataService themselves via mocker.patch
+    take precedence over this monkeypatch.
+    """
+
+    def _make_mock() -> MagicMock:
+        mock_svc = MagicMock()
+        inst = mock_svc.return_value
+        inst.get_historical_prices.side_effect = _mock_price_rows
+        inst.get_historical_prices_for_symbols.side_effect = _mock_prices_for_symbols
+        return mock_svc
+
+    for engine_module in (
+        "app.services.stress_engine",
+        "app.services.drawdown_engine",
+        "app.services.distribution_engine",
+    ):
+        monkeypatch.setattr(f"{engine_module}.MarketDataService", _make_mock())
+
+
