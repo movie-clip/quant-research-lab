@@ -18,6 +18,22 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 21 — Testing Strategy & Architecture Hardening (active)
+
+PRD: [`prd/epic-21-testing-strategy-hardening.md`](../prd/epic-21-testing-strategy-hardening.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-21.1](US-21.1-deterministic-test-suite.md) | Deterministic suite — no live network in tests | Mock the 4 FMP-dependent "real portfolio" tests + autouse network guard with `live_data` marker | Next phase |
+| US-21.2 | Shared test-fixtures module | One `fixtures.py` (snapshot builders, market-data mock installers, price generators); migrate ~7 duplicated helpers | Backlog |
+| US-21.3 | Engine response-integrity property test | Parametrized JSON-strict (no NaN/inf) check over every `POST /engines/*` route; `risk.py` non-finite audit | Backlog |
+| US-21.4 | Golden pipeline determinism | Goldens from a committed frozen fixture set — no live FMP, no env var, no per-machine churn | Backlog |
+| US-21.5 | Assertion conventions + suite speed | Additive-tolerant assertion rules in write-tests skill; pytest-xdist parallel run | Backlog |
+
+Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
+
+---
+
 ### Epic 20 — Market-Data Cache Efficiency & Control (active)
 
 PRD: [`prd/epic-20-market-data-cache-efficiency.md`](../prd/epic-20-market-data-cache-efficiency.md)

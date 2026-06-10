@@ -1,6 +1,38 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-05 (Epic 20 active; Epic 18 complete).*
+*Living execution snapshot. Updated: 2026-06-10 (Epics 19/20/21 active; Epic 18 complete).*
+
+---
+
+## Active Epic: Epic 21 — Testing Strategy & Architecture Hardening
+
+**PRD:** [`docs/product/prd/epic-21-testing-strategy-hardening.md`](product/prd/epic-21-testing-strategy-hardening.md)
+
+### Goal
+
+Make "green" mean green: zero live-network tests (kill the standing "4 known
+failures"), a generic JSON-strict response-integrity property test (generalizing
+the 2026-06-10 NaN-500 fix), one shared fixtures module instead of ~7 duplicated
+mock helpers, deterministic goldens, additive-tolerant assertions, and a faster
+parallel suite.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-21.1 | Deterministic suite — no live network in tests | Next phase |
+| US-21.2 | Shared test-fixtures module | Backlog |
+| US-21.3 | Engine response-integrity property test | Backlog |
+| US-21.4 | Golden pipeline determinism | Backlog |
+| US-21.5 | Assertion conventions + suite speed | Backlog |
+
+Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-10 | — | Epic created from a testing-architecture review prompted by the attribution NaN-500 (a bug class no test guarded) and by recurring friction in Epics 16–20: 4 live-FMP tests failing offline for weeks, goldens churn requiring `git checkout` before commits, exact-set assertions breaking twice on additive changes, fixture duplication across ~7 files, 10 frontend tests pinned to an implicit default. PRD authored with five-story plan; US-21.1 (deterministic suite + network guard) authored and ticketed. |
 
 ---
 
