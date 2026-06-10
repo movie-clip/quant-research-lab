@@ -29,6 +29,7 @@ Recommended build order: 20.1 → 20.2 → 20.3.
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-10 | hotfix | **Critical: attribution 500 (NaN not JSON-compliant).** A degenerate rolling window made the OLS solve return a non-finite beta → NaN contributions that silently passed the reconciliation check (NaN comparisons are always False) and broke JSON serialization (`ValueError: Out of range float values are not JSON compliant: nan`) → `POST /engines/attribution/run` 500. Surfaced after the attribution time-span widening (more windows → more degenerate ones). Fix in `analytics/attribution.py`: skip any date whose computed `r_p`, residual, betas, f* or contributions are non-finite (fail-closed — omit, never emit NaN). +1 regression test (injects a NaN beta; asserts `json.dumps(..., allow_nan=False)` succeeds). |
 | 2026-06-05 | — | Epic created from a cache review. Found the dominant FMP-overuse cause is date-range fragmentation (each engine fetches overlapping ranges → distinct cache keys), plus no in-memory layer, sequential fetches, and no cache route/UI. Decision: enhance the local file cache (range-normalization + memo + parallel + control surface); **no Redis** (local-first; doesn't fix the range issue). Three-story plan; US-20.1 (stats + clear) authored first to also provide the observability used to validate 20.2/20.3. |
 
 ---
