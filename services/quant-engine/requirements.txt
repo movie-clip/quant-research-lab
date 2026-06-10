@@ -9,3 +9,4 @@ pydantic-settings
 python-dotenv
 pytest
 pytest-mock
+pytest-socket

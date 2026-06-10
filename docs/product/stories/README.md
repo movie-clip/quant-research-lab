@@ -24,7 +24,7 @@ PRD: [`prd/epic-21-testing-strategy-hardening.md`](../prd/epic-21-testing-strate
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
-| [US-21.1](US-21.1-deterministic-test-suite.md) | Deterministic suite — no live network in tests | Mock the 4 FMP-dependent "real portfolio" tests + autouse network guard with `live_data` marker | Next phase |
+| [US-21.1](US-21.1-deterministic-test-suite.md) | Deterministic suite — no live network in tests | Mock the 4 FMP-dependent "real portfolio" tests + autouse network guard with `live_data` marker | Done |
 | US-21.2 | Shared test-fixtures module | One `fixtures.py` (snapshot builders, market-data mock installers, price generators); migrate ~7 duplicated helpers | Backlog |
 | US-21.3 | Engine response-integrity property test | Parametrized JSON-strict (no NaN/inf) check over every `POST /engines/*` route; `risk.py` non-finite audit | Backlog |
 | US-21.4 | Golden pipeline determinism | Goldens from a committed frozen fixture set — no live FMP, no env var, no per-machine churn | Backlog |
