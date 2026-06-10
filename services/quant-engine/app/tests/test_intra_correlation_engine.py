@@ -24,6 +24,13 @@ from app.analytics.correlation import (
 from app.api.main import app
 from app.schemas.intra_correlation import IntraCorrelationRequest
 from app.services.intra_correlation_engine import run_intra_correlation
+from app.tests.fixtures import (
+    imported_snapshot,
+    install_market_data_mock,
+    position,
+    price_rows,
+    price_rows_from_returns,
+)
 
 
 # ── Analytics helpers ─────────────────────────────────────────────────────────
@@ -107,31 +114,11 @@ class TestDiversificationAnalytics:
 # ── Engine service (MarketDataService mocked) ─────────────────────────────────
 
 def _position(symbol: str, market_value: float) -> dict:
-    return {
-        "as_of_date": "2024-12-31",
-        "symbol": symbol,
-        "quantity": 10.0,
-        "cost_basis": market_value * 0.8,
-        "close_price": market_value / 10.0,
-        "market_value": market_value,
-        "unrealized_pnl": market_value * 0.2,
-        "currency": "USD",
-    }
+    return position(symbol, market_value)
 
 
 def _snapshot(positions: list[dict], cash: list[dict] | None = None) -> dict:
-    return {
-        "statement": {
-            "importer": "interactive_brokers",
-            "imported_at": "2024-12-31T00:00:00",
-            "source_path": "/test/fixture.csv",
-            "detected_format": "ib_flex_2023",
-        },
-        "instruments": [],
-        "positions": positions,
-        "cash_balances": cash or [],
-        "ledger_entries": [],
-    }
+    return imported_snapshot(positions=positions, cash_balances=cash)
 
 
 def _request(positions, *, lookback_days=60, max_holdings=15, cash=None) -> IntraCorrelationRequest:
@@ -143,27 +130,20 @@ def _request(positions, *, lookback_days=60, max_holdings=15, cash=None) -> Intr
 
 
 def _install_market_data_mock(mocker, returns_by_symbol: dict[str, list[float]], *, n_dates=40, missing=(), yahoo=()):
-    dates = [(date(2025, 1, 1) + timedelta(days=d)).isoformat() for d in range(n_dates)]
-    spy_rows = [{"date": d, "price": 100.0 + i} for i, d in enumerate(dates)]
-    histories: dict[str, list[dict]] = {}
-    for sym, rets in returns_by_symbol.items():
-        prices = [100.0]
-        for r in rets:
-            prices.append(prices[-1] * (1.0 + r))
-        histories[sym] = [{"date": dates[i], "price": prices[i]} for i in range(n_dates)]
+    """Thin wrapper over the shared installer: per-symbol return series → price
+    rows, an SPY grid of `n_dates`, and yfinance vendor flags for `yahoo`."""
+    histories: dict[str, list[dict]] = {
+        sym: price_rows_from_returns(rets) for sym, rets in returns_by_symbol.items()
+    }
     for sym in missing:
         histories[sym] = []
-    mock_svc = MagicMock()
-    inst = mock_svc.return_value
-    inst.get_historical_prices.return_value = spy_rows
-    inst.get_historical_prices_for_symbols.return_value = histories
-    # Real dict so the engine's provenance lookup works; mark `yahoo` symbols as
-    # sourced from the secondary provider.
-    inst.last_fetch_meta = {
-        sym: {"type": "history", "vendor": ("yfinance" if sym in yahoo else "fmp")}
-        for sym in histories
-    }
-    mocker.patch("app.services.intra_correlation_engine.MarketDataService", mock_svc)
+    histories["SPY"] = price_rows(n_dates, step=1.0)  # valuation-date grid
+    install_market_data_mock(
+        mocker,
+        "app.services.intra_correlation_engine",
+        histories=histories,
+        vendor_by_symbol={sym: "yfinance" for sym in yahoo},
+    )
 
 
 class TestIntraCorrelationEngine:

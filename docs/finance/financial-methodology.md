@@ -351,6 +351,10 @@ Edge cases:
 - A factor's orthogonalized residual has zero variance (collinear with earlier
   factors in this window): skip that factor's coefficient (null), do not
   propagate to later factors.
+- A degenerate (singular / zero-variance) window that makes the OLS solve
+  return a **non-finite** value (NaN/inf): that loading / R² / residual-vol is
+  null for that date — never NaN (US-21.3; NaN silently passes null-checks and
+  breaks JSON serialization downstream).
 - R² reported per point is the in-sample OLS fit; it is diagnostic only and
   must not be used to claim out-of-sample explanatory power.
 

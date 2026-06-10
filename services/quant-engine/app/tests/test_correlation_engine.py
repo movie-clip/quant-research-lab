@@ -8,14 +8,13 @@ Coverage:
 from __future__ import annotations
 
 import math
-from datetime import date, timedelta
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.analytics.correlation import beta, pearson, r_squared
 from app.api.main import app
+from app.tests.fixtures import imported_snapshot, install_market_data_mock, position, price_rows
 
 
 # ── Scalar analytics tests ────────────────────────────────────────────────────
@@ -142,29 +141,9 @@ def client():
 def _minimal_snapshot(with_positions: bool = True) -> dict:
     """Minimal ImportedPortfolioSnapshot-shaped dict for route tests."""
     positions = [
-        {
-            "as_of_date": "2024-12-31",
-            "symbol": "AAPL",
-            "quantity": 10.0,
-            "cost_basis": 1500.0,
-            "close_price": 190.0,
-            "market_value": 1900.0,
-            "unrealized_pnl": 400.0,
-            "currency": "USD",
-        }
+        position("AAPL", 1900.0, quantity=10.0, cost_basis=1500.0, close_price=190.0, unrealized_pnl=400.0)
     ] if with_positions else []
-    return {
-        "statement": {
-            "importer": "interactive_brokers",
-            "imported_at": "2024-12-31T00:00:00",
-            "source_path": "/test/fixture.csv",
-            "detected_format": "ib_flex_2023",
-        },
-        "instruments": [],
-        "positions": positions,
-        "cash_balances": [],
-        "ledger_entries": [],
-    }
+    return imported_snapshot(positions=positions)
 
 
 class TestMultiCorrelationRoute:
@@ -223,29 +202,18 @@ class TestMultiCorrelationRoute:
 # correlation values via mocker.patch on the scalar analytics functions, so
 # the assertion is on the sort contract rather than on a specific price series.
 
-def _stable_price_rows(n_days: int = 80, start: date = date(2025, 1, 1)) -> list[dict]:
-    """Deterministic price series ≥ _MIN_OBSERVATIONS (20) trading days.
-
-    The exact values don't matter — the sort tests patch the analytics
-    functions to inject correlation values directly.  This price series only
-    needs to be long enough that the service reaches the sort step (≥ 20
-    overlapping common dates for every benchmark).
-    """
-    return [
-        {"date": (start + timedelta(days=d)).isoformat(), "price": 100.0 + d * 0.1}
-        for d in range(n_days)
-    ]
-
-
 def _install_correlation_market_data_mock(mocker) -> None:
     """Patch MarketDataService inside correlation_engine so the service runs
-    end-to-end through the sort step without hitting FMP."""
-    mock_rows = _stable_price_rows()
-    mock_svc = MagicMock()
-    inst = mock_svc.return_value
-    inst.get_historical_prices.return_value = mock_rows
-    inst.get_historical_prices_for_symbols.return_value = {"AAPL": mock_rows}
-    mocker.patch("app.services.correlation_engine.MarketDataService", mock_svc)
+    end-to-end through the sort step without hitting FMP. `default_rows` makes
+    every benchmark symbol serve the same ≥20-day deterministic series (the
+    exact values don't matter — the sort tests patch the analytics functions)."""
+    rows = price_rows(80)
+    install_market_data_mock(
+        mocker,
+        "app.services.correlation_engine",
+        histories={"AAPL": rows},
+        default_rows=rows,
+    )
 
 
 class TestSortOrder:

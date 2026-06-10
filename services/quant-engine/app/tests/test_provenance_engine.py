@@ -4,42 +4,17 @@ MarketDataService is mocked — no network.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.schemas.provenance import ProvenanceRequest
 from app.services.provenance_engine import run_provenance
-
-
-def _position(symbol: str) -> dict:
-    return {
-        "as_of_date": "2024-12-31",
-        "symbol": symbol,
-        "quantity": 10.0,
-        "cost_basis": 800.0,
-        "close_price": 100.0,
-        "market_value": 1000.0,
-        "unrealized_pnl": 200.0,
-        "currency": "USD",
-    }
+from app.tests.fixtures import imported_snapshot, install_market_data_mock, position, price_rows
 
 
 def _snapshot(symbols: list[str]) -> dict:
-    return {
-        "statement": {
-            "importer": "interactive_brokers",
-            "imported_at": "2024-12-31T00:00:00",
-            "source_path": "/test/fixture.csv",
-            "detected_format": "ib_flex_2023",
-        },
-        "instruments": [],
-        "positions": [_position(s) for s in symbols],
-        "cash_balances": [],
-        "ledger_entries": [],
-    }
+    return imported_snapshot(positions=[position(s) for s in symbols])
 
 
 def _request(symbols: list[str]) -> ProvenanceRequest:
@@ -48,15 +23,13 @@ def _request(symbols: list[str]) -> ProvenanceRequest:
 
 def _install_md(mocker, vendor_by_symbol: dict[str, str | None]):
     """vendor_by_symbol: symbol -> 'fmp' | 'yfinance' | None (None = unpriced)."""
-    mock_svc = MagicMock()
-    inst = mock_svc.return_value
-
-    def _hist(sym, start, end, *a, **k):
-        return [{"date": "2024-01-02", "price": 1.0}] if vendor_by_symbol.get(sym) else []
-
-    inst.get_historical_prices.side_effect = _hist
-    inst.last_fetch_meta = {s: {"vendor": v} for s, v in vendor_by_symbol.items() if v}
-    mocker.patch("app.services.provenance_engine.MarketDataService", mock_svc)
+    histories = {s: (price_rows(2) if v else []) for s, v in vendor_by_symbol.items()}
+    install_market_data_mock(
+        mocker,
+        "app.services.provenance_engine",
+        histories=histories,
+        vendor_by_symbol={s: v for s, v in vendor_by_symbol.items() if v},
+    )
 
 
 def test_classifies_mixed_providers(mocker):
