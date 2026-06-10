@@ -25,8 +25,8 @@ PRD: [`prd/epic-21-testing-strategy-hardening.md`](../prd/epic-21-testing-strate
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-21.1](US-21.1-deterministic-test-suite.md) | Deterministic suite — no live network in tests | Mock the 4 FMP-dependent "real portfolio" tests + autouse network guard with `live_data` marker | Done |
-| US-21.2 | Shared test-fixtures module | One `fixtures.py` (snapshot builders, market-data mock installers, price generators); migrate ~7 duplicated helpers | Backlog |
-| US-21.3 | Engine response-integrity property test | Parametrized JSON-strict (no NaN/inf) check over every `POST /engines/*` route; `risk.py` non-finite audit | Backlog |
+| [US-21.2](US-21.2-shared-test-fixtures.md) | Shared test-fixtures module | `app/tests/fixtures.py` (snapshot builders + market-data mock installer); migrate the 3 dict-based duplicate sets | Done |
+| [US-21.3](US-21.3-response-integrity-property-test.md) | Engine response-integrity property test | Parametrized JSON-strict check over 8 engine routes + self-policing route-table coverage; `risk.py` non-finite audit | Done |
 | US-21.4 | Golden pipeline determinism | Goldens from a committed frozen fixture set — no live FMP, no env var, no per-machine churn | Backlog |
 | US-21.5 | Assertion conventions + suite speed | Additive-tolerant assertion rules in write-tests skill; pytest-xdist parallel run | Backlog |
 

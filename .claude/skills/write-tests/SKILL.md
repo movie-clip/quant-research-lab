@@ -73,6 +73,25 @@ instead of silently passing online and failing offline.
 - Loopback and file I/O are unaffected (in-process `TestClient`, `tmp_path`,
   `JsonFileCache` all work under the guard).
 
+### Shared fixtures module (US-21.2 — mandatory)
+
+`app/tests/fixtures.py` is the single source for engine-test scaffolding —
+**do not re-implement these per file**:
+
+- `imported_snapshot(positions=…, instruments=…, cash_balances=…)` — the full,
+  422-proof `ImportedPortfolioSnapshot` payload (validated against the real
+  schema by `test_fixtures.py`)
+- `position(symbol, market_value, **overrides)` — ImportedPosition-shaped dict
+- `price_rows(…)` / `price_rows_from_returns(…)` — deterministic series builders
+- `install_market_data_mock(mocker, target_module, *, histories, default_rows,
+  vendor_by_symbol)` — patches `{target_module}.MarketDataService` (always the
+  ENGINE module, never `app.services.market_data` — engines import the class at
+  module load)
+
+New engine routes must also be added to the response-integrity property test
+(`test_engine_response_integrity.py` — US-21.3); its route-table coverage check
+fails the suite if you forget.
+
 ### Before adding tests to an existing file: inventory the helpers
 
 When extending an existing test file (vs creating a new one), grep for

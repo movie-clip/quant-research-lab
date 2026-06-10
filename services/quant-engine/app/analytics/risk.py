@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from math import sqrt
+from math import isfinite, sqrt
 from typing import Literal, Protocol
 
 from app.instruments import InstrumentRegistry
@@ -1655,12 +1655,23 @@ def _build_rolling_factor_loadings(dates: list[str], y: list[float], raw_factors
         # coefficient is a clean partial loading after controlling for higher-priority factors.
         orthogonalized_window = _orthogonalize_factors_window(raw_window)
         coefficients, residuals, r_squared = _fit_factor_model(y_window, orthogonalized_window, ridge_lambda=ridge_floor)
-        values_map = {factor_keys[factor]: round(coefficients[position + 1], 4) for position, (factor, _, _) in enumerate(orthogonalized_window) if factor in factor_keys}
+        # Fail-closed on degenerate windows (US-21.3): a singular/zero-variance
+        # window can make the OLS solve return non-finite values; NaN passes
+        # `is not None` checks and round(), and breaks JSON serialization
+        # downstream. A non-finite loading is "no estimate for this date" → None.
+        values_map = {
+            factor_keys[factor]: round(coefficients[position + 1], 4)
+            for position, (factor, _, _) in enumerate(orthogonalized_window)
+            if factor in factor_keys and isfinite(coefficients[position + 1])
+        }
+        residual_vol_value = (
+            _calculate_annualized_volatility(residuals) * 100 if len(residuals) >= 2 else None
+        )
         points.append(
             RollingFactorLoadingPoint(
                 date=date,
-                r_squared=round(r_squared, 4) if r_squared is not None else None,
-                residual_vol=round(_calculate_annualized_volatility(residuals) * 100, 2) if len(residuals) >= 2 else None,
+                r_squared=round(r_squared, 4) if r_squared is not None and isfinite(r_squared) else None,
+                residual_vol=round(residual_vol_value, 2) if residual_vol_value is not None and isfinite(residual_vol_value) else None,
                 **values_map,
             )
         )

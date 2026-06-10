@@ -6871,3 +6871,47 @@ def test_rolling_factor_loadings_20d_no_blowup() -> None:
                     f"Factor '{field}' loading {loading} exceeds ±{blowup_threshold} on {point.date} "
                     "(20d window) — ridge floor not preventing coefficient blowup."
                 )
+
+
+def test_rolling_factor_loadings_never_emit_nonfinite_values(monkeypatch) -> None:
+    """US-21.3: a degenerate window can make the OLS solve return non-finite
+    values; NaN passes `is not None` and round(), then breaks JSON serialization
+    downstream (the attribution/correlation 500 bug class). Degenerate windows
+    must yield None — never NaN."""
+    import math as _math
+
+    class MarketOnlyDefinition:
+        def __init__(self) -> None:
+            self.key = "market"
+            self.label = "Market"
+            self.us_proxy = "MKT"
+
+    monkeypatch.setattr(risk_module, "DEFAULT_FACTOR_DEFINITIONS", [MarketOnlyDefinition()])
+    monkeypatch.setattr(risk_module, "WINDOW_MIN_OBSERVATIONS", {20: 20})
+
+    dates = [f"{index + 1:03d}" for index in range(25)]
+    x = [0.01 * ((index % 7) - 3) for index in range(25)]
+    y = [0.5 + 1.2 * value for value in x]
+
+    real_fit = risk_module._fit_factor_model
+    calls = {"n": 0}
+
+    def nan_first_fit(y_window, orth_window, ridge_lambda=1e-5):
+        calls["n"] += 1
+        coeffs, residuals, r2 = real_fit(y_window, orth_window, ridge_lambda=ridge_lambda)
+        if calls["n"] == 1:  # simulate one degenerate window
+            return [float("nan")] * len(coeffs), [float("nan")] * len(residuals), float("nan")
+        return coeffs, residuals, r2
+
+    monkeypatch.setattr(risk_module, "_fit_factor_model", nan_first_fit)
+
+    points = risk_module._build_rolling_factor_loadings(dates, y, [("Market", "MKT", x)], window=20)
+
+    for point in points:
+        for field in ("market", "r_squared", "residual_vol"):
+            value = getattr(point, field, None)
+            assert value is None or _math.isfinite(value), f"{point.date}.{field} = {value}"
+    # The degenerate window's date produced None (fail-closed), not a number.
+    assert points[19].market is None
+    # Later (healthy) windows still produce finite loadings.
+    assert points[24].market is not None
