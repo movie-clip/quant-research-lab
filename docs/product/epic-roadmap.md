@@ -1,6 +1,38 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-05 (Epic 20 active; Epic 18 complete).*
+*Living execution snapshot. Updated: 2026-06-10 (Epics 19/20/21 active; Epic 18 complete).*
+
+---
+
+## Active Epic: Epic 21 — Testing Strategy & Architecture Hardening
+
+**PRD:** [`docs/product/prd/epic-21-testing-strategy-hardening.md`](product/prd/epic-21-testing-strategy-hardening.md)
+
+### Goal
+
+Make "green" mean green: zero live-network tests (kill the standing "4 known
+failures"), a generic JSON-strict response-integrity property test (generalizing
+the 2026-06-10 NaN-500 fix), one shared fixtures module instead of ~7 duplicated
+mock helpers, deterministic goldens, additive-tolerant assertions, and a faster
+parallel suite.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-21.1 | Deterministic suite — no live network in tests | Next phase |
+| US-21.2 | Shared test-fixtures module | Backlog |
+| US-21.3 | Engine response-integrity property test | Backlog |
+| US-21.4 | Golden pipeline determinism | Backlog |
+| US-21.5 | Assertion conventions + suite speed | Backlog |
+
+Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-10 | — | Epic created from a testing-architecture review prompted by the attribution NaN-500 (a bug class no test guarded) and by recurring friction in Epics 16–20: 4 live-FMP tests failing offline for weeks, goldens churn requiring `git checkout` before commits, exact-set assertions breaking twice on additive changes, fixture duplication across ~7 files, 10 frontend tests pinned to an implicit default. PRD authored with five-story plan; US-21.1 (deterministic suite + network guard) authored and ticketed. |
 
 ---
 
@@ -80,13 +112,15 @@ adjusted-close data.
 | US-18.1 | yfinance fallback provider + data provenance | Done |
 | US-18.2 | Portfolio-level data-sources indicator (one Exposure panel) | Done |
 | US-18.3 | Defense-ETF Yahoo symbol mapping (DFND/DEFS/IDFN) | Done |
+| US-18.4 | Sanitize non-finite price rows (bugfix) | Done |
 
-Recommended build order: 18.1 → 18.2 → 18.3. **Epic 18 complete.**
+Recommended build order: 18.1 → 18.2 → 18.3. **Epic 18 complete** (+ US-18.4 bugfix follow-up).
 
 ### Slice log
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-10 | US-18.4 | **Critical bugfix: correlation 500s from NaN price bars.** Cache scan found 38 `history_yf` entries with `price: NaN` (2026-06-09 bars for the Yahoo-sourced UCITS) — pandas encodes missing bars as `float('nan')`, which passed `YFinanceClient`'s `is None` check; downstream, `pearson()`'s variance guard passes NaN, so `/engines/correlation/{intra,multi}` 500'd on JSON encode. Two-layer fix: (1) `yfinance_client._fetch` skips non-finite bars at the source; (2) new `MarketDataService._sanitize_price_rows` drops absent/non-finite-price rows on **every** history return path (FMP loop, yfinance fallback, direct-benchmark) — sanitization runs *before* the truthiness check so an all-bad result falls through to the next candidate/provider, and the 38 already-cached poisoned entries are neutralized without a cache clear. +5 tests incl. a route-level regression through the REAL MarketDataService asserting 200. 390 backend pass (only the 4 known offline failures, US-21.1's target). Backend-only. |
 | 2026-06-05 | UX fix | **Factor Return Attribution time-span bug + 20d default.** The attribution engine fetched only `_lookback_calendar_days(window)` of history, so the 20d chart spanned just ~2 months (the rolling window was wrongly controlling the *displayed* range). Fixed `attribution_engine.py` to fetch a fixed display span (`ATTRIBUTION_DISPLAY_TRADING_DAYS=252`) **plus** the window, so every window shows the same ~1-year cumulative series; the window now only sets each rolling estimate's length. +1 engine test (mock respects the date range; pins the 20d series spans the full range). Separately, made **20d the default** window on all 20/60/252 charts (FactorAttributionCard, RollingCorrelationChart, FactorDriftSummaryCard, IntraCorrelationHeatmap); updated the affected component tests. 225 frontend + 369 backend pass (only the 4 pre-existing FMP-offline failures remain); `npx tsc --noEmit` clean. |
 | 2026-06-05 | US-18.3 (fix 2) | Added missing exchange-suffix candidates for two more UCITS holdings the user still saw excluded: `ICOM` → `("ICOM.L","ICOM")` (iShares Diversified Commodity Swap UCITS ETF, LSE/USD) and `VDST` → `("VDST.L","VDST")` (Vanguard U.S. Treasury 0-1 Year Bond UCITS ETF, LSE/USD) — both verified by yfinance `longName`+currency. Their rules previously had only the bare ticker (404 on both providers). Existing ICOM proxy-fallback test updated for the new candidate order; +1 resolution test. Backend resolution tests green. |
 | 2026-06-05 | US-18.3 (fix) | **Correction:** the registry mislabeled `DFND` as "VanEck Defense UCITS ETF"; the user confirmed their `DFND` is the **iShares Global Aerospace & Defence UCITS ETF (LSE, GBP)** = `DFND.L`. US-18.3's original mapping was inverted accordingly: `DFND` → `("DFND.L","DFND")` (the iShares A&D fund); the VanEck lines (`DFNS.L`/`DFEN.DE`/`DFNG.L`) are now the *excluded* wrong-fund symbols. Registry display name fixed to "iShares Global Aerospace & Defence UCITS ETF"; guard test inverted; fmp-data skill table corrected. Lesson: verify ticker→fund identity against the broker statement (ISIN/name), not just the registry label. Backend green (resolution tests pass). |

@@ -70,6 +70,25 @@ def test_exception_is_swallowed(monkeypatch):
     assert _client_no_cache().get_historical_price_light("VUAA.L", "2024-01-01", "2024-02-01") == []
 
 
+def test_nan_bars_are_skipped(monkeypatch):
+    # pandas encodes missing bars as float('nan') — not None — so they must be
+    # filtered by a finiteness check (bug 2026-06-10: cached NaN bars 500'd the
+    # correlation routes).
+    frame = _frame(5)
+    frame.loc[frame.index[2], "Adj Close"] = float("nan")
+    frame.loc[frame.index[4], "Adj Close"] = float("inf")
+    _install_yf(monkeypatch, frame=frame)
+
+    rows = _client_no_cache().get_historical_price_light("VUAA.L", "2024-01-01", "2024-02-01")
+
+    assert len(rows) == 3  # the NaN and inf bars are omitted, finite rows kept
+    assert all(
+        isinstance(r["price"], float) and r["price"] == r["adjClose"] and r["price"] == r["price"]  # not NaN
+        for r in rows
+    )
+    assert [r["date"] for r in rows] == ["2024-01-01", "2024-01-02", "2024-01-04"]
+
+
 def test_result_is_cached(monkeypatch, tmp_path: Path):
     calls: list[str] = []
     _install_yf(monkeypatch, frame=_frame(22), calls=calls)
