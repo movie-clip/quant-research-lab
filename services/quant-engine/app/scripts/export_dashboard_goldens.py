@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, cast
 
 from app.analytics.overview import build_portfolio_overview
+from app.scripts.frozen_market_data import (
+    GOLDEN_MARKET_DATA_PATH,
+    FrozenMarketData,
+    RecordingMarketData,
+)
 from app.services.dashboard_history_engine import run_imported_dashboard_history
 from app.services.statement_importer import import_statements
 
@@ -182,9 +188,9 @@ def _build_expected_values(snapshot: dict[str, Any], overview: dict[str, Any], h
     return expected
 
 
-def _build_fixture(snapshot_model: Any, *, range_key: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def _build_fixture(snapshot_model: Any, *, range_key: str, market_data: object) -> tuple[dict[str, Any], dict[str, Any]]:
     overview_model = build_portfolio_overview(snapshot_model)
-    history_model = run_imported_dashboard_history(snapshot_model, "SPY")
+    history_model = run_imported_dashboard_history(snapshot_model, "SPY", market_data=market_data)
 
     snapshot = _normalize_snapshot(_serialize(snapshot_model))
     overview = _serialize(overview_model)
@@ -233,14 +239,20 @@ def _render_typescript(ib_expected: dict[str, Any], ib_fixture: dict[str, Any], 
     )
 
 
-def render_dashboard_goldens_text(repo_root: Path | None = None) -> str:
+def render_dashboard_goldens_text(repo_root: Path | None = None, *, market_data: object | None = None) -> str:
     """Pure function: returns the TypeScript text the export script would write.
 
     Exposed so the pytest freshness-check fixture can compare against the
     committed file without performing I/O of its own.
+
+    `market_data` defaults to the committed frozen provider (US-21.4), so the
+    goldens are fully deterministic with no live FMP/network dependency. The
+    capture path (`--capture`) passes a `RecordingMarketData` instead.
     """
     if repo_root is None:
         repo_root = _repo_root()
+    if market_data is None:
+        market_data = FrozenMarketData.from_file()
 
     ib_statement_path = _docs_statement_path(repo_root, "IB2026.pdf", fallback="2026.pdf")
     ff_statement_path = _docs_statement_path(repo_root, "FF2026.pdf")
@@ -248,14 +260,39 @@ def render_dashboard_goldens_text(repo_root: Path | None = None) -> str:
     ib_snapshot_model = import_statements([str(ib_statement_path)])
     ff_snapshot_model = import_statements([str(ff_statement_path)])
 
-    ib_expected, ib_fixture = _build_fixture(ib_snapshot_model, range_key=IB_RANGE_KEY)
-    ff_expected, ff_fixture = _build_fixture(ff_snapshot_model, range_key=FF_RANGE_KEY)
+    ib_expected, ib_fixture = _build_fixture(ib_snapshot_model, range_key=IB_RANGE_KEY, market_data=market_data)
+    ff_expected, ff_fixture = _build_fixture(ff_snapshot_model, range_key=FF_RANGE_KEY, market_data=market_data)
 
     return _render_typescript(ib_expected, ib_fixture, ff_expected, ff_fixture)
 
 
-def main() -> None:
+def capture_golden_market_data(repo_root: Path | None = None) -> Path:
+    """Run the generator against a LIVE MarketDataService through a recording
+    proxy and freeze the exact rows + fetch-meta the goldens consume into
+    `golden_market_data.json`. This is the one place that touches live data —
+    run it manually when the committed statements change. Requires a warm FMP
+    cache (or live key): `FMP_API_KEY=… python -m app.scripts.export_dashboard_goldens --capture`.
+    """
+    from app.services.market_data import MarketDataService
+
+    if repo_root is None:
+        repo_root = _repo_root()
+    recorder = RecordingMarketData(MarketDataService())
+    # Drive the full generation so every consumed (symbol, window) is recorded.
+    render_dashboard_goldens_text(repo_root, market_data=recorder)
+    payload = recorder.to_payload()
+    GOLDEN_MARKET_DATA_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    series_count = len(payload["series"])
+    print(f"Wrote {GOLDEN_MARKET_DATA_PATH} ({series_count} series)")
+    return GOLDEN_MARKET_DATA_PATH
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = sys.argv[1:] if argv is None else argv
     repo_root = _repo_root()
+    if "--capture" in args:
+        capture_golden_market_data(repo_root)
+        return
     output_path = _dashboard_golden_output_path(repo_root)
     output_path.write_text(render_dashboard_goldens_text(repo_root), encoding="utf-8")
     print(f"Wrote {output_path}")

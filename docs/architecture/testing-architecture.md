@@ -101,12 +101,15 @@ Privacy and determinism rules:
 
 Dashboard goldens are cross-layer contract tests: backend import/analytics output is rendered into TypeScript fixtures consumed by desktop tests.
 
+Since US-21.4 the generator is **fully deterministic and network-free**. It reads market data from a committed, frozen fixture (`services/quant-engine/app/scripts/golden_market_data.json`) via `FrozenMarketData` instead of the live FMP cache, so regeneration produces byte-identical output on every machine and the per-machine churn (the recurring "`git checkout` the goldens before committing" gotcha) is gone. The conftest goldens-freshness fixture inherits this — bare `pytest` passes offline with no env var and no warm cache. `SKIP_GOLDEN_FRESHNESS_CHECK=1` remains only as an explicit escape hatch for narrow runs.
+
 Rules:
 
-- Regenerate through `python scripts/run_all_tests.py` or `python -m app.scripts.export_dashboard_goldens` from `services/quant-engine`.
-- Review generated diffs before committing; large diffs may indicate fixture, cache, or methodology drift.
+- Regenerate through `python scripts/run_all_tests.py` or `python -m app.scripts.export_dashboard_goldens` from `services/quant-engine` — deterministic, no network.
+- Review generated diffs before committing; a non-trivial diff now means a real fixture/methodology change (not cache drift).
 - Keep source paths canonicalized to basenames so goldens are stable across machines and worktrees.
 - If backend output changes intentionally, update methodology and contract docs when the change affects financial semantics.
+- **Re-capturing market data** (rare — only when the committed broker statements `IB2026.pdf` / `FF2026.pdf` change, introducing a new symbol/window): run `python -m app.scripts.export_dashboard_goldens --capture` against a warm FMP cache (or live key) to refresh `golden_market_data.json`, then regenerate the goldens. A `FrozenMarketDataMiss` during the freshness check means the fixture is stale and must be re-captured.
 
 ## Reconstruction Guidelines
 
