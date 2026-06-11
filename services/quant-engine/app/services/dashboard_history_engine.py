@@ -399,7 +399,16 @@ def run_dashboard_history_engine(request: DashboardHistoryEngineRequest) -> Dash
     )
 
 
-def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmark_symbol: str | None = None) -> DashboardHistoryResult:
+def run_imported_dashboard_history(
+    snapshot: ImportedPortfolioSnapshot,
+    benchmark_symbol: str | None = None,
+    *,
+    market_data: object | None = None,
+) -> DashboardHistoryResult:
+    # `market_data` is an injection seam for the dashboard golden pipeline
+    # (US-21.4): the generator passes a deterministic frozen provider so goldens
+    # don't depend on the live FMP cache. Production callers leave it None and
+    # get a live MarketDataService.
     history_start_date, history_end_date = _derive_imported_history_window(snapshot)
     resolved_benchmark_symbol = benchmark_symbol or "SPY"
     if not history_start_date or not history_end_date:
@@ -411,7 +420,8 @@ def run_imported_dashboard_history(snapshot: ImportedPortfolioSnapshot, benchmar
             benchmark_symbol=resolved_benchmark_symbol,
         )
 
-    market_data = MarketDataService()
+    if market_data is None:
+        market_data = MarketDataService()
     if resolved_benchmark_symbol in VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST:
         benchmark_rows = market_data.get_direct_verified_benchmark_history(
             resolved_benchmark_symbol,
