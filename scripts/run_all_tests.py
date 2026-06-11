@@ -66,7 +66,10 @@ def run_all_tests() -> None:
     )
     run_step(
         "Run backend tests",
-        [sys.executable, "-m", "pytest"],
+        # `-n auto` (pytest-xdist) parallelizes across CPU cores. Safe since
+        # US-21.1 (network guard) + US-21.4 (frozen goldens) made the suite
+        # order-independent and network-free.
+        [sys.executable, "-m", "pytest", "-n", "auto"],
         BACKEND_DIR,
     )
     run_step(

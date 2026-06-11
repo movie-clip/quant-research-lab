@@ -195,21 +195,25 @@ describe('DrawdownAnalyticsCard', () => {
 
     render(<DrawdownAnalyticsCard snapshot={snapshot} />)
 
-    // First call: default window (1260)
+    // First call: whatever the default window is (don't pin the implicit
+    // default here — that's the dedicated cascade tests' job; this test is about
+    // the click). Capture it dynamically so a future default change can't break
+    // this test for an unrelated reason.
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     const firstBody = JSON.parse((fetchMock.mock.calls[0]?.[1] as { body: string }).body) as {
       window_trading_days?: number
     }
-    expect(firstBody.window_trading_days).toBe(1260)
+    const defaultWindow = firstBody.window_trading_days
 
     fireEvent.click(screen.getByRole('button', { name: '252 trading day window' }))
 
-    // Second call: window=252
+    // Second call: window=252 (and it actually changed from the default).
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     const secondBody = JSON.parse((fetchMock.mock.calls[1]?.[1] as { body: string }).body) as {
       window_trading_days?: number
     }
     expect(secondBody.window_trading_days).toBe(252)
+    expect(secondBody.window_trading_days).not.toBe(defaultWindow)
   })
 
   // ── US-14.2: smart-default window cascade fallback ──────────────────────────

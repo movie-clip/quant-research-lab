@@ -41,7 +41,10 @@ describe('RollingCorrelationChart', () => {
 
   it('shows "Insufficient history" when all values for the selected window are null', () => {
     render(<RollingCorrelationChart rollingRisk={allNullSeries} />)
-    // Default window is 20d; all correlation_20d/beta_20d are null → insufficient
+    // Select 20d explicitly rather than relying on it being the default window
+    // (US-21.5 assertion convention): all correlation_20d/beta_20d are null →
+    // insufficient. A future default-window change can't break this test.
+    fireEvent.click(screen.getByRole('button', { name: /20d window/i }))
     expect(screen.getByText(/insufficient history.*20d/i)).toBeTruthy()
   })
 

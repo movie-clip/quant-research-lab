@@ -18,7 +18,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 21 — Testing Strategy & Architecture Hardening (active)
+### Epic 21 — Testing Strategy & Architecture Hardening (completed)
 
 PRD: [`prd/epic-21-testing-strategy-hardening.md`](../prd/epic-21-testing-strategy-hardening.md)
 
@@ -28,7 +28,7 @@ PRD: [`prd/epic-21-testing-strategy-hardening.md`](../prd/epic-21-testing-strate
 | [US-21.2](US-21.2-shared-test-fixtures.md) | Shared test-fixtures module | `app/tests/fixtures.py` (snapshot builders + market-data mock installer); migrate the 3 dict-based duplicate sets | Done |
 | [US-21.3](US-21.3-response-integrity-property-test.md) | Engine response-integrity property test | Parametrized JSON-strict check over 8 engine routes + self-policing route-table coverage; `risk.py` non-finite audit | Done |
 | [US-21.4](US-21.4-golden-pipeline-determinism.md) | Golden pipeline determinism | Goldens from a committed frozen fixture set — no live FMP, no env var, no per-machine churn | Done |
-| [US-21.5](US-21.5-assertion-conventions-suite-speed.md) | Assertion conventions + suite speed | Additive-tolerant assertion rules in write-tests skill; pytest-xdist parallel run | Next phase |
+| [US-21.5](US-21.5-assertion-conventions-suite-speed.md) | Assertion conventions + suite speed | Additive-tolerant assertion rules in write-tests skill; pytest-xdist parallel run | Done |
 
 Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
 

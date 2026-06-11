@@ -1,10 +1,10 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-10 (Epics 19/20/21 active; Epic 18 complete).*
+*Living execution snapshot. Updated: 2026-06-11 (Epic 21 complete; Epics 19/20 active; Epic 18 complete).*
 
 ---
 
-## Active Epic: Epic 21 — Testing Strategy & Architecture Hardening
+## Completed Epic: Epic 21 — Testing Strategy & Architecture Hardening
 
 **PRD:** [`docs/product/prd/epic-21-testing-strategy-hardening.md`](product/prd/epic-21-testing-strategy-hardening.md)
 
@@ -24,7 +24,7 @@ parallel suite.
 | US-21.2 | Shared test-fixtures module | Done |
 | US-21.3 | Engine response-integrity property test | Done |
 | US-21.4 | Golden pipeline determinism | Done |
-| US-21.5 | Assertion conventions + suite speed | Next phase |
+| US-21.5 | Assertion conventions + suite speed | Done |
 
 Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
 
@@ -32,6 +32,7 @@ Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-11 | US-21.5 | Assertion conventions + suite speed — **closes Epic 21**. (1) `write-tests/SKILL.md` gained an "Assertion conventions" section: assert membership/superset (`expected.items() <= actual.items()`) for intentionally-extensible structures (reserve `==` for closed contracts); pin an implicit default in exactly one dedicated test and capture-and-delta elsewhere. Both rules cite their real Epic-21 breakages (`vendor`/`last_fetch_meta`; admission check; 60d→20d window). (2) Converted the brittle spots: five `last_fetch_meta` exact-dict assertions (`test_market_data.py`) + the import-admission check dict (`test_import_admission.py`) → `.items() <=` superset; drawdown/VaR click-refetch tests capture the default dynamically and assert the delta (VaR gained a dedicated default test); rolling-correlation "insufficient history" selects 20d explicitly. (3) `pytest-xdist` added to `requirements.txt`; `run_all_tests.py` backend step now `-n auto`. **Backend wall-time 135.0s → 39.9s (~70% reduction, 16 cores)** — well past the ≥40% target; network guard + frozen-goldens determinism intact under parallel. (Drift-noise console-cleanup slice landed earlier as `1c7154f`.) 414 backend + 232 frontend green. |
 | 2026-06-11 | US-21.4 | Golden pipeline determinism — the dashboard goldens no longer depend on the live FMP cache. Discovered the root churn: `render_dashboard_goldens_text` drove `run_imported_dashboard_history`, which built a live `MarketDataService` and pulled benchmark + per-symbol histories whose *adjusted closes re-adjust over time* (dividends/splits) — so the goldens differed per machine and per fetch, and bare `pytest` needed a warm cache or `SKIP_GOLDEN_FRESHNESS_CHECK=1`. Fix: (1) added a keyword-only `market_data` injection seam to `run_imported_dashboard_history` (production callers unchanged → live service). (2) New `app/scripts/frozen_market_data.py`: `FrozenMarketData` replays a committed JSON fixture and **raises `FrozenMarketDataMiss`** on an absent (symbol, window) — a stale fixture fails loudly instead of degrading to a wrong "unavailable" golden; `RecordingMarketData` wraps a real service to (re)capture. (3) New committed fixture `app/scripts/golden_market_data.json` (24 series + SPY verified-benchmark meta), captured once via the new `export_dashboard_goldens --capture` mode. (4) `render_dashboard_goldens_text` now defaults to the frozen provider → deterministic, network-free; the conftest freshness fixture inherits this (no env var, no warm cache needed). Goldens regenerated once from the frozen capture (one-time content shift from adjusted-price drift; frontend vitest goldens stay green because expected values + fixture regenerate together). +4 `test_golden_pipeline_determinism.py` tests. **414 backend + 232 frontend green offline with zero env vars**; `git status` clean after `run_all_tests.py`. |
 | 2026-06-10 | US-21.3 | Engine response-integrity property test. New `test_engine_response_integrity.py`: (1) parametrized strict-JSON check over **8 engine routes** (stress, drawdown, distribution, drift, attribution, correlation/multi, correlation/intra, provenance) — each driven by a standard fixtures portfolio with its own per-engine `MarketDataService` mock; a 200 is the property (starlette's encoder raises on NaN/inf, which WAS both 2026-06-10 bugs). (2) **Self-policing coverage check**: introspects the FastAPI route table — any new `POST /engines/*` route must be parametrized or explicitly waived with a reason (waivers: exposure / diagnostics / dashboard-history, golden-pinned heavier contracts; stale waivers also fail). risk.py audit found the same NaN leak as attribution (`round(coefficients[...])` passes NaN into rolling loadings/R²/residual-vol) → fail-closed isfinite→None guard in `_build_rolling_factor_loadings` + NaN-injection regression in `test_analytics.py`; methodology §Statistical Factor Model gained the degenerate-window→null-never-NaN edge-case rule. +10 tests. 410 backend pass, fully green. |
 | 2026-06-10 | US-21.2 | Shared test-fixtures module. New `app/tests/fixtures.py` (+ `app/tests/__init__.py` making the dir a package): `imported_snapshot()` / `position()` (the 422-proof `ImportedPortfolioSnapshot` shape, round-trip-validated against the real schema), `price_rows()` / `price_rows_from_returns()`, and `install_market_data_mock(mocker, target_module, …)` (engine-module-targeted MarketDataService mock with real `last_fetch_meta`). Migrated the three dict-based duplicate sets (`test_correlation_engine`, `test_intra_correlation_engine`, `test_provenance_engine`) to thin wrappers over the shared module; behaviour + counts unchanged. +3 `test_fixtures.py` tests; write-tests skill gained the mandatory-fixtures section. |

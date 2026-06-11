@@ -205,7 +205,9 @@ describe('VarDistributionCard', () => {
     }
   })
 
-  it('refetches with window_trading_days=504 when the 504d button is clicked', async () => {
+  it('defaults to window_trading_days=252', async () => {
+    // The one test that intentionally pins the default window. Other tests must
+    // not re-assert it implicitly (US-21.5 assertion convention).
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(syntheticPayload()))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -216,6 +218,21 @@ describe('VarDistributionCard', () => {
       window_trading_days: number
     }
     expect(firstBody.window_trading_days).toBe(252)
+  })
+
+  it('refetches with window_trading_days=504 when the 504d button is clicked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(syntheticPayload()))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<VarDistributionCard snapshot={snapshot} />)
+
+    // Don't pin the implicit default here (the dedicated test above does that);
+    // capture it dynamically so a default change can't break this click test.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    const firstBody = JSON.parse((fetchMock.mock.calls[0]?.[1] as { body: string }).body) as {
+      window_trading_days: number
+    }
+    const defaultWindow = firstBody.window_trading_days
 
     fireEvent.click(screen.getByRole('button', { name: '504 trading day window' }))
 
@@ -224,5 +241,6 @@ describe('VarDistributionCard', () => {
       window_trading_days: number
     }
     expect(secondBody.window_trading_days).toBe(504)
+    expect(secondBody.window_trading_days).not.toBe(defaultWindow)
   })
 })
