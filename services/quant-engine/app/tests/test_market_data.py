@@ -60,7 +60,9 @@ def test_get_historical_prices_uses_etf_holdings_proxy_fallback(mocker) -> None:
     assert instance.get_historical_price_light.call_args_list[0].args[0] == "VUAA.L"
     assert instance.get_historical_price_light.call_args_list[1].args[0] == "VUAA"
     assert instance.get_historical_price_light.call_args_list[-1].args[0] == "SPY"
-    assert service.get_last_fetch_meta("VUAA") == {"type": "history", "resolved_symbol": "SPY", "cached": True, "vendor": "fmp"}
+    # Superset assertion: last_fetch_meta is intentionally extensible (vendor was
+    # added in US-18.1); pin the fields this test cares about, tolerate additions.
+    assert {"type": "history", "resolved_symbol": "SPY", "cached": True, "vendor": "fmp"}.items() <= service.get_last_fetch_meta("VUAA").items()
 
 
 def test_get_historical_prices_does_not_use_proxy_fallback_by_default(mocker) -> None:
@@ -85,7 +87,7 @@ def test_get_historical_prices_uses_gld_proxy_fallback_for_sgld(mocker) -> None:
 
     assert rows == [{"date": "2024-01-02", "price": 200.0}]
     assert [call.args[0] for call in instance.get_historical_price_light.call_args_list] == ["SGLD.L", "SGLD", "GLD"]
-    assert service.get_last_fetch_meta("SGLD") == {"type": "history", "resolved_symbol": "GLD", "cached": True, "vendor": "fmp"}
+    assert {"type": "history", "resolved_symbol": "GLD", "cached": True, "vendor": "fmp"}.items() <= service.get_last_fetch_meta("SGLD").items()
 
 
 def test_get_historical_prices_uses_dbc_proxy_fallback_for_icom(mocker) -> None:
@@ -98,7 +100,7 @@ def test_get_historical_prices_uses_dbc_proxy_fallback_for_icom(mocker) -> None:
 
     assert rows == [{"date": "2024-01-02", "price": 25.0}]
     assert [call.args[0] for call in instance.get_historical_price_light.call_args_list] == ["ICOM.L", "ICOM", "DBC"]
-    assert service.get_last_fetch_meta("ICOM") == {"type": "history", "resolved_symbol": "DBC", "cached": True, "vendor": "fmp"}
+    assert {"type": "history", "resolved_symbol": "DBC", "cached": True, "vendor": "fmp"}.items() <= service.get_last_fetch_meta("ICOM").items()
 
 
 def test_get_historical_prices_uses_slv_proxy_fallback_for_isln(mocker) -> None:
@@ -111,7 +113,7 @@ def test_get_historical_prices_uses_slv_proxy_fallback_for_isln(mocker) -> None:
 
     assert rows == [{"date": "2024-01-02", "price": 21.0}]
     assert [call.args[0] for call in instance.get_historical_price_light.call_args_list] == ["ISLN.L", "ISLN", "SLV"]
-    assert service.get_last_fetch_meta("ISLN") == {"type": "history", "resolved_symbol": "SLV", "cached": True, "vendor": "fmp"}
+    assert {"type": "history", "resolved_symbol": "SLV", "cached": True, "vendor": "fmp"}.items() <= service.get_last_fetch_meta("ISLN").items()
 
 
 def test_get_historical_prices_uses_proxy_for_continuous_future_roots(mocker) -> None:
@@ -124,7 +126,7 @@ def test_get_historical_prices_uses_proxy_for_continuous_future_roots(mocker) ->
 
     assert rows == [{"date": "2024-01-02", "price": 500.0}]
     assert [call.args[0] for call in instance.get_historical_price_light.call_args_list] == ["SPY"]
-    assert service.get_last_fetch_meta("ES") == {"type": "history", "resolved_symbol": "SPY", "cached": True, "vendor": "fmp"}
+    assert {"type": "history", "resolved_symbol": "SPY", "cached": True, "vendor": "fmp"}.items() <= service.get_last_fetch_meta("ES").items()
 
 
 def test_get_etf_holdings_records_snapshot_and_reads_dated_history(mocker, tmp_path) -> None:

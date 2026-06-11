@@ -92,6 +92,66 @@ New engine routes must also be added to the response-integrity property test
 (`test_engine_response_integrity.py` — US-21.3); its route-table coverage check
 fails the suite if you forget.
 
+### Assertion conventions (US-21.5 — applies to backend + frontend)
+
+These rules came out of real Epic-21 breakages where an *additive* change broke
+tests that never meant to forbid it. Follow them for new and changed tests.
+
+**1. Assert membership/superset for intentionally-extensible structures; reserve
+`==` for closed/exhaustive contracts.**
+
+A structure that is designed to gain fields over time — `last_fetch_meta`,
+import-admission check sets, provenance metadata, run-metadata side dicts —
+should be asserted with containment, not exact equality. An `==` on its key set
+silently asserts "these and *only* these keys exist forever", a far stronger
+claim than the test intends, so every future field reads as a regression.
+
+```python
+# Brittle — broke 5 tests when `vendor` was added to last_fetch_meta (US-18.1),
+# and 2 more when an admission check was added (US-19.1):
+assert service.get_last_fetch_meta("VUAA") == {"type": "history", "resolved_symbol": "SPY", "cached": True}
+assert {c.check_id: c.status for c in summary.checks} == {"residual_cash_comparability": "pass", ...}
+
+# Robust — pins the fields the test cares about, tolerates additive ones:
+assert {"type": "history", "resolved_symbol": "SPY", "cached": True}.items() <= service.get_last_fetch_meta("VUAA").items()
+assert {"residual_cash_comparability": "pass", ...}.items() <= {c.check_id: c.status for c in summary.checks}.items()
+```
+
+Use exact `==` only when the set really is closed and exhaustive (e.g. the
+requested percentile keys `{"5","10","50","90","95"}`, an error-response body,
+a deterministic frozen fixture). When in doubt about whether a structure will
+grow, assume it will.
+
+**2. Never assert an implicit default a test does not mean to pin.**
+
+If a test exercises behaviour X but its assertion also encodes a default it
+never set (chart window, page size, sort order), a change to that default breaks
+the test for an unrelated reason. Changing the chart default window (60d → 20d)
+broke 10 frontend tests this way (US-21.5).
+
+- Put the default in **exactly one** dedicated test that *means* to pin it
+  (`it('defaults to window_trading_days=252')`).
+- Every other test either sets the value explicitly (click the window first) or
+  captures it dynamically and asserts the *delta*:
+
+```ts
+// Brittle: a click-refetch test that also pins the implicit default.
+expect(firstBody.window_trading_days).toBe(252)   // breaks if the default moves
+fireEvent.click(screen.getByRole('button', { name: '504 trading day window' }))
+expect(secondBody.window_trading_days).toBe(504)
+
+// Robust: capture the default, assert the change.
+const defaultWindow = firstBody.window_trading_days
+fireEvent.click(screen.getByRole('button', { name: '504 trading day window' }))
+expect(secondBody.window_trading_days).toBe(504)
+expect(secondBody.window_trading_days).not.toBe(defaultWindow)
+```
+
+This is additive-tolerance, not coverage-loosening: each converted assertion
+still proves the same fact; only its sensitivity to *unrelated* additive change
+drops. (PRD non-goal: do not rewrite passing exact-equality assertions for
+style — apply this to new/changed tests and the specific brittle spots.)
+
 ### Before adding tests to an existing file: inventory the helpers
 
 When extending an existing test file (vs creating a new one), grep for

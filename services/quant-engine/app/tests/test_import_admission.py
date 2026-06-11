@@ -63,13 +63,17 @@ def test_import_admission_summary_clean_pass() -> None:
     assert summary.schema_version == "import_admission_summary_v1"
     assert summary.decision == "admitted"
     assert summary.trust_level == "verified"
-    assert {check.check_id: check.status for check in summary.checks} == {
+    # Superset assertion: the admission check set is intentionally extensible
+    # (checks were added in US-19.1). Pin that the known checks all pass; a new
+    # check that fails would still be caught by the decision/trust_level
+    # assertions above. Tolerate additive checks.
+    assert {
         "residual_cash_comparability": "pass",
         "symbol_security_identity_consistency": "pass",
         "parsed_position_market_value_comparability": "pass",
         "nav_market_value_comparability": "pass",
         "instrument_description_registry_consistency": "pass",
-    }
+    }.items() <= {check.check_id: check.status for check in summary.checks}.items()
     assert summary.provenance.tolerance_policy == "absolute_currency_delta_lte_0.01_same_currency_only"
 
 
