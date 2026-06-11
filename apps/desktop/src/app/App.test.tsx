@@ -68,6 +68,25 @@ function jsonResponse(payload: unknown, status = 200) {
   })
 }
 
+// Selecting an Exposure snapshot fires runDriftEngine; most App tests don't
+// register that route, so it previously fell through and logged a noisy
+// "[drift] FAILED: Unhandled fetch" (the app swallows the error, tests still
+// pass). Serve a harmless unavailable DriftResult here so the stub honestly
+// models what the app calls. Genuinely-unknown routes still throw (safety net).
+const _driftFallbackPayload = {
+  windows: [],
+  benchmark_symbol: 'SPY',
+  daily_series: [],
+  availability: 'unavailable' as const,
+}
+
+function unhandledOrDrift(pathname: string, method: string): Response {
+  if (pathname === '/api/engines/drift/run' && method === 'POST') {
+    return jsonResponse(_driftFallbackPayload)
+  }
+  throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+}
+
 function requestUrl(input: RequestInfo | URL) {
   const rawUrl = typeof input === 'string'
     ? input
@@ -398,7 +417,7 @@ function setupAppendedImportedStartupRestoreCase(overrides?: {
     if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
     if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
     if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
-    throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+    return unhandledOrDrift(pathname, method)
   })
 
   return { importedWorkspace, restoredImportedSnapshotNode, restoredSnapshot }
@@ -538,7 +557,7 @@ describe('App', () => {
       if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
       if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
       if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -598,7 +617,7 @@ describe('App', () => {
       if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') {
         throw new TypeError('Failed to fetch')
       }
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -636,7 +655,7 @@ describe('App', () => {
           init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
         })
       }
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1033,7 +1052,7 @@ describe('App', () => {
       if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
       if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
       if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [], metadata: { contract_version: 'monitor_definition_recovered_alert_review_queue_v1', provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage', row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage', ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id', returned_limit: 20, total_queue_rows: 0 } })
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1081,7 +1100,7 @@ describe('App', () => {
       if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(exposurePayload)
       if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
       if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1125,7 +1144,7 @@ describe('App', () => {
       if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(exposurePayload)
       if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
       if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1170,7 +1189,7 @@ describe('App', () => {
       if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(exposurePayload)
       if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
       if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1218,7 +1237,7 @@ describe('App', () => {
       if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(exposurePayload)
       if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
       if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1330,7 +1349,7 @@ describe('App', () => {
       if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(ib2026DashboardHistoryPayload)
       if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(ib2026DiagnosticsPayload)
       if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null })
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1452,7 +1471,7 @@ describe('App', () => {
       if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(ib2026DashboardHistoryPayload)
       if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(ib2026DiagnosticsPayload)
       if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null })
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
@@ -1474,7 +1493,7 @@ describe('App', () => {
     installFetchMock(async (input, init) => {
       const pathname = requestPathname(input)
       const method = requestMethod(input, init)
-      throw new Error(`Unhandled fetch: ${method} ${pathname}`)
+      return unhandledOrDrift(pathname, method)
     })
 
     render(<App />)
