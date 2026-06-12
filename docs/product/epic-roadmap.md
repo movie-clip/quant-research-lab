@@ -57,7 +57,7 @@ core redundant-range issue).
 | Story | Title | Status |
 |---|---|---|
 | US-20.1 | Cache stats + clear (route + UI) | Done |
-| US-20.2 | History range normalization (FMP-call reduction) | Backlog |
+| US-20.2 | History range normalization (FMP-call reduction) | Done |
 | US-20.3 | In-memory layer + parallel fetch (latency) | Backlog |
 
 Recommended build order: 20.1 → 20.2 → 20.3.
@@ -66,6 +66,7 @@ Recommended build order: 20.1 → 20.2 → 20.3.
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-11 | US-20.2 | History range normalization — the FMP-call reduction. `MarketDataService` now widens every history request to a deterministic calendar-year-quantized superset range (`_canonical_history_range`), fetches that one range (so all requests in the same year-span share a single FMP cache key / call), then slices rows back to the caller's exact window (`_slice_price_rows`). Applied to `get_historical_prices` (FMP candidates + yfinance fallback + proxy + FX + `…_for_symbols`) and the verified-benchmark direct path (`get_direct_verified_benchmark_history`). Output is byte-identical to a direct `(from,to)` fetch — slicing is exact. No schema/methodology/trust change; `last_fetch_meta` unchanged. +8 `test_market_data.py` tests (quantization, slicing, shared-cache-key on overlapping windows, direct-window equivalence, empty-window fail-closed, yfinance-fallback slicing, benchmark canonical sharing + meta parity); 2 benchmark tests + 1 intra-correlation NaN-seam test updated (the latter anchored its synthetic bars to `date.today()` so they land in the engine's requested window — slicing now correctly enforces the window). Goldens untouched (`FrozenMarketData` bypasses the seam). 422 backend + 232 frontend green; tsc clean; `git status` clean after `run_all_tests.py`. |
 | 2026-06-10 | hotfix | **Critical: attribution 500 (NaN not JSON-compliant).** A degenerate rolling window made the OLS solve return a non-finite beta → NaN contributions that silently passed the reconciliation check (NaN comparisons are always False) and broke JSON serialization (`ValueError: Out of range float values are not JSON compliant: nan`) → `POST /engines/attribution/run` 500. Surfaced after the attribution time-span widening (more windows → more degenerate ones). Fix in `analytics/attribution.py`: skip any date whose computed `r_p`, residual, betas, f* or contributions are non-finite (fail-closed — omit, never emit NaN). +1 regression test (injects a NaN beta; asserts `json.dumps(..., allow_nan=False)` succeeds). |
 | 2026-06-05 | — | Epic created from a cache review. Found the dominant FMP-overuse cause is date-range fragmentation (each engine fetches overlapping ranges → distinct cache keys), plus no in-memory layer, sequential fetches, and no cache route/UI. Decision: enhance the local file cache (range-normalization + memo + parallel + control surface); **no Redis** (local-first; doesn't fix the range issue). Three-story plan; US-20.1 (stats + clear) authored first to also provide the observability used to validate 20.2/20.3. |
 

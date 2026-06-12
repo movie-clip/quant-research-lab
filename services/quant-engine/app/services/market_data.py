@@ -217,6 +217,36 @@ def return_basis_path_trust_from_evidence(evidence: ReturnBasisEvidence) -> Retu
     return "unavailable"
 
 
+def _canonical_history_range(from_date: str, to_date: str) -> tuple[str, str]:
+    """Widen a requested history window to a canonical, deterministic superset
+    range quantized to calendar-year boundaries (US-20.2).
+
+    Every request whose window falls in the same year-span maps to the same
+    ``(from, to)`` — and therefore the same FMP cache key — so the many
+    overlapping ranges an analysis fetches (attribution display+window,
+    correlation lookback, drift windows, provenance 30d, …) collapse onto one
+    underlying fetch per symbol per span instead of one per distinct window.
+
+    Pure function of the inputs (no wall-clock), so behaviour is reproducible.
+    ISO dates (`YYYY-MM-DD`) sort lexicographically, so the year prefix is the
+    quantization key.
+    """
+    return f"{from_date[:4]}-01-01", f"{to_date[:4]}-12-31"
+
+
+def _slice_price_rows(rows: list[dict], from_date: str, to_date: str) -> list[dict]:
+    """Slice canonical-range rows back to the caller's exact window.
+
+    Returns exactly the bars a direct ``(from_date, to_date)`` fetch would —
+    order preserved, nothing outside the window. ISO date strings compare
+    chronologically under lexicographic ordering.
+    """
+    return [
+        row for row in rows
+        if isinstance(row.get("date"), str) and from_date <= row["date"] <= to_date
+    ]
+
+
 class MarketDataService:
     def __init__(self) -> None:
         self.client = FmpClient()
@@ -276,15 +306,20 @@ class MarketDataService:
             holdings_candidates = resolve_etf_holdings_candidates(requested_symbol, symbol_overrides)
             ordered_candidates = list(dict.fromkeys([*symbol_candidates, *holdings_candidates]))
 
-        # Sanitization happens BEFORE the truthiness check so an all-bad result
-        # counts as "no data" and falls through to the next candidate/provider.
+        # US-20.2: fetch one canonical (year-quantized) superset range per
+        # candidate — so overlapping windows share a cache key — then slice back
+        # to the caller's exact (from, to). Sanitization happens BEFORE the
+        # slice + truthiness check so an all-bad result counts as "no data" and
+        # falls through to the next candidate/provider.
+        canonical_from, canonical_to = _canonical_history_range(from_date, to_date)
         for candidate in ordered_candidates:
             try:
                 rows = self._sanitize_price_rows(
-                    self.client.get_historical_price_light(candidate, from_date, to_date)
+                    self.client.get_historical_price_light(candidate, canonical_from, canonical_to)
                 )
             except Exception:  # noqa: BLE001
                 continue
+            rows = _slice_price_rows(rows, from_date, to_date)
             if rows:
                 self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True, "vendor": "fmp"}
                 return rows
@@ -294,10 +329,11 @@ class MarketDataService:
         for candidate in symbol_candidates:
             try:
                 rows = self._sanitize_price_rows(
-                    self._yfinance().get_historical_price_light(candidate, from_date, to_date)
+                    self._yfinance().get_historical_price_light(candidate, canonical_from, canonical_to)
                 )
             except Exception:  # noqa: BLE001
                 continue
+            rows = _slice_price_rows(rows, from_date, to_date)
             if rows:
                 self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True, "vendor": "yfinance"}
                 return rows
@@ -311,12 +347,17 @@ class MarketDataService:
         requested_symbol = canonicalize_symbol(symbol)
         if requested_symbol not in VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST:
             return []
+        # US-20.2: the verified benchmark (SPY/QQQ) is fetched over many windows
+        # (drift, dashboard, correlation) — normalize to the shared canonical
+        # range and slice, same as get_historical_prices.
+        canonical_from, canonical_to = _canonical_history_range(from_date, to_date)
         try:
             rows = self._sanitize_price_rows(
-                self.client.get_historical_price_light(requested_symbol, from_date, to_date)
+                self.client.get_historical_price_light(requested_symbol, canonical_from, canonical_to)
             )
         except Exception:  # noqa: BLE001
             return []
+        rows = _slice_price_rows(rows, from_date, to_date)
         if rows:
             self.last_fetch_meta[requested_symbol] = {
                 "type": "history",
