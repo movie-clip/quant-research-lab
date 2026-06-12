@@ -41,7 +41,7 @@ Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
 
 ---
 
-## Active Epic: Epic 20 — Market-Data Cache Efficiency & Control
+## Completed Epic: Epic 20 — Market-Data Cache Efficiency & Control
 
 **PRD:** [`docs/product/prd/epic-20-market-data-cache-efficiency.md`](product/prd/epic-20-market-data-cache-efficiency.md)
 
@@ -58,7 +58,7 @@ core redundant-range issue).
 |---|---|---|
 | US-20.1 | Cache stats + clear (route + UI) | Done |
 | US-20.2 | History range normalization (FMP-call reduction) | Done |
-| US-20.3 | In-memory layer + parallel fetch (latency) | Backlog |
+| US-20.3 | In-memory layer + parallel fetch (latency) | Done |
 
 Recommended build order: 20.1 → 20.2 → 20.3.
 
@@ -66,6 +66,7 @@ Recommended build order: 20.1 → 20.2 → 20.3.
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-11 | US-20.3 | In-memory layer + parallel fetch — the latency win; **closes Epic 20**. (A) `JsonFileCache` gained a process-level in-memory memo (`_MEMORY_CACHE`, lock-guarded, keyed by `(absolute_path, mtime_ns)` → parsed envelope): repeated reads of the same cache file across an analysis's ~7 engines skip the disk read + `json.loads` after the first; self-invalidating on any write (mtime bump), shared across the separate per-engine `JsonFileCache` instances, and cleared per-test by an autouse `_clear_cache_memory` fixture for determinism. (B) `MarketDataService.get_historical_prices_for_symbols` now fetches symbols concurrently via a bounded `ThreadPoolExecutor` (`max_workers=min(8, n)`); the lazy `_yfinance()` build is lock-guarded; per-symbol `last_fetch_meta` writes are race-free; result dict is reassembled in deterministic canonical-symbol order. Pure performance — bytes/TTL/trust/`last_fetch_meta` unchanged; goldens untouched (`FrozenMarketData` bypasses the seam). Measured: repeated read of a ~500KB payload **737ms → 11ms (~65× on the read path)**; 12-symbol fetch at 50ms I/O each **600ms → 102ms (~6×)**. +9 tests (6 `test_cache.py`, 3 `test_market_data.py`); hardened the pre-existing `max_age=0` stale test to a deterministic past-`fetched_at` (the memo made the 0-second boundary timing-flaky). 430 backend + 232 frontend green under `-n auto`; tsc clean; `git status` clean. |
 | 2026-06-11 | US-20.2 | History range normalization — the FMP-call reduction. `MarketDataService` now widens every history request to a deterministic calendar-year-quantized superset range (`_canonical_history_range`), fetches that one range (so all requests in the same year-span share a single FMP cache key / call), then slices rows back to the caller's exact window (`_slice_price_rows`). Applied to `get_historical_prices` (FMP candidates + yfinance fallback + proxy + FX + `…_for_symbols`) and the verified-benchmark direct path (`get_direct_verified_benchmark_history`). Output is byte-identical to a direct `(from,to)` fetch — slicing is exact. No schema/methodology/trust change; `last_fetch_meta` unchanged. +8 `test_market_data.py` tests (quantization, slicing, shared-cache-key on overlapping windows, direct-window equivalence, empty-window fail-closed, yfinance-fallback slicing, benchmark canonical sharing + meta parity); 2 benchmark tests + 1 intra-correlation NaN-seam test updated (the latter anchored its synthetic bars to `date.today()` so they land in the engine's requested window — slicing now correctly enforces the window). Goldens untouched (`FrozenMarketData` bypasses the seam). 422 backend + 232 frontend green; tsc clean; `git status` clean after `run_all_tests.py`. |
 | 2026-06-10 | hotfix | **Critical: attribution 500 (NaN not JSON-compliant).** A degenerate rolling window made the OLS solve return a non-finite beta → NaN contributions that silently passed the reconciliation check (NaN comparisons are always False) and broke JSON serialization (`ValueError: Out of range float values are not JSON compliant: nan`) → `POST /engines/attribution/run` 500. Surfaced after the attribution time-span widening (more windows → more degenerate ones). Fix in `analytics/attribution.py`: skip any date whose computed `r_p`, residual, betas, f* or contributions are non-finite (fail-closed — omit, never emit NaN). +1 regression test (injects a NaN beta; asserts `json.dumps(..., allow_nan=False)` succeeds). |
 | 2026-06-05 | — | Epic created from a cache review. Found the dominant FMP-overuse cause is date-range fragmentation (each engine fetches overlapping ranges → distinct cache keys), plus no in-memory layer, sequential fetches, and no cache route/UI. Decision: enhance the local file cache (range-normalization + memo + parallel + control surface); **no Redis** (local-first; doesn't fix the range issue). Three-story plan; US-20.1 (stats + clear) authored first to also provide the observability used to validate 20.2/20.3. |

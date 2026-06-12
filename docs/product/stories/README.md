@@ -34,7 +34,7 @@ Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
 
 ---
 
-### Epic 20 — Market-Data Cache Efficiency & Control (active)
+### Epic 20 — Market-Data Cache Efficiency & Control (completed)
 
 PRD: [`prd/epic-20-market-data-cache-efficiency.md`](../prd/epic-20-market-data-cache-efficiency.md)
 
@@ -42,7 +42,7 @@ PRD: [`prd/epic-20-market-data-cache-efficiency.md`](../prd/epic-20-market-data-
 |---|---|---|---|
 | [US-20.1](US-20.1-cache-stats-and-clear.md) | Cache stats + clear (route + UI) | `GET /cache/stats` + `POST /cache/clear`; Market-data cache card on the Exposure tab | Done |
 | [US-20.2](US-20.2-history-range-normalization.md) | History range normalization | One widened superset fetch per symbol, sliced per request — the FMP-call reduction | Done |
-| US-20.3 | In-memory layer + parallel fetch | Process memo over the file cache + parallel multi-symbol fetch | Backlog |
+| [US-20.3](US-20.3-in-memory-layer-parallel-fetch.md) | In-memory layer + parallel fetch | Process memo over the file cache + parallel multi-symbol fetch | Done |
 
 Recommended build order: 20.1 → 20.2 → 20.3.
 

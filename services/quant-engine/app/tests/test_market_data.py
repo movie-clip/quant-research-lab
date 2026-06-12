@@ -404,6 +404,49 @@ def test_verified_benchmark_overlapping_windows_share_canonical_call(mocker) -> 
     }.items() <= service.get_last_fetch_meta("SPY").items()
 
 
+# ── US-20.3: parallel multi-symbol fetch ────────────────────────────────────
+
+def test_for_symbols_fetches_all_symbols_concurrently(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+
+    def _light(symbol: str, *_a, **_k) -> list[dict]:
+        return [{"date": "2024-03-10", "price": 100.0 + len(symbol)}]
+
+    instance.get_historical_price_light.side_effect = _light
+
+    service = MarketDataService()
+    result = service.get_historical_prices_for_symbols(["AAA", "BBB", "CCC"], "2024-03-01", "2024-03-31")
+
+    assert set(result.keys()) == {"AAA", "BBB", "CCC"}
+    for symbol in ("AAA", "BBB", "CCC"):
+        assert result[symbol] == [{"date": "2024-03-10", "price": 100.0 + len(symbol)}]
+
+
+def test_for_symbols_populates_meta_for_every_symbol(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.get_historical_price_light.side_effect = lambda *_a, **_k: [{"date": "2024-03-10", "price": 50.0}]
+
+    service = MarketDataService()
+    service.get_historical_prices_for_symbols(["AAA", "BBB"], "2024-03-01", "2024-03-31")
+
+    assert {"vendor": "fmp"}.items() <= service.get_last_fetch_meta("AAA").items()
+    assert {"vendor": "fmp"}.items() <= service.get_last_fetch_meta("BBB").items()
+
+
+def test_for_symbols_empty_symbol_fails_closed_under_concurrency(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.get_historical_price_light.return_value = []  # FMP empty for every candidate
+
+    service = MarketDataService()
+    result = service.get_historical_prices_for_symbols(["AAA", "BBB"], "2024-03-01", "2024-03-31")
+
+    # No data anywhere → each symbol maps to [] (never fabricated), keys preserved.
+    assert result == {"AAA": [], "BBB": []}
+
+
 def test_fmp_client_exposes_statement_endpoints(mocker) -> None:
     response_mock = mocker.Mock()
     response_mock.json.return_value = [{"symbol": "AAPL", "date": "2023-12-31"}]
