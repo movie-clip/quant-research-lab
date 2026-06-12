@@ -57,7 +57,7 @@ describe('DataSourcesPanel', () => {
   it('renders an identity-mismatch warning when present', async () => {
     mockRun.mockResolvedValue(makeResult({
       identity_warnings: [
-        { symbol: 'DFND', statement_description: 'iShares Global Aerospace & Defence UCITS ETF', registry_name: 'VanEck Defense UCITS ETF' },
+        { symbol: 'DFND', statement_description: 'iShares Global Aerospace & Defence UCITS ETF', registry_name: 'VanEck Defense UCITS ETF', kind: 'description', statement_isin: null, expected_isin: null },
       ],
     }))
     const { container } = render(<DataSourcesPanel snapshot={snapshot} />)
@@ -65,6 +65,32 @@ describe('DataSourcesPanel', () => {
     expect(container.textContent).toContain('DFND')
     expect(container.textContent).toContain('iShares Global Aerospace & Defence UCITS ETF')
     expect(container.textContent).toContain('VanEck Defense UCITS ETF')
+  })
+
+  it('renders an ISIN identity mismatch with both ISINs (US-19.2)', async () => {
+    mockRun.mockResolvedValue(makeResult({
+      identity_warnings: [
+        { symbol: 'VUAA', statement_description: 'VANGUARD S&P 500 UCITS ETF', registry_name: 'Vanguard S&P 500 UCITS ETF', kind: 'isin', statement_isin: 'IE000YYE6WK5', expected_isin: 'IE00BFMXXD54' },
+      ],
+    }))
+    const { container } = render(<DataSourcesPanel snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toMatch(/identity mismatch \(isin\)/i))
+    expect(container.textContent).toContain('VUAA')
+    expect(container.textContent).toContain('IE000YYE6WK5')
+    expect(container.textContent).toContain('IE00BFMXXD54')
+  })
+
+  it('renders description- and isin-kind warnings side by side', async () => {
+    mockRun.mockResolvedValue(makeResult({
+      identity_warnings: [
+        { symbol: 'DFND', statement_description: 'iShares Global Aerospace & Defence UCITS ETF', registry_name: 'VanEck Defense UCITS ETF', kind: 'description', statement_isin: null, expected_isin: null },
+        { symbol: 'VUAA', statement_description: 'VANGUARD S&P 500 UCITS ETF', registry_name: 'Vanguard S&P 500 UCITS ETF', kind: 'isin', statement_isin: 'IE000YYE6WK5', expected_isin: 'IE00BFMXXD54' },
+      ],
+    }))
+    const { container } = render(<DataSourcesPanel snapshot={snapshot} />)
+    await waitFor(() => expect(container.textContent).toMatch(/identity mismatch/i))
+    expect(container.textContent).toContain('statement says')
+    expect(container.textContent).toContain('statement ISIN')
   })
 
   it('renders no identity warning when there are none', async () => {

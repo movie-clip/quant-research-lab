@@ -209,12 +209,15 @@ def test_analyze_snapshot_route_accepts_portfolio_snapshot_payload() -> None:
     assert payload["admission_summary"]["schema_version"] == "import_admission_summary_v1"
     assert payload["admission_summary"]["decision"] == "degraded"
     assert payload["admission_summary"]["trust_level"] == "degraded"
-    assert {check["check_id"] for check in payload["admission_summary"]["checks"]} == {
+    # Superset (US-21.5 convention): the admission check set is extensible —
+    # pin the known checks, tolerate additive ones (isin check added in US-19.2).
+    assert {check["check_id"] for check in payload["admission_summary"]["checks"]} >= {
         "residual_cash_comparability",
         "symbol_security_identity_consistency",
         "parsed_position_market_value_comparability",
         "nav_market_value_comparability",
         "instrument_description_registry_consistency",
+        "instrument_isin_registry_consistency",
     }
 
 

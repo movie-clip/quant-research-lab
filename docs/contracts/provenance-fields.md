@@ -45,22 +45,32 @@ serves it regardless), so the engine probes a short lookback purely to populate
 | `identity_warnings` | `list[InstrumentIdentityMismatch]` | `InstrumentIdentityMismatch[]` | "⚠ Possible identity mismatch…" line(s) | No (may be empty) (US-19.1) |
 | `lookback_days` | `int` | `number` | (probe window echo) | No |
 
-### `InstrumentIdentityMismatch` (US-19.1)
+### `InstrumentIdentityMismatch` (US-19.1 / US-19.2)
 
-A registry-known holding whose broker-statement description is identity-disjoint
-from the registry fund name (possible ticker→fund mislabel). **Flag only** — never
-auto-corrected. Also emitted as the `instrument_description_registry_consistency`
-Import Admission check (`warn`/`degraded` when present).
+A registry-known holding whose broker-statement identity evidence disagrees with
+the registry's mapping (possible ticker→fund mislabel). Two evidence classes:
+`kind="description"` — statement description identity-disjoint from the registry
+fund name (conservative token heuristic, US-19.1); `kind="isin"` — statement
+ISIN differs from the registry's expected ISIN (definitive ISO 6166 identifier,
+US-19.2). **Flag only** — never auto-corrected. Also emitted as the
+`instrument_description_registry_consistency` and
+`instrument_isin_registry_consistency` Import Admission checks
+(`warn`/`degraded` when present).
 
 | Field | Backend type | TS type | Notes |
 |---|---|---|---|
 | `symbol` | `str` | `string` | Broker ticker |
 | `statement_description` | `str` | `string` | The broker statement's description of the holding |
 | `registry_name` | `str` | `string` | The registry's fund name for that ticker |
+| `kind` | `Literal["description","isin"]` | `'description' \| 'isin'` | Evidence class (default `"description"`) |
+| `statement_isin` | `str \| None` | `string \| null` | ISIN the statement carries (`kind="isin"` only) |
+| `expected_isin` | `str \| None` | `string \| null` | Registry's expected ISIN (`kind="isin"` only) |
 
-Detection is conservative: flags only when the two names' normalized significant
-tokens are **disjoint** (catches different-issuer mislabels; ignores formatting /
-share-class suffix noise). Detector: `app/services/instrument_identity.py`.
+Description detection is conservative: flags only when the two names' normalized
+significant tokens are **disjoint**. ISIN detection is exact (normalized
+uppercase equality) and **evidence-gated**: skipped when either the registry
+entry has no seeded ISIN or the statement carries none — absent evidence is
+never a pass or a failure. Detector: `app/services/instrument_identity.py`.
 
 ### `HoldingProvenance`
 

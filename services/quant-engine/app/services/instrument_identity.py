@@ -37,25 +37,56 @@ def _significant_tokens(text: str) -> set[str]:
     }
 
 
+def _normalized_isin(value: str | None) -> str | None:
+    """Uppercase, whitespace-stripped ISIN, or None when absent/blank."""
+    if not value:
+        return None
+    normalized = value.strip().upper()
+    return normalized or None
+
+
 def detect_instrument_identity_mismatches(
     snapshot: ImportedPortfolioSnapshot,
     registry: InstrumentRegistry | None = None,
 ) -> list[InstrumentIdentityMismatch]:
-    """Return identity-disjoint mismatches between broker descriptions and the
-    registry fund name, for registry-known holdings with a non-trivial description."""
+    """Return identity mismatches between the broker statement's evidence and
+    the registry mapping, for registry-known holdings.
+
+    Two evidence classes, checked independently per holding:
+    - ISIN (US-19.2, definitive): statement ISIN ≠ registry expected ISIN.
+      Evidence-gated — skipped when either side lacks an ISIN; absent evidence
+      is never a pass or a failure.
+    - Description (US-19.1, conservative heuristic): normalized significant
+      token sets are disjoint.
+    """
     reg = registry or InstrumentRegistry()
     mismatches: list[InstrumentIdentityMismatch] = []
 
     for instrument in snapshot.instruments:
+        entry = reg.get_instrument(instrument.symbol)
+        if entry is None:
+            continue  # not registry-known → no registry mapping to conflict with
+
         description = (instrument.description or "").strip()
+
+        # ── ISIN evidence (definitive; ISO 6166 identifiers are exact) ──
+        statement_isin = _normalized_isin(instrument.isin)
+        expected_isin = _normalized_isin(entry.isin)
+        if statement_isin is not None and expected_isin is not None and statement_isin != expected_isin:
+            mismatches.append(InstrumentIdentityMismatch(
+                symbol=instrument.symbol,
+                statement_description=description,
+                registry_name=entry.name or "",
+                kind="isin",
+                statement_isin=statement_isin,
+                expected_isin=expected_isin,
+            ))
+
+        # ── Description evidence (conservative token heuristic) ──
         if not description:
             continue  # no evidence to compare
         if description.upper() == instrument.symbol.strip().upper():
             continue  # trivial (ticker-only) description
-
-        entry = reg.get_instrument(instrument.symbol)
-        if entry is None:
-            continue  # not registry-known → no registry name to conflict with
 
         desc_tokens = _significant_tokens(description) - {instrument.symbol.strip().upper()}
         name_tokens = _significant_tokens(entry.name)

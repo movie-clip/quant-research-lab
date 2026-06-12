@@ -392,7 +392,7 @@ def _build_nav_check(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionChec
 def _build_instrument_description_consistency_check(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionCheckV1:
     """Flag registry-known holdings whose broker description is identity-disjoint
     from the registry fund name (possible ticker→fund mislabel). Flag only."""
-    mismatches = detect_instrument_identity_mismatches(snapshot)
+    mismatches = [m for m in detect_instrument_identity_mismatches(snapshot) if m.kind == "description"]
     affected = ["instruments.symbol", "instruments.description"]
 
     if mismatches:
@@ -420,6 +420,45 @@ def _build_instrument_description_consistency_check(snapshot: ImportedPortfolioS
     )
 
 
+def _build_instrument_isin_consistency_check(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionCheckV1:
+    """Flag registry-known holdings whose statement ISIN differs from the
+    registry's expected ISIN (US-19.2 — definitive ISO 6166 identity evidence).
+    Evidence-gated: holdings without an ISIN on either side are skipped, never
+    failed. Flag only — the registry is never auto-corrected."""
+    mismatches = [m for m in detect_instrument_identity_mismatches(snapshot) if m.kind == "isin"]
+    affected = ["instruments.symbol", "instruments.isin"]
+
+    if mismatches:
+        detail = ", ".join(
+            f"{m.symbol} (statement {m.statement_isin} ≠ expected {m.expected_isin})"
+            for m in mismatches
+        )
+        return ImportAdmissionCheckV1(
+            check_id="instrument_isin_registry_consistency",
+            status="warn",
+            severity="warning",
+            trust_impact="degraded",
+            message=(
+                f"Instrument identity mismatch by ISIN for: {detail}. "
+                "The broker statement's ISIN disagrees with the registry's expected ISIN."
+            ),
+            affected_fields=affected,
+            observed=ImportAdmissionCheckValue(
+                label="isin_mismatched_symbols",
+                value=", ".join(m.symbol for m in mismatches),
+            ),
+        )
+
+    return ImportAdmissionCheckV1(
+        check_id="instrument_isin_registry_consistency",
+        status="pass",
+        severity="info",
+        trust_impact="none",
+        message="Every comparable holding's statement ISIN matches the registry's expected ISIN.",
+        affected_fields=affected,
+    )
+
+
 def build_import_admission_summary(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionSummaryV1:
     checks = [
         _build_cash_check(snapshot),
@@ -427,6 +466,7 @@ def build_import_admission_summary(snapshot: ImportedPortfolioSnapshot) -> Impor
         _build_positions_market_value_check(snapshot),
         _build_nav_check(snapshot),
         _build_instrument_description_consistency_check(snapshot),
+        _build_instrument_isin_consistency_check(snapshot),
     ]
     statuses = {check.status for check in checks}
     if "fail" in statuses:

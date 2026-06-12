@@ -103,3 +103,18 @@ def test_identity_warnings_empty_when_consistent():
     })
     res = run_provenance(req)
     assert res.identity_warnings == []
+
+
+def test_identity_warnings_include_isin_mismatch_kind():
+    # US-19.2: an ISIN disagreement (registry VUAA expects IE00BFMXXD54) flows
+    # through identity_warnings with kind="isin" and both ISINs as evidence.
+    req = ProvenanceRequest.model_validate({
+        "snapshot": _snapshot_with_instruments([
+            {"symbol": "VUAA", "description": "VANGUARD S&P 500 UCITS ETF USD ACC", "isin": "IE000YYE6WK5"},
+        ]),
+        "lookback_days": 30,
+    })
+    res = run_provenance(req)
+    assert [w.kind for w in res.identity_warnings] == ["isin"]
+    assert res.identity_warnings[0].statement_isin == "IE000YYE6WK5"
+    assert res.identity_warnings[0].expected_isin == "IE00BFMXXD54"

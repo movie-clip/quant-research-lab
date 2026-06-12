@@ -27,11 +27,22 @@ class HoldingProvenance(BaseModel):
 
 
 class InstrumentIdentityMismatch(BaseModel):
-    """A holding whose broker-statement description is identity-disjoint from the
-    registry's fund name for that ticker (US-19.1) — a possible mislabel."""
+    """A holding whose broker-statement identity evidence disagrees with the
+    registry's mapping for that ticker — a possible mislabel.
+
+    Two evidence classes (US-19.1 / US-19.2):
+    - ``kind="description"`` — the statement description is identity-disjoint
+      from the registry fund name (conservative token heuristic).
+    - ``kind="isin"`` — the statement ISIN differs from the registry's expected
+      ISIN (definitive: ISO 6166 identifiers are exact). `statement_isin` /
+      `expected_isin` carry the proof.
+    """
     symbol: str
     statement_description: str
     registry_name: str
+    kind: Literal["description", "isin"] = "description"
+    statement_isin: str | None = None
+    expected_isin: str | None = None
 
 
 class ProvenanceResult(BaseModel):

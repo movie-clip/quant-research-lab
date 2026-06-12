@@ -23,6 +23,10 @@ class Instrument(BaseModel):
     tick_size: float | None = None
     point_value: float | None = None
     multiplier: float | None = None
+    # Authoritative ISIN sourced from real broker statements (US-19.2). Used to
+    # validate the statement's ISIN against the registry mapping at import.
+    # None = not yet sourced → the ISIN identity check skips this instrument.
+    isin: str | None = None
 
 
 class FuturesContract(BaseModel):

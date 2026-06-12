@@ -55,3 +55,52 @@ def test_ticker_only_description_is_skipped():
 def test_missing_description_is_skipped():
     snap = _snap([{"symbol": "VUAA", "description": None}])
     assert detect_instrument_identity_mismatches(snap) == []
+
+
+# ── US-19.2: ISIN evidence (registry VUAA isin = IE00BFMXXD54) ──────────────
+
+def test_isin_mismatch_flags_with_both_isins():
+    snap = _snap([{
+        "symbol": "VUAA",
+        "description": "VANGUARD S&P 500 UCITS ETF USD ACC",  # description agrees
+        "isin": "IE000YYE6WK5",  # but the ISIN is a different fund's
+    }])
+    out = detect_instrument_identity_mismatches(snap)
+    assert len(out) == 1
+    assert out[0].kind == "isin"
+    assert out[0].statement_isin == "IE000YYE6WK5"
+    assert out[0].expected_isin == "IE00BFMXXD54"
+
+
+def test_matching_isin_is_not_flagged_case_and_whitespace_insensitive():
+    snap = _snap([{
+        "symbol": "VUAA",
+        "description": "VANGUARD S&P 500 UCITS ETF USD ACC",
+        "isin": "  ie00bfmxxd54 ",
+    }])
+    assert detect_instrument_identity_mismatches(snap) == []
+
+
+def test_registry_entry_without_seeded_isin_is_skipped():
+    # AAPL is registry-known but has no seeded ISIN → evidence-gated skip.
+    snap = _snap([{"symbol": "AAPL", "description": "APPLE INC", "isin": "US0378331005"}])
+    assert detect_instrument_identity_mismatches(snap) == []
+
+
+def test_statement_without_isin_is_skipped():
+    snap = _snap([{"symbol": "VUAA", "description": "VANGUARD S&P 500 UCITS ETF USD ACC", "isin": None}])
+    assert detect_instrument_identity_mismatches(snap) == []
+
+
+def test_isin_catches_mismatch_the_description_heuristic_misses():
+    # The heuristic's blind spot: two different funds sharing identity tokens
+    # ("iShares … Defence/Defense"). DFND registry name shares tokens with this
+    # description, so the description check passes — only the ISIN catches it.
+    snap = _snap([{
+        "symbol": "DFND",
+        "description": "ISHARES DEFENSE INNOVATION UCITS",  # shares iShares+Defence tokens
+        "isin": "IE000YYE6WK5",  # VanEck Defense — NOT the registry's IE000U9ODG19
+    }])
+    out = detect_instrument_identity_mismatches(snap)
+    assert [m.kind for m in out] == ["isin"]
+    assert out[0].expected_isin == "IE000U9ODG19"
