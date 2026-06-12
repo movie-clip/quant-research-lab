@@ -121,6 +121,11 @@ cd apps/desktop && npx tsc --noEmit         # type-check
 
 # FMP cache management
 python scripts/manage_cache.py
+
+# After updating a broker statement PDF under docs/ (requires FMP_API_KEY):
+# re-captures the frozen golden market data, regenerates dashboardGoldens.ts,
+# runs the full suite. Commit the PDF + fixture + goldens together.
+python scripts/refresh_statement.py
 ```
 
 ## Backend Conventions (`services/quant-engine/`)

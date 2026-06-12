@@ -109,7 +109,7 @@ Rules:
 - Review generated diffs before committing; a non-trivial diff now means a real fixture/methodology change (not cache drift).
 - Keep source paths canonicalized to basenames so goldens are stable across machines and worktrees.
 - If backend output changes intentionally, update methodology and contract docs when the change affects financial semantics.
-- **Re-capturing market data** (rare — only when the committed broker statements `IB2026.pdf` / `FF2026.pdf` change, introducing a new symbol/window): run `python -m app.scripts.export_dashboard_goldens --capture` against a warm FMP cache (or live key) to refresh `golden_market_data.json`, then regenerate the goldens. A `FrozenMarketDataMiss` during the freshness check means the fixture is stale and must be re-captured.
+- **Re-capturing market data** (whenever a broker statement PDF under `docs/` is updated — a new statement widens the history window and/or changes the holdings): run `python scripts/refresh_statement.py` (requires `FMP_API_KEY`). It re-captures `golden_market_data.json`, regenerates the goldens, and runs the full suite in one step; commit the PDF + fixture + goldens together. A `FrozenMarketDataMiss` during the freshness check is the signal that this is needed. Remaining test failures after a refresh are portfolio-truth drift (sold/added holdings pinned by statement-fixture tests) — update those tests, and add a registry entry + symbol-resolution rule for any brand-new holding (watch for wrong-fund ticker collisions like CIBR US vs CIBR.L UCITS).
 
 ## Reconstruction Guidelines
 
