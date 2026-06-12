@@ -166,6 +166,17 @@ fallback, yfinance fallback) and the verified-benchmark direct path. Goldens and
 engine unit tests are unaffected (they replace `MarketDataService` wholesale —
 `FrozenMarketData` for goldens, conftest mocks for engines).
 
+**In-memory layer + parallel fetch (US-20.3):** two latency optimizations over
+the same seam. (1) `JsonFileCache` keeps a process-level in-memory memo (keyed by
+absolute path + file mtime) of the parsed cache envelope, so repeated reads of
+the same file across an analysis's engines skip the disk read + `json.loads`
+after the first; it self-invalidates on any write (mtime change), is shared
+across the separate per-engine cache instances, and is cleared per-test by an
+autouse fixture for determinism. (2) `get_historical_prices_for_symbols` fetches
+symbols concurrently via a bounded `ThreadPoolExecutor`. Both are pure
+performance — identical bytes, TTL/stale semantics, `last_fetch_meta`, and trust
+ladder; no on-disk format change.
+
 **Data provenance is a distinct dimension from return-basis trust.** Yahoo data
 carries adjusted close, so its return-basis is `verified_adjusted_close` — the
 same class as FMP — but the *source* differs. Per the traceability guardrail,

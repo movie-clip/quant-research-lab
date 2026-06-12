@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 from typing import Iterable, Literal
 
 from app.core.symbols import canonicalize_symbol, resolve_etf_holdings_candidates, resolve_symbol_candidates
@@ -254,10 +256,14 @@ class MarketDataService:
         self.last_fetch_meta: dict[str, dict[str, object]] = {}
         # Secondary provider, constructed lazily on first fallback use.
         self._yfinance_client: YFinanceClient | None = None
+        # Guards the lazy build under parallel get_historical_prices_for_symbols (US-20.3).
+        self._yfinance_lock = Lock()
 
     def _yfinance(self) -> YFinanceClient:
         if self._yfinance_client is None:
-            self._yfinance_client = YFinanceClient()
+            with self._yfinance_lock:
+                if self._yfinance_client is None:
+                    self._yfinance_client = YFinanceClient()
         return self._yfinance_client
 
     def get_latest_quotes(self, symbols: Iterable[str], symbol_overrides: dict[str, list[str]] | None = None) -> dict[str, dict]:
@@ -383,11 +389,30 @@ class MarketDataService:
         *,
         allow_proxy_fallback: bool = False,
     ) -> dict[str, list[dict]]:
-        histories: dict[str, list[dict]] = {}
-        for symbol in sorted({symbol for symbol in symbols if symbol}):
-            requested_symbol = canonicalize_symbol(symbol)
-            histories[requested_symbol] = self.get_historical_prices(requested_symbol, from_date, to_date, symbol_overrides, allow_proxy_fallback=allow_proxy_fallback)
-        return histories
+        # US-20.3: fetch symbols concurrently (I/O-bound: httpx + disk-cache
+        # reads). Each get_historical_prices is independent and writes its own
+        # last_fetch_meta key, so there is no shared-state race; results are
+        # reassembled in the deterministic canonical-symbol order.
+        requested_symbols = list(
+            dict.fromkeys(canonicalize_symbol(symbol) for symbol in sorted({symbol for symbol in symbols if symbol}))
+        )
+        if not requested_symbols:
+            return {}
+
+        def _fetch(requested_symbol: str) -> tuple[str, list[dict]]:
+            return requested_symbol, self.get_historical_prices(
+                requested_symbol, from_date, to_date, symbol_overrides, allow_proxy_fallback=allow_proxy_fallback
+            )
+
+        if len(requested_symbols) == 1:
+            symbol, rows = _fetch(requested_symbols[0])
+            return {symbol: rows}
+
+        fetched: dict[str, list[dict]] = {}
+        with ThreadPoolExecutor(max_workers=min(8, len(requested_symbols))) as executor:
+            for requested_symbol, rows in executor.map(_fetch, requested_symbols):
+                fetched[requested_symbol] = rows
+        return {requested_symbol: fetched[requested_symbol] for requested_symbol in requested_symbols}
 
     def get_fx_history(self, pair: str, from_date: str, to_date: str) -> list[dict]:
         return self.get_historical_prices(pair, from_date, to_date)

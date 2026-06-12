@@ -167,6 +167,16 @@ _SPY_MOCK_ETF_HOLDINGS: list[dict] = [
 
 
 @pytest.fixture(autouse=True)
+def _clear_cache_memory() -> None:
+    """Clear the process-level in-memory cache layer (US-20.3) before each test
+    so the memo never leaks parsed payloads across tests — keeps the suite
+    deterministic (the project's stability gate), including under xdist."""
+    from app.core.cache import clear_memory_cache
+
+    clear_memory_cache()
+
+
+@pytest.fixture(autouse=True)
 def _disable_yfinance_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Disable the yfinance secondary-provider fallback (US-18.1) by default so
     no test accidentally hits the network when FMP returns empty. The default
