@@ -96,10 +96,12 @@ export function DataSourcesPanel({ snapshot }: { snapshot: ImportedSnapshot | nu
 
           {(result.identity_warnings ?? []).map((w) => (
             <p
-              key={`identity-${w.symbol}`}
+              key={`identity-${w.kind ?? 'description'}-${w.symbol}`}
               style={{ margin: 0, fontSize: 'var(--font-body-sm)', color: 'var(--color-value-negative)' }}
             >
-              {`⚠ Possible identity mismatch: ${w.symbol} — statement says "${w.statement_description}", registry says "${w.registry_name}"`}
+              {w.kind === 'isin'
+                ? `⚠ Identity mismatch (ISIN): ${w.symbol} — statement ISIN ${w.statement_isin}, registry expects ${w.expected_isin}`
+                : `⚠ Possible identity mismatch: ${w.symbol} — statement says "${w.statement_description}", registry says "${w.registry_name}"`}
             </p>
           ))}
         </div>

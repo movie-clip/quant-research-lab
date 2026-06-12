@@ -193,13 +193,28 @@ repeating a marker on every card. Provenance is a **source label, not a
 return-basis trust claim** — it never asserts `verified`/`synthetic` for the
 analytics.
 
-Instrument identity (Epic 19 / US-19.1): `app/services/instrument_identity.py`
-cross-checks each registry-known holding's broker-statement description against
-the registry fund name and flags identity-disjoint mismatches (possible
-ticker→fund mislabels). It is emitted both as the
-`instrument_description_registry_consistency` Import Admission check and (for
-visibility) in the provenance result rendered by the Data Sources panel.
-Flag only — never auto-corrects the registry or remaps the symbol.
+Instrument identity (Epic 19): `app/services/instrument_identity.py`
+cross-checks each registry-known holding's broker-statement evidence against the
+registry mapping, with two complementary evidence classes:
+
+- **Description heuristic (US-19.1):** flags when the statement description and
+  the registry fund name share zero significant tokens (conservative —
+  formatting/share-class noise never fires).
+- **ISIN, definitive (US-19.2):** the registry stores an authoritative `isin`
+  per instrument, **sourced from the committed real statements** (16
+  UCITS/identity-sensitive lines seeded); a normalized statement-ISIN ≠
+  expected-ISIN is an exact ISO 6166 identity violation — it catches mislabels
+  the token heuristic misses (e.g. two different "Defense" funds).
+  Evidence-gated: holdings lacking an ISIN on either side are skipped — absent
+  evidence is never a pass or a failure. `test_registry_isin_integrity.py` pins
+  registry-seed ⇄ statement agreement so a typo'd seed fails the suite.
+
+Mismatches are emitted both as Import Admission checks
+(`instrument_description_registry_consistency`,
+`instrument_isin_registry_consistency` — `warn`/`degraded`) and (for
+visibility) in the provenance result rendered by the Data Sources panel, with
+`kind` + both ISINs as evidence. Flag only — never auto-corrects the registry
+or remaps the symbol.
 
 ## API Boundary
 

@@ -73,6 +73,7 @@ def test_import_admission_summary_clean_pass() -> None:
         "parsed_position_market_value_comparability": "pass",
         "nav_market_value_comparability": "pass",
         "instrument_description_registry_consistency": "pass",
+        "instrument_isin_registry_consistency": "pass",
     }.items() <= {check.check_id: check.status for check in summary.checks}.items()
     assert summary.provenance.tolerance_policy == "absolute_currency_delta_lte_0.01_same_currency_only"
 
@@ -375,3 +376,37 @@ def test_admission_includes_instrument_description_check() -> None:
         _snapshot(statement_totals=ImportedStatementTotals(stock_total=200.0, cash_total=100.0, ending_nav=300.0))
     )
     assert any(c.check_id == "instrument_description_registry_consistency" for c in summary.checks)
+
+
+# ── US-19.2: ISIN identity admission check ──────────────────────────────────
+
+def test_isin_mismatch_yields_warn_degraded_naming_symbol() -> None:
+    # VUAA's registry ISIN is IE00BFMXXD54; the statement carries a different fund's.
+    snapshot = _snapshot(
+        statement_totals=ImportedStatementTotals(stock_total=200.0, cash_total=100.0, ending_nav=300.0),
+        instruments=[ImportedInstrument(symbol="VUAA", currency="USD", isin="IE000YYE6WK5", description="VANGUARD S&P 500 UCITS ETF")],
+    )
+    summary = build_import_admission_summary(snapshot)
+    check = next(c for c in summary.checks if c.check_id == "instrument_isin_registry_consistency")
+
+    assert check.status == "warn"
+    assert check.trust_impact == "degraded"
+    assert "VUAA" in check.message
+    assert "IE000YYE6WK5" in check.message and "IE00BFMXXD54" in check.message
+    assert summary.decision == "degraded"
+
+
+def test_isin_check_passes_when_isins_agree_or_evidence_absent() -> None:
+    # Matching ISIN + an evidence-absent holding (AAPL has no seeded registry ISIN).
+    snapshot = _snapshot(
+        statement_totals=ImportedStatementTotals(stock_total=200.0, cash_total=100.0, ending_nav=300.0),
+        instruments=[
+            ImportedInstrument(symbol="VUAA", currency="USD", isin="IE00BFMXXD54", description="VANGUARD S&P 500 UCITS ETF"),
+            ImportedInstrument(symbol="AAPL", currency="USD", isin="US0378331005", description="APPLE INC"),
+        ],
+    )
+    summary = build_import_admission_summary(snapshot)
+    check = next(c for c in summary.checks if c.check_id == "instrument_isin_registry_consistency")
+
+    assert check.status == "pass"
+    assert check.trust_impact == "none"

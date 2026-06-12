@@ -1,6 +1,6 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-11 (Epic 21 complete; Epics 19/20 active; Epic 18 complete).*
+*Living execution snapshot. Updated: 2026-06-11 (Epics 19, 20, 21 complete — no active epic; backlog empty).*
 
 ---
 
@@ -73,7 +73,7 @@ Recommended build order: 20.1 → 20.2 → 20.3.
 
 ---
 
-## Active Epic: Epic 19 — Instrument Identity Integrity
+## Completed Epic: Epic 19 — Instrument Identity Integrity
 
 **PRD:** [`docs/product/prd/epic-19-instrument-identity-integrity.md`](product/prd/epic-19-instrument-identity-integrity.md)
 
@@ -88,12 +88,13 @@ of silently trusting the registry.
 | Story | Title | Status |
 |---|---|---|
 | US-19.1 | Instrument description-consistency check | Done |
-| US-19.2 | ISIN-keyed registry identity | Backlog |
+| US-19.2 | ISIN-keyed registry identity | Done |
 
 ### Slice log
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-11 | US-19.2 | ISIN-keyed registry identity — **closes Epic 19**. The registry's instrument definitions gained an optional `isin`, seeded with **authoritative values extracted from the committed real statements** for the 16 registry-known UCITS/identity-sensitive lines (e.g. `DFND → IE000U9ODG19` iShares Global Aerospace & Defence — distinct from the portfolio's own `DFNS → IE000YYE6WK5` VanEck Defense, the exact near-miss pair). `detect_instrument_identity_mismatches` now checks ISIN evidence first (definitive ISO 6166 equality, normalized) alongside the US-19.1 description heuristic; `InstrumentIdentityMismatch` gained `kind` (`description`/`isin`) + `statement_isin`/`expected_isin` (TS + contract doc mirrored). Evidence-gated: holdings lacking an ISIN on either side are skipped — absent evidence is never a pass or a failure. Surfaced through both channels: new `instrument_isin_registry_consistency` admission check (`warn`/`degraded`, flag-only) and the Data Sources panel (renders both ISINs). New `test_registry_isin_integrity.py` guard pins registry-seed ⇄ statement agreement (a typo'd seed fails the suite) and proves zero false positives on re-importing the real statements. +9 backend, +3 frontend tests; the analyze-snapshot route's exact check-set assertion converted to superset per the US-21.5 convention. 439 backend + 235 frontend green; tsc clean. |
 | 2026-06-05 | US-19.1 | Instrument description-consistency check. New pure detector `app/services/instrument_identity.py` (`detect_instrument_identity_mismatches`) flags registry-known holdings whose broker description is **identity-disjoint** from the registry fund name (conservative token comparison; catches different-issuer mislabels, ignores formatting/share-class noise). Surfaced two ways: a new `instrument_description_registry_consistency` Import Admission check (`warn`/`degraded`), and — because the admission summary isn't rendered today — a visible "⚠ Possible identity mismatch" line on the Exposure **Data Sources panel** (`ProvenanceResult.identity_warnings`, computed in `provenance_engine`). Schema + TS `InstrumentIdentityMismatch`. Flag only — never auto-corrects. +6 detector + 3 admission + 2 engine + 2 panel tests; 2 pre-existing exact-check-set assertions (clean-pass, analyze-snapshot route) updated for the additive check. 227 frontend + backend green (only the 4 pre-existing FMP-offline failures remain); `npx tsc --noEmit` clean; audit 5/5. |
 | 2026-06-05 | — | Epic created after the `DFND` mislabel (registry said "VanEck Defense"; user's holding is iShares Global Aerospace & Defence). PRD authored; description-consistency flag chosen over ISIN (providers don't return ISINs for these EU funds). Grounding found the Import Admission Review summary is computed/persisted but not rendered, so US-19.1 surfaces the flag on the visible Data Sources panel (US-18.2) in addition to the persisted admission check. |
 

@@ -48,14 +48,14 @@ Recommended build order: 20.1 → 20.2 → 20.3.
 
 ---
 
-### Epic 19 — Instrument Identity Integrity (active)
+### Epic 19 — Instrument Identity Integrity (completed)
 
 PRD: [`prd/epic-19-instrument-identity-integrity.md`](../prd/epic-19-instrument-identity-integrity.md)
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-19.1](US-19.1-instrument-description-consistency.md) | Instrument description-consistency check | Backend detector + admission check + Data Sources panel warning for ticker↔description mismatches | Done |
-| US-19.2 | ISIN-keyed registry identity | Validate statement ISIN vs registry expected ISIN (needs authoritative ISIN data) | Backlog |
+| [US-19.2](US-19.2-isin-keyed-registry-identity.md) | ISIN-keyed registry identity | Statement-sourced ISIN seeds in the registry + definitive ISIN-mismatch detection | Done |
 
 Recommended build order: 19.1 → 19.2.
 

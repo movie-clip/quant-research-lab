@@ -1368,6 +1368,11 @@ export type InstrumentIdentityMismatch = {
   symbol: string
   statement_description: string
   registry_name: string
+  /** Evidence class: 'description' = token-disjoint heuristic (US-19.1);
+   *  'isin' = definitive ISO 6166 identifier mismatch (US-19.2). */
+  kind: 'description' | 'isin'
+  statement_isin: string | null
+  expected_isin: string | null
 }
 
 export type ProvenanceResult = {
