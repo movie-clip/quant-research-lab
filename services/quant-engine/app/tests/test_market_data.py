@@ -211,7 +211,9 @@ def test_get_direct_spy_benchmark_history_records_direct_vendor_scope_metadata(m
     rows = service.get_direct_spy_benchmark_history("2024-01-01", "2024-01-31")
 
     assert rows == [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}]
-    instance.get_historical_price_light.assert_called_once_with("SPY", "2024-01-01", "2024-01-31")
+    # US-20.2: the client is called with the canonical (year-quantized) range;
+    # the result is sliced back to the requested window.
+    instance.get_historical_price_light.assert_called_once_with("SPY", "2024-01-01", "2024-12-31")
     assert service.get_last_fetch_meta("SPY") == {
         "type": "history",
         "requested_symbol": "SPY",
@@ -236,7 +238,7 @@ def test_get_direct_verified_benchmark_history_records_direct_vendor_scope_metad
     rows = service.get_direct_verified_benchmark_history("QQQ", "2024-01-01", "2024-01-31")
 
     assert rows == [{"date": "2024-01-02", "price": 400.0, "adjClose": 399.0}]
-    instance.get_historical_price_light.assert_called_once_with("QQQ", "2024-01-01", "2024-01-31")
+    instance.get_historical_price_light.assert_called_once_with("QQQ", "2024-01-01", "2024-12-31")
     assert service.get_last_fetch_meta("QQQ") == {
         "type": "history",
         "requested_symbol": "QQQ",
@@ -262,6 +264,144 @@ def test_get_direct_verified_benchmark_history_rejects_non_allowlisted_symbols(m
     assert rows == []
     instance.get_historical_price_light.assert_not_called()
     assert service.get_last_fetch_meta("VOO") is None
+
+
+# ── US-20.2: history range normalization ────────────────────────────────────
+
+def test_canonical_history_range_quantizes_to_calendar_years() -> None:
+    from app.services.market_data import _canonical_history_range
+
+    assert _canonical_history_range("2026-03-05", "2026-05-25") == ("2026-01-01", "2026-12-31")
+    # Multi-year window widens to span both year boundaries.
+    assert _canonical_history_range("2021-08-01", "2026-05-25") == ("2021-01-01", "2026-12-31")
+
+
+def test_slice_price_rows_keeps_only_in_window_rows_in_order() -> None:
+    from app.services.market_data import _slice_price_rows
+
+    rows = [
+        {"date": "2024-01-31", "price": 1.0},
+        {"date": "2024-03-10", "price": 2.0},
+        {"date": "2024-03-25", "price": 3.0},
+        {"date": "2024-06-01", "price": 4.0},
+        {"date": None, "price": 5.0},
+    ]
+    sliced = _slice_price_rows(rows, "2024-03-01", "2024-03-31")
+    assert sliced == [
+        {"date": "2024-03-10", "price": 2.0},
+        {"date": "2024-03-25", "price": 3.0},
+    ]
+
+
+def _canonical_year_rows() -> list[dict]:
+    return [
+        {"date": "2024-01-15", "price": 10.0},
+        {"date": "2024-03-10", "price": 11.0},
+        {"date": "2024-03-25", "price": 12.0},
+        {"date": "2024-09-30", "price": 13.0},
+    ]
+
+
+def test_overlapping_requests_share_one_canonical_cache_key(mocker) -> None:
+    # Two different windows in the same year must fetch the SAME canonical range
+    # (one cache key → one underlying FMP fetch via FmpClient's cache).
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.get_historical_price_light.return_value = _canonical_year_rows()
+
+    service = MarketDataService()
+    service.get_historical_prices("AAA", "2024-03-01", "2024-03-31")
+    service.get_historical_prices("AAA", "2024-08-01", "2024-10-31")
+
+    canonical_calls = [
+        (call.args[0], call.args[1], call.args[2])
+        for call in instance.get_historical_price_light.call_args_list
+    ]
+    assert canonical_calls == [
+        ("AAA", "2024-01-01", "2024-12-31"),
+        ("AAA", "2024-01-01", "2024-12-31"),
+    ]
+
+
+def test_normalized_result_equals_direct_window_slice(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.get_historical_price_light.return_value = _canonical_year_rows()
+
+    service = MarketDataService()
+    rows = service.get_historical_prices("AAA", "2024-03-01", "2024-03-31")
+
+    # Exactly the March bars — nothing outside the requested window leaks in.
+    assert rows == [
+        {"date": "2024-03-10", "price": 11.0},
+        {"date": "2024-03-25", "price": 12.0},
+    ]
+
+
+def test_window_with_no_in_range_bars_returns_empty(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    # Canonical fetch has bars, but none inside the requested window → [].
+    instance.get_historical_price_light.return_value = _canonical_year_rows()
+
+    service = MarketDataService()
+    rows = service.get_historical_prices("AAA", "2024-12-01", "2024-12-31")
+
+    assert rows == []
+    assert service.get_last_fetch_meta("AAA") is None
+
+
+def test_yfinance_fallback_rows_are_normalized_and_sliced(mocker) -> None:
+    # FMP empty for all candidates → Yahoo fallback; its rows must also be
+    # fetched over the canonical range and sliced.
+    fmp_mock = mocker.patch("app.services.market_data.FmpClient")
+    fmp_mock.return_value.get_historical_price_light.return_value = []
+    yf_mock = mocker.patch("app.services.market_data.YFinanceClient")
+    yf_mock.return_value.get_historical_price_light.return_value = _canonical_year_rows()
+
+    service = MarketDataService()
+    rows = service.get_historical_prices("VUAA", "2024-03-01", "2024-03-31")
+
+    assert rows == [
+        {"date": "2024-03-10", "price": 11.0},
+        {"date": "2024-03-25", "price": 12.0},
+    ]
+    # Yahoo was asked for the canonical range, not the raw window.
+    yf_call = yf_mock.return_value.get_historical_price_light.call_args_list[0]
+    assert (yf_call.args[1], yf_call.args[2]) == ("2024-01-01", "2024-12-31")
+    assert {"vendor": "yfinance"}.items() <= service.get_last_fetch_meta("VUAA").items()
+
+
+def test_verified_benchmark_overlapping_windows_share_canonical_call(mocker) -> None:
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.get_historical_price_light.return_value = [
+        {"date": "2024-03-10", "price": 500.0, "adjClose": 499.0},
+        {"date": "2024-09-30", "price": 510.0, "adjClose": 509.0},
+    ]
+
+    service = MarketDataService()
+    first = service.get_direct_verified_benchmark_history("SPY", "2024-03-01", "2024-03-31")
+    service.get_direct_verified_benchmark_history("SPY", "2024-08-01", "2024-10-31")
+
+    assert first == [{"date": "2024-03-10", "price": 500.0, "adjClose": 499.0}]
+    canonical_calls = [
+        (call.args[0], call.args[1], call.args[2])
+        for call in instance.get_historical_price_light.call_args_list
+    ]
+    assert canonical_calls == [
+        ("SPY", "2024-01-01", "2024-12-31"),
+        ("SPY", "2024-01-01", "2024-12-31"),
+    ]
+    # Verified-benchmark meta unchanged in shape/values (no provenance regression).
+    assert {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "direct_path_only": True,
+    }.items() <= service.get_last_fetch_meta("SPY").items()
 
 
 def test_fmp_client_exposes_statement_endpoints(mocker) -> None:

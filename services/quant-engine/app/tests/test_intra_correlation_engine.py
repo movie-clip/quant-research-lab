@@ -281,7 +281,11 @@ class TestIntraCorrelationRoute:
         the correlation math (pearson's variance guard passes NaN) and broke
         JSON serialization → 500. Goes through the REAL MarketDataService so the
         seam sanitization (US-18.4) is exercised; only the FMP client is mocked."""
-        dates = [(date(2025, 1, 1) + timedelta(days=d)).isoformat() for d in range(40)]
+        # Anchor the synthetic bars inside the engine's requested window (which
+        # ends at date.today()): US-20.2's range normalization slices the
+        # client's rows to the requested window, so out-of-window fixture dates
+        # would be (correctly) dropped. 40 consecutive days ending today.
+        dates = [(date.today() - timedelta(days=39 - d)).isoformat() for d in range(40)]
 
         def _rows(symbol: str, *_a, **_k) -> list[dict]:
             rows = []

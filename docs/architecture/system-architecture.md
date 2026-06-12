@@ -152,6 +152,20 @@ client additionally skips non-finite bars at the source. A non-finite bar is
 "no data for that date" — dropped, never zero-filled or interpolated. This also
 neutralizes already-cached poisoned entries.
 
+**History range normalization (US-20.2):** because each engine computes its own
+lookback, the same symbol's history is requested over many overlapping `(from,
+to)` windows — each a distinct FMP cache key, the dominant source of FMP
+overuse. `MarketDataService` widens every history request to a canonical,
+deterministic superset range quantized to calendar-year boundaries
+(`_canonical_history_range`), fetches that one range (so all requests in the same
+year-span share a single cache key / FMP call), then slices the rows back to the
+caller's exact window (`_slice_price_rows`). The bars an engine receives are
+byte-identical to a direct `(from, to)` fetch — slicing is exact, not
+approximate. Applies to `get_historical_prices` (and `…_for_symbols`, FX, proxy
+fallback, yfinance fallback) and the verified-benchmark direct path. Goldens and
+engine unit tests are unaffected (they replace `MarketDataService` wholesale —
+`FrozenMarketData` for goldens, conftest mocks for engines).
+
 **Data provenance is a distinct dimension from return-basis trust.** Yahoo data
 carries adjusted close, so its return-basis is `verified_adjusted_close` — the
 same class as FMP — but the *source* differs. Per the traceability guardrail,
