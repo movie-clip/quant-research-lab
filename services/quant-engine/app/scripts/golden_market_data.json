@@ -19,6 +19,84 @@
       "from": "2026-01-08",
       "rows": [
         {
+          "date": "2026-06-11",
+          "price": 218.8,
+          "symbol": "ADBE",
+          "volume": 17786876
+        },
+        {
+          "date": "2026-06-10",
+          "price": 233.38,
+          "symbol": "ADBE",
+          "volume": 5176916
+        },
+        {
+          "date": "2026-06-09",
+          "price": 237.88,
+          "symbol": "ADBE",
+          "volume": 6747403
+        },
+        {
+          "date": "2026-06-08",
+          "price": 244.99,
+          "symbol": "ADBE",
+          "volume": 4728032
+        },
+        {
+          "date": "2026-06-05",
+          "price": 251.44,
+          "symbol": "ADBE",
+          "volume": 4909200
+        },
+        {
+          "date": "2026-06-04",
+          "price": 258.42,
+          "symbol": "ADBE",
+          "volume": 5161943
+        },
+        {
+          "date": "2026-06-03",
+          "price": 256.24,
+          "symbol": "ADBE",
+          "volume": 4871308
+        },
+        {
+          "date": "2026-06-02",
+          "price": 262.11,
+          "symbol": "ADBE",
+          "volume": 5821801
+        },
+        {
+          "date": "2026-06-01",
+          "price": 274.03,
+          "symbol": "ADBE",
+          "volume": 8535314
+        },
+        {
+          "date": "2026-05-29",
+          "price": 259.21,
+          "symbol": "ADBE",
+          "volume": 10808921
+        },
+        {
+          "date": "2026-05-28",
+          "price": 241.44,
+          "symbol": "ADBE",
+          "volume": 3396017
+        },
+        {
+          "date": "2026-05-27",
+          "price": 238.24,
+          "symbol": "ADBE",
+          "volume": 3408880
+        },
+        {
+          "date": "2026-05-26",
+          "price": 240.49,
+          "symbol": "ADBE",
+          "volume": 3217536
+        },
+        {
           "date": "2026-05-22",
           "price": 244.76,
           "symbol": "ADBE",
@@ -584,11 +662,89 @@
         }
       ],
       "symbol": "ADBE",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 1.88,
+          "symbol": "ALLO",
+          "volume": 6102343
+        },
+        {
+          "date": "2026-06-10",
+          "price": 1.78,
+          "symbol": "ALLO",
+          "volume": 7943900
+        },
+        {
+          "date": "2026-06-09",
+          "price": 1.82,
+          "symbol": "ALLO",
+          "volume": 7723900
+        },
+        {
+          "date": "2026-06-08",
+          "price": 1.85,
+          "symbol": "ALLO",
+          "volume": 9264200
+        },
+        {
+          "date": "2026-06-05",
+          "price": 1.88,
+          "symbol": "ALLO",
+          "volume": 7989100
+        },
+        {
+          "date": "2026-06-04",
+          "price": 2.04,
+          "symbol": "ALLO",
+          "volume": 7340800
+        },
+        {
+          "date": "2026-06-03",
+          "price": 2,
+          "symbol": "ALLO",
+          "volume": 9058900
+        },
+        {
+          "date": "2026-06-02",
+          "price": 2.05,
+          "symbol": "ALLO",
+          "volume": 7373806
+        },
+        {
+          "date": "2026-06-01",
+          "price": 2.15,
+          "symbol": "ALLO",
+          "volume": 8548525
+        },
+        {
+          "date": "2026-05-29",
+          "price": 2.17,
+          "symbol": "ALLO",
+          "volume": 10289549
+        },
+        {
+          "date": "2026-05-28",
+          "price": 2.25,
+          "symbol": "ALLO",
+          "volume": 6515390
+        },
+        {
+          "date": "2026-05-27",
+          "price": 2.25,
+          "symbol": "ALLO",
+          "volume": 10690278
+        },
+        {
+          "date": "2026-05-26",
+          "price": 2.12,
+          "symbol": "ALLO",
+          "volume": 4770340
+        },
         {
           "date": "2026-05-22",
           "price": 2,
@@ -1155,11 +1311,89 @@
         }
       ],
       "symbol": "ALLO",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 241.51,
+          "symbol": "AMZN",
+          "volume": 41335399
+        },
+        {
+          "date": "2026-06-10",
+          "price": 238,
+          "symbol": "AMZN",
+          "volume": 38590237
+        },
+        {
+          "date": "2026-06-09",
+          "price": 244.19,
+          "symbol": "AMZN",
+          "volume": 44425400
+        },
+        {
+          "date": "2026-06-08",
+          "price": 245.22,
+          "symbol": "AMZN",
+          "volume": 33899525
+        },
+        {
+          "date": "2026-06-05",
+          "price": 246.03,
+          "symbol": "AMZN",
+          "volume": 55607844
+        },
+        {
+          "date": "2026-06-04",
+          "price": 253.79,
+          "symbol": "AMZN",
+          "volume": 35609800
+        },
+        {
+          "date": "2026-06-03",
+          "price": 250.02,
+          "symbol": "AMZN",
+          "volume": 51394200
+        },
+        {
+          "date": "2026-06-02",
+          "price": 256.52,
+          "symbol": "AMZN",
+          "volume": 41811000
+        },
+        {
+          "date": "2026-06-01",
+          "price": 261.26,
+          "symbol": "AMZN",
+          "volume": 53604400
+        },
+        {
+          "date": "2026-05-29",
+          "price": 270.64,
+          "symbol": "AMZN",
+          "volume": 54749600
+        },
+        {
+          "date": "2026-05-28",
+          "price": 274,
+          "symbol": "AMZN",
+          "volume": 40630400
+        },
+        {
+          "date": "2026-05-27",
+          "price": 271.85,
+          "symbol": "AMZN",
+          "volume": 40061900
+        },
+        {
+          "date": "2026-05-26",
+          "price": 265.29,
+          "symbol": "AMZN",
+          "volume": 38028118
+        },
         {
           "date": "2026-05-22",
           "price": 266.32,
@@ -1726,582 +1960,738 @@
         }
       ],
       "symbol": "AMZN",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
         {
+          "date": "2026-06-11",
+          "price": 85.47,
+          "symbol": "CIBR",
+          "volume": 1566596
+        },
+        {
+          "date": "2026-06-10",
+          "price": 83.25,
+          "symbol": "CIBR",
+          "volume": 1394527
+        },
+        {
+          "date": "2026-06-09",
+          "price": 84.34,
+          "symbol": "CIBR",
+          "volume": 2443923
+        },
+        {
+          "date": "2026-06-08",
+          "price": 86.13,
+          "symbol": "CIBR",
+          "volume": 1479438
+        },
+        {
+          "date": "2026-06-05",
+          "price": 86.7,
+          "symbol": "CIBR",
+          "volume": 2515300
+        },
+        {
+          "date": "2026-06-04",
+          "price": 90.7,
+          "symbol": "CIBR",
+          "volume": 2916027
+        },
+        {
+          "date": "2026-06-03",
+          "price": 91.67,
+          "symbol": "CIBR",
+          "volume": 1543100
+        },
+        {
+          "date": "2026-06-02",
+          "price": 94.32,
+          "symbol": "CIBR",
+          "volume": 2212411
+        },
+        {
+          "date": "2026-06-01",
+          "price": 94.15,
+          "symbol": "CIBR",
+          "volume": 2511738
+        },
+        {
+          "date": "2026-05-29",
+          "price": 89.04,
+          "symbol": "CIBR",
+          "volume": 2213746
+        },
+        {
+          "date": "2026-05-28",
+          "price": 83.68,
+          "symbol": "CIBR",
+          "volume": 1572501
+        },
+        {
+          "date": "2026-05-27",
+          "price": 82.04,
+          "symbol": "CIBR",
+          "volume": 2013775
+        },
+        {
+          "date": "2026-05-26",
+          "price": 84.48,
+          "symbol": "CIBR",
+          "volume": 2458204
+        },
+        {
           "date": "2026-05-22",
-          "price": 83.35,
-          "symbol": "COPX",
-          "volume": 1971766
+          "price": 84.28,
+          "symbol": "CIBR",
+          "volume": 1598462
         },
         {
           "date": "2026-05-21",
-          "price": 83.02,
-          "symbol": "COPX",
-          "volume": 2703338
+          "price": 82.15,
+          "symbol": "CIBR",
+          "volume": 747140
         },
         {
           "date": "2026-05-20",
-          "price": 82.31,
-          "symbol": "COPX",
-          "volume": 5544800
+          "price": 81.66,
+          "symbol": "CIBR",
+          "volume": 2064800
         },
         {
           "date": "2026-05-19",
-          "price": 79.37,
-          "symbol": "COPX",
-          "volume": 5198700
+          "price": 80.4,
+          "symbol": "CIBR",
+          "volume": 1567371
         },
         {
           "date": "2026-05-18",
-          "price": 81.85,
-          "symbol": "COPX",
-          "volume": 4496700
+          "price": 80.92,
+          "symbol": "CIBR",
+          "volume": 1856700
         },
         {
           "date": "2026-05-15",
-          "price": 83.05,
-          "symbol": "COPX",
-          "volume": 7719848
+          "price": 79.05,
+          "symbol": "CIBR",
+          "volume": 2035500
         },
         {
           "date": "2026-05-14",
-          "price": 89.38,
-          "symbol": "COPX",
-          "volume": 4763735
+          "price": 78.36,
+          "symbol": "CIBR",
+          "volume": 1634348
         },
         {
           "date": "2026-05-13",
-          "price": 91.91,
-          "symbol": "COPX",
-          "volume": 6202700
+          "price": 75.85,
+          "symbol": "CIBR",
+          "volume": 1152948
         },
         {
           "date": "2026-05-12",
-          "price": 90.77,
-          "symbol": "COPX",
-          "volume": 10519400
+          "price": 74.84,
+          "symbol": "CIBR",
+          "volume": 1294364
         },
         {
           "date": "2026-05-11",
-          "price": 87.59,
-          "symbol": "COPX",
-          "volume": 6562000
+          "price": 75.43,
+          "symbol": "CIBR",
+          "volume": 1274000
         },
         {
           "date": "2026-05-08",
-          "price": 85.97,
-          "symbol": "COPX",
-          "volume": 3708624
+          "price": 75.32,
+          "symbol": "CIBR",
+          "volume": 2489007
         },
         {
           "date": "2026-05-07",
-          "price": 82.61,
-          "symbol": "COPX",
-          "volume": 4670413
+          "price": 73.14,
+          "symbol": "CIBR",
+          "volume": 1520000
         },
         {
           "date": "2026-05-06",
-          "price": 83.57,
-          "symbol": "COPX",
-          "volume": 5764400
+          "price": 70.17,
+          "symbol": "CIBR",
+          "volume": 2400700
         },
         {
           "date": "2026-05-05",
-          "price": 78.21,
-          "symbol": "COPX",
-          "volume": 2344800
+          "price": 70.87,
+          "symbol": "CIBR",
+          "volume": 715640
         },
         {
           "date": "2026-05-04",
-          "price": 76.65,
-          "symbol": "COPX",
-          "volume": 5167800
+          "price": 69.75,
+          "symbol": "CIBR",
+          "volume": 1357853
         },
         {
           "date": "2026-05-01",
-          "price": 79.05,
-          "symbol": "COPX",
-          "volume": 1542620
+          "price": 68.76,
+          "symbol": "CIBR",
+          "volume": 972700
         },
         {
           "date": "2026-04-30",
-          "price": 79.61,
-          "symbol": "COPX",
-          "volume": 3377930
+          "price": 67.45,
+          "symbol": "CIBR",
+          "volume": 1301633
         },
         {
           "date": "2026-04-29",
-          "price": 77.73,
-          "symbol": "COPX",
-          "volume": 3027100
+          "price": 67.87,
+          "symbol": "CIBR",
+          "volume": 918082
         },
         {
           "date": "2026-04-28",
-          "price": 78.69,
-          "symbol": "COPX",
-          "volume": 5734700
+          "price": 67.15,
+          "symbol": "CIBR",
+          "volume": 1379500
         },
         {
           "date": "2026-04-27",
-          "price": 81.7,
-          "symbol": "COPX",
-          "volume": 2401700
+          "price": 67.55,
+          "symbol": "CIBR",
+          "volume": 1658725
         },
         {
           "date": "2026-04-24",
-          "price": 82.37,
-          "symbol": "COPX",
-          "volume": 2513100
+          "price": 67.24,
+          "symbol": "CIBR",
+          "volume": 1153229
         },
         {
           "date": "2026-04-23",
-          "price": 82.46,
-          "symbol": "COPX",
-          "volume": 2910500
+          "price": 66.59,
+          "symbol": "CIBR",
+          "volume": 1407960
         },
         {
           "date": "2026-04-22",
-          "price": 84.9,
-          "symbol": "COPX",
-          "volume": 2810540
+          "price": 68.91,
+          "symbol": "CIBR",
+          "volume": 1511921
         },
         {
           "date": "2026-04-21",
-          "price": 81.47,
-          "symbol": "COPX",
-          "volume": 6985716
+          "price": 68.04,
+          "symbol": "CIBR",
+          "volume": 1864706
         },
         {
           "date": "2026-04-20",
-          "price": 86.25,
-          "symbol": "COPX",
-          "volume": 1956600
+          "price": 67.05,
+          "symbol": "CIBR",
+          "volume": 1365934
         },
         {
           "date": "2026-04-17",
-          "price": 87.19,
-          "symbol": "COPX",
-          "volume": 2650436
+          "price": 66.48,
+          "symbol": "CIBR",
+          "volume": 2063337
         },
         {
           "date": "2026-04-16",
-          "price": 86.21,
-          "symbol": "COPX",
-          "volume": 1573747
+          "price": 65.92,
+          "symbol": "CIBR",
+          "volume": 1308746
         },
         {
           "date": "2026-04-15",
-          "price": 86.08,
-          "symbol": "COPX",
-          "volume": 1902701
+          "price": 64.52,
+          "symbol": "CIBR",
+          "volume": 1510843
         },
         {
           "date": "2026-04-14",
-          "price": 86.43,
-          "symbol": "COPX",
-          "volume": 2907700
+          "price": 62.79,
+          "symbol": "CIBR",
+          "volume": 2384400
         },
         {
           "date": "2026-04-13",
-          "price": 84.87,
-          "symbol": "COPX",
-          "volume": 2217226
+          "price": 63.19,
+          "symbol": "CIBR",
+          "volume": 1803700
         },
         {
           "date": "2026-04-10",
-          "price": 83.52,
-          "symbol": "COPX",
-          "volume": 4014231
+          "price": 60.74,
+          "symbol": "CIBR",
+          "volume": 2346700
         },
         {
           "date": "2026-04-09",
-          "price": 81.56,
-          "symbol": "COPX",
-          "volume": 4756000
+          "price": 63.08,
+          "symbol": "CIBR",
+          "volume": 2261129
         },
         {
           "date": "2026-04-08",
-          "price": 82.03,
-          "symbol": "COPX",
-          "volume": 5526920
+          "price": 65.66,
+          "symbol": "CIBR",
+          "volume": 1473729
         },
         {
           "date": "2026-04-07",
-          "price": 76.74,
-          "symbol": "COPX",
-          "volume": 1657000
+          "price": 65.25,
+          "symbol": "CIBR",
+          "volume": 1158322
         },
         {
           "date": "2026-04-06",
-          "price": 76.72,
-          "symbol": "COPX",
-          "volume": 1368537
+          "price": 64.16,
+          "symbol": "CIBR",
+          "volume": 911684
         },
         {
           "date": "2026-04-02",
-          "price": 76.86,
-          "symbol": "COPX",
-          "volume": 3108000
+          "price": 64.19,
+          "symbol": "CIBR",
+          "volume": 983662
         },
         {
           "date": "2026-04-01",
-          "price": 78.15,
-          "symbol": "COPX",
-          "volume": 6566800
+          "price": 63.15,
+          "symbol": "CIBR",
+          "volume": 1455124
         },
         {
           "date": "2026-03-31",
-          "price": 76.35,
-          "symbol": "COPX",
-          "volume": 5228000
+          "price": 62.68,
+          "symbol": "CIBR",
+          "volume": 1821869
         },
         {
           "date": "2026-03-30",
-          "price": 70.75,
-          "symbol": "COPX",
-          "volume": 3301213
+          "price": 60.79,
+          "symbol": "CIBR",
+          "volume": 3077473
         },
         {
           "date": "2026-03-27",
-          "price": 71.61,
-          "symbol": "COPX",
-          "volume": 4436424
+          "price": 60.76,
+          "symbol": "CIBR",
+          "volume": 2139635
         },
         {
           "date": "2026-03-26",
-          "price": 70.89,
-          "symbol": "COPX",
-          "volume": 4774023
+          "price": 63.14,
+          "symbol": "CIBR",
+          "volume": 929340
         },
         {
           "date": "2026-03-25",
-          "price": 75.64,
-          "symbol": "COPX",
-          "volume": 4079315
+          "price": 63.37,
+          "symbol": "CIBR",
+          "volume": 1892600
         },
         {
           "date": "2026-03-24",
-          "price": 73,
-          "symbol": "COPX",
-          "volume": 4286039
+          "price": 63.08,
+          "symbol": "CIBR",
+          "volume": 1874094
         },
         {
           "date": "2026-03-23",
-          "price": 73.55,
-          "symbol": "COPX",
-          "volume": 8727900
+          "price": 65,
+          "symbol": "CIBR",
+          "volume": 985743
         },
         {
           "date": "2026-03-20",
-          "price": 69.08,
-          "symbol": "COPX",
-          "volume": 5274519
+          "price": 64.03,
+          "symbol": "CIBR",
+          "volume": 1470952
         },
         {
           "date": "2026-03-19",
-          "price": 72.38,
-          "symbol": "COPX",
-          "volume": 7091900
+          "price": 65.23,
+          "symbol": "CIBR",
+          "volume": 1002000
         },
         {
           "date": "2026-03-18",
-          "price": 74.93,
-          "symbol": "COPX",
-          "volume": 6505918
+          "price": 64.96,
+          "symbol": "CIBR",
+          "volume": 1093552
         },
         {
           "date": "2026-03-17",
-          "price": 77.91,
-          "symbol": "COPX",
-          "volume": 2205929
+          "price": 64.97,
+          "symbol": "CIBR",
+          "volume": 1191936
         },
         {
           "date": "2026-03-16",
-          "price": 78.66,
-          "symbol": "COPX",
-          "volume": 4793600
+          "price": 64.5,
+          "symbol": "CIBR",
+          "volume": 2584357
         },
         {
           "date": "2026-03-13",
-          "price": 76.39,
-          "symbol": "COPX",
-          "volume": 4238619
+          "price": 65.15,
+          "symbol": "CIBR",
+          "volume": 1085220
         },
         {
           "date": "2026-03-12",
-          "price": 79.74,
-          "symbol": "COPX",
-          "volume": 2832402
+          "price": 65.3,
+          "symbol": "CIBR",
+          "volume": 1778753
         },
         {
           "date": "2026-03-11",
-          "price": 82.29,
-          "symbol": "COPX",
-          "volume": 3324385
+          "price": 65.76,
+          "symbol": "CIBR",
+          "volume": 1282401
         },
         {
           "date": "2026-03-10",
-          "price": 83.06,
-          "symbol": "COPX",
-          "volume": 5096728
+          "price": 65.78,
+          "symbol": "CIBR",
+          "volume": 1859726
         },
         {
           "date": "2026-03-09",
-          "price": 82.24,
-          "symbol": "COPX",
-          "volume": 7219922
+          "price": 66.28,
+          "symbol": "CIBR",
+          "volume": 1871235
         },
         {
           "date": "2026-03-06",
-          "price": 79.95,
-          "symbol": "COPX",
-          "volume": 8377145
+          "price": 66,
+          "symbol": "CIBR",
+          "volume": 1431832
         },
         {
           "date": "2026-03-05",
-          "price": 82.3,
-          "symbol": "COPX",
-          "volume": 6996700
+          "price": 65.79,
+          "symbol": "CIBR",
+          "volume": 2548950
         },
         {
           "date": "2026-03-04",
-          "price": 88.16,
-          "symbol": "COPX",
-          "volume": 2533300
+          "price": 64.66,
+          "symbol": "CIBR",
+          "volume": 2117500
         },
         {
           "date": "2026-03-03",
-          "price": 87.02,
-          "symbol": "COPX",
-          "volume": 8541200
+          "price": 63.91,
+          "symbol": "CIBR",
+          "volume": 2220500
         },
         {
           "date": "2026-03-02",
-          "price": 93.6,
-          "symbol": "COPX",
-          "volume": 3727225
+          "price": 63.4,
+          "symbol": "CIBR",
+          "volume": 1417913
         },
         {
           "date": "2026-02-27",
-          "price": 95.7,
-          "symbol": "COPX",
-          "volume": 5134718
+          "price": 62.91,
+          "symbol": "CIBR",
+          "volume": 1376317
         },
         {
           "date": "2026-02-26",
-          "price": 94.45,
-          "symbol": "COPX",
-          "volume": 6070700
+          "price": 63.87,
+          "symbol": "CIBR",
+          "volume": 2967551
         },
         {
           "date": "2026-02-25",
-          "price": 95.06,
-          "symbol": "COPX",
-          "volume": 5975500
+          "price": 62.71,
+          "symbol": "CIBR",
+          "volume": 1686043
         },
         {
           "date": "2026-02-24",
-          "price": 93.37,
-          "symbol": "COPX",
-          "volume": 5832600
+          "price": 61.58,
+          "symbol": "CIBR",
+          "volume": 2475400
         },
         {
           "date": "2026-02-23",
-          "price": 90.85,
-          "symbol": "COPX",
-          "volume": 4701909
+          "price": 61.27,
+          "symbol": "CIBR",
+          "volume": 4303112
         },
         {
           "date": "2026-02-20",
-          "price": 89.09,
-          "symbol": "COPX",
-          "volume": 4001000
+          "price": 63.9,
+          "symbol": "CIBR",
+          "volume": 2538949
         },
         {
           "date": "2026-02-19",
-          "price": 86.12,
-          "symbol": "COPX",
-          "volume": 5685739
+          "price": 65.91,
+          "symbol": "CIBR",
+          "volume": 888075
         },
         {
           "date": "2026-02-18",
-          "price": 86.66,
-          "symbol": "COPX",
-          "volume": 3317000
+          "price": 65.93,
+          "symbol": "CIBR",
+          "volume": 1564596
         },
         {
           "date": "2026-02-17",
-          "price": 84.78,
-          "symbol": "COPX",
-          "volume": 4051448
+          "price": 65.54,
+          "symbol": "CIBR",
+          "volume": 1505984
         },
         {
           "date": "2026-02-13",
-          "price": 87.94,
-          "symbol": "COPX",
-          "volume": 3538324
+          "price": 66.83,
+          "symbol": "CIBR",
+          "volume": 1363700
         },
         {
           "date": "2026-02-12",
-          "price": 87.15,
-          "symbol": "COPX",
-          "volume": 4338000
+          "price": 65.1,
+          "symbol": "CIBR",
+          "volume": 2486389
         },
         {
           "date": "2026-02-11",
-          "price": 90.12,
-          "symbol": "COPX",
-          "volume": 5597535
+          "price": 67.62,
+          "symbol": "CIBR",
+          "volume": 1803370
         },
         {
           "date": "2026-02-10",
-          "price": 88.23,
-          "symbol": "COPX",
-          "volume": 2321700
+          "price": 68.83,
+          "symbol": "CIBR",
+          "volume": 2242287
         },
         {
           "date": "2026-02-09",
-          "price": 89.03,
-          "symbol": "COPX",
-          "volume": 4473400
+          "price": 68.34,
+          "symbol": "CIBR",
+          "volume": 2782955
         },
         {
           "date": "2026-02-06",
-          "price": 84.68,
-          "symbol": "COPX",
-          "volume": 5515900
+          "price": 67.13,
+          "symbol": "CIBR",
+          "volume": 1143653
         },
         {
           "date": "2026-02-05",
-          "price": 81.31,
-          "symbol": "COPX",
-          "volume": 9581200
+          "price": 64.95,
+          "symbol": "CIBR",
+          "volume": 2073870
         },
         {
           "date": "2026-02-04",
-          "price": 86.61,
-          "symbol": "COPX",
-          "volume": 8498920
+          "price": 66.53,
+          "symbol": "CIBR",
+          "volume": 2105075
         },
         {
           "date": "2026-02-03",
-          "price": 90.76,
-          "symbol": "COPX",
-          "volume": 8428500
+          "price": 67.09,
+          "symbol": "CIBR",
+          "volume": 1818645
         },
         {
           "date": "2026-02-02",
-          "price": 85.2,
-          "symbol": "COPX",
-          "volume": 6741900
+          "price": 69.59,
+          "symbol": "CIBR",
+          "volume": 1207954
         },
         {
           "date": "2026-01-30",
-          "price": 84.81,
-          "symbol": "COPX",
-          "volume": 15178200
+          "price": 69.06,
+          "symbol": "CIBR",
+          "volume": 1143451
         },
         {
           "date": "2026-01-29",
-          "price": 94.23,
-          "symbol": "COPX",
-          "volume": 18336235
+          "price": 69.56,
+          "symbol": "CIBR",
+          "volume": 1286800
         },
         {
           "date": "2026-01-28",
-          "price": 91.98,
-          "symbol": "COPX",
-          "volume": 9110600
+          "price": 71.51,
+          "symbol": "CIBR",
+          "volume": 853800
         },
         {
           "date": "2026-01-27",
-          "price": 90.42,
-          "symbol": "COPX",
-          "volume": 8367300
+          "price": 72.03,
+          "symbol": "CIBR",
+          "volume": 1335425
         },
         {
           "date": "2026-01-26",
-          "price": 88.08,
-          "symbol": "COPX",
-          "volume": 16169321
+          "price": 72.09,
+          "symbol": "CIBR",
+          "volume": 1027536
         },
         {
           "date": "2026-01-23",
-          "price": 86.01,
-          "symbol": "COPX",
-          "volume": 5750424
+          "price": 70.81,
+          "symbol": "CIBR",
+          "volume": 1085803
         },
         {
           "date": "2026-01-22",
-          "price": 82.23,
-          "symbol": "COPX",
-          "volume": 3961838
+          "price": 70.65,
+          "symbol": "CIBR",
+          "volume": 1294756
         },
         {
           "date": "2026-01-21",
-          "price": 83.97,
-          "symbol": "COPX",
-          "volume": 5752716
+          "price": 70.07,
+          "symbol": "CIBR",
+          "volume": 1539300
         },
         {
           "date": "2026-01-20",
-          "price": 82.25,
-          "symbol": "COPX",
-          "volume": 5245000
+          "price": 69.98,
+          "symbol": "CIBR",
+          "volume": 1463823
         },
         {
           "date": "2026-01-16",
-          "price": 80.77,
-          "symbol": "COPX",
-          "volume": 4701800
+          "price": 71.91,
+          "symbol": "CIBR",
+          "volume": 879013
         },
         {
           "date": "2026-01-15",
-          "price": 82.04,
-          "symbol": "COPX",
-          "volume": 3951300
+          "price": 72.11,
+          "symbol": "CIBR",
+          "volume": 2247730
         },
         {
           "date": "2026-01-14",
-          "price": 82.39,
-          "symbol": "COPX",
-          "volume": 5410321
+          "price": 72.42,
+          "symbol": "CIBR",
+          "volume": 1087375
         },
         {
           "date": "2026-01-13",
-          "price": 79.84,
-          "symbol": "COPX",
-          "volume": 3531106
+          "price": 72.62,
+          "symbol": "CIBR",
+          "volume": 1088759
         },
         {
           "date": "2026-01-12",
-          "price": 80.07,
-          "symbol": "COPX",
-          "volume": 5973535
+          "price": 72.96,
+          "symbol": "CIBR",
+          "volume": 689311
         },
         {
           "date": "2026-01-09",
-          "price": 77.54,
-          "symbol": "COPX",
-          "volume": 2987745
+          "price": 72.55,
+          "symbol": "CIBR",
+          "volume": 954347
         },
         {
           "date": "2026-01-08",
-          "price": 75.62,
-          "symbol": "COPX",
-          "volume": 3123100
+          "price": 72.38,
+          "symbol": "CIBR",
+          "volume": 934803
         }
       ],
-      "symbol": "COPX",
-      "to": "2026-05-25"
+      "symbol": "CIBR",
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 166.45,
+          "symbol": "CRM",
+          "volume": 16666029
+        },
+        {
+          "date": "2026-06-10",
+          "price": 170.92,
+          "symbol": "CRM",
+          "volume": 10820543
+        },
+        {
+          "date": "2026-06-09",
+          "price": 175.35,
+          "symbol": "CRM",
+          "volume": 15427800
+        },
+        {
+          "date": "2026-06-08",
+          "price": 182.55,
+          "symbol": "CRM",
+          "volume": 11177800
+        },
+        {
+          "date": "2026-06-05",
+          "price": 185.66,
+          "symbol": "CRM",
+          "volume": 13183928
+        },
+        {
+          "date": "2026-06-04",
+          "price": 188.75,
+          "symbol": "CRM",
+          "volume": 14453600
+        },
+        {
+          "date": "2026-06-03",
+          "price": 190.61,
+          "symbol": "CRM",
+          "volume": 14154400
+        },
+        {
+          "date": "2026-06-02",
+          "price": 200.84,
+          "symbol": "CRM",
+          "volume": 19216627
+        },
+        {
+          "date": "2026-06-01",
+          "price": 209.6,
+          "symbol": "CRM",
+          "volume": 27594800
+        },
+        {
+          "date": "2026-05-29",
+          "price": 191.1,
+          "symbol": "CRM",
+          "volume": 33998900
+        },
+        {
+          "date": "2026-05-28",
+          "price": 176.17,
+          "symbol": "CRM",
+          "volume": 22559427
+        },
+        {
+          "date": "2026-05-27",
+          "price": 177.51,
+          "symbol": "CRM",
+          "volume": 18524937
+        },
+        {
+          "date": "2026-05-26",
+          "price": 179.08,
+          "symbol": "CRM",
+          "volume": 13617242
+        },
         {
           "date": "2026-05-22",
           "price": 180.07,
@@ -2868,11 +3258,89 @@
         }
       ],
       "symbol": "CRM",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 50.23,
+          "symbol": "CRSP",
+          "volume": 1514982
+        },
+        {
+          "date": "2026-06-10",
+          "price": 49.44,
+          "symbol": "CRSP",
+          "volume": 1409200
+        },
+        {
+          "date": "2026-06-09",
+          "price": 51.48,
+          "symbol": "CRSP",
+          "volume": 1461841
+        },
+        {
+          "date": "2026-06-08",
+          "price": 51.6,
+          "symbol": "CRSP",
+          "volume": 1131621
+        },
+        {
+          "date": "2026-06-05",
+          "price": 51.84,
+          "symbol": "CRSP",
+          "volume": 2298200
+        },
+        {
+          "date": "2026-06-04",
+          "price": 56.95,
+          "symbol": "CRSP",
+          "volume": 3301000
+        },
+        {
+          "date": "2026-06-03",
+          "price": 52.08,
+          "symbol": "CRSP",
+          "volume": 1271731
+        },
+        {
+          "date": "2026-06-02",
+          "price": 52.02,
+          "symbol": "CRSP",
+          "volume": 1372827
+        },
+        {
+          "date": "2026-06-01",
+          "price": 54.19,
+          "symbol": "CRSP",
+          "volume": 1426137
+        },
+        {
+          "date": "2026-05-29",
+          "price": 56.18,
+          "symbol": "CRSP",
+          "volume": 1932828
+        },
+        {
+          "date": "2026-05-28",
+          "price": 56.38,
+          "symbol": "CRSP",
+          "volume": 2665550
+        },
+        {
+          "date": "2026-05-27",
+          "price": 53.53,
+          "symbol": "CRSP",
+          "volume": 1840890
+        },
+        {
+          "date": "2026-05-26",
+          "price": 51.59,
+          "symbol": "CRSP",
+          "volume": 1454909
+        },
         {
           "date": "2026-05-22",
           "price": 50.36,
@@ -3439,7 +3907,7 @@
         }
       ],
       "symbol": "CRSP",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
@@ -4094,623 +4562,183 @@
           "price": 6.494999885559082,
           "symbol": "DEFS.L",
           "volume": 45711
+        },
+        {
+          "adjClose": 6.5920000076293945,
+          "date": "2026-05-26",
+          "price": 6.5920000076293945,
+          "symbol": "DEFS.L",
+          "volume": 51878
+        },
+        {
+          "adjClose": 6.622499942779541,
+          "date": "2026-05-27",
+          "price": 6.622499942779541,
+          "symbol": "DEFS.L",
+          "volume": 69448
+        },
+        {
+          "adjClose": 6.859000205993652,
+          "date": "2026-05-28",
+          "price": 6.859000205993652,
+          "symbol": "DEFS.L",
+          "volume": 172249
+        },
+        {
+          "adjClose": 6.874499797821045,
+          "date": "2026-05-29",
+          "price": 6.874499797821045,
+          "symbol": "DEFS.L",
+          "volume": 85233
+        },
+        {
+          "adjClose": 6.498000144958496,
+          "date": "2026-06-01",
+          "price": 6.498000144958496,
+          "symbol": "DEFS.L",
+          "volume": 118425
+        },
+        {
+          "adjClose": 6.48199987411499,
+          "date": "2026-06-02",
+          "price": 6.48199987411499,
+          "symbol": "DEFS.L",
+          "volume": 59041
+        },
+        {
+          "adjClose": 6.391499996185303,
+          "date": "2026-06-03",
+          "price": 6.391499996185303,
+          "symbol": "DEFS.L",
+          "volume": 52688
+        },
+        {
+          "adjClose": 6.4770002365112305,
+          "date": "2026-06-04",
+          "price": 6.4770002365112305,
+          "symbol": "DEFS.L",
+          "volume": 140368
+        },
+        {
+          "adjClose": 6.47599983215332,
+          "date": "2026-06-05",
+          "price": 6.47599983215332,
+          "symbol": "DEFS.L",
+          "volume": 63528
+        },
+        {
+          "adjClose": 6.441500186920166,
+          "date": "2026-06-08",
+          "price": 6.441500186920166,
+          "symbol": "DEFS.L",
+          "volume": 124078
+        },
+        {
+          "adjClose": 6.416999816894531,
+          "date": "2026-06-09",
+          "price": 6.416999816894531,
+          "symbol": "DEFS.L",
+          "volume": 112841
+        },
+        {
+          "adjClose": 6.418499946594238,
+          "date": "2026-06-10",
+          "price": 6.418499946594238,
+          "symbol": "DEFS.L",
+          "volume": 220791
+        },
+        {
+          "adjClose": 6.493500232696533,
+          "date": "2026-06-11",
+          "price": 6.493500232696533,
+          "symbol": "DEFS.L",
+          "volume": 101709
         }
       ],
       "symbol": "DEFS",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
         {
-          "adjClose": 7.370999813079834,
-          "date": "2026-01-08",
-          "price": 7.370999813079834,
-          "symbol": "DFND.L",
-          "volume": 582845
+          "date": "2026-06-11",
+          "price": 123.85,
+          "symbol": "DUOL",
+          "volume": 1378373
         },
         {
-          "adjClose": 7.480000019073486,
-          "date": "2026-01-09",
-          "price": 7.480000019073486,
-          "symbol": "DFND.L",
-          "volume": 183814
+          "date": "2026-06-10",
+          "price": 121.92,
+          "symbol": "DUOL",
+          "volume": 2119720
         },
         {
-          "adjClose": 7.5279998779296875,
-          "date": "2026-01-12",
-          "price": 7.5279998779296875,
-          "symbol": "DFND.L",
-          "volume": 686718
+          "date": "2026-06-09",
+          "price": 117.86,
+          "symbol": "DUOL",
+          "volume": 1825400
         },
         {
-          "adjClose": 7.639999866485596,
-          "date": "2026-01-13",
-          "price": 7.639999866485596,
-          "symbol": "DFND.L",
-          "volume": 266670
+          "date": "2026-06-08",
+          "price": 117.96,
+          "symbol": "DUOL",
+          "volume": 2100249
         },
         {
-          "adjClose": 7.591000080108643,
-          "date": "2026-01-14",
-          "price": 7.591000080108643,
-          "symbol": "DFND.L",
-          "volume": 191517
+          "date": "2026-06-05",
+          "price": 109.03,
+          "symbol": "DUOL",
+          "volume": 1044100
         },
         {
-          "adjClose": 7.685999870300293,
-          "date": "2026-01-15",
-          "price": 7.685999870300293,
-          "symbol": "DFND.L",
-          "volume": 424777
+          "date": "2026-06-04",
+          "price": 109.15,
+          "symbol": "DUOL",
+          "volume": 1086614
         },
         {
-          "adjClose": 7.776000022888184,
-          "date": "2026-01-16",
-          "price": 7.776000022888184,
-          "symbol": "DFND.L",
-          "volume": 652135
+          "date": "2026-06-03",
+          "price": 107.4,
+          "symbol": "DUOL",
+          "volume": 1878600
         },
         {
-          "adjClose": 7.75,
-          "date": "2026-01-19",
-          "price": 7.75,
-          "symbol": "DFND.L",
-          "volume": 321595
+          "date": "2026-06-02",
+          "price": 109.95,
+          "symbol": "DUOL",
+          "volume": 1724021
         },
         {
-          "adjClose": 7.681000232696533,
-          "date": "2026-01-20",
-          "price": 7.681000232696533,
-          "symbol": "DFND.L",
-          "volume": 259325
+          "date": "2026-06-01",
+          "price": 117.97,
+          "symbol": "DUOL",
+          "volume": 1906918
         },
         {
-          "adjClose": 7.639999866485596,
-          "date": "2026-01-21",
-          "price": 7.639999866485596,
-          "symbol": "DFND.L",
-          "volume": 227734
+          "date": "2026-05-29",
+          "price": 111.36,
+          "symbol": "DUOL",
+          "volume": 1306734
         },
         {
-          "adjClose": 7.5329999923706055,
-          "date": "2026-01-22",
-          "price": 7.5329999923706055,
-          "symbol": "DFND.L",
-          "volume": 341253
+          "date": "2026-05-28",
+          "price": 108.67,
+          "symbol": "DUOL",
+          "volume": 640115
         },
         {
-          "adjClose": 7.51200008392334,
-          "date": "2026-01-23",
-          "price": 7.51200008392334,
-          "symbol": "DFND.L",
-          "volume": 210414
+          "date": "2026-05-27",
+          "price": 107.82,
+          "symbol": "DUOL",
+          "volume": 807496
         },
         {
-          "adjClose": 7.383500099182129,
-          "date": "2026-01-26",
-          "price": 7.383500099182129,
-          "symbol": "DFND.L",
-          "volume": 244830
+          "date": "2026-05-26",
+          "price": 106.48,
+          "symbol": "DUOL",
+          "volume": 1164791
         },
-        {
-          "adjClose": 7.428999900817871,
-          "date": "2026-01-27",
-          "price": 7.428999900817871,
-          "symbol": "DFND.L",
-          "volume": 201740
-        },
-        {
-          "adjClose": 7.355999946594238,
-          "date": "2026-01-28",
-          "price": 7.355999946594238,
-          "symbol": "DFND.L",
-          "volume": 327670
-        },
-        {
-          "adjClose": 7.293000221252441,
-          "date": "2026-01-29",
-          "price": 7.293000221252441,
-          "symbol": "DFND.L",
-          "volume": 501193
-        },
-        {
-          "adjClose": 7.255499839782715,
-          "date": "2026-01-30",
-          "price": 7.255499839782715,
-          "symbol": "DFND.L",
-          "volume": 107047
-        },
-        {
-          "adjClose": 7.263500213623047,
-          "date": "2026-02-02",
-          "price": 7.263500213623047,
-          "symbol": "DFND.L",
-          "volume": 150607
-        },
-        {
-          "adjClose": 7.289999961853027,
-          "date": "2026-02-03",
-          "price": 7.289999961853027,
-          "symbol": "DFND.L",
-          "volume": 239521
-        },
-        {
-          "adjClose": 7.149499893188477,
-          "date": "2026-02-04",
-          "price": 7.149499893188477,
-          "symbol": "DFND.L",
-          "volume": 231017
-        },
-        {
-          "adjClose": 7.421000003814697,
-          "date": "2026-02-16",
-          "price": 7.421000003814697,
-          "symbol": "DFND.L",
-          "volume": 156438
-        },
-        {
-          "adjClose": 7.5229997634887695,
-          "date": "2026-02-17",
-          "price": 7.5229997634887695,
-          "symbol": "DFND.L",
-          "volume": 161776
-        },
-        {
-          "adjClose": 7.644000053405762,
-          "date": "2026-02-18",
-          "price": 7.644000053405762,
-          "symbol": "DFND.L",
-          "volume": 90277
-        },
-        {
-          "adjClose": 7.724999904632568,
-          "date": "2026-02-19",
-          "price": 7.724999904632568,
-          "symbol": "DFND.L",
-          "volume": 247738
-        },
-        {
-          "adjClose": 7.745999813079834,
-          "date": "2026-02-20",
-          "price": 7.745999813079834,
-          "symbol": "DFND.L",
-          "volume": 257172
-        },
-        {
-          "adjClose": 7.646999835968018,
-          "date": "2026-02-23",
-          "price": 7.646999835968018,
-          "symbol": "DFND.L",
-          "volume": 259636
-        },
-        {
-          "adjClose": 7.620999813079834,
-          "date": "2026-02-24",
-          "price": 7.620999813079834,
-          "symbol": "DFND.L",
-          "volume": 110854
-        },
-        {
-          "adjClose": 7.601500034332275,
-          "date": "2026-02-25",
-          "price": 7.601500034332275,
-          "symbol": "DFND.L",
-          "volume": 131099
-        },
-        {
-          "adjClose": 7.638000011444092,
-          "date": "2026-02-26",
-          "price": 7.638000011444092,
-          "symbol": "DFND.L",
-          "volume": 160440
-        },
-        {
-          "adjClose": 7.6579999923706055,
-          "date": "2026-02-27",
-          "price": 7.6579999923706055,
-          "symbol": "DFND.L",
-          "volume": 94234
-        },
-        {
-          "adjClose": 7.811999797821045,
-          "date": "2026-03-02",
-          "price": 7.811999797821045,
-          "symbol": "DFND.L",
-          "volume": 689894
-        },
-        {
-          "adjClose": 7.718999862670898,
-          "date": "2026-03-03",
-          "price": 7.718999862670898,
-          "symbol": "DFND.L",
-          "volume": 535928
-        },
-        {
-          "adjClose": 7.771500110626221,
-          "date": "2026-03-04",
-          "price": 7.771500110626221,
-          "symbol": "DFND.L",
-          "volume": 437958
-        },
-        {
-          "adjClose": 7.568999767303467,
-          "date": "2026-03-05",
-          "price": 7.568999767303467,
-          "symbol": "DFND.L",
-          "volume": 313014
-        },
-        {
-          "adjClose": 7.624499797821045,
-          "date": "2026-03-09",
-          "price": 7.624499797821045,
-          "symbol": "DFND.L",
-          "volume": 449848
-        },
-        {
-          "adjClose": 7.646999835968018,
-          "date": "2026-03-10",
-          "price": 7.646999835968018,
-          "symbol": "DFND.L",
-          "volume": 228874
-        },
-        {
-          "adjClose": 7.536499977111816,
-          "date": "2026-03-11",
-          "price": 7.536499977111816,
-          "symbol": "DFND.L",
-          "volume": 191651
-        },
-        {
-          "adjClose": 7.478000164031982,
-          "date": "2026-03-12",
-          "price": 7.478000164031982,
-          "symbol": "DFND.L",
-          "volume": 876037
-        },
-        {
-          "adjClose": 7.436999797821045,
-          "date": "2026-03-13",
-          "price": 7.436999797821045,
-          "symbol": "DFND.L",
-          "volume": 187347
-        },
-        {
-          "adjClose": 7.460000038146973,
-          "date": "2026-03-16",
-          "price": 7.460000038146973,
-          "symbol": "DFND.L",
-          "volume": 232244
-        },
-        {
-          "adjClose": 7.458000183105469,
-          "date": "2026-03-17",
-          "price": 7.458000183105469,
-          "symbol": "DFND.L",
-          "volume": 180417
-        },
-        {
-          "adjClose": 7.4710001945495605,
-          "date": "2026-03-18",
-          "price": 7.4710001945495605,
-          "symbol": "DFND.L",
-          "volume": 139400
-        },
-        {
-          "adjClose": 7.245999813079834,
-          "date": "2026-03-19",
-          "price": 7.245999813079834,
-          "symbol": "DFND.L",
-          "volume": 169495
-        },
-        {
-          "adjClose": 7.136000156402588,
-          "date": "2026-03-20",
-          "price": 7.136000156402588,
-          "symbol": "DFND.L",
-          "volume": 104047
-        },
-        {
-          "adjClose": 7.122499942779541,
-          "date": "2026-03-23",
-          "price": 7.122499942779541,
-          "symbol": "DFND.L",
-          "volume": 266146
-        },
-        {
-          "adjClose": 7.03000020980835,
-          "date": "2026-03-24",
-          "price": 7.03000020980835,
-          "symbol": "DFND.L",
-          "volume": 109595
-        },
-        {
-          "adjClose": 7.170000076293945,
-          "date": "2026-03-25",
-          "price": 7.170000076293945,
-          "symbol": "DFND.L",
-          "volume": 81788
-        },
-        {
-          "adjClose": 7.02400016784668,
-          "date": "2026-03-26",
-          "price": 7.02400016784668,
-          "symbol": "DFND.L",
-          "volume": 163898
-        },
-        {
-          "adjClose": 6.913000106811523,
-          "date": "2026-03-27",
-          "price": 6.913000106811523,
-          "symbol": "DFND.L",
-          "volume": 211425
-        },
-        {
-          "adjClose": 6.89900016784668,
-          "date": "2026-03-30",
-          "price": 6.89900016784668,
-          "symbol": "DFND.L",
-          "volume": 281895
-        },
-        {
-          "adjClose": 6.984000205993652,
-          "date": "2026-03-31",
-          "price": 6.984000205993652,
-          "symbol": "DFND.L",
-          "volume": 5919849
-        },
-        {
-          "adjClose": 7.256999969482422,
-          "date": "2026-04-01",
-          "price": 7.256999969482422,
-          "symbol": "DFND.L",
-          "volume": 446104
-        },
-        {
-          "adjClose": 7.265500068664551,
-          "date": "2026-04-02",
-          "price": 7.265500068664551,
-          "symbol": "DFND.L",
-          "volume": 168521
-        },
-        {
-          "adjClose": 7.186999797821045,
-          "date": "2026-04-07",
-          "price": 7.186999797821045,
-          "symbol": "DFND.L",
-          "volume": 323643
-        },
-        {
-          "adjClose": 7.422500133514404,
-          "date": "2026-04-08",
-          "price": 7.422500133514404,
-          "symbol": "DFND.L",
-          "volume": 189715
-        },
-        {
-          "adjClose": 7.429999828338623,
-          "date": "2026-04-09",
-          "price": 7.429999828338623,
-          "symbol": "DFND.L",
-          "volume": 167337
-        },
-        {
-          "adjClose": 7.316999912261963,
-          "date": "2026-04-10",
-          "price": 7.316999912261963,
-          "symbol": "DFND.L",
-          "volume": 461186
-        },
-        {
-          "adjClose": 7.3480000495910645,
-          "date": "2026-04-13",
-          "price": 7.3480000495910645,
-          "symbol": "DFND.L",
-          "volume": 267621
-        },
-        {
-          "adjClose": 7.452000141143799,
-          "date": "2026-04-14",
-          "price": 7.452000141143799,
-          "symbol": "DFND.L",
-          "volume": 198959
-        },
-        {
-          "adjClose": 7.375999927520752,
-          "date": "2026-04-15",
-          "price": 7.375999927520752,
-          "symbol": "DFND.L",
-          "volume": 2958878
-        },
-        {
-          "adjClose": 7.290999889373779,
-          "date": "2026-04-16",
-          "price": 7.290999889373779,
-          "symbol": "DFND.L",
-          "volume": 417498
-        },
-        {
-          "adjClose": 7.420499801635742,
-          "date": "2026-04-17",
-          "price": 7.420499801635742,
-          "symbol": "DFND.L",
-          "volume": 141732
-        },
-        {
-          "adjClose": 7.317999839782715,
-          "date": "2026-04-20",
-          "price": 7.317999839782715,
-          "symbol": "DFND.L",
-          "volume": 218310
-        },
-        {
-          "adjClose": 7.065999984741211,
-          "date": "2026-04-21",
-          "price": 7.065999984741211,
-          "symbol": "DFND.L",
-          "volume": 309460
-        },
-        {
-          "adjClose": 6.932000160217285,
-          "date": "2026-04-22",
-          "price": 6.932000160217285,
-          "symbol": "DFND.L",
-          "volume": 275119
-        },
-        {
-          "adjClose": 6.978000164031982,
-          "date": "2026-04-23",
-          "price": 6.978000164031982,
-          "symbol": "DFND.L",
-          "volume": 261272
-        },
-        {
-          "adjClose": 6.791999816894531,
-          "date": "2026-04-24",
-          "price": 6.791999816894531,
-          "symbol": "DFND.L",
-          "volume": 138703
-        },
-        {
-          "adjClose": 6.7829999923706055,
-          "date": "2026-04-27",
-          "price": 6.7829999923706055,
-          "symbol": "DFND.L",
-          "volume": 140648
-        },
-        {
-          "adjClose": 6.763000011444092,
-          "date": "2026-04-28",
-          "price": 6.763000011444092,
-          "symbol": "DFND.L",
-          "volume": 193976
-        },
-        {
-          "adjClose": 6.730999946594238,
-          "date": "2026-04-29",
-          "price": 6.730999946594238,
-          "symbol": "DFND.L",
-          "volume": 141624
-        },
-        {
-          "adjClose": 6.835000038146973,
-          "date": "2026-04-30",
-          "price": 6.835000038146973,
-          "symbol": "DFND.L",
-          "volume": 192000
-        },
-        {
-          "adjClose": 6.860000133514404,
-          "date": "2026-05-01",
-          "price": 6.860000133514404,
-          "symbol": "DFND.L",
-          "volume": 74091
-        },
-        {
-          "adjClose": 6.879499912261963,
-          "date": "2026-05-05",
-          "price": 6.879499912261963,
-          "symbol": "DFND.L",
-          "volume": 275367
-        },
-        {
-          "adjClose": 7.0879998207092285,
-          "date": "2026-05-06",
-          "price": 7.0879998207092285,
-          "symbol": "DFND.L",
-          "volume": 185953
-        },
-        {
-          "adjClose": 7.0289998054504395,
-          "date": "2026-05-07",
-          "price": 7.0289998054504395,
-          "symbol": "DFND.L",
-          "volume": 262238
-        },
-        {
-          "adjClose": 6.933000087738037,
-          "date": "2026-05-08",
-          "price": 6.933000087738037,
-          "symbol": "DFND.L",
-          "volume": 194594
-        },
-        {
-          "adjClose": 6.945000171661377,
-          "date": "2026-05-11",
-          "price": 6.945000171661377,
-          "symbol": "DFND.L",
-          "volume": 169339
-        },
-        {
-          "adjClose": 6.889999866485596,
-          "date": "2026-05-12",
-          "price": 6.889999866485596,
-          "symbol": "DFND.L",
-          "volume": 262346
-        },
-        {
-          "adjClose": 6.953000068664551,
-          "date": "2026-05-13",
-          "price": 6.953000068664551,
-          "symbol": "DFND.L",
-          "volume": 257747
-        },
-        {
-          "adjClose": 6.942999839782715,
-          "date": "2026-05-14",
-          "price": 6.942999839782715,
-          "symbol": "DFND.L",
-          "volume": 111665
-        },
-        {
-          "adjClose": 6.828000068664551,
-          "date": "2026-05-15",
-          "price": 6.828000068664551,
-          "symbol": "DFND.L",
-          "volume": 225116
-        },
-        {
-          "adjClose": 6.818999767303467,
-          "date": "2026-05-18",
-          "price": 6.818999767303467,
-          "symbol": "DFND.L",
-          "volume": 136046
-        },
-        {
-          "adjClose": 6.813000202178955,
-          "date": "2026-05-19",
-          "price": 6.813000202178955,
-          "symbol": "DFND.L",
-          "volume": 377912
-        },
-        {
-          "adjClose": 6.9710001945495605,
-          "date": "2026-05-20",
-          "price": 6.9710001945495605,
-          "symbol": "DFND.L",
-          "volume": 84889
-        },
-        {
-          "adjClose": 6.935500144958496,
-          "date": "2026-05-21",
-          "price": 6.935500144958496,
-          "symbol": "DFND.L",
-          "volume": 197331
-        },
-        {
-          "adjClose": 7.013000011444092,
-          "date": "2026-05-22",
-          "price": 7.013000011444092,
-          "symbol": "DFND.L",
-          "volume": 5090963
-        }
-      ],
-      "symbol": "DFND",
-      "to": "2026-05-25"
-    },
-    {
-      "from": "2026-01-08",
-      "rows": [
         {
           "date": "2026-05-22",
           "price": 106.61,
@@ -5277,11 +5305,89 @@
         }
       ],
       "symbol": "DUOL",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 2.44,
+          "symbol": "EDIT",
+          "volume": 2235637
+        },
+        {
+          "date": "2026-06-10",
+          "price": 2.48,
+          "symbol": "EDIT",
+          "volume": 1486026
+        },
+        {
+          "date": "2026-06-09",
+          "price": 2.65,
+          "symbol": "EDIT",
+          "volume": 1877600
+        },
+        {
+          "date": "2026-06-08",
+          "price": 2.65,
+          "symbol": "EDIT",
+          "volume": 1477600
+        },
+        {
+          "date": "2026-06-05",
+          "price": 2.71,
+          "symbol": "EDIT",
+          "volume": 2366241
+        },
+        {
+          "date": "2026-06-04",
+          "price": 2.99,
+          "symbol": "EDIT",
+          "volume": 2513094
+        },
+        {
+          "date": "2026-06-03",
+          "price": 2.78,
+          "symbol": "EDIT",
+          "volume": 3205722
+        },
+        {
+          "date": "2026-06-02",
+          "price": 2.82,
+          "symbol": "EDIT",
+          "volume": 3919100
+        },
+        {
+          "date": "2026-06-01",
+          "price": 3.34,
+          "symbol": "EDIT",
+          "volume": 3101719
+        },
+        {
+          "date": "2026-05-29",
+          "price": 3.46,
+          "symbol": "EDIT",
+          "volume": 3912582
+        },
+        {
+          "date": "2026-05-28",
+          "price": 3.43,
+          "symbol": "EDIT",
+          "volume": 4965100
+        },
+        {
+          "date": "2026-05-27",
+          "price": 3.57,
+          "symbol": "EDIT",
+          "volume": 16930135
+        },
+        {
+          "date": "2026-05-26",
+          "price": 3.08,
+          "symbol": "EDIT",
+          "volume": 9667400
+        },
         {
           "date": "2026-05-22",
           "price": 2.76,
@@ -5848,7 +5954,7 @@
         }
       ],
       "symbol": "EDIT",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
@@ -6510,10 +6616,101 @@
           "price": 39.22999954223633,
           "symbol": "IAUP.L",
           "volume": 39948
+        },
+        {
+          "adjClose": 40.20000076293945,
+          "date": "2026-05-26",
+          "price": 40.20000076293945,
+          "symbol": "IAUP.L",
+          "volume": 64016
+        },
+        {
+          "adjClose": 40.0099983215332,
+          "date": "2026-05-27",
+          "price": 40.0099983215332,
+          "symbol": "IAUP.L",
+          "volume": 103210
+        },
+        {
+          "adjClose": 39.720001220703125,
+          "date": "2026-05-28",
+          "price": 39.720001220703125,
+          "symbol": "IAUP.L",
+          "volume": 170980
+        },
+        {
+          "adjClose": 41.099998474121094,
+          "date": "2026-05-29",
+          "price": 41.099998474121094,
+          "symbol": "IAUP.L",
+          "volume": 87248
+        },
+        {
+          "adjClose": 39.72999954223633,
+          "date": "2026-06-01",
+          "price": 39.72999954223633,
+          "symbol": "IAUP.L",
+          "volume": 73040
+        },
+        {
+          "adjClose": 40.36000061035156,
+          "date": "2026-06-02",
+          "price": 40.36000061035156,
+          "symbol": "IAUP.L",
+          "volume": 23508
+        },
+        {
+          "adjClose": 39.4900016784668,
+          "date": "2026-06-03",
+          "price": 39.4900016784668,
+          "symbol": "IAUP.L",
+          "volume": 198651
+        },
+        {
+          "adjClose": 39.84000015258789,
+          "date": "2026-06-04",
+          "price": 39.84000015258789,
+          "symbol": "IAUP.L",
+          "volume": 176413
+        },
+        {
+          "adjClose": 37.15999984741211,
+          "date": "2026-06-05",
+          "price": 37.15999984741211,
+          "symbol": "IAUP.L",
+          "volume": 184924
+        },
+        {
+          "adjClose": 36.849998474121094,
+          "date": "2026-06-08",
+          "price": 36.849998474121094,
+          "symbol": "IAUP.L",
+          "volume": 173013
+        },
+        {
+          "adjClose": 35.5,
+          "date": "2026-06-09",
+          "price": 35.5,
+          "symbol": "IAUP.L",
+          "volume": 105846
+        },
+        {
+          "adjClose": 34.630001068115234,
+          "date": "2026-06-10",
+          "price": 34.630001068115234,
+          "symbol": "IAUP.L",
+          "volume": 400204
+        },
+        {
+          "adjClose": 34.68000030517578,
+          "date": "2026-06-11",
+          "price": 34.68000030517578,
+          "symbol": "IAUP.L",
+          "volume": 128959
         }
       ],
       "symbol": "IAUP",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
@@ -7175,10 +7372,101 @@
           "price": 10.234999656677246,
           "symbol": "ICOM.L",
           "volume": 5821702
+        },
+        {
+          "adjClose": 10.125,
+          "date": "2026-05-26",
+          "price": 10.125,
+          "symbol": "ICOM.L",
+          "volume": 402147
+        },
+        {
+          "adjClose": 9.975000381469727,
+          "date": "2026-05-27",
+          "price": 9.975000381469727,
+          "symbol": "ICOM.L",
+          "volume": 1564700
+        },
+        {
+          "adjClose": 10.015000343322754,
+          "date": "2026-05-28",
+          "price": 10.015000343322754,
+          "symbol": "ICOM.L",
+          "volume": 162796
+        },
+        {
+          "adjClose": 9.982500076293945,
+          "date": "2026-05-29",
+          "price": 9.982500076293945,
+          "symbol": "ICOM.L",
+          "volume": 145343
+        },
+        {
+          "adjClose": 10.130000114440918,
+          "date": "2026-06-01",
+          "price": 10.130000114440918,
+          "symbol": "ICOM.L",
+          "volume": 192876
+        },
+        {
+          "adjClose": 10.085000038146973,
+          "date": "2026-06-02",
+          "price": 10.085000038146973,
+          "symbol": "ICOM.L",
+          "volume": 179260
+        },
+        {
+          "adjClose": 10.125,
+          "date": "2026-06-03",
+          "price": 10.125,
+          "symbol": "ICOM.L",
+          "volume": 158569
+        },
+        {
+          "adjClose": 9.9975004196167,
+          "date": "2026-06-04",
+          "price": 9.9975004196167,
+          "symbol": "ICOM.L",
+          "volume": 324594
+        },
+        {
+          "adjClose": 9.824999809265137,
+          "date": "2026-06-05",
+          "price": 9.824999809265137,
+          "symbol": "ICOM.L",
+          "volume": 389416
+        },
+        {
+          "adjClose": 9.800000190734863,
+          "date": "2026-06-08",
+          "price": 9.800000190734863,
+          "symbol": "ICOM.L",
+          "volume": 186846
+        },
+        {
+          "adjClose": 9.657500267028809,
+          "date": "2026-06-09",
+          "price": 9.657500267028809,
+          "symbol": "ICOM.L",
+          "volume": 374280
+        },
+        {
+          "adjClose": 9.667499542236328,
+          "date": "2026-06-10",
+          "price": 9.667499542236328,
+          "symbol": "ICOM.L",
+          "volume": 533489
+        },
+        {
+          "adjClose": 9.662500381469727,
+          "date": "2026-06-11",
+          "price": 9.662500381469727,
+          "symbol": "ICOM.L",
+          "volume": 683171
         }
       ],
       "symbol": "ICOM",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
@@ -7840,679 +8128,183 @@
           "price": 10.822999954223633,
           "symbol": "IDFN.L",
           "volume": 35068
+        },
+        {
+          "adjClose": 11.359999656677246,
+          "date": "2026-05-26",
+          "price": 11.359999656677246,
+          "symbol": "IDFN.L",
+          "volume": 5611
+        },
+        {
+          "adjClose": 11.404000282287598,
+          "date": "2026-05-27",
+          "price": 11.404000282287598,
+          "symbol": "IDFN.L",
+          "volume": 12797
+        },
+        {
+          "adjClose": 11.87600040435791,
+          "date": "2026-05-28",
+          "price": 11.87600040435791,
+          "symbol": "IDFN.L",
+          "volume": 51749
+        },
+        {
+          "adjClose": 11.680000305175781,
+          "date": "2026-05-29",
+          "price": 11.680000305175781,
+          "symbol": "IDFN.L",
+          "volume": 38345
+        },
+        {
+          "adjClose": 11.392000198364258,
+          "date": "2026-06-01",
+          "price": 11.392000198364258,
+          "symbol": "IDFN.L",
+          "volume": 115505
+        },
+        {
+          "adjClose": 11.494000434875488,
+          "date": "2026-06-02",
+          "price": 11.494000434875488,
+          "symbol": "IDFN.L",
+          "volume": 4026
+        },
+        {
+          "adjClose": 11.281000137329102,
+          "date": "2026-06-03",
+          "price": 11.281000137329102,
+          "symbol": "IDFN.L",
+          "volume": 2225
+        },
+        {
+          "adjClose": 11.477999687194824,
+          "date": "2026-06-04",
+          "price": 11.477999687194824,
+          "symbol": "IDFN.L",
+          "volume": 142883
+        },
+        {
+          "adjClose": 11.022000312805176,
+          "date": "2026-06-05",
+          "price": 11.022000312805176,
+          "symbol": "IDFN.L",
+          "volume": 12684
+        },
+        {
+          "adjClose": 10.937999725341797,
+          "date": "2026-06-08",
+          "price": 10.937999725341797,
+          "symbol": "IDFN.L",
+          "volume": 8647
+        },
+        {
+          "adjClose": 10.527999877929688,
+          "date": "2026-06-09",
+          "price": 10.527999877929688,
+          "symbol": "IDFN.L",
+          "volume": 27503
+        },
+        {
+          "adjClose": 10.522000312805176,
+          "date": "2026-06-10",
+          "price": 10.522000312805176,
+          "symbol": "IDFN.L",
+          "volume": 18589
+        },
+        {
+          "adjClose": 10.793000221252441,
+          "date": "2026-06-11",
+          "price": 10.793000221252441,
+          "symbol": "IDFN.L",
+          "volume": 2518
         }
       ],
       "symbol": "IDFN",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
         {
-          "adjClose": 41.31999969482422,
-          "date": "2026-01-08",
-          "price": 41.31999969482422,
-          "symbol": "IUIT.L",
-          "volume": 856393
+          "date": "2026-06-11",
+          "price": 13.71,
+          "symbol": "LYFT",
+          "volume": 11689195
         },
         {
-          "adjClose": 41.72999954223633,
-          "date": "2026-01-09",
-          "price": 41.72999954223633,
-          "symbol": "IUIT.L",
-          "volume": 443619
+          "date": "2026-06-10",
+          "price": 13.39,
+          "symbol": "LYFT",
+          "volume": 9677446
         },
         {
-          "adjClose": 42.0099983215332,
-          "date": "2026-01-12",
-          "price": 42.0099983215332,
-          "symbol": "IUIT.L",
-          "volume": 430601
+          "date": "2026-06-09",
+          "price": 13.87,
+          "symbol": "LYFT",
+          "volume": 12745100
         },
         {
-          "adjClose": 42.040000915527344,
-          "date": "2026-01-13",
-          "price": 42.040000915527344,
-          "symbol": "IUIT.L",
-          "volume": 1117230
+          "date": "2026-06-08",
+          "price": 14.02,
+          "symbol": "LYFT",
+          "volume": 11318200
         },
         {
-          "adjClose": 41.2400016784668,
-          "date": "2026-01-14",
-          "price": 41.2400016784668,
-          "symbol": "IUIT.L",
-          "volume": 392726
+          "date": "2026-06-05",
+          "price": 13.65,
+          "symbol": "LYFT",
+          "volume": 9359900
         },
         {
-          "adjClose": 41.939998626708984,
-          "date": "2026-01-15",
-          "price": 41.939998626708984,
-          "symbol": "IUIT.L",
-          "volume": 550609
+          "date": "2026-06-04",
+          "price": 14.12,
+          "symbol": "LYFT",
+          "volume": 12482336
         },
         {
-          "adjClose": 41.70000076293945,
-          "date": "2026-01-16",
-          "price": 41.70000076293945,
-          "symbol": "IUIT.L",
-          "volume": 421470
+          "date": "2026-06-03",
+          "price": 14.09,
+          "symbol": "LYFT",
+          "volume": 10375820
         },
         {
-          "adjClose": 40.959999084472656,
-          "date": "2026-01-19",
-          "price": 40.959999084472656,
-          "symbol": "IUIT.L",
-          "volume": 214143
+          "date": "2026-06-02",
+          "price": 14.11,
+          "symbol": "LYFT",
+          "volume": 15982043
         },
         {
-          "adjClose": 40.939998626708984,
-          "date": "2026-01-20",
-          "price": 40.939998626708984,
-          "symbol": "IUIT.L",
-          "volume": 400899
+          "date": "2026-06-01",
+          "price": 14.86,
+          "symbol": "LYFT",
+          "volume": 29332126
         },
         {
-          "adjClose": 40.810001373291016,
-          "date": "2026-01-21",
-          "price": 40.810001373291016,
-          "symbol": "IUIT.L",
-          "volume": 593183
+          "date": "2026-05-29",
+          "price": 14.11,
+          "symbol": "LYFT",
+          "volume": 14703400
         },
         {
-          "adjClose": 41.189998626708984,
-          "date": "2026-01-22",
-          "price": 41.189998626708984,
-          "symbol": "IUIT.L",
-          "volume": 420623
+          "date": "2026-05-28",
+          "price": 13.82,
+          "symbol": "LYFT",
+          "volume": 10391082
         },
         {
-          "adjClose": 41.33000183105469,
-          "date": "2026-01-23",
-          "price": 41.33000183105469,
-          "symbol": "IUIT.L",
-          "volume": 569844
+          "date": "2026-05-27",
+          "price": 13.7,
+          "symbol": "LYFT",
+          "volume": 10180018
         },
         {
-          "adjClose": 41.689998626708984,
-          "date": "2026-01-26",
-          "price": 41.689998626708984,
-          "symbol": "IUIT.L",
-          "volume": 303016
+          "date": "2026-05-26",
+          "price": 13.58,
+          "symbol": "LYFT",
+          "volume": 13448732
         },
-        {
-          "adjClose": 42.36000061035156,
-          "date": "2026-01-27",
-          "price": 42.36000061035156,
-          "symbol": "IUIT.L",
-          "volume": 161605
-        },
-        {
-          "adjClose": 42.40999984741211,
-          "date": "2026-01-28",
-          "price": 42.40999984741211,
-          "symbol": "IUIT.L",
-          "volume": 276669
-        },
-        {
-          "adjClose": 40.959999084472656,
-          "date": "2026-01-29",
-          "price": 40.959999084472656,
-          "symbol": "IUIT.L",
-          "volume": 628070
-        },
-        {
-          "adjClose": 41.380001068115234,
-          "date": "2026-01-30",
-          "price": 41.380001068115234,
-          "symbol": "IUIT.L",
-          "volume": 589497
-        },
-        {
-          "adjClose": 41.45000076293945,
-          "date": "2026-02-02",
-          "price": 41.45000076293945,
-          "symbol": "IUIT.L",
-          "volume": 707049
-        },
-        {
-          "adjClose": 40.380001068115234,
-          "date": "2026-02-03",
-          "price": 40.380001068115234,
-          "symbol": "IUIT.L",
-          "volume": 1250128
-        },
-        {
-          "adjClose": 39.599998474121094,
-          "date": "2026-02-04",
-          "price": 39.599998474121094,
-          "symbol": "IUIT.L",
-          "volume": 367762
-        },
-        {
-          "adjClose": 39.41999816894531,
-          "date": "2026-02-05",
-          "price": 39.41999816894531,
-          "symbol": "IUIT.L",
-          "volume": 1237081
-        },
-        {
-          "adjClose": 40.29999923706055,
-          "date": "2026-02-06",
-          "price": 40.29999923706055,
-          "symbol": "IUIT.L",
-          "volume": 459757
-        },
-        {
-          "adjClose": 41.150001525878906,
-          "date": "2026-02-09",
-          "price": 41.150001525878906,
-          "symbol": "IUIT.L",
-          "volume": 4932261
-        },
-        {
-          "adjClose": 41.18000030517578,
-          "date": "2026-02-10",
-          "price": 41.18000030517578,
-          "symbol": "IUIT.L",
-          "volume": 482740
-        },
-        {
-          "adjClose": 40.95000076293945,
-          "date": "2026-02-11",
-          "price": 40.95000076293945,
-          "symbol": "IUIT.L",
-          "volume": 1293078
-        },
-        {
-          "adjClose": 40.09000015258789,
-          "date": "2026-02-12",
-          "price": 40.09000015258789,
-          "symbol": "IUIT.L",
-          "volume": 430049
-        },
-        {
-          "adjClose": 39.83000183105469,
-          "date": "2026-02-13",
-          "price": 39.83000183105469,
-          "symbol": "IUIT.L",
-          "volume": 452564
-        },
-        {
-          "adjClose": 39.619998931884766,
-          "date": "2026-02-16",
-          "price": 39.619998931884766,
-          "symbol": "IUIT.L",
-          "volume": 149074
-        },
-        {
-          "adjClose": 39.790000915527344,
-          "date": "2026-02-17",
-          "price": 39.790000915527344,
-          "symbol": "IUIT.L",
-          "volume": 972077
-        },
-        {
-          "adjClose": 40.61000061035156,
-          "date": "2026-02-18",
-          "price": 40.61000061035156,
-          "symbol": "IUIT.L",
-          "volume": 461057
-        },
-        {
-          "adjClose": 40.2400016784668,
-          "date": "2026-02-19",
-          "price": 40.2400016784668,
-          "symbol": "IUIT.L",
-          "volume": 1196703
-        },
-        {
-          "adjClose": 40.31999969482422,
-          "date": "2026-02-20",
-          "price": 40.31999969482422,
-          "symbol": "IUIT.L",
-          "volume": 436011
-        },
-        {
-          "adjClose": 39.91999816894531,
-          "date": "2026-02-23",
-          "price": 39.91999816894531,
-          "symbol": "IUIT.L",
-          "volume": 438173
-        },
-        {
-          "adjClose": 40.25,
-          "date": "2026-02-24",
-          "price": 40.25,
-          "symbol": "IUIT.L",
-          "volume": 230287
-        },
-        {
-          "adjClose": 40.97999954223633,
-          "date": "2026-02-25",
-          "price": 40.97999954223633,
-          "symbol": "IUIT.L",
-          "volume": 529469
-        },
-        {
-          "adjClose": 40.310001373291016,
-          "date": "2026-02-26",
-          "price": 40.310001373291016,
-          "symbol": "IUIT.L",
-          "volume": 518850
-        },
-        {
-          "adjClose": 39.75,
-          "date": "2026-02-27",
-          "price": 39.75,
-          "symbol": "IUIT.L",
-          "volume": 815203
-        },
-        {
-          "adjClose": 39.54999923706055,
-          "date": "2026-03-02",
-          "price": 39.54999923706055,
-          "symbol": "IUIT.L",
-          "volume": 377464
-        },
-        {
-          "adjClose": 39.22999954223633,
-          "date": "2026-03-03",
-          "price": 39.22999954223633,
-          "symbol": "IUIT.L",
-          "volume": 1090540
-        },
-        {
-          "adjClose": 39.93000030517578,
-          "date": "2026-03-04",
-          "price": 39.93000030517578,
-          "symbol": "IUIT.L",
-          "volume": 1230233
-        },
-        {
-          "adjClose": 40.08000183105469,
-          "date": "2026-03-05",
-          "price": 40.08000183105469,
-          "symbol": "IUIT.L",
-          "volume": 857149
-        },
-        {
-          "adjClose": 39.790000915527344,
-          "date": "2026-03-06",
-          "price": 39.790000915527344,
-          "symbol": "IUIT.L",
-          "volume": 441805
-        },
-        {
-          "adjClose": 39.619998931884766,
-          "date": "2026-03-09",
-          "price": 39.619998931884766,
-          "symbol": "IUIT.L",
-          "volume": 389562
-        },
-        {
-          "adjClose": 40.34000015258789,
-          "date": "2026-03-10",
-          "price": 40.34000015258789,
-          "symbol": "IUIT.L",
-          "volume": 363911
-        },
-        {
-          "adjClose": 40.18000030517578,
-          "date": "2026-03-11",
-          "price": 40.18000030517578,
-          "symbol": "IUIT.L",
-          "volume": 268889
-        },
-        {
-          "adjClose": 39.7599983215332,
-          "date": "2026-03-12",
-          "price": 39.7599983215332,
-          "symbol": "IUIT.L",
-          "volume": 712056
-        },
-        {
-          "adjClose": 39.15999984741211,
-          "date": "2026-03-13",
-          "price": 39.15999984741211,
-          "symbol": "IUIT.L",
-          "volume": 480596
-        },
-        {
-          "adjClose": 39.599998474121094,
-          "date": "2026-03-16",
-          "price": 39.599998474121094,
-          "symbol": "IUIT.L",
-          "volume": 236381
-        },
-        {
-          "adjClose": 39.650001525878906,
-          "date": "2026-03-17",
-          "price": 39.650001525878906,
-          "symbol": "IUIT.L",
-          "volume": 134767
-        },
-        {
-          "adjClose": 39.45000076293945,
-          "date": "2026-03-18",
-          "price": 39.45000076293945,
-          "symbol": "IUIT.L",
-          "volume": 183952
-        },
-        {
-          "adjClose": 39.02000045776367,
-          "date": "2026-03-19",
-          "price": 39.02000045776367,
-          "symbol": "IUIT.L",
-          "volume": 476450
-        },
-        {
-          "adjClose": 38.650001525878906,
-          "date": "2026-03-20",
-          "price": 38.650001525878906,
-          "symbol": "IUIT.L",
-          "volume": 871692
-        },
-        {
-          "adjClose": 38.79999923706055,
-          "date": "2026-03-23",
-          "price": 38.79999923706055,
-          "symbol": "IUIT.L",
-          "volume": 446421
-        },
-        {
-          "adjClose": 38.65999984741211,
-          "date": "2026-03-24",
-          "price": 38.65999984741211,
-          "symbol": "IUIT.L",
-          "volume": 164352
-        },
-        {
-          "adjClose": 38.90999984741211,
-          "date": "2026-03-25",
-          "price": 38.90999984741211,
-          "symbol": "IUIT.L",
-          "volume": 420528
-        },
-        {
-          "adjClose": 38.130001068115234,
-          "date": "2026-03-26",
-          "price": 38.130001068115234,
-          "symbol": "IUIT.L",
-          "volume": 974363
-        },
-        {
-          "adjClose": 37.209999084472656,
-          "date": "2026-03-27",
-          "price": 37.209999084472656,
-          "symbol": "IUIT.L",
-          "volume": 1068532
-        },
-        {
-          "adjClose": 36.83000183105469,
-          "date": "2026-03-30",
-          "price": 36.83000183105469,
-          "symbol": "IUIT.L",
-          "volume": 1338708
-        },
-        {
-          "adjClose": 37.06999969482422,
-          "date": "2026-03-31",
-          "price": 37.06999969482422,
-          "symbol": "IUIT.L",
-          "volume": 503940
-        },
-        {
-          "adjClose": 38.540000915527344,
-          "date": "2026-04-01",
-          "price": 38.540000915527344,
-          "symbol": "IUIT.L",
-          "volume": 1780448
-        },
-        {
-          "adjClose": 38.47999954223633,
-          "date": "2026-04-02",
-          "price": 38.47999954223633,
-          "symbol": "IUIT.L",
-          "volume": 646952
-        },
-        {
-          "adjClose": 38.369998931884766,
-          "date": "2026-04-07",
-          "price": 38.369998931884766,
-          "symbol": "IUIT.L",
-          "volume": 695875
-        },
-        {
-          "adjClose": 40.06999969482422,
-          "date": "2026-04-08",
-          "price": 40.06999969482422,
-          "symbol": "IUIT.L",
-          "volume": 699744
-        },
-        {
-          "adjClose": 40.02000045776367,
-          "date": "2026-04-09",
-          "price": 40.02000045776367,
-          "symbol": "IUIT.L",
-          "volume": 210229
-        },
-        {
-          "adjClose": 40.66999816894531,
-          "date": "2026-04-10",
-          "price": 40.66999816894531,
-          "symbol": "IUIT.L",
-          "volume": 374239
-        },
-        {
-          "adjClose": 40.810001373291016,
-          "date": "2026-04-13",
-          "price": 40.810001373291016,
-          "symbol": "IUIT.L",
-          "volume": 898273
-        },
-        {
-          "adjClose": 41.61000061035156,
-          "date": "2026-04-14",
-          "price": 41.61000061035156,
-          "symbol": "IUIT.L",
-          "volume": 790033
-        },
-        {
-          "adjClose": 42.52000045776367,
-          "date": "2026-04-15",
-          "price": 42.52000045776367,
-          "symbol": "IUIT.L",
-          "volume": 391356
-        },
-        {
-          "adjClose": 43.130001068115234,
-          "date": "2026-04-16",
-          "price": 43.130001068115234,
-          "symbol": "IUIT.L",
-          "volume": 571915
-        },
-        {
-          "adjClose": 43.970001220703125,
-          "date": "2026-04-17",
-          "price": 43.970001220703125,
-          "symbol": "IUIT.L",
-          "volume": 452686
-        },
-        {
-          "adjClose": 43.56999969482422,
-          "date": "2026-04-20",
-          "price": 43.56999969482422,
-          "symbol": "IUIT.L",
-          "volume": 601579
-        },
-        {
-          "adjClose": 43.939998626708984,
-          "date": "2026-04-21",
-          "price": 43.939998626708984,
-          "symbol": "IUIT.L",
-          "volume": 566605
-        },
-        {
-          "adjClose": 44.540000915527344,
-          "date": "2026-04-22",
-          "price": 44.540000915527344,
-          "symbol": "IUIT.L",
-          "volume": 501327
-        },
-        {
-          "adjClose": 44.66999816894531,
-          "date": "2026-04-23",
-          "price": 44.66999816894531,
-          "symbol": "IUIT.L",
-          "volume": 391480
-        },
-        {
-          "adjClose": 45.04999923706055,
-          "date": "2026-04-24",
-          "price": 45.04999923706055,
-          "symbol": "IUIT.L",
-          "volume": 491585
-        },
-        {
-          "adjClose": 45.0099983215332,
-          "date": "2026-04-27",
-          "price": 45.0099983215332,
-          "symbol": "IUIT.L",
-          "volume": 525452
-        },
-        {
-          "adjClose": 44.38999938964844,
-          "date": "2026-04-28",
-          "price": 44.38999938964844,
-          "symbol": "IUIT.L",
-          "volume": 827415
-        },
-        {
-          "adjClose": 44.900001525878906,
-          "date": "2026-04-29",
-          "price": 44.900001525878906,
-          "symbol": "IUIT.L",
-          "volume": 400446
-        },
-        {
-          "adjClose": 44.45000076293945,
-          "date": "2026-04-30",
-          "price": 44.45000076293945,
-          "symbol": "IUIT.L",
-          "volume": 608806
-        },
-        {
-          "adjClose": 45.310001373291016,
-          "date": "2026-05-01",
-          "price": 45.310001373291016,
-          "symbol": "IUIT.L",
-          "volume": 545925
-        },
-        {
-          "adjClose": 45.83000183105469,
-          "date": "2026-05-05",
-          "price": 45.83000183105469,
-          "symbol": "IUIT.L",
-          "volume": 709690
-        },
-        {
-          "adjClose": 46.86000061035156,
-          "date": "2026-05-06",
-          "price": 46.86000061035156,
-          "symbol": "IUIT.L",
-          "volume": 1620289
-        },
-        {
-          "adjClose": 47.68000030517578,
-          "date": "2026-05-07",
-          "price": 47.68000030517578,
-          "symbol": "IUIT.L",
-          "volume": 778912
-        },
-        {
-          "adjClose": 48.15999984741211,
-          "date": "2026-05-08",
-          "price": 48.15999984741211,
-          "symbol": "IUIT.L",
-          "volume": 1046498
-        },
-        {
-          "adjClose": 48.91999816894531,
-          "date": "2026-05-11",
-          "price": 48.91999816894531,
-          "symbol": "IUIT.L",
-          "volume": 759810
-        },
-        {
-          "adjClose": 47.84000015258789,
-          "date": "2026-05-12",
-          "price": 47.84000015258789,
-          "symbol": "IUIT.L",
-          "volume": 589407
-        },
-        {
-          "adjClose": 48.709999084472656,
-          "date": "2026-05-13",
-          "price": 48.709999084472656,
-          "symbol": "IUIT.L",
-          "volume": 495717
-        },
-        {
-          "adjClose": 49.95000076293945,
-          "date": "2026-05-14",
-          "price": 49.95000076293945,
-          "symbol": "IUIT.L",
-          "volume": 796129
-        },
-        {
-          "adjClose": 49.33000183105469,
-          "date": "2026-05-15",
-          "price": 49.33000183105469,
-          "symbol": "IUIT.L",
-          "volume": 477236
-        },
-        {
-          "adjClose": 48.33000183105469,
-          "date": "2026-05-18",
-          "price": 48.33000183105469,
-          "symbol": "IUIT.L",
-          "volume": 315140
-        },
-        {
-          "adjClose": 47.9900016784668,
-          "date": "2026-05-19",
-          "price": 47.9900016784668,
-          "symbol": "IUIT.L",
-          "volume": 456735
-        },
-        {
-          "adjClose": 48.9900016784668,
-          "date": "2026-05-20",
-          "price": 48.9900016784668,
-          "symbol": "IUIT.L",
-          "volume": 249045
-        },
-        {
-          "adjClose": 48.84000015258789,
-          "date": "2026-05-21",
-          "price": 48.84000015258789,
-          "symbol": "IUIT.L",
-          "volume": 480698
-        },
-        {
-          "adjClose": 49.779998779296875,
-          "date": "2026-05-22",
-          "price": 49.779998779296875,
-          "symbol": "IUIT.L",
-          "volume": 230448
-        }
-      ],
-      "symbol": "IUIT",
-      "to": "2026-05-25"
-    },
-    {
-      "from": "2026-01-08",
-      "rows": [
         {
           "date": "2026-05-22",
           "price": 13.9,
@@ -9079,11 +8871,89 @@
         }
       ],
       "symbol": "LYFT",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 41.24,
+          "symbol": "PYPL",
+          "volume": 14757069
+        },
+        {
+          "date": "2026-06-10",
+          "price": 40.7,
+          "symbol": "PYPL",
+          "volume": 14669100
+        },
+        {
+          "date": "2026-06-09",
+          "price": 41.46,
+          "symbol": "PYPL",
+          "volume": 17585016
+        },
+        {
+          "date": "2026-06-08",
+          "price": 41.26,
+          "symbol": "PYPL",
+          "volume": 16778101
+        },
+        {
+          "date": "2026-06-05",
+          "price": 41.29,
+          "symbol": "PYPL",
+          "volume": 23894940
+        },
+        {
+          "date": "2026-06-04",
+          "price": 42.75,
+          "symbol": "PYPL",
+          "volume": 11255714
+        },
+        {
+          "date": "2026-06-03",
+          "price": 42.61,
+          "symbol": "PYPL",
+          "volume": 19227302
+        },
+        {
+          "date": "2026-06-02",
+          "price": 44.53,
+          "symbol": "PYPL",
+          "volume": 11441424
+        },
+        {
+          "date": "2026-06-01",
+          "price": 45.19,
+          "symbol": "PYPL",
+          "volume": 16231000
+        },
+        {
+          "date": "2026-05-29",
+          "price": 44.75,
+          "symbol": "PYPL",
+          "volume": 18842732
+        },
+        {
+          "date": "2026-05-28",
+          "price": 44.46,
+          "symbol": "PYPL",
+          "volume": 17132713
+        },
+        {
+          "date": "2026-05-27",
+          "price": 43.76,
+          "symbol": "PYPL",
+          "volume": 14170320
+        },
+        {
+          "date": "2026-05-26",
+          "price": 44.16,
+          "symbol": "PYPL",
+          "volume": 13161008
+        },
         {
           "date": "2026-05-22",
           "price": 44.23,
@@ -9650,11 +9520,89 @@
         }
       ],
       "symbol": "PYPL",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 38.43,
+          "symbol": "SEMI",
+          "volume": 7300
+        },
+        {
+          "date": "2026-06-10",
+          "price": 36.78,
+          "symbol": "SEMI",
+          "volume": 5900
+        },
+        {
+          "date": "2026-06-09",
+          "price": 37.9,
+          "symbol": "SEMI",
+          "volume": 5643
+        },
+        {
+          "date": "2026-06-08",
+          "price": 38.15,
+          "symbol": "SEMI",
+          "volume": 8300
+        },
+        {
+          "date": "2026-06-05",
+          "price": 37.34,
+          "symbol": "SEMI",
+          "volume": 16534
+        },
+        {
+          "date": "2026-06-04",
+          "price": 40,
+          "symbol": "SEMI",
+          "volume": 9238
+        },
+        {
+          "date": "2026-06-03",
+          "price": 40.47,
+          "symbol": "SEMI",
+          "volume": 7250
+        },
+        {
+          "date": "2026-06-02",
+          "price": 40.66,
+          "symbol": "SEMI",
+          "volume": 16700
+        },
+        {
+          "date": "2026-06-01",
+          "price": 39.95,
+          "symbol": "SEMI",
+          "volume": 9000
+        },
+        {
+          "date": "2026-05-29",
+          "price": 39.12,
+          "symbol": "SEMI",
+          "volume": 9400
+        },
+        {
+          "date": "2026-05-28",
+          "price": 38.75,
+          "symbol": "SEMI",
+          "volume": 6100
+        },
+        {
+          "date": "2026-05-27",
+          "price": 38.47,
+          "symbol": "SEMI",
+          "volume": 11447
+        },
+        {
+          "date": "2026-05-26",
+          "price": 38.55,
+          "symbol": "SEMI",
+          "volume": 17100
+        },
         {
           "date": "2026-05-22",
           "price": 37.56,
@@ -10221,7 +10169,7 @@
         }
       ],
       "symbol": "SEMI",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
@@ -10883,10 +10831,101 @@
           "price": 434.8399963378906,
           "symbol": "SGLD.L",
           "volume": 25528
+        },
+        {
+          "adjClose": 433.5799865722656,
+          "date": "2026-05-26",
+          "price": 433.5799865722656,
+          "symbol": "SGLD.L",
+          "volume": 17136
+        },
+        {
+          "adjClose": 427.0899963378906,
+          "date": "2026-05-27",
+          "price": 427.0899963378906,
+          "symbol": "SGLD.L",
+          "volume": 66301
+        },
+        {
+          "adjClose": 431.2099914550781,
+          "date": "2026-05-28",
+          "price": 431.2099914550781,
+          "symbol": "SGLD.L",
+          "volume": 40689
+        },
+        {
+          "adjClose": 440.6199951171875,
+          "date": "2026-05-29",
+          "price": 440.6199951171875,
+          "symbol": "SGLD.L",
+          "volume": 19128
+        },
+        {
+          "adjClose": 430.8500061035156,
+          "date": "2026-06-01",
+          "price": 430.8500061035156,
+          "symbol": "SGLD.L",
+          "volume": 30666
+        },
+        {
+          "adjClose": 433.6099853515625,
+          "date": "2026-06-02",
+          "price": 433.6099853515625,
+          "symbol": "SGLD.L",
+          "volume": 19828
+        },
+        {
+          "adjClose": 427.30999755859375,
+          "date": "2026-06-03",
+          "price": 427.30999755859375,
+          "symbol": "SGLD.L",
+          "volume": 21306
+        },
+        {
+          "adjClose": 430.2699890136719,
+          "date": "2026-06-04",
+          "price": 430.2699890136719,
+          "symbol": "SGLD.L",
+          "volume": 24086
+        },
+        {
+          "adjClose": 418.29998779296875,
+          "date": "2026-06-05",
+          "price": 418.29998779296875,
+          "symbol": "SGLD.L",
+          "volume": 43275
+        },
+        {
+          "adjClose": 416.8399963378906,
+          "date": "2026-06-08",
+          "price": 416.8399963378906,
+          "symbol": "SGLD.L",
+          "volume": 40738
+        },
+        {
+          "adjClose": 411.04998779296875,
+          "date": "2026-06-09",
+          "price": 411.04998779296875,
+          "symbol": "SGLD.L",
+          "volume": 53153
+        },
+        {
+          "adjClose": 397.2699890136719,
+          "date": "2026-06-10",
+          "price": 397.2699890136719,
+          "symbol": "SGLD.L",
+          "volume": 334356
+        },
+        {
+          "adjClose": 392.5,
+          "date": "2026-06-11",
+          "price": 392.5,
+          "symbol": "SGLD.L",
+          "volume": 41527
         }
       ],
       "symbol": "SGLD",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2025-12-01",
@@ -11438,6 +11477,84 @@
     {
       "from": "2026-01-08",
       "rows": [
+        {
+          "date": "2026-06-11",
+          "price": 737.76,
+          "symbol": "SPY",
+          "volume": 86330522
+        },
+        {
+          "date": "2026-06-10",
+          "price": 725.43,
+          "symbol": "SPY",
+          "volume": 60341349
+        },
+        {
+          "date": "2026-06-09",
+          "price": 737.05,
+          "symbol": "SPY",
+          "volume": 87683517
+        },
+        {
+          "date": "2026-06-08",
+          "price": 739.22,
+          "symbol": "SPY",
+          "volume": 49319144
+        },
+        {
+          "date": "2026-06-05",
+          "price": 737.55,
+          "symbol": "SPY",
+          "volume": 93989416
+        },
+        {
+          "date": "2026-06-04",
+          "price": 757.09,
+          "symbol": "SPY",
+          "volume": 49923036
+        },
+        {
+          "date": "2026-06-03",
+          "price": 754.24,
+          "symbol": "SPY",
+          "volume": 51402518
+        },
+        {
+          "date": "2026-06-02",
+          "price": 759.57,
+          "symbol": "SPY",
+          "volume": 31581900
+        },
+        {
+          "date": "2026-06-01",
+          "price": 758.54,
+          "symbol": "SPY",
+          "volume": 43634933
+        },
+        {
+          "date": "2026-05-29",
+          "price": 756.48,
+          "symbol": "SPY",
+          "volume": 55075739
+        },
+        {
+          "date": "2026-05-28",
+          "price": 754.6,
+          "symbol": "SPY",
+          "volume": 41562600
+        },
+        {
+          "date": "2026-05-27",
+          "price": 750.46,
+          "symbol": "SPY",
+          "volume": 42106300
+        },
+        {
+          "date": "2026-05-26",
+          "price": 750.59,
+          "symbol": "SPY",
+          "volume": 41123621
+        },
         {
           "date": "2026-05-22",
           "price": 745.64,
@@ -12004,7 +12121,7 @@
         }
       ],
       "symbol": "SPY",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
@@ -12652,10 +12769,108 @@
           "price": 1465.800048828125,
           "symbol": "SXRV.DE",
           "volume": 8119
+        },
+        {
+          "adjClose": 1472.4000244140625,
+          "date": "2026-05-25",
+          "price": 1472.4000244140625,
+          "symbol": "SXRV.DE",
+          "volume": 6080
+        },
+        {
+          "adjClose": 1479.0,
+          "date": "2026-05-26",
+          "price": 1479.0,
+          "symbol": "SXRV.DE",
+          "volume": 10683
+        },
+        {
+          "adjClose": 1474.5999755859375,
+          "date": "2026-05-27",
+          "price": 1474.5999755859375,
+          "symbol": "SXRV.DE",
+          "volume": 10901
+        },
+        {
+          "adjClose": 1488.4000244140625,
+          "date": "2026-05-28",
+          "price": 1488.4000244140625,
+          "symbol": "SXRV.DE",
+          "volume": 19326
+        },
+        {
+          "adjClose": 1492.0,
+          "date": "2026-05-29",
+          "price": 1492.0,
+          "symbol": "SXRV.DE",
+          "volume": 10068
+        },
+        {
+          "adjClose": 1506.0,
+          "date": "2026-06-01",
+          "price": 1506.0,
+          "symbol": "SXRV.DE",
+          "volume": 14667
+        },
+        {
+          "adjClose": 1511.199951171875,
+          "date": "2026-06-02",
+          "price": 1511.199951171875,
+          "symbol": "SXRV.DE",
+          "volume": 7596
+        },
+        {
+          "adjClose": 1513.4000244140625,
+          "date": "2026-06-03",
+          "price": 1513.4000244140625,
+          "symbol": "SXRV.DE",
+          "volume": 12754
+        },
+        {
+          "adjClose": 1500.800048828125,
+          "date": "2026-06-04",
+          "price": 1500.800048828125,
+          "symbol": "SXRV.DE",
+          "volume": 18501
+        },
+        {
+          "adjClose": 1475.0,
+          "date": "2026-06-05",
+          "price": 1475.0,
+          "symbol": "SXRV.DE",
+          "volume": 15550
+        },
+        {
+          "adjClose": 1470.199951171875,
+          "date": "2026-06-08",
+          "price": 1470.199951171875,
+          "symbol": "SXRV.DE",
+          "volume": 15913
+        },
+        {
+          "adjClose": 1432.4000244140625,
+          "date": "2026-06-09",
+          "price": 1432.4000244140625,
+          "symbol": "SXRV.DE",
+          "volume": 15886
+        },
+        {
+          "adjClose": 1427.5999755859375,
+          "date": "2026-06-10",
+          "price": 1427.5999755859375,
+          "symbol": "SXRV.DE",
+          "volume": 13632
+        },
+        {
+          "adjClose": 1435.800048828125,
+          "date": "2026-06-11",
+          "price": 1435.800048828125,
+          "symbol": "SXRV.DE",
+          "volume": 15897
         }
       ],
       "symbol": "SXRV",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2026-01-08",
@@ -13317,553 +13532,734 @@
           "price": 58.957000732421875,
           "symbol": "VDST.L",
           "volume": 167091
+        },
+        {
+          "adjClose": 58.9474983215332,
+          "date": "2026-05-26",
+          "price": 58.9474983215332,
+          "symbol": "VDST.L",
+          "volume": 311527
+        },
+        {
+          "adjClose": 58.94499969482422,
+          "date": "2026-05-27",
+          "price": 58.94499969482422,
+          "symbol": "VDST.L",
+          "volume": 44590
+        },
+        {
+          "adjClose": 58.992000579833984,
+          "date": "2026-05-28",
+          "price": 58.992000579833984,
+          "symbol": "VDST.L",
+          "volume": 61477
+        },
+        {
+          "adjClose": 58.965999603271484,
+          "date": "2026-05-29",
+          "price": 58.965999603271484,
+          "symbol": "VDST.L",
+          "volume": 50120
+        },
+        {
+          "adjClose": 58.97999954223633,
+          "date": "2026-06-01",
+          "price": 58.97999954223633,
+          "symbol": "VDST.L",
+          "volume": 56088
+        },
+        {
+          "adjClose": 58.98099899291992,
+          "date": "2026-06-02",
+          "price": 58.98099899291992,
+          "symbol": "VDST.L",
+          "volume": 379247
+        },
+        {
+          "adjClose": 58.98899841308594,
+          "date": "2026-06-03",
+          "price": 58.98899841308594,
+          "symbol": "VDST.L",
+          "volume": 25967
+        },
+        {
+          "adjClose": 59.013999938964844,
+          "date": "2026-06-04",
+          "price": 59.013999938964844,
+          "symbol": "VDST.L",
+          "volume": 40006
+        },
+        {
+          "adjClose": 59.00400161743164,
+          "date": "2026-06-05",
+          "price": 59.00400161743164,
+          "symbol": "VDST.L",
+          "volume": 89275
+        },
+        {
+          "adjClose": 59.016998291015625,
+          "date": "2026-06-08",
+          "price": 59.016998291015625,
+          "symbol": "VDST.L",
+          "volume": 30552
+        },
+        {
+          "adjClose": 59.025001525878906,
+          "date": "2026-06-09",
+          "price": 59.025001525878906,
+          "symbol": "VDST.L",
+          "volume": 91008
+        },
+        {
+          "adjClose": 59.03099822998047,
+          "date": "2026-06-10",
+          "price": 59.03099822998047,
+          "symbol": "VDST.L",
+          "volume": 50487
+        },
+        {
+          "adjClose": 59.042999267578125,
+          "date": "2026-06-11",
+          "price": 59.042999267578125,
+          "symbol": "VDST.L",
+          "volume": 349391
         }
       ],
       "symbol": "VDST",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     },
     {
       "from": "2025-12-01",
       "rows": [
         {
-          "date": "2026-04-10",
-          "price": 335.05,
+          "adjClose": 332.6711730957031,
+          "date": "2025-12-01",
+          "price": 332.6711730957031,
           "symbol": "VTI",
-          "volume": 2581300
+          "volume": 4270600
         },
         {
-          "date": "2026-04-09",
-          "price": 335.45,
+          "adjClose": 333.06878662109375,
+          "date": "2025-12-02",
+          "price": 333.06878662109375,
           "symbol": "VTI",
-          "volume": 3436811
+          "volume": 2920000
         },
         {
-          "date": "2026-04-08",
-          "price": 333.7,
-          "symbol": "VTI",
-          "volume": 5384335
-        },
-        {
-          "date": "2026-04-07",
-          "price": 325.43,
-          "symbol": "VTI",
-          "volume": 3567505
-        },
-        {
-          "date": "2026-04-06",
-          "price": 325.21,
-          "symbol": "VTI",
-          "volume": 4401900
-        },
-        {
-          "date": "2026-04-02",
-          "price": 323.76,
-          "symbol": "VTI",
-          "volume": 3653400
-        },
-        {
-          "date": "2026-04-01",
-          "price": 323.24,
-          "symbol": "VTI",
-          "volume": 5540501
-        },
-        {
-          "date": "2026-03-31",
-          "price": 320.81,
-          "symbol": "VTI",
-          "volume": 6764032
-        },
-        {
-          "date": "2026-03-30",
-          "price": 311.68,
-          "symbol": "VTI",
-          "volume": 6510921
-        },
-        {
-          "date": "2026-03-27",
-          "price": 313.09,
-          "symbol": "VTI",
-          "volume": 7027300
-        },
-        {
-          "date": "2026-03-26",
-          "price": 319.55,
-          "symbol": "VTI",
-          "volume": 4794444
-        },
-        {
-          "date": "2026-03-25",
-          "price": 325.15,
-          "symbol": "VTI",
-          "volume": 3625600
-        },
-        {
-          "date": "2026-03-24",
-          "price": 323.18,
-          "symbol": "VTI",
-          "volume": 4382400
-        },
-        {
-          "date": "2026-03-23",
-          "price": 324.19,
-          "symbol": "VTI",
-          "volume": 7888310
-        },
-        {
-          "date": "2026-03-20",
-          "price": 320.34,
-          "symbol": "VTI",
-          "volume": 6532900
-        },
-        {
-          "date": "2026-03-19",
-          "price": 325.44,
-          "symbol": "VTI",
-          "volume": 5183143
-        },
-        {
-          "date": "2026-03-18",
-          "price": 326.02,
-          "symbol": "VTI",
-          "volume": 3919432
-        },
-        {
-          "date": "2026-03-17",
-          "price": 330.57,
-          "symbol": "VTI",
-          "volume": 3181400
-        },
-        {
-          "date": "2026-03-16",
-          "price": 329.46,
-          "symbol": "VTI",
-          "volume": 3766900
-        },
-        {
-          "date": "2026-03-13",
-          "price": 326.13,
-          "symbol": "VTI",
-          "volume": 6294900
-        },
-        {
-          "date": "2026-03-12",
-          "price": 327.92,
-          "symbol": "VTI",
-          "volume": 7011933
-        },
-        {
-          "date": "2026-03-11",
-          "price": 333.24,
-          "symbol": "VTI",
-          "volume": 8631904
-        },
-        {
-          "date": "2026-03-10",
-          "price": 333.51,
-          "symbol": "VTI",
-          "volume": 7767702
-        },
-        {
-          "date": "2026-03-09",
-          "price": 334.28,
-          "symbol": "VTI",
-          "volume": 8505800
-        },
-        {
-          "date": "2026-03-06",
-          "price": 331.41,
-          "symbol": "VTI",
-          "volume": 8635500
-        },
-        {
-          "date": "2026-03-05",
-          "price": 336,
-          "symbol": "VTI",
-          "volume": 8664932
-        },
-        {
-          "date": "2026-03-04",
-          "price": 338.19,
-          "symbol": "VTI",
-          "volume": 5462509
-        },
-        {
-          "date": "2026-03-03",
-          "price": 335.73,
-          "symbol": "VTI",
-          "volume": 10751602
-        },
-        {
-          "date": "2026-03-02",
-          "price": 339.12,
-          "symbol": "VTI",
-          "volume": 7225700
-        },
-        {
-          "date": "2026-02-27",
-          "price": 338.77,
-          "symbol": "VTI",
-          "volume": 6041819
-        },
-        {
-          "date": "2026-02-26",
-          "price": 340.49,
-          "symbol": "VTI",
-          "volume": 4984500
-        },
-        {
-          "date": "2026-02-25",
-          "price": 341.83,
-          "symbol": "VTI",
-          "volume": 3983349
-        },
-        {
-          "date": "2026-02-24",
-          "price": 339.21,
-          "symbol": "VTI",
-          "volume": 3642400
-        },
-        {
-          "date": "2026-02-23",
-          "price": 336.46,
-          "symbol": "VTI",
-          "volume": 10771945
-        },
-        {
-          "date": "2026-02-20",
-          "price": 340.27,
-          "symbol": "VTI",
-          "volume": 7051500
-        },
-        {
-          "date": "2026-02-19",
-          "price": 338.19,
-          "symbol": "VTI",
-          "volume": 4401624
-        },
-        {
-          "date": "2026-02-18",
-          "price": 338.83,
-          "symbol": "VTI",
-          "volume": 5718303
-        },
-        {
-          "date": "2026-02-17",
-          "price": 337.07,
-          "symbol": "VTI",
-          "volume": 7112300
-        },
-        {
-          "date": "2026-02-13",
-          "price": 336.65,
-          "symbol": "VTI",
-          "volume": 8039400
-        },
-        {
-          "date": "2026-02-12",
-          "price": 336.01,
-          "symbol": "VTI",
-          "volume": 7012500
-        },
-        {
-          "date": "2026-02-11",
-          "price": 341.47,
-          "symbol": "VTI",
-          "volume": 5056600
-        },
-        {
-          "date": "2026-02-10",
-          "price": 341.8,
-          "symbol": "VTI",
-          "volume": 3879400
-        },
-        {
-          "date": "2026-02-09",
-          "price": 342.64,
-          "symbol": "VTI",
-          "volume": 4562333
-        },
-        {
-          "date": "2026-02-06",
-          "price": 340.96,
-          "symbol": "VTI",
-          "volume": 5093800
-        },
-        {
-          "date": "2026-02-05",
-          "price": 333.9,
-          "symbol": "VTI",
-          "volume": 8838501
-        },
-        {
-          "date": "2026-02-04",
-          "price": 338.25,
-          "symbol": "VTI",
-          "volume": 8973500
-        },
-        {
-          "date": "2026-02-03",
-          "price": 339.85,
-          "symbol": "VTI",
-          "volume": 9060918
-        },
-        {
-          "date": "2026-02-02",
-          "price": 342.48,
-          "symbol": "VTI",
-          "volume": 6024500
-        },
-        {
-          "date": "2026-01-30",
-          "price": 340.57,
-          "symbol": "VTI",
-          "volume": 9905800
-        },
-        {
-          "date": "2026-01-29",
-          "price": 342.29,
-          "symbol": "VTI",
-          "volume": 8936900
-        },
-        {
-          "date": "2026-01-28",
-          "price": 343.08,
-          "symbol": "VTI",
-          "volume": 5854800
-        },
-        {
-          "date": "2026-01-27",
-          "price": 343.27,
-          "symbol": "VTI",
-          "volume": 3689039
-        },
-        {
-          "date": "2026-01-26",
-          "price": 342.03,
-          "symbol": "VTI",
-          "volume": 4957219
-        },
-        {
-          "date": "2026-01-23",
-          "price": 340.56,
-          "symbol": "VTI",
-          "volume": 4905901
-        },
-        {
-          "date": "2026-01-22",
-          "price": 340.87,
-          "symbol": "VTI",
-          "volume": 5505900
-        },
-        {
-          "date": "2026-01-21",
-          "price": 339.08,
-          "symbol": "VTI",
-          "volume": 9761843
-        },
-        {
-          "date": "2026-01-20",
-          "price": 335.11,
-          "symbol": "VTI",
-          "volume": 13144324
-        },
-        {
-          "date": "2026-01-16",
-          "price": 341.85,
-          "symbol": "VTI",
-          "volume": 6418521
-        },
-        {
-          "date": "2026-01-15",
-          "price": 342.05,
-          "symbol": "VTI",
-          "volume": 8296900
-        },
-        {
-          "date": "2026-01-14",
-          "price": 341,
-          "symbol": "VTI",
-          "volume": 12154800
-        },
-        {
-          "date": "2026-01-13",
-          "price": 342.34,
-          "symbol": "VTI",
-          "volume": 8088126
-        },
-        {
-          "date": "2026-01-12",
-          "price": 343.03,
-          "symbol": "VTI",
-          "volume": 5775945
-        },
-        {
-          "date": "2026-01-09",
-          "price": 342.4,
-          "symbol": "VTI",
-          "volume": 6854100
-        },
-        {
-          "date": "2026-01-08",
-          "price": 340.14,
-          "symbol": "VTI",
-          "volume": 6800029
-        },
-        {
-          "date": "2026-01-07",
-          "price": 340.05,
-          "symbol": "VTI",
-          "volume": 6629600
-        },
-        {
-          "date": "2026-01-06",
-          "price": 341.21,
-          "symbol": "VTI",
-          "volume": 6054500
-        },
-        {
-          "date": "2026-01-05",
-          "price": 338.84,
-          "symbol": "VTI",
-          "volume": 5442200
-        },
-        {
-          "date": "2026-01-02",
-          "price": 336.31,
-          "symbol": "VTI",
-          "volume": 5177300
-        },
-        {
-          "date": "2025-12-31",
-          "price": 335.27,
-          "symbol": "VTI",
-          "volume": 3493700
-        },
-        {
-          "date": "2025-12-30",
-          "price": 337.85,
-          "symbol": "VTI",
-          "volume": 3576246
-        },
-        {
-          "date": "2025-12-29",
-          "price": 338.39,
-          "symbol": "VTI",
-          "volume": 3795900
-        },
-        {
-          "date": "2025-12-26",
-          "price": 339.67,
-          "symbol": "VTI",
-          "volume": 3543603
-        },
-        {
-          "date": "2025-12-24",
-          "price": 339.88,
-          "symbol": "VTI",
-          "volume": 4006500
-        },
-        {
-          "date": "2025-12-23",
-          "price": 338.72,
-          "symbol": "VTI",
-          "volume": 3611146
-        },
-        {
-          "date": "2025-12-22",
-          "price": 337.6,
-          "symbol": "VTI",
-          "volume": 3782103
-        },
-        {
-          "date": "2025-12-19",
-          "price": 336.22,
-          "symbol": "VTI",
-          "volume": 4022606
-        },
-        {
-          "date": "2025-12-18",
-          "price": 333.25,
-          "symbol": "VTI",
-          "volume": 3347732
-        },
-        {
-          "date": "2025-12-17",
-          "price": 330.71,
-          "symbol": "VTI",
-          "volume": 3980310
-        },
-        {
-          "date": "2025-12-16",
-          "price": 334.36,
-          "symbol": "VTI",
-          "volume": 4129247
-        },
-        {
-          "date": "2025-12-15",
-          "price": 335.33,
-          "symbol": "VTI",
-          "volume": 3571900
-        },
-        {
-          "date": "2025-12-12",
-          "price": 335.99,
-          "symbol": "VTI",
-          "volume": 4258900
-        },
-        {
-          "date": "2025-12-11",
-          "price": 339.87,
-          "symbol": "VTI",
-          "volume": 3819000
-        },
-        {
-          "date": "2025-12-10",
-          "price": 338.73,
-          "symbol": "VTI",
-          "volume": 5697100
-        },
-        {
-          "date": "2025-12-09",
-          "price": 336.23,
-          "symbol": "VTI",
-          "volume": 3035700
-        },
-        {
-          "date": "2025-12-08",
-          "price": 336.57,
-          "symbol": "VTI",
-          "volume": 3532800
-        },
-        {
-          "date": "2025-12-05",
-          "price": 337.56,
-          "symbol": "VTI",
-          "volume": 3340543
-        },
-        {
-          "date": "2025-12-04",
-          "price": 337.09,
-          "symbol": "VTI",
-          "volume": 3587800
-        },
-        {
+          "adjClose": 334.5599060058594,
           "date": "2025-12-03",
-          "price": 336.56,
+          "price": 334.5599060058594,
           "symbol": "VTI",
           "volume": 3779900
         },
         {
-          "date": "2025-12-02",
-          "price": 335.06,
+          "adjClose": 335.08673095703125,
+          "date": "2025-12-04",
+          "price": 335.08673095703125,
           "symbol": "VTI",
-          "volume": 2920009
+          "volume": 3587800
         },
         {
-          "date": "2025-12-01",
-          "price": 334.66,
+          "adjClose": 335.5539245605469,
+          "date": "2025-12-05",
+          "price": 335.5539245605469,
           "symbol": "VTI",
-          "volume": 4270600
+          "volume": 3340500
+        },
+        {
+          "adjClose": 334.56982421875,
+          "date": "2025-12-08",
+          "price": 334.56982421875,
+          "symbol": "VTI",
+          "volume": 3532800
+        },
+        {
+          "adjClose": 334.2318420410156,
+          "date": "2025-12-09",
+          "price": 334.2318420410156,
+          "symbol": "VTI",
+          "volume": 3035700
+        },
+        {
+          "adjClose": 336.71697998046875,
+          "date": "2025-12-10",
+          "price": 336.71697998046875,
+          "symbol": "VTI",
+          "volume": 5697100
+        },
+        {
+          "adjClose": 337.8502197265625,
+          "date": "2025-12-11",
+          "price": 337.8502197265625,
+          "symbol": "VTI",
+          "volume": 3819000
+        },
+        {
+          "adjClose": 333.9932556152344,
+          "date": "2025-12-12",
+          "price": 333.9932556152344,
+          "symbol": "VTI",
+          "volume": 4258900
+        },
+        {
+          "adjClose": 333.337158203125,
+          "date": "2025-12-15",
+          "price": 333.337158203125,
+          "symbol": "VTI",
+          "volume": 3571900
+        },
+        {
+          "adjClose": 332.3729553222656,
+          "date": "2025-12-16",
+          "price": 332.3729553222656,
+          "symbol": "VTI",
+          "volume": 4129200
+        },
+        {
+          "adjClose": 328.74462890625,
+          "date": "2025-12-17",
+          "price": 328.74462890625,
+          "symbol": "VTI",
+          "volume": 3980300
+        },
+        {
+          "adjClose": 331.2695617675781,
+          "date": "2025-12-18",
+          "price": 331.2695617675781,
+          "symbol": "VTI",
+          "volume": 3347700
+        },
+        {
+          "adjClose": 334.2218933105469,
+          "date": "2025-12-19",
+          "price": 334.2218933105469,
+          "symbol": "VTI",
+          "volume": 4022600
+        },
+        {
+          "adjClose": 336.5456237792969,
+          "date": "2025-12-22",
+          "price": 336.5456237792969,
+          "symbol": "VTI",
+          "volume": 3782100
+        },
+        {
+          "adjClose": 337.662109375,
+          "date": "2025-12-23",
+          "price": 337.662109375,
+          "symbol": "VTI",
+          "volume": 3611100
+        },
+        {
+          "adjClose": 338.8185119628906,
+          "date": "2025-12-24",
+          "price": 338.8185119628906,
+          "symbol": "VTI",
+          "volume": 4006500
+        },
+        {
+          "adjClose": 338.6091613769531,
+          "date": "2025-12-26",
+          "price": 338.6091613769531,
+          "symbol": "VTI",
+          "volume": 3543600
+        },
+        {
+          "adjClose": 337.3331604003906,
+          "date": "2025-12-29",
+          "price": 337.3331604003906,
+          "symbol": "VTI",
+          "volume": 3795900
+        },
+        {
+          "adjClose": 336.7948303222656,
+          "date": "2025-12-30",
+          "price": 336.7948303222656,
+          "symbol": "VTI",
+          "volume": 3576200
+        },
+        {
+          "adjClose": 334.222900390625,
+          "date": "2025-12-31",
+          "price": 334.222900390625,
+          "symbol": "VTI",
+          "volume": 3493700
+        },
+        {
+          "adjClose": 335.2596435546875,
+          "date": "2026-01-02",
+          "price": 335.2596435546875,
+          "symbol": "VTI",
+          "volume": 5177300
+        },
+        {
+          "adjClose": 337.78173828125,
+          "date": "2026-01-05",
+          "price": 337.78173828125,
+          "symbol": "VTI",
+          "volume": 5442200
+        },
+        {
+          "adjClose": 340.14434814453125,
+          "date": "2026-01-06",
+          "price": 340.14434814453125,
+          "symbol": "VTI",
+          "volume": 6054500
+        },
+        {
+          "adjClose": 338.9879455566406,
+          "date": "2026-01-07",
+          "price": 338.9879455566406,
+          "symbol": "VTI",
+          "volume": 6629600
+        },
+        {
+          "adjClose": 339.07769775390625,
+          "date": "2026-01-08",
+          "price": 339.07769775390625,
+          "symbol": "VTI",
+          "volume": 6800000
+        },
+        {
+          "adjClose": 341.33062744140625,
+          "date": "2026-01-09",
+          "price": 341.33062744140625,
+          "symbol": "VTI",
+          "volume": 6854100
+        },
+        {
+          "adjClose": 341.9586486816406,
+          "date": "2026-01-12",
+          "price": 341.9586486816406,
+          "symbol": "VTI",
+          "volume": 5775900
+        },
+        {
+          "adjClose": 341.27081298828125,
+          "date": "2026-01-13",
+          "price": 341.27081298828125,
+          "symbol": "VTI",
+          "volume": 8088100
+        },
+        {
+          "adjClose": 339.93499755859375,
+          "date": "2026-01-14",
+          "price": 339.93499755859375,
+          "symbol": "VTI",
+          "volume": 12154800
+        },
+        {
+          "adjClose": 340.9817199707031,
+          "date": "2026-01-15",
+          "price": 340.9817199707031,
+          "symbol": "VTI",
+          "volume": 8296900
+        },
+        {
+          "adjClose": 340.7823486328125,
+          "date": "2026-01-16",
+          "price": 340.7823486328125,
+          "symbol": "VTI",
+          "volume": 6418500
+        },
+        {
+          "adjClose": 334.0633850097656,
+          "date": "2026-01-20",
+          "price": 334.0633850097656,
+          "symbol": "VTI",
+          "volume": 13144300
+        },
+        {
+          "adjClose": 338.02099609375,
+          "date": "2026-01-21",
+          "price": 338.02099609375,
+          "symbol": "VTI",
+          "volume": 9761800
+        },
+        {
+          "adjClose": 339.8053894042969,
+          "date": "2026-01-22",
+          "price": 339.8053894042969,
+          "symbol": "VTI",
+          "volume": 5505900
+        },
+        {
+          "adjClose": 339.4963684082031,
+          "date": "2026-01-23",
+          "price": 339.4963684082031,
+          "symbol": "VTI",
+          "volume": 4905900
+        },
+        {
+          "adjClose": 340.9617919921875,
+          "date": "2026-01-26",
+          "price": 340.9617919921875,
+          "symbol": "VTI",
+          "volume": 4957200
+        },
+        {
+          "adjClose": 342.1979064941406,
+          "date": "2026-01-27",
+          "price": 342.1979064941406,
+          "symbol": "VTI",
+          "volume": 3689000
+        },
+        {
+          "adjClose": 342.00848388671875,
+          "date": "2026-01-28",
+          "price": 342.00848388671875,
+          "symbol": "VTI",
+          "volume": 5854800
+        },
+        {
+          "adjClose": 341.2209777832031,
+          "date": "2026-01-29",
+          "price": 341.2209777832031,
+          "symbol": "VTI",
+          "volume": 8936900
+        },
+        {
+          "adjClose": 339.50634765625,
+          "date": "2026-01-30",
+          "price": 339.50634765625,
+          "symbol": "VTI",
+          "volume": 9905800
+        },
+        {
+          "adjClose": 341.410400390625,
+          "date": "2026-02-02",
+          "price": 341.410400390625,
+          "symbol": "VTI",
+          "volume": 6024500
+        },
+        {
+          "adjClose": 338.7886047363281,
+          "date": "2026-02-03",
+          "price": 338.7886047363281,
+          "symbol": "VTI",
+          "volume": 9060900
+        },
+        {
+          "adjClose": 337.193603515625,
+          "date": "2026-02-04",
+          "price": 337.193603515625,
+          "symbol": "VTI",
+          "volume": 8973500
+        },
+        {
+          "adjClose": 332.857177734375,
+          "date": "2026-02-05",
+          "price": 332.857177734375,
+          "symbol": "VTI",
+          "volume": 8838500
+        },
+        {
+          "adjClose": 339.8951110839844,
+          "date": "2026-02-06",
+          "price": 339.8951110839844,
+          "symbol": "VTI",
+          "volume": 5093800
+        },
+        {
+          "adjClose": 341.56988525390625,
+          "date": "2026-02-09",
+          "price": 341.56988525390625,
+          "symbol": "VTI",
+          "volume": 4562300
+        },
+        {
+          "adjClose": 340.73248291015625,
+          "date": "2026-02-10",
+          "price": 340.73248291015625,
+          "symbol": "VTI",
+          "volume": 3879400
+        },
+        {
+          "adjClose": 340.4035339355469,
+          "date": "2026-02-11",
+          "price": 340.4035339355469,
+          "symbol": "VTI",
+          "volume": 5056600
+        },
+        {
+          "adjClose": 334.9606018066406,
+          "date": "2026-02-12",
+          "price": 334.9606018066406,
+          "symbol": "VTI",
+          "volume": 7012500
+        },
+        {
+          "adjClose": 335.59857177734375,
+          "date": "2026-02-13",
+          "price": 335.59857177734375,
+          "symbol": "VTI",
+          "volume": 8039400
+        },
+        {
+          "adjClose": 336.01727294921875,
+          "date": "2026-02-17",
+          "price": 336.01727294921875,
+          "symbol": "VTI",
+          "volume": 7112300
+        },
+        {
+          "adjClose": 337.7717590332031,
+          "date": "2026-02-18",
+          "price": 337.7717590332031,
+          "symbol": "VTI",
+          "volume": 5718300
+        },
+        {
+          "adjClose": 337.1337890625,
+          "date": "2026-02-19",
+          "price": 337.1337890625,
+          "symbol": "VTI",
+          "volume": 4401600
+        },
+        {
+          "adjClose": 339.207275390625,
+          "date": "2026-02-20",
+          "price": 339.207275390625,
+          "symbol": "VTI",
+          "volume": 7051500
+        },
+        {
+          "adjClose": 335.4091796875,
+          "date": "2026-02-23",
+          "price": 335.4091796875,
+          "symbol": "VTI",
+          "volume": 10771900
+        },
+        {
+          "adjClose": 338.15057373046875,
+          "date": "2026-02-24",
+          "price": 338.15057373046875,
+          "symbol": "VTI",
+          "volume": 3642400
+        },
+        {
+          "adjClose": 340.76239013671875,
+          "date": "2026-02-25",
+          "price": 340.76239013671875,
+          "symbol": "VTI",
+          "volume": 3983300
+        },
+        {
+          "adjClose": 339.42657470703125,
+          "date": "2026-02-26",
+          "price": 339.42657470703125,
+          "symbol": "VTI",
+          "volume": 4984500
+        },
+        {
+          "adjClose": 337.7119445800781,
+          "date": "2026-02-27",
+          "price": 337.7119445800781,
+          "symbol": "VTI",
+          "volume": 6041800
+        },
+        {
+          "adjClose": 338.0608825683594,
+          "date": "2026-03-02",
+          "price": 338.0608825683594,
+          "symbol": "VTI",
+          "volume": 7225700
+        },
+        {
+          "adjClose": 334.68145751953125,
+          "date": "2026-03-03",
+          "price": 334.68145751953125,
+          "symbol": "VTI",
+          "volume": 10751600
+        },
+        {
+          "adjClose": 337.1337890625,
+          "date": "2026-03-04",
+          "price": 337.1337890625,
+          "symbol": "VTI",
+          "volume": 5462500
+        },
+        {
+          "adjClose": 334.95062255859375,
+          "date": "2026-03-05",
+          "price": 334.95062255859375,
+          "symbol": "VTI",
+          "volume": 8661800
+        },
+        {
+          "adjClose": 330.3749694824219,
+          "date": "2026-03-06",
+          "price": 330.3749694824219,
+          "symbol": "VTI",
+          "volume": 8635500
+        },
+        {
+          "adjClose": 333.2359924316406,
+          "date": "2026-03-09",
+          "price": 333.2359924316406,
+          "symbol": "VTI",
+          "volume": 8505800
+        },
+        {
+          "adjClose": 332.4684143066406,
+          "date": "2026-03-10",
+          "price": 332.4684143066406,
+          "symbol": "VTI",
+          "volume": 7767700
+        },
+        {
+          "adjClose": 332.19921875,
+          "date": "2026-03-11",
+          "price": 332.19921875,
+          "symbol": "VTI",
+          "volume": 8631900
+        },
+        {
+          "adjClose": 326.8958740234375,
+          "date": "2026-03-12",
+          "price": 326.8958740234375,
+          "symbol": "VTI",
+          "volume": 7011900
+        },
+        {
+          "adjClose": 325.1114501953125,
+          "date": "2026-03-13",
+          "price": 325.1114501953125,
+          "symbol": "VTI",
+          "volume": 6294900
+        },
+        {
+          "adjClose": 328.4310302734375,
+          "date": "2026-03-16",
+          "price": 328.4310302734375,
+          "symbol": "VTI",
+          "volume": 3766900
+        },
+        {
+          "adjClose": 329.53759765625,
+          "date": "2026-03-17",
+          "price": 329.53759765625,
+          "symbol": "VTI",
+          "volume": 3181400
+        },
+        {
+          "adjClose": 325.00177001953125,
+          "date": "2026-03-18",
+          "price": 325.00177001953125,
+          "symbol": "VTI",
+          "volume": 3919400
+        },
+        {
+          "adjClose": 324.4236145019531,
+          "date": "2026-03-19",
+          "price": 324.4236145019531,
+          "symbol": "VTI",
+          "volume": 5183100
+        },
+        {
+          "adjClose": 319.3395080566406,
+          "date": "2026-03-20",
+          "price": 319.3395080566406,
+          "symbol": "VTI",
+          "volume": 6532900
+        },
+        {
+          "adjClose": 323.177490234375,
+          "date": "2026-03-23",
+          "price": 323.177490234375,
+          "symbol": "VTI",
+          "volume": 7888300
+        },
+        {
+          "adjClose": 322.170654296875,
+          "date": "2026-03-24",
+          "price": 322.170654296875,
+          "symbol": "VTI",
+          "volume": 4382400
+        },
+        {
+          "adjClose": 324.1344909667969,
+          "date": "2026-03-25",
+          "price": 324.1344909667969,
+          "symbol": "VTI",
+          "volume": 3625600
+        },
+        {
+          "adjClose": 318.5519714355469,
+          "date": "2026-03-26",
+          "price": 318.5519714355469,
+          "symbol": "VTI",
+          "volume": 4794400
+        },
+        {
+          "adjClose": 313.0899963378906,
+          "date": "2026-03-27",
+          "price": 313.0899963378906,
+          "symbol": "VTI",
+          "volume": 7027300
+        },
+        {
+          "adjClose": 311.67999267578125,
+          "date": "2026-03-30",
+          "price": 311.67999267578125,
+          "symbol": "VTI",
+          "volume": 6510900
+        },
+        {
+          "adjClose": 320.80999755859375,
+          "date": "2026-03-31",
+          "price": 320.80999755859375,
+          "symbol": "VTI",
+          "volume": 6764000
+        },
+        {
+          "adjClose": 323.239990234375,
+          "date": "2026-04-01",
+          "price": 323.239990234375,
+          "symbol": "VTI",
+          "volume": 5540500
+        },
+        {
+          "adjClose": 323.760009765625,
+          "date": "2026-04-02",
+          "price": 323.760009765625,
+          "symbol": "VTI",
+          "volume": 3653400
+        },
+        {
+          "adjClose": 325.2099914550781,
+          "date": "2026-04-06",
+          "price": 325.2099914550781,
+          "symbol": "VTI",
+          "volume": 4401900
+        },
+        {
+          "adjClose": 325.42999267578125,
+          "date": "2026-04-07",
+          "price": 325.42999267578125,
+          "symbol": "VTI",
+          "volume": 3567500
+        },
+        {
+          "adjClose": 333.70001220703125,
+          "date": "2026-04-08",
+          "price": 333.70001220703125,
+          "symbol": "VTI",
+          "volume": 5384300
+        },
+        {
+          "adjClose": 335.45001220703125,
+          "date": "2026-04-09",
+          "price": 335.45001220703125,
+          "symbol": "VTI",
+          "volume": 3436800
+        },
+        {
+          "adjClose": 335.04998779296875,
+          "date": "2026-04-10",
+          "price": 335.04998779296875,
+          "symbol": "VTI",
+          "volume": 2581300
         }
       ],
       "symbol": "VTI",
@@ -14529,10 +14925,101 @@
           "price": 144.52000427246094,
           "symbol": "VUAA.L",
           "volume": 98373
+        },
+        {
+          "adjClose": 144.9600067138672,
+          "date": "2026-05-26",
+          "price": 144.9600067138672,
+          "symbol": "VUAA.L",
+          "volume": 566229
+        },
+        {
+          "adjClose": 144.9600067138672,
+          "date": "2026-05-27",
+          "price": 144.9600067138672,
+          "symbol": "VUAA.L",
+          "volume": 139842
+        },
+        {
+          "adjClose": 145.74000549316406,
+          "date": "2026-05-28",
+          "price": 145.74000549316406,
+          "symbol": "VUAA.L",
+          "volume": 325380
+        },
+        {
+          "adjClose": 146.33999633789062,
+          "date": "2026-05-29",
+          "price": 146.33999633789062,
+          "symbol": "VUAA.L",
+          "volume": 163710
+        },
+        {
+          "adjClose": 146.36000061035156,
+          "date": "2026-06-01",
+          "price": 146.36000061035156,
+          "symbol": "VUAA.L",
+          "volume": 127954
+        },
+        {
+          "adjClose": 146.8800048828125,
+          "date": "2026-06-02",
+          "price": 146.8800048828125,
+          "symbol": "VUAA.L",
+          "volume": 143409
+        },
+        {
+          "adjClose": 146.0800018310547,
+          "date": "2026-06-03",
+          "price": 146.0800018310547,
+          "symbol": "VUAA.L",
+          "volume": 178400
+        },
+        {
+          "adjClose": 146.0800018310547,
+          "date": "2026-06-04",
+          "price": 146.0800018310547,
+          "symbol": "VUAA.L",
+          "volume": 150146
+        },
+        {
+          "adjClose": 144.52000427246094,
+          "date": "2026-06-05",
+          "price": 144.52000427246094,
+          "symbol": "VUAA.L",
+          "volume": 83061
+        },
+        {
+          "adjClose": 143.47999572753906,
+          "date": "2026-06-08",
+          "price": 143.47999572753906,
+          "symbol": "VUAA.L",
+          "volume": 286376
+        },
+        {
+          "adjClose": 141.3000030517578,
+          "date": "2026-06-09",
+          "price": 141.3000030517578,
+          "symbol": "VUAA.L",
+          "volume": 188633
+        },
+        {
+          "adjClose": 141.36000061035156,
+          "date": "2026-06-10",
+          "price": 141.36000061035156,
+          "symbol": "VUAA.L",
+          "volume": 172560
+        },
+        {
+          "adjClose": 140.72000122070312,
+          "date": "2026-06-11",
+          "price": 140.72000122070312,
+          "symbol": "VUAA.L",
+          "volume": 159736
         }
       ],
       "symbol": "VUAA",
-      "to": "2026-05-25"
+      "to": "2026-06-11"
     }
   ]
 }

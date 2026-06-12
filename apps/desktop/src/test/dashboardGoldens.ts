@@ -5,16 +5,16 @@ export const ib2026DashboardGolden = {
   "accountId": "U8516450",
   "brokerLabel": "Interactive Brokers",
   "sourceLabel": "Live market history",
-  "statementPeriod": "January 1, 2026 - May 25, 2026",
-  "accountSummary": "Interactive Brokers \u00b7 January 1, 2026 - May 25, 2026",
+  "statementPeriod": "January 1, 2026 - June 11, 2026",
+  "accountSummary": "Interactive Brokers \u00b7 January 1, 2026 - June 11, 2026",
   "performanceTitle": "Portfolio vs SPY path for the selected range",
   "loadedFileLabel": "Loaded file: IB2026.pdf",
   "monthlyStatusLabel": "Monthly-return status: Live market history",
-  "portfolioValue": "$64171.87",
+  "portfolioValue": "$62449.71",
   "startValue": "$52386.10",
   "timeWeightedReturn": "n/a",
   "netContributions": "$9963.00",
-  "moneyWeightedReturn": "3.19%",
+  "moneyWeightedReturn": "0.17%",
   "drawdown": "n/a",
   "loadedFiles": [
     "IB2026.pdf"
@@ -25,55 +25,55 @@ export const ib2026DashboardGolden = {
       "returnPct": "0.00%"
     },
     {
-      "month": "2026-02",
-      "returnPct": "1.24%"
-    },
-    {
       "month": "2026-03",
-      "returnPct": "-4.43%"
+      "returnPct": "-2.43%"
     },
     {
       "month": "2026-04",
-      "returnPct": "69.62%"
+      "returnPct": "58.18%"
     },
     {
       "month": "2026-05",
-      "returnPct": "-32.78%"
+      "returnPct": "2.72%"
+    },
+    {
+      "month": "2026-06",
+      "returnPct": "-32.16%"
     }
   ],
   "sectors": {
-    "Fixed Income": "19.8%",
-    "Broad Market": "19.5%",
-    "Commodities": "18.8%",
-    "Technology": "18.7%",
-    "Defense": "14.5%",
-    "Consumer Discretionary": "5.4%",
-    "Communication Services": "1.3%",
-    "Health Care": "1.0%",
+    "Broad Market": "23.9%",
+    "Fixed Income": "21.2%",
+    "Technology": "20.0%",
+    "Commodities": "15.1%",
+    "Defense": "10.9%",
+    "Consumer Discretionary": "5.3%",
+    "Communication Services": "1.6%",
+    "Health Care": "1.1%",
     "Financials": "1.0%"
   },
   "draftCapitalCheck": "$0.00",
   "draftCapitalHelper": "Remaining capital after edits \u00b7 Leverage 1.00x",
   "technologyHoldings": [
     "SXRV",
-    "IUIT",
     "SEMI",
     "CRM",
     "ADBE"
   ],
   "technologyHoldingWeights": {
-    "SXRV": "9.91%",
-    "IUIT": "3.35%",
-    "SEMI": "2.51%",
-    "CRM": "2.12%",
-    "ADBE": "0.82%"
+    "SXRV": "12.89%",
+    "SEMI": "4.20%",
+    "CRM": "2.09%",
+    "ADBE": "0.79%"
   },
-  "sxrvValue": "5889.6",
+  "sxrvValue": "7179",
   "broadMarketHoldings": [
-    "VUAA"
+    "VUAA",
+    "CIBR"
   ],
   "broadMarketHoldingWeights": {
-    "VUAA": "19.46%"
+    "VUAA": "20.21%",
+    "CIBR": "3.74%"
   }
 } as const
 
@@ -87,8 +87,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "detected_format": "pdf",
       "account_id": "U8516450",
       "base_currency": "USD",
-      "statement_period": "January 1, 2026 - May 25, 2026",
-      "page_count": 21
+      "statement_period": "January 1, 2026 - June 11, 2026",
+      "page_count": 22
     },
     "statements": [
       {
@@ -98,22 +98,22 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "detected_format": "pdf",
         "account_id": "U8516450",
         "base_currency": "USD",
-        "statement_period": "January 1, 2026 - May 25, 2026",
-        "page_count": 21
+        "statement_period": "January 1, 2026 - June 11, 2026",
+        "page_count": 22
       }
     ],
     "statement_totals": {
       "starting_nav": 52381.12,
-      "ending_nav": 64171.87,
-      "cash_total": 2524.24,
-      "stock_total": 61647.63,
+      "ending_nav": 62449.71,
+      "cash_total": 4364.18,
+      "stock_total": 58081.36,
       "dividends_total": 120.82,
       "withholding_tax_total": 17.2,
       "interest_total": 1.64,
       "other_fees_total": 1.05,
-      "commissions_total": 154.99,
+      "commissions_total": 179.35,
       "deposits_total": 9963.0,
-      "time_weighted_return_pct": 2.75,
+      "time_weighted_return_pct": -0.01,
       "fx_rates": {
         "USDUSD": 1.0
       }
@@ -200,6 +200,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": null
       },
       {
+        "symbol": "CIBR",
+        "description": "FIRST TRUST CYBERSECURITY",
+        "isin": "IE00BF16M727",
+        "listing_exchange": "LSEETF",
+        "instrument_type": "ETF",
+        "currency": null
+      },
+      {
         "symbol": "COPX",
         "description": "GX COPPER MINERS UCITS",
         "isin": "IE0003Z9E2Y3",
@@ -236,6 +244,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "AM STOXX EUROPE DEFENSE ACC",
         "isin": "LU3038520774",
         "listing_exchange": "LSE",
+        "instrument_type": "ETF",
+        "currency": null
+      },
+      {
+        "symbol": "DEFS",
+        "description": "AM STOXX EUROPE DEFENSE ACC",
+        "isin": "LU3038520774",
+        "listing_exchange": "SBF",
         "instrument_type": "ETF",
         "currency": null
       },
@@ -339,6 +355,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "symbol": "IDFN",
         "description": "IVZ DEFENCE ACC",
         "isin": "IE000BRM9046",
+        "listing_exchange": "LSEETF",
+        "instrument_type": "ETF",
+        "currency": null
+      },
+      {
+        "symbol": "IITU",
+        "description": "ISHARES S&P 500 IT SECTOR",
+        "isin": "IE00B3WJKG14",
         "listing_exchange": "LSEETF",
         "instrument_type": "ETF",
         "currency": null
@@ -624,219 +648,199 @@ export const ib2026ImportedDashboardGoldenFixture = {
       {
         "currency": "USD",
         "starting_cash": 4672.04,
-        "ending_cash": 2524.24,
-        "ending_settled_cash": 2524.24
+        "ending_cash": 4364.18,
+        "ending_settled_cash": 2499.89
       }
     ],
     "positions": [
       {
-        "as_of_date": "2026-05-25",
-        "symbol": "SXRV",
-        "quantity": 4.0,
-        "cost_basis": 5049.36,
-        "close_price": 1472.4,
-        "market_value": 5889.6,
-        "unrealized_pnl": 840.24,
+        "as_of_date": "2026-06-11",
+        "symbol": "DEFS",
+        "quantity": 500.0,
+        "cost_basis": 2796.48,
+        "close_price": 5.632,
+        "market_value": 2816.0,
+        "unrealized_pnl": 19.52,
         "currency": "EUR"
       },
       {
-        "as_of_date": "2026-05-25",
-        "symbol": "DFND",
-        "quantity": 300.0,
-        "cost_basis": 2164.76,
-        "close_price": 7.013,
-        "market_value": 2103.9,
-        "unrealized_pnl": -60.86,
-        "currency": "GBP"
+        "as_of_date": "2026-06-11",
+        "symbol": "SXRV",
+        "quantity": 5.0,
+        "cost_basis": 6493.31,
+        "close_price": 1435.8,
+        "market_value": 7179.0,
+        "unrealized_pnl": 685.69,
+        "currency": "EUR"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "SEMI",
-        "quantity": 100.0,
-        "cost_basis": 1268.44,
-        "close_price": 14.9,
-        "market_value": 1490.0,
-        "unrealized_pnl": 221.56,
+        "quantity": 150.0,
+        "cost_basis": 2039.7,
+        "close_price": 15.612,
+        "market_value": 2341.8,
+        "unrealized_pnl": 302.1,
         "currency": "GBP"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "ADBE",
         "quantity": 2.0,
         "cost_basis": 717.03,
-        "close_price": 244.76,
-        "market_value": 489.52,
-        "unrealized_pnl": -227.51,
+        "close_price": 218.8,
+        "market_value": 437.6,
+        "unrealized_pnl": -279.43,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "ALLO",
         "quantity": 45.0,
         "cost_basis": 688.3,
-        "close_price": 2.0,
-        "market_value": 90.0,
-        "unrealized_pnl": -598.3,
+        "close_price": 1.88,
+        "market_value": 84.6,
+        "unrealized_pnl": -603.7,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "AMZN",
         "quantity": 10.0,
         "cost_basis": 1654.08,
-        "close_price": 266.32,
-        "market_value": 2663.2,
-        "unrealized_pnl": 1009.12,
+        "close_price": 241.51,
+        "market_value": 2415.1,
+        "unrealized_pnl": 761.02,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
-        "symbol": "COPX",
-        "quantity": 30.0,
-        "cost_basis": 2026.26,
-        "close_price": 64.86,
-        "market_value": 1945.8,
-        "unrealized_pnl": -80.46,
+        "as_of_date": "2026-06-11",
+        "symbol": "CIBR",
+        "quantity": 40.0,
+        "cost_basis": 2057.38,
+        "close_price": 52.08,
+        "market_value": 2083.2,
+        "unrealized_pnl": 25.82,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "CRM",
         "quantity": 7.0,
         "cost_basis": 1813.89,
-        "close_price": 180.07,
-        "market_value": 1260.49,
-        "unrealized_pnl": -553.4,
+        "close_price": 166.45,
+        "market_value": 1165.15,
+        "unrealized_pnl": -648.74,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "CRSP",
         "quantity": 8.0,
         "cost_basis": 668.15,
-        "close_price": 50.36,
-        "market_value": 402.88,
-        "unrealized_pnl": -265.27,
+        "close_price": 50.23,
+        "market_value": 401.84,
+        "unrealized_pnl": -266.31,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
-        "symbol": "DEFS",
-        "quantity": 500.0,
-        "cost_basis": 3513.08,
-        "close_price": 6.495,
-        "market_value": 3247.5,
-        "unrealized_pnl": -265.58,
-        "currency": "USD"
-      },
-      {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "DUOL",
         "quantity": 7.0,
         "cost_basis": 1530.27,
-        "close_price": 106.61,
-        "market_value": 746.27,
-        "unrealized_pnl": -784.0,
+        "close_price": 123.845,
+        "market_value": 866.92,
+        "unrealized_pnl": -663.35,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "EDIT",
         "quantity": 42.0,
         "cost_basis": 702.43,
-        "close_price": 2.76,
-        "market_value": 115.92,
-        "unrealized_pnl": -586.51,
+        "close_price": 2.44,
+        "market_value": 102.48,
+        "unrealized_pnl": -599.95,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "IAUP",
         "quantity": 80.0,
         "cost_basis": 3409.1,
-        "close_price": 39.23,
-        "market_value": 3138.4,
-        "unrealized_pnl": -270.7,
+        "close_price": 34.68,
+        "market_value": 2774.4,
+        "unrealized_pnl": -634.7,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "ICOM",
         "quantity": 300.0,
         "cost_basis": 2947.65,
-        "close_price": 10.235,
-        "market_value": 3070.5,
-        "unrealized_pnl": 122.85,
+        "close_price": 9.6625,
+        "market_value": 2898.75,
+        "unrealized_pnl": -48.9,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "IDFN",
         "quantity": 300.0,
         "cost_basis": 3098.51,
-        "close_price": 10.823,
-        "market_value": 3246.9,
-        "unrealized_pnl": 148.39,
+        "close_price": 10.793,
+        "market_value": 3237.9,
+        "unrealized_pnl": 139.39,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
-        "symbol": "IUIT",
-        "quantity": 40.0,
-        "cost_basis": 1826.5,
-        "close_price": 49.78,
-        "market_value": 1991.2,
-        "unrealized_pnl": 164.7,
-        "currency": "USD"
-      },
-      {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "LYFT",
         "quantity": 40.0,
         "cost_basis": 863.05,
-        "close_price": 13.9,
-        "market_value": 556.0,
-        "unrealized_pnl": -307.05,
+        "close_price": 13.71,
+        "market_value": 548.4,
+        "unrealized_pnl": -314.65,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "PYPL",
         "quantity": 13.0,
         "cost_basis": 1286.94,
-        "close_price": 44.23,
-        "market_value": 574.99,
-        "unrealized_pnl": -711.95,
+        "close_price": 41.24,
+        "market_value": 536.12,
+        "unrealized_pnl": -750.82,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "SGLD",
         "quantity": 7.0,
         "cost_basis": 1387.1,
-        "close_price": 434.84,
-        "market_value": 3043.88,
-        "unrealized_pnl": 1656.78,
+        "close_price": 392.5,
+        "market_value": 2747.5,
+        "unrealized_pnl": 1360.4,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "VDST",
         "quantity": 200.0,
         "cost_basis": 11753.48,
-        "close_price": 58.957,
-        "market_value": 11791.4,
-        "unrealized_pnl": 37.92,
+        "close_price": 59.043,
+        "market_value": 11808.6,
+        "unrealized_pnl": 55.12,
         "currency": "USD"
       },
       {
-        "as_of_date": "2026-05-25",
+        "as_of_date": "2026-06-11",
         "symbol": "VUAA",
         "quantity": 80.0,
         "cost_basis": 10081.46,
-        "close_price": 144.52,
-        "market_value": 11561.6,
-        "unrealized_pnl": 1480.14,
+        "close_price": 140.72,
+        "market_value": 11257.6,
+        "unrealized_pnl": 1176.14,
         "currency": "USD"
       }
     ],
@@ -855,6 +859,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "EUR",
         "source_section": "Trades",
         "source_line": "ACOMO 2026-04-07, 05:37:03 -30 27.3000 26.6500 819.00 -1.25 -721.87 95.88 19.50 C;IA"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-06-11",
+        "symbol": "DEFS",
+        "description": "IB trade 03:23:50",
+        "quantity": 500.0,
+        "price": 5.59,
+        "gross_amount": -2795.0,
+        "net_amount": -2796.48,
+        "fee": 1.48,
+        "tax": null,
+        "currency": "EUR",
+        "source_section": "Trades",
+        "source_line": "DEFS 2026-06-11, 03:23:50 500 5.5900 5.6320 -2,795.00 -1.48 2,796.48 0.00 21.00 O"
       },
       {
         "entry_type": "BUY",
@@ -903,6 +922,36 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "entry_type": "BUY",
+        "trade_date": "2026-06-10",
+        "symbol": "LQQ",
+        "description": "IB trade 08:56:52",
+        "quantity": 1.0,
+        "price": 1867.5081,
+        "gross_amount": -1867.51,
+        "net_amount": -1868.76,
+        "fee": 1.25,
+        "tax": null,
+        "currency": "EUR",
+        "source_section": "Trades",
+        "source_line": "LQQ 2026-06-10, 08:56:52 1 1,867.5081 1,855.6000 -1,867.51 -1.25 1,868.76 0.00 -11.91 O"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-06-10",
+        "symbol": "LQQ",
+        "description": "IB trade 09:57:39",
+        "quantity": 1.0,
+        "price": 1891.7465,
+        "gross_amount": 1891.75,
+        "net_amount": 1890.5,
+        "fee": 1.25,
+        "tax": null,
+        "currency": "EUR",
+        "source_section": "Trades",
+        "source_line": "LQQ 2026-06-10, 09:57:39 -1 1,891.7465 1,855.6000 1,891.75 -1.25 -1,868.76 21.74 36.15 C"
+      },
+      {
+        "entry_type": "BUY",
         "trade_date": "2026-04-13",
         "symbol": "SXRV",
         "description": "IB trade 03:31:07",
@@ -945,6 +994,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "EUR",
         "source_section": "Trades",
         "source_line": "SXRV 2026-04-17, 10:58:26 2 1,296.8000 1,298.6000 -2,593.60 -1.47 2,595.07 0.00 3.60 O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-06-10",
+        "symbol": "SXRV",
+        "description": "IB trade 09:58:15",
+        "quantity": 1.0,
+        "price": 1442.7038,
+        "gross_amount": -1442.7,
+        "net_amount": -1443.95,
+        "fee": 1.25,
+        "tax": null,
+        "currency": "EUR",
+        "source_section": "Trades",
+        "source_line": "SXRV 2026-06-10, 09:58:15 1 1,442.7038 1,427.6000 -1,442.70 -1.25 1,443.95 0.00 -15.10 O"
       },
       {
         "entry_type": "BUY",
@@ -1097,6 +1161,51 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "source_line": "DFND 2026-05-07, 04:27:50 -300 7.0650 7.0290 2,119.50 -1.06 -2,205.35 -86.91 10.80 C;IA"
       },
       {
+        "entry_type": "SELL",
+        "trade_date": "2026-06-11",
+        "symbol": "DFND",
+        "description": "IB trade 05:26:52",
+        "quantity": 300.0,
+        "price": 7.049,
+        "gross_amount": 2114.7,
+        "net_amount": 2113.64,
+        "fee": 1.06,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "DFND 2026-06-11, 05:26:52 -300 7.0490 7.1430 2,114.70 -1.06 -2,164.76 -51.12 -28.20 C;IA"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-06-11",
+        "symbol": "IITU",
+        "description": "IB trade 07:02:20",
+        "quantity": 40.0,
+        "price": 36.05,
+        "gross_amount": -1442.0,
+        "net_amount": -1443.0,
+        "fee": 1.0,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "IITU 2026-06-11, 07:02:20 40 36.0500 35.9600 -1,442.00 -1.00 1,443.00 0.00 -3.60 IA;O"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-06-11",
+        "symbol": "IITU",
+        "description": "IB trade 08:53:56",
+        "quantity": 40.0,
+        "price": 35.91,
+        "gross_amount": 1436.4,
+        "net_amount": 1435.4,
+        "fee": 1.0,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "IITU 2026-06-11, 08:53:56 -40 35.9100 35.9600 1,436.40 -1.00 -1,443.00 -7.60 -2.00 C;IA"
+      },
+      {
         "entry_type": "BUY",
         "trade_date": "2026-04-24",
         "symbol": "SEMI",
@@ -1125,6 +1234,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "GBP",
         "source_section": "Trades",
         "source_line": "SEMI 2026-05-06, 06:39:27 30 13.7807 13.7280 -413.42 -1.00 414.42 0.00 -1.58 O"
+      },
+      {
+        "entry_type": "BUY",
+        "trade_date": "2026-06-11",
+        "symbol": "SEMI",
+        "description": "IB trade 09:05:26",
+        "quantity": 50.0,
+        "price": 15.4051,
+        "gross_amount": -770.26,
+        "net_amount": -771.26,
+        "fee": 1.0,
+        "tax": null,
+        "currency": "GBP",
+        "source_section": "Trades",
+        "source_line": "SEMI 2026-06-11, 09:05:26 50 15.4051 15.6120 -770.26 -1.00 771.26 0.00 10.34 O"
       },
       {
         "entry_type": "SELL",
@@ -1278,6 +1402,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "entry_type": "BUY",
+        "trade_date": "2026-06-11",
+        "symbol": "CIBR",
+        "description": "IB trade 09:27:10",
+        "quantity": 40.0,
+        "price": 51.39,
+        "gross_amount": -2055.6,
+        "net_amount": -2057.38,
+        "fee": 1.78,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "CIBR 2026-06-11, 09:27:10 40 51.3900 52.0800 -2,055.60 -1.78 2,057.38 0.00 27.60 O"
+      },
+      {
+        "entry_type": "BUY",
         "trade_date": "2026-05-12",
         "symbol": "COPX",
         "description": "IB trade 06:52:46",
@@ -1305,6 +1444,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "USD",
         "source_section": "Trades",
         "source_line": "COPX 2026-05-15, 10:16:17 10 66.1700 65.3000 -661.70 -1.70 663.40 0.00 -8.70 IA;O"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-06-11",
+        "symbol": "COPX",
+        "description": "IB trade 05:28:43",
+        "quantity": 30.0,
+        "price": 61.68,
+        "gross_amount": 1850.4,
+        "net_amount": 1848.7,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "COPX 2026-06-11, 05:28:43 -30 61.6800 62.7100 1,850.40 -1.70 -2,026.26 -177.56 -30.90 C;IA"
       },
       {
         "entry_type": "SELL",
@@ -1365,6 +1519,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "USD",
         "source_section": "Trades",
         "source_line": "DEFS 2026-05-11, 05:53:52 100 6.3760 6.4020 -637.60 -1.78 639.38 0.00 2.60 O"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-06-11",
+        "symbol": "DEFS",
+        "description": "IB trade 03:23:15",
+        "quantity": 500.0,
+        "price": 6.4479,
+        "gross_amount": 3223.95,
+        "net_amount": 3222.25,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "DEFS 2026-06-11, 03:23:15 -500 6.4479 6.4935 3,223.95 -1.70 -3,513.08 -290.83 -22.80 C;P"
       },
       {
         "entry_type": "BUY",
@@ -2055,6 +2224,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "currency": "USD",
         "source_section": "Trades",
         "source_line": "IUIT 2026-05-06, 06:27:56 20 46.64515 46.8600 -932.90 -1.70 934.60 0.00 4.30 O;P"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-06-11",
+        "symbol": "IUIT",
+        "description": "IB trade 07:00:50",
+        "quantity": 40.0,
+        "price": 48.16,
+        "gross_amount": 1926.4,
+        "net_amount": 1924.7,
+        "fee": 1.7,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "IUIT 2026-06-11, 07:00:50 -40 48.1600 47.9900 1,926.40 -1.70 -1,826.50 98.20 6.80 C;IA"
       },
       {
         "entry_type": "BUY",
@@ -3576,249 +3760,239 @@ export const ib2026ImportedDashboardGoldenFixture = {
   "overview": {
     "account_id": "U8516450",
     "base_currency": "USD",
-    "statement_period": "January 1, 2026 - May 25, 2026",
-    "positions_count": 21,
-    "instruments_count": 61,
-    "ledger_entries_count": 182,
-    "total_market_value": 59419.95,
-    "total_cost_basis": 58449.84,
-    "total_unrealized_pnl": 970.11,
+    "statement_period": "January 1, 2026 - June 11, 2026",
+    "positions_count": 19,
+    "instruments_count": 64,
+    "ledger_entries_count": 194,
+    "total_market_value": 55702.96,
+    "total_cost_basis": 55988.31,
+    "total_unrealized_pnl": -285.35,
     "cash_by_currency": {
       "EUR": 0.0,
       "GBP": 0.0,
-      "USD": 2524.24
+      "USD": 4364.18
     },
     "top_positions": [
       {
         "symbol": "VDST",
-        "market_value": 11791.4,
-        "weight": 0.1984,
-        "unrealized_pnl": 37.92
+        "market_value": 11808.6,
+        "weight": 0.212,
+        "unrealized_pnl": 55.12
       },
       {
         "symbol": "VUAA",
-        "market_value": 11561.6,
-        "weight": 0.1946,
-        "unrealized_pnl": 1480.14
+        "market_value": 11257.6,
+        "weight": 0.2021,
+        "unrealized_pnl": 1176.14
       },
       {
         "symbol": "SXRV",
-        "market_value": 5889.6,
-        "weight": 0.0991,
-        "unrealized_pnl": 840.24
-      },
-      {
-        "symbol": "DEFS",
-        "market_value": 3247.5,
-        "weight": 0.0547,
-        "unrealized_pnl": -265.58
+        "market_value": 7179.0,
+        "weight": 0.1289,
+        "unrealized_pnl": 685.69
       },
       {
         "symbol": "IDFN",
-        "market_value": 3246.9,
-        "weight": 0.0546,
-        "unrealized_pnl": 148.39
-      },
-      {
-        "symbol": "IAUP",
-        "market_value": 3138.4,
-        "weight": 0.0528,
-        "unrealized_pnl": -270.7
+        "market_value": 3237.9,
+        "weight": 0.0581,
+        "unrealized_pnl": 139.39
       },
       {
         "symbol": "ICOM",
-        "market_value": 3070.5,
-        "weight": 0.0517,
-        "unrealized_pnl": 122.85
+        "market_value": 2898.75,
+        "weight": 0.052,
+        "unrealized_pnl": -48.9
+      },
+      {
+        "symbol": "DEFS",
+        "market_value": 2816.0,
+        "weight": 0.0506,
+        "unrealized_pnl": 19.52
+      },
+      {
+        "symbol": "IAUP",
+        "market_value": 2774.4,
+        "weight": 0.0498,
+        "unrealized_pnl": -634.7
       },
       {
         "symbol": "SGLD",
-        "market_value": 3043.88,
-        "weight": 0.0512,
-        "unrealized_pnl": 1656.78
+        "market_value": 2747.5,
+        "weight": 0.0493,
+        "unrealized_pnl": 1360.4
       },
       {
         "symbol": "AMZN",
-        "market_value": 2663.2,
-        "weight": 0.0448,
-        "unrealized_pnl": 1009.12
+        "market_value": 2415.1,
+        "weight": 0.0434,
+        "unrealized_pnl": 761.02
       },
       {
-        "symbol": "DFND",
-        "market_value": 2103.9,
-        "weight": 0.0354,
-        "unrealized_pnl": -60.86
+        "symbol": "SEMI",
+        "market_value": 2341.8,
+        "weight": 0.042,
+        "unrealized_pnl": 302.1
       }
     ],
     "sector_allocation": [
       {
-        "sector": "Fixed Income",
-        "market_value": 11791.4,
-        "weight": 0.1984
-      },
-      {
         "sector": "Broad Market",
-        "market_value": 11561.6,
-        "weight": 0.1946
+        "market_value": 13340.8,
+        "weight": 0.2395
       },
       {
-        "sector": "Commodities",
-        "market_value": 11198.58,
-        "weight": 0.1885
+        "sector": "Fixed Income",
+        "market_value": 11808.6,
+        "weight": 0.212
       },
       {
         "sector": "Technology",
-        "market_value": 11120.81,
-        "weight": 0.1872
+        "market_value": 11123.55,
+        "weight": 0.1997
+      },
+      {
+        "sector": "Commodities",
+        "market_value": 8420.65,
+        "weight": 0.1512
       },
       {
         "sector": "Defense",
-        "market_value": 8598.3,
-        "weight": 0.1447
+        "market_value": 6053.9,
+        "weight": 0.1087
       },
       {
         "sector": "Consumer Discretionary",
-        "market_value": 3219.2,
-        "weight": 0.0542
+        "market_value": 2963.5,
+        "weight": 0.0532
       },
       {
         "sector": "Communication Services",
-        "market_value": 746.27,
-        "weight": 0.0126
+        "market_value": 866.92,
+        "weight": 0.0156
       },
       {
         "sector": "Health Care",
-        "market_value": 608.8,
-        "weight": 0.0102
+        "market_value": 588.92,
+        "weight": 0.0106
       },
       {
         "sector": "Financials",
-        "market_value": 574.99,
-        "weight": 0.0097
+        "market_value": 536.12,
+        "weight": 0.0096
       }
     ],
     "sector_position_breakdown": {
+      "Defense": [
+        {
+          "symbol": "IDFN",
+          "market_value": 3237.9,
+          "weight": 0.0581
+        },
+        {
+          "symbol": "DEFS",
+          "market_value": 2816.0,
+          "weight": 0.0506
+        }
+      ],
       "Technology": [
         {
           "symbol": "SXRV",
-          "market_value": 5889.6,
-          "weight": 0.0991
-        },
-        {
-          "symbol": "IUIT",
-          "market_value": 1991.2,
-          "weight": 0.0335
+          "market_value": 7179.0,
+          "weight": 0.1289
         },
         {
           "symbol": "SEMI",
-          "market_value": 1490.0,
-          "weight": 0.0251
+          "market_value": 2341.8,
+          "weight": 0.042
         },
         {
           "symbol": "CRM",
-          "market_value": 1260.49,
-          "weight": 0.0212
+          "market_value": 1165.15,
+          "weight": 0.0209
         },
         {
           "symbol": "ADBE",
-          "market_value": 489.52,
-          "weight": 0.0082
-        }
-      ],
-      "Defense": [
-        {
-          "symbol": "DEFS",
-          "market_value": 3247.5,
-          "weight": 0.0547
-        },
-        {
-          "symbol": "IDFN",
-          "market_value": 3246.9,
-          "weight": 0.0546
-        },
-        {
-          "symbol": "DFND",
-          "market_value": 2103.9,
-          "weight": 0.0354
+          "market_value": 437.6,
+          "weight": 0.0079
         }
       ],
       "Health Care": [
         {
           "symbol": "CRSP",
-          "market_value": 402.88,
-          "weight": 0.0068
+          "market_value": 401.84,
+          "weight": 0.0072
         },
         {
           "symbol": "EDIT",
-          "market_value": 115.92,
-          "weight": 0.002
+          "market_value": 102.48,
+          "weight": 0.0018
         },
         {
           "symbol": "ALLO",
-          "market_value": 90.0,
+          "market_value": 84.6,
           "weight": 0.0015
         }
       ],
       "Consumer Discretionary": [
         {
           "symbol": "AMZN",
-          "market_value": 2663.2,
-          "weight": 0.0448
+          "market_value": 2415.1,
+          "weight": 0.0434
         },
         {
           "symbol": "LYFT",
-          "market_value": 556.0,
-          "weight": 0.0094
-        }
-      ],
-      "Commodities": [
-        {
-          "symbol": "IAUP",
-          "market_value": 3138.4,
-          "weight": 0.0528
-        },
-        {
-          "symbol": "ICOM",
-          "market_value": 3070.5,
-          "weight": 0.0517
-        },
-        {
-          "symbol": "SGLD",
-          "market_value": 3043.88,
-          "weight": 0.0512
-        },
-        {
-          "symbol": "COPX",
-          "market_value": 1945.8,
-          "weight": 0.0327
-        }
-      ],
-      "Communication Services": [
-        {
-          "symbol": "DUOL",
-          "market_value": 746.27,
-          "weight": 0.0126
-        }
-      ],
-      "Financials": [
-        {
-          "symbol": "PYPL",
-          "market_value": 574.99,
-          "weight": 0.0097
-        }
-      ],
-      "Fixed Income": [
-        {
-          "symbol": "VDST",
-          "market_value": 11791.4,
-          "weight": 0.1984
+          "market_value": 548.4,
+          "weight": 0.0098
         }
       ],
       "Broad Market": [
         {
           "symbol": "VUAA",
-          "market_value": 11561.6,
-          "weight": 0.1946
+          "market_value": 11257.6,
+          "weight": 0.2021
+        },
+        {
+          "symbol": "CIBR",
+          "market_value": 2083.2,
+          "weight": 0.0374
+        }
+      ],
+      "Communication Services": [
+        {
+          "symbol": "DUOL",
+          "market_value": 866.92,
+          "weight": 0.0156
+        }
+      ],
+      "Commodities": [
+        {
+          "symbol": "ICOM",
+          "market_value": 2898.75,
+          "weight": 0.052
+        },
+        {
+          "symbol": "IAUP",
+          "market_value": 2774.4,
+          "weight": 0.0498
+        },
+        {
+          "symbol": "SGLD",
+          "market_value": 2747.5,
+          "weight": 0.0493
+        }
+      ],
+      "Financials": [
+        {
+          "symbol": "PYPL",
+          "market_value": 536.12,
+          "weight": 0.0096
+        }
+      ],
+      "Fixed Income": [
+        {
+          "symbol": "VDST",
+          "market_value": 11808.6,
+          "weight": 0.212
         }
       ]
     },
@@ -3826,23 +4000,23 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "DIVIDEND": 23,
       "WITHHOLDING_TAX": 26,
       "FEE": 5,
-      "BUY": 69,
-      "SELL": 57,
+      "BUY": 75,
+      "SELL": 63,
       "DEPOSIT": 1,
       "INTEREST": 1
     },
     "realized_cash_flow": {
-      "USD": 5210.9,
-      "EUR": -4132.6,
-      "GBP": -3545.33
+      "USD": 10149.17,
+      "EUR": -8351.29,
+      "GBP": -2210.55
     }
   },
   "risk_summary": {
     "benchmark_symbol": "SPY",
     "methodology": "imported dashboard history",
     "start_date": "2026-01-08",
-    "end_date": "2026-05-22",
-    "observations": 94,
+    "end_date": "2026-06-11",
+    "observations": 107,
     "portfolio_beta": null,
     "portfolio_correlation": null,
     "r_squared": null,
@@ -3852,7 +4026,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
   "benchmark": {
     "symbol": "SPY",
     "start_price": 689.51,
-    "end_price": 745.64,
+    "end_price": 737.76,
     "return_pct": null,
     "return_basis_contract": "price_return_only",
     "points": [
@@ -4231,6 +4405,58 @@ export const ib2026ImportedDashboardGoldenFixture = {
       {
         "date": "2026-05-22",
         "price": 745.64
+      },
+      {
+        "date": "2026-05-26",
+        "price": 750.59
+      },
+      {
+        "date": "2026-05-27",
+        "price": 750.46
+      },
+      {
+        "date": "2026-05-28",
+        "price": 754.6
+      },
+      {
+        "date": "2026-05-29",
+        "price": 756.48
+      },
+      {
+        "date": "2026-06-01",
+        "price": 758.54
+      },
+      {
+        "date": "2026-06-02",
+        "price": 759.57
+      },
+      {
+        "date": "2026-06-03",
+        "price": 754.24
+      },
+      {
+        "date": "2026-06-04",
+        "price": 757.09
+      },
+      {
+        "date": "2026-06-05",
+        "price": 737.55
+      },
+      {
+        "date": "2026-06-08",
+        "price": 739.22
+      },
+      {
+        "date": "2026-06-09",
+        "price": 737.05
+      },
+      {
+        "date": "2026-06-10",
+        "price": 725.43
+      },
+      {
+        "date": "2026-06-11",
+        "price": 737.76
       }
     ]
   },
@@ -17198,8 +17424,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 7.186999797821045,
-          "market_value": 2156.1
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -17328,8 +17554,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 3032.16
         }
       ],
-      "total_market_value": 17460.62,
-      "total_portfolio_value": 55361.47,
+      "total_market_value": 15304.52,
+      "total_portfolio_value": 53205.37,
       "external_cash_flow": 0.0
     },
     {
@@ -17383,8 +17609,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 400.0,
-          "market_price": 7.422500133514404,
-          "market_value": 2969.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -17501,8 +17727,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 3910.2
         }
       ],
-      "total_market_value": 23112.51,
-      "total_portfolio_value": 59562.39,
+      "total_market_value": 20143.51,
+      "total_portfolio_value": 56593.39,
       "external_cash_flow": 0.0
     },
     {
@@ -17556,8 +17782,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 400.0,
-          "market_price": 7.429999828338623,
-          "market_value": 2972.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -17674,8 +17900,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 5240.0
         }
       ],
-      "total_market_value": 24634.73,
-      "total_portfolio_value": 59780.08,
+      "total_market_value": 21662.73,
+      "total_portfolio_value": 56808.08,
       "external_cash_flow": 0.0
     },
     {
@@ -17723,8 +17949,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 600.0,
-          "market_price": 7.316999912261963,
-          "market_value": 4390.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -17823,8 +18049,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10531.2
         }
       ],
-      "total_market_value": 34296.6,
-      "total_portfolio_value": 79750.92,
+      "total_market_value": 29906.4,
+      "total_portfolio_value": 75360.72,
       "external_cash_flow": 9963.0
     },
     {
@@ -17866,8 +18092,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 900.0,
-          "market_price": 7.3480000495910645,
-          "market_value": 6613.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -17966,8 +18192,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10507.2
         }
       ],
-      "total_market_value": 41177.33,
-      "total_portfolio_value": 83514.03,
+      "total_market_value": 34564.13,
+      "total_portfolio_value": 76900.83,
       "external_cash_flow": 0.0
     },
     {
@@ -18015,8 +18241,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 7.452000141143799,
-          "market_value": 5216.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DFNS",
@@ -18127,8 +18353,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10708.8
         }
       ],
-      "total_market_value": 45895.07,
-      "total_portfolio_value": 81039.61,
+      "total_market_value": 40678.67,
+      "total_portfolio_value": 75823.21,
       "external_cash_flow": 0.0
     },
     {
@@ -18176,8 +18402,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 7.375999927520752,
-          "market_value": 5163.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DFNS",
@@ -18288,8 +18514,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10779.2
         }
       ],
-      "total_market_value": 46127.38,
-      "total_portfolio_value": 81271.92,
+      "total_market_value": 40964.18,
+      "total_portfolio_value": 76108.72,
       "external_cash_flow": 0.0
     },
     {
@@ -18337,8 +18563,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 7.290999889373779,
-          "market_value": 5103.7
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DFNS",
@@ -18431,8 +18657,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10849.6
         }
       ],
-      "total_market_value": 46265.14,
-      "total_portfolio_value": 83643.98,
+      "total_market_value": 41161.44,
+      "total_portfolio_value": 78540.28,
       "external_cash_flow": 0.0
     },
     {
@@ -18480,8 +18706,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 7.420499801635742,
-          "market_value": 5194.35
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -18562,8 +18788,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11000.0
         }
       ],
-      "total_market_value": 49116.5,
-      "total_portfolio_value": 86869.21,
+      "total_market_value": 43922.15,
+      "total_portfolio_value": 81674.86,
       "external_cash_flow": 0.0
     },
     {
@@ -18611,8 +18837,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 7.317999839782715,
-          "market_value": 5122.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -18693,8 +18919,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10945.6
         }
       ],
-      "total_market_value": 48983.29,
-      "total_portfolio_value": 86736.0,
+      "total_market_value": 43860.69,
+      "total_portfolio_value": 81613.4,
       "external_cash_flow": 0.0
     },
     {
@@ -18742,8 +18968,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 7.065999984741211,
-          "market_value": 4946.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -18824,8 +19050,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10929.6
         }
       ],
-      "total_market_value": 48666.35,
-      "total_portfolio_value": 86419.06,
+      "total_market_value": 43720.15,
+      "total_portfolio_value": 81472.86,
       "external_cash_flow": 0.0
     },
     {
@@ -18873,8 +19099,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.932000160217285,
-          "market_value": 4852.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -18949,8 +19175,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10982.4
         }
       ],
-      "total_market_value": 48820.33,
-      "total_portfolio_value": 87475.77,
+      "total_market_value": 43967.93,
+      "total_portfolio_value": 82623.37,
       "external_cash_flow": 0.0
     },
     {
@@ -18998,8 +19224,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.978000164031982,
-          "market_value": 4884.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19040,8 +19266,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 44.66999816894531,
-          "market_value": 893.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19080,8 +19306,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11017.6
         }
       ],
-      "total_market_value": 50467.31,
-      "total_portfolio_value": 88065.78,
+      "total_market_value": 44689.31,
+      "total_portfolio_value": 82287.78,
       "external_cash_flow": 0.0
     },
     {
@@ -19129,8 +19355,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.791999816894531,
-          "market_value": 4754.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19171,8 +19397,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 45.04999923706055,
-          "market_value": 901.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19217,8 +19443,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11009.6
         }
       ],
-      "total_market_value": 55774.74,
-      "total_portfolio_value": 89574.59,
+      "total_market_value": 50119.34,
+      "total_portfolio_value": 83919.19,
       "external_cash_flow": 0.0
     },
     {
@@ -19266,8 +19492,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.7829999923706055,
-          "market_value": 4748.1
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19296,8 +19522,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 45.0099983215332,
-          "market_value": 900.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19342,8 +19568,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11028.8
         }
       ],
-      "total_market_value": 55809.67,
-      "total_portfolio_value": 94951.44,
+      "total_market_value": 50161.37,
+      "total_portfolio_value": 89303.14,
       "external_cash_flow": 0.0
     },
     {
@@ -19391,8 +19617,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.763000011444092,
-          "market_value": 4734.1
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19421,8 +19647,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 44.38999938964844,
-          "market_value": 887.8
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19467,8 +19693,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10977.6
         }
       ],
-      "total_market_value": 55546.46,
-      "total_portfolio_value": 94688.23,
+      "total_market_value": 49924.56,
+      "total_portfolio_value": 89066.33,
       "external_cash_flow": 0.0
     },
     {
@@ -19516,8 +19742,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.730999946594238,
-          "market_value": 4711.7
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19546,8 +19772,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 44.900001525878906,
-          "market_value": 898.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19592,8 +19818,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10995.2
         }
       ],
-      "total_market_value": 55705.18,
-      "total_portfolio_value": 94846.95,
+      "total_market_value": 50095.48,
+      "total_portfolio_value": 89237.25,
       "external_cash_flow": 0.0
     },
     {
@@ -19641,8 +19867,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.835000038146973,
-          "market_value": 4784.5
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19671,8 +19897,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 44.45000076293945,
-          "market_value": 889.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19717,8 +19943,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11051.2
         }
       ],
-      "total_market_value": 55993.12,
-      "total_portfolio_value": 95134.89,
+      "total_market_value": 50319.62,
+      "total_portfolio_value": 89461.39,
       "external_cash_flow": 0.0
     },
     {
@@ -19766,8 +19992,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.860000133514404,
-          "market_value": 4802.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19796,8 +20022,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 45.310001373291016,
-          "market_value": 906.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19842,8 +20068,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11187.2
         }
       ],
-      "total_market_value": 56319.19,
-      "total_portfolio_value": 95460.96,
+      "total_market_value": 50610.99,
+      "total_portfolio_value": 89752.76,
       "external_cash_flow": 0.0
     },
     {
@@ -19891,8 +20117,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.860000133514404,
-          "market_value": 4802.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -19921,8 +20147,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 45.310001373291016,
-          "market_value": 906.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -19967,8 +20193,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11187.2
         }
       ],
-      "total_market_value": 56462.87,
-      "total_portfolio_value": 95604.64,
+      "total_market_value": 50754.67,
+      "total_portfolio_value": 89896.44,
       "external_cash_flow": 0.0
     },
     {
@@ -20016,8 +20242,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 700.0,
-          "market_price": 6.879499912261963,
-          "market_value": 4815.65
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20046,8 +20272,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 20.0,
-          "market_price": 45.83000183105469,
-          "market_value": 916.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -20092,8 +20318,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11184.0
         }
       ],
-      "total_market_value": 57330.79,
-      "total_portfolio_value": 95671.17,
+      "total_market_value": 51598.54,
+      "total_portfolio_value": 89938.92,
       "external_cash_flow": 0.0
     },
     {
@@ -20141,8 +20367,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 600.0,
-          "market_price": 7.0879998207092285,
-          "market_value": 4252.8
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20171,8 +20397,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 46.86000061035156,
-          "market_value": 1874.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -20217,8 +20443,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11321.6
         }
       ],
-      "total_market_value": 59257.41,
-      "total_portfolio_value": 96945.21,
+      "total_market_value": 53130.21,
+      "total_portfolio_value": 90818.01,
       "external_cash_flow": 0.0
     },
     {
@@ -20266,8 +20492,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 7.0289998054504395,
-          "market_value": 2108.7
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20302,8 +20528,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 47.68000030517578,
-          "market_value": 1907.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -20348,8 +20574,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11376.0
         }
       ],
-      "total_market_value": 59021.2,
-      "total_portfolio_value": 97013.92,
+      "total_market_value": 55005.3,
+      "total_portfolio_value": 92998.02,
       "external_cash_flow": 0.0
     },
     {
@@ -20397,8 +20623,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.933000087738037,
-          "market_value": 2079.9
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20433,8 +20659,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 48.15999984741211,
-          "market_value": 1926.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -20479,8 +20705,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11396.8
         }
       ],
-      "total_market_value": 58966.95,
-      "total_portfolio_value": 96959.67,
+      "total_market_value": 54960.65,
+      "total_portfolio_value": 92953.37,
       "external_cash_flow": 0.0
     },
     {
@@ -20528,8 +20754,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.945000171661377,
-          "market_value": 2083.5
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20564,8 +20790,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 48.91999816894531,
-          "market_value": 1956.8
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -20610,8 +20836,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11441.6
         }
       ],
-      "total_market_value": 59866.75,
-      "total_portfolio_value": 97220.09,
+      "total_market_value": 55826.45,
+      "total_portfolio_value": 93179.79,
       "external_cash_flow": 0.0
     },
     {
@@ -20641,8 +20867,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 20.0,
-          "market_price": 90.77,
-          "market_value": 1815.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -20665,8 +20891,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.889999866485596,
-          "market_value": 2067.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20701,8 +20927,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 47.84000015258789,
-          "market_value": 1913.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -20747,8 +20973,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11336.0
         }
       ],
-      "total_market_value": 61000.93,
-      "total_portfolio_value": 96991.41,
+      "total_market_value": 55204.93,
+      "total_portfolio_value": 91195.41,
       "external_cash_flow": 0.0
     },
     {
@@ -20778,8 +21004,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 20.0,
-          "market_price": 91.91,
-          "market_value": 1838.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -20802,8 +21028,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.953000068664551,
-          "market_value": 2085.9
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20838,8 +21064,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 48.709999084472656,
-          "market_value": 1948.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -20884,8 +21110,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11438.4
         }
       ],
-      "total_market_value": 61487.94,
-      "total_portfolio_value": 97478.42,
+      "total_market_value": 55615.44,
+      "total_portfolio_value": 91605.92,
       "external_cash_flow": 0.0
     },
     {
@@ -20915,8 +21141,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 20.0,
-          "market_price": 89.38,
-          "market_value": 1787.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -20939,8 +21165,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.942999839782715,
-          "market_value": 2082.9
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -20975,8 +21201,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 49.95000076293945,
-          "market_value": 1998.0
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -21021,8 +21247,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11580.8
         }
       ],
-      "total_market_value": 61674.16,
-      "total_portfolio_value": 97664.64,
+      "total_market_value": 55805.66,
+      "total_portfolio_value": 91796.14,
       "external_cash_flow": 0.0
     },
     {
@@ -21052,8 +21278,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 30.0,
-          "market_price": 83.05,
-          "market_value": 2491.5
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -21076,8 +21302,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.828000068664551,
-          "market_value": 2048.4
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -21112,8 +21338,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 49.33000183105469,
-          "market_value": 1973.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -21158,8 +21384,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11464.0
         }
       ],
-      "total_market_value": 61550.79,
-      "total_portfolio_value": 96877.87,
+      "total_market_value": 55037.69,
+      "total_portfolio_value": 90364.77,
       "external_cash_flow": 0.0
     },
     {
@@ -21189,8 +21415,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 30.0,
-          "market_price": 81.85,
-          "market_value": 2455.5
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -21213,8 +21439,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.818999767303467,
-          "market_value": 2045.7
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -21249,8 +21475,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 48.33000183105469,
-          "market_value": 1933.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -21295,8 +21521,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11388.8
         }
       ],
-      "total_market_value": 61420.43,
-      "total_portfolio_value": 96747.51,
+      "total_market_value": 54986.03,
+      "total_portfolio_value": 90313.11,
       "external_cash_flow": 0.0
     },
     {
@@ -21326,8 +21552,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 30.0,
-          "market_price": 79.37,
-          "market_value": 2381.1
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -21350,8 +21576,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.813000202178955,
-          "market_value": 2043.9
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -21386,8 +21612,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 47.9900016784668,
-          "market_value": 1919.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -21432,8 +21658,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11328.0
         }
       ],
-      "total_market_value": 60999.83,
-      "total_portfolio_value": 96326.91,
+      "total_market_value": 54655.23,
+      "total_portfolio_value": 89982.31,
       "external_cash_flow": 0.0
     },
     {
@@ -21463,8 +21689,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 30.0,
-          "market_price": 82.31,
-          "market_value": 2469.3
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -21487,8 +21713,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.9710001945495605,
-          "market_value": 2091.3
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -21523,8 +21749,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 48.9900016784668,
-          "market_value": 1959.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -21569,8 +21795,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11444.8
         }
       ],
-      "total_market_value": 61791.2,
-      "total_portfolio_value": 97118.28,
+      "total_market_value": 55271.0,
+      "total_portfolio_value": 90598.08,
       "external_cash_flow": 0.0
     },
     {
@@ -21600,8 +21826,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 30.0,
-          "market_price": 83.02,
-          "market_value": 2490.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -21624,8 +21850,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 6.935500144958496,
-          "market_value": 2080.65
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -21660,8 +21886,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 48.84000015258789,
-          "market_value": 1953.6
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -21706,14 +21932,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11416.0
         }
       ],
-      "total_market_value": 61724.54,
-      "total_portfolio_value": 97051.62,
+      "total_market_value": 55199.69,
+      "total_portfolio_value": 90526.77,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-22",
       "cash": {
-        "USD": 2524.24
+        "USD": 35327.08
       },
       "positions": [
         {
@@ -21737,8 +21963,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "COPX",
           "quantity": 30.0,
-          "market_price": 83.35,
-          "market_value": 2500.5
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "CRM",
@@ -21761,8 +21987,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DFND",
           "quantity": 300.0,
-          "market_price": 7.013000011444092,
-          "market_value": 2103.9
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "DUOL",
@@ -21797,8 +22023,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUIT",
           "quantity": 40.0,
-          "market_price": 49.779998779296875,
-          "market_value": 1991.2
+          "market_price": null,
+          "market_value": null
         },
         {
           "symbol": "LYFT",
@@ -21843,8 +22069,1777 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11561.6
         }
       ],
-      "total_market_value": 62214.25,
-      "total_portfolio_value": 64171.87,
+      "total_market_value": 55618.65,
+      "total_portfolio_value": 90945.73,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-26",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 240.49,
+          "market_value": 480.98
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.12,
+          "market_value": 95.4
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 265.29,
+          "market_value": 2652.9
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 179.08,
+          "market_value": 1253.56
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.59,
+          "market_value": 412.72
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.5920000076293945,
+          "market_value": 3296.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 106.48,
+          "market_value": 745.36
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.08,
+          "market_value": 129.36
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 40.20000076293945,
+          "market_value": 3216.0
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.125,
+          "market_value": 3037.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.359999656677246,
+          "market_value": 3408.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.58,
+          "market_value": 543.2
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.16,
+          "market_value": 574.08
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 38.55,
+          "market_value": 3855.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 433.5799865722656,
+          "market_value": 3035.06
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1479.0,
+          "market_value": 5916.0
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.9474983215332,
+          "market_value": 11789.5
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.9600067138672,
+          "market_value": 11596.8
+        }
+      ],
+      "total_market_value": 56037.42,
+      "total_portfolio_value": 91364.5,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-27",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 238.24,
+          "market_value": 476.48
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.25,
+          "market_value": 101.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 271.85,
+          "market_value": 2718.5
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 177.51,
+          "market_value": 1242.57
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 53.53,
+          "market_value": 428.24
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.622499942779541,
+          "market_value": 3311.25
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 107.82,
+          "market_value": 754.74
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.57,
+          "market_value": 149.94
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 40.0099983215332,
+          "market_value": 3200.8
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.975000381469727,
+          "market_value": 2992.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.404000282287598,
+          "market_value": 3421.2
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.7,
+          "market_value": 548.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 43.76,
+          "market_value": 568.88
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 38.47,
+          "market_value": 3847.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 427.0899963378906,
+          "market_value": 2989.63
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1474.5999755859375,
+          "market_value": 5898.4
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.94499969482422,
+          "market_value": 11789.0
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.9600067138672,
+          "market_value": 11596.8
+        }
+      ],
+      "total_market_value": 56035.18,
+      "total_portfolio_value": 91362.26,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-28",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 241.44,
+          "market_value": 482.88
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.25,
+          "market_value": 101.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 274.0,
+          "market_value": 2740.0
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 176.17,
+          "market_value": 1233.19
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.38,
+          "market_value": 451.04
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.859000205993652,
+          "market_value": 3429.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 108.67,
+          "market_value": 760.69
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.43,
+          "market_value": 144.06
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.720001220703125,
+          "market_value": 3177.6
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.015000343322754,
+          "market_value": 3004.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.87600040435791,
+          "market_value": 3562.8
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.82,
+          "market_value": 552.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.46,
+          "market_value": 577.98
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 38.75,
+          "market_value": 3875.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 431.2099914550781,
+          "market_value": 3018.47
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1488.4000244140625,
+          "market_value": 5953.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.992000579833984,
+          "market_value": 11798.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 145.74000549316406,
+          "market_value": 11659.2
+        }
+      ],
+      "total_market_value": 56522.96,
+      "total_portfolio_value": 91850.04,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-05-29",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 259.21,
+          "market_value": 518.42
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.17,
+          "market_value": 97.65
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 270.64,
+          "market_value": 2706.4
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 191.1,
+          "market_value": 1337.7
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.18,
+          "market_value": 449.44
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.874499797821045,
+          "market_value": 3437.25
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 111.36,
+          "market_value": 779.52
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.46,
+          "market_value": 145.32
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 41.099998474121094,
+          "market_value": 3288.0
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.982500076293945,
+          "market_value": 2994.75
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.680000305175781,
+          "market_value": 3504.0
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.11,
+          "market_value": 564.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.75,
+          "market_value": 581.75
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 39.12,
+          "market_value": 3912.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 440.6199951171875,
+          "market_value": 3084.34
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1492.0,
+          "market_value": 5968.0
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.965999603271484,
+          "market_value": 11793.2
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 146.33999633789062,
+          "market_value": 11707.2
+        }
+      ],
+      "total_market_value": 56869.34,
+      "total_portfolio_value": 92196.42,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-01",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 274.03,
+          "market_value": 548.06
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.15,
+          "market_value": 96.75
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 261.26,
+          "market_value": 2612.6
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 209.6,
+          "market_value": 1467.2
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 54.19,
+          "market_value": 433.52
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.498000144958496,
+          "market_value": 3249.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 117.97,
+          "market_value": 825.79
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 3.34,
+          "market_value": 140.28
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.72999954223633,
+          "market_value": 3178.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.130000114440918,
+          "market_value": 3039.0
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.392000198364258,
+          "market_value": 3417.6
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.86,
+          "market_value": 594.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 45.19,
+          "market_value": 587.47
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 39.95,
+          "market_value": 3995.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 430.8500061035156,
+          "market_value": 3015.95
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1506.0,
+          "market_value": 6024.0
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.97999954223633,
+          "market_value": 11796.0
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 146.36000061035156,
+          "market_value": 11708.8
+        }
+      ],
+      "total_market_value": 56729.82,
+      "total_portfolio_value": 92056.9,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-02",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 262.11,
+          "market_value": 524.22
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.05,
+          "market_value": 92.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 256.52,
+          "market_value": 2565.2
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 200.84,
+          "market_value": 1405.88
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.02,
+          "market_value": 416.16
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.48199987411499,
+          "market_value": 3241.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 109.95,
+          "market_value": 769.65
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.82,
+          "market_value": 118.44
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 40.36000061035156,
+          "market_value": 3228.8
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.085000038146973,
+          "market_value": 3025.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.494000434875488,
+          "market_value": 3448.2
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.11,
+          "market_value": 564.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 44.53,
+          "market_value": 578.89
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 40.66,
+          "market_value": 4066.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 433.6099853515625,
+          "market_value": 3035.27
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1511.199951171875,
+          "market_value": 6044.8
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.98099899291992,
+          "market_value": 11796.2
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 146.8800048828125,
+          "market_value": 11750.4
+        }
+      ],
+      "total_market_value": 56671.26,
+      "total_portfolio_value": 91998.34,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-03",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 256.24,
+          "market_value": 512.48
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.0,
+          "market_value": 90.0
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 250.02,
+          "market_value": 2500.2
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 190.61,
+          "market_value": 1334.27
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 52.08,
+          "market_value": 416.64
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.391499996185303,
+          "market_value": 3195.75
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 107.4,
+          "market_value": 751.8
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.78,
+          "market_value": 116.76
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.4900016784668,
+          "market_value": 3159.2
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 10.125,
+          "market_value": 3037.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.281000137329102,
+          "market_value": 3384.3
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.09,
+          "market_value": 563.6
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 42.61,
+          "market_value": 553.93
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 40.47,
+          "market_value": 4047.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 427.30999755859375,
+          "market_value": 2991.17
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1513.4000244140625,
+          "market_value": 6053.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 58.98899841308594,
+          "market_value": 11797.8
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 146.0800018310547,
+          "market_value": 11686.4
+        }
+      ],
+      "total_market_value": 56192.4,
+      "total_portfolio_value": 91519.48,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-04",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 258.42,
+          "market_value": 516.84
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 2.04,
+          "market_value": 91.8
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 253.79,
+          "market_value": 2537.9
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 188.75,
+          "market_value": 1321.25
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 56.95,
+          "market_value": 455.6
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.4770002365112305,
+          "market_value": 3238.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 109.15,
+          "market_value": 764.05
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.99,
+          "market_value": 125.58
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 39.84000015258789,
+          "market_value": 3187.2
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.9975004196167,
+          "market_value": 2999.25
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.477999687194824,
+          "market_value": 3443.4
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.12,
+          "market_value": 564.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 42.75,
+          "market_value": 555.75
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 40.0,
+          "market_value": 4000.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 430.2699890136719,
+          "market_value": 3011.89
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1500.800048828125,
+          "market_value": 6003.2
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 59.013999938964844,
+          "market_value": 11802.8
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 146.0800018310547,
+          "market_value": 11686.4
+        }
+      ],
+      "total_market_value": 56306.21,
+      "total_portfolio_value": 91633.29,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-05",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 251.44,
+          "market_value": 502.88
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.88,
+          "market_value": 84.6
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 246.03,
+          "market_value": 2460.3
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 185.66,
+          "market_value": 1299.62
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.84,
+          "market_value": 414.72
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.47599983215332,
+          "market_value": 3238.0
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 109.03,
+          "market_value": 763.21
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.71,
+          "market_value": 113.82
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 37.15999984741211,
+          "market_value": 2972.8
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.824999809265137,
+          "market_value": 2947.5
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 11.022000312805176,
+          "market_value": 3306.6
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.65,
+          "market_value": 546.0
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.29,
+          "market_value": 536.77
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.34,
+          "market_value": 3734.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 418.29998779296875,
+          "market_value": 2928.1
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1475.0,
+          "market_value": 5900.0
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 59.00400161743164,
+          "market_value": 11800.8
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 144.52000427246094,
+          "market_value": 11561.6
+        }
+      ],
+      "total_market_value": 55111.32,
+      "total_portfolio_value": 90438.4,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-08",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 244.99,
+          "market_value": 489.98
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.85,
+          "market_value": 83.25
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 245.22,
+          "market_value": 2452.2
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 182.55,
+          "market_value": 1277.85
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.6,
+          "market_value": 412.8
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.441500186920166,
+          "market_value": 3220.75
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 117.96,
+          "market_value": 825.72
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.65,
+          "market_value": 111.3
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 36.849998474121094,
+          "market_value": 2948.0
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.800000190734863,
+          "market_value": 2940.0
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.937999725341797,
+          "market_value": 3281.4
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 14.02,
+          "market_value": 560.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.26,
+          "market_value": 536.38
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 38.15,
+          "market_value": 3815.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 416.8399963378906,
+          "market_value": 2917.88
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1470.199951171875,
+          "market_value": 5880.8
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 59.016998291015625,
+          "market_value": 11803.4
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 143.47999572753906,
+          "market_value": 11478.4
+        }
+      ],
+      "total_market_value": 55035.91,
+      "total_portfolio_value": 90362.99,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-09",
+      "cash": {
+        "USD": 35327.08
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 237.88,
+          "market_value": 475.76
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.82,
+          "market_value": 81.9
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 244.19,
+          "market_value": 2441.9
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 175.35,
+          "market_value": 1227.45
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 51.48,
+          "market_value": 411.84
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.416999816894531,
+          "market_value": 3208.5
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 117.86,
+          "market_value": 825.02
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.65,
+          "market_value": 111.3
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 35.5,
+          "market_value": 2840.0
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.657500267028809,
+          "market_value": 2897.25
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.527999877929688,
+          "market_value": 3158.4
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.87,
+          "market_value": 554.8
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.46,
+          "market_value": 538.98
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 37.9,
+          "market_value": 3790.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 411.04998779296875,
+          "market_value": 2877.35
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 4.0,
+          "market_price": 1432.4000244140625,
+          "market_value": 5729.6
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 59.025001525878906,
+          "market_value": 11805.0
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 141.3000030517578,
+          "market_value": 11304.0
+        }
+      ],
+      "total_market_value": 54279.05,
+      "total_portfolio_value": 89606.13,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-10",
+      "cash": {
+        "USD": 33904.87
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 233.38,
+          "market_value": 466.76
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.78,
+          "market_value": 80.1
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 238.0,
+          "market_value": 2380.0
+        },
+        {
+          "symbol": "COPX",
+          "quantity": 30.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 170.92,
+          "market_value": 1196.44
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 49.44,
+          "market_value": 395.52
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.418499946594238,
+          "market_value": 3209.25
+        },
+        {
+          "symbol": "DFND",
+          "quantity": 300.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 121.92,
+          "market_value": 853.44
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.48,
+          "market_value": 104.16
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 34.630001068115234,
+          "market_value": 2770.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.667499542236328,
+          "market_value": 2900.25
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.522000312805176,
+          "market_value": 3156.6
+        },
+        {
+          "symbol": "IUIT",
+          "quantity": 40.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.39,
+          "market_value": 535.6
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 40.7,
+          "market_value": 529.1
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 100.0,
+          "market_price": 36.78,
+          "market_value": 3678.0
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 397.2699890136719,
+          "market_value": 2780.89
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 5.0,
+          "market_price": 1427.5999755859375,
+          "market_value": 7138.0
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 59.03099822998047,
+          "market_value": 11806.2
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 141.36000061035156,
+          "market_value": 11308.8
+        }
+      ],
+      "total_market_value": 55289.51,
+      "total_portfolio_value": 89194.38,
+      "external_cash_flow": 0.0
+    },
+    {
+      "date": "2026-06-11",
+      "cash": {
+        "USD": 4364.18
+      },
+      "positions": [
+        {
+          "symbol": "ADBE",
+          "quantity": 2.0,
+          "market_price": 218.8,
+          "market_value": 437.6
+        },
+        {
+          "symbol": "ALLO",
+          "quantity": 45.0,
+          "market_price": 1.88,
+          "market_value": 84.6
+        },
+        {
+          "symbol": "AMZN",
+          "quantity": 10.0,
+          "market_price": 241.51,
+          "market_value": 2415.1
+        },
+        {
+          "symbol": "CIBR",
+          "quantity": 40.0,
+          "market_price": 85.47,
+          "market_value": 3418.8
+        },
+        {
+          "symbol": "CRM",
+          "quantity": 7.0,
+          "market_price": 166.45,
+          "market_value": 1165.15
+        },
+        {
+          "symbol": "CRSP",
+          "quantity": 8.0,
+          "market_price": 50.23,
+          "market_value": 401.84
+        },
+        {
+          "symbol": "DEFS",
+          "quantity": 500.0,
+          "market_price": 6.493500232696533,
+          "market_value": 3246.75
+        },
+        {
+          "symbol": "DUOL",
+          "quantity": 7.0,
+          "market_price": 123.85,
+          "market_value": 866.95
+        },
+        {
+          "symbol": "EDIT",
+          "quantity": 42.0,
+          "market_price": 2.44,
+          "market_value": 102.48
+        },
+        {
+          "symbol": "IAUP",
+          "quantity": 80.0,
+          "market_price": 34.68000030517578,
+          "market_value": 2774.4
+        },
+        {
+          "symbol": "ICOM",
+          "quantity": 300.0,
+          "market_price": 9.662500381469727,
+          "market_value": 2898.75
+        },
+        {
+          "symbol": "IDFN",
+          "quantity": 300.0,
+          "market_price": 10.793000221252441,
+          "market_value": 3237.9
+        },
+        {
+          "symbol": "LYFT",
+          "quantity": 40.0,
+          "market_price": 13.71,
+          "market_value": 548.4
+        },
+        {
+          "symbol": "PYPL",
+          "quantity": 13.0,
+          "market_price": 41.24,
+          "market_value": 536.12
+        },
+        {
+          "symbol": "SEMI",
+          "quantity": 150.0,
+          "market_price": 38.43,
+          "market_value": 5764.5
+        },
+        {
+          "symbol": "SGLD",
+          "quantity": 7.0,
+          "market_price": 392.5,
+          "market_value": 2747.5
+        },
+        {
+          "symbol": "SXRV",
+          "quantity": 5.0,
+          "market_price": 1435.800048828125,
+          "market_value": 7179.0
+        },
+        {
+          "symbol": "VDST",
+          "quantity": 200.0,
+          "market_price": 59.042999267578125,
+          "market_value": 11808.6
+        },
+        {
+          "symbol": "VUAA",
+          "quantity": 80.0,
+          "market_price": 140.72000122070312,
+          "market_value": 11257.6
+        }
+      ],
+      "total_market_value": 60892.04,
+      "total_portfolio_value": 62449.71,
       "external_cash_flow": 0.0
     }
   ],
@@ -22271,239 +24266,330 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     {
       "date": "2026-04-07",
-      "portfolio_value": 55361.47,
+      "portfolio_value": 53205.37,
       "benchmark_price": 659.22,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-08",
-      "portfolio_value": 59562.39,
+      "portfolio_value": 56593.39,
       "benchmark_price": 676.01,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
-      "portfolio_value": 59780.08,
+      "portfolio_value": 56808.08,
       "benchmark_price": 679.91,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-10",
-      "portfolio_value": 79750.92,
+      "portfolio_value": 75360.72,
       "benchmark_price": 679.46,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-13",
-      "portfolio_value": 83514.03,
+      "portfolio_value": 76900.83,
       "benchmark_price": 686.1,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-14",
-      "portfolio_value": 81039.61,
+      "portfolio_value": 75823.21,
       "benchmark_price": 694.46,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-15",
-      "portfolio_value": 81271.92,
+      "portfolio_value": 76108.72,
       "benchmark_price": 699.94,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-16",
-      "portfolio_value": 83643.98,
+      "portfolio_value": 78540.28,
       "benchmark_price": 701.66,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-17",
-      "portfolio_value": 86869.21,
+      "portfolio_value": 81674.86,
       "benchmark_price": 710.14,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-20",
-      "portfolio_value": 86736.0,
+      "portfolio_value": 81613.4,
       "benchmark_price": 708.72,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-21",
-      "portfolio_value": 86419.06,
+      "portfolio_value": 81472.86,
       "benchmark_price": 704.08,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-22",
-      "portfolio_value": 87475.77,
+      "portfolio_value": 82623.37,
       "benchmark_price": 711.21,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-23",
-      "portfolio_value": 88065.78,
+      "portfolio_value": 82287.78,
       "benchmark_price": 708.45,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-24",
-      "portfolio_value": 89574.59,
+      "portfolio_value": 83919.19,
       "benchmark_price": 713.94,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-27",
-      "portfolio_value": 94951.44,
+      "portfolio_value": 89303.14,
       "benchmark_price": 715.17,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-28",
-      "portfolio_value": 94688.23,
+      "portfolio_value": 89066.33,
       "benchmark_price": 711.69,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-29",
-      "portfolio_value": 94846.95,
+      "portfolio_value": 89237.25,
       "benchmark_price": 711.58,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-30",
-      "portfolio_value": 95134.89,
+      "portfolio_value": 89461.39,
       "benchmark_price": 718.66,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-01",
-      "portfolio_value": 95460.96,
+      "portfolio_value": 89752.76,
       "benchmark_price": 720.65,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-04",
-      "portfolio_value": 95604.64,
+      "portfolio_value": 89896.44,
       "benchmark_price": 718.01,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-05",
-      "portfolio_value": 95671.17,
+      "portfolio_value": 89938.92,
       "benchmark_price": 723.77,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-06",
-      "portfolio_value": 96945.21,
+      "portfolio_value": 90818.01,
       "benchmark_price": 733.83,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-07",
-      "portfolio_value": 97013.92,
+      "portfolio_value": 92998.02,
       "benchmark_price": 731.58,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-08",
-      "portfolio_value": 96959.67,
+      "portfolio_value": 92953.37,
       "benchmark_price": 737.62,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-11",
-      "portfolio_value": 97220.09,
+      "portfolio_value": 93179.79,
       "benchmark_price": 739.3,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-12",
-      "portfolio_value": 96991.41,
+      "portfolio_value": 91195.41,
       "benchmark_price": 738.18,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-13",
-      "portfolio_value": 97478.42,
+      "portfolio_value": 91605.92,
       "benchmark_price": 742.31,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-14",
-      "portfolio_value": 97664.64,
+      "portfolio_value": 91796.14,
       "benchmark_price": 748.17,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-15",
-      "portfolio_value": 96877.87,
+      "portfolio_value": 90364.77,
       "benchmark_price": 739.17,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-18",
-      "portfolio_value": 96747.51,
+      "portfolio_value": 90313.11,
       "benchmark_price": 738.65,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-19",
-      "portfolio_value": 96326.91,
+      "portfolio_value": 89982.31,
       "benchmark_price": 733.73,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-20",
-      "portfolio_value": 97118.28,
+      "portfolio_value": 90598.08,
       "benchmark_price": 741.25,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-21",
-      "portfolio_value": 97051.62,
+      "portfolio_value": 90526.77,
       "benchmark_price": 742.72,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-22",
-      "portfolio_value": 64171.87,
+      "portfolio_value": 90945.73,
       "benchmark_price": 745.64,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-26",
+      "portfolio_value": 91364.5,
+      "benchmark_price": 750.59,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-27",
+      "portfolio_value": 91362.26,
+      "benchmark_price": 750.46,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-28",
+      "portfolio_value": 91850.04,
+      "benchmark_price": 754.6,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-05-29",
+      "portfolio_value": 92196.42,
+      "benchmark_price": 756.48,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-01",
+      "portfolio_value": 92056.9,
+      "benchmark_price": 758.54,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-02",
+      "portfolio_value": 91998.34,
+      "benchmark_price": 759.57,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-03",
+      "portfolio_value": 91519.48,
+      "benchmark_price": 754.24,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-04",
+      "portfolio_value": 91633.29,
+      "benchmark_price": 757.09,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-05",
+      "portfolio_value": 90438.4,
+      "benchmark_price": 737.55,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-08",
+      "portfolio_value": 90362.99,
+      "benchmark_price": 739.22,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-09",
+      "portfolio_value": 89606.13,
+      "benchmark_price": 737.05,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-10",
+      "portfolio_value": 89194.38,
+      "benchmark_price": 725.43,
+      "portfolio_return_pct": 0.0,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-06-11",
+      "portfolio_value": 62449.71,
+      "benchmark_price": 737.76,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     }
@@ -22516,11 +24602,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "1M": {
       "summary": {
         "start_value": 52386.1,
-        "end_value": 64171.87,
+        "end_value": 62449.71,
         "net_contributions": 0.0,
-        "investment_gain": 11785.770000000004,
+        "investment_gain": 10063.61,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 22.49789543409417,
+        "money_weighted_return_pct": 19.210458499487462,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -22531,12 +24617,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "return_pct": 0.0
         },
         {
-          "month": "2026-04",
-          "return_pct": 6.207452358978127
+          "month": "2026-05",
+          "return_pct": 0.6446089947025557
         },
         {
-          "month": "2026-05",
-          "return_pct": -32.776844062745624
+          "month": "2026-06",
+          "return_pct": -32.16183686393958
         }
       ],
       "monthly_returns_reliable": true
@@ -22544,11 +24630,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "3M": {
       "summary": {
         "start_value": 52386.1,
-        "end_value": 64171.87,
+        "end_value": 62449.71,
         "net_contributions": 9963.0,
-        "investment_gain": 1822.770000000004,
+        "investment_gain": 100.61000000000058,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 3.1905438361922562,
+        "money_weighted_return_pct": 0.16998882703678583,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -22559,20 +24645,20 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "return_pct": 0.0
         },
         {
-          "month": "2026-02",
-          "return_pct": 1.2366309704175515
-        },
-        {
           "month": "2026-03",
-          "return_pct": -4.43415761778162
+          "return_pct": -2.4308954398968963
         },
         {
           "month": "2026-04",
-          "return_pct": 69.62367010455415
+          "return_pct": 58.18135545124825
         },
         {
           "month": "2026-05",
-          "return_pct": -32.776844062745624
+          "return_pct": 2.722657219677771
+        },
+        {
+          "month": "2026-06",
+          "return_pct": -32.16183686393958
         }
       ],
       "monthly_returns_reliable": true
@@ -22580,11 +24666,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "YTD": {
       "summary": {
         "start_value": 52386.1,
-        "end_value": 64171.87,
+        "end_value": 62449.71,
         "net_contributions": 9963.0,
-        "investment_gain": 1822.770000000004,
+        "investment_gain": 100.61000000000058,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 3.278365021193161,
+        "money_weighted_return_pct": 0.17829897389472782,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -22604,11 +24690,15 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 69.62367010455415
+          "return_pct": 58.18135545124825
         },
         {
           "month": "2026-05",
-          "return_pct": -32.776844062745624
+          "return_pct": 2.722657219677771
+        },
+        {
+          "month": "2026-06",
+          "return_pct": -32.16183686393958
         }
       ],
       "monthly_returns_reliable": true
@@ -22616,11 +24706,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "1Y": {
       "summary": {
         "start_value": 52386.1,
-        "end_value": 64171.87,
+        "end_value": 62449.71,
         "net_contributions": 9963.0,
-        "investment_gain": 1822.770000000004,
+        "investment_gain": 100.61000000000058,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 3.278365021193161,
+        "money_weighted_return_pct": 0.17829897389472782,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -22640,11 +24730,15 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 69.62367010455415
+          "return_pct": 58.18135545124825
         },
         {
           "month": "2026-05",
-          "return_pct": -32.776844062745624
+          "return_pct": 2.722657219677771
+        },
+        {
+          "month": "2026-06",
+          "return_pct": -32.16183686393958
         }
       ],
       "monthly_returns_reliable": true
@@ -22652,11 +24746,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "All": {
       "summary": {
         "start_value": 52386.1,
-        "end_value": 64171.87,
+        "end_value": 62449.71,
         "net_contributions": 9963.0,
-        "investment_gain": 1822.770000000004,
+        "investment_gain": 100.61000000000058,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 3.278365021193161,
+        "money_weighted_return_pct": 0.17829897389472782,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -22676,11 +24770,15 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 69.62367010455415
+          "return_pct": 58.18135545124825
         },
         {
           "month": "2026-05",
-          "return_pct": -32.776844062745624
+          "return_pct": 2.722657219677771
+        },
+        {
+          "month": "2026-06",
+          "return_pct": -32.16183686393958
         }
       ],
       "monthly_returns_reliable": true
@@ -22699,10 +24797,10 @@ export const ff2026DashboardGolden = {
   "loadedFileLabel": "Loaded file: FF2026.pdf",
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$3071.00",
-  "startValue": "$4033.48",
+  "startValue": "$4021.55",
   "timeWeightedReturn": "n/a",
   "netContributions": "$0.00",
-  "moneyWeightedReturn": "-23.86%",
+  "moneyWeightedReturn": "-23.64%",
   "drawdown": "n/a",
   "loadedFiles": [
     "FF2026.pdf"
@@ -22722,11 +24820,11 @@ export const ff2026DashboardGolden = {
     },
     {
       "month": "2026-03",
-      "returnPct": "-3.90%"
+      "returnPct": "-3.66%"
     },
     {
       "month": "2026-04",
-      "returnPct": "-22.04%"
+      "returnPct": "-22.16%"
     }
   ],
   "sectors": {
@@ -23377,1514 +25475,1514 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-01",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 334.66,
-          "market_value": 3011.94
+          "market_price": 332.6711730957031,
+          "market_value": 2994.04
         }
       ],
-      "total_market_value": 3011.94,
-      "total_portfolio_value": 4033.48,
+      "total_market_value": 2994.04,
+      "total_portfolio_value": 4021.55,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-02",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.06,
-          "market_value": 3015.54
+          "market_price": 333.06878662109375,
+          "market_value": 2997.62
         }
       ],
-      "total_market_value": 3015.54,
-      "total_portfolio_value": 4037.08,
+      "total_market_value": 2997.62,
+      "total_portfolio_value": 4025.13,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-03",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.56,
-          "market_value": 3029.04
+          "market_price": 334.5599060058594,
+          "market_value": 3011.04
         }
       ],
-      "total_market_value": 3029.04,
-      "total_portfolio_value": 4050.58,
+      "total_market_value": 3011.04,
+      "total_portfolio_value": 4038.55,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-04",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 337.09,
-          "market_value": 3033.81
+          "market_price": 335.08673095703125,
+          "market_value": 3015.78
         }
       ],
-      "total_market_value": 3033.81,
-      "total_portfolio_value": 4055.35,
+      "total_market_value": 3015.78,
+      "total_portfolio_value": 4043.29,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-05",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 337.56,
-          "market_value": 3038.04
+          "market_price": 335.5539245605469,
+          "market_value": 3019.99
         }
       ],
-      "total_market_value": 3038.04,
-      "total_portfolio_value": 4059.58,
+      "total_market_value": 3019.99,
+      "total_portfolio_value": 4047.5,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-08",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.57,
-          "market_value": 3029.13
+          "market_price": 334.56982421875,
+          "market_value": 3011.13
         }
       ],
-      "total_market_value": 3029.13,
-      "total_portfolio_value": 4050.67,
+      "total_market_value": 3011.13,
+      "total_portfolio_value": 4038.64,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-09",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.23,
-          "market_value": 3026.07
+          "market_price": 334.2318420410156,
+          "market_value": 3008.09
         }
       ],
-      "total_market_value": 3026.07,
-      "total_portfolio_value": 4047.61,
+      "total_market_value": 3008.09,
+      "total_portfolio_value": 4035.6,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-10",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.73,
-          "market_value": 3048.57
+          "market_price": 336.71697998046875,
+          "market_value": 3030.45
         }
       ],
-      "total_market_value": 3048.57,
-      "total_portfolio_value": 4070.11,
+      "total_market_value": 3030.45,
+      "total_portfolio_value": 4057.96,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-11",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 339.87,
-          "market_value": 3058.83
+          "market_price": 337.8502197265625,
+          "market_value": 3040.65
         }
       ],
-      "total_market_value": 3058.83,
-      "total_portfolio_value": 4080.37,
+      "total_market_value": 3040.65,
+      "total_portfolio_value": 4068.16,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-12",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.99,
-          "market_value": 3023.91
+          "market_price": 333.9932556152344,
+          "market_value": 3005.94
         }
       ],
-      "total_market_value": 3023.91,
-      "total_portfolio_value": 4045.45,
+      "total_market_value": 3005.94,
+      "total_portfolio_value": 4033.45,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-15",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.33,
-          "market_value": 3017.97
+          "market_price": 333.337158203125,
+          "market_value": 3000.03
         }
       ],
-      "total_market_value": 3017.97,
-      "total_portfolio_value": 4039.51,
+      "total_market_value": 3000.03,
+      "total_portfolio_value": 4027.54,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-16",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 334.36,
-          "market_value": 3009.24
+          "market_price": 332.3729553222656,
+          "market_value": 2991.36
         }
       ],
-      "total_market_value": 3009.24,
-      "total_portfolio_value": 4030.78,
+      "total_market_value": 2991.36,
+      "total_portfolio_value": 4018.87,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-17",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 330.71,
-          "market_value": 2976.39
+          "market_price": 328.74462890625,
+          "market_value": 2958.7
         }
       ],
-      "total_market_value": 2976.39,
-      "total_portfolio_value": 3997.93,
+      "total_market_value": 2958.7,
+      "total_portfolio_value": 3986.21,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-18",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 333.25,
-          "market_value": 2999.25
+          "market_price": 331.2695617675781,
+          "market_value": 2981.43
         }
       ],
-      "total_market_value": 2999.25,
-      "total_portfolio_value": 4020.79,
+      "total_market_value": 2981.43,
+      "total_portfolio_value": 4008.94,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-19",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.22,
-          "market_value": 3025.98
+          "market_price": 334.2218933105469,
+          "market_value": 3008.0
         }
       ],
-      "total_market_value": 3025.98,
-      "total_portfolio_value": 4047.52,
+      "total_market_value": 3008.0,
+      "total_portfolio_value": 4035.51,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-22",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 337.6,
-          "market_value": 3038.4
+          "market_price": 336.5456237792969,
+          "market_value": 3028.91
         }
       ],
-      "total_market_value": 3038.4,
-      "total_portfolio_value": 4059.94,
+      "total_market_value": 3028.91,
+      "total_portfolio_value": 4056.42,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-23",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.72,
-          "market_value": 3048.48
+          "market_price": 337.662109375,
+          "market_value": 3038.96
         }
       ],
-      "total_market_value": 3048.48,
-      "total_portfolio_value": 4070.02,
+      "total_market_value": 3038.96,
+      "total_portfolio_value": 4066.47,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-24",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 339.88,
-          "market_value": 3058.92
+          "market_price": 338.8185119628906,
+          "market_value": 3049.37
         }
       ],
-      "total_market_value": 3058.92,
-      "total_portfolio_value": 4080.46,
+      "total_market_value": 3049.37,
+      "total_portfolio_value": 4076.88,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-26",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 339.67,
-          "market_value": 3057.03
+          "market_price": 338.6091613769531,
+          "market_value": 3047.48
         }
       ],
-      "total_market_value": 3057.03,
-      "total_portfolio_value": 4078.57,
+      "total_market_value": 3047.48,
+      "total_portfolio_value": 4074.99,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-29",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.39,
-          "market_value": 3045.51
+          "market_price": 337.3331604003906,
+          "market_value": 3036.0
         }
       ],
-      "total_market_value": 3045.51,
-      "total_portfolio_value": 4067.05,
+      "total_market_value": 3036.0,
+      "total_portfolio_value": 4063.51,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-30",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 337.85,
-          "market_value": 3040.65
+          "market_price": 336.7948303222656,
+          "market_value": 3031.15
         }
       ],
-      "total_market_value": 3040.65,
-      "total_portfolio_value": 4062.19,
+      "total_market_value": 3031.15,
+      "total_portfolio_value": 4058.66,
       "external_cash_flow": 0.0
     },
     {
       "date": "2025-12-31",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.27,
-          "market_value": 3017.43
+          "market_price": 334.222900390625,
+          "market_value": 3008.01
         }
       ],
-      "total_market_value": 3017.43,
-      "total_portfolio_value": 4038.97,
+      "total_market_value": 3008.01,
+      "total_portfolio_value": 4035.52,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-02",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.31,
-          "market_value": 3026.79
+          "market_price": 335.2596435546875,
+          "market_value": 3017.34
         }
       ],
-      "total_market_value": 3026.79,
-      "total_portfolio_value": 4048.33,
+      "total_market_value": 3017.34,
+      "total_portfolio_value": 4044.85,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-05",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.84,
-          "market_value": 3049.56
+          "market_price": 337.78173828125,
+          "market_value": 3040.04
         }
       ],
-      "total_market_value": 3049.56,
-      "total_portfolio_value": 4071.1,
+      "total_market_value": 3040.04,
+      "total_portfolio_value": 4067.55,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-06",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 341.21,
-          "market_value": 3070.89
+          "market_price": 340.14434814453125,
+          "market_value": 3061.3
         }
       ],
-      "total_market_value": 3070.89,
-      "total_portfolio_value": 4092.43,
+      "total_market_value": 3061.3,
+      "total_portfolio_value": 4088.81,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-07",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.05,
-          "market_value": 3060.45
+          "market_price": 338.9879455566406,
+          "market_value": 3050.89
         }
       ],
-      "total_market_value": 3060.45,
-      "total_portfolio_value": 4081.99,
+      "total_market_value": 3050.89,
+      "total_portfolio_value": 4078.4,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-08",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.14,
-          "market_value": 3061.26
+          "market_price": 339.07769775390625,
+          "market_value": 3051.7
         }
       ],
-      "total_market_value": 3061.26,
-      "total_portfolio_value": 4082.8,
+      "total_market_value": 3051.7,
+      "total_portfolio_value": 4079.21,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-09",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 342.4,
-          "market_value": 3081.6
+          "market_price": 341.33062744140625,
+          "market_value": 3071.98
         }
       ],
-      "total_market_value": 3081.6,
-      "total_portfolio_value": 4103.14,
+      "total_market_value": 3071.98,
+      "total_portfolio_value": 4099.49,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-12",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 343.03,
-          "market_value": 3087.27
+          "market_price": 341.9586486816406,
+          "market_value": 3077.63
         }
       ],
-      "total_market_value": 3087.27,
-      "total_portfolio_value": 4108.81,
+      "total_market_value": 3077.63,
+      "total_portfolio_value": 4105.14,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-13",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 342.34,
-          "market_value": 3081.06
+          "market_price": 341.27081298828125,
+          "market_value": 3071.44
         }
       ],
-      "total_market_value": 3081.06,
-      "total_portfolio_value": 4102.6,
+      "total_market_value": 3071.44,
+      "total_portfolio_value": 4098.95,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-14",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 341.0,
-          "market_value": 3069.0
+          "market_price": 339.93499755859375,
+          "market_value": 3059.41
         }
       ],
-      "total_market_value": 3069.0,
-      "total_portfolio_value": 4090.54,
+      "total_market_value": 3059.41,
+      "total_portfolio_value": 4086.92,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-15",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 342.05,
-          "market_value": 3078.45
+          "market_price": 340.9817199707031,
+          "market_value": 3068.84
         }
       ],
-      "total_market_value": 3078.45,
-      "total_portfolio_value": 4099.99,
+      "total_market_value": 3068.84,
+      "total_portfolio_value": 4096.35,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-16",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 341.85,
-          "market_value": 3076.65
+          "market_price": 340.7823486328125,
+          "market_value": 3067.04
         }
       ],
-      "total_market_value": 3076.65,
-      "total_portfolio_value": 4098.19,
+      "total_market_value": 3067.04,
+      "total_portfolio_value": 4094.55,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-20",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.11,
-          "market_value": 3015.99
+          "market_price": 334.0633850097656,
+          "market_value": 3006.57
         }
       ],
-      "total_market_value": 3015.99,
-      "total_portfolio_value": 4037.53,
+      "total_market_value": 3006.57,
+      "total_portfolio_value": 4034.08,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-21",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 339.08,
-          "market_value": 3051.72
+          "market_price": 338.02099609375,
+          "market_value": 3042.19
         }
       ],
-      "total_market_value": 3051.72,
-      "total_portfolio_value": 4073.26,
+      "total_market_value": 3042.19,
+      "total_portfolio_value": 4069.7,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-22",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.87,
-          "market_value": 3067.83
+          "market_price": 339.8053894042969,
+          "market_value": 3058.25
         }
       ],
-      "total_market_value": 3067.83,
-      "total_portfolio_value": 4089.37,
+      "total_market_value": 3058.25,
+      "total_portfolio_value": 4085.76,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-23",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.56,
-          "market_value": 3065.04
+          "market_price": 339.4963684082031,
+          "market_value": 3055.47
         }
       ],
-      "total_market_value": 3065.04,
-      "total_portfolio_value": 4086.58,
+      "total_market_value": 3055.47,
+      "total_portfolio_value": 4082.98,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-26",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 342.03,
-          "market_value": 3078.27
+          "market_price": 340.9617919921875,
+          "market_value": 3068.66
         }
       ],
-      "total_market_value": 3078.27,
-      "total_portfolio_value": 4099.81,
+      "total_market_value": 3068.66,
+      "total_portfolio_value": 4096.17,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-27",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 343.27,
-          "market_value": 3089.43
+          "market_price": 342.1979064941406,
+          "market_value": 3079.78
         }
       ],
-      "total_market_value": 3089.43,
-      "total_portfolio_value": 4110.97,
+      "total_market_value": 3079.78,
+      "total_portfolio_value": 4107.29,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-28",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 343.08,
-          "market_value": 3087.72
+          "market_price": 342.00848388671875,
+          "market_value": 3078.08
         }
       ],
-      "total_market_value": 3087.72,
-      "total_portfolio_value": 4109.26,
+      "total_market_value": 3078.08,
+      "total_portfolio_value": 4105.59,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-29",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 342.29,
-          "market_value": 3080.61
+          "market_price": 341.2209777832031,
+          "market_value": 3070.99
         }
       ],
-      "total_market_value": 3080.61,
-      "total_portfolio_value": 4102.15,
+      "total_market_value": 3070.99,
+      "total_portfolio_value": 4098.5,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-01-30",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.57,
-          "market_value": 3065.13
+          "market_price": 339.50634765625,
+          "market_value": 3055.56
         }
       ],
-      "total_market_value": 3065.13,
-      "total_portfolio_value": 4086.67,
+      "total_market_value": 3055.56,
+      "total_portfolio_value": 4083.07,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-02",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 342.48,
-          "market_value": 3082.32
+          "market_price": 341.410400390625,
+          "market_value": 3072.69
         }
       ],
-      "total_market_value": 3082.32,
-      "total_portfolio_value": 4103.86,
+      "total_market_value": 3072.69,
+      "total_portfolio_value": 4100.2,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-03",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 339.85,
-          "market_value": 3058.65
+          "market_price": 338.7886047363281,
+          "market_value": 3049.1
         }
       ],
-      "total_market_value": 3058.65,
-      "total_portfolio_value": 4080.19,
+      "total_market_value": 3049.1,
+      "total_portfolio_value": 4076.61,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-04",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.25,
-          "market_value": 3044.25
+          "market_price": 337.193603515625,
+          "market_value": 3034.74
         }
       ],
-      "total_market_value": 3044.25,
-      "total_portfolio_value": 4065.79,
+      "total_market_value": 3034.74,
+      "total_portfolio_value": 4062.25,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-05",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 333.9,
-          "market_value": 3005.1
+          "market_price": 332.857177734375,
+          "market_value": 2995.71
         }
       ],
-      "total_market_value": 3005.1,
-      "total_portfolio_value": 4026.64,
+      "total_market_value": 2995.71,
+      "total_portfolio_value": 4023.22,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-06",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.96,
-          "market_value": 3068.64
+          "market_price": 339.8951110839844,
+          "market_value": 3059.06
         }
       ],
-      "total_market_value": 3068.64,
-      "total_portfolio_value": 4090.18,
+      "total_market_value": 3059.06,
+      "total_portfolio_value": 4086.57,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-09",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 342.64,
-          "market_value": 3083.76
+          "market_price": 341.56988525390625,
+          "market_value": 3074.13
         }
       ],
-      "total_market_value": 3083.76,
-      "total_portfolio_value": 4105.3,
+      "total_market_value": 3074.13,
+      "total_portfolio_value": 4101.64,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-10",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 341.8,
-          "market_value": 3076.2
+          "market_price": 340.73248291015625,
+          "market_value": 3066.59
         }
       ],
-      "total_market_value": 3076.2,
-      "total_portfolio_value": 4097.74,
+      "total_market_value": 3066.59,
+      "total_portfolio_value": 4094.1,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-11",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 341.47,
-          "market_value": 3073.23
+          "market_price": 340.4035339355469,
+          "market_value": 3063.63
         }
       ],
-      "total_market_value": 3073.23,
-      "total_portfolio_value": 4094.77,
+      "total_market_value": 3063.63,
+      "total_portfolio_value": 4091.14,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-12",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.01,
-          "market_value": 3024.09
+          "market_price": 334.9606018066406,
+          "market_value": 3014.65
         }
       ],
-      "total_market_value": 3024.09,
-      "total_portfolio_value": 4045.63,
+      "total_market_value": 3014.65,
+      "total_portfolio_value": 4042.16,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-13",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.65,
-          "market_value": 3029.85
+          "market_price": 335.59857177734375,
+          "market_value": 3020.39
         }
       ],
-      "total_market_value": 3029.85,
-      "total_portfolio_value": 4051.39,
+      "total_market_value": 3020.39,
+      "total_portfolio_value": 4047.9,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-17",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 337.07,
-          "market_value": 3033.63
+          "market_price": 336.01727294921875,
+          "market_value": 3024.16
         }
       ],
-      "total_market_value": 3033.63,
-      "total_portfolio_value": 4055.17,
+      "total_market_value": 3024.16,
+      "total_portfolio_value": 4051.67,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-18",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.83,
-          "market_value": 3049.47
+          "market_price": 337.7717590332031,
+          "market_value": 3039.95
         }
       ],
-      "total_market_value": 3049.47,
-      "total_portfolio_value": 4071.01,
+      "total_market_value": 3039.95,
+      "total_portfolio_value": 4067.46,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-19",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.19,
-          "market_value": 3043.71
+          "market_price": 337.1337890625,
+          "market_value": 3034.2
         }
       ],
-      "total_market_value": 3043.71,
-      "total_portfolio_value": 4065.25,
+      "total_market_value": 3034.2,
+      "total_portfolio_value": 4061.71,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-20",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.27,
-          "market_value": 3062.43
+          "market_price": 339.207275390625,
+          "market_value": 3052.87
         }
       ],
-      "total_market_value": 3062.43,
-      "total_portfolio_value": 4083.97,
+      "total_market_value": 3052.87,
+      "total_portfolio_value": 4080.38,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-23",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.46,
-          "market_value": 3028.14
+          "market_price": 335.4091796875,
+          "market_value": 3018.68
         }
       ],
-      "total_market_value": 3028.14,
-      "total_portfolio_value": 4049.68,
+      "total_market_value": 3018.68,
+      "total_portfolio_value": 4046.19,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-24",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 339.21,
-          "market_value": 3052.89
+          "market_price": 338.15057373046875,
+          "market_value": 3043.36
         }
       ],
-      "total_market_value": 3052.89,
-      "total_portfolio_value": 4074.43,
+      "total_market_value": 3043.36,
+      "total_portfolio_value": 4070.87,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-25",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 341.83,
-          "market_value": 3076.47
+          "market_price": 340.76239013671875,
+          "market_value": 3066.86
         }
       ],
-      "total_market_value": 3076.47,
-      "total_portfolio_value": 4098.01,
+      "total_market_value": 3066.86,
+      "total_portfolio_value": 4094.37,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-26",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 340.49,
-          "market_value": 3064.41
+          "market_price": 339.42657470703125,
+          "market_value": 3054.84
         }
       ],
-      "total_market_value": 3064.41,
-      "total_portfolio_value": 4085.95,
+      "total_market_value": 3054.84,
+      "total_portfolio_value": 4082.35,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-27",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.77,
-          "market_value": 3048.93
+          "market_price": 337.7119445800781,
+          "market_value": 3039.41
         }
       ],
-      "total_market_value": 3048.93,
-      "total_portfolio_value": 4070.47,
+      "total_market_value": 3039.41,
+      "total_portfolio_value": 4066.92,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-02",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 339.12,
-          "market_value": 3052.08
+          "market_price": 338.0608825683594,
+          "market_value": 3042.55
         }
       ],
-      "total_market_value": 3052.08,
-      "total_portfolio_value": 4073.62,
+      "total_market_value": 3042.55,
+      "total_portfolio_value": 4070.06,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-03",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.73,
-          "market_value": 3021.57
+          "market_price": 334.68145751953125,
+          "market_value": 3012.13
         }
       ],
-      "total_market_value": 3021.57,
-      "total_portfolio_value": 4043.11,
+      "total_market_value": 3012.13,
+      "total_portfolio_value": 4039.64,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-04",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 338.19,
-          "market_value": 3043.71
+          "market_price": 337.1337890625,
+          "market_value": 3034.2
         }
       ],
-      "total_market_value": 3043.71,
-      "total_portfolio_value": 4065.25,
+      "total_market_value": 3034.2,
+      "total_portfolio_value": 4061.71,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-05",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 336.0,
-          "market_value": 3024.0
+          "market_price": 334.95062255859375,
+          "market_value": 3014.56
         }
       ],
-      "total_market_value": 3024.0,
-      "total_portfolio_value": 4045.54,
+      "total_market_value": 3014.56,
+      "total_portfolio_value": 4042.07,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-06",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 331.41,
-          "market_value": 2982.69
+          "market_price": 330.3749694824219,
+          "market_value": 2973.37
         }
       ],
-      "total_market_value": 2982.69,
-      "total_portfolio_value": 4004.23,
+      "total_market_value": 2973.37,
+      "total_portfolio_value": 4000.88,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-09",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 334.28,
-          "market_value": 3008.52
+          "market_price": 333.2359924316406,
+          "market_value": 2999.12
         }
       ],
-      "total_market_value": 3008.52,
-      "total_portfolio_value": 4030.06,
+      "total_market_value": 2999.12,
+      "total_portfolio_value": 4026.63,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-10",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 333.51,
-          "market_value": 3001.59
+          "market_price": 332.4684143066406,
+          "market_value": 2992.22
         }
       ],
-      "total_market_value": 3001.59,
-      "total_portfolio_value": 4023.13,
+      "total_market_value": 2992.22,
+      "total_portfolio_value": 4019.73,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-11",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 333.24,
-          "market_value": 2999.16
+          "market_price": 332.19921875,
+          "market_value": 2989.79
         }
       ],
-      "total_market_value": 2999.16,
-      "total_portfolio_value": 4020.7,
+      "total_market_value": 2989.79,
+      "total_portfolio_value": 4017.3,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-12",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 327.92,
-          "market_value": 2951.28
+          "market_price": 326.8958740234375,
+          "market_value": 2942.06
         }
       ],
-      "total_market_value": 2951.28,
-      "total_portfolio_value": 3972.82,
+      "total_market_value": 2942.06,
+      "total_portfolio_value": 3969.57,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-13",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 326.13,
-          "market_value": 2935.17
+          "market_price": 325.1114501953125,
+          "market_value": 2926.0
         }
       ],
-      "total_market_value": 2935.17,
-      "total_portfolio_value": 3956.71,
+      "total_market_value": 2926.0,
+      "total_portfolio_value": 3953.51,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-16",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 329.46,
-          "market_value": 2965.14
+          "market_price": 328.4310302734375,
+          "market_value": 2955.88
         }
       ],
-      "total_market_value": 2965.14,
-      "total_portfolio_value": 3986.68,
+      "total_market_value": 2955.88,
+      "total_portfolio_value": 3983.39,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-17",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 330.57,
-          "market_value": 2975.13
+          "market_price": 329.53759765625,
+          "market_value": 2965.84
         }
       ],
-      "total_market_value": 2975.13,
-      "total_portfolio_value": 3996.67,
+      "total_market_value": 2965.84,
+      "total_portfolio_value": 3993.35,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-18",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 326.02,
-          "market_value": 2934.18
+          "market_price": 325.00177001953125,
+          "market_value": 2925.02
         }
       ],
-      "total_market_value": 2934.18,
-      "total_portfolio_value": 3955.72,
+      "total_market_value": 2925.02,
+      "total_portfolio_value": 3952.53,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-19",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 325.44,
-          "market_value": 2928.96
+          "market_price": 324.4236145019531,
+          "market_value": 2919.81
         }
       ],
-      "total_market_value": 2928.96,
-      "total_portfolio_value": 3950.5,
+      "total_market_value": 2919.81,
+      "total_portfolio_value": 3947.32,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-20",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 320.34,
-          "market_value": 2883.06
+          "market_price": 319.3395080566406,
+          "market_value": 2874.06
         }
       ],
-      "total_market_value": 2883.06,
-      "total_portfolio_value": 3904.6,
+      "total_market_value": 2874.06,
+      "total_portfolio_value": 3901.57,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-23",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 324.19,
-          "market_value": 2917.71
+          "market_price": 323.177490234375,
+          "market_value": 2908.6
         }
       ],
-      "total_market_value": 2917.71,
-      "total_portfolio_value": 3939.25,
+      "total_market_value": 2908.6,
+      "total_portfolio_value": 3936.11,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-24",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 323.18,
-          "market_value": 2908.62
+          "market_price": 322.170654296875,
+          "market_value": 2899.54
         }
       ],
-      "total_market_value": 2908.62,
-      "total_portfolio_value": 3930.16,
+      "total_market_value": 2899.54,
+      "total_portfolio_value": 3927.05,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-25",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 325.15,
-          "market_value": 2926.35
+          "market_price": 324.1344909667969,
+          "market_value": 2917.21
         }
       ],
-      "total_market_value": 2926.35,
-      "total_portfolio_value": 3947.89,
+      "total_market_value": 2917.21,
+      "total_portfolio_value": 3944.72,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-26",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 319.55,
-          "market_value": 2875.95
+          "market_price": 318.5519714355469,
+          "market_value": 2866.97
         }
       ],
-      "total_market_value": 2875.95,
-      "total_portfolio_value": 3897.49,
+      "total_market_value": 2866.97,
+      "total_portfolio_value": 3894.48,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-27",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 313.09,
+          "market_price": 313.0899963378906,
           "market_value": 2817.81
         }
       ],
       "total_market_value": 2817.81,
-      "total_portfolio_value": 3839.35,
+      "total_portfolio_value": 3845.32,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-30",
       "cash": {
-        "USD": 1021.54
+        "USD": 1027.51
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 311.68,
+          "market_price": 311.67999267578125,
           "market_value": 2805.12
         }
       ],
       "total_market_value": 2805.12,
-      "total_portfolio_value": 3826.66,
+      "total_portfolio_value": 3832.63,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-03-31",
       "cash": {
-        "USD": 1027.65
+        "USD": 1033.62
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 320.81,
+          "market_price": 320.80999755859375,
           "market_value": 2887.29
         }
       ],
       "total_market_value": 2887.29,
-      "total_portfolio_value": 3914.94,
+      "total_portfolio_value": 3920.91,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-01",
       "cash": {
-        "USD": 1030.19
+        "USD": 1036.16
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 323.24,
+          "market_price": 323.239990234375,
           "market_value": 2909.16
         }
       ],
       "total_market_value": 2909.16,
-      "total_portfolio_value": 3939.35,
+      "total_portfolio_value": 3945.32,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-02",
       "cash": {
-        "USD": 1030.19
+        "USD": 1036.16
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 323.76,
+          "market_price": 323.760009765625,
           "market_value": 2913.84
         }
       ],
       "total_market_value": 2913.84,
-      "total_portfolio_value": 3944.03,
+      "total_portfolio_value": 3950.0,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-06",
       "cash": {
-        "USD": 1030.19
+        "USD": 1036.16
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 325.21,
+          "market_price": 325.2099914550781,
           "market_value": 2926.89
         }
       ],
       "total_market_value": 2926.89,
-      "total_portfolio_value": 3957.08,
+      "total_portfolio_value": 3963.05,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-07",
       "cash": {
-        "USD": 1030.19
+        "USD": 1036.16
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 325.43,
+          "market_price": 325.42999267578125,
           "market_value": 2928.87
         }
       ],
       "total_market_value": 2928.87,
-      "total_portfolio_value": 3959.06,
+      "total_portfolio_value": 3965.03,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-08",
       "cash": {
-        "USD": 1030.19
+        "USD": 1036.16
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 333.7,
+          "market_price": 333.70001220703125,
           "market_value": 3003.3
         }
       ],
       "total_market_value": 3003.3,
-      "total_portfolio_value": 4033.49,
+      "total_portfolio_value": 4039.46,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-09",
       "cash": {
-        "USD": 1030.19
+        "USD": 1036.16
       },
       "positions": [
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.45,
+          "market_price": 335.45001220703125,
           "market_value": 3019.05
         }
       ],
       "total_market_value": 3019.05,
-      "total_portfolio_value": 4049.24,
+      "total_portfolio_value": 4055.21,
       "external_cash_flow": 0.0
     },
     {
@@ -24896,7 +26994,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "VTI",
           "quantity": 9.0,
-          "market_price": 335.05,
+          "market_price": 335.04998779296875,
           "market_value": 3015.45
         }
       ],
@@ -24908,623 +27006,623 @@ export const ff2026ImportedDashboardGoldenFixture = {
   "performance_series": [
     {
       "date": "2025-12-01",
-      "portfolio_value": 4033.48,
+      "portfolio_value": 4021.55,
       "benchmark_price": 680.27,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-02",
-      "portfolio_value": 4037.08,
+      "portfolio_value": 4025.13,
       "benchmark_price": 681.53,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-03",
-      "portfolio_value": 4050.58,
+      "portfolio_value": 4038.55,
       "benchmark_price": 683.89,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-04",
-      "portfolio_value": 4055.35,
+      "portfolio_value": 4043.29,
       "benchmark_price": 684.39,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-05",
-      "portfolio_value": 4059.58,
+      "portfolio_value": 4047.5,
       "benchmark_price": 685.69,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-08",
-      "portfolio_value": 4050.67,
+      "portfolio_value": 4038.64,
       "benchmark_price": 683.63,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-09",
-      "portfolio_value": 4047.61,
+      "portfolio_value": 4035.6,
       "benchmark_price": 683.04,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-10",
-      "portfolio_value": 4070.11,
+      "portfolio_value": 4057.96,
       "benchmark_price": 687.57,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-11",
-      "portfolio_value": 4080.37,
+      "portfolio_value": 4068.16,
       "benchmark_price": 689.17,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-12",
-      "portfolio_value": 4045.45,
+      "portfolio_value": 4033.45,
       "benchmark_price": 681.76,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-15",
-      "portfolio_value": 4039.51,
+      "portfolio_value": 4027.54,
       "benchmark_price": 680.73,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-16",
-      "portfolio_value": 4030.78,
+      "portfolio_value": 4018.87,
       "benchmark_price": 678.87,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-17",
-      "portfolio_value": 3997.93,
+      "portfolio_value": 3986.21,
       "benchmark_price": 671.4,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-18",
-      "portfolio_value": 4020.79,
+      "portfolio_value": 4008.94,
       "benchmark_price": 676.47,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-19",
-      "portfolio_value": 4047.52,
+      "portfolio_value": 4035.51,
       "benchmark_price": 680.59,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-22",
-      "portfolio_value": 4059.94,
+      "portfolio_value": 4056.42,
       "benchmark_price": 684.83,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-23",
-      "portfolio_value": 4070.02,
+      "portfolio_value": 4066.47,
       "benchmark_price": 687.96,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-24",
-      "portfolio_value": 4080.46,
+      "portfolio_value": 4076.88,
       "benchmark_price": 690.38,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-26",
-      "portfolio_value": 4078.57,
+      "portfolio_value": 4074.99,
       "benchmark_price": 690.31,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-29",
-      "portfolio_value": 4067.05,
+      "portfolio_value": 4063.51,
       "benchmark_price": 687.85,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-30",
-      "portfolio_value": 4062.19,
+      "portfolio_value": 4058.66,
       "benchmark_price": 687.01,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-31",
-      "portfolio_value": 4038.97,
+      "portfolio_value": 4035.52,
       "benchmark_price": 681.92,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-02",
-      "portfolio_value": 4048.33,
+      "portfolio_value": 4044.85,
       "benchmark_price": 683.17,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-05",
-      "portfolio_value": 4071.1,
+      "portfolio_value": 4067.55,
       "benchmark_price": 687.72,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-06",
-      "portfolio_value": 4092.43,
+      "portfolio_value": 4088.81,
       "benchmark_price": 691.81,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-07",
-      "portfolio_value": 4081.99,
+      "portfolio_value": 4078.4,
       "benchmark_price": 689.58,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-08",
-      "portfolio_value": 4082.8,
+      "portfolio_value": 4079.21,
       "benchmark_price": 689.51,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-09",
-      "portfolio_value": 4103.14,
+      "portfolio_value": 4099.49,
       "benchmark_price": 694.07,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-12",
-      "portfolio_value": 4108.81,
+      "portfolio_value": 4105.14,
       "benchmark_price": 695.16,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-13",
-      "portfolio_value": 4102.6,
+      "portfolio_value": 4098.95,
       "benchmark_price": 693.77,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-14",
-      "portfolio_value": 4090.54,
+      "portfolio_value": 4086.92,
       "benchmark_price": 690.36,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-15",
-      "portfolio_value": 4099.99,
+      "portfolio_value": 4096.35,
       "benchmark_price": 692.24,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-16",
-      "portfolio_value": 4098.19,
+      "portfolio_value": 4094.55,
       "benchmark_price": 691.66,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-20",
-      "portfolio_value": 4037.53,
+      "portfolio_value": 4034.08,
       "benchmark_price": 677.58,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-21",
-      "portfolio_value": 4073.26,
+      "portfolio_value": 4069.7,
       "benchmark_price": 685.4,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-22",
-      "portfolio_value": 4089.37,
+      "portfolio_value": 4085.76,
       "benchmark_price": 688.98,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-23",
-      "portfolio_value": 4086.58,
+      "portfolio_value": 4082.98,
       "benchmark_price": 689.23,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-26",
-      "portfolio_value": 4099.81,
+      "portfolio_value": 4096.17,
       "benchmark_price": 692.73,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-27",
-      "portfolio_value": 4110.97,
+      "portfolio_value": 4107.29,
       "benchmark_price": 695.49,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-28",
-      "portfolio_value": 4109.26,
+      "portfolio_value": 4105.59,
       "benchmark_price": 695.42,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-29",
-      "portfolio_value": 4102.15,
+      "portfolio_value": 4098.5,
       "benchmark_price": 694.04,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-30",
-      "portfolio_value": 4086.67,
+      "portfolio_value": 4083.07,
       "benchmark_price": 691.97,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-02",
-      "portfolio_value": 4103.86,
+      "portfolio_value": 4100.2,
       "benchmark_price": 695.41,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-03",
-      "portfolio_value": 4080.19,
+      "portfolio_value": 4076.61,
       "benchmark_price": 689.53,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-04",
-      "portfolio_value": 4065.79,
+      "portfolio_value": 4062.25,
       "benchmark_price": 686.19,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-05",
-      "portfolio_value": 4026.64,
+      "portfolio_value": 4023.22,
       "benchmark_price": 677.62,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
-      "portfolio_value": 4090.18,
+      "portfolio_value": 4086.57,
       "benchmark_price": 690.62,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
-      "portfolio_value": 4105.3,
+      "portfolio_value": 4101.64,
       "benchmark_price": 693.95,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
-      "portfolio_value": 4097.74,
+      "portfolio_value": 4094.1,
       "benchmark_price": 692.12,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
-      "portfolio_value": 4094.77,
+      "portfolio_value": 4091.14,
       "benchmark_price": 691.96,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
-      "portfolio_value": 4045.63,
+      "portfolio_value": 4042.16,
       "benchmark_price": 681.27,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
-      "portfolio_value": 4051.39,
+      "portfolio_value": 4047.9,
       "benchmark_price": 681.75,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
-      "portfolio_value": 4055.17,
+      "portfolio_value": 4051.67,
       "benchmark_price": 682.85,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
-      "portfolio_value": 4071.01,
+      "portfolio_value": 4067.46,
       "benchmark_price": 686.29,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
-      "portfolio_value": 4065.25,
+      "portfolio_value": 4061.71,
       "benchmark_price": 684.48,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
-      "portfolio_value": 4083.97,
+      "portfolio_value": 4080.38,
       "benchmark_price": 689.43,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
-      "portfolio_value": 4049.68,
+      "portfolio_value": 4046.19,
       "benchmark_price": 682.39,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
-      "portfolio_value": 4074.43,
+      "portfolio_value": 4070.87,
       "benchmark_price": 687.35,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
-      "portfolio_value": 4098.01,
+      "portfolio_value": 4094.37,
       "benchmark_price": 693.15,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-26",
-      "portfolio_value": 4085.95,
+      "portfolio_value": 4082.35,
       "benchmark_price": 689.3,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-27",
-      "portfolio_value": 4070.47,
+      "portfolio_value": 4066.92,
       "benchmark_price": 685.99,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-02",
-      "portfolio_value": 4073.62,
+      "portfolio_value": 4070.06,
       "benchmark_price": 686.38,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-03",
-      "portfolio_value": 4043.11,
+      "portfolio_value": 4039.64,
       "benchmark_price": 680.33,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-04",
-      "portfolio_value": 4065.25,
+      "portfolio_value": 4061.71,
       "benchmark_price": 685.13,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-05",
-      "portfolio_value": 4045.54,
+      "portfolio_value": 4042.07,
       "benchmark_price": 681.31,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-06",
-      "portfolio_value": 4004.23,
+      "portfolio_value": 4000.88,
       "benchmark_price": 672.38,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-09",
-      "portfolio_value": 4030.06,
+      "portfolio_value": 4026.63,
       "benchmark_price": 678.27,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-10",
-      "portfolio_value": 4023.13,
+      "portfolio_value": 4019.73,
       "benchmark_price": 677.18,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-11",
-      "portfolio_value": 4020.7,
+      "portfolio_value": 4017.3,
       "benchmark_price": 676.33,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-12",
-      "portfolio_value": 3972.82,
+      "portfolio_value": 3969.57,
       "benchmark_price": 666.06,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-13",
-      "portfolio_value": 3956.71,
+      "portfolio_value": 3953.51,
       "benchmark_price": 662.29,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-16",
-      "portfolio_value": 3986.68,
+      "portfolio_value": 3983.39,
       "benchmark_price": 669.03,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-17",
-      "portfolio_value": 3996.67,
+      "portfolio_value": 3993.35,
       "benchmark_price": 670.79,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-18",
-      "portfolio_value": 3955.72,
+      "portfolio_value": 3952.53,
       "benchmark_price": 661.43,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-19",
-      "portfolio_value": 3950.5,
+      "portfolio_value": 3947.32,
       "benchmark_price": 659.8,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-20",
-      "portfolio_value": 3904.6,
+      "portfolio_value": 3901.57,
       "benchmark_price": 648.57,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-23",
-      "portfolio_value": 3939.25,
+      "portfolio_value": 3936.11,
       "benchmark_price": 655.38,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-24",
-      "portfolio_value": 3930.16,
+      "portfolio_value": 3927.05,
       "benchmark_price": 653.18,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-25",
-      "portfolio_value": 3947.89,
+      "portfolio_value": 3944.72,
       "benchmark_price": 656.82,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-26",
-      "portfolio_value": 3897.49,
+      "portfolio_value": 3894.48,
       "benchmark_price": 645.09,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-27",
-      "portfolio_value": 3839.35,
+      "portfolio_value": 3845.32,
       "benchmark_price": 634.09,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-30",
-      "portfolio_value": 3826.66,
+      "portfolio_value": 3832.63,
       "benchmark_price": 631.97,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-31",
-      "portfolio_value": 3914.94,
+      "portfolio_value": 3920.91,
       "benchmark_price": 650.34,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-01",
-      "portfolio_value": 3939.35,
+      "portfolio_value": 3945.32,
       "benchmark_price": 655.24,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-02",
-      "portfolio_value": 3944.03,
+      "portfolio_value": 3950.0,
       "benchmark_price": 655.83,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-06",
-      "portfolio_value": 3957.08,
+      "portfolio_value": 3963.05,
       "benchmark_price": 658.93,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-07",
-      "portfolio_value": 3959.06,
+      "portfolio_value": 3965.03,
       "benchmark_price": 659.22,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-08",
-      "portfolio_value": 4033.49,
+      "portfolio_value": 4039.46,
       "benchmark_price": 676.01,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
-      "portfolio_value": 4049.24,
+      "portfolio_value": 4055.21,
       "benchmark_price": 679.91,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
@@ -25544,12 +27642,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
   "range_metrics": {
     "1M": {
       "summary": {
-        "start_value": 4033.48,
+        "start_value": 4021.55,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": -962.48,
+        "investment_gain": -950.5500000000002,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": -23.8622727768577,
+        "money_weighted_return_pct": -23.636408847334987,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -25561,23 +27659,23 @@ export const ff2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-03",
-          "return_pct": -1.4568996330062811
+          "return_pct": -1.2258254672420699
         },
         {
           "month": "2026-04",
-          "return_pct": -22.04297663320093
+          "return_pct": -22.160940050490186
         }
       ],
       "monthly_returns_reliable": true
     },
     "3M": {
       "summary": {
-        "start_value": 4033.48,
+        "start_value": 4021.55,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": -962.48,
+        "investment_gain": -950.5500000000002,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": -23.8622727768577,
+        "money_weighted_return_pct": -23.636408847334987,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -25589,31 +27687,31 @@ export const ff2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-01",
-          "return_pct": -0.4013999034885307
+          "return_pct": -0.4005376278512496
         },
         {
           "month": "2026-02",
-          "return_pct": -0.813624246441158
+          "return_pct": -0.8116677235256775
         },
         {
           "month": "2026-03",
-          "return_pct": -3.8953068769300714
+          "return_pct": -3.664565141545817
         },
         {
           "month": "2026-04",
-          "return_pct": -22.04297663320093
+          "return_pct": -22.160940050490186
         }
       ],
       "monthly_returns_reliable": true
     },
     "YTD": {
       "summary": {
-        "start_value": 4048.33,
+        "start_value": 4044.85,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": -977.3299999999999,
+        "investment_gain": -973.8499999999999,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": -24.141559606059783,
+        "money_weighted_return_pct": -24.076294547387416,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -25621,31 +27719,31 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": 0.9470571816032836
+          "return_pct": 0.9449052498856636
         },
         {
           "month": "2026-02",
-          "return_pct": -0.813624246441158
+          "return_pct": -0.8116677235256775
         },
         {
           "month": "2026-03",
-          "return_pct": -3.8953068769300714
+          "return_pct": -3.664565141545817
         },
         {
           "month": "2026-04",
-          "return_pct": -22.04297663320093
+          "return_pct": -22.160940050490186
         }
       ],
       "monthly_returns_reliable": true
     },
     "1Y": {
       "summary": {
-        "start_value": 4033.48,
+        "start_value": 4021.55,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": -962.48,
+        "investment_gain": -950.5500000000002,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": -23.8622727768577,
+        "money_weighted_return_pct": -23.636408847334987,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -25653,35 +27751,35 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2025-12",
-          "return_pct": 0.13611075299739817
+          "return_pct": 0.34737849834023393
         },
         {
           "month": "2026-01",
-          "return_pct": 0.9470571816032836
+          "return_pct": 0.9449052498856636
         },
         {
           "month": "2026-02",
-          "return_pct": -0.813624246441158
+          "return_pct": -0.8116677235256775
         },
         {
           "month": "2026-03",
-          "return_pct": -3.8953068769300714
+          "return_pct": -3.664565141545817
         },
         {
           "month": "2026-04",
-          "return_pct": -22.04297663320093
+          "return_pct": -22.160940050490186
         }
       ],
       "monthly_returns_reliable": true
     },
     "All": {
       "summary": {
-        "start_value": 4033.48,
+        "start_value": 4021.55,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": -962.48,
+        "investment_gain": -950.5500000000002,
         "time_weighted_return_pct": null,
-        "money_weighted_return_pct": -23.8622727768577,
+        "money_weighted_return_pct": -23.636408847334987,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -25689,23 +27787,23 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2025-12",
-          "return_pct": 0.13611075299739817
+          "return_pct": 0.34737849834023393
         },
         {
           "month": "2026-01",
-          "return_pct": 0.9470571816032836
+          "return_pct": 0.9449052498856636
         },
         {
           "month": "2026-02",
-          "return_pct": -0.813624246441158
+          "return_pct": -0.8116677235256775
         },
         {
           "month": "2026-03",
-          "return_pct": -3.8953068769300714
+          "return_pct": -3.664565141545817
         },
         {
           "month": "2026-04",
-          "return_pct": -22.04297663320093
+          "return_pct": -22.160940050490186
         }
       ],
       "monthly_returns_reliable": true
