@@ -42,9 +42,9 @@ export const ib2026DashboardGolden = {
     }
   ],
   "sectors": {
-    "Broad Market": "23.9%",
+    "Technology": "23.7%",
     "Fixed Income": "21.2%",
-    "Technology": "20.0%",
+    "Broad Market": "20.2%",
     "Commodities": "15.1%",
     "Defense": "10.9%",
     "Consumer Discretionary": "5.3%",
@@ -57,23 +57,23 @@ export const ib2026DashboardGolden = {
   "technologyHoldings": [
     "SXRV",
     "SEMI",
+    "CIBR",
     "CRM",
     "ADBE"
   ],
   "technologyHoldingWeights": {
     "SXRV": "12.89%",
     "SEMI": "4.20%",
+    "CIBR": "3.74%",
     "CRM": "2.09%",
     "ADBE": "0.79%"
   },
   "sxrvValue": "7179",
   "broadMarketHoldings": [
-    "VUAA",
-    "CIBR"
+    "VUAA"
   ],
   "broadMarketHoldingWeights": {
-    "VUAA": "20.21%",
-    "CIBR": "3.74%"
+    "VUAA": "20.21%"
   }
 } as const
 
@@ -3836,9 +3836,9 @@ export const ib2026ImportedDashboardGoldenFixture = {
     ],
     "sector_allocation": [
       {
-        "sector": "Broad Market",
-        "market_value": 13340.8,
-        "weight": 0.2395
+        "sector": "Technology",
+        "market_value": 13206.75,
+        "weight": 0.2371
       },
       {
         "sector": "Fixed Income",
@@ -3846,9 +3846,9 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "weight": 0.212
       },
       {
-        "sector": "Technology",
-        "market_value": 11123.55,
-        "weight": 0.1997
+        "sector": "Broad Market",
+        "market_value": 11257.6,
+        "weight": 0.2021
       },
       {
         "sector": "Commodities",
@@ -3906,6 +3906,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "weight": 0.042
         },
         {
+          "symbol": "CIBR",
+          "market_value": 2083.2,
+          "weight": 0.0374
+        },
+        {
           "symbol": "CRM",
           "market_value": 1165.15,
           "weight": 0.0209
@@ -3945,18 +3950,6 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "weight": 0.0098
         }
       ],
-      "Broad Market": [
-        {
-          "symbol": "VUAA",
-          "market_value": 11257.6,
-          "weight": 0.2021
-        },
-        {
-          "symbol": "CIBR",
-          "market_value": 2083.2,
-          "weight": 0.0374
-        }
-      ],
       "Communication Services": [
         {
           "symbol": "DUOL",
@@ -3993,6 +3986,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "symbol": "VDST",
           "market_value": 11808.6,
           "weight": 0.212
+        }
+      ],
+      "Broad Market": [
+        {
+          "symbol": "VUAA",
+          "market_value": 11257.6,
+          "weight": 0.2021
         }
       ]
     },

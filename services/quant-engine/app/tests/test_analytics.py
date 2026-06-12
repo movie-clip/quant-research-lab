@@ -431,8 +431,14 @@ def test_build_portfolio_overview_classifies_2026_ucits_and_thematic_holdings() 
     overview = build_portfolio_overview(snapshot)
 
     assert "FICO" not in {position.symbol for position in snapshot.positions}
-    assert any(item["symbol"] == "DFND" for item in overview.sector_position_breakdown["Defense"])
-    assert any(item["symbol"] == "IUIT" for item in overview.sector_position_breakdown["Technology"])
+    # Statement updated 2026-06-12: DFND and IUIT were sold (they appear only in
+    # the trade history, not as open positions); CIBR (First Trust Nasdaq
+    # Cybersecurity UCITS, IE00BF16M727) is a new Technology holding.
+    assert "DFND" not in {position.symbol for position in snapshot.positions}
+    assert "IUIT" not in {position.symbol for position in snapshot.positions}
+    assert any(item["symbol"] == "DEFS" for item in overview.sector_position_breakdown["Defense"])
+    assert any(item["symbol"] == "IDFN" for item in overview.sector_position_breakdown["Defense"])
+    assert any(item["symbol"] == "CIBR" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "SEMI" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "SXRV" for item in overview.sector_position_breakdown["Technology"])
     assert any(item["symbol"] == "VUAA" for item in overview.sector_position_breakdown["Broad Market"])

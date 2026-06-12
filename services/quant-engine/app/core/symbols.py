@@ -46,6 +46,12 @@ DEFAULT_SYMBOL_RULES: tuple[SymbolResolutionRule, ...] = (
     SymbolResolutionRule(canonical_symbol="DEFS", quote_candidates=("DEFS.L", "DEFS"), history_candidates=("DEFS.L", "DEFS"), holdings_candidates=("DEFS.L", "DEFS"), proxy_candidates=("ITA", "PPA"), aliases=("DEFS.L",)),
     SymbolResolutionRule(canonical_symbol="IAUP", quote_candidates=("IAUP.L", "IAUP"), history_candidates=("IAUP.L", "IAUP"), holdings_candidates=("IAUP.L", "IAUP"), proxy_candidates=("GDX",), aliases=("IAUP.L",)),
     SymbolResolutionRule(canonical_symbol="IDFN", quote_candidates=("IDFN.L", "IDFN"), history_candidates=("IDFN.L", "IDFN"), holdings_candidates=("IDFN.L", "IDFN"), proxy_candidates=("ITA", "PPA"), aliases=("IDFN.L",)),
+    # CIBR (statement 2026-06: First Trust Nasdaq Cybersecurity UCITS ETF,
+    # LSE, ISIN IE00BF16M727) → CIBR.L on Yahoo. Deliberately NO bare "CIBR"
+    # candidate: on FMP that symbol is the *US-listed sister fund* (a different
+    # security — the DFND wrong-fund lesson). The US fund is available only as
+    # the explicit, labeled proxy (allow_proxy_fallback=True).
+    SymbolResolutionRule(canonical_symbol="CIBR", quote_candidates=("CIBR.L",), history_candidates=("CIBR.L",), holdings_candidates=("CIBR.L",), proxy_candidates=("CIBR",), aliases=("CIBR.L",)),
 )
 
 
