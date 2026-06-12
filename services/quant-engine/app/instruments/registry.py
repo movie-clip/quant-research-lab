@@ -124,6 +124,9 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "IUHC": _instrument("etf-iuhc", "IUHC", "iShares S&P 500 Health Care Sector UCITS ETF", "etf", "Health Care", "Sector UCITS ETF", "USD", isin="IE00B43HR379"),
     "IUIT": _instrument("etf-iuit", "IUIT", "iShares S&P 500 Information Technology Sector UCITS ETF", "etf", "Technology", "Sector UCITS ETF", "USD", isin="IE00B3WJKG14"),
     "SEMI": _instrument("etf-semi", "SEMI", "iShares MSCI Global Semiconductors UCITS ETF", "etf", "Technology", "Thematic UCITS ETF", "GBP", isin="IE000I8KRLL9"),
+    # CIBR (statement 2026-06): LSE UCITS line, ISIN IE00BF16M727 — NOT the
+    # US-listed First Trust CIBR (different security, same index family).
+    "CIBR": _instrument("etf-cibr", "CIBR", "First Trust Nasdaq Cybersecurity UCITS ETF", "etf", "Technology", "Thematic UCITS ETF", "USD", isin="IE00BF16M727"),
     # European UCITS ETFs present in IB statements but without a direct FMP price feed.
     # Sector and category are assigned explicitly here to avoid relying on description parsing.
     "DEFS": _instrument("etf-defs", "DEFS", "Amundi STOXX Europe Defense UCITS ETF", "etf", "Defense", "Thematic UCITS ETF", "USD", isin="LU3038520774"),
