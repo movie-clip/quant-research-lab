@@ -1,7 +1,8 @@
-import type { DriftResult, ExposureAnalysis } from './types'
+import type { DriftResult, ExposureAnalysis, ImportAdmissionSummaryV1 } from './types'
 import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
 import { CacheControlCard } from './CacheControlCard'
 import { DataSourcesPanel } from './DataSourcesPanel'
+import { ImportAdmissionReviewCard } from './ImportAdmissionReviewCard'
 import { DriftBenchmarkPanel } from './DriftBenchmarkPanel'
 import { FactorAttributionCard } from './FactorAttributionCard'
 import { FactorDriftSummaryCard } from './FactorDriftSummaryCard'
@@ -20,6 +21,7 @@ type ExposurePanelProps = {
   selectedSnapshotId?: string
   snapshotExitOption?: { id: string; label: string }
   onSnapshotSelect?: (snapshotId: string) => void
+  admissionSummary?: ImportAdmissionSummaryV1 | null
 }
 
 type ConcentrationAvailabilityTone = 'trusted' | 'partial' | 'unavailable'
@@ -121,6 +123,7 @@ export function ExposurePanel({
   selectedSnapshotId = 'current',
   snapshotExitOption,
   onSnapshotSelect,
+  admissionSummary = null,
 }: ExposurePanelProps) {
   if (!result) {
     return (
@@ -179,6 +182,8 @@ export function ExposurePanel({
 
       <div className="exposure-shell-stack">
         <DataSourcesPanel snapshot={result.snapshot ?? null} />
+
+        <ImportAdmissionReviewCard summary={admissionSummary} />
 
         <CacheControlCard />
 

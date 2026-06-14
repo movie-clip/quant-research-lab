@@ -302,6 +302,12 @@ export function App() {
     activeNode,
     workingDraft,
   )
+  // Persisted Import Admission Review for the snapshot the Exposure tab is
+  // showing (US-22.1). Read from the resolved import source's workspace state;
+  // null when there is no imported source (e.g. an unsaved draft).
+  const exposureAdmissionSummary =
+    getEffectiveNodeImportSource(importedExposureExitNode ?? activeNode, workspaceNodes, activeWorkspace)
+      ?.admissionSummary ?? null
   const dashboardSession = composeDashboardSession({
     result: analysis,
     exposureResult: exposureAnalysis,
@@ -891,6 +897,7 @@ export function App() {
                 ...(workingDraft ? [{ id: 'draft', label: formatWorkingDraftLabel(activeNode, workspaceNodes) }] : []),
                 ...workspaceNodes.map((node) => ({ id: node.id, label: formatVariantNodeLabel(node, workspaceNodes) })),
               ]}
+              admissionSummary={exposureAdmissionSummary}
               selectedSnapshotId={selectedExposureSnapshotId}
               snapshotExitOption={importedExposureExitNode && importedExposureExitNode.id !== selectedExposureSnapshotId
                 ? {

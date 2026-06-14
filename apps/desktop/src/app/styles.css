@@ -79,6 +79,11 @@
   --color-value-positive: #48bb78;         /* positive contribution / gain */
   --color-value-negative: #fc8181;         /* negative contribution / loss */
 
+  /* Caution / warning accent — distinct from error (fail) and disabled
+     (unavailable). Used by the Import Admission Review card for `warn` checks
+     (US-22.1). Amber matches the legacy .dashboard-snapshot-status-degraded hue. */
+  --color-status-warn: #efd694;
+
   /* Error accent — used by <ErrorState /> primitive to distinguish error from
      plain empty state. Same hue family as --color-value-negative but kept as
      a separate semantic token. */
