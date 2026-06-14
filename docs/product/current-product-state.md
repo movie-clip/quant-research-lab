@@ -79,6 +79,8 @@ The researcher imports statements via the Import flow:
 
 **Cache control (Epic 20 / US-20.1):** the local JSON file cache (FMP + Yahoo) is inspectable and clearable in-app via `GET /cache/stats` + `POST /cache/clear`, surfaced as a "Market-data cache" card on the Exposure tab (entry counts per namespace + a Clear button). Reduces FMP overuse on top of the existing TTL/negative-cache/in-flight-dedup layer.
 
+**Import Admission Review card (Epic 22 / US-22.1):** the Exposure tab renders the full Import Admission Review (`ImportAdmissionSummaryV1`) as a card — the overall **decision** (admitted / degraded / withheld) and **trust level** badges, plus one row per admission check (residual-cash, NAV, position-market-value, symbol identity, description-consistency, ISIN-consistency) showing its status (pass / warn / fail / unavailable, with a symbol prefix so status isn't colour-only), human-readable message, and observed/comparison/delta evidence + affected fields. Presentational only — rendered from the persisted workspace `admissionSummary` (a persisted-import artifact), never re-fetched or recomputed; survives reload. An import with no review shows an explicit unavailable state, never a fabricated "all clear". The existing Data Sources identity-warning line is unchanged.
+
 ---
 
 ## Trust semantics (always-on)

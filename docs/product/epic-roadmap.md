@@ -1,6 +1,33 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-11 (Epics 19, 20, 21 complete — no active epic; backlog empty).*
+*Living execution snapshot. Updated: 2026-06-12 (Epic 22 active — surfacing the Import Admission Review; Epics 13/18/19/20/21 complete).*
+
+---
+
+## Active Epic: Epic 22 — Import Admission Review UI
+
+**PRD:** [`docs/product/prd/epic-22-import-admission-review-ui.md`](product/prd/epic-22-import-admission-review-ui.md)
+
+### Goal
+
+Give the Import Admission Review (overall decision + trust level + per-check
+results) a visible home in the UI. The summary is already computed, delivered,
+and persisted as workspace `admissionSummary` — but never rendered (only the
+identity-mismatch slice leaks through the Data Sources panel). Render it from
+existing state; no backend change.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-22.1 | Import Admission Review card | Done |
+| US-22.2 | Admission review disposition workflow | Backlog |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-12 | US-22.1 | Import Admission Review card — the admission summary now has a visible home. New `ImportAdmissionReviewCard.tsx` (Exposure tab, beside Data Sources): renders the persisted workspace `admissionSummary` (`ImportAdmissionSummaryV1`) — decision (admitted/degraded/withheld) + trust-level badges, then one row per check (residual-cash, NAV, position-MV, symbol identity, description-consistency, ISIN-consistency) with status (✓ Pass / ⚠ Warn / ✗ Fail / — Unavailable — symbol prefix so status isn't colour-only), message, and observed/comparison/signed-delta+currency evidence + affected fields. Presentational only (persisted-import truth class) — no fetch/recompute, survives reload; null summary → explicit unavailable state, never a fabricated all-clear. Threaded the active import source's `admissionSummary` from App.tsx through a new optional `ExposurePanel` prop. Added `--color-status-warn` design token (amber caution, distinct from error/disabled) and registered the card in the design-system audit set. Frontend-only; no backend/schema/goldens change. +7 vitest tests; 242 frontend + backend green; tsc + audit clean. |
 
 ---
 
