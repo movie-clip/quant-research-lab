@@ -86,11 +86,20 @@ not the deletion diff.
 | US-23.4 | Frontend dead-code sweep — app & features | Unused exports/components/types/helpers (the admission-disposition persistence plumbing), empty/legacy feature dirs (`features/market-data`, `features/settings`), dead CSS tokens/classes; catalog FE smells (inline literals not yet tokenised, prop-drilling, duplicated formatters). |
 | US-23.5 | Contract & schema↔type↔docs drift reconciliation | Cross-seam audit: backend Pydantic schemas vs desktop TS types vs `docs/contracts/*` — fields defined-but-unused, type/nullability drift, contract rows for removed things. Resolve drift so US-23.2/23.3/23.4 deletions don't break a documented contract. |
 | US-23.6 | Tests, fixtures & golden-pipeline hygiene | Dead test helpers, skipped/duplicate tests, fixtures not migrated to the US-21.2 shared module, obsolete golden-adjacent code; ensure the network guard + frozen-goldens determinism still hold. Catalog test-smells. |
-| US-23.7 | Scripts, tooling & docs reconciliation + epic close-out | `scripts/` dead code; reconcile `current-product-state.md` / architecture / roadmap with the now-leaner code; consolidate the tech-debt register; draft the Epic 24 (improvement) story seeds from it. |
+| US-23.7 | Scripts, tooling & docs reconciliation | `scripts/` dead code; reconcile `current-product-state.md` / architecture / roadmap with the now-leaner code; consolidate the tech-debt register; draft the Epic 24 (improvement) story seeds from it. |
+| US-23.8 | Enforce the dead-code floor in the canonical test gate | **The tail.** Once the baseline is clean, wire `knip` + `ruff` + `vulture` (zero-findings vs a reasoned allowlist) into `run_all_tests.py` so newly-introduced unused/dead code fails the suite — so the project never needs another manual cleanup epic. Closes Epic 23. |
 
 Recommended build order: 23.1 → (23.5 first to settle contracts) → 23.2 → 23.3
-→ 23.4 → 23.6 → 23.7. (23.5 early so cross-seam contracts are known before
-deletions; 23.7 last to reconcile docs + hand off the register.)
+→ 23.4 → 23.6 → 23.7 → **23.8**. (23.5 early so cross-seam contracts are known
+before deletions; 23.7 reconciles docs + hands off the register; **23.8 last**
+because the enforcement gate can only be green once the baseline is clean.)
+
+**Tool choice for enforcement (researched, US-23.8):** the standing gate is
+`knip` (unused exports/files/deps — the dead-export class) + `tsc`
+`noUnusedLocals` (in-file) for the frontend, and `ruff` + `vulture` for the
+backend. **ESLint is deliberately not adopted** — its `no-unused-vars` is
+in-file only and redundant with `tsc`; it would not catch the unused *exports/
+files* that actually accumulate, so it adds maintenance without closing the gap.
 
 ## Success signals
 
@@ -103,3 +112,8 @@ deletions; 23.7 last to reconcile docs + hand off the register.)
   entry with `file:line`, category, severity, and effort — ready to seed Epic 24.
 - A fresh agent reading the codebase sees only live code; "is this used?" is
   answerable by the tooling, not by tribal knowledge.
+- **The dead-code gate is enforced (US-23.8):** after the baseline is clean,
+  `run_all_tests.py` fails on any new unused/dead code — so dead code cannot
+  re-accumulate and no future cleanup epic is needed. (This supersedes the
+  earlier "no gating, not now" stance, which applied only while the baseline was
+  dirty.)

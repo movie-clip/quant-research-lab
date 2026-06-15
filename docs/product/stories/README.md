@@ -30,7 +30,8 @@ PRD: [`prd/epic-23-dead-code-cleanup-and-review.md`](../prd/epic-23-dead-code-cl
 | [US-23.4](US-23.4-frontend-sweep-app-and-features.md) | Frontend sweep — app & features | Remove dead exports/components/types/CSS (incl. disposition plumbing); catalog smells | Next phase |
 | [US-23.5](US-23.5-contract-schema-type-docs-drift.md) | Contract & schema↔type↔docs drift reconciliation | Three-way audit + reconcile drift so deletions don't break a documented seam | Next phase |
 | [US-23.6](US-23.6-tests-fixtures-golden-hygiene.md) | Tests, fixtures & golden-pipeline hygiene | Migrate to shared fixtures, remove dead/skip tests; keep guard + goldens invariants | Next phase |
-| [US-23.7](US-23.7-scripts-docs-reconciliation-closeout.md) | Scripts, tooling & docs reconciliation + epic close-out | Sweep `scripts/`; reconcile docs; consolidate register → seed Epic 24 | Next phase |
+| [US-23.7](US-23.7-scripts-docs-reconciliation-closeout.md) | Scripts, tooling & docs reconciliation | Sweep `scripts/`; reconcile docs; consolidate register → seed Epic 24 | Next phase |
+| [US-23.8](US-23.8-enforce-dead-code-gate.md) | Enforce the dead-code floor in the canonical test gate | Wire knip + ruff + vulture zero-findings into `run_all_tests.py` (the tail; no ESLint) so dead code can't re-accumulate | Next phase |
 
 ---
 
