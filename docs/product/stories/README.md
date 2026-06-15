@@ -18,6 +18,22 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 23 — Dead-Code Cleanup & Codebase Review (active)
+
+PRD: [`prd/epic-23-dead-code-cleanup-and-review.md`](../prd/epic-23-dead-code-cleanup-and-review.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-23.1](US-23.1-detection-tooling-and-register.md) | Detection tooling + tech-debt register + removal protocol | Dev-only dead-code tooling (vulture/ruff, knip/ts-prune, `noUnusedLocals`) + `docs/tech-debt-register.md` + removal protocol | Next phase |
+| [US-23.2](US-23.2-backend-sweep-analytics-schemas-domain.md) | Backend sweep — analytics, schemas, domain, instruments | Remove confirmed-dead pure-logic code; catalog smells; no formula change | Next phase |
+| [US-23.3](US-23.3-backend-sweep-services-routes-clients.md) | Backend sweep — services, routes, clients, core, importers | Remove dead wiring/routes/clients; catalog smells; routes stay reachable | Next phase |
+| [US-23.4](US-23.4-frontend-sweep-app-and-features.md) | Frontend sweep — app & features | Remove dead exports/components/types/CSS (incl. disposition plumbing); catalog smells | Next phase |
+| [US-23.5](US-23.5-contract-schema-type-docs-drift.md) | Contract & schema↔type↔docs drift reconciliation | Three-way audit + reconcile drift so deletions don't break a documented seam | Next phase |
+| [US-23.6](US-23.6-tests-fixtures-golden-hygiene.md) | Tests, fixtures & golden-pipeline hygiene | Migrate to shared fixtures, remove dead/skip tests; keep guard + goldens invariants | Next phase |
+| [US-23.7](US-23.7-scripts-docs-reconciliation-closeout.md) | Scripts, tooling & docs reconciliation + epic close-out | Sweep `scripts/`; reconcile docs; consolidate register → seed Epic 24 | Next phase |
+
+---
+
 ### Epic 22 — Import Admission Review UI (completed)
 
 PRD: [`prd/epic-22-import-admission-review-ui.md`](../prd/epic-22-import-admission-review-ui.md)
