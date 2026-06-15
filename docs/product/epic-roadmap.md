@@ -1,6 +1,43 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-12 (Epic 22 complete — US-22.1 shipped, US-22.2 closed as not needed; no active epic, backlog empty).*
+*Living execution snapshot. Updated: 2026-06-12 (Epic 23 active — dead-code cleanup & codebase review; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Active Epic: Epic 23 — Dead-Code Cleanup & Codebase Review
+
+**PRD:** [`docs/product/prd/epic-23-dead-code-cleanup-and-review.md`](product/prd/epic-23-dead-code-cleanup-and-review.md)
+
+### Goal
+
+A safe, comprehensive, per-area sweep that removes confirmed-dead code across the
+whole project (one reviewable area per story, full suite green after each, zero
+behaviour change), stands up a dead-code detection floor (tooling + tsconfig
+flags), and **catalogs** hardcodes / anti-patterns into `docs/tech-debt-register.md`
+to seed a follow-up improvement epic (Epic 24). Deletions + tooling + docs only —
+no behaviour change, no smell fixes (those are Epic 24).
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-23.1 | Detection tooling + tech-debt register + removal protocol | Next phase |
+| US-23.2 | Backend sweep — analytics, schemas, domain, instruments | Next phase |
+| US-23.3 | Backend sweep — services, routes, clients, core, importers | Next phase |
+| US-23.4 | Frontend sweep — app & features | Next phase |
+| US-23.5 | Contract & schema↔type↔docs drift reconciliation | Next phase |
+| US-23.6 | Tests, fixtures & golden-pipeline hygiene | Next phase |
+| US-23.7 | Scripts, tooling & docs reconciliation + epic close-out | Next phase |
+
+Recommended build order: 23.1 → 23.5 → 23.2 → 23.3 → 23.4 → 23.6 → 23.7.
+(23.1 stands up the tooling/register; 23.5 settles cross-seam contracts before
+deletions; 23.7 reconciles docs + hands the register to Epic 24.)
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-12 | — | Epic created from a "clean dead code + review the whole project" request, after the US-22.2 review surfaced never-consumed disposition plumbing and a survey found **no dead-code tooling** (no ruff/vulture/knip/ts-prune/eslint) and no `noUnusedLocals`. Per-area story breakdown (tooling+register, backend×2, frontend, contracts, tests, scripts+close-out) so nothing is missed; dual deliverable per story — remove dead code AND catalog hardcodes/anti-patterns into a tech-debt register feeding a follow-up Epic 24. PRD + 7 stories authored. |
 
 ---
 
