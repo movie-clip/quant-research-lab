@@ -1,6 +1,6 @@
 # Epic 22 — Import Admission Review UI
 
-**Status:** Active
+**Status:** Complete (US-22.1 shipped; US-22.2 closed as not needed)
 **Created:** 2026-06-12
 
 ## Problem
@@ -59,10 +59,24 @@ are trustworthy and exactly which checks degraded or withheld trust.
 
 | Story | Title | Scope |
 |---|---|---|
-| US-22.1 | Import Admission Review card | A self-contained card that renders `admissionSummary`: decision + trust-level header, per-check rows (status, message, evidence), and an unavailable/empty state. Frontend-only; consumes existing workspace state. |
-| US-22.2 | Admission review disposition workflow | (Backlog) Let the researcher record a disposition per flagged check (accept-known-exception / needs-source-correction / deferred) with a required rationale, persisted as `ImportAdmissionReviewDispositionV1`. Backend persistence + UI. |
+| US-22.1 | Import Admission Review card | **Done.** A self-contained card that renders `admissionSummary`: decision + trust-level header, per-check rows (status, message, evidence), and an unavailable/empty state. Frontend-only; consumes existing workspace state. |
+| US-22.2 | Admission review disposition workflow | **Won't do (2026-06-12).** Reviewed and closed as not needed — see below. |
 
-Recommended build order: 22.1 → 22.2.
+### US-22.2 decision: closed as not needed (2026-06-12)
+
+The disposition schema (`ImportAdmissionReviewDispositionV1`) and its workspace
+persistence/sanitization/evidence-matching already exist, but have **no producer
+and no consumer** (nothing records a disposition; nothing displays or acts on
+one). It models an enterprise review/sign-off — `reviewer_label`, required
+`rationale`, accepted-exception / needs-correction / deferred states — which is
+ceremony on a single-user, local-first personal tool. US-22.1 already delivers
+the epic's value (visibility into why an import is degraded/withheld), and a
+disposition workflow changes no number or analytic and has no demonstrated need
+(YAGNI; the pre-built plumbing is sunk cost, not a requirement). If
+acknowledgement value becomes real later, the right shape is a lightweight
+"dismiss this warning" (no reviewer/rationale), not this schema. The unused
+disposition plumbing is a candidate for a separate dead-code cleanup. Epic 22 is
+complete with US-22.1.
 
 ## Success signals
 

@@ -1,10 +1,10 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-12 (Epic 22 active — surfacing the Import Admission Review; Epics 13/18/19/20/21 complete).*
+*Living execution snapshot. Updated: 2026-06-12 (Epic 22 complete — US-22.1 shipped, US-22.2 closed as not needed; no active epic, backlog empty).*
 
 ---
 
-## Active Epic: Epic 22 — Import Admission Review UI
+## Completed Epic: Epic 22 — Import Admission Review UI
 
 **PRD:** [`docs/product/prd/epic-22-import-admission-review-ui.md`](product/prd/epic-22-import-admission-review-ui.md)
 
@@ -21,7 +21,21 @@ existing state; no backend change.
 | Story | Title | Status |
 |---|---|---|
 | US-22.1 | Import Admission Review card | Done |
-| US-22.2 | Admission review disposition workflow | Backlog |
+| US-22.2 | Admission review disposition workflow | Won't do (2026-06-12) |
+
+US-22.2 reviewed and **closed as not needed** (2026-06-12): the disposition
+schema models an enterprise review/sign-off (reviewer label, required rationale,
+accepted-exception / needs-correction / deferred states) on a single-user,
+local-first personal tool. Persistence + sanitization + evidence-matching for
+dispositions already exist in the workspace storage layer but have **no producer
+and no consumer** — nothing records a disposition and nothing displays/acts on
+one. US-22.1 already delivers the actual value (visibility into why an import is
+degraded/withheld); a formal sign-off workflow is speculative (no demonstrated
+need) and changes no number or analytic. Epic 22 is therefore complete with
+US-22.1 alone. (If acknowledgement value ever becomes real, a lightweight
+"dismiss this warning" — no reviewer/rationale ceremony — is the right shape,
+not the full schema. The unused disposition plumbing is a candidate for a
+separate dead-code cleanup.)
 
 ### Slice log
 

@@ -18,14 +18,14 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 22 — Import Admission Review UI (active)
+### Epic 22 — Import Admission Review UI (completed)
 
 PRD: [`prd/epic-22-import-admission-review-ui.md`](../prd/epic-22-import-admission-review-ui.md)
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-22.1](US-22.1-import-admission-review-card.md) | Import Admission Review card | Render the persisted `admissionSummary` (decision + trust + per-check rows) as an Exposure-tab card — frontend-only | Done |
-| US-22.2 | Admission review disposition workflow | Record a disposition per flagged check (accept-exception/needs-correction/deferred) with rationale | Backlog |
+| US-22.2 | Admission review disposition workflow | Record a disposition per flagged check (accept-exception/needs-correction/deferred) with rationale | Won't do — not needed for a single-user local-first tool (2026-06-12) |
 
 ---
 
