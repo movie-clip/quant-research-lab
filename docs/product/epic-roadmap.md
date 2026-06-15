@@ -27,17 +27,22 @@ no behaviour change, no smell fixes (those are Epic 24).
 | US-23.4 | Frontend sweep — app & features | Next phase |
 | US-23.5 | Contract & schema↔type↔docs drift reconciliation | Next phase |
 | US-23.6 | Tests, fixtures & golden-pipeline hygiene | Next phase |
-| US-23.7 | Scripts, tooling & docs reconciliation + epic close-out | Next phase |
+| US-23.7 | Scripts, tooling & docs reconciliation | Next phase |
+| US-23.8 | Enforce the dead-code floor in the canonical test gate | Next phase |
 
-Recommended build order: 23.1 → 23.5 → 23.2 → 23.3 → 23.4 → 23.6 → 23.7.
+Recommended build order: 23.1 → 23.5 → 23.2 → 23.3 → 23.4 → 23.6 → 23.7 → 23.8.
 (23.1 stands up the tooling/register; 23.5 settles cross-seam contracts before
-deletions; 23.7 reconciles docs + hands the register to Epic 24.)
+deletions; 23.7 reconciles docs + hands the register to Epic 24; **23.8 last** —
+wires `knip`/`ruff`/`vulture` zero-findings enforcement into `run_all_tests.py`
+once the baseline is clean, so dead code can't re-accumulate and no future
+cleanup epic is needed. ESLint deliberately not adopted — `tsc` + `knip` cover
+the dead-code goal; ESLint's in-file `no-unused-vars` is redundant with `tsc`.)
 
 ### Slice log
 
 | Date | Story | What shipped |
 |---|---|---|
-| 2026-06-12 | — | Epic created from a "clean dead code + review the whole project" request, after the US-22.2 review surfaced never-consumed disposition plumbing and a survey found **no dead-code tooling** (no ruff/vulture/knip/ts-prune/eslint) and no `noUnusedLocals`. Per-area story breakdown (tooling+register, backend×2, frontend, contracts, tests, scripts+close-out) so nothing is missed; dual deliverable per story — remove dead code AND catalog hardcodes/anti-patterns into a tech-debt register feeding a follow-up Epic 24. PRD + 7 stories authored. |
+| 2026-06-12 | — | Epic created from a "clean dead code + review the whole project" request, after the US-22.2 review surfaced never-consumed disposition plumbing and a survey found **no dead-code tooling** (no ruff/vulture/knip/ts-prune/eslint) and no `noUnusedLocals`. Per-area story breakdown (tooling+register, backend×2, frontend, contracts, tests, scripts-docs) so nothing is missed; dual deliverable per story — remove dead code AND catalog hardcodes/anti-patterns into a tech-debt register feeding a follow-up Epic 24. Tail story US-23.8 added per request: enforce the detectors (`knip`+`ruff`+`vulture`, zero-findings) in `run_all_tests.py` once the baseline is clean, so dead code can't re-accumulate and no future cleanup epic is needed (researched: ESLint not adopted — redundant with `tsc` for the dead-code goal). PRD + 8 stories authored. |
 
 ---
 
