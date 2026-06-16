@@ -1,0 +1,7 @@
+# Dev-only tooling (not required at runtime). Install with:
+#   pip install -r requirements-dev.txt
+# Dead-code detection (Epic 23): ruff catches unused imports/locals/redefinitions
+# (in-file); vulture catches whole-program unused functions/classes/attributes.
+-r requirements.txt
+ruff
+vulture

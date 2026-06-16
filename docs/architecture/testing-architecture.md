@@ -33,6 +33,24 @@ Recommended future phase names:
 - `backend`: run pytest.
 - `frontend`: run Vitest.
 - `frontend-typecheck`: run `npm run build` or `npx tsc --noEmit` if promoted into the canonical gate.
+- `deadcode`: run the dead-code detectors (see below); promoted to a zero-findings gate in US-23.8.
+
+## Dead-Code Detection (Epic 23)
+
+The project carries a dead-code detection floor so unused code is caught, not
+re-accumulated. Tooling (dev-only, US-23.1):
+
+- **Python** (`services/quant-engine/`): `ruff` (in-file unused — `F401`/`F811`/`F841`, configured in `ruff.toml`) + `vulture` (whole-program unused functions/classes/attributes, with a reasoned `vulture_allowlist.py` for dynamic-use false positives). Install via `requirements-dev.txt`.
+- **TypeScript** (`apps/desktop/`): `knip` (unused files/exports/types/dependencies — the cross-file dead-export class `tsc` can't see) + `tsconfig` `noUnusedLocals`/`noUnusedParameters` (in-file; **staged for US-23.8** — enabled once the cross-file sweeps clear the blockers).
+
+Run all detectors with `python scripts/detect_deadcode.py` (informational) or
+`--strict` (exit non-zero on any finding — the US-23.8 gate mode). Findings are
+catalogued in [`docs/tech-debt-register.md`](../tech-debt-register.md), which
+also carries the **removal protocol** (the "confirmed dead" checklist —
+beware dynamic/reflective use: route registration, pytest fixtures, Pydantic
+hooks, persisted-state sanitizers). **ESLint is deliberately not used** for this
+— `tsc` + `knip` cover the dead-code goal; ESLint's in-file `no-unused-vars` is
+redundant with `tsc` and misses unused exports/files.
 
 ## Test Layers
 

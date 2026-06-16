@@ -126,6 +126,13 @@ python scripts/manage_cache.py
 # re-captures the frozen golden market data, regenerates dashboardGoldens.ts,
 # runs the full suite. Commit the PDF + fixture + goldens together.
 python scripts/refresh_statement.py
+
+# Dead-code detectors (Epic 23). Informational today; US-23.8 makes it a
+# zero-findings gate in run_all_tests.py once the baseline is clean.
+#   pip install -r services/quant-engine/requirements-dev.txt   # ruff + vulture (one-time)
+python scripts/detect_deadcode.py            # ruff + vulture + knip summary
+python scripts/detect_deadcode.py --strict   # exit non-zero on any finding (gate mode)
+# Findings are catalogued in docs/tech-debt-register.md.
 ```
 
 ## Backend Conventions (`services/quant-engine/`)
