@@ -24,7 +24,7 @@ PRD: [`prd/epic-23-dead-code-cleanup-and-review.md`](../prd/epic-23-dead-code-cl
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
-| [US-23.1](US-23.1-detection-tooling-and-register.md) | Detection tooling + tech-debt register + removal protocol | Dev-only dead-code tooling (vulture/ruff, knip/ts-prune, `noUnusedLocals`) + `docs/tech-debt-register.md` + removal protocol | Next phase |
+| [US-23.1](US-23.1-detection-tooling-and-register.md) | Detection tooling + tech-debt register + removal protocol | Dev-only dead-code tooling (vulture/ruff, knip, `noUnusedLocals` staged) + `docs/tech-debt-register.md` + removal protocol | Done |
 | [US-23.2](US-23.2-backend-sweep-analytics-schemas-domain.md) | Backend sweep — analytics, schemas, domain, instruments | Remove confirmed-dead pure-logic code; catalog smells; no formula change | Next phase |
 | [US-23.3](US-23.3-backend-sweep-services-routes-clients.md) | Backend sweep — services, routes, clients, core, importers | Remove dead wiring/routes/clients; catalog smells; routes stay reachable | Next phase |
 | [US-23.4](US-23.4-frontend-sweep-app-and-features.md) | Frontend sweep — app & features | Remove dead exports/components/types/CSS (incl. disposition plumbing); catalog smells | Next phase |

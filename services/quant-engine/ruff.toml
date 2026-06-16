@@ -1,0 +1,16 @@
+# Ruff config for the dead-code detection floor (Epic 23 / US-23.1).
+#
+# Scope is deliberately narrow: ONLY the pyflakes "unused" rules, not a style
+# ruleset (Epic 23 non-goal: no style churn). These catch in-file dead code:
+#   F401 — imported but unused
+#   F811 — redefinition of an unused name
+#   F841 — local variable assigned but never used
+#
+# Whole-program unused functions/classes/attributes are caught by vulture
+# (see vulture_allowlist.py). Run: `ruff check app --select F401,F811,F841`.
+# US-23.8 promotes this to a zero-findings gate once the baseline is clean.
+
+target-version = "py312"
+
+[lint]
+select = ["F401", "F811", "F841"]
